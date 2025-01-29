@@ -1,0 +1,17 @@
+syntax = "proto3";
+package push.push;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "push/push/params.proto";
+
+option go_package = "push/x/push/types";
+
+// GenesisState defines the push module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}

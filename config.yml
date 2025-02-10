@@ -1,5 +1,7 @@
 version: 1
 validation: sovereign
+build:
+  binary: "pushchaind"
 accounts: 
 - name: alice
   coins:
@@ -20,6 +22,8 @@ faucet:
 validators:
 - name: alice
   bonded: 100000000stake
+  app:
+    minimum-gas-prices: "0.00025stake" # for temporary testing
 - name: validator1
   bonded: 100000000stake
 - name: validator2

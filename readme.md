@@ -1,51 +1,93 @@
-# push
-**push** is a blockchain built using Cosmos SDK and Tendermint and created with [Ignite CLI](https://ignite.com/cli).
+### **System Requirements**
 
-## Get started
+- **OS:** macOS, Linux, or WSL on Windows  
+- **Go:** `>=1.21` (Check with `go version`)  
+- **Node.js**  
 
-```
-ignite chain serve
-```
+## Steps:
 
-`serve` command installs dependencies, builds, initializes, and starts your blockchain in development.
+1. [Install Ignite CLI](https://docs.ignite.com/welcome/install)  
+2. Clone the repo:  
 
-### Configure
+    ```sh
+    git clone https://github.com/push-protocol/push-cosmos-devnet
+    ```
+3. Install the dependencies:  
 
-Your blockchain in development can be configured with `config.yml`. To learn more, see the [Ignite CLI docs](https://docs.ignite.com).
+    ```sh
+    make install
+    ```
+4. To start the chain:  
 
-### Web Frontend
+    ```sh
+    ignite chain serve
+    ```
 
-Additionally, Ignite CLI offers both Vue and React options for frontend scaffolding:
+#### After this command runs successfully, you shall notice two addresses given, alice and bob, these can be used for all the testing and simulations. Also note that Alice is the default Validator, and Bob is the faucet, configured in the config.yml. 
 
-For a Vue frontend, use: `ignite scaffold vue`
-For a React frontend, use: `ignite scaffold react`
-These commands can be run within your scaffolded blockchain project. 
+# Common CLI Commands
 
+### **1. Bank**
+#### **Query balance:**  
 
-For more information see the [monorepo for Ignite front-end development](https://github.com/ignite/web).
+    
+    pushchaind query bank balances [address]
+    
 
-## Release
-To release a new version of your blockchain, create and push a new tag with `v` prefix. A new draft release with the configured targets will be created.
+#### **Send tokens:**  
 
-```
-git tag v0.1
-git push origin v0.1
-```
+    
+    pushchaind tx bank send [from-address] [to-address] [amount]
+    
 
-After a draft release is created, make your final changes from the release page and publish it.
+### **2. Tx Hash Info**  
 
-### Install
-To install the latest version of your blockchain node's binary, execute the following command on your machine:
+    
+    pushchaind query tx [tx-hash]
+   
 
-```
-curl https://get.ignite.com/username/push@latest! | sudo bash
-```
-`username/push` should match the `username` and `repo_name` of the Github repository to which the source code was pushed. Learn more about [the install process](https://github.com/allinbits/starport-installer).
+### **3. Fee Grant**
+#### **For a transaction to use granter allowance, add this flag in the tx command:**  
 
-## Learn more
+    
+    --fee-granter=[granter-address]
+    
 
-- [Ignite CLI](https://ignite.com/cli)
-- [Tutorials](https://docs.ignite.com/guide)
-- [Ignite CLI docs](https://docs.ignite.com)
-- [Cosmos SDK docs](https://docs.cosmos.network)
-- [Developer Chat](https://discord.gg/ignite)
+#### **Grant allowance:**  
+
+    
+    pushchaind tx feegrant grant [granter] [grantee]
+    
+
+##### **Flags:**
+    
+    --spend-limit         # The maximum amount of tokens the grantee can spend
+    --period              # The time duration in seconds for periodic allowance
+    --period-limit        # The maximum amount of tokens the grantee can spend within each period
+    --expiration          # The date and time when the grant expires (RFC3339 format)
+    --allowed-messages    # Comma-separated list of allowed message type URLs
+    
+
+#### **Query Fee Grants**
+##### **All grants of a granter:**
+   
+    pushchaind query feegrant grants-by-granter [granter-address]
+    
+##### **All grants of a grantee:**
+    
+    pushchaind query feegrant grants-by-grantee [grantee-address]
+    
+##### **Specific grant:**
+   
+    pushchaind query feegrant grant [granter-addr] [grantee-addr]
+   
+
+### **4. Gas Prices**
+##### **Add this flag to the transaction:**
+    --gas-prices="[amount]"
+  
+
+### **5. Gas Limit**
+##### **Add this flag to the transaction:**
+    --gas [amount]
+   

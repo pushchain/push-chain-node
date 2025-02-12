@@ -25,6 +25,8 @@
 
 #### After this command runs successfully, you shall notice two addresses given, alice and bob, these can be used for all the testing and simulations. Also note that Alice is the default Validator, and Bob is the faucet, configured in the config.yml. 
 
+#### Whenever passing the amount or gas price, make sure to mention the denom. For example, `500push`, `--gas-prices="0.00025push"`
+
 # Common CLI Commands
 
 ### **1. Bank**

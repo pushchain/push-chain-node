@@ -1,32 +1,34 @@
 version: 1
 validation: sovereign
+genesis:
+  app_state:
+    staking:
+      params:
+        bond_denom: "push" # Removed "token", replaced "stake" with "push"
 build:
   binary: "pushchaind"
 accounts: 
 - name: alice
   coins:
-  - 20000token
-  - 200000000stake
+  - 200000000push  # Removed "token", replaced "stake" with "push"
 - name: bob
   coins:
-  - 10000token
-  - 100000000stake
+  - 100000000push   # Removed "token", replaced "stake" with "push"
 client:
   openapi:
     path: docs/static/openapi.yml
 faucet:
   name: bob
   coins:
-  - 5token
-  - 100000stake
+  - 500000push      # Simplified to only "push"
 validators:
 - name: alice
-  bonded: 100000000stake
+  bonded: 100000000push  # Replaced "stake" with "push"
   app:
-    minimum-gas-prices: "0.00025stake" # for temporary testing
+    minimum-gas-prices: "0.00025push"  # Gas price now uses "push"
 - name: validator1
-  bonded: 100000000stake
+  bonded: 100000000push
 - name: validator2
-  bonded: 200000000stake
+  bonded: 200000000push
 - name: validator3
-  bonded: 300000000stake
+  bonded: 300000000push

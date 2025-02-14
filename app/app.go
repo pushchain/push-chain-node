@@ -3,6 +3,8 @@ package app
 import (
 	"io"
 
+	pushante "push/x/push/ante"
+
 	_ "cosmossdk.io/api/cosmos/tx/config/v1" // import for side-effects
 	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/depinject"
@@ -32,6 +34,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	sdkante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
@@ -74,6 +77,8 @@ import (
 	ibcfeekeeper "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/keeper"
 	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+
+	// "github.com/cosmos/cosmos-sdk/x/auth/ante"
 
 	pushmodulekeeper "push/x/push/keeper"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
@@ -272,6 +277,8 @@ func New(
 
 	app.ModuleManager.RegisterInvariants(app.CrisisKeeper)
 
+	app.SetAnteHandler()
+
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	overrideModules := map[string]module.AppModuleSimulation{
 		authtypes.ModuleName: auth.NewAppModule(app.appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, app.GetSubspace(authtypes.ModuleName)),
@@ -303,6 +310,31 @@ func New(
 // for modules to register their own custom testing types.
 func (app *App) LegacyAmino() *codec.LegacyAmino {
 	return app.legacyAmino
+}
+
+func (app *App) SetAnteHandler() {
+	anteHandler := sdk.ChainAnteDecorators(
+		sdkante.NewSetUpContextDecorator(),
+		sdkante.NewExtensionOptionsDecorator(nil),
+		sdkante.NewValidateBasicDecorator(),
+		sdkante.NewTxTimeoutHeightDecorator(),
+		sdkante.NewValidateMemoDecorator(app.AccountKeeper),
+		sdkante.NewConsumeGasForTxSizeDecorator(app.AccountKeeper),
+		// Custom deduct fee decorator
+		pushante.NewDeductFeeDecorator(
+			app.AccountKeeper,
+			app.BankKeeper,
+			app.FeeGrantKeeper,
+			nil,
+		),
+		sdkante.NewSetPubKeyDecorator(app.AccountKeeper),
+		sdkante.NewValidateSigCountDecorator(app.AccountKeeper),
+		sdkante.NewSigGasConsumeDecorator(app.AccountKeeper, sdkante.DefaultSigVerificationGasConsumer),
+		sdkante.NewSigVerificationDecorator(app.AccountKeeper, app.txConfig.SignModeHandler()),
+		sdkante.NewIncrementSequenceDecorator(app.AccountKeeper),
+	)
+
+	app.BaseApp.SetAnteHandler(anteHandler)
 }
 
 // AppCodec returns App's app codec.

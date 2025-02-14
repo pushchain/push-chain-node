@@ -28,6 +28,12 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "UpdateParams",
 					Skip:      true, // skipped because authority gated
 				},
+				{
+					RpcMethod:      "MintTokens",
+					Use:            "mint-tokens [creator] [amount]",
+					Short:          "Send a mintTokens tx",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "creator"}, {ProtoField: "amount"}},
+				},
 				// this line is used by ignite scaffolding # autocli/tx
 			},
 		},

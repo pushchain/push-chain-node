@@ -107,3 +107,20 @@ govulncheck:
 	@govulncheck ./...
 
 .PHONY: govet govulncheck
+
+TARGET ?= darwin:arm64
+
+build-release:
+	@echo "Building for ios arm64"
+	rm -rf release
+	rm pushchaind
+	ignite chain build \
+		--release.targets $(TARGET) \
+		--output ./release \
+		--release
+
+unzip-build:
+	@echo "Unzipping build"
+	tar xzf ./release/push_$(subst :,_,$(TARGET)).tar.gz
+
+build-node: build-ios-release unzip-build

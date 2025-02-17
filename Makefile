@@ -111,9 +111,10 @@ govulncheck:
 TARGET ?= darwin:arm64
 
 build-release:
-	@echo "Building for ios arm64"
+	@echo "Building for darwin:arm64"
 	rm -rf release
-	rm pushchaind
+	rm pushchaind || echo "Error: Failed to remove pushchaind"
+	ignite chain init
 	ignite chain build \
 		--release.targets $(TARGET) \
 		--output ./release \
@@ -122,5 +123,3 @@ build-release:
 unzip-build:
 	@echo "Unzipping build"
 	tar xzf ./release/push_$(subst :,_,$(TARGET)).tar.gz
-
-build-node: build-ios-release unzip-build

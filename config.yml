@@ -8,21 +8,23 @@ genesis:
 build:
   binary: "pushchaind"
 accounts: 
-- name: alice
+- name: a1
   coins:
   - 200000000push  # Removed "token", replaced "stake" with "push"
-- name: bob
+  mnemonic: control patient rural venue giant output method copy you envelope burger odor chaos ring hamster network elegant true rich brief goddess valid present intact
+- name: a2
   coins:
-  - 100000000push   # Removed "token", replaced "stake" with "push"
+  - 200000000push   # Removed "token", replaced "stake" with "push"
+  mnemonic: mixture sleep uncle critic favorite truly timber unusual push twice copy voice bag iron abstract deer gym swallow save vast reflect mandate fantasy gorilla
 client:
   openapi:
     path: docs/static/openapi.yml
 faucet:
-  name: bob
+  name: a2
   coins:
   - 500000push      # Simplified to only "push"
 validators:
-- name: alice
+- name: a1
   bonded: 100000000push  # Replaced "stake" with "push"
   app:
     minimum-gas-prices: "0.00025push"  # Gas price now uses "push"

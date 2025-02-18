@@ -14,6 +14,9 @@ accounts:
 - name: bob
   coins:
   - 100000000push   # Removed "token", replaced "stake" with "push"
+- name: faucet
+  coins:
+  - 100000000000000push
 client:
   openapi:
     path: docs/static/openapi.yml

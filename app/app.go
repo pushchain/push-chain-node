@@ -75,6 +75,14 @@ import (
 	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 
+	"github.com/spf13/cast"
+	evmkeeper "github.com/zeta-chain/ethermint/x/evm/keeper"
+	evmtypes "github.com/zeta-chain/ethermint/x/evm/types"
+	feemarketkeeper "github.com/zeta-chain/ethermint/x/feemarket/keeper"
+	feemarkettypes "github.com/zeta-chain/ethermint/x/feemarket/types"
+
+	srvflags "github.com/zeta-chain/node/server/flags"
+
 	pushmodulekeeper "push/x/push/keeper"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
@@ -105,6 +113,11 @@ type App struct {
 	appCodec          codec.Codec
 	txConfig          client.TxConfig
 	interfaceRegistry codectypes.InterfaceRegistry
+
+	// keys to access the substores
+	keys    map[string]*storetypes.KVStoreKey
+	tkeys   map[string]*storetypes.TransientStoreKey
+	memKeys map[string]*storetypes.MemoryStoreKey
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -140,6 +153,10 @@ type App struct {
 	ScopedICAControllerKeeper capabilitykeeper.ScopedKeeper
 	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
 	ScopedKeepers             map[string]capabilitykeeper.ScopedKeeper
+
+	// evm keepers
+	EvmKeeper       *evmkeeper.Keeper
+	FeeMarketKeeper feemarketkeeper.Keeper
 
 	PushKeeper pushmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
@@ -245,11 +262,52 @@ func New(
 		&app.NFTKeeper,
 		&app.GroupKeeper,
 		&app.CircuitBreakerKeeper,
+		&app.EvmKeeper,
+		&app.FeeMarketKeeper,
 		&app.PushKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
 		panic(err)
 	}
+
+	keys := storetypes.NewKVStoreKeys(
+		authtypes.StoreKey,
+		govtypes.StoreKey,
+		paramstypes.StoreKey,
+		authzkeeper.StoreKey,
+		evmtypes.StoreKey,
+		feemarkettypes.StoreKey,
+	)
+	tKeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
+	memKeys := storetypes.NewMemoryStoreKeys(
+	// capabilitytypes.MemStoreKey,
+	)
+
+	// Create Ethermint keepers
+	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
+	// feeSs := app.GetSubspace(feemarkettypes.ModuleName)
+	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
+		app.appCodec,
+		runtime.NewKVStoreService(keys[feemarkettypes.StoreKey]),
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		keys[feemarkettypes.StoreKey], tKeys[feemarkettypes.TransientKey])
+
+	// evmSs := app.GetSubspace(evmtypes.ModuleName)
+
+	app.EvmKeeper = evmkeeper.NewKeeper(
+		app.appCodec,
+		runtime.NewKVStoreService(keys[evmtypes.StoreKey]),
+		keys[evmtypes.StoreKey],
+		tKeys[evmtypes.TransientKey],
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		&app.FeeMarketKeeper,
+		tracer,
+		nil,
+		aggregateAllKeys(keys, tKeys, memKeys),
+	)
 
 	// add to default baseapp options
 	// enable optimistic execution
@@ -417,4 +475,27 @@ func BlockedAddresses() map[string]bool {
 		}
 	}
 	return result
+}
+
+// aggregateAllKeys aggregates all the keys in a single map.
+func aggregateAllKeys(
+	keys map[string]*storetypes.KVStoreKey,
+	tKeys map[string]*storetypes.TransientStoreKey,
+	memKeys map[string]*storetypes.MemoryStoreKey,
+) map[string]storetypes.StoreKey {
+	allKeys := make(map[string]storetypes.StoreKey, len(keys)+len(tKeys)+len(memKeys))
+
+	for k, v := range keys {
+		allKeys[k] = v
+	}
+
+	for k, v := range tKeys {
+		allKeys[k] = v
+	}
+
+	for k, v := range memKeys {
+		allKeys[k] = v
+	}
+
+	return allKeys
 }

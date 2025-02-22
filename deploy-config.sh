@@ -1,10 +1,10 @@
 #!/bin/bash
-SRC_HOME_DIR="/Users/igx/.tn/pn1"
-REMOTE_HOST="pn1.dev.push.org"
+SRC_HOME_DIR="/Users/igx/.tn/pn2"
+REMOTE_HOST="pn2.dev.push.org"
 
 # DO NOT EDIT THIS UNLESS NEEDED
 DEST_HOME_DIR="/home/igx/.push"
-ARCHIVE_FILE="home.tar.gz"          # Per instruction, although typically tar.gz is used.
+ARCHIVE_FILE="config.tar.gz"
 REMOTE_ARCHIVE="/tmp/${ARCHIVE_FILE}"
 
 echo "Creating archive $ARCHIVE_FILE from $SRC_HOME_DIR..."

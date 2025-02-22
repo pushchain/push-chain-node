@@ -1,11 +1,11 @@
 # RUN THIS LINE BY LINE; COMMENTING OUT EVERYTHING ELSE !!!
 
-
 # OPTIONAL STEP: create keys (write down the memo words)(you need this only once per environment)
-appd keys add user1
-appd keys add user2
+pushchaind keys add user1
+pushchaind keys add user2
 
-## make 3 folders with all configs and genesis files and validator keys
+## make 3 folders with all configs and genesis files and validator keys for
+# a testnetwork (tn) of 3 nodes: pushnode1(.tn/pn1), .tn/pn2, .tn/pn3
 pushchaind init pn1 --home ~/.tn/pn1 --chain-id test-push-chain
 pushchaind init pn2 --home ~/.tn/pn2 --chain-id test-push-chain
 pushchaind init pn3 --home ~/.tn/pn3 --chain-id test-push-chain
@@ -45,23 +45,23 @@ cp ~/.tn/pn1/config/app.toml ~/.tn/pn3/config/app.toml
 
 
 # build config/config.toml
-export pn1id=$(pushchaind tendermint show-node-id --home ~/.tn/pn1)
-export pn1url="$pn1id@pn1.dev.push.org:26657"
+export pn1_id=$(pushchaind tendermint show-node-id --home ~/.tn/pn1)
+export pn1_url="$pn1_id@pn1.dev.push.org:26656"
 
-export pn2id=$(pushchaind tendermint show-node-id --home ~/.tn/pn2)
-export pn2url="$pn2id@pn2.dev.push.org:26657"
+export pn2_id=$(pushchaind tendermint show-node-id --home ~/.tn/pn2)
+export pn2_url="$pn2_id@pn2.dev.push.org:26656"
 
-export pn3id=$(pushchaind tendermint show-node-id --home ~/.tn/pn3)
-export pn3url="$pn3id@pn3.dev.push.org:26657"
+export pn3_id=$(pushchaind tendermint show-node-id --home ~/.tn/pn3)
+export pn3_url="$pn3_id@pn3.dev.push.org:26656"
 
-export pn1_peers="\"$pn2url, $pn3url\""
+export pn1_peers="\"$pn2_url, $pn3_url\""
 sed -i '' "s/persistent_peers = \"\"/persistent_peers = $pn1_peers/g" ~/.tn/pn1/config/config.toml
 grep -i persistent_peers ~/.tn/pn1/config/config.toml
 
-export pn2_peers="\"$pn1url, $pn3url\""
+export pn2_peers="\"$pn1_url, $pn3_url\""
 sed -i '' "s/persistent_peers = \"\"/persistent_peers = $pn2_peers/g" ~/.tn/pn2/config/config.toml
 grep -i persistent_peers ~/.tn/pn2/config/config.toml
 
-export pn3_peers="\"$pn1url, $pn2url\""
+export pn3_peers="\"$pn1_url, $pn2_url\""
 sed -i '' "s/persistent_peers = \"\"/persistent_peers = $pn3_peers/g" ~/.tn/pn3/config/config.toml
 grep -i "persistent_peers =" ~/.tn/pn3/config/config.toml

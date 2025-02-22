@@ -1,6 +1,6 @@
 #!/bin/bash
 FILE="release/push_linux_amd64.tar.gz"
-REMOTE_HOST="pn1.dev.push.org"
+REMOTE_HOST="pn2.dev.push.org"
 DEST_EXEC_DIR="/home/igx/app"
 
 

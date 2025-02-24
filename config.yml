@@ -1,7 +1,7 @@
 version: 1
 validation: sovereign
 genesis:
-  chain_id: "mychain_1-1"  # Added required field, adjust as needed
+  chain_id: "pcv-1" 
   app_state:
     staking:
       params:
@@ -19,21 +19,21 @@ genesis:
       params:
         mint_denom: "tpc"
 app:
-  minimum-gas-prices: "0.025tpc"  # Fixed syntax (was missing key and had invalid format)
+  minimum-gas-prices: "0.025tpc"  
 accounts:
   - name: alice
     coins:
-      - "2000000000000tpc"  # Already uses tpc, just ensuring proper string format
+      - "2000000000000tpc"  
   - name: bob
     coins:
-      - "10000tpc"          # Already uses tpc
-  - name: validator1      # Already added for bonding, keeping tpc
+      - "10000tpc"          
+  - name: validator1     
     coins:
       - "100000000tpc"
-  - name: validator2      # Already added for bonding, keeping tpc
+  - name: validator2     
     coins:
       - "200000000tpc"
-  - name: validator3      # Already added for bonding, keeping tpc
+  - name: validator3     
     coins:
       - "300000000tpc"
 client:
@@ -42,14 +42,14 @@ client:
 faucet:
   name: bob
   coins:
-    - "5tpc"              # Already uses tpc
+    - "5tpc"            
 validators:
   - name: alice
-    bonded: "100000000tpc"  # Already uses tpc
+    bonded: "100000000tpc"
   - name: validator1
-    bonded: "100000000tpc"  # Already uses tpc
+    bonded: "100000000tpc"
   - name: validator2
-    bonded: "200000000tpc"  # Already uses tpc
+    bonded: "200000000tpc"
   - name: validator3
-    bonded: "300000000tpc"  # Already uses tpc
-keyring-backend: test     # Already added, kept as is
+    bonded: "300000000tpc"
+keyring-backend: test     

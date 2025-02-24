@@ -53,9 +53,9 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	pushmodulev1 "push/api/push/push/module"
-	_ "push/x/push/module" // import for side-effects
-	pushmoduletypes "push/x/push/types"
+	pchainmodulev1 "pchain/api/pchain/pchain/module"
+	_ "pchain/x/pchain/module" // import for side-effects
+	pchainmoduletypes "pchain/x/pchain/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 )
 
@@ -93,7 +93,7 @@ var (
 		consensustypes.ModuleName,
 		circuittypes.ModuleName,
 		// chain modules
-		pushmoduletypes.ModuleName,
+		pchainmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -118,7 +118,7 @@ var (
 		icatypes.ModuleName,
 		ibcfeetypes.ModuleName,
 		// chain modules
-		pushmoduletypes.ModuleName,
+		pchainmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -137,7 +137,7 @@ var (
 		icatypes.ModuleName,
 		ibcfeetypes.ModuleName,
 		// chain modules
-		pushmoduletypes.ModuleName,
+		pchainmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	}
 
@@ -294,8 +294,8 @@ var (
 				Config: appconfig.WrapAny(&circuitmodulev1.Module{}),
 			},
 			{
-				Name:   pushmoduletypes.ModuleName,
-				Config: appconfig.WrapAny(&pushmodulev1.Module{}),
+				Name:   pchainmoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&pchainmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

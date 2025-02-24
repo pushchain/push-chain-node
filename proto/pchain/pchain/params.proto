@@ -1,0 +1,15 @@
+syntax = "proto3";
+package pchain.pchain;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "pchain/x/pchain/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "pchain/x/pchain/Params";
+  option (gogoproto.equal) = true;
+
+  
+}

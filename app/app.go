@@ -75,15 +75,15 @@ import (
 	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 
-	pushmodulekeeper "push/x/push/keeper"
+	pchainmodulekeeper "pchain/x/pchain/keeper"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
-	"push/docs"
+	"pchain/docs"
 )
 
 const (
-	AccountAddressPrefix = "push"
-	Name                 = "push"
+	AccountAddressPrefix = "cosmos"
+	Name                 = "pchain"
 )
 
 var (
@@ -141,7 +141,7 @@ type App struct {
 	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
 	ScopedKeepers             map[string]capabilitykeeper.ScopedKeeper
 
-	PushKeeper pushmodulekeeper.Keeper
+	PchainKeeper pchainmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// simulation manager
@@ -245,7 +245,7 @@ func New(
 		&app.NFTKeeper,
 		&app.GroupKeeper,
 		&app.CircuitBreakerKeeper,
-		&app.PushKeeper,
+		&app.PchainKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
 		panic(err)

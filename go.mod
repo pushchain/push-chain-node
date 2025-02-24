@@ -1,8 +1,8 @@
-module push
+module pchain
 
 go 1.22.7
 
-toolchain go1.23.4
+toolchain go1.24.0
 
 replace (
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.

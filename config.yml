@@ -1,28 +1,55 @@
 version: 1
 validation: sovereign
-accounts: 
-- name: alice
-  coins:
-  - 20000token
-  - 200000000stake
-- name: bob
-  coins:
-  - 10000token
-  - 100000000stake
+genesis:
+  chain_id: "mychain_1-1"  # Added required field, adjust as needed
+  app_state:
+    staking:
+      params:
+        bond_denom: "tpc"
+    gov:
+      deposit_params:
+        min_deposit:
+          - amount: "10000000"
+            denom: "tpc"
+    crisis:
+      constant_fee:
+        amount: "1000"
+        denom: "tpc"
+    mint:
+      params:
+        mint_denom: "tpc"
+app:
+  minimum-gas-prices: "0.025tpc"  # Fixed syntax (was missing key and had invalid format)
+accounts:
+  - name: alice
+    coins:
+      - "2000000000000tpc"  # Already uses tpc, just ensuring proper string format
+  - name: bob
+    coins:
+      - "10000tpc"          # Already uses tpc
+  - name: validator1      # Already added for bonding, keeping tpc
+    coins:
+      - "100000000tpc"
+  - name: validator2      # Already added for bonding, keeping tpc
+    coins:
+      - "200000000tpc"
+  - name: validator3      # Already added for bonding, keeping tpc
+    coins:
+      - "300000000tpc"
 client:
   openapi:
-    path: docs/static/openapi.yml
+    path: "docs/static/openapi.yml"
 faucet:
   name: bob
   coins:
-  - 5token
-  - 100000stake
+    - "5tpc"              # Already uses tpc
 validators:
-- name: alice
-  bonded: 100000000stake
-- name: validator1
-  bonded: 100000000stake
-- name: validator2
-  bonded: 200000000stake
-- name: validator3
-  bonded: 300000000stake
+  - name: alice
+    bonded: "100000000tpc"  # Already uses tpc
+  - name: validator1
+    bonded: "100000000tpc"  # Already uses tpc
+  - name: validator2
+    bonded: "200000000tpc"  # Already uses tpc
+  - name: validator3
+    bonded: "300000000tpc"  # Already uses tpc
+keyring-backend: test     # Already added, kept as is

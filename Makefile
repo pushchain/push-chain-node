@@ -107,3 +107,19 @@ govulncheck:
 	@govulncheck ./...
 
 .PHONY: govet govulncheck
+
+TARGET ?= darwin:arm64
+
+build-release:
+	@echo "Building for darwin:arm64"
+	rm -rf release
+	rm pchaind || echo "Error: Failed to remove pchaind"
+	ignite chain init
+	ignite chain build \
+		--release.targets $(TARGET) \
+		--output ./release \
+		--release
+
+unzip-build:
+	@echo "Unzipping build"
+	tar xzf ./release/pchain_$(subst :,_,$(TARGET)).tar.gz

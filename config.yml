@@ -1,7 +1,7 @@
 version: 1
 validation: sovereign
 genesis:
-  chain_id: "pcv-1" 
+  chain_id: "test-push-chain" 
   app_state:
     staking:
       params:

@@ -13,7 +13,7 @@ export CHAIN_ID="test-push-chain"
 alias pushchaind="~/go/bin/pushchaind"
 
 # build binary
-./build-code.sh
+(cd .. && ignite chain build)
 
 # create keys (write down the memo words)(you need this only once per environment)
 pushchaind keys add user1
@@ -47,7 +47,18 @@ pushchaind genesis collect-gentxs --home $HDIR
 # edit app.toml
 python3 toml_edit.py $HDIR_CONFIG/app.toml "minimum-gas-prices" "0.25npush"
 
+# copy
+
+# no modifications
+cp $HDIR/config/client.toml $CHAIN_ID/client.toml
+# no modifications (at this stage)
+cp $HDIR/config/app.toml $CHAIN_ID/app.toml.sample
+# no modifications (at this stage)
+cp $HDIR/config/config.toml $CHAIN_ID/config.toml.sample
+# edited
+cp $HDIR/config/genesis.json $CHAIN_ID/genesis.json
 ```
+
 # Deploy validator2+
 ```sh
 ./build-code.sh
@@ -58,16 +69,16 @@ export VALIDATOR_NAME=pn3
 export CONFIG_HOME_DIR="test-push-chain"
 export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
 
-# edit config.toml
+# edit config.toml : set human readable node name
 (cd $CONFIG_HOME_DIR && cp config.toml.sample config.toml)
 (cd $CONFIG_HOME_DIR && python3 toml_edit.py config.toml "moniker" "$VALIDATOR_NAME")
 
-# edit app.toml
+# edit app.toml : set min gas price
 (cd $CONFIG_HOME_DIR && cp app.toml.sample app.toml)
 (cd $CONFIG_HOME_DIR && python3 toml_edit.py app.toml "minimum-gas-prices" "0.25npush")
 
 
-# edit config.toml
+# edit config.toml: set persistent peers 
 
 # !! this is id of the validator1, 
 # check by "pushchaind tendermint show-node-id --home test-push-chain-0" 

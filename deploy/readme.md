@@ -1,23 +1,82 @@
 
-# Deploy validator1
-Generates genesis.json, config.toml, app.toml, client.toml for pn1
-also makes a template data for pn2+
-also deploys pn1
+# Possible targets
+* run local test-push-chain x 1 nodes
+* run cloud test-push-chain x 1st node
+* run cloud test-push-chain x 2+ nodes
+
+# Local test net (1 node)
+
+TBD, mostly the same steps as in [Deploy validator 1] except the final [deploy] steps
+
+# Remote test net (1..N nodes)
+
+## VM Preconditions
+you need to run a vm with enough CPU/RAM/DISK, accessible via ssh using only private key auth
+
+a special user 'chain' will be used for deployment
+
+Here is a VM preparation example for pn3 host
 ```sh
+export REMOTE_HOST="pn3.dev.push.org"
+ssh $REMOTE_HOST
+
+# PREPARE USER & GROUP -  creates user "chain" in group 'devops`
+sudo addgroup devops
+sudo adduser --disabled-password --gecos "" chain 
+sudo usermod -aG devops chain
+
+sudo usermod -aG devops $(whoami)
+id $(whoami) | grep devops
+sudo chgrp devops /home/chain
+sudo chmod -R g+w /home/chain
+sudo chmod -R g+s /home/chain
+
+sudo su - chain 
+whoami
+# app will hold chain binary
+mkdir ~/app
+# .push will hold home directory with /config and /data
+mkdir ~/.push
+
+# open firewall ports (MANUAL STEP) : 
+#   26656 for p2p, 
+#   26657 for rpc (optional)
+# to check availability
+# run on the VM
+nc -l 26656
+# run on DEV machine
+telnet $REMOTE_HOST 26656
+
+```
+
+
+## Build validator1 configs (!required only once)
+- Generates validator1 config data to /test-push-chain-0: genesis.json, config.toml, app.toml, client.toml 
+- Generates validator1 private keys to /test-push-chain-0: node_key.json, priv_validator_key.json
+- Generates binary build to /release: push_linux_amd64.tar.gz
+- Generates template config data for Validator2+ to /test-push-chain: genesis.json, config.toml, app.toml, client.toml
+  (these configs are in GIT)
+
+
+```sh
+export VALIDATOR_NAME="pn1"
+export CHAIN_ID="test-push-chain"
+export TOKEN_NAME=npush
+export HDIR="test-push-chain-0"
+export HDIR_CONFIG="$HDIR/config"
+
+# assume we're in /deploy dir
+cd push-chain/deploy
+
 # allow 'alias' binding
 shopt -s expand_aliases
 
-export VALIDATOR_NAME="pn1"
-export HDIR="test-push-chain-0"
-export HDIR_CONFIG="$HDIR/config"
-export CHAIN_ID="test-push-chain"
-export TOKEN_NAME=npush
-
-# bind cmd name to specific binary path
-alias pushchaind="~/go/bin/pushchaind"
-
 # build binary on dev machine
 (cd .. && ignite chain build)
+# bind cmd name to specific binary path
+alias pushchaind="~/go/bin/pushchaind"
+# check that binary works
+pushchaind version
 
 # create keys (write down the memo words)(you need this only once per environment)
 pushchaind keys add user1
@@ -25,22 +84,17 @@ export user1addr=$(pushchaind keys show user1 -a)
 pushchaind keys add user2
 export user2addr=$(pushchaind keys show user2 -a)
 
-# a testnetwork of 1 node
+# a testnetwork of 1 node 
+# generates all configs + node_key.json, priv_validator_key.json
 pushchaind init $VALIDATOR_NAME --home $HDIR --chain-id $CHAIN_ID
 
-# build config/genesis.json
+# build genesis.json
 ### register 2 genesis accounts with 500k push each
 pushchaind genesis add-genesis-account $user1addr 500000000000npush --home $HDIR
 pushchaind genesis add-genesis-account $user2addr 500000000000npush --home $HDIR
 # replace all tokens with npush; npush is nano push; it is 1/1 000 000 of push
+# to replace with jq
 sed -i '' 's/stake/npush/g' $HDIR_CONFIG/genesis.json
-
-
-# I cannot register more no matter how hord I try
-# this is the command we have in 0.50:
-#   pushchaind genesis gentx <key_name> <amount> [flags]
-# this is the command which I need in 0.52:
-#    pushchaind genesis gentx <key_name> 10000000000stake  --chain-id push-test-chain --moniker="pn1" --commission-rate="0.10" --commission-max-rate="0.20" --commission-max-change-rate="0.01" --min-self-delegation="1" --ip "192.168.88.114" --node-id <your_node_id> --home ~/.tn/pn2
 # register 1 founder validator in genesis.json ;
 pushchaind genesis gentx user1 10000000000npush --chain-id $CHAIN_ID --home $HDIR
 # put all txs into genesis.json
@@ -51,64 +105,80 @@ pushchaind genesis collect-gentxs --home $HDIR
 # edit app.toml
 python3 toml_edit.py $HDIR_CONFIG/app.toml "minimum-gas-prices" "0.25npush"
 
-# copy
-
+# make bundle
+# copy to templates dir for further deployments
 # no modifications
-cp $HDIR/config/client.toml $CHAIN_ID/client.toml
+cp $HDIR/config/client.toml $CHAIN_ID/config/client.toml
 # no modifications (at this stage)
-cp $HDIR/config/app.toml $CHAIN_ID/app.toml.sample
+cp $HDIR/config/app.toml $CHAIN_ID/config/app.toml.sample
 # no modifications (at this stage)
-cp $HDIR/config/config.toml $CHAIN_ID/config.toml.sample
+cp $HDIR/config/config.toml $CHAIN_ID/config/config.toml.sample
 # edited
-cp $HDIR/config/genesis.json $CHAIN_ID/genesis.json
+cp $HDIR/config/genesis.json $CHAIN_ID/config/genesis.json
+echo "generated network wide config: genesis.json"
+cat $CHAIN_ID/config/genesis.json
+echo "-----"
 
-# deploy on pn1
-
-export CONFIG_HOME_DIR="$HDIR_CONFIG"
-export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
-
-# build linux-specific binary
-./build-code.sh
-
-# upload binary 
-./deploy-code.sh
-# upload configs 
-./deploy-config.sh
-# restart
-./deploy-restart.sh
 ```
 
-# Deploy validator2+
+## Deploy validator1 configs & binary (!required only once) 
+```shell
+# HDIR contains private keys, since we generated them at prev steps
+export HDIR="test-push-chain-0"
+test -f $HDIR/config/node_key.json || echo 'error, no private key file to upload'
+test -f $HDIR/config/priv_validator_key.json || echo 'error, no private key file to upload'
+
+export REMOTE_HOST="pn1.dev.push.org"
+
+# upload configs (no processing is needed, since for 1st validator everything is generated locally )
+./deploy-config.sh $HDIR $REMOTE_HOST "/home/chain/.push"
+# upload binary
+./deploy-code.sh "../release/push_linux_amd64.tar.gz" $REMOTE_HOST "/home/chain/app"
+```
+
+
+## Deploy validator2+ (uses template data from validator1)
 Fills in configs from template data: genesis.json, config.toml, app.toml, client.toml for pn2+
 also deploys pn2+
 ```sh
-# (! CAREFULLY CHECK HOSTNAME)
+# (! CAREFULLY CHECK REMOTE_HOST = This is your deployment target)
 export VALIDATOR_NAME=pn3
-export CONFIG_HOME_DIR="test-push-chain"
+export HDIR="test-push-chain"
+export HDIR_CONFIG="$HDIR/config"
 export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
 
-# edit config.toml : set human readable node name
-(cd $CONFIG_HOME_DIR && cp config.toml.sample config.toml)
-(cd $CONFIG_HOME_DIR && python3 toml_edit.py config.toml "moniker" "$VALIDATOR_NAME")
+# assume we're in /deploy dir
+cd push-chain/deploy
 
 # edit app.toml : set min gas price
-(cd $CONFIG_HOME_DIR && cp app.toml.sample app.toml)
-(cd $CONFIG_HOME_DIR && python3 toml_edit.py app.toml "minimum-gas-prices" "0.25npush")
+cp $HDIR_CONFIG/app.toml.sample $HDIR_CONFIG/app.toml
+python3 toml_edit.py $HDIR_CONFIG/app.toml "minimum-gas-prices" "0.25npush"
 
+# edit config.toml : set human readable node name
+cp $HDIR_CONFIG/config.toml.sample $HDIR_CONFIG/config.toml
+python3 toml_edit.py $HDIR_CONFIG/config.toml "moniker" "$VALIDATOR_NAME"
 
 # edit config.toml: set persistent peers 
 # !! this is id of the validator1, 
 # check by "pushchaind tendermint show-node-id --home test-push-chain-0"  or "pushchaind tendermint show-node-id" on pn1
 export pn1_id=a1ba93b69fb0ff339909fcd502d404d6e4b9c422
 export pn1_url="$pn1_id@pn1.dev.push.org:26656"
-(cd $CONFIG_HOME_DIR && python3 toml_edit.py config.toml "persistent_peers" "$pn1_url")
+python3 toml_edit.py $HDIR_CONFIG/config.toml "p2p.persistent_peers" "$pn1_url"
 
 # build linux-specific binary
 ./build-code.sh
-# upload binary 
-./deploy-code.sh
+# upload binary  
+./deploy-code.sh "../release/push_linux_amd64.tar.gz" $REMOTE_HOST "/home/chain/app"
 # upload configs 
-./deploy-config.sh
+./deploy-config.sh $HDIR $REMOTE_HOST "/home/chain/.push"
 # restart
 ./deploy-restart.sh
+
+
+# upgrade node to validator
+# 1 generate private keys
+
+# 2 faucet sends tokens to the wallet
+
+# 3 restart
 ```

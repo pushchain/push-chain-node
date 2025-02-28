@@ -8,3 +8,4 @@ release/
 *.log
 *.ign
 /pushchaind
+deploy/test-push-chain-0

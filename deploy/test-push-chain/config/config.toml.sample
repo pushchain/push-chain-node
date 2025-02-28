@@ -217,7 +217,7 @@ seeds = ""
 
 # Comma separated list of nodes to keep persistent connections to
 # !EDITED
-persistent_peers = "ff172d93928bc3cc2cd92e972991829c156f0e1a@pn2.dev.push.org:26656, 8e2a4fe0a8beeeec565f4437c9d970bd8d037af4@pn3.dev.push.org:26656"
+persistent_peers = ""
 
 # Path to address book
 addr_book_file = "config/addrbook.json"

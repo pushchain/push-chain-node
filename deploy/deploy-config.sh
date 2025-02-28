@@ -10,7 +10,7 @@ if [ -z "$CONFIG_HOME_DIR" ]; then
   echo "CONFIG_HOME_DIR var is missing"
   exit 1
 fi
-echo "CONFIG_HOME_DIR is $REMOTE_HOST"
+echo "CONFIG_HOME_DIR is $CONFIG_HOME_DIR"
 
 
 # DO NOT EDIT THIS UNLESS NEEDED

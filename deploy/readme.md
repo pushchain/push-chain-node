@@ -1,5 +1,8 @@
 
 # Deploy validator1
+Generates genesis.json, config.toml, app.toml, client.toml for pn1
+also makes a template data for pn2+
+also deploys pn1
 ```sh
 # allow 'alias' binding
 shopt -s expand_aliases
@@ -8,11 +11,12 @@ export VALIDATOR_NAME="pn1"
 export HDIR="test-push-chain-0"
 export HDIR_CONFIG="$HDIR/config"
 export CHAIN_ID="test-push-chain"
+export TOKEN_NAME=npush
 
 # bind cmd name to specific binary path
 alias pushchaind="~/go/bin/pushchaind"
 
-# build binary
+# build binary on dev machine
 (cd .. && ignite chain build)
 
 # create keys (write down the memo words)(you need this only once per environment)
@@ -57,13 +61,27 @@ cp $HDIR/config/app.toml $CHAIN_ID/app.toml.sample
 cp $HDIR/config/config.toml $CHAIN_ID/config.toml.sample
 # edited
 cp $HDIR/config/genesis.json $CHAIN_ID/genesis.json
+
+# deploy on pn1
+
+export CONFIG_HOME_DIR="$HDIR_CONFIG"
+export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
+
+# build linux-specific binary
+./build-code.sh
+
+# upload binary 
+./deploy-code.sh
+# upload configs 
+./deploy-config.sh
+# restart
+./deploy-restart.sh
 ```
 
 # Deploy validator2+
+Fills in configs from template data: genesis.json, config.toml, app.toml, client.toml for pn2+
+also deploys pn2+
 ```sh
-./build-code.sh
-./deploy-code.sh
-
 # (! CAREFULLY CHECK HOSTNAME)
 export VALIDATOR_NAME=pn3
 export CONFIG_HOME_DIR="test-push-chain"
@@ -79,15 +97,18 @@ export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
 
 
 # edit config.toml: set persistent peers 
-
 # !! this is id of the validator1, 
-# check by "pushchaind tendermint show-node-id --home test-push-chain-0" 
-# or "pushchaind tendermint show-node-id" on pn1
+# check by "pushchaind tendermint show-node-id --home test-push-chain-0"  or "pushchaind tendermint show-node-id" on pn1
 export pn1_id=a1ba93b69fb0ff339909fcd502d404d6e4b9c422
 export pn1_url="$pn1_id@pn1.dev.push.org:26656"
- 
 (cd $CONFIG_HOME_DIR && python3 toml_edit.py config.toml "persistent_peers" "$pn1_url")
 
+# build linux-specific binary
+./build-code.sh
+# upload binary 
+./deploy-code.sh
 # upload configs 
 ./deploy-config.sh
+# restart
+./deploy-restart.sh
 ```

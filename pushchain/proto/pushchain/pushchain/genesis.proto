@@ -1,0 +1,12 @@
+syntax = "proto3";
+package pushchain.pushchain;
+
+import "gogoproto/gogo.proto";
+import "pushchain/pushchain/params.proto";
+
+option go_package = "pushchain/x/pushchain/types";
+
+// GenesisState defines the pushchain module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

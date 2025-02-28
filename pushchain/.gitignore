@@ -4,6 +4,3 @@ release/
 .idea/
 .vscode/
 .DS_Store
-*.dot
-*.log
-*.ign

@@ -3,6 +3,7 @@
 HDIR="$1"
 REMOTE_HOST="$2"
 DEST_HOME_DIR="$3"
+UNPACK_ARCHIVE="$4"
 
 if [ -z "$REMOTE_HOST" ]; then
   echo "REMOTE_HOST var is missing"
@@ -39,15 +40,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# TODO find a way to avoid: sudo chown, sudo tar. I need to ssh as chain@host in order to do things correctly;
-echo "Extracting $ARCHIVE_FILE on $REMOTE_HOST into $DEST_HOME_DIR..."
-ssh "$REMOTE_HOST" "sudo chown -hR chain:devops '$DEST_HOME_DIR'"
-ssh "$REMOTE_HOST" "mkdir -p '$DEST_HOME_DIR' && sudo tar --no-same-owner --no-same-permissions -xzvf '$REMOTE_ARCHIVE' -C '$DEST_HOME_DIR'"
-ssh "$REMOTE_HOST" "sudo chmod g+rw -R '$DEST_HOME_DIR'"
-ssh "$REMOTE_HOST" "sudo chmod o-rwx -R '$DEST_HOME_DIR'"
-if [ $? -ne 0 ]; then
-    echo "Error: Extraction of $ARCHIVE_FILE failed."
-    exit 1
+if [ "$UNPACK_ARCHIVE" = "UNPACK" ]; then
+  echo "UNPACK_ARCHIVE=1, unpacking ... "
+  # TODO find a way to avoid: sudo chown, sudo tar. I need to ssh as chain@host in order to do things correctly;
+  echo "Extracting $ARCHIVE_FILE on $REMOTE_HOST into $DEST_HOME_DIR..."
+  ssh "$REMOTE_HOST" "sudo chown -hR chain:devops '$DEST_HOME_DIR'"
+  ssh "$REMOTE_HOST" "mkdir -p '$DEST_HOME_DIR' && sudo tar --no-same-owner --no-same-permissions -xzvf '$REMOTE_ARCHIVE' -C '$DEST_HOME_DIR'"
+  ssh "$REMOTE_HOST" "sudo chmod g+rw -R '$DEST_HOME_DIR'"
+  ssh "$REMOTE_HOST" "sudo chmod o-rwx -R '$DEST_HOME_DIR'"
+  if [ $? -ne 0 ]; then
+      echo "Error: Extraction of $ARCHIVE_FILE failed."
+      exit 1
+  fi
 fi
-
 echo "Deployment complete."

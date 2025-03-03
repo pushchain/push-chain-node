@@ -55,7 +55,7 @@ telnet $REMOTE_HOST 26656
 - Generates validator1 private keys to /test-push-chain-0: node_key.json, priv_validator_key.json
 - Generates binary build to /release: push_linux_amd64.tar.gz
 - Generates template config data for Validator2+ to /test-push-chain: genesis.json, config.toml, app.toml, client.toml
-  (these configs are in GIT)
+  (these configs are stored in GIT)
 
 
 ```sh
@@ -131,7 +131,7 @@ test -f $HDIR/config/priv_validator_key.json || echo 'error, no private key file
 export REMOTE_HOST="pn1.dev.push.org"
 
 # upload configs (no processing is needed, since for 1st validator everything is generated locally )
-./deploy-config.sh $HDIR $REMOTE_HOST "/home/chain/.push"
+./deploy-config-unpack.sh $HDIR $REMOTE_HOST "/home/chain/.push" "UNPACK"
 # upload binary
 ./deploy-code.sh "../release/push_linux_amd64.tar.gz" $REMOTE_HOST "/home/chain/app"
 ```
@@ -143,13 +143,19 @@ also deploys pn2+
 ```sh
 # (! CAREFULLY CHECK REMOTE_HOST = This is your deployment target)
 export VALIDATOR_NAME=pn3
+export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
 export HDIR="test-push-chain"
 export HDIR_CONFIG="$HDIR/config"
-export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
+export CHAIN_ID="test-push-chain"
 
 # assume we're in /deploy dir
 cd push-chain/deploy
 
+#### prepare binary
+# build linux-specific binary
+./build-code.sh
+
+#### prepare configs
 # edit app.toml : set min gas price
 cp $HDIR_CONFIG/app.toml.sample $HDIR_CONFIG/app.toml
 python3 toml_edit.py $HDIR_CONFIG/app.toml "minimum-gas-prices" "0.25npush"
@@ -165,12 +171,34 @@ export pn1_id=a1ba93b69fb0ff339909fcd502d404d6e4b9c422
 export pn1_url="$pn1_id@pn1.dev.push.org:26656"
 python3 toml_edit.py $HDIR_CONFIG/config.toml "p2p.persistent_peers" "$pn1_url"
 
-# build linux-specific binary
-./build-code.sh
-# upload binary  
+
+
+#### upload binary  
 ./deploy-code.sh "../release/push_linux_amd64.tar.gz" $REMOTE_HOST "/home/chain/app"
-# upload configs 
-./deploy-config.sh $HDIR $REMOTE_HOST "/home/chain/.push"
+#### upload configs
+./deploy-config-unpack.sh $HDIR $REMOTE_HOST "" "DONT-UNPACK"
+```
+
+now ssh into the REMOTE HOST! to generate private key & apply configs on REMOTE HOST!!!
+```sh
+export VALIDATOR_NAME=pn3
+export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
+ssh pn3.dev.push.org
+
+# REMOTE CMDS GO BELOW
+export VALIDATOR_NAME=pn3
+export CHAIN_ID="test-push-chain"
+
+# as chain user
+sudo su - chain
+# create your private keys
+~/app/pushchaind init $VALIDATOR_NAME --chain-id $CHAIN_ID
+# overwrite configs from .tar.gz configs
+export ARCHIVE_FILE="/tmp/home.tar.gz"
+export DEST_HOME_DIR="/home/chain/.push"
+tar --no-same-owner --no-same-permissions -xzvf "$ARCHIVE_FILE" -C "$DEST_HOME_DIR"
+
+
 # restart
 ./deploy-restart.sh
 

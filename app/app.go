@@ -113,6 +113,15 @@ import (
 	pushchainmodule "pushchain/x/pushchain"
 	pushchainmodulekeeper "pushchain/x/pushchain/keeper"
 	pushchainmoduletypes "pushchain/x/pushchain/types"
+
+	evmante "github.com/zeta-chain/ethermint/app/ante"
+	ethermint "github.com/zeta-chain/ethermint/types"
+	"github.com/zeta-chain/ethermint/x/evm"
+	evmkeeper "github.com/zeta-chain/ethermint/x/evm/keeper"
+	evmtypes "github.com/zeta-chain/ethermint/x/evm/types"
+	"github.com/zeta-chain/ethermint/x/feemarket"
+	feemarketkeeper "github.com/zeta-chain/ethermint/x/feemarket/keeper"
+	feemarkettypes "github.com/zeta-chain/ethermint/x/feemarket/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "pushchain/app/params"
@@ -187,6 +196,7 @@ var (
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		evmtypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -198,9 +208,10 @@ var (
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
+	if (err != nil) {
 		panic(err)
 	}
+	sdk.DefaultPowerReduction = ethermint.PowerReduction
 
 	DefaultNodeHome = filepath.Join(userHomeDir, "."+Name)
 }
@@ -244,6 +255,10 @@ type App struct {
 	GroupKeeper           groupkeeper.Keeper
 	ConsensusParamsKeeper consensusparamkeeper.Keeper
 
+	//EVM
+	EvmKeeper       *evmkeeper.Keeper
+	FeeMarketKeeper feemarketkeeper.Keeper
+
 	// make scoped keepers public for test purposes
 	ScopedIBCKeeper      capabilitykeeper.ScopedKeeper
 	ScopedTransferKeeper capabilitykeeper.ScopedKeeper
@@ -269,7 +284,7 @@ func New(
 	skipUpgradeHeights map[int64]bool,
 	homePath string,
 	invCheckPeriod uint,
-	encodingConfig appparams.EncodingConfig,
+	encodingConfig ethermint.EncodingConfig,
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *App {
@@ -296,10 +311,11 @@ func New(
 		govtypes.StoreKey, paramstypes.StoreKey, ibcexported.StoreKey, upgradetypes.StoreKey,
 		feegrant.StoreKey, evidencetypes.StoreKey, ibctransfertypes.StoreKey, icahosttypes.StoreKey,
 		capabilitytypes.StoreKey, group.StoreKey, icacontrollertypes.StoreKey, consensusparamtypes.StoreKey,
-		pushchainmoduletypes.StoreKey,
+		pushchainmoduletypes.StoreKey,evmtypes.StoreKey,feemarkettypes.StoreKey,
+
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
-	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
+	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
 	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	app := &App{
@@ -343,7 +359,7 @@ func New(
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec,
 		keys[authtypes.StoreKey],
-		authtypes.ProtoBaseAccount,
+		ethermint.ProtoAccount,
 		maccPerms,
 		sdk.Bech32PrefixAccAddr,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
@@ -413,6 +429,43 @@ func New(
 		app.BankKeeper,
 		authtypes.FeeCollectorName,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
+	// Create Ethermint keepers
+	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
+	feeSs := app.GetSubspace(feemarkettypes.ModuleName)
+	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
+		appCodec,
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		keys[feemarkettypes.StoreKey],
+		tKeys[feemarkettypes.TransientKey],
+		feeSs,
+		app.ConsensusParamsKeeper,
+	)
+
+	evmSs := app.GetSubspace(evmtypes.ModuleName)
+
+	app.EvmKeeper = evmkeeper.NewKeeper(
+		appCodec,
+		keys[evmtypes.StoreKey],
+		tKeys[evmtypes.TransientKey],
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		&app.FeeMarketKeeper,
+		tracer,
+		evmSs,
+		precompiles.StatefulContracts(
+			&app.FungibleKeeper,
+			app.StakingKeeper,
+			app.BankKeeper,
+			app.DistrKeeper,
+			appCodec,
+			storetypes.TransientGasConfig(),
+		),
+		app.ConsensusParamsKeeper,
+		aggregateAllKeys(keys, tKeys, memKeys),
 	)
 
 	groupConfig := group.DefaultConfig()
@@ -504,11 +557,11 @@ func New(
 		govConfig,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-
+	
 	govRouter := govv1beta1.NewRouter()
 	govRouter.
-		AddRoute(govtypes.RouterKey, govv1beta1.ProposalHandler).
-		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.ParamsKeeper)).
+	AddRoute(govtypes.RouterKey, govv1beta1.ProposalHandler).
+	AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.ParamsKeeper)).
 		AddRoute(upgradetypes.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.UpgradeKeeper)).
 		AddRoute(ibcclienttypes.RouterKey, ibcclient.NewClientProposalHandler(app.IBCKeeper.ClientKeeper))
 	govKeeper.SetLegacyRouter(govRouter)
@@ -527,6 +580,10 @@ func New(
 	)
 	pushchainModule := pushchainmodule.NewAppModule(appCodec, app.PushchainKeeper, app.AccountKeeper, app.BankKeeper)
 
+	// app.EvmKeeper = app.EvmKeeper.SetHooks(evmkeeper.NewMultiEvmHooks(
+	// 	app.CrosschainKeeper.Hooks(),
+	// 	app.FungibleKeeper.EVMHooks(),
+	// ))
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
@@ -569,6 +626,8 @@ func New(
 			app.BaseApp.DeliverTx,
 			encodingConfig.TxConfig,
 		),
+		evm.NewAppModule(app.EvmKeeper, app.AccountKeeper, evmSs),
+
 		auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, app.GetSubspace(authtypes.ModuleName)),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		vesting.NewAppModule(app.AccountKeeper, app.BankKeeper),
@@ -576,6 +635,7 @@ func New(
 		capability.NewAppModule(appCodec, *app.CapabilityKeeper, false),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		groupmodule.NewAppModule(appCodec, app.GroupKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
+		feemarket.NewAppModule(app.FeeMarketKeeper, feeSs),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(govtypes.ModuleName)),
 		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, app.GetSubspace(minttypes.ModuleName)),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(slashingtypes.ModuleName)),
@@ -622,11 +682,16 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		pushchainmoduletypes.ModuleName,
+		evmtypes.ModuleName,
+		feemarkettypes.ModuleName,
+
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	)
 
 	app.mm.SetOrderEndBlockers(
 		crisistypes.ModuleName,
+		evmtypes.ModuleName,
+		feemarkettypes.ModuleName,
 		govtypes.ModuleName,
 		stakingtypes.ModuleName,
 		ibctransfertypes.ModuleName,
@@ -693,7 +758,7 @@ func New(
 
 	autocliv1.RegisterQueryServer(app.GRPCQueryRouter(), runtimeservices.NewAutoCLIQueryService(app.mm.Modules))
 	reflectionSvc, err := runtimeservices.NewReflectionService()
-	if err != nil {
+	if (err != nil) {
 		panic(err)
 	}
 	reflectionv1.RegisterReflectionServiceServer(app.GRPCQueryRouter(), reflectionSvc)
@@ -711,26 +776,45 @@ func New(
 	app.MountMemoryStores(memKeys)
 
 	// initialize BaseApp
-	anteHandler, err := ante.NewAnteHandler(
-		ante.HandlerOptions{
-			AccountKeeper:   app.AccountKeeper,
-			BankKeeper:      app.BankKeeper,
-			SignModeHandler: encodingConfig.TxConfig.SignModeHandler(),
-			FeegrantKeeper:  app.FeeGrantKeeper,
-			SigGasConsumer:  ante.DefaultSigVerificationGasConsumer,
+	options := ante.HandlerOptions{
+		AccountKeeper:   app.AccountKeeper,
+		BankKeeper:      app.BankKeeper,
+		EvmKeeper:       app.EvmKeeper,
+		FeeMarketKeeper: app.FeeMarketKeeper,
+		SignModeHandler: encodingConfig.TxConfig.SignModeHandler(),
+		SigGasConsumer:  evmante.DefaultSigVerificationGasConsumer,
+		MaxTxGasWanted:  TransactionGasLimit,
+		DisabledAuthzMsgs: []string{
+			sdk.MsgTypeURL(
+				&evmtypes.MsgEthereumTx{},
+			), // disable the Msg types that cannot be included on an authz.MsgExec msgs field
+			sdk.MsgTypeURL(&vestingtypes.MsgCreateVestingAccount{}),
+			sdk.MsgTypeURL(&vestingtypes.MsgCreatePermanentLockedAccount{}),
+			sdk.MsgTypeURL(&vestingtypes.MsgCreatePeriodicVestingAccount{}),
 		},
-	)
-	if err != nil {
-		panic(fmt.Errorf("failed to create AnteHandler: %w", err))
+		ObserverKeeper: app.ObserverKeeper,
+	}
+
+	anteHandler, err := ante.NewAnteHandler(options)
+	if (err != nil) {
+		panic(err)
 	}
 
 	app.SetAnteHandler(anteHandler)
+	app.SetEndBlocker(app.EndBlocker)
+	SetupHandlers(app)
+	if (loadLatest) {
+		if (err := app.LoadLatestVersion(); err != nil) {
+			tmos.Exit(err.Error())
+		}
+	}
+
 	app.SetInitChainer(app.InitChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
 
-	if loadLatest {
-		if err := app.LoadLatestVersion(); err != nil {
+	if (loadLatest) {
+		if (err := app.LoadLatestVersion(); err != nil) {
 			tmos.Exit(err.Error())
 		}
 	}
@@ -758,7 +842,7 @@ func (app *App) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.Respo
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+	if (err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil) {
 		panic(err)
 	}
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
@@ -778,7 +862,7 @@ func (app *App) LoadHeight(height int64) error {
 // ModuleAccountAddrs returns all the app's module account addresses.
 func (app *App) ModuleAccountAddrs() map[string]bool {
 	modAccAddrs := make(map[string]bool)
-	for acc := range maccPerms {
+	for (acc := range maccPerms) {
 		modAccAddrs[authtypes.NewModuleAddress(acc).String()] = true
 	}
 
@@ -899,6 +983,8 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(slashingtypes.ModuleName)
 	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govv1.ParamKeyTable()) //nolint:staticcheck
 	paramsKeeper.Subspace(crisistypes.ModuleName)
+	paramsKeeper.Subspace(evmtypes.ModuleName)
+	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	paramsKeeper.Subspace(ibcexported.ModuleName)
 	paramsKeeper.Subspace(icacontrollertypes.SubModuleName)

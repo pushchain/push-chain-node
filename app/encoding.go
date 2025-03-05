@@ -2,9 +2,15 @@ package app
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	cryptocodec "github.com/evmos/ethermint/crypto/codec"
+	ethermint "github.com/evmos/ethermint/types"
 
 	"pushchain/app/params"
 )
@@ -12,7 +18,7 @@ import (
 // makeEncodingConfig creates an EncodingConfig for an amino based test configuration.
 func makeEncodingConfig() params.EncodingConfig {
 	amino := codec.NewLegacyAmino()
-	interfaceRegistry := types.NewInterfaceRegistry()
+	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
 
@@ -27,9 +33,23 @@ func makeEncodingConfig() params.EncodingConfig {
 // MakeEncodingConfig creates an EncodingConfig for testing
 func MakeEncodingConfig() params.EncodingConfig {
 	encodingConfig := makeEncodingConfig()
-	std.RegisterLegacyAminoCodec(encodingConfig.Amino)
-	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	RegisterLegacyAminoCodec(encodingConfig.Amino)
+	RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	ModuleBasics.RegisterLegacyAminoCodec(encodingConfig.Amino)
 	ModuleBasics.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	return encodingConfig
+}
+
+// RegisterLegacyAminoCodec registers Interfaces from types, crypto, and SDK std.
+func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	sdk.RegisterLegacyAminoCodec(cdc)
+	cryptocodec.RegisterCrypto(cdc)
+	codec.RegisterEvidences(cdc)
+}
+
+// RegisterInterfaces registers Interfaces from types, crypto, and SDK std.
+func RegisterInterfaces(interfaceRegistry codectypes.InterfaceRegistry) {
+	std.RegisterInterfaces(interfaceRegistry)
+	cryptocodec.RegisterInterfaces(interfaceRegistry)
+	ethermint.RegisterInterfaces(interfaceRegistry)
 }

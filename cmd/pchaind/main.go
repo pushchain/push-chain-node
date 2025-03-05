@@ -1,20 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
-	clienthelpers "cosmossdk.io/client/v2/helpers"
-	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
+	"cosmossdk.io/log"
 
-	"pchain/app"
-	"pchain/cmd/pchaind/cmd"
+	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
+	"github.com/push.org/rollchain/app"
 )
 
 func main() {
-	rootCmd := cmd.NewRootCmd()
-	if err := svrcmd.Execute(rootCmd, clienthelpers.EnvPrefix, app.DefaultNodeHome); err != nil {
-		fmt.Fprintln(rootCmd.OutOrStderr(), err)
+	rootCmd := NewRootCmd()
+
+	if err := svrcmd.Execute(rootCmd, "", app.DefaultNodeHome); err != nil {
+		log.NewLogger(rootCmd.OutOrStderr()).Error("failure when running app", "err", err)
 		os.Exit(1)
 	}
 }

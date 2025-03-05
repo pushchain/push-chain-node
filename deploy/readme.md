@@ -198,7 +198,7 @@ chmod u+x ~/.push/scripts/*.sh
 # check that node is syncing
 tail -n 100 ~/app/chain.log
 # wait for full node sync (manually or via this script)
-~/.push/scripts/waitFulдSync.sh
+~/.push/scripts/waitFullSync.sh
 
 # TODO 
 # upgrade node to validator
@@ -232,17 +232,22 @@ Faucet machine
 
 # 1 create a wallet, sends tokens to the wallet if needed 
 # user3 = validator owner wallet
-pushchaind keys add user3 --keyring-backend test
+export NODE_OWNER_WALLET_NAME=user3
+export CHAIN_NAME=test-push-chain
+pushchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend test
 
 # here push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs is the node wallet (from command above)
+export NODE_OWNER_WALLET=push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs
 # here push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q is the faucet wallet (you need it's priv key)
+export FAUCET_WALLET=push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q
+export ONE_PUSH=000000npush
 # we transfer 20k PUSH
-pushchaind tx bank send push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs   20000000000npush --fees 50000npush --chain-id test-push-chain  --keyring-backend test
+pushchaind tx bank send $FAUCET_WALLET $NODE_OWNER_WALLET   20000$ONE_PUSH --fees 500000npush --chain-id $CHAIN_NAME  --keyring-backend test
 # check to have 20k PUSH
-pushchaind query bank balances push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs --chain-id test-push-chain  --keyring-backend test
+pushchaind query bank balances $NODE_OWNER_WALLET --chain-id $CHAIN_NAME  --keyring-backend test
 # 2 register validator with stake
 # pn1.dev.push.org - is the existing public node with api
-pushchaind tx staking create-validator register-validator.json --chain-id test-push-chain --fees 50000npush --from user2 --node=tcp://pn1.dev.push.org:26657
+pushchaind tx staking create-validator register-validator.json --chain-id $CHAIN_NAME --fees 500000npush --from $NODE_OWNER_WALLET_NAME --node=tcp://pn1.dev.push.org:26657
 ```
 New node
 ```sh

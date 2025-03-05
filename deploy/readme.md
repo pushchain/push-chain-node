@@ -227,7 +227,7 @@ cat register-validator.json
 ```
 
 Faucet machine
-```bash
+```sh
 # do it from DEV machine with faucet key (or import user2 key to the validator host)
 
 # 1 create a wallet, sends tokens to the wallet if needed 
@@ -245,7 +245,7 @@ pushchaind query bank balances push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs --cha
 pushchaind tx staking create-validator register-validator.json --chain-id test-push-chain --fees 50000npush --from user2 --node=tcp://pn1.dev.push.org:26657
 ```
 New node
-```
+```sh
 # 3 restart the chain process
 ssh $REMOTE_HOST
 # stop if running

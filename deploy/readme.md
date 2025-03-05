@@ -4,7 +4,7 @@ TBD, mostly the same steps as in [Deploy validator 1] except the final [deploy] 
 
 # Remote test net (1..N nodes)
 
-## VM Preconditions
+## VM Preconditions (WIP)
 you need to run a vm with enough CPU/RAM/DISK, accessible via ssh using only private key auth
 
 a special user 'chain' will be used for deployment
@@ -18,6 +18,8 @@ ssh $REMOTE_HOST
 mkdir ~/app
 # .push will hold home directory with /config and /data
 mkdir ~/.push
+# add to path
+echo 'export PATH="$HOME/app:$HOME/.push/config/scripts:$PATH"' >> ~/.bashrc
 
 # open firewall ports (MANUAL STEP) : 
 #   26656 for p2p, 
@@ -30,7 +32,7 @@ telnet $REMOTE_HOST 26656
 ```
 
 
-## Build validator1 configs (!required only once)
+## Build validator1 configs (!required only once) (WIP)
 - Generates validator1 config data to /test-push-chain-0: genesis.json, config.toml, app.toml, client.toml 
 - Generates validator1 private keys to /test-push-chain-0: node_key.json, priv_validator_key.json
 - Generates binary build to /release: push_linux_amd64.tar.gz
@@ -103,7 +105,7 @@ echo "-----"
 
 ```
 
-## Deploy validator1 configs & binary (!required only once) 
+## Deploy validator1 configs & binary (!required only once)  (WIP)
 ```shell
 # HDIR contains private keys, since we generated them at prev steps
 export HDIR="test-push-chain-0"
@@ -153,8 +155,6 @@ export pn1_id=a1ba93b69fb0ff339909fcd502d404d6e4b9c422
 export pn1_url="$pn1_id@pn1.dev.push.org:26656"
 python3 toml_edit.py $HDIR_CONFIG/config.toml "p2p.persistent_peers" "$pn1_url"
 
-
-
 #### upload binary  
 scp "../release/push_linux_amd64.tar.gz" "$REMOTE_HOST:~/push_linux_amd64.tar.gz"
 #### zip configs
@@ -164,6 +164,8 @@ scp ".push.tar.gz" "$REMOTE_HOST:~/push-home.tar.gz"
 ```
 
 now ssh into the REMOTE HOST! to generate private key & apply configs on REMOTE HOST!!!
+
+New node
 ```sh
 export VALIDATOR_NAME=pn3
 export REMOTE_HOST="$VALIDATOR_NAME.dev.push.org"
@@ -196,12 +198,59 @@ chmod u+x ~/.push/scripts/*.sh
 # check that node is syncing
 tail -n 100 ~/app/chain.log
 # wait for full node sync (manually or via this script)
-~/.push/scripts/waitFulSync.sh
+~/.push/scripts/waitFulдSync.sh
 
 # TODO 
 # upgrade node to validator
-# 1 faucet sends tokens to the wallet
+
+# 0 create register-validator.json (edit required vars)
+export VALIDATOR_PUBKEY=$(pushchaind comet show-validator)
+export ONE_PUSH=000000npush
+export VALIDATOR_NAME=\"pn3\"
+cat <<EOF > register-validator.json
+{
+	"pubkey": $VALIDATOR_PUBKEY,
+	"amount": "10000$ONE_PUSH",
+	"moniker": $VALIDATOR_NAME,
+	"website": "example.com",
+	"security": "swein2@gmail.com",
+	"details": "a test validator",
+	"commission-rate": "0.1",
+	"commission-max-rate": "0.2",
+	"commission-max-change-rate": "0.01",
+	"min-self-delegation": "1"
+}
+EOF
+echo "validator_pubkey is $validator_pubkey"
+echo "json cmd is "
+cat register-validator.json
+```
+
+Faucet machine
+```bash
+# do it from DEV machine with faucet key (or import user2 key to the validator host)
+
+# 1 create a wallet, sends tokens to the wallet if needed 
+# user3 = validator owner wallet
+pushchaind keys add user3 --keyring-backend test
+
+# here push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs is the node wallet (from command above)
+# here push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q is the faucet wallet (you need it's priv key)
+# we transfer 20k PUSH
+pushchaind tx bank send push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs   20000000000npush --fees 50000npush --chain-id test-push-chain  --keyring-backend test
+# check to have 20k PUSH
+pushchaind query bank balances push1tjxdmycqua5j8f8y3j9ac5hn6cjhx2pgsaj6vs --chain-id test-push-chain  --keyring-backend test
 # 2 register validator with stake
-# 3 restart vm
+# pn1.dev.push.org - is the existing public node with api
+pushchaind tx staking create-validator register-validator.json --chain-id test-push-chain --fees 50000npush --from user2 --node=tcp://pn1.dev.push.org:26657
+```
+New node
+```
+# 3 restart the chain process
+ssh $REMOTE_HOST
+# stop if running
+~/.push/scripts/stop.sh
+# start
+~/.push/scripts/start.sh
 ```
 

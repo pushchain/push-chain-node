@@ -1,0 +1,12 @@
+{
+  "pubkey": {"@type":"/cosmos.crypto.ed25519.PubKey","key":"+kT/DgjyLHmjrMbxD9et52UFZ/0KizTM5N0BrHy+Gqs="},
+  "amount": "10000000000npush",
+  "moniker": "pn3",
+  "website": "example.com",
+  "security": "swein2@gmail.com",
+  "details": "a test validator",
+  "commission-rate": "0.1",
+  "commission-max-rate": "0.2",
+  "commission-max-change-rate": "0.01",
+  "min-self-delegation": "1"
+}

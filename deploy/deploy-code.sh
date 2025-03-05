@@ -24,7 +24,7 @@ echo "DEST_DIR is $DEST_DIR"
 
 # DO NOT EDIT THIS UNLESS NEEDED
 LOCAL_FILE=${LOCAL_FILE:-"../release/push_linux_amd64.tar.gz"}
-DEST_DIR="/home/chain/app"
+DEST_DIR="~/app"
 REMOTE_TMP="/tmp/$(basename "$LOCAL_FILE")"
 echo "Transferring $LOCAL_FILE to $REMOTE_HOST:$REMOTE_TMP..."
 scp "$LOCAL_FILE" "$REMOTE_HOST:$REMOTE_TMP"

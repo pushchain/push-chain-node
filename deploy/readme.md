@@ -1,9 +1,3 @@
-
-# Possible targets
-* run local test-push-chain x 1 nodes
-* run cloud test-push-chain x 1st node
-* run cloud test-push-chain x 2+ nodes
-
 # Local test net (1 node)
 
 TBD, mostly the same steps as in [Deploy validator 1] except the final [deploy] steps
@@ -20,19 +14,6 @@ Here is a VM preparation example for pn3 host
 export REMOTE_HOST="pn3.dev.push.org"
 ssh $REMOTE_HOST
 
-# PREPARE USER & GROUP -  creates user "chain" in group 'devops`
-sudo addgroup devops
-sudo adduser --disabled-password --gecos "" chain 
-sudo usermod -aG devops chain
-
-sudo usermod -aG devops $(whoami)
-id $(whoami) | grep devops
-sudo chgrp devops /home/chain
-sudo chmod -R g+w /home/chain
-sudo chmod -R g+s /home/chain
-
-sudo su - chain 
-whoami
 # app will hold chain binary
 mkdir ~/app
 # .push will hold home directory with /config and /data
@@ -46,7 +27,6 @@ mkdir ~/.push
 nc -l 26656
 # run on DEV machine
 telnet $REMOTE_HOST 26656
-
 ```
 
 
@@ -54,7 +34,7 @@ telnet $REMOTE_HOST 26656
 - Generates validator1 config data to /test-push-chain-0: genesis.json, config.toml, app.toml, client.toml 
 - Generates validator1 private keys to /test-push-chain-0: node_key.json, priv_validator_key.json
 - Generates binary build to /release: push_linux_amd64.tar.gz
-- Generates template config data for Validator2+ to /test-push-chain: genesis.json, config.toml, app.toml, client.toml
+- Generates template config data for Validator2+ to /test-push-chain: genesis.json
   (these configs are stored in GIT)
 
 
@@ -64,7 +44,9 @@ export CHAIN_ID="test-push-chain"
 export TOKEN_NAME=npush
 export HDIR="test-push-chain-0"
 export HDIR_CONFIG="$HDIR/config"
-
+# 1 push = 1 mil npush
+export ONE_PUSH=000000npush
+export MIL_PUSH=000000$ONEPUSH
 # assume we're in /deploy dir
 cd push-chain/deploy
 
@@ -90,13 +72,13 @@ pushchaind init $VALIDATOR_NAME --home $HDIR --chain-id $CHAIN_ID
 
 # build genesis.json
 ### register 2 genesis accounts with 500k push each
-pushchaind genesis add-genesis-account $user1addr 500000000000npush --home $HDIR
-pushchaind genesis add-genesis-account $user2addr 500000000000npush --home $HDIR
+pushchaind genesis add-genesis-account $user1addr 5000$MIL_PUSH --home $HDIR
+pushchaind genesis add-genesis-account $user2addr 5000$MIL_PUSH --home $HDIR
 # replace all tokens with npush; npush is nano push; it is 1/1 000 000 of push
 # to replace with jq
 sed -i '' 's/stake/npush/g' $HDIR_CONFIG/genesis.json
 # register 1 founder validator in genesis.json ;
-pushchaind genesis gentx user1 10000000000npush --chain-id $CHAIN_ID --home $HDIR
+pushchaind genesis gentx user1 10000$ONE_PUSH --chain-id $CHAIN_ID --home $HDIR
 # put all txs into genesis.json
 pushchaind genesis collect-gentxs --home $HDIR
 
@@ -174,9 +156,11 @@ python3 toml_edit.py $HDIR_CONFIG/config.toml "p2p.persistent_peers" "$pn1_url"
 
 
 #### upload binary  
-./deploy-code.sh "../release/push_linux_amd64.tar.gz" $REMOTE_HOST "/home/chain/app"
+scp "../release/push_linux_amd64.tar.gz" "$REMOTE_HOST:~/push_linux_amd64.tar.gz"
+#### zip configs
+COPYFILE_DISABLE=1 tar -czvf "push-home.tar.gz" -C "$HDIR" .
 #### upload configs
-./deploy-config-unpack.sh $HDIR $REMOTE_HOST "" "DONT-UNPACK"
+scp ".push.tar.gz" "$REMOTE_HOST:~/push-home.tar.gz"
 ```
 
 now ssh into the REMOTE HOST! to generate private key & apply configs on REMOTE HOST!!!
@@ -189,24 +173,35 @@ ssh pn3.dev.push.org
 export VALIDATOR_NAME=pn3
 export CHAIN_ID="test-push-chain"
 
-# as chain user
-sudo su - chain
+# unpack binary
+tar -xzvf "$HOME/push_linux_amd64.tar.gz" -C "$HOME/app" 
+chmod u+x "$HOME/app/pushchaind"
+
 # create your private keys
 ~/app/pushchaind init $VALIDATOR_NAME --chain-id $CHAIN_ID
-# overwrite configs from .tar.gz configs
-export ARCHIVE_FILE="/tmp/home.tar.gz"
-export DEST_HOME_DIR="/home/chain/.push"
-tar --no-same-owner --no-same-permissions -xzvf "$ARCHIVE_FILE" -C "$DEST_HOME_DIR"
+
+# overwrite some configs from .tar.gz configs
+# (configs are already with the correct variables!!)
+tar --no-same-owner --no-same-permissions -xzvf "$HOME/push-home.tar.gz" -C "$HOME/.push"
+chmod u+x ~/.push/scripts/*.sh 
 
 
-# restart
-./deploy-restart.sh
 
 
+
+# stop if running
+~/.push/scripts/stop.sh
+# start
+~/.push/scripts/start.sh
+# check that node is syncing
+tail -n 100 ~/app/chain.log
+# wait for full node sync (manually or via this script)
+~/.push/scripts/waitFulSync.sh
+
+# TODO 
 # upgrade node to validator
-# 1 generate private keys
-
-# 2 faucet sends tokens to the wallet
-
-# 3 restart
+# 1 faucet sends tokens to the wallet
+# 2 register validator with stake
+# 3 restart vm
 ```
+

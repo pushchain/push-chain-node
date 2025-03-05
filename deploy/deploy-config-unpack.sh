@@ -17,11 +17,6 @@ if [ -z "$HDIR" ]; then
 fi
 echo "HDIR is $HDIR"
 
-if [ -z "$DEST_HOME_DIR" ]; then
-  echo "$DEST_HOME_DIR var is missing"
-  exit 1
-fi
-echo "DEST_HOME_DIR is $DEST_HOME_DIR"
 
 # DO NOT EDIT THIS UNLESS NEEDED
 ARCHIVE_FILE="home.tar.gz"
@@ -41,6 +36,12 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ "$UNPACK_ARCHIVE" = "UNPACK" ]; then
+  if [ -z "$DEST_HOME_DIR" ]; then
+    echo "DEST_HOME_DIR var is missing"
+    exit 1
+  fi
+  echo "DEST_HOME_DIR is $DEST_HOME_DIR"
+
   echo "UNPACK_ARCHIVE=1, unpacking ... "
   # TODO find a way to avoid: sudo chown, sudo tar. I need to ssh as chain@host in order to do things correctly;
   echo "Extracting $ARCHIVE_FILE on $REMOTE_HOST into $DEST_HOME_DIR..."

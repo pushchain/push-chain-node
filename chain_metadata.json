@@ -1,12 +1,12 @@
 {
   "display": {
-    "name": "rollchain",
-    "description": "rollchain is an Interchain blockchain.",
+    "name": "pushchain",
+    "description": "pushchain is an Interchain blockchain.",
     "links": {
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
       "discord": "https://discord.gg/your-discord",
       "email": "example@example.com",
-      "github": "https://github.com/push.org/rollchain",
+      "github": "https://github.com/push.org/push-chain",
       "telegram": "https://t.me/example",
       "twitter": "https://twitter.com/example_account",
       "website": "https://example.com",

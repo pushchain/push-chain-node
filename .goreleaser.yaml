@@ -1,15 +1,15 @@
-project_name: rollchain
+project_name: push-chain
 
 release:
   github:
     owner: push.org
-    name: rollchain
+    name: push-chain
   name_template: '{{.Tag}}'
 
 # Only uncomment os, arch, and targets if you are NOT using cosmwasm / wasm-light-client.
 # Windows, 386 (32bit), and ARM are not Wasm compatible.
 builds:
-  - id: rollchain
+  - id: push-chain
     goos:
       - linux
       - darwin

@@ -15,7 +15,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	wasm "github.com/CosmWasm/wasmd/x/wasm/types"
 	ibcconntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
 )
@@ -25,16 +24,16 @@ var (
 	MaxDepositPeriod = "10s"
 
 	Denom   = "npush"
-	Name    = "rollchain"
+	Name    = "pchain"
 	ChainID = "localchain-1"
-	Binary  = "pchaind"
+	Binary  = "pushd"
 	Bech32  = "push"
 
 	NumberVals         = 1
 	NumberFullNodes    = 0
 	GenesisFundsAmount = sdkmath.NewInt(1000_000000) // 1k tokens
 
-	ChainImage = ibc.NewDockerImage("rollchain", "local", "1025:1025")
+	ChainImage = ibc.NewDockerImage("pchain", "local", "1025:1025")
 
 	DefaultGenesis = []cosmos.GenesisKV{
 		// default
@@ -97,7 +96,6 @@ var (
 func GetEncodingConfig() *moduletestutil.TestEncodingConfig {
 	cfg := cosmos.DefaultEncoding()
 	// TODO: add encoding types here for the modules you want to use
-	wasm.RegisterInterfaces(cfg.InterfaceRegistry)
 	tokenfactory.RegisterInterfaces(cfg.InterfaceRegistry)
 	return &cfg
 }

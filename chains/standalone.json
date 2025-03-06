@@ -1,10 +1,10 @@
 {
     "chains": [
         {
-            "name": "rollchain",
+            "name": "pchain",
             "chain_id": "localchain-1",
             "docker_image": {
-                "repository": "rollchain",
+                "repository": "pchain",
                 "version": "local",
                 "uid-gid": ""
             },
@@ -45,14 +45,14 @@
                     {
                         "name": "user0",
                         "amount": "100000%DENOM%",
-                        "address": "push1vtf95mqa3rpsy00q5vmdeqscwy278a5tuhhjwc",
-                        "mnemonic": "case whip fever mad thing kiwi lava elephant peasant cactus science modify moment scheme dawn carry elder mail six riot grit much pigeon wrap"
+                        "address": "push1z4lekt3dmx7hapwwhgv3as8aljk573w45f6dd6",
+                        "mnemonic": "sleep issue case gauge kitchen key radar trick month cargo cousin million repeat cotton science earth twenty seed identify nominee bind snow head depend"
                     },
                     {
                         "name": "user1",
                         "amount": "100000%DENOM%",
-                        "address": "push1jymnn8wk6lw99jesdx056cxcqsnt9saj4jzay8",
-                        "mnemonic": "harvest dice summer frozen journey crystal charge ethics basic explain unable board power glove demise defense nest throw bargain split gorilla swift trap gospel"
+                        "address": "push1qfvwg3nm4pg3u0jt26rtqrmcm0uvx3299knggk",
+                        "mnemonic": "conduct mirror spice glove amount mystery boring blast stage famous run cupboard trophy artefact doll wage mass else cheese heart school camp diesel young"
                     }
                 ]
             },
@@ -76,7 +76,7 @@
             "number_node": 0,
             "chain_type": "cosmos",
             "coin_type": 118,
-            "binary": "pchaind",
+            "binary": "pushd",
             "bech32_prefix": "push",
             "denom": "npush",
             "trusting_period": "336h",

@@ -5,8 +5,8 @@ import (
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
-	"github.com/push.org/rollchain/app/upgrades"
-	"github.com/push.org/rollchain/app/upgrades/noop"
+	"github.com/rollchains/pchain/app/upgrades"
+	"github.com/rollchains/pchain/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades

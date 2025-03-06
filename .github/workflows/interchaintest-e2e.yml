@@ -59,7 +59,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: rollchain:local
+          tags: pchain:local
           outputs: type=docker,dest=${{ env.TAR_PATH }}
 
       - name: Upload artifact
@@ -77,10 +77,8 @@ jobs:
         test:
           - "ictest-basic"
           - "ictest-ibc"
-          - "ictest-wasm"
           - "ictest-packetforward"
           - "ictest-tokenfactory"
-          - "ictest-ratelimit"
       fail-fast: false
 
     steps:

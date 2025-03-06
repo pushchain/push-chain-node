@@ -31,8 +31,6 @@ import (
 	simcli "github.com/cosmos/cosmos-sdk/x/simulation/client/cli"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 // SimAppChainID hardcoded chainID for simulation
@@ -156,7 +154,6 @@ func TestAppImportExport(t *testing.T) {
 		authzkeeper.StoreKey:   {authzkeeper.GrantQueuePrefix},
 		feegrant.StoreKey:      {feegrant.FeeAllowanceQueueKeyPrefix},
 		slashingtypes.StoreKey: {slashingtypes.ValidatorMissedBlockBitmapKeyPrefix},
-		wasmtypes.StoreKey:     {wasmtypes.TXCounterPrefix},
 	}
 
 	storeKeys := app.GetStoreKeys()

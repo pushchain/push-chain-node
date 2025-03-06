@@ -10,7 +10,7 @@ SIMAPP = ./app
 
 # for dockerized protobuf tools
 DOCKER := $(shell which docker)
-HTTPS_GIT := github.com/push.org/rollchain.git
+HTTPS_GIT := github.com/rollchains/pchain.git
 
 export GO111MODULE = on
 
@@ -64,8 +64,8 @@ build_tags_comma_sep := $(subst $(empty),$(comma),$(build_tags))
 
 # flags '-s -w' resolves an issue with xcode 16 and signing of go binaries
 # ref: https://github.com/golang/go/issues/63997
-ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=rollchain \
-		  -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind \
+ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=pchain \
+		  -X github.com/cosmos/cosmos-sdk/version.AppName=pushd \
 		  -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
 		  -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
 		  -X "github.com/cosmos/cosmos-sdk/version.BuildTags=$(build_tags_comma_sep)" \
@@ -92,11 +92,11 @@ ifeq ($(OS),Windows_NT)
 	$(error wasmd server not supported. Use "make build-windows-client" for client)
 	exit 1
 else
-	go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind ./cmd/pchaind
+	go build -mod=readonly $(BUILD_FLAGS) -o build/pushd ./cmd/pushd
 endif
 
 build-windows-client: go.sum
-	GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind.exe ./cmd/pchaind
+	GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/pushd.exe ./cmd/pushd
 
 build-contract-tests-hooks:
 ifeq ($(OS),Windows_NT)
@@ -106,7 +106,7 @@ else
 endif
 
 install: go.sum
-	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pchaind
+	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pushd
 
 ########################################
 ### Tools & dependencies
@@ -122,7 +122,7 @@ go.sum: go.mod
 draw-deps:
 	@# requires brew install graphviz or apt-get install graphviz
 	go install github.com/RobotsAndPencils/goviz@latest
-	@goviz -i ./cmd/pchaind -d 2 | dot -Tpng -o dependency-graph.png
+	@goviz -i ./cmd/pushd -d 2 | dot -Tpng -o dependency-graph.png
 
 clean:
 	rm -rf snapcraft-local.yaml build/
@@ -251,7 +251,7 @@ local-image:
 ifeq (,$(shell which heighliner))
 	echo 'heighliner' binary not found. Consider running `make get-heighliner`
 else
-	heighliner build -c rollchain --local -f chains.yaml
+	heighliner build -c pchain --local -f chains.yaml
 endif
 
 .PHONY: get-heighliner local-image is-localic-installed
@@ -297,14 +297,14 @@ setup-testnet: mod-tidy is-localic-installed install local-image set-testnet-con
 # Run this before testnet keys are added
 # localchain-1 is used in the testnet.json
 set-testnet-configs:
-	pchaind config set client chain-id localchain-1
-	pchaind config set client keyring-backend test
-	pchaind config set client output text
+	pushd config set client chain-id localchain-1
+	pushd config set client keyring-backend test
+	pushd config set client output text
 
 # import keys from testnet.json into test keyring
 setup-testnet-keys:
-	-`echo "decorate bright ozone fork gallery riot bus exhaust worth way bone indoor calm squirrel merry zero scheme cotton until shop any excess stage laundry" | pchaind keys add acc0 --recover`
-	-`echo "wealth flavor believe regret funny network recall kiss grape useless pepper cram hint member few certain unveil rather brick bargain curious require crowd raise" | pchaind keys add acc1 --recover`
+	-`echo "decorate bright ozone fork gallery riot bus exhaust worth way bone indoor calm squirrel merry zero scheme cotton until shop any excess stage laundry" | pushd keys add acc0 --recover`
+	-`echo "wealth flavor believe regret funny network recall kiss grape useless pepper cram hint member few certain unveil rather brick bargain curious require crowd raise" | pushd keys add acc1 --recover`
 
 testnet: setup-testnet
 	spawn local-ic start testnet

@@ -66,6 +66,6 @@ jobs:
             make install
           local: true
           binaries: |
-            - /go/bin/pchaind
+            - /go/bin/pushd
           build-env: |
             - BUILD_TAGS=muslc

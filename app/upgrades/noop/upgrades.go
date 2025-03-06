@@ -8,7 +8,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/push.org/rollchain/app/upgrades"
+	"github.com/rollchains/pchain/app/upgrades"
 )
 
 // NewUpgrade constructor

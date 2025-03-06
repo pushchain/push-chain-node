@@ -21,17 +21,17 @@ RUN set -eux; \
 COPY . /code
 
 # force it to use static lib (from above) not standard libgo_cosmwasm.so file
-# then log output of file /code/bin/pchaind
+# then log output of file /code/bin/pushd
 # then ensure static linking
 RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build \
-  && file /code/build/pchaind \
+  && file /code/build/pushd \
   && echo "Ensuring binary is statically linked ..." \
-  && (file /code/build/pchaind | grep "statically linked")
+  && (file /code/build/pushd | grep "statically linked")
 
 # --------------------------------------------------------
 FROM alpine:3.16
 
-COPY --from=go-builder /code/build/pchaind /usr/bin/pchaind
+COPY --from=go-builder /code/build/pushd /usr/bin/pushd
 
 # Install dependencies used for Starship
 RUN apk add --no-cache curl make bash jq sed
@@ -41,4 +41,4 @@ WORKDIR /opt
 # rest server, tendermint p2p, tendermint rpc
 EXPOSE 1317 26656 26657
 
-CMD ["/usr/bin/pchaind", "version"]
+CMD ["/usr/bin/pushd", "version"]

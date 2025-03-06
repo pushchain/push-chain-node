@@ -1,9 +1,9 @@
 {
   "$schema": "https://github.com/cosmos/chain-registry/blob/master/assetlist.schema.json",
-  "chain_name": "rollchain",
+  "chain_name": "pchain",
   "assets": [
     {
-      "description": "The native token of rollchain",
+      "description": "The native token of pchain",
       "denom_units": [
         {
           "denom": "npush",
@@ -15,7 +15,7 @@
         }
       ],
       "base": "npush",
-      "name": "rollchain NPUSH",
+      "name": "pchain NPUSH",
       "display": "npush",
       "symbol": "NPUSH",
       "logo_URIs": {

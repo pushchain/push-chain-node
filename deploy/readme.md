@@ -248,6 +248,16 @@ pushchaind query bank balances $NODE_OWNER_WALLET --chain-id $CHAIN_NAME  --keyr
 # 2 register validator with stake
 # pn1.dev.push.org - is the existing public node with api
 pushchaind tx staking create-validator register-validator.json --chain-id $CHAIN_NAME --fees 500000npush --from $NODE_OWNER_WALLET_NAME --node=tcp://pn1.dev.push.org:26657
+# check that tx was successful
+# check that code=0 and raw_log=""
+export TX_ID= # from above
+pushchaind query tx $TX_ID --chain-id $CHAIN_NAME --output json | jq '{code, raw_log}'
+# check that validator got bonded tokens
+# the output should contain
+# moniker: YOUR VALIDATOR NAME
+# status: BOND_STATUS_BONDED
+# replace pn2 with validator name:
+pushchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="pn2")'
 ```
 New node
 ```sh

@@ -1,14 +1,15 @@
 version: 1
 
 accounts:
-- name: alice
-  coins:
-  - 20000token
-  - 200000000stake
-- name: bob
-  coins:
-  - 10000token
-  - 100000000stake
+  - name: alice
+    coins:
+      - 5000000000000000000000000apush
+      - 5000000000000000000000000stake
+  - name: bob
+    coins:
+      - 500000000000000000000apush
+      - 500000000000000000000stake
+
 client:
   openapi:
     path: docs/static/openapi.yml
@@ -18,5 +19,17 @@ faucet:
   - 5token
   - 100000stake
 validators:
-- name: alice
-  bonded: 100000000stake
+  - name: alice
+    bonded: 1500000000000000000stake  # Significantly increased bonded amount
+
+genesis:
+  chain_id: "pushchain_9000-1"
+  app_state:
+    evm:
+      params:
+        evm_denom: "apush"
+        enable_create: true
+        enable_call: true
+    feemarket:
+      params:
+        no_base_fee: true

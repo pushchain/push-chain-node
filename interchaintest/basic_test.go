@@ -48,6 +48,12 @@ func TestBasicChain(t *testing.T) {
 	)
 	user := users[0]
 
+	t.Run("validate configuration", func(t *testing.T) {
+		// Check that the chain is configured correctly
+		require.Equal(t, chain.Config().Denom, "npush")
+		require.Equal(t, chain.Config().ChainID, "localchain-1")
+		require.Equal(t, chain.Config().GasPrices, "0npush")
+	})
 	t.Run("validate funding", func(t *testing.T) {
 		bal, err := chain.BankQueryBalance(ctx, user.FormattedAddress(), chain.Config().Denom)
 		require.NoError(t, err)

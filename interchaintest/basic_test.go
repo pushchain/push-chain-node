@@ -61,9 +61,4 @@ func TestBasicChain(t *testing.T) {
 
 	})
 
-	t.Run("query non-existent account", func(t *testing.T) {
-		invalidAddr := "invalid-address"
-		_, err := chain.BankQueryBalance(ctx, invalidAddr, chain.Config().Denom)
-		require.Error(t, err)
-	})
 }

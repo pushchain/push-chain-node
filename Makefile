@@ -261,7 +261,7 @@ endif
 ###############################################################################
 
 ictest-basic:
-	@make local-image
+	# @make local-image
 	@echo "Running basic e2e test"
 	@cd interchaintest && go test -race -v -run TestBasicChain .
 

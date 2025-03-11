@@ -294,6 +294,10 @@ ictest-token-transfer:
 	@echo "Running token transfer e2e test"
 	@cd interchaintest && go test -race -v -run TestTokenTransfer .
 
+ictest-gasfees:
+	@echo "Running gas fees e2e test"
+	@cd interchaintest && go test -race -v -run TestGasFees .
+
 ###############################################################################
 ###                                    testnet                              ###
 ###############################################################################
@@ -345,6 +349,7 @@ help:
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  ictest-token-transfer : Token transfer between users end-to-end test"
+	@echo "  ictest-gasfees      : Gas fees end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help

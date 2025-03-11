@@ -290,6 +290,10 @@ ictest-ratelimit:
 	@echo "Running rate limit e2e test"
 	@cd interchaintest && go test -race -v -run TestIBCRateLimit .
 
+ictest-token-transfer:
+	@echo "Running token transfer e2e test"
+	@cd interchaintest && go test -race -v -run TestTokenTransfer .
+
 ###############################################################################
 ###                                    testnet                              ###
 ###############################################################################
@@ -340,6 +344,7 @@ help:
 	@echo "  sh-testnet          : Shell local devnet"
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
+	@echo "  ictest-token-transfer : Token transfer between users end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help

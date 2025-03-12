@@ -17,6 +17,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/cobra"
+
+	"github.com/ethereum/go-ethereum/common"
+	ethermint "github.com/zeta-chain/ethermint/types"
+	evmtypes "github.com/zeta-chain/ethermint/x/evm/types"
 )
 
 const (
@@ -118,7 +122,10 @@ contain valid denominations. Accounts may optionally be supplied with vesting pa
 					return errors.New("invalid vesting parameters; must supply start and end time or end time")
 				}
 			} else {
-				genAccount = baseAccount
+				genAccount = &ethermint.EthAccount{
+					BaseAccount: baseAccount,
+					CodeHash:    common.BytesToHash(evmtypes.EmptyCodeHash).Hex(),
+				}
 			}
 
 			if err := genAccount.Validate(); err != nil {

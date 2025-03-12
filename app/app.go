@@ -110,7 +110,7 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
-	// srvflags "github.com/zeta-chain/node/server/flags"
+	srvflags "pushchain/server/flags"
 
 	evmante "github.com/zeta-chain/ethermint/app/ante"
 	ethermint "github.com/zeta-chain/ethermint/types"
@@ -439,7 +439,7 @@ func New(
 	)
 
 	// Create Ethermint keepers
-	tracer := "evm.tracer"
+	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 	feeSs := app.GetSubspace(feemarkettypes.ModuleName)
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,

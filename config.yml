@@ -21,6 +21,24 @@ faucet:
 validators:
   - name: alice
     bonded: 1500000000000000000stake  # Significantly increased bonded amount
+    app:
+      json-rpc:
+        enable: true
+        api: "eth,net,web3"
+        address: "0.0.0.0:8545"
+        ws-address: "0.0.0.0:8546"
+        gas-cap: "25000000"
+        evm-timeout: "5s"
+        txfee-cap: "1"
+        filter-cap: "200"
+        feehistory-cap: "100"
+        logs-cap: "10000"
+        block-range-cap: "10000"
+        http-timeout: "30s"
+        http-idle-timeout: "2m0s"
+        allow-unprotected-txs: false
+        max-open-connections: "0"
+        enable-indexer: true
 
 genesis:
   chain_id: "pushchain_9000-1"

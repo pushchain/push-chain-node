@@ -44,6 +44,7 @@ import (
 	evmtypes "github.com/zeta-chain/ethermint/types"
 
 	"pushchain/app"
+	pushevmserver "pushchain/server"
 	// appparams "pushchain/app/params"
 )
 
@@ -134,19 +135,25 @@ func initRootCmd(
 		// this line is used by starport scaffolding # root/commands
 	)
 
-	a := appCreator{
+	ac := appCreator{
 		encodingConfig,
 	}
 
-	// add server commands
-	// the ethermintserver one supercedes the sdk one
-	server.AddCommands(
+	pushevmserver.AddCommands(
 		rootCmd,
-		app.DefaultNodeHome,
-		a.newApp,
-		a.appExport,
+		pushevmserver.NewDefaultStartOptions(ac.newApp, app.DefaultNodeHome),
+		ac.appExport,
 		addModuleInitFlags,
 	)
+
+	// the ethermintserver one supercedes the sdk one
+	// server.AddCommands(
+	// 	rootCmd,
+	// 	app.DefaultNodeHome,
+	// 	ac.newApp,
+	// 	ac.appExport,
+	// 	addModuleInitFlags,
+	// )
 
 	// add keybase, auxiliary RPC, query, and tx child commands
 	rootCmd.AddCommand(

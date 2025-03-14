@@ -299,8 +299,12 @@ ictest-gasfees:
 	@cd interchaintest && go test -race -v -run TestGasFees .
 
 ictest-blocktime:
-	@echo "Running block time configuration e2e test"
+	@echo "Running block time configuration end-to-end test"
 	@cd interchaintest && go test -race -v -run TestBlockTimeConfiguration .
+
+ictest-staking:
+	@echo "Running staking functionality end-to-end test"
+	@cd interchaintest && go test -race -v -run TestStaking .
 
 ###############################################################################
 ###                                    testnet                              ###
@@ -354,7 +358,8 @@ help:
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  ictest-token-transfer : Token transfer between users end-to-end test"
 	@echo "  ictest-gasfees       : Gas fees end-to-end test"
-	@echo "  ictest-blocktime    : Block time configuration end-to-end test"
+	@echo "  ictest-blocktime     : Block time configuration end-to-end test"
+	@echo "  ictest-staking       : Staking functionality end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help

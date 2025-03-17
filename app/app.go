@@ -29,7 +29,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
 	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/auth/ante"
+
+	// "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -110,6 +111,7 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
+	"pushchain/app/ante"
 	srvflags "pushchain/server/flags"
 
 	evmante "github.com/zeta-chain/ethermint/app/ante"
@@ -132,8 +134,9 @@ import (
 )
 
 const (
-	AccountAddressPrefix = "push"
-	Name                 = "pushchain"
+	AccountAddressPrefix        = "push"
+	Name                        = "pushchain"
+	TransactionGasLimit  uint64 = 10_000_000
 )
 
 // this line is used by starport scaffolding # stargate/wasm/app/enabledProposals
@@ -781,21 +784,21 @@ func New(
 	// initialize BaseApp
 	anteHandler, err := ante.NewAnteHandler(
 		ante.HandlerOptions{
-			AccountKeeper: app.AccountKeeper,
-			BankKeeper:    app.BankKeeper,
-			// EvmKeeper:       app.EvmKeeper,
-			// FeeMarketKeeper: app.FeeMarketKeeper,
+			AccountKeeper:   app.AccountKeeper,
+			BankKeeper:      app.BankKeeper,
+			EvmKeeper:       app.EvmKeeper,
+			FeeMarketKeeper: app.FeeMarketKeeper,
 			SignModeHandler: encodingConfig.TxConfig.SignModeHandler(),
 			FeegrantKeeper:  app.FeeGrantKeeper,
 			SigGasConsumer:  evmante.DefaultSigVerificationGasConsumer,
-			// DisabledAuthzMsgs: []string{
-			// 	sdk.MsgTypeURL(
-			// 		&evmtypes.MsgEthereumTx{},
-			// 	), // disable the Msg types that cannot be included on an authz.MsgExec msgs field
-			// 	// sdk.MsgTypeURL(&vestingtypes.MsgCreateVestingAccount{}),
-			// 	// sdk.MsgTypeURL(&vestingtypes.MsgCreatePermanentLockedAccount{}),
-			// 	// sdk.MsgTypeURL(&vestingtypes.MsgCreatePeriodicVestingAccount{}),
-			// },
+			DisabledAuthzMsgs: []string{
+				sdk.MsgTypeURL(
+					&evmtypes.MsgEthereumTx{},
+				), // disable the Msg types that cannot be included on an authz.MsgExec msgs field
+				// sdk.MsgTypeURL(&vestingtypes.MsgCreateVestingAccount{}),
+				// sdk.MsgTypeURL(&vestingtypes.MsgCreatePermanentLockedAccount{}),
+				// sdk.MsgTypeURL(&vestingtypes.MsgCreatePeriodicVestingAccount{}),
+			},
 		},
 	)
 	if err != nil {

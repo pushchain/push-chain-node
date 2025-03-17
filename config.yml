@@ -39,7 +39,7 @@ validators:
         api: "eth,net,web3,personal"
         address: "0.0.0.0:8545"
         ws-address: "0.0.0.0:8546"
-        gas-cap: "25000000"
+        gas-cap: "250000000"
         evm-timeout: "5s"
         txfee-cap: "1"
         filter-cap: "200"
@@ -103,6 +103,11 @@ validators:
 
 genesis:
   chain_id: "pushchain_9000-1"
+  consensus_params:
+    block:
+      max_bytes: "22020096"
+      max_gas: "30000000"  # Set default block gas limit
+      time_iota_ms: "1000"
   app_state:
     evm:
       params:

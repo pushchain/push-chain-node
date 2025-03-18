@@ -234,13 +234,7 @@ require (
 
 replace github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 
-// ZetaChain maintained forks.
 replace (
-	// https://github.com/zeta-chain/tss-lib/tree/threshold-dep-updates
-	// which is a fork of https://github.com/threshold-network/tss-lib
-	github.com/bnb-chain/tss-lib => github.com/zeta-chain/tss-lib v0.0.0-20240916163010-2e6b438bd901
 	github.com/ethereum/go-ethereum => github.com/zeta-chain/go-ethereum v1.13.16-0.20241022183758-422c6ef93ccc
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/libp2p/go-libp2p => github.com/zeta-chain/go-libp2p v0.0.0-20240710192637-567fbaacc2b4
-	gitlab.com/thorchain/tss/go-tss => github.com/zeta-chain/go-tss v0.0.0-20241216161449-be92b20f8102
 )

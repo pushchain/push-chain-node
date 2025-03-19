@@ -1,0 +1,40 @@
+{
+  "$schema": "https://github.com/cosmos/chain-registry/blob/master/assetlist.schema.json",
+  "chain_name": "pchain",
+  "assets": [
+    {
+      "description": "The native token of pchain",
+      "denom_units": [
+        {
+          "denom": "npush",
+          "exponent": 0
+        },
+        {
+          "denom": "NPUSH",
+          "exponent": 18
+        }
+      ],
+      "base": "npush",
+      "name": "pchain NPUSH",
+      "display": "npush",
+      "symbol": "NPUSH",
+      "logo_URIs": {
+        "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+        "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg"
+      },
+      "images": [
+        {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg",
+          "theme": {
+            "primary_color_hex": "#FF2D00"
+          }
+        }
+      ],
+      "socials": {
+        "website": "https://example.com",
+        "twitter": "https://x.com/cosmoshub"
+      }
+    }
+  ]
+}

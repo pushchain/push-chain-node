@@ -1,7 +1,0 @@
-syntax = "proto3";
-package pushchain.pushchain;
-
-option go_package = "pushchain/x/pushchain/types";
-
-// Msg defines the Msg service.
-service Msg {}

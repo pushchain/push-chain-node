@@ -363,3 +363,12 @@ help:
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help
+
+###############################################################################
+###                          Interchain Tests                               ###
+###############################################################################
+
+ictest-gov:
+	@echo "Running governance proposal end-to-end test"
+	@cd interchaintest && go test -v -run TestGovernanceProposal .
+

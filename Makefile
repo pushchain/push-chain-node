@@ -261,6 +261,8 @@ endif
 ###############################################################################
 
 ictest-basic:
+	# Uncomment it when there is an issue with building the image
+	@make local-image
 	@echo "Running basic e2e test"
 	@cd interchaintest && go test -race -v -run TestBasicChain .
 
@@ -287,6 +289,22 @@ ictest-tokenfactory:
 ictest-ratelimit:
 	@echo "Running rate limit e2e test"
 	@cd interchaintest && go test -race -v -run TestIBCRateLimit .
+
+ictest-token-transfer:
+	@echo "Running token transfer e2e test"
+	@cd interchaintest && go test -race -v -run TestTokenTransfer .
+
+ictest-gasfees:
+	@echo "Running gas fees e2e test"
+	@cd interchaintest && go test -race -v -run TestGasFees .
+
+ictest-blocktime:
+	@echo "Running block time configuration end-to-end test"
+	@cd interchaintest && go test -race -v -run TestBlockTimeConfiguration .
+
+ictest-staking:
+	@echo "Running staking functionality end-to-end test"
+	@cd interchaintest && go test -race -v -run TestStaking .
 
 ###############################################################################
 ###                                    testnet                              ###

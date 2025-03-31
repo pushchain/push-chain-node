@@ -121,9 +121,9 @@ tail -n 100 ~/app/chain.log
 ~/app/waitFullSync.sh
 # wait for: 'The Node has been fully synced '
 ```
-
-Step4: Generate cmd for registering
+Generate cmd for registering
 ```shell
+# ----------------- Step4: Generate cmd for registering
 # show new node id
 pchaind tendermint show-node-id
 
@@ -170,8 +170,7 @@ export ONE_PUSH=000000000000000000npush
 export CHAIN_ID="push_501-1"
 
 # we transfer 20k PUSH
-# does not work
- pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET"   "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID"  --keyring-backend "$KEYRING"
+pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET"   "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID"  --keyring-backend "$KEYRING"
 # check to have 20k PUSH
 pchaind query bank balances $NODE_OWNER_WALLET --chain-id $CHAIN_ID  --keyring-backend $KEYRING
 

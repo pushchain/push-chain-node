@@ -2,7 +2,7 @@
 # Local test net (1 node)
 
 ```shell
-cd scripts
+cd ../scripts
 CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
 ```
 
@@ -98,15 +98,15 @@ export CHAIN_DIR="$HOME/.pchain"
 # get python3 + tomlkit lib
 sudo apt install python3 python3-pip
 pip install tomlkit
-pyton3 -version # check python is there
+python3 --version # check python3.10+ is there
 # setup initial configs & edit toml files with proper values (check the script manually before running)
-~/app/updateConfigs.sh
+~/app/resetConfigs.sh
 # set moniker (this is the node name)
-python3 $HOME/app/toml_edit.py "$CHAIN_DIR/config/config.toml" "moniker" "pn2"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_DIR/config/config.toml" "moniker" "pn2"
 # wallet @ url for the initial (seed) nodes to connect to the rest of the network
 # note : execute this cmd on the remote node to get it's id : pchaind tendermint show-node-id 
 export pn1_url="bc7105d5927a44638ac2ad7f6986ec98dacc5ac6@pn1.dev.push.org:26656"
-python3 toml_edit.py $CHAIN_DIR/config/config.toml "p2p.persistent_peers" "$pn1_url"
+python3 "$HOME/app/toml_edit.py" $CHAIN_DIR/config/config.toml "p2p.persistent_peers" "$pn1_url"
 # copy genesis.json from the 1st node (currently all values arrive from git)
 cp ~/app/config-tmp/genesis.json "$CHAIN_DIR/config/"
 

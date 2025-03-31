@@ -40,37 +40,37 @@ echo "generating initial config in $CHAIN_HOME/config"
 
 echo "editing generated configs"
 # RPC endpoint (in config.toml, under [rpc])
-python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "rpc.laddr" "tcp://0.0.0.0:$RPC"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "rpc.laddr" "tcp://0.0.0.0:$RPC"
 
 # Set CORS allowed origins (in config.toml, under [rpc])
-python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "rpc.cors_allowed_origins" "[\"*\"]"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "rpc.cors_allowed_origins" "[\"*\"]"
 
 # REST endpoint (in app.toml, under [api])
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.address" "tcp://0.0.0.0:$REST"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "api.address" "tcp://0.0.0.0:$REST"
 
 # Enable the REST API and unsafe CORS (in app.toml, under [api])
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enable" true
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enabled-unsafe-cors" true
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "api.enable" true
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "api.enabled-unsafe-cors" true
 
 # Peer exchange settings in config.toml:
 # Update pprof_laddr (global key) to use the new port
-python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "pprof_laddr" "localhost:$PROFF"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "pprof_laddr" "localhost:$PROFF"
 
 # Update the P2P listen address (in config.toml, under [p2p])
-python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "p2p.laddr" "tcp://0.0.0.0:$P2P"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "p2p.laddr" "tcp://0.0.0.0:$P2P"
 
 # GRPC endpoints in app.toml:
 # Set the gRPC server address (in [grpc])
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "grpc.address" "0.0.0.0:$GRPC"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "grpc.address" "0.0.0.0:$GRPC"
 
 # Set the gRPC-web address (in [grpc-web]) – if your file uses an address key here
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "grpc-web.address" "0.0.0.0:$GRPC_WEB"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "grpc-web.address" "0.0.0.0:$GRPC_WEB"
 
 # Rosetta API endpoint (in app.toml)
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "rosetta.address" "0.0.0.0:$ROSETTA"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "rosetta.address" "0.0.0.0:$ROSETTA"
 
 # Faster blocks: update consensus timeout_commit (in config.toml, under [consensus])
-python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "consensus.timeout_commit" "$BLOCK_TIME"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "consensus.timeout_commit" "$BLOCK_TIME"
 
 # Min gas price
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "minimum-gas-prices" "0npush"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "minimum-gas-prices" "0npush"

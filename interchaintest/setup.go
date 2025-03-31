@@ -18,31 +18,23 @@ import (
 	wasm "github.com/CosmWasm/wasmd/x/wasm/types"
 	ibcconntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/evmos/os/crypto/ethsecp256k1"
-	evmtypes "github.com/evmos/os/x/evm/types"
 )
 
 var (
 	VotingPeriod     = "15s"
 	MaxDepositPeriod = "10s"
 
-	Denom = "npush"
-	Name  = "pchain"
-
-	ChainID = "localchain_9000-1"
+	Denom   = "npush"
+	Name    = "rollchain"
+	ChainID = "localchain-1"
 	Binary  = "pchaind"
 	Bech32  = "push"
-	ibcPath = "ibc-path"
 
 	NumberVals         = 1
 	NumberFullNodes    = 0
 	GenesisFundsAmount = sdkmath.NewInt(1000_000000) // 1k tokens
 
-	ChainImage = ibc.NewDockerImage("pchain", "local", "1025:1025")
-
-	Precompiles = []string{"0x0000000000000000000000000000000000000100", "0x0000000000000000000000000000000000000400", "0x0000000000000000000000000000000000000800", "0x0000000000000000000000000000000000000801", "0x0000000000000000000000000000000000000802", "0x0000000000000000000000000000000000000803", "0x0000000000000000000000000000000000000804", "0x0000000000000000000000000000000000000805"}
+	ChainImage = ibc.NewDockerImage("rollchain", "local", "1025:1025")
 
 	DefaultGenesis = []cosmos.GenesisKV{
 		// default
@@ -53,10 +45,7 @@ var (
 		// tokenfactory: set create cost in set denom or in gas usage.
 		cosmos.NewGenesisKV("app_state.tokenfactory.params.denom_creation_fee", nil),
 		cosmos.NewGenesisKV("app_state.tokenfactory.params.denom_creation_gas_consume", 1), // cost 1 gas to create a new denom
-		cosmos.NewGenesisKV("app_state.feemarket.params.no_base_fee", true),
-		cosmos.NewGenesisKV("app_state.feemarket.params.base_fee", "0.000000000000000000"),
-		cosmos.NewGenesisKV("app_state.evm.params.evm_denom", Denom),
-		cosmos.NewGenesisKV("app_state.evm.params.active_static_precompiles", Precompiles),
+
 	}
 
 	DefaultChainConfig = ibc.ChainConfig{
@@ -72,8 +61,7 @@ var (
 		Bin:            Binary,
 		Bech32Prefix:   Bech32,
 		Denom:          Denom,
-
-		CoinType:       "60",
+		CoinType:       "118",
 		GasPrices:      "0" + Denom,
 		TrustingPeriod: "504h",
 	}
@@ -111,9 +99,6 @@ func GetEncodingConfig() *moduletestutil.TestEncodingConfig {
 	// TODO: add encoding types here for the modules you want to use
 	wasm.RegisterInterfaces(cfg.InterfaceRegistry)
 	tokenfactory.RegisterInterfaces(cfg.InterfaceRegistry)
-	evmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	cfg.InterfaceRegistry.RegisterImplementations((*cryptotypes.PubKey)(nil), &ethsecp256k1.PubKey{})
-	cfg.InterfaceRegistry.RegisterImplementations((*cryptotypes.PrivKey)(nil), &ethsecp256k1.PrivKey{})
 	return &cfg
 }
 

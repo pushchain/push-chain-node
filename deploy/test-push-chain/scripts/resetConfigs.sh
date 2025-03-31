@@ -49,8 +49,8 @@ python3 toml_edit.py "$CHAIN_HOME/config/config.toml" "rpc.cors_allowed_origins"
 python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.address" "tcp://0.0.0.0:$REST"
 
 # Enable the REST API and unsafe CORS (in app.toml, under [api])
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enable" "true"
-python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enabled-unsafe-cors" "true"
+python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enable" true
+python3 toml_edit.py "$CHAIN_HOME/config/app.toml" "api.enabled-unsafe-cors" true
 
 # Peer exchange settings in config.toml:
 # Update pprof_laddr (global key) to use the new port

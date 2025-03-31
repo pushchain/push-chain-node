@@ -1,5 +1,5 @@
 
-# Local test net
+# Local test net (1 node)
 
 ```shell
 cd scripts

@@ -1,5 +1,12 @@
 
-# Remote test net (1..N nodes)
+# Local test net
+
+```shell
+cd scripts
+CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
+```
+
+# dev.push.org test net (1..N nodes)
 
 ## VM Preconditions
 you need to run a vm with enough CPU/RAM/DISK, accessible via ssh using only private key auth

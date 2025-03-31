@@ -1,6 +1,10 @@
 #!/bin/bash
 # Run this script to quickly install, setup, and run the current version of the network without docker.
 #
+# Push Test Net:
+# pn1:
+# CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_node.sh
+#
 # Examples:
 # CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
@@ -71,12 +75,15 @@ from_scratch () {
     echo $mnemonic | BINARY keys add $key --keyring-backend $KEYRING --algo $KEYALGO --recover
   }
 
+  # NOTE: mnemonics can be created via:
+  # pushchaind keys add acc1
+
   # push1ss5j8c8j453uecnczt3ms23lze30kxt4pzfvh9
-  add_key $KEY1 "surface task term spring horse impact tortoise often session cable off catch harvest rain able jealous coral cargo portion surge spring genre mix avoid"
+  add_key $KEY1 "!!!PUT MNEMONIC1 HERE!!!"
   # push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q
-  add_key $KEY2 "season wing cost lunch leg absurd parent practice frost mistake choose leopard switch shrug wrist this pistol bright spike hurt fit meadow smart hazard"
+  add_key $KEY2 "!!!PUT MNEMONIC2 HERE!!!"
   # push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9
-  add_key $KEY3 "episode silver life middle tumble slogan genius loop divide alpha raven bridge drive calm club system school raccoon unfold marine oyster radio treat sphere"
+  add_key $KEY3 "!!!PUT MNEMONIC3 HERE!!!"
 
   BINARY init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM
 

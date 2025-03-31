@@ -98,6 +98,10 @@ endif
 build-windows-client: go.sum
 	GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind.exe ./cmd/pchaind
 
+# this does not compile because of WASM
+build-linux-client: go.sum
+	GOOS=linux GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind ./cmd/pchaind
+
 build-contract-tests-hooks:
 ifeq ($(OS),Windows_NT)
 	go build -mod=readonly $(BUILD_FLAGS) -o build/contract_tests.exe ./cmd/contract_tests

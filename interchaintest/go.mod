@@ -1,4 +1,4 @@
-module github.com/push.org/rollchain/interchaintest
+module github.com/push-protocol/push-chain
 
 go 1.22.11
 

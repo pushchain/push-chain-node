@@ -265,14 +265,17 @@ endif
 ###############################################################################
 
 ictest-basic:
+	@make local-image
 	@echo "Running basic e2e test"
 	@cd interchaintest && go test -race -v -run TestBasicChain .
 
 ictest-ibc:
+	@make local-image
 	@echo "Running IBC e2e test"
 	@cd interchaintest && go test -race -v -run TestIBCBasic .
 
 ictest-wasm:
+	@make local-image
 	@echo "Running cosmwasm e2e test"
 	@cd interchaintest && go test -race -v -run TestCosmWasmIntegration .
 

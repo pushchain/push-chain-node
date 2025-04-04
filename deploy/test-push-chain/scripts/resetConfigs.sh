@@ -66,6 +66,10 @@ python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "grpc.address" "0
 # Set the gRPC-web address (in [grpc-web]) – if your file uses an address key here
 python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "grpc-web.address" "0.0.0.0:$GRPC_WEB"
 
+# EVM endpoings
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "json-rpc.address" "0.0.0.0:8545"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "json-rpc.ws-address" "0.0.0.0:8546"
+
 # Rosetta API endpoint (in app.toml)
 python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "rosetta.address" "0.0.0.0:$ROSETTA"
 

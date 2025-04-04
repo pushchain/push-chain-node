@@ -2,7 +2,9 @@
 # Local test net (1 node)
 
 ```shell
-cd ../scripts
+cd push-chain
+make install
+cd push-chain/scripts
 CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
 ```
 

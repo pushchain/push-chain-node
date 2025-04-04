@@ -177,6 +177,11 @@ import (
 	feemarketkeeper "github.com/evmos/os/x/feemarket/keeper"
 	feemarkettypes "github.com/evmos/os/x/feemarket/types"
 	chainante "github.com/rollchains/pchain/app/ante"
+
+	exampleprecompile "github.com/rollchains/pchain/precompiles/example"
+	precompileexa "github.com/rollchains/pchain/x/precompileexa"
+	precompileexakeeper "github.com/rollchains/pchain/x/precompileexa/keeper"
+	precompileexatypes "github.com/rollchains/pchain/x/precompileexa/types"
 )
 
 const (
@@ -312,6 +317,8 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 
+	PrecompileexaKeeper precompileexakeeper.Keeper
+
 	// the module manager
 	ModuleManager      *module.Manager
 	BasicModuleManager module.BasicManager
@@ -423,6 +430,7 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
+		precompileexatypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -672,6 +680,13 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
+	app.PrecompileexaKeeper = precompileexakeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[precompileexatypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -723,6 +738,13 @@ func NewChainApp(
 		app.SlashingKeeper,
 		app.EvidenceKeeper,
 	)
+
+	examplePrecompile, err := exampleprecompile.NewPrecompile(app.PrecompileexaKeeper)
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate example precompile: %w", err))
+	}
+	corePrecompiles[examplePrecompile.Address()] = examplePrecompile
+
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,
 	)
@@ -976,6 +998,7 @@ func NewChainApp(
 		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
+		precompileexa.NewAppModule(appCodec, app.PrecompileexaKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1022,6 +1045,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
+		precompileexatypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1043,6 +1067,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
+		precompileexatypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1091,6 +1116,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
+		precompileexatypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1534,6 +1560,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
+	paramsKeeper.Subspace(precompileexatypes.ModuleName)
 
 	return paramsKeeper
 }

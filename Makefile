@@ -292,6 +292,22 @@ ictest-ratelimit:
 	@echo "Running rate limit e2e test"
 	@cd interchaintest && go test -race -v -run TestIBCRateLimit .
 
+ictest-blocktime:
+	@echo "Running blocktime e2e test"
+	@cd interchaintest && go test -race -v -run TestBlockTimeConfiguration .
+
+ictest-gasfees:
+	@echo "Running gas fees e2e test"
+	@cd interchaintest && go test -race -v -run TestGasFees .
+
+ictest-governance:
+	@echo "Running governance e2e test"
+	@cd interchaintest && go test -race -v -run TestGovernance .
+
+ictest-tokentransfer:
+	@echo "Running token transfer e2e test"
+	@cd interchaintest && go test -race -v -run TestTokenTransfer .
+
 ###############################################################################
 ###                                    testnet                              ###
 ###############################################################################

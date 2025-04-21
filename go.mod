@@ -1,4 +1,4 @@
-module github.com/rollchains/pchain
+module github.com/push-protocol/push-chain
 
 go 1.23.0
 

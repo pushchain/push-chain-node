@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
-
-	"github.com/rollchains/pchain/app/upgrades"
-	"github.com/rollchains/pchain/app/upgrades/noop"
+	"github.com/push-protocol/push-chain/app/upgrades"
+	"github.com/push-protocol/push-chain/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades

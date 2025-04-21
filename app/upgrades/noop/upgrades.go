@@ -5,13 +5,12 @@ import (
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
-
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/app/upgrades"
+	"github.com/push-protocol/push-chain/app/upgrades"
 )
 
-// NewUpgrade constructor
+// NewUpgrade creates an upgrade handler for no-op upgrade
 func NewUpgrade(semver string) upgrades.Upgrade {
 	return upgrades.Upgrade{
 		UpgradeName:          semver,

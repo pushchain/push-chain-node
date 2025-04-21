@@ -21,8 +21,8 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	evmoskeyring "github.com/evmos/os/crypto/keyring"
-	"github.com/rollchains/pchain/app"
-	"github.com/rollchains/pchain/app/params"
+	"github.com/push-protocol/push-chain/app"
+	"github.com/push-protocol/push-chain/app/params"
 )
 
 // NewRootCmd creates a new root command for chain app. It is called once in the

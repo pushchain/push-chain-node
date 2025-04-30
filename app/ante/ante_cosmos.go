@@ -11,37 +11,35 @@ import (
 	circuitante "cosmossdk.io/x/circuit/ante"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
+	cosmosante "github.com/rollchains/pchain/app/cosmos"
 )
 
 // newCosmosAnteHandler creates the default ante handler for Cosmos transactions
 func NewCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
-
 	return sdk.ChainAnteDecorators(
-		evmoscosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
-		evmoscosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
+		NewLoggingDecorator("RejectMessages", evmoscosmosante.NewRejectMessagesDecorator()),
+		NewLoggingDecorator("AuthzLimiter", evmoscosmosante.NewAuthzLimiterDecorator(
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
-		),
-
-		ante.NewSetUpContextDecorator(),
-		wasmkeeper.NewLimitSimulationGasDecorator(options.WasmConfig.SimulationGasLimit), // after setup context to enforce limits early
-		wasmkeeper.NewCountTXDecorator(options.TXCounterStoreService),
-		wasmkeeper.NewGasRegisterDecorator(options.WasmKeeper.GetGasRegister()),
-		circuitante.NewCircuitBreakerDecorator(options.CircuitKeeper),
-		ante.NewExtensionOptionsDecorator(options.ExtensionOptionChecker),
-		ante.NewValidateBasicDecorator(),
-		ante.NewTxTimeoutHeightDecorator(),
-		ante.NewValidateMemoDecorator(options.AccountKeeper),
-		evmoscosmosante.NewMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper),
-		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
-		ante.NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, options.TxFeeChecker),
-		// SetPubKeyDecorator must be called before all signature verification decorators
-		ante.NewSetPubKeyDecorator(options.AccountKeeper),
-		ante.NewValidateSigCountDecorator(options.AccountKeeper),
-		ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
-		ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler),
-		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
-		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
-		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper),
+		)),
+		NewLoggingDecorator("SetUpContext", ante.NewSetUpContextDecorator()),
+		NewLoggingDecorator("WasmLimitSimulationGas", wasmkeeper.NewLimitSimulationGasDecorator(options.WasmConfig.SimulationGasLimit)),
+		NewLoggingDecorator("WasmCountTX", wasmkeeper.NewCountTXDecorator(options.TXCounterStoreService)),
+		NewLoggingDecorator("WasmGasRegister", wasmkeeper.NewGasRegisterDecorator(options.WasmKeeper.GetGasRegister())),
+		NewLoggingDecorator("CircuitBreaker", circuitante.NewCircuitBreakerDecorator(options.CircuitKeeper)),
+		NewLoggingDecorator("ExtensionOptions", ante.NewExtensionOptionsDecorator(options.ExtensionOptionChecker)),
+		NewLoggingDecorator("ValidateBasic", ante.NewValidateBasicDecorator()),
+		NewLoggingDecorator("TxTimeoutHeight", ante.NewTxTimeoutHeightDecorator()),
+		NewLoggingDecorator("ValidateMemo", ante.NewValidateMemoDecorator(options.AccountKeeper)),
+		NewLoggingDecorator("MinGasPrice", cosmosante.NewMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper)),
+		NewLoggingDecorator("ConsumeGasForTxSize", ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper)),
+		NewLoggingDecorator("DeductFee", NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, options.TxFeeChecker)),
+		NewLoggingDecorator("SetPubKey", ante.NewSetPubKeyDecorator(options.AccountKeeper)),
+		NewLoggingDecorator("ValidateSigCount", ante.NewValidateSigCountDecorator(options.AccountKeeper)),
+		NewLoggingDecorator("SigGasConsume", ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer)),
+		NewLoggingDecorator("SigVerification", ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler)),
+		NewLoggingDecorator("IncrementSequence", ante.NewIncrementSequenceDecorator(options.AccountKeeper)),
+		NewLoggingDecorator("IBCRedundantRelay", ibcante.NewRedundantRelayDecorator(options.IBCKeeper)),
+		NewLoggingDecorator("GasWanted", evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper)),
 	)
 }

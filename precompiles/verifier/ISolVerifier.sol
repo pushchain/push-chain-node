@@ -14,5 +14,5 @@ interface ISolVerifier {
     /// @param msg The message that was signed
     /// @param signature The signature to verify
     /// @return isValid True if the signature is valid
-    function verifyEd25519(bytes calldata pubKey, bytes calldata msg, bytes calldata signature) external view returns (bool);
+    function verifyEd25519(bytes calldata pubKey, bytes32 msg, bytes calldata signature) external view returns (bool);
 }

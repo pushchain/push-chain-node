@@ -24,10 +24,12 @@ func (p Precompile) VerifyEd25519(
 		return nil, fmt.Errorf("invalid pubKey type")
 	}
 
-	msg, ok := args[1].([]byte)
+	// Convert the message bytes to a bytes32 slice
+	msgRaw, ok := args[1].([32]byte)
 	if !ok {
 		return nil, fmt.Errorf("invalid msg type")
 	}
+	msg := msgRaw[:]
 
 	signature, ok := args[2].([]byte)
 	if !ok {

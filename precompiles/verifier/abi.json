@@ -15,9 +15,9 @@
           "type": "bytes"
         },
         {
-          "internalType": "bytes",
+          "internalType": "bytes32",
           "name": "msg",
-          "type": "bytes"
+          "type": "bytes32"
         },
         {
           "internalType": "bytes",

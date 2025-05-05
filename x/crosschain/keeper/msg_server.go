@@ -27,3 +27,17 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 
 	return nil, ms.k.Params.Set(ctx, msg.Params)
 }
+
+// SetFactoryAddress implements types.MsgServer.
+func (ms msgServer) SetFactoryAddress(ctx context.Context, msg *types.MsgSetFactoryAddress) (*types.MsgSetFactoryAddressResponse, error) {
+	// ctx := sdk.UnwrapSDKContext(goCtx)
+	panic("SetFactoryAddress is unimplemented")
+	return &types.MsgSetFactoryAddressResponse{}, nil
+}
+
+// SetVerifierPrecompile implements types.MsgServer.
+func (ms msgServer) SetVerifierPrecompile(ctx context.Context, msg *types.MsgSetVerifierPrecompile) (*types.MsgSetVerifierPrecompileResponse, error) {
+	// ctx := sdk.UnwrapSDKContext(goCtx)
+	panic("SetVerifierPrecompile is unimplemented")
+	return &types.MsgSetVerifierPrecompileResponse{}, nil
+}

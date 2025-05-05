@@ -17,12 +17,6 @@ service Msg {
   // Since: cosmos-sdk 0.47
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 
-  // SetFactoryAddress defines a admin operation for setting the factory address.
-  // rpc SetFactoryAddress(MsgSetFactoryAddress) returns (MsgSetFactoryAddressResponse);
-
-  // SetVerifierPrecompile defines a admin operation for setting the verifier precompile.
-  // rpc SetVerifierPrecompile(MsgSetVerifierPrecompile) returns (MsgSetVerifierPrecompileResponse);
-
   // UpdateAdminParams defines a admin operation for updating the admin parameters.
   rpc UpdateAdminParams(MsgUpdateAdminParams) returns (MsgUpdateAdminParamsResponse);
 }
@@ -47,32 +41,6 @@ message MsgUpdateParams {
 //
 // Since: cosmos-sdk 0.47
 message MsgUpdateParamsResponse {}
-
-// // MsgFactoryAddress defines the Msg/FactoryAddress request type.
-// message MsgSetFactoryAddress {
-//   option (cosmos.msg.v1.signer) = "admin";
-
-//   // admin is the account that is authorized to set the factory address.
-//   string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-
-//   // factory_address is the address of the factory contract for smart account deployments.
-//   string factory_address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-// }
-
-// message MsgSetFactoryAddressResponse {}
-
-// // MsgVerifierPrecompile defines the Msg/VerifierPrecompile request type.
-// message MsgSetVerifierPrecompile {
-//   option (cosmos.msg.v1.signer) = "admin";
-
-//   // admin is the account that is authorized to set the verifier precompile.
-//   string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-
-//   // verifier_precompile is the address of the verifier precompile for smart account deployments.
-//   string verifier_precompile = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-// }
-
-// message MsgSetVerifierPrecompileResponse {}
 
 // MsgUpdateAdminParams is the message used by the admin to update AdminParams.
 message MsgUpdateAdminParams {

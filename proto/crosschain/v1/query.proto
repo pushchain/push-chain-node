@@ -13,16 +13,6 @@ service Query {
     option (google.api.http).get = "/crosschain/v1/params";
   }
 
-  // FactoryAddress queries the address of the factory contract.
-  // rpc FactoryAddress(QueryFactoryAddressRequest) returns (QueryFactoryAddressResponse) {
-  //   option (google.api.http).get = "/crosschain/v1/factory_address";
-  // }
-
-  // // VerifierPrecompile queries the address of the verifier precompile contract.
-  // rpc VerifierPrecompile(QueryVerifierPrecompileRequest) returns (QueryVerifierPrecompileResponse) {
-  //   option (google.api.http).get = "/crosschain/v1/verifier_precompile";
-  // }
-
   // AdminParams queries all admin-controlled parameters of the module.
   rpc AdminParams(QueryAdminParamsRequest) returns (QueryAdminParamsResponse) {
     option (google.api.http).get = "/crosschain/v1/admin_params";
@@ -37,24 +27,6 @@ message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
 }
-
-// // QueryFactoryAddressRequest is the request type for the Query/FactoryAddress RPC method.
-// message QueryFactoryAddressRequest {}
-
-// // QueryFactoryAddressResponse is the response type for the Query/FactoryAddress RPC method.
-// // It returns the address of the factory contract.
-// message QueryFactoryAddressResponse {
-//   string factory_address = 1;
-// }
-
-// // QueryVerifierPrecompileRequest is the request type for the Query/VerifierPrecompile RPC method.
-// message QueryVerifierPrecompileRequest {}
-
-// // QueryVerifierPrecompileResponse is the response type for the Query/VerifierPrecompile RPC method.
-// // It returns the address of the verifier precompile contract.
-// message QueryVerifierPrecompileResponse {
-//   string verifier_precompile = 1;
-// }
 
 // QueryAdminParamsRequest is the request type for the Query/AdminParams RPC method.
 message QueryAdminParamsRequest {}

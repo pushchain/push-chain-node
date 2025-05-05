@@ -23,6 +23,7 @@ type Keeper struct {
 	// state management
 	storeService storetypes.KVStoreService
 	Params       collections.Item[types.Params]
+	AdminParams  collections.Item[types.AdminParams]
 
 	authority string
 }
@@ -47,6 +48,7 @@ func NewKeeper(
 		logger:       logger,
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, "admin_params", codec.CollValue[types.AdminParams](cdc)),
 
 		authority: authority,
 	}

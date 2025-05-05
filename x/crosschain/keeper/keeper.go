@@ -11,9 +11,7 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	"cosmossdk.io/orm/model/ormdb"
 
-	apiv1 "github.com/rollchains/pchain/api/crosschain/v1"
 	"github.com/rollchains/pchain/x/crosschain/types"
 )
 
@@ -23,9 +21,8 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	Schema collections.Schema
-	Params collections.Item[types.Params]
-	OrmDB  apiv1.StateStore
+	storeService storetypes.KVStoreService
+	Params       collections.Item[types.Params]
 
 	authority string
 }
@@ -45,32 +42,14 @@ func NewKeeper(
 		authority = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	}
 
-	db, err := ormdb.NewModuleDB(&types.ORMModuleSchema, ormdb.ModuleDBOptions{KVStoreService: storeService})
-	if err != nil {
-		panic(err)
-	}
-
-	store, err := apiv1.NewStateStore(db)
-	if err != nil {
-		panic(err)
-	}
-
 	k := Keeper{
-		cdc:    cdc,
-		logger: logger,
-
-		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		OrmDB:  store,
+		cdc:          cdc,
+		logger:       logger,
+		storeService: storeService,
+		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 
 		authority: authority,
 	}
-
-	schema, err := sb.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	k.Schema = schema
 
 	return k
 }

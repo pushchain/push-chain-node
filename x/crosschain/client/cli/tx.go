@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/rollchains/pchain/x/crosschain/types"
 )
 
@@ -51,10 +52,57 @@ func MsgUpdateParams() *cobra.Command {
 				return err
 			}
 
+			adminAddr := args[1]
+
+			// Validate Bech32 address
+			_, err = sdk.AccAddressFromBech32(adminAddr)
+			if err != nil {
+				return err
+			}
+
 			msg := &types.MsgUpdateParams{
 				Authority: senderAddress.String(),
 				Params: types.Params{
 					SomeValue: someValue,
+					Admin:     adminAddr,
+				},
+			}
+
+			if err := msg.Validate(); err != nil {
+				return err
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// Returns a CLI command handler for registering a
+// contract for the module.
+func MsgUpdateAdminParams() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-admin-params [some-value]",
+		Short: "Update the admin params (must be submitted from the admin)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			senderAddress := cliCtx.GetFromAddress()
+
+			factoryAddr := args[0]
+			verifierPrecompile := args[1]
+
+			msg := &types.MsgUpdateAdminParams{
+				Admin: senderAddress.String(),
+				AdminParams: types.AdminParams{
+					FactoryAddress:     factoryAddr,
+					VerifierPrecompile: verifierPrecompile,
 				},
 			}
 

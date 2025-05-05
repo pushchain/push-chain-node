@@ -14,7 +14,12 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "Params",
 					Use:       "params",
-					Short:     "Query the current consensus parameters",
+					Short:     "Query the current gov gated parameters",
+				},
+				{
+					RpcMethod: "AdminParams",
+					Use:       "admin-params",
+					Short:     "Query the current admin parameters",
 				},
 			},
 		},
@@ -23,7 +28,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 			RpcCommandOptions: []*autocliv1.RpcCommandOptions{
 				{
 					RpcMethod: "UpdateParams",
-					Skip:      false, // set to true if authority gated
+					Skip:      false, // set to true if authority gated (to hide from cli)
+				},
+				{
+					RpcMethod: "UpdateAdminParams",
+					Skip:      false, // set to true if authority gated (to hide from cli)
 				},
 			},
 		},

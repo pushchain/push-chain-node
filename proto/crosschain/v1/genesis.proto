@@ -3,6 +3,7 @@ package crosschain.v1;
 
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
+import "crosschain/v1/params.proto";
 
 option go_package = "github.com/rollchains/pchain/x/crosschain/types";
 
@@ -10,16 +11,4 @@ option go_package = "github.com/rollchains/pchain/x/crosschain/types";
 message GenesisState {
   // Params defines all the parameters of the module.
   Params params = 1 [(gogoproto.nullable) = false];
-}
-
-// Params defines the set of module parameters.
-message Params {
-  option (amino.name) = "crosschain/params";
-  option (gogoproto.equal) = true;
-  option (gogoproto.goproto_stringer) = false;
-
-  // The admin account of the crosschain module.
-  string admin = 1;
-
-  bool some_value = 2;
 }

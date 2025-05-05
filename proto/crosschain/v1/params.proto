@@ -1,0 +1,32 @@
+syntax = "proto3";
+package crosschain.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/rollchains/pchain/x/crosschain/types";
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "crosschain/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the crosschain module.
+  string admin = 1;
+
+  bool some_value = 2;
+}
+
+// AdminParams defines parameters only the admin can update.
+message AdminParams {
+  option (amino.name) = "crosschain/admin_params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The factory address (EVM).
+  string factory_address = 1;
+
+  // The verifier precompile contract address (EVM).
+  string verifier_precompile = 2;
+}

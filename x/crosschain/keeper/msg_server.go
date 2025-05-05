@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 
+	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
@@ -28,16 +29,32 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return nil, ms.k.Params.Set(ctx, msg.Params)
 }
 
-// SetFactoryAddress implements types.MsgServer.
-func (ms msgServer) SetFactoryAddress(ctx context.Context, msg *types.MsgSetFactoryAddress) (*types.MsgSetFactoryAddressResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("SetFactoryAddress is unimplemented")
-	return &types.MsgSetFactoryAddressResponse{}, nil
-}
+// // SetFactoryAddress implements types.MsgServer.
+// func (ms msgServer) SetFactoryAddress(ctx context.Context, msg *types.MsgSetFactoryAddress) (*types.MsgSetFactoryAddressResponse, error) {
+// 	// ctx := sdk.UnwrapSDKContext(goCtx)
+// 	panic("SetFactoryAddress is unimplemented")
+// 	return &types.MsgSetFactoryAddressResponse{}, nil
+// }
 
-// SetVerifierPrecompile implements types.MsgServer.
-func (ms msgServer) SetVerifierPrecompile(ctx context.Context, msg *types.MsgSetVerifierPrecompile) (*types.MsgSetVerifierPrecompileResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("SetVerifierPrecompile is unimplemented")
-	return &types.MsgSetVerifierPrecompileResponse{}, nil
+// // SetVerifierPrecompile implements types.MsgServer.
+// func (ms msgServer) SetVerifierPrecompile(ctx context.Context, msg *types.MsgSetVerifierPrecompile) (*types.MsgSetVerifierPrecompileResponse, error) {
+// 	// ctx := sdk.UnwrapSDKContext(goCtx)
+// 	panic("SetVerifierPrecompile is unimplemented")
+// 	return &types.MsgSetVerifierPrecompileResponse{}, nil
+// }
+
+// UpdateAdminParams implements types.MsgServer.
+func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateAdminParams) (*types.MsgUpdateAdminParamsResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	// Check if the sender is the admin (from params)
+	if params.Admin != msg.Admin {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid admin; expected admin address %s, got %s", params.Admin, msg.Admin)
+	}
+
+	return nil, ms.k.AdminParams.Set(ctx, msg.AdminParams)
 }

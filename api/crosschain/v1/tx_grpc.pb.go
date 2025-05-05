@@ -19,9 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName          = "/crosschain.v1.Msg/UpdateParams"
-	Msg_SetFactoryAddress_FullMethodName     = "/crosschain.v1.Msg/SetFactoryAddress"
-	Msg_SetVerifierPrecompile_FullMethodName = "/crosschain.v1.Msg/SetVerifierPrecompile"
+	Msg_UpdateParams_FullMethodName      = "/crosschain.v1.Msg/UpdateParams"
+	Msg_UpdateAdminParams_FullMethodName = "/crosschain.v1.Msg/UpdateAdminParams"
 )
 
 // MsgClient is the client API for Msg service.
@@ -32,10 +31,8 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// SetFactoryAddress defines a admin operation for setting the factory address.
-	SetFactoryAddress(ctx context.Context, in *MsgSetFactoryAddress, opts ...grpc.CallOption) (*MsgSetFactoryAddressResponse, error)
-	// SetVerifierPrecompile defines a admin operation for setting the verifier precompile.
-	SetVerifierPrecompile(ctx context.Context, in *MsgSetVerifierPrecompile, opts ...grpc.CallOption) (*MsgSetVerifierPrecompileResponse, error)
+	// UpdateAdminParams defines a admin operation for updating the admin parameters.
+	UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error)
 }
 
 type msgClient struct {
@@ -55,18 +52,9 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
-func (c *msgClient) SetFactoryAddress(ctx context.Context, in *MsgSetFactoryAddress, opts ...grpc.CallOption) (*MsgSetFactoryAddressResponse, error) {
-	out := new(MsgSetFactoryAddressResponse)
-	err := c.cc.Invoke(ctx, Msg_SetFactoryAddress_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) SetVerifierPrecompile(ctx context.Context, in *MsgSetVerifierPrecompile, opts ...grpc.CallOption) (*MsgSetVerifierPrecompileResponse, error) {
-	out := new(MsgSetVerifierPrecompileResponse)
-	err := c.cc.Invoke(ctx, Msg_SetVerifierPrecompile_FullMethodName, in, out, opts...)
+func (c *msgClient) UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error) {
+	out := new(MsgUpdateAdminParamsResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateAdminParams_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +69,8 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// SetFactoryAddress defines a admin operation for setting the factory address.
-	SetFactoryAddress(context.Context, *MsgSetFactoryAddress) (*MsgSetFactoryAddressResponse, error)
-	// SetVerifierPrecompile defines a admin operation for setting the verifier precompile.
-	SetVerifierPrecompile(context.Context, *MsgSetVerifierPrecompile) (*MsgSetVerifierPrecompileResponse, error)
+	// UpdateAdminParams defines a admin operation for updating the admin parameters.
+	UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -95,11 +81,8 @@ type UnimplementedMsgServer struct {
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
 }
-func (UnimplementedMsgServer) SetFactoryAddress(context.Context, *MsgSetFactoryAddress) (*MsgSetFactoryAddressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetFactoryAddress not implemented")
-}
-func (UnimplementedMsgServer) SetVerifierPrecompile(context.Context, *MsgSetVerifierPrecompile) (*MsgSetVerifierPrecompileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetVerifierPrecompile not implemented")
+func (UnimplementedMsgServer) UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAdminParams not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -132,38 +115,20 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_SetFactoryAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgSetFactoryAddress)
+func _Msg_UpdateAdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateAdminParams)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).SetFactoryAddress(ctx, in)
+		return srv.(MsgServer).UpdateAdminParams(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Msg_SetFactoryAddress_FullMethodName,
+		FullMethod: Msg_UpdateAdminParams_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).SetFactoryAddress(ctx, req.(*MsgSetFactoryAddress))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_SetVerifierPrecompile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgSetVerifierPrecompile)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).SetVerifierPrecompile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_SetVerifierPrecompile_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).SetVerifierPrecompile(ctx, req.(*MsgSetVerifierPrecompile))
+		return srv.(MsgServer).UpdateAdminParams(ctx, req.(*MsgUpdateAdminParams))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -180,12 +145,8 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_UpdateParams_Handler,
 		},
 		{
-			MethodName: "SetFactoryAddress",
-			Handler:    _Msg_SetFactoryAddress_Handler,
-		},
-		{
-			MethodName: "SetVerifierPrecompile",
-			Handler:    _Msg_SetVerifierPrecompile_Handler,
+			MethodName: "UpdateAdminParams",
+			Handler:    _Msg_UpdateAdminParams_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

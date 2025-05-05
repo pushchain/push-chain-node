@@ -19,9 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName             = "/crosschain.v1.Query/Params"
-	Query_FactoryAddress_FullMethodName     = "/crosschain.v1.Query/FactoryAddress"
-	Query_VerifierPrecompile_FullMethodName = "/crosschain.v1.Query/VerifierPrecompile"
+	Query_Params_FullMethodName      = "/crosschain.v1.Query/Params"
+	Query_AdminParams_FullMethodName = "/crosschain.v1.Query/AdminParams"
 )
 
 // QueryClient is the client API for Query service.
@@ -30,10 +29,8 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// FactoryAddress queries the address of the factory contract.
-	FactoryAddress(ctx context.Context, in *QueryFactoryAddressRequest, opts ...grpc.CallOption) (*QueryFactoryAddressResponse, error)
-	// VerifierPrecompile queries the address of the verifier precompile contract.
-	VerifierPrecompile(ctx context.Context, in *QueryVerifierPrecompileRequest, opts ...grpc.CallOption) (*QueryVerifierPrecompileResponse, error)
+	// AdminParams queries all admin-controlled parameters of the module.
+	AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error)
 }
 
 type queryClient struct {
@@ -53,18 +50,9 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
-func (c *queryClient) FactoryAddress(ctx context.Context, in *QueryFactoryAddressRequest, opts ...grpc.CallOption) (*QueryFactoryAddressResponse, error) {
-	out := new(QueryFactoryAddressResponse)
-	err := c.cc.Invoke(ctx, Query_FactoryAddress_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *queryClient) VerifierPrecompile(ctx context.Context, in *QueryVerifierPrecompileRequest, opts ...grpc.CallOption) (*QueryVerifierPrecompileResponse, error) {
-	out := new(QueryVerifierPrecompileResponse)
-	err := c.cc.Invoke(ctx, Query_VerifierPrecompile_FullMethodName, in, out, opts...)
+func (c *queryClient) AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error) {
+	out := new(QueryAdminParamsResponse)
+	err := c.cc.Invoke(ctx, Query_AdminParams_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +65,8 @@ func (c *queryClient) VerifierPrecompile(ctx context.Context, in *QueryVerifierP
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// FactoryAddress queries the address of the factory contract.
-	FactoryAddress(context.Context, *QueryFactoryAddressRequest) (*QueryFactoryAddressResponse, error)
-	// VerifierPrecompile queries the address of the verifier precompile contract.
-	VerifierPrecompile(context.Context, *QueryVerifierPrecompileRequest) (*QueryVerifierPrecompileResponse, error)
+	// AdminParams queries all admin-controlled parameters of the module.
+	AdminParams(context.Context, *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -91,11 +77,8 @@ type UnimplementedQueryServer struct {
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
 }
-func (UnimplementedQueryServer) FactoryAddress(context.Context, *QueryFactoryAddressRequest) (*QueryFactoryAddressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FactoryAddress not implemented")
-}
-func (UnimplementedQueryServer) VerifierPrecompile(context.Context, *QueryVerifierPrecompileRequest) (*QueryVerifierPrecompileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method VerifierPrecompile not implemented")
+func (UnimplementedQueryServer) AdminParams(context.Context, *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AdminParams not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -128,38 +111,20 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_FactoryAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryFactoryAddressRequest)
+func _Query_AdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAdminParamsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).FactoryAddress(ctx, in)
+		return srv.(QueryServer).AdminParams(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_FactoryAddress_FullMethodName,
+		FullMethod: Query_AdminParams_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).FactoryAddress(ctx, req.(*QueryFactoryAddressRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Query_VerifierPrecompile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryVerifierPrecompileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).VerifierPrecompile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_VerifierPrecompile_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).VerifierPrecompile(ctx, req.(*QueryVerifierPrecompileRequest))
+		return srv.(QueryServer).AdminParams(ctx, req.(*QueryAdminParamsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -176,12 +141,8 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Query_Params_Handler,
 		},
 		{
-			MethodName: "FactoryAddress",
-			Handler:    _Query_FactoryAddress_Handler,
-		},
-		{
-			MethodName: "VerifierPrecompile",
-			Handler:    _Query_VerifierPrecompile_Handler,
+			MethodName: "AdminParams",
+			Handler:    _Query_AdminParams_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

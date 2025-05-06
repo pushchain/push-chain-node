@@ -26,6 +26,7 @@ type Keeper struct {
 	AdminParams  collections.Item[types.AdminParams]
 
 	authority string
+	evmKeeper types.EVMKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -34,6 +35,7 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
+	evmKeeper types.EVMKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -51,6 +53,7 @@ func NewKeeper(
 		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, "admin_params", codec.CollValue[types.AdminParams](cdc)),
 
 		authority: authority,
+		evmKeeper: evmKeeper,
 	}
 
 	return k

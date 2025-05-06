@@ -26,6 +26,7 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	evmkeeper "github.com/evmos/os/x/evm/keeper"
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/crosschain"
 	"github.com/rollchains/pchain/x/crosschain/keeper"
@@ -86,10 +87,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{})
 
 	return f
 }

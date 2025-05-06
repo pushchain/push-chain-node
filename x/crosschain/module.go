@@ -43,17 +43,20 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper keeper.Keeper
+	keeper    keeper.Keeper
+	evmKeeper types.EVMKeeper
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
+	evmKeeper types.EVMKeeper,
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic: AppModuleBasic{cdc: cdc},
 		keeper:         keeper,
+		evmKeeper:      evmKeeper,
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 
 	modulev1 "github.com/rollchains/pchain/api/crosschain/module/v1"
 	"github.com/rollchains/pchain/x/crosschain/keeper"
+	"github.com/rollchains/pchain/x/crosschain/types"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -44,6 +45,7 @@ type ModuleInputs struct {
 
 	StakingKeeper  stakingkeeper.Keeper
 	SlashingKeeper slashingkeeper.Keeper
+	EVMKeeper      types.EVMKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,8 +58,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
-	m := NewAppModule(in.Cdc, k)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.EVMKeeper)
+	m := NewAppModule(in.Cdc, k, in.EVMKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

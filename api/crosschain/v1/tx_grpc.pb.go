@@ -22,6 +22,7 @@ const (
 	Msg_UpdateParams_FullMethodName      = "/crosschain.v1.Msg/UpdateParams"
 	Msg_UpdateAdminParams_FullMethodName = "/crosschain.v1.Msg/UpdateAdminParams"
 	Msg_DeployNMSC_FullMethodName        = "/crosschain.v1.Msg/DeployNMSC"
+	Msg_MintPush_FullMethodName          = "/crosschain.v1.Msg/MintPush"
 )
 
 // MsgClient is the client API for Msg service.
@@ -36,6 +37,8 @@ type MsgClient interface {
 	UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error)
 	// DeployNMSC defines a message to deploy a new smart account.
 	DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error)
+	// MintPush defines a message to mint PUSH tokens to a smart account,
+	MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error)
 }
 
 type msgClient struct {
@@ -73,6 +76,15 @@ func (c *msgClient) DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...g
 	return out, nil
 }
 
+func (c *msgClient) MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error) {
+	out := new(MsgMintPushResponse)
+	err := c.cc.Invoke(ctx, Msg_MintPush_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -85,6 +97,8 @@ type MsgServer interface {
 	UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error)
 	// DeployNMSC defines a message to deploy a new smart account.
 	DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error)
+	// MintPush defines a message to mint PUSH tokens to a smart account,
+	MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -100,6 +114,9 @@ func (UnimplementedMsgServer) UpdateAdminParams(context.Context, *MsgUpdateAdmin
 }
 func (UnimplementedMsgServer) DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeployNMSC not implemented")
+}
+func (UnimplementedMsgServer) MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MintPush not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -168,6 +185,24 @@ func _Msg_DeployNMSC_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_MintPush_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgMintPush)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).MintPush(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_MintPush_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).MintPush(ctx, req.(*MsgMintPush))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,6 +221,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeployNMSC",
 			Handler:    _Msg_DeployNMSC_Handler,
+		},
+		{
+			MethodName: "MintPush",
+			Handler:    _Msg_MintPush_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

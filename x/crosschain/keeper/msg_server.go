@@ -145,3 +145,10 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 		SmartAccount: receipt.Ret,
 	}, nil
 }
+
+// MintPush implements types.MsgServer.
+func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
+	// ctx := sdk.UnwrapSDKContext(goCtx)
+	panic("MintPush is unimplemented")
+	return &types.MsgMintPushResponse{}, nil
+}

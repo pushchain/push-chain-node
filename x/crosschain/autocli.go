@@ -34,6 +34,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "UpdateAdminParams",
 					Skip:      false, // set to true if authority gated (to hide from cli)
 				},
+				{
+					RpcMethod: "DeployNMSC",
+					Use:       "deploy-nmsc [user-key] [caip-string] [owner-type]",
+				},
 			},
 		},
 	}

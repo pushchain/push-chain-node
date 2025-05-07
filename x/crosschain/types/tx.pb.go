@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
 	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
+	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
@@ -223,42 +224,174 @@ func (m *MsgUpdateAdminParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateAdminParamsResponse proto.InternalMessageInfo
 
+// MsgDeployNMSC is the message used to deploy a new smart account.
+type MsgDeployNMSC struct {
+	// signer is the Cosmos address initiating the tx (used for tx signing)
+	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	// userKey is the EVM address (as bytes) that will become the smart account owner
+	UserKey string `protobuf:"bytes,2,opt,name=user_key,json=userKey,proto3" json:"user_key,omitempty"`
+	// caip_string is used for generating deterministic salt for the smart account
+	CaipString string `protobuf:"bytes,3,opt,name=caip_string,json=caipString,proto3" json:"caip_string,omitempty"`
+	// owner_type corresponds to the SmartAccountV1.OwnerType enum used in the contract
+	OwnerType uint32 `protobuf:"varint,4,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
+}
+
+func (m *MsgDeployNMSC) Reset()         { *m = MsgDeployNMSC{} }
+func (m *MsgDeployNMSC) String() string { return proto.CompactTextString(m) }
+func (*MsgDeployNMSC) ProtoMessage()    {}
+func (*MsgDeployNMSC) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0f25e0a13815164b, []int{4}
+}
+func (m *MsgDeployNMSC) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgDeployNMSC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgDeployNMSC.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgDeployNMSC) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeployNMSC.Merge(m, src)
+}
+func (m *MsgDeployNMSC) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgDeployNMSC) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeployNMSC.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgDeployNMSC proto.InternalMessageInfo
+
+func (m *MsgDeployNMSC) GetSigner() string {
+	if m != nil {
+		return m.Signer
+	}
+	return ""
+}
+
+func (m *MsgDeployNMSC) GetUserKey() string {
+	if m != nil {
+		return m.UserKey
+	}
+	return ""
+}
+
+func (m *MsgDeployNMSC) GetCaipString() string {
+	if m != nil {
+		return m.CaipString
+	}
+	return ""
+}
+
+func (m *MsgDeployNMSC) GetOwnerType() uint32 {
+	if m != nil {
+		return m.OwnerType
+	}
+	return 0
+}
+
+// MsgDeployNMSCResponse defines the response for MsgDeployNMSC.
+type MsgDeployNMSCResponse struct {
+	// smart_account is the address of the newly deployed smart account
+	SmartAccount []byte `protobuf:"bytes,1,opt,name=smart_account,json=smartAccount,proto3" json:"smart_account,omitempty"`
+}
+
+func (m *MsgDeployNMSCResponse) Reset()         { *m = MsgDeployNMSCResponse{} }
+func (m *MsgDeployNMSCResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgDeployNMSCResponse) ProtoMessage()    {}
+func (*MsgDeployNMSCResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0f25e0a13815164b, []int{5}
+}
+func (m *MsgDeployNMSCResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgDeployNMSCResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgDeployNMSCResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgDeployNMSCResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeployNMSCResponse.Merge(m, src)
+}
+func (m *MsgDeployNMSCResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgDeployNMSCResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeployNMSCResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgDeployNMSCResponse proto.InternalMessageInfo
+
+func (m *MsgDeployNMSCResponse) GetSmartAccount() []byte {
+	if m != nil {
+		return m.SmartAccount
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "crosschain.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "crosschain.v1.MsgUpdateParamsResponse")
 	proto.RegisterType((*MsgUpdateAdminParams)(nil), "crosschain.v1.MsgUpdateAdminParams")
 	proto.RegisterType((*MsgUpdateAdminParamsResponse)(nil), "crosschain.v1.MsgUpdateAdminParamsResponse")
+	proto.RegisterType((*MsgDeployNMSC)(nil), "crosschain.v1.MsgDeployNMSC")
+	proto.RegisterType((*MsgDeployNMSCResponse)(nil), "crosschain.v1.MsgDeployNMSCResponse")
 }
 
 func init() { proto.RegisterFile("crosschain/v1/tx.proto", fileDescriptor_0f25e0a13815164b) }
 
 var fileDescriptor_0f25e0a13815164b = []byte{
-	// 400 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4b, 0x2e, 0xca, 0x2f,
-	0x2e, 0x4e, 0xce, 0x48, 0xcc, 0xcc, 0xd3, 0x2f, 0x33, 0xd4, 0x2f, 0xa9, 0xd0, 0x2b, 0x28, 0xca,
-	0x2f, 0xc9, 0x17, 0xe2, 0x45, 0x88, 0xeb, 0x95, 0x19, 0x4a, 0x89, 0x27, 0xe7, 0x17, 0xe7, 0xe6,
-	0x17, 0xeb, 0xe7, 0x16, 0xa7, 0x83, 0x94, 0xe5, 0x16, 0xa7, 0x43, 0xd4, 0x49, 0x49, 0xa1, 0xea,
-	0x2f, 0x48, 0x2c, 0x4a, 0xcc, 0x2d, 0x86, 0xca, 0x89, 0xa4, 0xe7, 0xa7, 0xe7, 0x83, 0x99, 0xfa,
-	0x20, 0x16, 0x54, 0x54, 0x12, 0x62, 0x54, 0x3c, 0x44, 0x02, 0xc2, 0x81, 0x48, 0x29, 0xf5, 0x31,
-	0x72, 0xf1, 0xfb, 0x16, 0xa7, 0x87, 0x16, 0xa4, 0x24, 0x96, 0xa4, 0x06, 0x80, 0x8d, 0x12, 0x32,
-	0xe3, 0xe2, 0x4c, 0x2c, 0x2d, 0xc9, 0xc8, 0x2f, 0xca, 0x2c, 0xa9, 0x94, 0x60, 0x54, 0x60, 0xd4,
-	0xe0, 0x74, 0x92, 0xb8, 0xb4, 0x45, 0x57, 0x04, 0xaa, 0xd1, 0x31, 0x25, 0xa5, 0x28, 0xb5, 0xb8,
-	0x38, 0xb8, 0xa4, 0x28, 0x33, 0x2f, 0x3d, 0x08, 0xa1, 0x54, 0xc8, 0x98, 0x8b, 0x0d, 0xe2, 0x18,
-	0x09, 0x26, 0x05, 0x46, 0x0d, 0x6e, 0x23, 0x51, 0x3d, 0x14, 0x1f, 0xe9, 0x41, 0x8c, 0x77, 0x62,
-	0x39, 0x71, 0x4f, 0x9e, 0x21, 0x08, 0xaa, 0xd4, 0x8a, 0xaf, 0xe9, 0xf9, 0x06, 0x2d, 0x84, 0x21,
-	0x4a, 0x92, 0x5c, 0xe2, 0x68, 0xee, 0x09, 0x4a, 0x2d, 0x2e, 0xc8, 0xcf, 0x2b, 0x4e, 0x55, 0x9a,
-	0xce, 0xc8, 0x25, 0x02, 0x97, 0x73, 0x4c, 0xc9, 0xcd, 0xcc, 0x83, 0x3a, 0x58, 0x8f, 0x8b, 0x35,
-	0x11, 0xc4, 0x25, 0xe8, 0x58, 0x88, 0x32, 0x21, 0x67, 0x2e, 0x1e, 0x30, 0x23, 0x1e, 0xc5, 0xb9,
-	0x52, 0x68, 0xce, 0x45, 0xb2, 0x01, 0xea, 0x66, 0xee, 0x44, 0x84, 0x90, 0x15, 0x17, 0xc8, 0xe1,
-	0x10, 0x03, 0x95, 0xe4, 0xb8, 0x64, 0xb0, 0x39, 0x0c, 0xe6, 0x72, 0xa3, 0xd3, 0x8c, 0x5c, 0xcc,
-	0xbe, 0xc5, 0xe9, 0x42, 0x61, 0x5c, 0x3c, 0x28, 0x21, 0x2d, 0x87, 0x66, 0x25, 0x9a, 0xcf, 0xa5,
-	0xd4, 0xf0, 0xcb, 0xc3, 0xcc, 0x17, 0x4a, 0xe5, 0x12, 0xc4, 0x0c, 0x15, 0x65, 0x5c, 0x9a, 0x91,
-	0x14, 0x49, 0x69, 0x13, 0xa1, 0x08, 0x66, 0x8d, 0x14, 0x6b, 0xc3, 0xf3, 0x0d, 0x5a, 0x8c, 0x4e,
-	0x9e, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x84, 0xc7,
-	0x72, 0x0c, 0x17, 0x1e, 0xcb, 0x31, 0xdc, 0x78, 0x2c, 0xc7, 0x10, 0xa5, 0x9f, 0x9e, 0x59, 0x92,
-	0x51, 0x9a, 0xa4, 0x97, 0x9c, 0x9f, 0xab, 0x5f, 0x94, 0x9f, 0x93, 0x03, 0x36, 0xb6, 0x58, 0xbf,
-	0x00, 0x92, 0x58, 0x2b, 0xf4, 0x91, 0x52, 0x6e, 0x49, 0x65, 0x41, 0x6a, 0x71, 0x12, 0x1b, 0x38,
-	0x15, 0x1a, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x65, 0x93, 0xf8, 0xe4, 0x14, 0x03, 0x00, 0x00,
+	// 576 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x94, 0x3f, 0x6f, 0xd3, 0x4e,
+	0x18, 0xc7, 0xe3, 0xfe, 0xfb, 0xfd, 0xf2, 0x34, 0x11, 0xaa, 0x95, 0x52, 0xc7, 0x2a, 0x4e, 0x94,
+	0x22, 0x14, 0x05, 0xd5, 0xa6, 0xad, 0xc4, 0x10, 0xb1, 0x24, 0x65, 0x41, 0x28, 0xa8, 0x72, 0x81,
+	0x81, 0xc5, 0xba, 0x3a, 0x27, 0xc7, 0x22, 0xf6, 0x59, 0x77, 0x4e, 0xa9, 0x37, 0xc4, 0xc8, 0xc4,
+	0x1b, 0xe0, 0x25, 0x20, 0x65, 0x60, 0x63, 0x47, 0x1d, 0x2b, 0x26, 0x26, 0x84, 0x92, 0x21, 0x6f,
+	0x03, 0xf9, 0xce, 0x8d, 0xed, 0xb4, 0xb4, 0x2c, 0xd6, 0xdd, 0xf7, 0xfb, 0x3c, 0xdf, 0xbb, 0x8f,
+	0x9e, 0x93, 0xe1, 0xae, 0x4d, 0x09, 0x63, 0xf6, 0x00, 0xb9, 0xbe, 0x71, 0xba, 0x67, 0x84, 0x67,
+	0x7a, 0x40, 0x49, 0x48, 0xe4, 0x72, 0xaa, 0xeb, 0xa7, 0x7b, 0xea, 0x06, 0xf2, 0x5c, 0x9f, 0x18,
+	0xfc, 0x2b, 0x2a, 0xd4, 0x2d, 0x9b, 0x30, 0x8f, 0x30, 0xc3, 0x63, 0x4e, 0xdc, 0xe9, 0x31, 0x27,
+	0x31, 0xd4, 0x7c, 0x64, 0x80, 0x28, 0xf2, 0x58, 0xe2, 0x55, 0x1c, 0xe2, 0x10, 0xbe, 0x34, 0xe2,
+	0x55, 0xa2, 0x56, 0x45, 0x94, 0x25, 0x0c, 0xb1, 0x11, 0x56, 0xe3, 0x8b, 0x04, 0x77, 0x7a, 0xcc,
+	0x79, 0x15, 0xf4, 0x51, 0x88, 0x8f, 0x78, 0x94, 0xfc, 0x18, 0x8a, 0x68, 0x14, 0x0e, 0x08, 0x75,
+	0xc3, 0x48, 0x91, 0xea, 0x52, 0xb3, 0xd8, 0x55, 0x7e, 0x7c, 0xdd, 0xad, 0x24, 0x8d, 0x9d, 0x7e,
+	0x9f, 0x62, 0xc6, 0x8e, 0x43, 0xea, 0xfa, 0x8e, 0x99, 0x96, 0xca, 0x07, 0xb0, 0x26, 0x2e, 0xa3,
+	0x2c, 0xd5, 0xa5, 0xe6, 0xfa, 0xfe, 0xa6, 0x9e, 0x83, 0xd4, 0x45, 0x7c, 0x77, 0xe5, 0xfc, 0x57,
+	0xad, 0x60, 0x26, 0xa5, 0xed, 0xdd, 0x0f, 0xb3, 0x71, 0x2b, 0x0d, 0xf9, 0x38, 0x1b, 0xb7, 0xb2,
+	0x80, 0x0b, 0x77, 0x6b, 0x54, 0x61, 0x6b, 0x41, 0x32, 0x31, 0x0b, 0x88, 0xcf, 0x70, 0xe3, 0x9b,
+	0x04, 0x95, 0xb9, 0xd7, 0xe9, 0x7b, 0xae, 0x9f, 0xf0, 0xe8, 0xb0, 0x8a, 0xe2, 0xed, 0xad, 0x2c,
+	0xa2, 0x4c, 0x3e, 0x84, 0x12, 0x5f, 0x58, 0x39, 0x1a, 0x75, 0x81, 0x26, 0x73, 0x42, 0x82, 0xb4,
+	0x8e, 0x52, 0xa9, 0xad, 0xc7, 0x5c, 0x22, 0x30, 0x66, 0xaa, 0x5d, 0xc7, 0x94, 0x89, 0x68, 0x68,
+	0xb0, 0x7d, 0x9d, 0x3e, 0xa7, 0xfb, 0x2e, 0x41, 0xb9, 0xc7, 0x9c, 0xa7, 0x38, 0x18, 0x92, 0xe8,
+	0x45, 0xef, 0xf8, 0x50, 0x7e, 0x04, 0x6b, 0xcc, 0x75, 0x7c, 0x4c, 0x6f, 0xe5, 0x4a, 0xea, 0xe4,
+	0x2a, 0xfc, 0x3f, 0x62, 0x98, 0x5a, 0x6f, 0x71, 0xc4, 0xa1, 0x8a, 0xe6, 0x7f, 0xf1, 0xfe, 0x39,
+	0x8e, 0xe4, 0x1a, 0xac, 0xdb, 0xc8, 0x0d, 0x2c, 0xc6, 0x3b, 0x94, 0x65, 0xee, 0x42, 0x2c, 0x89,
+	0x0c, 0xf9, 0x1e, 0x00, 0x79, 0xe7, 0x63, 0x6a, 0x85, 0x51, 0x80, 0x95, 0x95, 0xba, 0xd4, 0x2c,
+	0x9b, 0x45, 0xae, 0xbc, 0x8c, 0x02, 0xdc, 0x6e, 0xc6, 0xb8, 0xc9, 0x39, 0x31, 0xaf, 0x92, 0xe7,
+	0x4d, 0xaf, 0xdd, 0x78, 0x02, 0x9b, 0x39, 0xe1, 0x92, 0x50, 0xde, 0x81, 0x32, 0xf3, 0x10, 0x0d,
+	0x2d, 0x64, 0xdb, 0x64, 0xe4, 0x87, 0x1c, 0xab, 0x64, 0x96, 0xb8, 0xd8, 0x11, 0xda, 0xfe, 0xe7,
+	0x25, 0x58, 0xee, 0x31, 0x47, 0x7e, 0x0d, 0xa5, 0xdc, 0x9b, 0xd5, 0x16, 0xa6, 0xb3, 0xf0, 0x48,
+	0xd4, 0x07, 0x37, 0xfb, 0xf3, 0x4b, 0x60, 0xd8, 0xb8, 0xfa, 0x80, 0x76, 0xfe, 0xd6, 0x9c, 0x29,
+	0x52, 0x1f, 0xfe, 0x43, 0xd1, 0xfc, 0x98, 0x23, 0x80, 0xcc, 0x24, 0xb7, 0xaf, 0xb6, 0xa6, 0xae,
+	0x7a, 0xff, 0x26, 0xf7, 0x32, 0x51, 0x5d, 0x7d, 0x3f, 0x1b, 0xb7, 0xa4, 0xee, 0xb3, 0xf3, 0x89,
+	0x26, 0x5d, 0x4c, 0x34, 0xe9, 0xf7, 0x44, 0x93, 0x3e, 0x4d, 0xb5, 0xc2, 0xc5, 0x54, 0x2b, 0xfc,
+	0x9c, 0x6a, 0x85, 0x37, 0x86, 0xe3, 0x86, 0x83, 0xd1, 0x89, 0x6e, 0x13, 0xcf, 0xa0, 0x64, 0x38,
+	0xe4, 0x79, 0xcc, 0x08, 0xc4, 0x8c, 0xce, 0x8c, 0xcc, 0xc0, 0xe2, 0x11, 0xb3, 0x93, 0x35, 0xfe,
+	0x87, 0x38, 0xf8, 0x13, 0x00, 0x00, 0xff, 0xff, 0x02, 0xfc, 0xdf, 0xb1, 0xc3, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -279,6 +412,8 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// UpdateAdminParams defines a admin operation for updating the admin parameters.
 	UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error)
+	// DeployNMSC defines a message to deploy a new smart account.
+	DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error)
 }
 
 type msgClient struct {
@@ -307,6 +442,15 @@ func (c *msgClient) UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminPar
 	return out, nil
 }
 
+func (c *msgClient) DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error) {
+	out := new(MsgDeployNMSCResponse)
+	err := c.cc.Invoke(ctx, "/crosschain.v1.Msg/DeployNMSC", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	// UpdateParams defines a governance operation for updating the parameters.
@@ -315,6 +459,8 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// UpdateAdminParams defines a admin operation for updating the admin parameters.
 	UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error)
+	// DeployNMSC defines a message to deploy a new smart account.
+	DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -326,6 +472,9 @@ func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateP
 }
 func (*UnimplementedMsgServer) UpdateAdminParams(ctx context.Context, req *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAdminParams not implemented")
+}
+func (*UnimplementedMsgServer) DeployNMSC(ctx context.Context, req *MsgDeployNMSC) (*MsgDeployNMSCResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeployNMSC not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -368,6 +517,24 @@ func _Msg_UpdateAdminParams_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_DeployNMSC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgDeployNMSC)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).DeployNMSC(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/crosschain.v1.Msg/DeployNMSC",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).DeployNMSC(ctx, req.(*MsgDeployNMSC))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "crosschain.v1.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -379,6 +546,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateAdminParams",
 			Handler:    _Msg_UpdateAdminParams_Handler,
+		},
+		{
+			MethodName: "DeployNMSC",
+			Handler:    _Msg_DeployNMSC_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -511,6 +682,85 @@ func (m *MsgUpdateAdminParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, e
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgDeployNMSC) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgDeployNMSC) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgDeployNMSC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.OwnerType != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.OwnerType))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.CaipString) > 0 {
+		i -= len(m.CaipString)
+		copy(dAtA[i:], m.CaipString)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CaipString)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.UserKey) > 0 {
+		i -= len(m.UserKey)
+		copy(dAtA[i:], m.UserKey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.UserKey)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Signer) > 0 {
+		i -= len(m.Signer)
+		copy(dAtA[i:], m.Signer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgDeployNMSCResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgDeployNMSCResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgDeployNMSCResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.SmartAccount) > 0 {
+		i -= len(m.SmartAccount)
+		copy(dAtA[i:], m.SmartAccount)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.SmartAccount)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -567,6 +817,43 @@ func (m *MsgUpdateAdminParamsResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	return n
+}
+
+func (m *MsgDeployNMSC) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Signer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.UserKey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.CaipString)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.OwnerType != 0 {
+		n += 1 + sovTx(uint64(m.OwnerType))
+	}
+	return n
+}
+
+func (m *MsgDeployNMSCResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.SmartAccount)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
 	return n
 }
 
@@ -885,6 +1172,255 @@ func (m *MsgUpdateAdminParamsResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: MsgUpdateAdminParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgDeployNMSC: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgDeployNMSC: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UserKey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UserKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaipString", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CaipString = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OwnerType", wireType)
+			}
+			m.OwnerType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.OwnerType |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgDeployNMSCResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgDeployNMSCResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgDeployNMSCResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SmartAccount", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SmartAccount = append(m.SmartAccount[:0], dAtA[iNdEx:postIndex]...)
+			if m.SmartAccount == nil {
+				m.SmartAccount = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

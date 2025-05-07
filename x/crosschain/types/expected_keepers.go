@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/evmos/os/x/evm/types"
 )
@@ -16,6 +17,14 @@ type EVMKeeper interface {
 		contract *common.Address,
 		data []byte,
 		commit bool,
+	) (*types.MsgEthereumTxResponse, error)
+	CallEVM(
+		ctx sdk.Context,
+		abi abi.ABI,
+		from, contract common.Address,
+		commit bool,
+		method string,
+		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
 }
 

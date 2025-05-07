@@ -158,3 +158,37 @@ func MsgDeployNMSC() *cobra.Command {
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
+
+func MsgMintPush() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mint-push [tx-hash] [caip-string]",
+		Short: "Mint Push tokens based on locked amount",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			senderAddress := cliCtx.GetFromAddress()
+
+			txHash := args[0]
+			caipString := args[1]
+
+			msg := &types.MsgMintPush{
+				Signer:     senderAddress.String(),
+				TxHash:     txHash,
+				CaipString: caipString,
+			}
+
+			if err := msg.Validate(); err != nil {
+				return err
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}

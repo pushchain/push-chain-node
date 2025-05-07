@@ -664,15 +664,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the crosschain Keeper
-	app.CrosschainKeeper = crosschainkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[crosschaintypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.EVMKeeper,
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -707,6 +698,15 @@ func NewChainApp(
 		app.StakingKeeper,
 		app.AuthzKeeper,
 		&app.TransferKeeper,
+	)
+
+	// Create the crosschain Keeper
+	app.CrosschainKeeper = crosschainkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[crosschaintypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.EVMKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.

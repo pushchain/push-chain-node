@@ -28,6 +28,8 @@ func NewTxCmd() *cobra.Command {
 
 	txCmd.AddCommand(
 		MsgUpdateParams(),
+		MsgUpdateAdminParams(),
+		MsgDeployNMSC(),
 	)
 	return txCmd
 }
@@ -84,9 +86,9 @@ func MsgUpdateParams() *cobra.Command {
 // contract for the module.
 func MsgUpdateAdminParams() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-admin-params [some-value]",
+		Use:   "update-admin-params [factory-address] [verifier-precompile]",
 		Short: "Update the admin params (must be submitted from the admin)",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -104,6 +106,45 @@ func MsgUpdateAdminParams() *cobra.Command {
 					FactoryAddress:     factoryAddr,
 					VerifierPrecompile: verifierPrecompile,
 				},
+			}
+
+			if err := msg.Validate(); err != nil {
+				return err
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func MsgDeployNMSC() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deploy-nmsc [user-key] [caip-string] [owner-type]",
+		Short: "Deploy a new NMSC Smart Account",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			senderAddress := cliCtx.GetFromAddress()
+
+			userKey := args[0]
+			caipString := args[1]
+			ownerType, err := strconv.ParseUint(args[2], 10, 8)
+			if err != nil {
+				return err
+			}
+
+			msg := &types.MsgDeployNMSC{
+				Signer:     senderAddress.String(),
+				UserKey:    userKey,
+				CaipString: caipString,
+				OwnerType:  uint32(ownerType),
 			}
 
 			if err := msg.Validate(); err != nil {

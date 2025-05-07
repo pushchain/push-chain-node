@@ -28,6 +28,28 @@ type EVMKeeper interface {
 	) (*types.MsgEthereumTxResponse, error)
 }
 
+// BankKeeper defines the expected interface for the bank module.
+type BankKeeper interface {
+	SendCoinsFromAccountToModule(
+		ctx context.Context,
+		senderAddr sdk.AccAddress,
+		recipientModule string,
+		amt sdk.Coins,
+	) error
+
+	BurnCoins(
+		ctx context.Context,
+		moduleName string,
+		amt sdk.Coins,
+	) error
+
+	MintCoins(
+		ctx context.Context,
+		moduleName string,
+		amt sdk.Coins,
+	) error
+}
+
 // ParamSubspace defines the expected Subspace interface for parameters.
 type ParamSubspace interface {
 	Get(context.Context, []byte, interface{})

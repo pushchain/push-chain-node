@@ -239,6 +239,7 @@ var maccPerms = map[string][]string{
 	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
+	crosschaintypes.ModuleName:   {authtypes.Minter, authtypes.Burner},
 }
 
 var (

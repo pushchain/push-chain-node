@@ -13,5 +13,14 @@ const FactoryV1ABI = `[
 		"outputs": [{"internalType": "address", "name": "", "type": "address"}],
 		"stateMutability": "nonpayable",
 		"type": "function"
+	},
+	{
+		"inputs": [
+			{"internalType": "string", "name": "caipString", "type": "string"}
+		],
+		"name": "computeSmartAccountAddress",
+		"outputs": [{"internalType": "address", "name": "", "type": "address"}],
+		"stateMutability": "view",
+		"type": "function"
 	}
 ]`

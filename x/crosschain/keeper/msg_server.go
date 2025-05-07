@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math"
 
+	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -27,6 +29,22 @@ var _ types.MsgServer = msgServer{}
 func hexToBytes(hexStr string) ([]byte, error) {
 	hexStr = strings.TrimPrefix(hexStr, "0x")
 	return hex.DecodeString(hexStr)
+}
+
+func evmToCosmosAddress(evmAddr string) (sdk.AccAddress, error) {
+	if len(evmAddr) != 42 {
+		return nil, fmt.Errorf("invalid EVM address length")
+	}
+
+	// Decode the hex address (without 0x)
+	addrBytes, err := hex.DecodeString(evmAddr[2:])
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to cosmos bech32 address
+	cosmosAddr := sdk.AccAddress(addrBytes)
+	return cosmosAddr, nil
 }
 
 // NewMsgServerImpl returns an implementation of the module MsgServer interface.
@@ -148,7 +166,84 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 
 // MintPush implements types.MsgServer.
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("MintPush is unimplemented")
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// caipArr := strings.Split(msg.CaipString, ":")
+	// if len(caipArr) != 3 {
+	// 	return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "invalid CAIP string; expected format: <namespace>:<chain>:<address>, got %s", msg.CaipString)
+	// }
+
+	// userAddr := caipArr[2]
+	// txHash := msg.TxHash
+	// TODO
+	// 1. RPC call for verification
+	amountToMint := sdkmath.NewInt(1000) // 1 token
+
+	// nmscAddress := calculateKeccakSalt(msg.CaipString)
+
+	// Retrieve the current Params
+	adminParams, err := ms.k.AdminParams.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get admin params")
+	}
+
+	// Get the Cosmos address in Bech32 format (from the signer in MsgDeployNMSC)
+	signer := msg.Signer
+
+	// Convert the Bech32 address to sdk.AccAddress
+	cosmosAddr, err := sdk.AccAddressFromBech32(signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert Bech32 address")
+	}
+
+	// Now convert the Cosmos address to an EVM address
+	evmFromAddress := common.BytesToAddress(cosmosAddr.Bytes()[len(cosmosAddr)-20:])
+	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+
+	// Parse ABI once
+	parsedABI, err := abi.JSON(strings.NewReader(types.FactoryV1ABI))
+	if err != nil {
+		return nil, err
+	}
+
+	// Use your keeper CallEVM directly
+	receipt, err := ms.k.evmKeeper.CallEVM(
+		sdkCtx,
+		parsedABI,
+		evmFromAddress, // who is sending the transaction
+		factoryAddress, // destination: your FactoryV1 contract
+		false,          // commit = true (you want real tx, not simulation)
+		"computeSmartAccountAddress",
+		msg.CaipString,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if receipt.VmError != "" {
+		fmt.Println("VM Error:", receipt.VmError)
+	}
+
+	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
+	addressBytes := returnedBytesHex[24:] // last 20 bytes
+	nmscComputedAddress := "0x" + addressBytes
+
+	// Convert the computed address to a Cosmos address
+	cosmosAddr, err = evmToCosmosAddress(nmscComputedAddress)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert EVM address to Cosmos address")
+	}
+
+	err = ms.k.bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin("npush", amountToMint)))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to mint coins")
+	}
+
+	err = ms.k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, cosmosAddr, sdk.NewCoins(sdk.NewCoin("npush", amountToMint)))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send coins from module to account")
+	}
+
 	return &types.MsgMintPushResponse{}, nil
 }

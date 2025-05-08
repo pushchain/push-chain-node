@@ -172,6 +172,10 @@ sed -i -e 's/laddr = "tcp:\/\/0.0.0.0:26656"/laddr = "tcp:\/\/0.0.0.0:'$P2P'"/g'
 sed -i -e 's/address = "localhost:9090"/address = "0.0.0.0:'$GRPC'"/g' $HOME_DIR/config/app.toml
 sed -i -e 's/address = "localhost:9091"/address = "0.0.0.0:'$GRPC_WEB'"/g' $HOME_DIR/config/app.toml
 
+# EVM
+python3 "$HOME/app/toml_edit.py" "$HOME_DIR/config/app.toml" "json-rpc.address" "0.0.0.0:8545"
+python3 "$HOME/app/toml_edit.py" "$HOME_DIR/config/app.toml" "json-rpc.ws-address" "0.0.0.0:8546"
+
 # Rosetta Api
 sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/config/app.toml
 

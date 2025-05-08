@@ -2,7 +2,7 @@
 pragma solidity >=0.8.18;
 
 /// @dev The ISolVerifier contract's address.
-address constant ISOLVERIFIER_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000902;
+address constant ISOLVERIFIER_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000901;
 
 /// @dev The ISolVerifier contract's instance.
 ISolVerifier constant ISolVerifier_CONTRACT = ISolVerifier(ISOLVERIFIER_PRECOMPILE_ADDRESS);

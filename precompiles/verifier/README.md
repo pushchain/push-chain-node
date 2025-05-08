@@ -15,7 +15,7 @@ cd ../../
 # if you just get 0x, make sure the address is in the app_state["evm"]["params"]["active_static_precompiles"]
 
 # precompile directly
-cast abi-decode "verifyEd25519(bytes,bytes32,bytes)(bool)" `cast call 0x0000000000000000000000000000000000000902 "verifyEd25519(bytes,bytes32,bytes)" \
+cast abi-decode "verifyEd25519(bytes,bytes32,bytes)(bool)" `cast call 0x0000000000000000000000000000000000000901 "verifyEd25519(bytes,bytes32,bytes)" \
   "5DgQvTf6BvVs5Y4vNFnB5iXvTQvZah7y2JbT1dFxN6T2" \
   0x68656c6c6f776f726...bytes32_message_here \
   0x6f7c...your_signature_here

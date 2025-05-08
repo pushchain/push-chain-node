@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	SolverifierPrecompileAddress = "0x0000000000000000000000000000000000000902"
+	SolverifierPrecompileAddress = "0x0000000000000000000000000000000000000901"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}

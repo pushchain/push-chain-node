@@ -159,11 +159,7 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
-	exampleprecompile "github.com/rollchains/pchain/precompiles/example"
 	verifierprecompile "github.com/rollchains/pchain/precompiles/verifier"
-	precompileexa "github.com/rollchains/pchain/x/precompileexa"
-	precompileexakeeper "github.com/rollchains/pchain/x/precompileexa/keeper"
-	precompileexatypes "github.com/rollchains/pchain/x/precompileexa/types"
 	verifier "github.com/rollchains/pchain/x/verifier"
 	verifierkeeper "github.com/rollchains/pchain/x/verifier/keeper"
 	verifiertypes "github.com/rollchains/pchain/x/verifier/types"
@@ -307,8 +303,7 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 
-	PrecompileexaKeeper precompileexakeeper.Keeper
-	VerifierKeeper      verifierkeeper.Keeper
+	VerifierKeeper verifierkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -421,7 +416,6 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
-		precompileexatypes.StoreKey,
 		verifiertypes.StoreKey,
 	)
 
@@ -680,13 +674,6 @@ func NewChainApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	app.PrecompileexaKeeper = precompileexakeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[precompileexatypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -745,12 +732,6 @@ func NewChainApp(
 		panic(fmt.Errorf("failed to instantiate verifier precompile: %w", err))
 	}
 	corePrecompiles[verifierPrecompile.Address()] = verifierPrecompile
-
-	examplePrecompile, err := exampleprecompile.NewPrecompile(app.PrecompileexaKeeper)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate example precompile: %w", err))
-	}
-	corePrecompiles[examplePrecompile.Address()] = examplePrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,
@@ -1005,7 +986,6 @@ func NewChainApp(
 		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		precompileexa.NewAppModule(appCodec, app.PrecompileexaKeeper),
 		verifier.NewAppModule(appCodec, app.VerifierKeeper),
 	)
 
@@ -1053,7 +1033,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		precompileexatypes.ModuleName,
 		verifiertypes.ModuleName,
 	)
 
@@ -1076,7 +1055,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		precompileexatypes.ModuleName,
 		verifiertypes.ModuleName,
 	)
 
@@ -1126,7 +1104,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		precompileexatypes.ModuleName,
 		verifiertypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1571,7 +1548,6 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
-	paramsKeeper.Subspace(precompileexatypes.ModuleName)
 	paramsKeeper.Subspace(verifiertypes.ModuleName)
 
 	return paramsKeeper

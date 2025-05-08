@@ -42,6 +42,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "MintPush",
 					Use:       "mint-push [tx-hash] [caip-string]",
 				},
+				{
+					RpcMethod: "ExecutePayload",
+					Use:       "execute-payload [caip-string] [target] [value] [data-hex] [gas-limit] [max-fee-per-gas] [max-priority-fee-per-gas] [nonce] [deadline] [signature-hex]",
+				},
 			},
 		},
 	}

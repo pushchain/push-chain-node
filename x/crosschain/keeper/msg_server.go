@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 	"strings"
 
 	"fmt"
@@ -28,7 +29,14 @@ var _ types.MsgServer = msgServer{}
 
 func hexToBytes(hexStr string) ([]byte, error) {
 	hexStr = strings.TrimPrefix(hexStr, "0x")
+	fmt.Println("Hex string:", hexStr)
+	fmt.Println(hex.DecodeString(hexStr))
 	return hex.DecodeString(hexStr)
+}
+
+func stringToBigInt(s string) *big.Int {
+	bi, _ := new(big.Int).SetString(s, 10)
+	return bi
 }
 
 func evmToCosmosAddress(evmAddr string) (sdk.AccAddress, error) {
@@ -119,14 +127,19 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	if err != nil {
 		return nil, err
 	}
+
 	caipString := msg.CaipString
 	ownerType := uint8(msg.OwnerType)
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
 	verifierPrecompile := common.HexToAddress(adminParams.VerifierPrecompile)
 
+	userKeys := common.HexToAddress("0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4").Bytes()
+	fmt.Println("User key:", userKeys)
+
 	fmt.Println("Factory address:", factoryAddress)
 	fmt.Println("Verifier precompile address:", verifierPrecompile)
 	fmt.Println("User key:", userKey)
+	fmt.Println(msg.UserKey)
 	fmt.Println("CAIP string:", caipString)
 	fmt.Println("Owner type:", ownerType)
 	fmt.Println("EVM from address:", evmFromAddress)
@@ -246,4 +259,101 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	}
 
 	return &types.MsgMintPushResponse{}, nil
+}
+
+// ExecutePayload implements types.MsgServer.
+func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// Retrieve the current Params
+	adminParams, err := ms.k.AdminParams.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get admin params")
+	}
+
+	// Get the Cosmos address in Bech32 format (from the signer in MsgDeployNMSC)
+	signer := msg.Signer
+
+	// Convert the Bech32 address to sdk.AccAddress
+	cosmosAddr, err := sdk.AccAddressFromBech32(signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert Bech32 address")
+	}
+
+	// Now convert the Cosmos address to an EVM address
+	evmFromAddress := common.BytesToAddress(cosmosAddr.Bytes()[len(cosmosAddr)-20:])
+	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+
+	// Parse ABI once
+	parsedFactoryABI, err := abi.JSON(strings.NewReader(types.FactoryV1ABI))
+	if err != nil {
+		return nil, err
+	}
+
+	// Calling factory contract to compute the smart account address
+	receipt, err := ms.k.evmKeeper.CallEVM(
+		sdkCtx,
+		parsedFactoryABI,
+		evmFromAddress, // who is sending the transaction
+		factoryAddress, // destination: FactoryV1 contract
+		false,          // commit = false
+		"computeSmartAccountAddress",
+		msg.CaipString,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if receipt.VmError != "" {
+		fmt.Println("VM Error:", receipt.VmError)
+	}
+
+	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
+	addressBytes := returnedBytesHex[24:] // last 20 bytes
+	nmscComputedAddress := "0x" + addressBytes
+	nmscAddr := common.HexToAddress(nmscComputedAddress)
+
+	parsedNMSCABI, err := abi.JSON(strings.NewReader(types.SmartAccountV1ABI))
+	if err != nil {
+		return nil, err
+	}
+
+	protoPayload := msg.CrosschainPayload // your existing proto-generated struct
+
+	payload := types.AbiCrossChainPayload{
+		Target:               common.HexToAddress(protoPayload.Target),
+		Value:                stringToBigInt(protoPayload.Value),
+		Data:                 protoPayload.Data,
+		GasLimit:             stringToBigInt(protoPayload.GasLimit),
+		MaxFeePerGas:         stringToBigInt(protoPayload.MaxFeePerGas),
+		MaxPriorityFeePerGas: stringToBigInt(protoPayload.MaxPriorityFeePerGas),
+		Nonce:                stringToBigInt(protoPayload.Nonce),
+		Deadline:             stringToBigInt(protoPayload.Deadline),
+	}
+
+	// Calling the NMSC contract
+	receipt, err = ms.k.evmKeeper.CallEVM(
+		sdkCtx,
+		parsedNMSCABI,
+		evmFromAddress, // who is sending the transaction
+		nmscAddr,       // destination: nmsc contract
+		true,           // commit = true
+		"executePayload",
+		payload,
+		msg.Signature,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("EVM tx hash:", receipt.Hash)
+	fmt.Println("Gas used:", receipt.GasUsed)
+	fmt.Println("Logs:", receipt.Logs)
+	fmt.Println("Returned data:", receipt.Ret)
+	if receipt.VmError != "" {
+		fmt.Println("VM Error:", receipt.VmError)
+	}
+	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
+
+	return &types.MsgExecutePayloadResponse{}, nil
 }

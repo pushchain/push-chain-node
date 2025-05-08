@@ -25,6 +25,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgUpdateAdminParams{}, ModuleName+"/MsgUpdateAdminParams", nil)
 	cdc.RegisterConcrete(&MsgDeployNMSC{}, ModuleName+"/MsgDeployNMSCResponse", nil)
 	cdc.RegisterConcrete(&MsgMintPush{}, ModuleName+"/MsgMintPush", nil)
+	cdc.RegisterConcrete(&MsgExecutePayload{}, ModuleName+"/MsgExecutePayload", nil)
 }
 
 func RegisterInterfaces(registry types.InterfaceRegistry) {
@@ -35,6 +36,7 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&MsgUpdateAdminParams{},
 		&MsgDeployNMSCResponse{},
 		&MsgMintPush{},
+		&MsgExecutePayload{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)

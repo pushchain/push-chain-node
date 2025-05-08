@@ -159,10 +159,18 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
+  
+  // ed25519 precompile types
 	verifierprecompile "github.com/rollchains/pchain/precompiles/verifier"
 	verifier "github.com/rollchains/pchain/x/verifier"
 	verifierkeeper "github.com/rollchains/pchain/x/verifier/keeper"
 	verifiertypes "github.com/rollchains/pchain/x/verifier/types"
+  
+  // crosschain module
+	crosschain "github.com/rollchains/pchain/x/crosschain"
+	crosschainkeeper "github.com/rollchains/pchain/x/crosschain/keeper"
+	crosschaintypes "github.com/rollchains/pchain/x/crosschain/types"
+  
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -240,6 +248,7 @@ var maccPerms = map[string][]string{
 	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
+	crosschaintypes.ModuleName:   {authtypes.Minter, authtypes.Burner},
 }
 
 var (
@@ -302,6 +311,7 @@ type ChainApp struct {
 	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
+	CrosschainKeeper          crosschainkeeper.Keeper
 
 	VerifierKeeper verifierkeeper.Keeper
 
@@ -417,6 +427,7 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		verifiertypes.StoreKey,
+		crosschaintypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -710,6 +721,16 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
+	// Create the crosschain Keeper
+	app.CrosschainKeeper = crosschainkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[crosschaintypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.EVMKeeper,
+		app.BankKeeper,
+	)
+
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.
 	corePrecompiles := NewAvailableStaticPrecompiles(
@@ -987,6 +1008,7 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		verifier.NewAppModule(appCodec, app.VerifierKeeper),
+		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.BankKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1034,6 +1056,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		verifiertypes.ModuleName,
+		crosschaintypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1056,6 +1079,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		verifiertypes.ModuleName,
+		crosschaintypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1105,6 +1129,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		verifiertypes.ModuleName,
+		crosschaintypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1547,8 +1572,9 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
-	paramsKeeper.Subspace(erc20types.ModuleName)
+  paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(verifiertypes.ModuleName)
+	paramsKeeper.Subspace(crosschaintypes.ModuleName)
 
 	return paramsKeeper
 }

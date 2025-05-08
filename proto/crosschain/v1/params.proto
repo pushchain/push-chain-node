@@ -1,0 +1,48 @@
+syntax = "proto3";
+package crosschain.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/rollchains/pchain/x/crosschain/types";
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "crosschain/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the crosschain module.
+  string admin = 1;
+
+  bool some_value = 2;
+}
+
+// AdminParams defines parameters only the admin can update.
+message AdminParams {
+  option (amino.name) = "crosschain/admin_params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The factory address (EVM).
+  string factory_address = 1;
+
+  // The verifier precompile contract address (EVM).
+  string verifier_precompile = 2;
+}
+
+// CrossChainPayload mirrors the Solidity struct
+message CrossChainPayload {
+  option (amino.name) = "crosschain/crosschain_payload";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string target = 1;                 // EVM address as hex string (0x...)
+  string value = 2;                  // Amount in wei as string (uint256)
+  bytes data = 3;                    // ABI-encoded calldata
+  string gas_limit = 4;             // uint256 as string
+  string max_fee_per_gas = 5;       // uint256 as string
+  string max_priority_fee_per_gas = 6; // uint256 as string
+  string nonce = 7;                 // uint256 as string
+  string deadline = 8;              // uint256 as string
+}

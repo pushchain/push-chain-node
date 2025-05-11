@@ -24,10 +24,88 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// NetworkType defines the type of network for a chain
+type NetworkType int32
+
+const (
+	// NETWORK_TYPE_UNSPECIFIED is the default value
+	NetworkTypeUnspecified NetworkType = 0
+	// NETWORK_TYPE_MAINNET represents a production network
+	NetworkTypeMainnet NetworkType = 1
+	// NETWORK_TYPE_TESTNET represents a test network
+	NetworkTypeTestnet NetworkType = 2
+	// NETWORK_TYPE_DEVNET represents a development network
+	NetworkTypeDevnet NetworkType = 3
+	// NETWORK_TYPE_LOCALNET represents a local development network
+	NetworkTypeLocalnet NetworkType = 4
+)
+
+var NetworkType_name = map[int32]string{
+	0: "NETWORK_TYPE_UNSPECIFIED",
+	1: "NETWORK_TYPE_MAINNET",
+	2: "NETWORK_TYPE_TESTNET",
+	3: "NETWORK_TYPE_DEVNET",
+	4: "NETWORK_TYPE_LOCALNET",
+}
+
+var NetworkType_value = map[string]int32{
+	"NETWORK_TYPE_UNSPECIFIED": 0,
+	"NETWORK_TYPE_MAINNET":     1,
+	"NETWORK_TYPE_TESTNET":     2,
+	"NETWORK_TYPE_DEVNET":      3,
+	"NETWORK_TYPE_LOCALNET":    4,
+}
+
+func (x NetworkType) String() string {
+	return proto.EnumName(NetworkType_name, int32(x))
+}
+
+func (NetworkType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_e75cdd076a9cdea5, []int{0}
+}
+
+// VmType defines the virtual machine type for a chain
+type VmType int32
+
+const (
+	// VM_TYPE_UNSPECIFIED is the default value
+	VmTypeUnspecified VmType = 0
+	// VM_TYPE_EVM represents Ethereum Virtual Machine
+	VmTypeEvm VmType = 1
+	// VM_TYPE_SVM represents Solana Virtual Machine
+	VmTypeSvm VmType = 2
+	// VM_TYPE_WASM represents WebAssembly Virtual Machine
+	VmTypeWasm VmType = 3
+)
+
+var VmType_name = map[int32]string{
+	0: "VM_TYPE_UNSPECIFIED",
+	1: "VM_TYPE_EVM",
+	2: "VM_TYPE_SVM",
+	3: "VM_TYPE_WASM",
+}
+
+var VmType_value = map[string]int32{
+	"VM_TYPE_UNSPECIFIED": 0,
+	"VM_TYPE_EVM":         1,
+	"VM_TYPE_SVM":         2,
+	"VM_TYPE_WASM":        3,
+}
+
+func (x VmType) String() string {
+	return proto.EnumName(VmType_name, int32(x))
+}
+
+func (VmType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_e75cdd076a9cdea5, []int{1}
+}
+
 // GenesisState defines the module genesis state
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// ChainConfigs contains the list of chain configurations
+	ChainConfigs []ChainConfig `protobuf:"bytes,2,rep,name=chain_configs,json=chainConfigs,proto3" json:"chain_configs"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }
@@ -68,6 +146,13 @@ func (m *GenesisState) GetParams() Params {
 		return m.Params
 	}
 	return Params{}
+}
+
+func (m *GenesisState) GetChainConfigs() []ChainConfig {
+	if m != nil {
+		return m.ChainConfigs
+	}
+	return nil
 }
 
 // Params defines the set of module parameters.
@@ -114,31 +199,172 @@ func (m *Params) GetSomeValue() bool {
 	return false
 }
 
+// ChainConfig contains configuration for an external chain
+type ChainConfig struct {
+	// chain_id is the unique identifier for the chain
+	ChainId string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	// chain_name is a human-readable name for the chain
+	ChainName string `protobuf:"bytes,2,opt,name=chain_name,json=chainName,proto3" json:"chain_name,omitempty"`
+	// caip_prefix is the CAIP-2 identifier for the chain, e.g., "eip155:11155111"
+	CaipPrefix string `protobuf:"bytes,3,opt,name=caip_prefix,json=caipPrefix,proto3" json:"caip_prefix,omitempty"`
+	// locker_contract_address is the address of the fee locker contract on the external chain
+	LockerContractAddress string `protobuf:"bytes,4,opt,name=locker_contract_address,json=lockerContractAddress,proto3" json:"locker_contract_address,omitempty"`
+	// usdc_address is the address of the USDC token contract on the external chain
+	UsdcAddress string `protobuf:"bytes,5,opt,name=usdc_address,json=usdcAddress,proto3" json:"usdc_address,omitempty"`
+	// public_rpc_url is the default RPC URL for the chain
+	PublicRpcUrl string `protobuf:"bytes,6,opt,name=public_rpc_url,json=publicRpcUrl,proto3" json:"public_rpc_url,omitempty"`
+	// network_type identifies the type of network (mainnet, testnet, localnet, devnet)
+	NetworkType NetworkType `protobuf:"varint,7,opt,name=network_type,json=networkType,proto3,enum=usvl.v1.NetworkType" json:"network_type,omitempty"`
+	// vm_type identifies the virtual machine type (EVM, SVM, etc.)
+	VmType VmType `protobuf:"varint,8,opt,name=vm_type,json=vmType,proto3,enum=usvl.v1.VmType" json:"vm_type,omitempty"`
+}
+
+func (m *ChainConfig) Reset()         { *m = ChainConfig{} }
+func (m *ChainConfig) String() string { return proto.CompactTextString(m) }
+func (*ChainConfig) ProtoMessage()    {}
+func (*ChainConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e75cdd076a9cdea5, []int{2}
+}
+func (m *ChainConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ChainConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ChainConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ChainConfig.Merge(m, src)
+}
+func (m *ChainConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *ChainConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ChainConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ChainConfig proto.InternalMessageInfo
+
+func (m *ChainConfig) GetChainId() string {
+	if m != nil {
+		return m.ChainId
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetChainName() string {
+	if m != nil {
+		return m.ChainName
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetCaipPrefix() string {
+	if m != nil {
+		return m.CaipPrefix
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetLockerContractAddress() string {
+	if m != nil {
+		return m.LockerContractAddress
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetUsdcAddress() string {
+	if m != nil {
+		return m.UsdcAddress
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetPublicRpcUrl() string {
+	if m != nil {
+		return m.PublicRpcUrl
+	}
+	return ""
+}
+
+func (m *ChainConfig) GetNetworkType() NetworkType {
+	if m != nil {
+		return m.NetworkType
+	}
+	return NetworkTypeUnspecified
+}
+
+func (m *ChainConfig) GetVmType() VmType {
+	if m != nil {
+		return m.VmType
+	}
+	return VmTypeUnspecified
+}
+
 func init() {
+	proto.RegisterEnum("usvl.v1.NetworkType", NetworkType_name, NetworkType_value)
+	proto.RegisterEnum("usvl.v1.VmType", VmType_name, VmType_value)
 	proto.RegisterType((*GenesisState)(nil), "usvl.v1.GenesisState")
 	proto.RegisterType((*Params)(nil), "usvl.v1.Params")
+	proto.RegisterType((*ChainConfig)(nil), "usvl.v1.ChainConfig")
 }
 
 func init() { proto.RegisterFile("usvl/v1/genesis.proto", fileDescriptor_e75cdd076a9cdea5) }
 
 var fileDescriptor_e75cdd076a9cdea5 = []byte{
-	// 250 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2d, 0x2d, 0x2e, 0xcb,
-	0xd1, 0x2f, 0x33, 0xd4, 0x4f, 0x4f, 0xcd, 0x4b, 0x2d, 0xce, 0x2c, 0xd6, 0x2b, 0x28, 0xca, 0x2f,
-	0xc9, 0x17, 0x62, 0x07, 0x09, 0xeb, 0x95, 0x19, 0x4a, 0x89, 0xa4, 0xe7, 0xa7, 0xe7, 0x83, 0xc5,
-	0xf4, 0x41, 0x2c, 0x88, 0xb4, 0x94, 0x60, 0x62, 0x6e, 0x66, 0x5e, 0xbe, 0x3e, 0x98, 0x84, 0x08,
-	0x29, 0xd9, 0x72, 0xf1, 0xb8, 0x43, 0x8c, 0x08, 0x2e, 0x49, 0x2c, 0x49, 0x15, 0xd2, 0xe5, 0x62,
-	0x2b, 0x48, 0x2c, 0x4a, 0xcc, 0x2d, 0x96, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x36, 0xe2, 0xd7, 0x83,
-	0x1a, 0xa9, 0x17, 0x00, 0x16, 0x76, 0x62, 0x39, 0x71, 0x4f, 0x9e, 0x21, 0x08, 0xaa, 0x48, 0xc9,
-	0x91, 0x8b, 0x0d, 0x22, 0x2e, 0x24, 0xcb, 0xc5, 0x55, 0x9c, 0x9f, 0x9b, 0x1a, 0x5f, 0x96, 0x98,
-	0x53, 0x9a, 0x2a, 0xc1, 0xa4, 0xc0, 0xa8, 0xc1, 0x11, 0xc4, 0x09, 0x12, 0x09, 0x03, 0x09, 0x58,
-	0x49, 0xcc, 0x58, 0x20, 0xcf, 0xf0, 0x62, 0x81, 0x3c, 0x63, 0xd7, 0xf3, 0x0d, 0x5a, 0xdc, 0x60,
-	0xd7, 0x43, 0x8c, 0x70, 0xf2, 0x3a, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f,
-	0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0xb8, 0xf0, 0x58, 0x8e, 0xe1, 0xc6, 0x63, 0x39, 0x86, 0x28,
-	0x83, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd, 0xe4, 0xfc, 0x5c, 0xfd, 0x82, 0xd2, 0xe2, 0x0c,
-	0x5d, 0xb0, 0x93, 0x93, 0xf3, 0x73, 0x20, 0xbc, 0xe4, 0x8c, 0xc4, 0xcc, 0x3c, 0xfd, 0x0a, 0x7d,
-	0xb0, 0x61, 0x25, 0x95, 0x05, 0xa9, 0xc5, 0x49, 0x6c, 0x60, 0x15, 0xc6, 0x80, 0x00, 0x00, 0x00,
-	0xff, 0xff, 0x25, 0xfb, 0x06, 0x9e, 0x1f, 0x01, 0x00, 0x00,
+	// 706 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x94, 0x4f, 0x4f, 0x1a, 0x41,
+	0x18, 0xc6, 0x59, 0xa0, 0xfc, 0x99, 0x45, 0x8b, 0xab, 0xe8, 0x76, 0x93, 0x2e, 0x5b, 0xd3, 0x03,
+	0x31, 0x11, 0xd4, 0x26, 0x6d, 0xe3, 0xa5, 0x41, 0xdc, 0x36, 0xb4, 0x82, 0x04, 0x10, 0xd3, 0x5e,
+	0x36, 0xe3, 0x30, 0xe2, 0xc6, 0xfd, 0x97, 0x9d, 0x65, 0xab, 0x97, 0x9e, 0x1b, 0x4e, 0xbd, 0x34,
+	0xf1, 0x42, 0x42, 0xd2, 0x2f, 0xd0, 0x8f, 0xe1, 0xd1, 0x53, 0xd3, 0x53, 0xd3, 0xe8, 0xa1, 0xfd,
+	0x18, 0xcd, 0xcc, 0xa0, 0xae, 0xb1, 0x17, 0x60, 0x9e, 0xe7, 0xf9, 0xbd, 0xef, 0xcc, 0xcb, 0xce,
+	0x82, 0xc2, 0x90, 0x84, 0x56, 0x25, 0x5c, 0xaf, 0x0c, 0xb0, 0x83, 0x89, 0x49, 0xca, 0x9e, 0xef,
+	0x06, 0xae, 0x94, 0xa6, 0x72, 0x39, 0x5c, 0x57, 0x16, 0x06, 0xee, 0xc0, 0x65, 0x5a, 0x85, 0xfe,
+	0xe2, 0xb6, 0x32, 0x07, 0x6d, 0xd3, 0x71, 0x2b, 0xec, 0x93, 0x4b, 0xcb, 0x9f, 0x40, 0xee, 0x0d,
+	0x2f, 0xd1, 0x09, 0x60, 0x80, 0xa5, 0x55, 0x90, 0xf2, 0xa0, 0x0f, 0x6d, 0x22, 0x0b, 0x9a, 0x50,
+	0x12, 0x37, 0x1e, 0x96, 0xa7, 0x25, 0xcb, 0x2d, 0x26, 0x6f, 0x25, 0xcf, 0x7f, 0x15, 0x63, 0xed,
+	0x69, 0x48, 0x7a, 0x05, 0x66, 0xd0, 0x11, 0x34, 0x1d, 0x03, 0xb9, 0xce, 0xa1, 0x39, 0x20, 0x72,
+	0x5c, 0x4b, 0x94, 0xc4, 0x8d, 0x85, 0x1b, 0xaa, 0x46, 0xdd, 0x1a, 0x33, 0xa7, 0x68, 0x0e, 0xdd,
+	0x4a, 0x64, 0xb9, 0x0a, 0x52, 0xbc, 0xb0, 0xf4, 0x18, 0x00, 0xe2, 0xda, 0xd8, 0x08, 0xa1, 0x35,
+	0xc4, 0x72, 0x5c, 0x13, 0x4a, 0x99, 0x76, 0x96, 0x2a, 0x3d, 0x2a, 0x6c, 0xca, 0x67, 0x93, 0x62,
+	0xec, 0xef, 0xa4, 0x28, 0x8c, 0xfe, 0x7c, 0x5f, 0x11, 0xd9, 0xf1, 0xf9, 0x1e, 0x96, 0x7f, 0xc4,
+	0x81, 0x18, 0x69, 0x23, 0x3d, 0x02, 0x19, 0xbe, 0x27, 0xb3, 0xcf, 0x0e, 0x91, 0x6d, 0xa7, 0xd9,
+	0xba, 0xde, 0xa7, 0x3d, 0xb8, 0xe5, 0x40, 0x9b, 0xf7, 0xc8, 0xb6, 0xb3, 0x4c, 0x69, 0x42, 0x1b,
+	0x4b, 0x45, 0x20, 0x22, 0x68, 0x7a, 0x86, 0xe7, 0xe3, 0x43, 0xf3, 0x44, 0x4e, 0x30, 0x1f, 0x50,
+	0xa9, 0xc5, 0x14, 0xe9, 0x39, 0x58, 0xb2, 0x5c, 0x74, 0x8c, 0x7d, 0x7a, 0xde, 0xc0, 0x87, 0x28,
+	0x30, 0x60, 0xbf, 0xef, 0x63, 0x42, 0xe4, 0x24, 0x0b, 0x17, 0xb8, 0x5d, 0x9b, 0xba, 0x55, 0x6e,
+	0x4a, 0x4f, 0x40, 0x6e, 0x48, 0xfa, 0xe8, 0x26, 0xfc, 0x80, 0x85, 0x45, 0xaa, 0x5d, 0x47, 0x9e,
+	0x82, 0x59, 0x6f, 0x78, 0x60, 0x99, 0xc8, 0xf0, 0x3d, 0x64, 0x0c, 0x7d, 0x4b, 0x4e, 0xb1, 0x50,
+	0x8e, 0xab, 0x6d, 0x0f, 0xed, 0xf9, 0x96, 0xf4, 0x02, 0xe4, 0x1c, 0x1c, 0x7c, 0x74, 0xfd, 0x63,
+	0x23, 0x38, 0xf5, 0xb0, 0x9c, 0xd6, 0x84, 0xd2, 0x6c, 0x64, 0xdc, 0x4d, 0x6e, 0x76, 0x4f, 0x3d,
+	0xdc, 0x16, 0x9d, 0xdb, 0x85, 0x54, 0x02, 0xe9, 0xd0, 0xe6, 0x4c, 0x86, 0x31, 0xb7, 0x7f, 0x6c,
+	0xcf, 0x66, 0xf1, 0x54, 0xc8, 0xbe, 0x37, 0x33, 0x67, 0x93, 0xa2, 0x40, 0x07, 0xbd, 0xf2, 0x35,
+	0x0e, 0xc4, 0x48, 0x41, 0xe9, 0x25, 0x90, 0x9b, 0x7a, 0x77, 0x7f, 0xb7, 0xfd, 0xce, 0xe8, 0xbe,
+	0x6f, 0xe9, 0xc6, 0x5e, 0xb3, 0xd3, 0xd2, 0x6b, 0xf5, 0xd7, 0x75, 0x7d, 0x3b, 0x1f, 0x53, 0x94,
+	0xd1, 0x58, 0x5b, 0x8c, 0xc4, 0xf7, 0x1c, 0xe2, 0x61, 0x64, 0x1e, 0x9a, 0xb8, 0x2f, 0xad, 0x81,
+	0x85, 0x3b, 0x64, 0xa3, 0x5a, 0x6f, 0x36, 0xf5, 0x6e, 0x5e, 0x50, 0x16, 0x47, 0x63, 0x4d, 0x8a,
+	0x50, 0x0d, 0x68, 0x3a, 0x0e, 0x0e, 0xee, 0x11, 0x5d, 0xbd, 0xd3, 0xa5, 0x44, 0xfc, 0x1e, 0xd1,
+	0xc5, 0x24, 0xa0, 0x44, 0x19, 0xcc, 0xdf, 0x21, 0xb6, 0xf5, 0x1e, 0x05, 0x12, 0x4a, 0x61, 0x34,
+	0xd6, 0xe6, 0x22, 0xc0, 0x36, 0x0e, 0x69, 0x7e, 0x03, 0x14, 0xee, 0xe4, 0x77, 0x76, 0x6b, 0xd5,
+	0x1d, 0x4a, 0x24, 0x95, 0xa5, 0xd1, 0x58, 0x9b, 0x8f, 0x10, 0x3b, 0x2e, 0x82, 0x96, 0x83, 0x03,
+	0x25, 0xf9, 0xf9, 0x9b, 0x1a, 0x5b, 0x99, 0x08, 0x20, 0xc5, 0x87, 0x46, 0x9b, 0xf6, 0x1a, 0xff,
+	0x9b, 0x06, 0x6b, 0xca, 0x43, 0xd1, 0x41, 0xa8, 0x40, 0xbc, 0xce, 0xeb, 0xbd, 0x46, 0x5e, 0x50,
+	0x66, 0x46, 0x63, 0x2d, 0xcb, 0x73, 0x7a, 0x68, 0x47, 0xfd, 0x4e, 0xaf, 0x91, 0x8f, 0x47, 0xfd,
+	0x4e, 0x68, 0x4b, 0x1a, 0xc8, 0x5d, 0xfb, 0xfb, 0xd5, 0x4e, 0x23, 0x9f, 0x50, 0x66, 0x47, 0x63,
+	0x0d, 0xf0, 0xc0, 0x3e, 0x24, 0x36, 0xdf, 0xe2, 0xd6, 0xdb, 0xf3, 0x4b, 0x55, 0xb8, 0xb8, 0x54,
+	0x85, 0xdf, 0x97, 0xaa, 0xf0, 0xe5, 0x4a, 0x8d, 0x5d, 0x5c, 0xa9, 0xb1, 0x9f, 0x57, 0x6a, 0xec,
+	0xc3, 0xda, 0xc0, 0x0c, 0x8e, 0x86, 0x07, 0x65, 0xe4, 0xda, 0x15, 0x6f, 0x48, 0x8e, 0x56, 0xd9,
+	0x7b, 0x00, 0xb9, 0x16, 0x5f, 0xb1, 0xcb, 0x50, 0x39, 0xa9, 0xb0, 0x0b, 0x46, 0x1f, 0x17, 0x72,
+	0x90, 0x62, 0x89, 0x67, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0x68, 0x06, 0x72, 0x9b, 0x74, 0x04,
+	0x00, 0x00,
 }
 
 func (this *Params) Equal(that interface{}) bool {
@@ -165,6 +391,51 @@ func (this *Params) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *ChainConfig) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ChainConfig)
+	if !ok {
+		that2, ok := that.(ChainConfig)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.ChainId != that1.ChainId {
+		return false
+	}
+	if this.ChainName != that1.ChainName {
+		return false
+	}
+	if this.CaipPrefix != that1.CaipPrefix {
+		return false
+	}
+	if this.LockerContractAddress != that1.LockerContractAddress {
+		return false
+	}
+	if this.UsdcAddress != that1.UsdcAddress {
+		return false
+	}
+	if this.PublicRpcUrl != that1.PublicRpcUrl {
+		return false
+	}
+	if this.NetworkType != that1.NetworkType {
+		return false
+	}
+	if this.VmType != that1.VmType {
+		return false
+	}
+	return true
+}
 func (m *GenesisState) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -185,6 +456,20 @@ func (m *GenesisState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.ChainConfigs) > 0 {
+		for iNdEx := len(m.ChainConfigs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ChainConfigs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
 	{
 		size, err := m.Params.MarshalToSizedBuffer(dAtA[:i])
 		if err != nil {
@@ -231,6 +516,81 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ChainConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ChainConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.VmType != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.VmType))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.NetworkType != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.NetworkType))
+		i--
+		dAtA[i] = 0x38
+	}
+	if len(m.PublicRpcUrl) > 0 {
+		i -= len(m.PublicRpcUrl)
+		copy(dAtA[i:], m.PublicRpcUrl)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.PublicRpcUrl)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.UsdcAddress) > 0 {
+		i -= len(m.UsdcAddress)
+		copy(dAtA[i:], m.UsdcAddress)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.UsdcAddress)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.LockerContractAddress) > 0 {
+		i -= len(m.LockerContractAddress)
+		copy(dAtA[i:], m.LockerContractAddress)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.LockerContractAddress)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.CaipPrefix) > 0 {
+		i -= len(m.CaipPrefix)
+		copy(dAtA[i:], m.CaipPrefix)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.CaipPrefix)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.ChainName) > 0 {
+		i -= len(m.ChainName)
+		copy(dAtA[i:], m.ChainName)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.ChainName)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ChainId) > 0 {
+		i -= len(m.ChainId)
+		copy(dAtA[i:], m.ChainId)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.ChainId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintGenesis(dAtA []byte, offset int, v uint64) int {
 	offset -= sovGenesis(v)
 	base := offset
@@ -250,6 +610,12 @@ func (m *GenesisState) Size() (n int) {
 	_ = l
 	l = m.Params.Size()
 	n += 1 + l + sovGenesis(uint64(l))
+	if len(m.ChainConfigs) > 0 {
+		for _, e := range m.ChainConfigs {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -261,6 +627,45 @@ func (m *Params) Size() (n int) {
 	_ = l
 	if m.SomeValue {
 		n += 2
+	}
+	return n
+}
+
+func (m *ChainConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ChainId)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = len(m.ChainName)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = len(m.CaipPrefix)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = len(m.LockerContractAddress)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = len(m.UsdcAddress)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = len(m.PublicRpcUrl)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	if m.NetworkType != 0 {
+		n += 1 + sovGenesis(uint64(m.NetworkType))
+	}
+	if m.VmType != 0 {
+		n += 1 + sovGenesis(uint64(m.VmType))
 	}
 	return n
 }
@@ -330,6 +735,40 @@ func (m *GenesisState) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if err := m.Params.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainConfigs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainConfigs = append(m.ChainConfigs, ChainConfig{})
+			if err := m.ChainConfigs[len(m.ChainConfigs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -403,6 +842,286 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.SomeValue = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ChainConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ChainConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaipPrefix", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CaipPrefix = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LockerContractAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LockerContractAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UsdcAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UsdcAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicRpcUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PublicRpcUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NetworkType", wireType)
+			}
+			m.NetworkType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NetworkType |= NetworkType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VmType", wireType)
+			}
+			m.VmType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.VmType |= VmType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenesis(dAtA[iNdEx:])

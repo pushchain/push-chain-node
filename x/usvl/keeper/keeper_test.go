@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -145,4 +146,409 @@ func registerBaseSDKModules(
 		f.stakingKeeper, f.accountkeeper, f.bankkeeper,
 		authtypes.FeeCollectorName, f.govModAddr,
 	)
+}
+
+func TestKeeperTestSuite(t *testing.T) {
+	suite.Run(t, new(KeeperTestSuite))
+}
+
+type KeeperTestSuite struct {
+	suite.Suite
+	fixture *testFixture
+}
+
+func (suite *KeeperTestSuite) SetupTest() {
+	suite.fixture = SetupTest(suite.T())
+}
+
+func (suite *KeeperTestSuite) TestAddChainConfig() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create a test chain config
+	config := types.ChainConfigData{
+		ChainId:               "1",
+		ChainName:             "Ethereum Mainnet",
+		CaipPrefix:            "eip155:1",
+		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+		PublicRpcUrl:          "https://ethereum-rpc.example.com",
+	}
+
+	// Test adding a chain config
+	err := k.AddChainConfig(ctx, config)
+	suite.Require().NoError(err)
+
+	// Check if the chain config was added correctly
+	retrievedConfig, err := k.GetChainConfig(ctx, config.ChainId)
+	suite.Require().NoError(err)
+	suite.Require().Equal(config.ChainId, retrievedConfig.ChainId)
+	suite.Require().Equal(config.ChainName, retrievedConfig.ChainName)
+	suite.Require().Equal(config.CaipPrefix, retrievedConfig.CaipPrefix)
+	suite.Require().Equal(config.LockerContractAddress, retrievedConfig.LockerContractAddress)
+	suite.Require().Equal(config.UsdcAddress, retrievedConfig.UsdcAddress)
+	suite.Require().Equal(config.PublicRpcUrl, retrievedConfig.PublicRpcUrl)
+
+	// Test adding a chain config with the same ID (should fail)
+	err = k.AddChainConfig(ctx, config)
+	suite.Require().NoError(err, "Adding the same config should update rather than error")
+
+	// Test adding an invalid chain config
+	invalidConfig := types.ChainConfigData{
+		ChainId:               "", // Empty chain ID
+		ChainName:             "Invalid Chain",
+		CaipPrefix:            "invalid", // Invalid CAIP prefix
+		LockerContractAddress: "0x123",
+		UsdcAddress:           "0x456",
+		PublicRpcUrl:          "https://invalid-chain.example.com",
+	}
+
+	err = k.AddChainConfig(ctx, invalidConfig)
+	suite.Require().Error(err, "Adding an invalid chain config should fail")
+}
+
+func (suite *KeeperTestSuite) TestUpdateChainConfig() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create and add a test chain config
+	config := types.ChainConfigData{
+		ChainId:               "1",
+		ChainName:             "Ethereum Mainnet",
+		CaipPrefix:            "eip155:1",
+		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+		PublicRpcUrl:          "https://ethereum-rpc.example.com",
+	}
+
+	err := k.AddChainConfig(ctx, config)
+	suite.Require().NoError(err)
+
+	// Update the chain config
+	updatedConfig := types.ChainConfigData{
+		ChainId:               "1",
+		ChainName:             "Ethereum Mainnet Updated",
+		CaipPrefix:            "eip155:1",
+		LockerContractAddress: "0x9876543210AbCdEf9876543210AbCdEf98765432",
+		UsdcAddress:           "0xfedcba9876543210FeDcBa9876543210FeDcBa98",
+		PublicRpcUrl:          "https://updated-ethereum-rpc.example.com",
+	}
+
+	err = k.AddChainConfig(ctx, updatedConfig)
+	suite.Require().NoError(err)
+
+	// Check if the chain config was updated correctly
+	retrievedConfig, err := k.GetChainConfig(ctx, config.ChainId)
+	suite.Require().NoError(err)
+	suite.Require().Equal(updatedConfig.ChainId, retrievedConfig.ChainId)
+	suite.Require().Equal(updatedConfig.ChainName, retrievedConfig.ChainName)
+	suite.Require().Equal(updatedConfig.CaipPrefix, retrievedConfig.CaipPrefix)
+	suite.Require().Equal(updatedConfig.LockerContractAddress, retrievedConfig.LockerContractAddress)
+	suite.Require().Equal(updatedConfig.UsdcAddress, retrievedConfig.UsdcAddress)
+	suite.Require().Equal(updatedConfig.PublicRpcUrl, retrievedConfig.PublicRpcUrl)
+
+	// Test updating a non-existent chain config (should add it)
+	newConfig := types.ChainConfigData{
+		ChainId:               "137",
+		ChainName:             "Polygon Mainnet",
+		CaipPrefix:            "eip155:137",
+		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+		PublicRpcUrl:          "https://polygon-rpc.example.com",
+	}
+
+	err = k.AddChainConfig(ctx, newConfig)
+	suite.Require().NoError(err)
+
+	// Check if the new chain config was added correctly
+	retrievedConfig, err = k.GetChainConfig(ctx, newConfig.ChainId)
+	suite.Require().NoError(err)
+	suite.Require().Equal(newConfig.ChainId, retrievedConfig.ChainId)
+}
+
+func (suite *KeeperTestSuite) TestDeleteChainConfig() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create and add a test chain config
+	config := types.ChainConfigData{
+		ChainId:               "1",
+		ChainName:             "Ethereum Mainnet",
+		CaipPrefix:            "eip155:1",
+		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+		PublicRpcUrl:          "https://ethereum-rpc.example.com",
+	}
+
+	err := k.AddChainConfig(ctx, config)
+	suite.Require().NoError(err)
+
+	// Delete the chain config
+	err = k.DeleteChainConfig(ctx, config.ChainId)
+	suite.Require().NoError(err)
+
+	// Check if the chain config was deleted correctly
+	_, err = k.GetChainConfig(ctx, config.ChainId)
+	suite.Require().Error(err, "Getting a deleted chain config should fail")
+
+	// Test deleting a non-existent chain config
+	err = k.DeleteChainConfig(ctx, "non-existent-chain")
+	suite.Require().Error(err, "Deleting a non-existent chain config should fail")
+}
+
+func (suite *KeeperTestSuite) TestGetChainConfigWithRPCOverride() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create and add a test chain config
+	config := types.ChainConfigData{
+		ChainId:               "1",
+		ChainName:             "Ethereum Mainnet",
+		CaipPrefix:            "eip155:1",
+		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+		PublicRpcUrl:          "https://ethereum-rpc.example.com",
+	}
+
+	err := k.AddChainConfig(ctx, config)
+	suite.Require().NoError(err)
+
+	// Set environment variable for RPC override
+	overrideRPC := "https://override-ethereum-rpc.example.com"
+	os.Setenv("USVL_CHAIN_RPC_1", overrideRPC)
+	defer os.Unsetenv("USVL_CHAIN_RPC_1")
+
+	// Get the chain config with RPC override
+	retrievedConfig, err := k.GetChainConfigWithRPCOverride(ctx, config.ChainId)
+	suite.Require().NoError(err)
+	suite.Require().Equal(config.ChainId, retrievedConfig.ChainId)
+	suite.Require().Equal(config.ChainName, retrievedConfig.ChainName)
+	suite.Require().Equal(config.CaipPrefix, retrievedConfig.CaipPrefix)
+	suite.Require().Equal(config.LockerContractAddress, retrievedConfig.LockerContractAddress)
+	suite.Require().Equal(config.UsdcAddress, retrievedConfig.UsdcAddress)
+	suite.Require().Equal(overrideRPC, retrievedConfig.PublicRpcUrl, "RPC URL should be overridden by environment variable")
+
+	// Test getting a non-existent chain config with RPC override
+	_, err = k.GetChainConfigWithRPCOverride(ctx, "non-existent-chain")
+	suite.Require().Error(err, "Getting a non-existent chain config should fail")
+}
+
+func (suite *KeeperTestSuite) TestGetAllChainConfigs() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create and add multiple test chain configs
+	configs := []types.ChainConfigData{
+		{
+			ChainId:               "1",
+			ChainName:             "Ethereum Mainnet",
+			CaipPrefix:            "eip155:1",
+			LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+			UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+			PublicRpcUrl:          "https://ethereum-rpc.example.com",
+		},
+		{
+			ChainId:               "137",
+			ChainName:             "Polygon Mainnet",
+			CaipPrefix:            "eip155:137",
+			LockerContractAddress: "0x9876543210AbCdEf9876543210AbCdEf98765432",
+			UsdcAddress:           "0xfedcba9876543210FeDcBa9876543210FeDcBa98",
+			PublicRpcUrl:          "https://polygon-rpc.example.com",
+		},
+		{
+			ChainId:               "10",
+			ChainName:             "Optimism Mainnet",
+			CaipPrefix:            "eip155:10",
+			LockerContractAddress: "0x1111222233334444555566667777888899990000",
+			UsdcAddress:           "0xaaabbbcccdddeeefff1111222233334444555566",
+			PublicRpcUrl:          "https://optimism-rpc.example.com",
+		},
+	}
+
+	for _, config := range configs {
+		err := k.AddChainConfig(ctx, config)
+		suite.Require().NoError(err)
+	}
+
+	// Get all chain configs
+	retrievedConfigs, err := k.GetAllChainConfigs(ctx)
+	suite.Require().NoError(err)
+	suite.Require().Len(retrievedConfigs, len(configs), "Should retrieve all added chain configs")
+
+	// Create a map of expected chain IDs
+	expectedChainIDs := make(map[string]bool)
+	for _, config := range configs {
+		expectedChainIDs[config.ChainId] = true
+	}
+
+	// Check if all expected chain IDs are present in the retrieved configs
+	for _, config := range retrievedConfigs {
+		suite.Require().True(expectedChainIDs[config.ChainId], "Retrieved chain config should be in the expected set")
+	}
+}
+
+func (suite *KeeperTestSuite) TestGenesisImportExport() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	// Create and add multiple test chain configs
+	configs := []types.ChainConfigData{
+		{
+			ChainId:               "1",
+			ChainName:             "Ethereum Mainnet",
+			CaipPrefix:            "eip155:1",
+			LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
+			UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
+			PublicRpcUrl:          "https://ethereum-rpc.example.com",
+		},
+		{
+			ChainId:               "137",
+			ChainName:             "Polygon Mainnet",
+			CaipPrefix:            "eip155:137",
+			LockerContractAddress: "0x9876543210AbCdEf9876543210AbCdEf98765432",
+			UsdcAddress:           "0xfedcba9876543210FeDcBa9876543210FeDcBa98",
+			PublicRpcUrl:          "https://polygon-rpc.example.com",
+		},
+	}
+
+	// Add the configs to the keeper
+	for _, config := range configs {
+		err := k.AddChainConfig(ctx, config)
+		suite.Require().NoError(err)
+	}
+
+	// Set some custom params
+	params := types.Params{
+		SomeValue: true,
+	}
+	err := k.Params.Set(ctx, params)
+	suite.Require().NoError(err)
+
+	// Export genesis
+	exportedGenesis := k.ExportGenesis(ctx)
+	suite.Require().NotNil(exportedGenesis)
+	suite.Require().Equal(params.SomeValue, exportedGenesis.Params.SomeValue, "Exported params should match")
+	suite.Require().Len(exportedGenesis.ChainConfigs, len(configs), "Exported genesis should contain all chain configs")
+
+	// Create a new keeper for import testing
+	newFixture := SetupTest(suite.T())
+	newK := newFixture.k
+	newCtx := newFixture.ctx
+
+	// Import genesis into the new keeper
+	err = newK.InitGenesis(newCtx, exportedGenesis)
+	suite.Require().NoError(err)
+
+	// Check if the params were imported correctly
+	importedParams, err := newK.Params.Get(newCtx)
+	suite.Require().NoError(err)
+	suite.Require().Equal(params.SomeValue, importedParams.SomeValue, "Imported params should match the exported ones")
+
+	// Check if the chain configs were imported correctly
+	importedConfigs, err := newK.GetAllChainConfigs(newCtx)
+	suite.Require().NoError(err)
+	suite.Require().Len(importedConfigs, len(configs), "Imported genesis should contain all chain configs")
+
+	// Create a map of expected chain IDs
+	expectedChainIDs := make(map[string]bool)
+	for _, config := range configs {
+		expectedChainIDs[config.ChainId] = true
+	}
+
+	// Check if all expected chain IDs are present in the imported configs
+	for _, config := range importedConfigs {
+		suite.Require().True(expectedChainIDs[config.ChainId], "Imported chain config should be in the expected set")
+	}
+}
+
+func (suite *KeeperTestSuite) TestInvalidChainConfig() {
+	k := suite.fixture.k
+	ctx := suite.fixture.ctx
+
+	testCases := []struct {
+		name   string
+		config types.ChainConfigData
+		errMsg string
+	}{
+		{
+			name: "Empty chain ID",
+			config: types.ChainConfigData{
+				ChainId:               "",
+				ChainName:             "Test Chain",
+				CaipPrefix:            "eip155:1",
+				LockerContractAddress: "0x1234",
+				UsdcAddress:           "0x5678",
+				PublicRpcUrl:          "https://rpc.example.com",
+			},
+			errMsg: "chain ID cannot be empty",
+		},
+		{
+			name: "Empty chain name",
+			config: types.ChainConfigData{
+				ChainId:               "1",
+				ChainName:             "",
+				CaipPrefix:            "eip155:1",
+				LockerContractAddress: "0x1234",
+				UsdcAddress:           "0x5678",
+				PublicRpcUrl:          "https://rpc.example.com",
+			},
+			errMsg: "chain name cannot be empty",
+		},
+		{
+			name: "Invalid CAIP prefix",
+			config: types.ChainConfigData{
+				ChainId:               "1",
+				ChainName:             "Test Chain",
+				CaipPrefix:            "invalid",
+				LockerContractAddress: "0x1234",
+				UsdcAddress:           "0x5678",
+				PublicRpcUrl:          "https://rpc.example.com",
+			},
+			errMsg: "invalid CAIP prefix format",
+		},
+		{
+			name: "Empty locker contract address",
+			config: types.ChainConfigData{
+				ChainId:               "1",
+				ChainName:             "Test Chain",
+				CaipPrefix:            "eip155:1",
+				LockerContractAddress: "",
+				UsdcAddress:           "0x5678",
+				PublicRpcUrl:          "https://rpc.example.com",
+			},
+			errMsg: "locker contract address cannot be empty",
+		},
+		{
+			name: "Empty USDC address",
+			config: types.ChainConfigData{
+				ChainId:               "1",
+				ChainName:             "Test Chain",
+				CaipPrefix:            "eip155:1",
+				LockerContractAddress: "0x1234",
+				UsdcAddress:           "",
+				PublicRpcUrl:          "https://rpc.example.com",
+			},
+			errMsg: "USDC address cannot be empty",
+		},
+		{
+			name: "Empty RPC URL",
+			config: types.ChainConfigData{
+				ChainId:               "1",
+				ChainName:             "Test Chain",
+				CaipPrefix:            "eip155:1",
+				LockerContractAddress: "0x1234",
+				UsdcAddress:           "0x5678",
+				PublicRpcUrl:          "",
+			},
+			errMsg: "public RPC URL cannot be empty",
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			err := k.AddChainConfig(ctx, tc.config)
+			suite.Require().Error(err)
+			suite.Require().Contains(err.Error(), tc.errMsg)
+		})
+	}
 }

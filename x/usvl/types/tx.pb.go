@@ -6,7 +6,6 @@ package types
 import (
 	context "context"
 	fmt "fmt"
-	_ "github.com/cosmos/cosmos-proto"
 	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
@@ -31,14 +30,10 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
-//
-// Since: cosmos-sdk 0.47
 type MsgUpdateParams struct {
 	// authority is the address of the governance account.
-	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
-	// params defines the parameters to update.
-	//
-	// NOTE: All parameters must be supplied.
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty" yaml:"authority"`
+	// params defines the module parameters to update.
 	Params Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
 }
 
@@ -89,10 +84,7 @@ func (m *MsgUpdateParams) GetParams() Params {
 	return Params{}
 }
 
-// MsgUpdateParamsResponse defines the response structure for executing a
-// MsgUpdateParams message.
-//
-// Since: cosmos-sdk 0.47
+// MsgUpdateParamsResponse is the Msg/UpdateParams response type.
 type MsgUpdateParamsResponse struct {
 }
 
@@ -129,36 +121,326 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
+// MsgAddChainConfig is the Msg/AddChainConfig request type.
+type MsgAddChainConfig struct {
+	// authority is the address of the governance account.
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty" yaml:"authority"`
+	// chain_config defines the chain configuration to add.
+	ChainConfig ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
+}
+
+func (m *MsgAddChainConfig) Reset()         { *m = MsgAddChainConfig{} }
+func (m *MsgAddChainConfig) String() string { return proto.CompactTextString(m) }
+func (*MsgAddChainConfig) ProtoMessage()    {}
+func (*MsgAddChainConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{2}
+}
+func (m *MsgAddChainConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAddChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAddChainConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAddChainConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAddChainConfig.Merge(m, src)
+}
+func (m *MsgAddChainConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAddChainConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAddChainConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAddChainConfig proto.InternalMessageInfo
+
+func (m *MsgAddChainConfig) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgAddChainConfig) GetChainConfig() ChainConfig {
+	if m != nil {
+		return m.ChainConfig
+	}
+	return ChainConfig{}
+}
+
+// MsgAddChainConfigResponse is the Msg/AddChainConfig response type.
+type MsgAddChainConfigResponse struct {
+}
+
+func (m *MsgAddChainConfigResponse) Reset()         { *m = MsgAddChainConfigResponse{} }
+func (m *MsgAddChainConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgAddChainConfigResponse) ProtoMessage()    {}
+func (*MsgAddChainConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{3}
+}
+func (m *MsgAddChainConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAddChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAddChainConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAddChainConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAddChainConfigResponse.Merge(m, src)
+}
+func (m *MsgAddChainConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAddChainConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAddChainConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAddChainConfigResponse proto.InternalMessageInfo
+
+// MsgUpdateChainConfig is the Msg/UpdateChainConfig request type.
+type MsgUpdateChainConfig struct {
+	// authority is the address of the governance account.
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty" yaml:"authority"`
+	// chain_config defines the updated chain configuration.
+	ChainConfig ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
+}
+
+func (m *MsgUpdateChainConfig) Reset()         { *m = MsgUpdateChainConfig{} }
+func (m *MsgUpdateChainConfig) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateChainConfig) ProtoMessage()    {}
+func (*MsgUpdateChainConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{4}
+}
+func (m *MsgUpdateChainConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateChainConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateChainConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateChainConfig.Merge(m, src)
+}
+func (m *MsgUpdateChainConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateChainConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateChainConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateChainConfig proto.InternalMessageInfo
+
+func (m *MsgUpdateChainConfig) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgUpdateChainConfig) GetChainConfig() ChainConfig {
+	if m != nil {
+		return m.ChainConfig
+	}
+	return ChainConfig{}
+}
+
+// MsgUpdateChainConfigResponse is the Msg/UpdateChainConfig response type.
+type MsgUpdateChainConfigResponse struct {
+}
+
+func (m *MsgUpdateChainConfigResponse) Reset()         { *m = MsgUpdateChainConfigResponse{} }
+func (m *MsgUpdateChainConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateChainConfigResponse) ProtoMessage()    {}
+func (*MsgUpdateChainConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{5}
+}
+func (m *MsgUpdateChainConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateChainConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateChainConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateChainConfigResponse.Merge(m, src)
+}
+func (m *MsgUpdateChainConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateChainConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateChainConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateChainConfigResponse proto.InternalMessageInfo
+
+// MsgDeleteChainConfig is the Msg/DeleteChainConfig request type.
+type MsgDeleteChainConfig struct {
+	// authority is the address of the governance account.
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty" yaml:"authority"`
+	// chain_id is the unique identifier of the chain configuration to delete.
+	ChainId string `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+}
+
+func (m *MsgDeleteChainConfig) Reset()         { *m = MsgDeleteChainConfig{} }
+func (m *MsgDeleteChainConfig) String() string { return proto.CompactTextString(m) }
+func (*MsgDeleteChainConfig) ProtoMessage()    {}
+func (*MsgDeleteChainConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{6}
+}
+func (m *MsgDeleteChainConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgDeleteChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgDeleteChainConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgDeleteChainConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeleteChainConfig.Merge(m, src)
+}
+func (m *MsgDeleteChainConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgDeleteChainConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeleteChainConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgDeleteChainConfig proto.InternalMessageInfo
+
+func (m *MsgDeleteChainConfig) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgDeleteChainConfig) GetChainId() string {
+	if m != nil {
+		return m.ChainId
+	}
+	return ""
+}
+
+// MsgDeleteChainConfigResponse is the Msg/DeleteChainConfig response type.
+type MsgDeleteChainConfigResponse struct {
+}
+
+func (m *MsgDeleteChainConfigResponse) Reset()         { *m = MsgDeleteChainConfigResponse{} }
+func (m *MsgDeleteChainConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgDeleteChainConfigResponse) ProtoMessage()    {}
+func (*MsgDeleteChainConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{7}
+}
+func (m *MsgDeleteChainConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgDeleteChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgDeleteChainConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgDeleteChainConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeleteChainConfigResponse.Merge(m, src)
+}
+func (m *MsgDeleteChainConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgDeleteChainConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeleteChainConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgDeleteChainConfigResponse proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "usvl.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "usvl.v1.MsgUpdateParamsResponse")
+	proto.RegisterType((*MsgAddChainConfig)(nil), "usvl.v1.MsgAddChainConfig")
+	proto.RegisterType((*MsgAddChainConfigResponse)(nil), "usvl.v1.MsgAddChainConfigResponse")
+	proto.RegisterType((*MsgUpdateChainConfig)(nil), "usvl.v1.MsgUpdateChainConfig")
+	proto.RegisterType((*MsgUpdateChainConfigResponse)(nil), "usvl.v1.MsgUpdateChainConfigResponse")
+	proto.RegisterType((*MsgDeleteChainConfig)(nil), "usvl.v1.MsgDeleteChainConfig")
+	proto.RegisterType((*MsgDeleteChainConfigResponse)(nil), "usvl.v1.MsgDeleteChainConfigResponse")
 }
 
 func init() { proto.RegisterFile("usvl/v1/tx.proto", fileDescriptor_5a174a5adf514d39) }
 
 var fileDescriptor_5a174a5adf514d39 = []byte{
-	// 324 bytes of a gzipped FileDescriptorProto
+	// 463 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x28, 0x2d, 0x2e, 0xcb,
 	0xd1, 0x2f, 0x33, 0xd4, 0x2f, 0xa9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x07, 0x89,
 	0xe8, 0x95, 0x19, 0x4a, 0x89, 0x27, 0xe7, 0x17, 0xe7, 0xe6, 0x17, 0xeb, 0xe7, 0x16, 0xa7, 0x83,
 	0x14, 0xe4, 0x16, 0xa7, 0x43, 0x54, 0x48, 0x89, 0xc2, 0xf4, 0xa4, 0xa7, 0xe6, 0xa5, 0x16, 0x67,
-	0x16, 0x43, 0x85, 0x45, 0xd2, 0xf3, 0xd3, 0xf3, 0xc1, 0x4c, 0x7d, 0x10, 0x0b, 0x2a, 0x2a, 0x09,
-	0x31, 0x25, 0x1e, 0x22, 0x01, 0xe1, 0x40, 0xa4, 0x94, 0x3a, 0x18, 0xb9, 0xf8, 0x7d, 0x8b, 0xd3,
-	0x43, 0x0b, 0x52, 0x12, 0x4b, 0x52, 0x03, 0x12, 0x8b, 0x12, 0x73, 0x8b, 0x85, 0xcc, 0xb8, 0x38,
-	0x13, 0x4b, 0x4b, 0x32, 0xf2, 0x8b, 0x32, 0x4b, 0x2a, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x9d,
-	0x24, 0x2e, 0x6d, 0xd1, 0x15, 0x81, 0x6a, 0x74, 0x4c, 0x49, 0x29, 0x4a, 0x2d, 0x2e, 0x0e, 0x2e,
-	0x29, 0xca, 0xcc, 0x4b, 0x0f, 0x42, 0x28, 0x15, 0xd2, 0xe5, 0x62, 0x2b, 0x00, 0x9b, 0x20, 0xc1,
-	0xa4, 0xc0, 0xa8, 0xc1, 0x6d, 0xc4, 0xaf, 0x07, 0xf5, 0x86, 0x1e, 0xc4, 0x60, 0x27, 0x96, 0x13,
-	0xf7, 0xe4, 0x19, 0x82, 0xa0, 0x8a, 0xac, 0xf8, 0x9a, 0x9e, 0x6f, 0xd0, 0x42, 0x68, 0x57, 0x92,
-	0xe4, 0x12, 0x47, 0x73, 0x49, 0x50, 0x6a, 0x71, 0x41, 0x7e, 0x5e, 0x71, 0xaa, 0x51, 0x04, 0x17,
-	0xb3, 0x6f, 0x71, 0xba, 0x90, 0x17, 0x17, 0x0f, 0x8a, 0x43, 0x25, 0xe0, 0x16, 0xa0, 0x69, 0x94,
-	0x52, 0xc0, 0x25, 0x03, 0x33, 0x52, 0x8a, 0xb5, 0xe1, 0xf9, 0x06, 0x2d, 0x46, 0x27, 0xaf, 0x13,
-	0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x71, 0xc2, 0x63, 0x39, 0x86,
-	0x0b, 0x8f, 0xe5, 0x18, 0x6e, 0x3c, 0x96, 0x63, 0x88, 0x32, 0x48, 0xcf, 0x2c, 0xc9, 0x28, 0x4d,
-	0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x2f, 0x28, 0x2d, 0xce, 0xd0, 0x05, 0x07, 0x58, 0x72, 0x7e, 0x0e,
-	0x84, 0x97, 0x9c, 0x91, 0x98, 0x99, 0xa7, 0x5f, 0xa1, 0x0f, 0x8e, 0x87, 0x92, 0xca, 0x82, 0xd4,
-	0xe2, 0x24, 0x36, 0xb0, 0x0a, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x71, 0xa6, 0xac, 0x7e,
-	0xd0, 0x01, 0x00, 0x00,
+	0x16, 0x43, 0x85, 0x45, 0xd2, 0xf3, 0xd3, 0xf3, 0xc1, 0x4c, 0x7d, 0x10, 0x0b, 0x22, 0xaa, 0xd4,
+	0xc2, 0xc8, 0xc5, 0xef, 0x5b, 0x9c, 0x1e, 0x5a, 0x90, 0x92, 0x58, 0x92, 0x1a, 0x90, 0x58, 0x94,
+	0x98, 0x5b, 0x2c, 0x64, 0xc4, 0xc5, 0x99, 0x58, 0x5a, 0x92, 0x91, 0x5f, 0x94, 0x59, 0x52, 0x29,
+	0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0xe9, 0x24, 0xf2, 0xe9, 0x9e, 0xbc, 0x40, 0x65, 0x62, 0x6e, 0x8e,
+	0x95, 0x12, 0x5c, 0x4a, 0x29, 0x08, 0xa1, 0x4c, 0x48, 0x97, 0x8b, 0xad, 0x00, 0xac, 0x5b, 0x82,
+	0x49, 0x81, 0x51, 0x83, 0xdb, 0x88, 0x5f, 0x0f, 0xea, 0x4e, 0x3d, 0x88, 0xa1, 0x4e, 0x2c, 0x27,
+	0xee, 0xc9, 0x33, 0x04, 0x41, 0x15, 0x59, 0xf1, 0x35, 0x3d, 0xdf, 0xa0, 0x85, 0xd0, 0xae, 0x24,
+	0xc9, 0x25, 0x8e, 0xe6, 0x8a, 0xa0, 0xd4, 0xe2, 0x82, 0xfc, 0xbc, 0xe2, 0x54, 0xa5, 0x69, 0x8c,
+	0x5c, 0x82, 0xbe, 0xc5, 0xe9, 0x8e, 0x29, 0x29, 0xce, 0x19, 0x89, 0x99, 0x79, 0xce, 0xf9, 0x79,
+	0x69, 0x99, 0xe9, 0x64, 0xb9, 0xd1, 0x96, 0x8b, 0x27, 0x19, 0x64, 0x44, 0x7c, 0x32, 0xd8, 0x0c,
+	0xa8, 0x4b, 0x45, 0xe0, 0x2e, 0x45, 0x32, 0x1f, 0xea, 0x5c, 0xee, 0x64, 0x84, 0x10, 0x86, 0x9b,
+	0xa5, 0xb9, 0x24, 0x31, 0xdc, 0x05, 0x77, 0xf5, 0x4c, 0x46, 0x2e, 0x11, 0xb8, 0x8f, 0x06, 0x99,
+	0xc3, 0xe5, 0xb8, 0x64, 0xb0, 0x39, 0x0d, 0xee, 0xf6, 0x52, 0xb0, 0xd3, 0x5d, 0x52, 0x73, 0x52,
+	0x29, 0x77, 0xba, 0x24, 0x17, 0x07, 0xc4, 0xe9, 0x99, 0x29, 0x60, 0x67, 0x73, 0x06, 0xb1, 0x83,
+	0xf9, 0x9e, 0x29, 0x38, 0x9c, 0x85, 0x61, 0x2d, 0xcc, 0x59, 0x46, 0x0f, 0x98, 0xb8, 0x98, 0x7d,
+	0x8b, 0xd3, 0x85, 0xbc, 0xb8, 0x78, 0x50, 0x92, 0xab, 0x04, 0x3c, 0x1c, 0xd0, 0x92, 0x90, 0x94,
+	0x02, 0x2e, 0x19, 0x98, 0x99, 0x42, 0x01, 0x5c, 0x7c, 0x68, 0x09, 0x4b, 0x0a, 0x59, 0x0f, 0xaa,
+	0x9c, 0x94, 0x12, 0x6e, 0x39, 0xb8, 0x89, 0x91, 0x5c, 0x82, 0x98, 0x91, 0x2e, 0x8b, 0xe9, 0x10,
+	0x64, 0x73, 0x55, 0xf1, 0x4a, 0x23, 0x1b, 0x8d, 0x19, 0x29, 0x28, 0x46, 0x63, 0x48, 0xa3, 0x1a,
+	0x8d, 0x33, 0x6c, 0xa5, 0x58, 0x1b, 0x9e, 0x6f, 0xd0, 0x62, 0x74, 0xf2, 0x3a, 0xf1, 0x48, 0x8e,
+	0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0xb8, 0xf0, 0x58,
+	0x8e, 0xe1, 0xc6, 0x63, 0x39, 0x86, 0x28, 0x83, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd, 0xe4,
+	0xfc, 0x5c, 0xfd, 0x82, 0xd2, 0xe2, 0x0c, 0x5d, 0x70, 0xf1, 0x91, 0x9c, 0x9f, 0x03, 0xe1, 0x81,
+	0xe3, 0x54, 0xbf, 0x42, 0x1f, 0x5c, 0xf4, 0x94, 0x54, 0x16, 0xa4, 0x16, 0x27, 0xb1, 0x81, 0x55,
+	0x18, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3e, 0xe5, 0xa3, 0x47, 0xc3, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -173,10 +455,15 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MsgClient interface {
-	// UpdateParams defines a governance operation for updating the parameters.
-	//
-	// Since: cosmos-sdk 0.47
+	// UpdateParams defines a governance operation for updating the module parameters.
+	// The authority is defined in the keeper.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
+	// AddChainConfig defines a governance operation for adding a new chain configuration.
+	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
+	// UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
+	// DeleteChainConfig defines a governance operation for removing a chain configuration.
+	DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error)
 }
 
 type msgClient struct {
@@ -196,12 +483,44 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
+func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
+	out := new(MsgAddChainConfigResponse)
+	err := c.cc.Invoke(ctx, "/usvl.v1.Msg/AddChainConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error) {
+	out := new(MsgUpdateChainConfigResponse)
+	err := c.cc.Invoke(ctx, "/usvl.v1.Msg/UpdateChainConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error) {
+	out := new(MsgDeleteChainConfigResponse)
+	err := c.cc.Invoke(ctx, "/usvl.v1.Msg/DeleteChainConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
-	// UpdateParams defines a governance operation for updating the parameters.
-	//
-	// Since: cosmos-sdk 0.47
+	// UpdateParams defines a governance operation for updating the module parameters.
+	// The authority is defined in the keeper.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
+	// AddChainConfig defines a governance operation for adding a new chain configuration.
+	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
+	// UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
+	// DeleteChainConfig defines a governance operation for removing a chain configuration.
+	DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -210,6 +529,15 @@ type UnimplementedMsgServer struct {
 
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
+}
+func (*UnimplementedMsgServer) AddChainConfig(ctx context.Context, req *MsgAddChainConfig) (*MsgAddChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddChainConfig not implemented")
+}
+func (*UnimplementedMsgServer) UpdateChainConfig(ctx context.Context, req *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateChainConfig not implemented")
+}
+func (*UnimplementedMsgServer) DeleteChainConfig(ctx context.Context, req *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChainConfig not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -234,6 +562,60 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAddChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AddChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/usvl.v1.Msg/AddChainConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/usvl.v1.Msg/UpdateChainConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateChainConfig(ctx, req.(*MsgUpdateChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_DeleteChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgDeleteChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).DeleteChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/usvl.v1.Msg/DeleteChainConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).DeleteChainConfig(ctx, req.(*MsgDeleteChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "usvl.v1.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -241,6 +623,18 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
+		},
+		{
+			MethodName: "AddChainConfig",
+			Handler:    _Msg_AddChainConfig_Handler,
+		},
+		{
+			MethodName: "UpdateChainConfig",
+			Handler:    _Msg_UpdateChainConfig_Handler,
+		},
+		{
+			MethodName: "DeleteChainConfig",
+			Handler:    _Msg_DeleteChainConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -310,6 +704,192 @@ func (m *MsgUpdateParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgAddChainConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAddChainConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAddChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.ChainConfig.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgAddChainConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAddChainConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAddChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateChainConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateChainConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.ChainConfig.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateChainConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateChainConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgDeleteChainConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgDeleteChainConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgDeleteChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.ChainId) > 0 {
+		i -= len(m.ChainId)
+		copy(dAtA[i:], m.ChainId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.ChainId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgDeleteChainConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgDeleteChainConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgDeleteChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -337,6 +917,80 @@ func (m *MsgUpdateParams) Size() (n int) {
 }
 
 func (m *MsgUpdateParamsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgAddChainConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = m.ChainConfig.Size()
+	n += 1 + l + sovTx(uint64(l))
+	return n
+}
+
+func (m *MsgAddChainConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgUpdateChainConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = m.ChainConfig.Size()
+	n += 1 + l + sovTx(uint64(l))
+	return n
+}
+
+func (m *MsgUpdateChainConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgDeleteChainConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.ChainId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgDeleteChainConfigResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -493,6 +1147,500 @@ func (m *MsgUpdateParamsResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgUpdateParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAddChainConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAddChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ChainConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAddChainConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAddChainConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAddChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateChainConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateChainConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ChainConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateChainConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateChainConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgDeleteChainConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgDeleteChainConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgDeleteChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgDeleteChainConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgDeleteChainConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgDeleteChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

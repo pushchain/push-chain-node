@@ -1,6 +1,7 @@
 syntax = "proto3";
 package usvl.v1;
 
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
 import "usvl/v1/genesis.proto";
 
@@ -12,6 +13,21 @@ service Query {
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/usvl/v1/params";
   }
+
+  // ChainConfig returns the configuration for a specific chain.
+  rpc ChainConfig(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
+    option (google.api.http).get = "/usvl/v1/chain_config/{chain_id}";
+  }
+
+  // ChainConfigWithRpcOverride returns the configuration for a specific chain with RPC override if available.
+  rpc ChainConfigWithRpcOverride(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
+    option (google.api.http).get = "/usvl/v1/chain_config_with_rpc_override/{chain_id}";
+  }
+
+  // ChainConfigs returns the list of all configured chains with pagination.
+  rpc ChainConfigs(QueryChainConfigsRequest) returns (QueryChainConfigsResponse) {
+    option (google.api.http).get = "/usvl/v1/chain_configs";
+  }
 }
 
 // QueryParamsRequest is the request type for the Query/Params RPC method.
@@ -21,4 +37,31 @@ message QueryParamsRequest {}
 message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
+}
+
+// QueryChainConfigRequest is the request type for the Query/ChainConfig RPC method.
+message QueryChainConfigRequest {
+  // chain_id is the unique identifier of the chain configuration to query.
+  string chain_id = 1;
+}
+
+// QueryChainConfigResponse is the response type for the Query/ChainConfig RPC method.
+message QueryChainConfigResponse {
+  // chain_config contains the requested chain configuration.
+  ChainConfig chain_config = 1;
+}
+
+// QueryChainConfigsRequest is the request type for the Query/ChainConfigs RPC method.
+message QueryChainConfigsRequest {
+  // pagination defines an optional pagination for the request.
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryChainConfigsResponse is the response type for the Query/ChainConfigs RPC method.
+message QueryChainConfigsResponse {
+  // chain_configs contains the list of chain configurations.
+  repeated ChainConfig chain_configs = 1;
+  
+  // pagination defines the pagination in the response.
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

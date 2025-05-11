@@ -4,37 +4,79 @@ package usvl.v1;
 import "cosmos/msg/v1/msg.proto";
 import "usvl/v1/genesis.proto";
 import "gogoproto/gogo.proto";
-import "cosmos_proto/cosmos.proto";
 
 option go_package = "github.com/push-protocol/push-chain/x/usvl/types";
 
-// Msg defines the Msg service.
+// Msg defines the module Msg service.
 service Msg {
   option (cosmos.msg.v1.service) = true;
 
-  // UpdateParams defines a governance operation for updating the parameters.
-  //
-  // Since: cosmos-sdk 0.47
+  // UpdateParams defines a governance operation for updating the module parameters.
+  // The authority is defined in the keeper.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  
+  // AddChainConfig defines a governance operation for adding a new chain configuration.
+  rpc AddChainConfig(MsgAddChainConfig) returns (MsgAddChainConfigResponse);
+
+  // UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+  rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
+
+  // DeleteChainConfig defines a governance operation for removing a chain configuration.
+  rpc DeleteChainConfig(MsgDeleteChainConfig) returns (MsgDeleteChainConfigResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
-//
-// Since: cosmos-sdk 0.47
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
 
   // authority is the address of the governance account.
-  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
 
-  // params defines the parameters to update.
-  //
-  // NOTE: All parameters must be supplied.
+  // params defines the module parameters to update.
   Params params = 2 [(gogoproto.nullable) = false];
 }
 
-// MsgUpdateParamsResponse defines the response structure for executing a
-// MsgUpdateParams message.
-//
-// Since: cosmos-sdk 0.47
+// MsgUpdateParamsResponse is the Msg/UpdateParams response type.
 message MsgUpdateParamsResponse {}
+
+// MsgAddChainConfig is the Msg/AddChainConfig request type.
+message MsgAddChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_config defines the chain configuration to add.
+  ChainConfig chain_config = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgAddChainConfigResponse is the Msg/AddChainConfig response type.
+message MsgAddChainConfigResponse {}
+
+// MsgUpdateChainConfig is the Msg/UpdateChainConfig request type.
+message MsgUpdateChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_config defines the updated chain configuration.
+  ChainConfig chain_config = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateChainConfigResponse is the Msg/UpdateChainConfig response type.
+message MsgUpdateChainConfigResponse {}
+
+// MsgDeleteChainConfig is the Msg/DeleteChainConfig request type.
+message MsgDeleteChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_id is the unique identifier of the chain configuration to delete.
+  string chain_id = 2;
+}
+
+// MsgDeleteChainConfigResponse is the Msg/DeleteChainConfig response type.
+message MsgDeleteChainConfigResponse {}

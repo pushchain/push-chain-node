@@ -19,17 +19,25 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName = "/usvl.v1.Msg/UpdateParams"
+	Msg_UpdateParams_FullMethodName      = "/usvl.v1.Msg/UpdateParams"
+	Msg_AddChainConfig_FullMethodName    = "/usvl.v1.Msg/AddChainConfig"
+	Msg_UpdateChainConfig_FullMethodName = "/usvl.v1.Msg/UpdateChainConfig"
+	Msg_DeleteChainConfig_FullMethodName = "/usvl.v1.Msg/DeleteChainConfig"
 )
 
 // MsgClient is the client API for Msg service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MsgClient interface {
-	// UpdateParams defines a governance operation for updating the parameters.
-	//
-	// Since: cosmos-sdk 0.47
+	// UpdateParams defines a governance operation for updating the module parameters.
+	// The authority is defined in the keeper.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
+	// AddChainConfig defines a governance operation for adding a new chain configuration.
+	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
+	// UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
+	// DeleteChainConfig defines a governance operation for removing a chain configuration.
+	DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error)
 }
 
 type msgClient struct {
@@ -49,14 +57,46 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
+func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
+	out := new(MsgAddChainConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_AddChainConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error) {
+	out := new(MsgUpdateChainConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateChainConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error) {
+	out := new(MsgDeleteChainConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_DeleteChainConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
 type MsgServer interface {
-	// UpdateParams defines a governance operation for updating the parameters.
-	//
-	// Since: cosmos-sdk 0.47
+	// UpdateParams defines a governance operation for updating the module parameters.
+	// The authority is defined in the keeper.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
+	// AddChainConfig defines a governance operation for adding a new chain configuration.
+	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
+	// UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
+	// DeleteChainConfig defines a governance operation for removing a chain configuration.
+	DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -66,6 +106,15 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
+}
+func (UnimplementedMsgServer) AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddChainConfig not implemented")
+}
+func (UnimplementedMsgServer) UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateChainConfig not implemented")
+}
+func (UnimplementedMsgServer) DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChainConfig not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -98,6 +147,60 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAddChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AddChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_AddChainConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateChainConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateChainConfig(ctx, req.(*MsgUpdateChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_DeleteChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgDeleteChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).DeleteChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_DeleteChainConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).DeleteChainConfig(ctx, req.(*MsgDeleteChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -108,6 +211,18 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
+		},
+		{
+			MethodName: "AddChainConfig",
+			Handler:    _Msg_AddChainConfig_Handler,
+		},
+		{
+			MethodName: "UpdateChainConfig",
+			Handler:    _Msg_UpdateChainConfig_Handler,
+		},
+		{
+			MethodName: "DeleteChainConfig",
+			Handler:    _Msg_DeleteChainConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

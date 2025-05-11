@@ -14,15 +14,68 @@ import (
 	sync "sync"
 )
 
+var _ protoreflect.List = (*_GenesisState_2_list)(nil)
+
+type _GenesisState_2_list struct {
+	list *[]*ChainConfig
+}
+
+func (x *_GenesisState_2_list) Len() int {
+	if x.list == nil {
+		return 0
+	}
+	return len(*x.list)
+}
+
+func (x *_GenesisState_2_list) Get(i int) protoreflect.Value {
+	return protoreflect.ValueOfMessage((*x.list)[i].ProtoReflect())
+}
+
+func (x *_GenesisState_2_list) Set(i int, value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*ChainConfig)
+	(*x.list)[i] = concreteValue
+}
+
+func (x *_GenesisState_2_list) Append(value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*ChainConfig)
+	*x.list = append(*x.list, concreteValue)
+}
+
+func (x *_GenesisState_2_list) AppendMutable() protoreflect.Value {
+	v := new(ChainConfig)
+	*x.list = append(*x.list, v)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_GenesisState_2_list) Truncate(n int) {
+	for i := n; i < len(*x.list); i++ {
+		(*x.list)[i] = nil
+	}
+	*x.list = (*x.list)[:n]
+}
+
+func (x *_GenesisState_2_list) NewElement() protoreflect.Value {
+	v := new(ChainConfig)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_GenesisState_2_list) IsValid() bool {
+	return x.list != nil
+}
+
 var (
-	md_GenesisState        protoreflect.MessageDescriptor
-	fd_GenesisState_params protoreflect.FieldDescriptor
+	md_GenesisState               protoreflect.MessageDescriptor
+	fd_GenesisState_params        protoreflect.FieldDescriptor
+	fd_GenesisState_chain_configs protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_usvl_v1_genesis_proto_init()
 	md_GenesisState = File_usvl_v1_genesis_proto.Messages().ByName("GenesisState")
 	fd_GenesisState_params = md_GenesisState.Fields().ByName("params")
+	fd_GenesisState_chain_configs = md_GenesisState.Fields().ByName("chain_configs")
 }
 
 var _ protoreflect.Message = (*fastReflection_GenesisState)(nil)
@@ -96,6 +149,12 @@ func (x *fastReflection_GenesisState) Range(f func(protoreflect.FieldDescriptor,
 			return
 		}
 	}
+	if len(x.ChainConfigs) != 0 {
+		value := protoreflect.ValueOfList(&_GenesisState_2_list{list: &x.ChainConfigs})
+		if !f(fd_GenesisState_chain_configs, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -113,6 +172,8 @@ func (x *fastReflection_GenesisState) Has(fd protoreflect.FieldDescriptor) bool 
 	switch fd.FullName() {
 	case "usvl.v1.GenesisState.params":
 		return x.Params != nil
+	case "usvl.v1.GenesisState.chain_configs":
+		return len(x.ChainConfigs) != 0
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -131,6 +192,8 @@ func (x *fastReflection_GenesisState) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
 	case "usvl.v1.GenesisState.params":
 		x.Params = nil
+	case "usvl.v1.GenesisState.chain_configs":
+		x.ChainConfigs = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -150,6 +213,12 @@ func (x *fastReflection_GenesisState) Get(descriptor protoreflect.FieldDescripto
 	case "usvl.v1.GenesisState.params":
 		value := x.Params
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	case "usvl.v1.GenesisState.chain_configs":
+		if len(x.ChainConfigs) == 0 {
+			return protoreflect.ValueOfList(&_GenesisState_2_list{})
+		}
+		listValue := &_GenesisState_2_list{list: &x.ChainConfigs}
+		return protoreflect.ValueOfList(listValue)
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -172,6 +241,10 @@ func (x *fastReflection_GenesisState) Set(fd protoreflect.FieldDescriptor, value
 	switch fd.FullName() {
 	case "usvl.v1.GenesisState.params":
 		x.Params = value.Message().Interface().(*Params)
+	case "usvl.v1.GenesisState.chain_configs":
+		lv := value.List()
+		clv := lv.(*_GenesisState_2_list)
+		x.ChainConfigs = *clv.list
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -197,6 +270,12 @@ func (x *fastReflection_GenesisState) Mutable(fd protoreflect.FieldDescriptor) p
 			x.Params = new(Params)
 		}
 		return protoreflect.ValueOfMessage(x.Params.ProtoReflect())
+	case "usvl.v1.GenesisState.chain_configs":
+		if x.ChainConfigs == nil {
+			x.ChainConfigs = []*ChainConfig{}
+		}
+		value := &_GenesisState_2_list{list: &x.ChainConfigs}
+		return protoreflect.ValueOfList(value)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -213,6 +292,9 @@ func (x *fastReflection_GenesisState) NewField(fd protoreflect.FieldDescriptor) 
 	case "usvl.v1.GenesisState.params":
 		m := new(Params)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	case "usvl.v1.GenesisState.chain_configs":
+		list := []*ChainConfig{}
+		return protoreflect.ValueOfList(&_GenesisState_2_list{list: &list})
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.GenesisState"))
@@ -286,6 +368,12 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 			l = options.Size(x.Params)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+		if len(x.ChainConfigs) > 0 {
+			for _, e := range x.ChainConfigs {
+				l = options.Size(e)
+				n += 1 + l + runtime.Sov(uint64(l))
+			}
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -314,6 +402,22 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.ChainConfigs) > 0 {
+			for iNdEx := len(x.ChainConfigs) - 1; iNdEx >= 0; iNdEx-- {
+				encoded, err := options.Marshal(x.ChainConfigs[iNdEx])
+				if err != nil {
+					return protoiface.MarshalOutput{
+						NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+						Buf:               input.Buf,
+					}, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+				i--
+				dAtA[i] = 0x12
+			}
 		}
 		if x.Params != nil {
 			encoded, err := options.Marshal(x.Params)
@@ -411,6 +515,40 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 					x.Params = &Params{}
 				}
 				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Params); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfigs", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.ChainConfigs = append(x.ChainConfigs, &ChainConfig{})
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.ChainConfigs[len(x.ChainConfigs)-1]); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -859,6 +997,842 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 	}
 }
 
+var (
+	md_ChainConfig                         protoreflect.MessageDescriptor
+	fd_ChainConfig_chain_id                protoreflect.FieldDescriptor
+	fd_ChainConfig_chain_name              protoreflect.FieldDescriptor
+	fd_ChainConfig_caip_prefix             protoreflect.FieldDescriptor
+	fd_ChainConfig_locker_contract_address protoreflect.FieldDescriptor
+	fd_ChainConfig_usdc_address            protoreflect.FieldDescriptor
+	fd_ChainConfig_public_rpc_url          protoreflect.FieldDescriptor
+	fd_ChainConfig_network_type            protoreflect.FieldDescriptor
+	fd_ChainConfig_vm_type                 protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_usvl_v1_genesis_proto_init()
+	md_ChainConfig = File_usvl_v1_genesis_proto.Messages().ByName("ChainConfig")
+	fd_ChainConfig_chain_id = md_ChainConfig.Fields().ByName("chain_id")
+	fd_ChainConfig_chain_name = md_ChainConfig.Fields().ByName("chain_name")
+	fd_ChainConfig_caip_prefix = md_ChainConfig.Fields().ByName("caip_prefix")
+	fd_ChainConfig_locker_contract_address = md_ChainConfig.Fields().ByName("locker_contract_address")
+	fd_ChainConfig_usdc_address = md_ChainConfig.Fields().ByName("usdc_address")
+	fd_ChainConfig_public_rpc_url = md_ChainConfig.Fields().ByName("public_rpc_url")
+	fd_ChainConfig_network_type = md_ChainConfig.Fields().ByName("network_type")
+	fd_ChainConfig_vm_type = md_ChainConfig.Fields().ByName("vm_type")
+}
+
+var _ protoreflect.Message = (*fastReflection_ChainConfig)(nil)
+
+type fastReflection_ChainConfig ChainConfig
+
+func (x *ChainConfig) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_ChainConfig)(x)
+}
+
+func (x *ChainConfig) slowProtoReflect() protoreflect.Message {
+	mi := &file_usvl_v1_genesis_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_ChainConfig_messageType fastReflection_ChainConfig_messageType
+var _ protoreflect.MessageType = fastReflection_ChainConfig_messageType{}
+
+type fastReflection_ChainConfig_messageType struct{}
+
+func (x fastReflection_ChainConfig_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_ChainConfig)(nil)
+}
+func (x fastReflection_ChainConfig_messageType) New() protoreflect.Message {
+	return new(fastReflection_ChainConfig)
+}
+func (x fastReflection_ChainConfig_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_ChainConfig
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_ChainConfig) Descriptor() protoreflect.MessageDescriptor {
+	return md_ChainConfig
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_ChainConfig) Type() protoreflect.MessageType {
+	return _fastReflection_ChainConfig_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_ChainConfig) New() protoreflect.Message {
+	return new(fastReflection_ChainConfig)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_ChainConfig) Interface() protoreflect.ProtoMessage {
+	return (*ChainConfig)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_ChainConfig) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.ChainId != "" {
+		value := protoreflect.ValueOfString(x.ChainId)
+		if !f(fd_ChainConfig_chain_id, value) {
+			return
+		}
+	}
+	if x.ChainName != "" {
+		value := protoreflect.ValueOfString(x.ChainName)
+		if !f(fd_ChainConfig_chain_name, value) {
+			return
+		}
+	}
+	if x.CaipPrefix != "" {
+		value := protoreflect.ValueOfString(x.CaipPrefix)
+		if !f(fd_ChainConfig_caip_prefix, value) {
+			return
+		}
+	}
+	if x.LockerContractAddress != "" {
+		value := protoreflect.ValueOfString(x.LockerContractAddress)
+		if !f(fd_ChainConfig_locker_contract_address, value) {
+			return
+		}
+	}
+	if x.UsdcAddress != "" {
+		value := protoreflect.ValueOfString(x.UsdcAddress)
+		if !f(fd_ChainConfig_usdc_address, value) {
+			return
+		}
+	}
+	if x.PublicRpcUrl != "" {
+		value := protoreflect.ValueOfString(x.PublicRpcUrl)
+		if !f(fd_ChainConfig_public_rpc_url, value) {
+			return
+		}
+	}
+	if x.NetworkType != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.NetworkType))
+		if !f(fd_ChainConfig_network_type, value) {
+			return
+		}
+	}
+	if x.VmType != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.VmType))
+		if !f(fd_ChainConfig_vm_type, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_ChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		return x.ChainId != ""
+	case "usvl.v1.ChainConfig.chain_name":
+		return x.ChainName != ""
+	case "usvl.v1.ChainConfig.caip_prefix":
+		return x.CaipPrefix != ""
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		return x.LockerContractAddress != ""
+	case "usvl.v1.ChainConfig.usdc_address":
+		return x.UsdcAddress != ""
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		return x.PublicRpcUrl != ""
+	case "usvl.v1.ChainConfig.network_type":
+		return x.NetworkType != 0
+	case "usvl.v1.ChainConfig.vm_type":
+		return x.VmType != 0
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_ChainConfig) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		x.ChainId = ""
+	case "usvl.v1.ChainConfig.chain_name":
+		x.ChainName = ""
+	case "usvl.v1.ChainConfig.caip_prefix":
+		x.CaipPrefix = ""
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		x.LockerContractAddress = ""
+	case "usvl.v1.ChainConfig.usdc_address":
+		x.UsdcAddress = ""
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		x.PublicRpcUrl = ""
+	case "usvl.v1.ChainConfig.network_type":
+		x.NetworkType = 0
+	case "usvl.v1.ChainConfig.vm_type":
+		x.VmType = 0
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_ChainConfig) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		value := x.ChainId
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.chain_name":
+		value := x.ChainName
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.caip_prefix":
+		value := x.CaipPrefix
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		value := x.LockerContractAddress
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.usdc_address":
+		value := x.UsdcAddress
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		value := x.PublicRpcUrl
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.ChainConfig.network_type":
+		value := x.NetworkType
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+	case "usvl.v1.ChainConfig.vm_type":
+		value := x.VmType
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_ChainConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		x.ChainId = value.Interface().(string)
+	case "usvl.v1.ChainConfig.chain_name":
+		x.ChainName = value.Interface().(string)
+	case "usvl.v1.ChainConfig.caip_prefix":
+		x.CaipPrefix = value.Interface().(string)
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		x.LockerContractAddress = value.Interface().(string)
+	case "usvl.v1.ChainConfig.usdc_address":
+		x.UsdcAddress = value.Interface().(string)
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		x.PublicRpcUrl = value.Interface().(string)
+	case "usvl.v1.ChainConfig.network_type":
+		x.NetworkType = (NetworkType)(value.Enum())
+	case "usvl.v1.ChainConfig.vm_type":
+		x.VmType = (VmType)(value.Enum())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_ChainConfig) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		panic(fmt.Errorf("field chain_id of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.chain_name":
+		panic(fmt.Errorf("field chain_name of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.caip_prefix":
+		panic(fmt.Errorf("field caip_prefix of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		panic(fmt.Errorf("field locker_contract_address of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.usdc_address":
+		panic(fmt.Errorf("field usdc_address of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		panic(fmt.Errorf("field public_rpc_url of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.network_type":
+		panic(fmt.Errorf("field network_type of message usvl.v1.ChainConfig is not mutable"))
+	case "usvl.v1.ChainConfig.vm_type":
+		panic(fmt.Errorf("field vm_type of message usvl.v1.ChainConfig is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_ChainConfig) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.ChainConfig.chain_id":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.chain_name":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.caip_prefix":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.locker_contract_address":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.usdc_address":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.public_rpc_url":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.ChainConfig.network_type":
+		return protoreflect.ValueOfEnum(0)
+	case "usvl.v1.ChainConfig.vm_type":
+		return protoreflect.ValueOfEnum(0)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.ChainConfig"))
+		}
+		panic(fmt.Errorf("message usvl.v1.ChainConfig does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_ChainConfig) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in usvl.v1.ChainConfig", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_ChainConfig) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_ChainConfig) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_ChainConfig) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*ChainConfig)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.ChainId)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.ChainName)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.CaipPrefix)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.LockerContractAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.UsdcAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.PublicRpcUrl)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.NetworkType != 0 {
+			n += 1 + runtime.Sov(uint64(x.NetworkType))
+		}
+		if x.VmType != 0 {
+			n += 1 + runtime.Sov(uint64(x.VmType))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*ChainConfig)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.VmType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.VmType))
+			i--
+			dAtA[i] = 0x40
+		}
+		if x.NetworkType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.NetworkType))
+			i--
+			dAtA[i] = 0x38
+		}
+		if len(x.PublicRpcUrl) > 0 {
+			i -= len(x.PublicRpcUrl)
+			copy(dAtA[i:], x.PublicRpcUrl)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.PublicRpcUrl)))
+			i--
+			dAtA[i] = 0x32
+		}
+		if len(x.UsdcAddress) > 0 {
+			i -= len(x.UsdcAddress)
+			copy(dAtA[i:], x.UsdcAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.UsdcAddress)))
+			i--
+			dAtA[i] = 0x2a
+		}
+		if len(x.LockerContractAddress) > 0 {
+			i -= len(x.LockerContractAddress)
+			copy(dAtA[i:], x.LockerContractAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.LockerContractAddress)))
+			i--
+			dAtA[i] = 0x22
+		}
+		if len(x.CaipPrefix) > 0 {
+			i -= len(x.CaipPrefix)
+			copy(dAtA[i:], x.CaipPrefix)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.CaipPrefix)))
+			i--
+			dAtA[i] = 0x1a
+		}
+		if len(x.ChainName) > 0 {
+			i -= len(x.ChainName)
+			copy(dAtA[i:], x.ChainName)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainName)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if len(x.ChainId) > 0 {
+			i -= len(x.ChainId)
+			copy(dAtA[i:], x.ChainId)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainId)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*ChainConfig)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: ChainConfig: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: ChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.ChainId = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainName", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.ChainName = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field CaipPrefix", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.CaipPrefix = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 4:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field LockerContractAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.LockerContractAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 5:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UsdcAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.UsdcAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 6:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field PublicRpcUrl", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.PublicRpcUrl = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 7:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field NetworkType", wireType)
+				}
+				x.NetworkType = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.NetworkType |= NetworkType(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 8:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field VmType", wireType)
+				}
+				x.VmType = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.VmType |= VmType(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -872,6 +1846,124 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// NetworkType defines the type of network for a chain
+type NetworkType int32
+
+const (
+	// NETWORK_TYPE_UNSPECIFIED is the default value
+	NetworkType_NETWORK_TYPE_UNSPECIFIED NetworkType = 0
+	// NETWORK_TYPE_MAINNET represents a production network
+	NetworkType_NETWORK_TYPE_MAINNET NetworkType = 1
+	// NETWORK_TYPE_TESTNET represents a test network
+	NetworkType_NETWORK_TYPE_TESTNET NetworkType = 2
+	// NETWORK_TYPE_DEVNET represents a development network
+	NetworkType_NETWORK_TYPE_DEVNET NetworkType = 3
+	// NETWORK_TYPE_LOCALNET represents a local development network
+	NetworkType_NETWORK_TYPE_LOCALNET NetworkType = 4
+)
+
+// Enum value maps for NetworkType.
+var (
+	NetworkType_name = map[int32]string{
+		0: "NETWORK_TYPE_UNSPECIFIED",
+		1: "NETWORK_TYPE_MAINNET",
+		2: "NETWORK_TYPE_TESTNET",
+		3: "NETWORK_TYPE_DEVNET",
+		4: "NETWORK_TYPE_LOCALNET",
+	}
+	NetworkType_value = map[string]int32{
+		"NETWORK_TYPE_UNSPECIFIED": 0,
+		"NETWORK_TYPE_MAINNET":     1,
+		"NETWORK_TYPE_TESTNET":     2,
+		"NETWORK_TYPE_DEVNET":      3,
+		"NETWORK_TYPE_LOCALNET":    4,
+	}
+)
+
+func (x NetworkType) Enum() *NetworkType {
+	p := new(NetworkType)
+	*p = x
+	return p
+}
+
+func (x NetworkType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NetworkType) Descriptor() protoreflect.EnumDescriptor {
+	return file_usvl_v1_genesis_proto_enumTypes[0].Descriptor()
+}
+
+func (NetworkType) Type() protoreflect.EnumType {
+	return &file_usvl_v1_genesis_proto_enumTypes[0]
+}
+
+func (x NetworkType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NetworkType.Descriptor instead.
+func (NetworkType) EnumDescriptor() ([]byte, []int) {
+	return file_usvl_v1_genesis_proto_rawDescGZIP(), []int{0}
+}
+
+// VmType defines the virtual machine type for a chain
+type VmType int32
+
+const (
+	// VM_TYPE_UNSPECIFIED is the default value
+	VmType_VM_TYPE_UNSPECIFIED VmType = 0
+	// VM_TYPE_EVM represents Ethereum Virtual Machine
+	VmType_VM_TYPE_EVM VmType = 1
+	// VM_TYPE_SVM represents Solana Virtual Machine
+	VmType_VM_TYPE_SVM VmType = 2
+	// VM_TYPE_WASM represents WebAssembly Virtual Machine
+	VmType_VM_TYPE_WASM VmType = 3
+)
+
+// Enum value maps for VmType.
+var (
+	VmType_name = map[int32]string{
+		0: "VM_TYPE_UNSPECIFIED",
+		1: "VM_TYPE_EVM",
+		2: "VM_TYPE_SVM",
+		3: "VM_TYPE_WASM",
+	}
+	VmType_value = map[string]int32{
+		"VM_TYPE_UNSPECIFIED": 0,
+		"VM_TYPE_EVM":         1,
+		"VM_TYPE_SVM":         2,
+		"VM_TYPE_WASM":        3,
+	}
+)
+
+func (x VmType) Enum() *VmType {
+	p := new(VmType)
+	*p = x
+	return p
+}
+
+func (x VmType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VmType) Descriptor() protoreflect.EnumDescriptor {
+	return file_usvl_v1_genesis_proto_enumTypes[1].Descriptor()
+}
+
+func (VmType) Type() protoreflect.EnumType {
+	return &file_usvl_v1_genesis_proto_enumTypes[1]
+}
+
+func (x VmType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VmType.Descriptor instead.
+func (VmType) EnumDescriptor() ([]byte, []int) {
+	return file_usvl_v1_genesis_proto_rawDescGZIP(), []int{1}
+}
+
 // GenesisState defines the module genesis state
 type GenesisState struct {
 	state         protoimpl.MessageState
@@ -880,6 +1972,8 @@ type GenesisState struct {
 
 	// Params defines all the parameters of the module.
 	Params *Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	// ChainConfigs contains the list of chain configurations
+	ChainConfigs []*ChainConfig `protobuf:"bytes,2,rep,name=chain_configs,json=chainConfigs,proto3" json:"chain_configs,omitempty"`
 }
 
 func (x *GenesisState) Reset() {
@@ -905,6 +1999,13 @@ func (*GenesisState) Descriptor() ([]byte, []int) {
 func (x *GenesisState) GetParams() *Params {
 	if x != nil {
 		return x.Params
+	}
+	return nil
+}
+
+func (x *GenesisState) GetChainConfigs() []*ChainConfig {
+	if x != nil {
+		return x.ChainConfigs
 	}
 	return nil
 }
@@ -945,6 +2046,106 @@ func (x *Params) GetSomeValue() bool {
 	return false
 }
 
+// ChainConfig contains configuration for an external chain
+type ChainConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// chain_id is the unique identifier for the chain
+	ChainId string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	// chain_name is a human-readable name for the chain
+	ChainName string `protobuf:"bytes,2,opt,name=chain_name,json=chainName,proto3" json:"chain_name,omitempty"`
+	// caip_prefix is the CAIP-2 identifier for the chain, e.g., "eip155:11155111"
+	CaipPrefix string `protobuf:"bytes,3,opt,name=caip_prefix,json=caipPrefix,proto3" json:"caip_prefix,omitempty"`
+	// locker_contract_address is the address of the fee locker contract on the external chain
+	LockerContractAddress string `protobuf:"bytes,4,opt,name=locker_contract_address,json=lockerContractAddress,proto3" json:"locker_contract_address,omitempty"`
+	// usdc_address is the address of the USDC token contract on the external chain
+	UsdcAddress string `protobuf:"bytes,5,opt,name=usdc_address,json=usdcAddress,proto3" json:"usdc_address,omitempty"`
+	// public_rpc_url is the default RPC URL for the chain
+	PublicRpcUrl string `protobuf:"bytes,6,opt,name=public_rpc_url,json=publicRpcUrl,proto3" json:"public_rpc_url,omitempty"`
+	// network_type identifies the type of network (mainnet, testnet, localnet, devnet)
+	NetworkType NetworkType `protobuf:"varint,7,opt,name=network_type,json=networkType,proto3,enum=usvl.v1.NetworkType" json:"network_type,omitempty"`
+	// vm_type identifies the virtual machine type (EVM, SVM, etc.)
+	VmType VmType `protobuf:"varint,8,opt,name=vm_type,json=vmType,proto3,enum=usvl.v1.VmType" json:"vm_type,omitempty"`
+}
+
+func (x *ChainConfig) Reset() {
+	*x = ChainConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_usvl_v1_genesis_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ChainConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChainConfig) ProtoMessage() {}
+
+// Deprecated: Use ChainConfig.ProtoReflect.Descriptor instead.
+func (*ChainConfig) Descriptor() ([]byte, []int) {
+	return file_usvl_v1_genesis_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ChainConfig) GetChainId() string {
+	if x != nil {
+		return x.ChainId
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetChainName() string {
+	if x != nil {
+		return x.ChainName
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetCaipPrefix() string {
+	if x != nil {
+		return x.CaipPrefix
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetLockerContractAddress() string {
+	if x != nil {
+		return x.LockerContractAddress
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetUsdcAddress() string {
+	if x != nil {
+		return x.UsdcAddress
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetPublicRpcUrl() string {
+	if x != nil {
+		return x.PublicRpcUrl
+	}
+	return ""
+}
+
+func (x *ChainConfig) GetNetworkType() NetworkType {
+	if x != nil {
+		return x.NetworkType
+	}
+	return NetworkType_NETWORK_TYPE_UNSPECIFIED
+}
+
+func (x *ChainConfig) GetVmType() VmType {
+	if x != nil {
+		return x.VmType
+	}
+	return VmType_VM_TYPE_UNSPECIFIED
+}
+
 var File_usvl_v1_genesis_proto protoreflect.FileDescriptor
 
 var file_usvl_v1_genesis_proto_rawDesc = []byte{
@@ -952,25 +2153,78 @@ var file_usvl_v1_genesis_proto_rawDesc = []byte{
 	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x07, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31,
 	0x1a, 0x14, 0x67, 0x6f, 0x67, 0x6f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x11, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2f, 0x61, 0x6d,
-	0x69, 0x6e, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x3d, 0x0a, 0x0c, 0x47, 0x65, 0x6e,
+	0x69, 0x6e, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x7e, 0x0a, 0x0c, 0x47, 0x65, 0x6e,
 	0x65, 0x73, 0x69, 0x73, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72,
 	0x61, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x73, 0x76, 0x6c,
 	0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00,
-	0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0x41, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x6f, 0x6d, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x73, 0x6f, 0x6d, 0x65, 0x56, 0x61, 0x6c, 0x75,
-	0x65, 0x3a, 0x18, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x0b,
-	0x75, 0x73, 0x76, 0x6c, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x90, 0x01, 0x0a, 0x0b,
-	0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x42, 0x0c, 0x47, 0x65, 0x6e,
-	0x65, 0x73, 0x69, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x36, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x73, 0x76, 0x6c, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x73, 0x76,
-	0x6c, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c,
-	0x2e, 0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13,
-	0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64,
-	0x61, 0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x73, 0x76, 0x6c, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x3f, 0x0a, 0x0d, 0x63, 0x68, 0x61, 0x69,
+	0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x14, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0c, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x22, 0x41, 0x0a, 0x06, 0x50, 0x61, 0x72,
+	0x61, 0x6d, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x6f, 0x6d, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x73, 0x6f, 0x6d, 0x65, 0x56, 0x61, 0x6c,
+	0x75, 0x65, 0x3a, 0x18, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a,
+	0x0b, 0x75, 0x73, 0x76, 0x6c, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xd6, 0x02, 0x0a,
+	0x0b, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x19, 0x0a, 0x08,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x12, 0x1d, 0x0a, 0x0a, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x63, 0x61, 0x69, 0x70, 0x5f, 0x70,
+	0x72, 0x65, 0x66, 0x69, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x63, 0x61, 0x69,
+	0x70, 0x50, 0x72, 0x65, 0x66, 0x69, 0x78, 0x12, 0x36, 0x0a, 0x17, 0x6c, 0x6f, 0x63, 0x6b, 0x65,
+	0x72, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x15, 0x6c, 0x6f, 0x63, 0x6b, 0x65, 0x72,
+	0x43, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12,
+	0x21, 0x0a, 0x0c, 0x75, 0x73, 0x64, 0x63, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18,
+	0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x75, 0x73, 0x64, 0x63, 0x41, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x12, 0x24, 0x0a, 0x0e, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x5f, 0x72, 0x70, 0x63,
+	0x5f, 0x75, 0x72, 0x6c, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x70, 0x75, 0x62, 0x6c,
+	0x69, 0x63, 0x52, 0x70, 0x63, 0x55, 0x72, 0x6c, 0x12, 0x37, 0x0a, 0x0c, 0x6e, 0x65, 0x74, 0x77,
+	0x6f, 0x72, 0x6b, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x14,
+	0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
+	0x54, 0x79, 0x70, 0x65, 0x52, 0x0b, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x28, 0x0a, 0x07, 0x76, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x08, 0x20, 0x01,
+	0x28, 0x0e, 0x32, 0x0f, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x56, 0x6d, 0x54,
+	0x79, 0x70, 0x65, 0x52, 0x06, 0x76, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x08, 0x98, 0xa0, 0x1f,
+	0x01, 0xe8, 0xa0, 0x1f, 0x01, 0x2a, 0x95, 0x02, 0x0a, 0x0b, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72,
+	0x6b, 0x54, 0x79, 0x70, 0x65, 0x12, 0x38, 0x0a, 0x18, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b,
+	0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45,
+	0x44, 0x10, 0x00, 0x1a, 0x1a, 0x8a, 0x9d, 0x20, 0x16, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
+	0x54, 0x79, 0x70, 0x65, 0x55, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x69, 0x66, 0x69, 0x65, 0x64, 0x12,
+	0x30, 0x0a, 0x14, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f,
+	0x4d, 0x41, 0x49, 0x4e, 0x4e, 0x45, 0x54, 0x10, 0x01, 0x1a, 0x16, 0x8a, 0x9d, 0x20, 0x12, 0x4e,
+	0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x4d, 0x61, 0x69, 0x6e, 0x6e, 0x65,
+	0x74, 0x12, 0x30, 0x0a, 0x14, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b, 0x5f, 0x54, 0x59, 0x50,
+	0x45, 0x5f, 0x54, 0x45, 0x53, 0x54, 0x4e, 0x45, 0x54, 0x10, 0x02, 0x1a, 0x16, 0x8a, 0x9d, 0x20,
+	0x12, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x54, 0x65, 0x73, 0x74,
+	0x6e, 0x65, 0x74, 0x12, 0x2e, 0x0a, 0x13, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x44, 0x45, 0x56, 0x4e, 0x45, 0x54, 0x10, 0x03, 0x1a, 0x15, 0x8a, 0x9d,
+	0x20, 0x11, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x44, 0x65, 0x76,
+	0x6e, 0x65, 0x74, 0x12, 0x32, 0x0a, 0x15, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x4c, 0x4f, 0x43, 0x41, 0x4c, 0x4e, 0x45, 0x54, 0x10, 0x04, 0x1a, 0x17,
+	0x8a, 0x9d, 0x20, 0x13, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x4c,
+	0x6f, 0x63, 0x61, 0x6c, 0x6e, 0x65, 0x74, 0x1a, 0x04, 0x88, 0xa3, 0x1e, 0x00, 0x2a, 0xa0, 0x01,
+	0x0a, 0x06, 0x56, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x12, 0x2e, 0x0a, 0x13, 0x56, 0x4d, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10,
+	0x00, 0x1a, 0x15, 0x8a, 0x9d, 0x20, 0x11, 0x56, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x55, 0x6e, 0x73,
+	0x70, 0x65, 0x63, 0x69, 0x66, 0x69, 0x65, 0x64, 0x12, 0x1e, 0x0a, 0x0b, 0x56, 0x4d, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x45, 0x56, 0x4d, 0x10, 0x01, 0x1a, 0x0d, 0x8a, 0x9d, 0x20, 0x09, 0x56,
+	0x6d, 0x54, 0x79, 0x70, 0x65, 0x45, 0x76, 0x6d, 0x12, 0x1e, 0x0a, 0x0b, 0x56, 0x4d, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x53, 0x56, 0x4d, 0x10, 0x02, 0x1a, 0x0d, 0x8a, 0x9d, 0x20, 0x09, 0x56,
+	0x6d, 0x54, 0x79, 0x70, 0x65, 0x53, 0x76, 0x6d, 0x12, 0x20, 0x0a, 0x0c, 0x56, 0x4d, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x57, 0x41, 0x53, 0x4d, 0x10, 0x03, 0x1a, 0x0e, 0x8a, 0x9d, 0x20, 0x0a,
+	0x56, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x57, 0x61, 0x73, 0x6d, 0x1a, 0x04, 0x88, 0xa3, 0x1e, 0x00,
+	0x42, 0x90, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31,
+	0x42, 0x0c, 0x47, 0x65, 0x6e, 0x65, 0x73, 0x69, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01,
+	0x5a, 0x36, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73,
+	0x68, 0x2d, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x73, 0x76, 0x6c, 0x2f, 0x76,
+	0x31, 0x3b, 0x75, 0x73, 0x76, 0x6c, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02,
+	0x07, 0x55, 0x73, 0x76, 0x6c, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c, 0x5c,
+	0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42,
+	0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x73, 0x76, 0x6c, 0x3a,
+	0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -985,18 +2239,25 @@ func file_usvl_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_usvl_v1_genesis_proto_rawDescData
 }
 
-var file_usvl_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_usvl_v1_genesis_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_usvl_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_usvl_v1_genesis_proto_goTypes = []interface{}{
-	(*GenesisState)(nil), // 0: usvl.v1.GenesisState
-	(*Params)(nil),       // 1: usvl.v1.Params
+	(NetworkType)(0),     // 0: usvl.v1.NetworkType
+	(VmType)(0),          // 1: usvl.v1.VmType
+	(*GenesisState)(nil), // 2: usvl.v1.GenesisState
+	(*Params)(nil),       // 3: usvl.v1.Params
+	(*ChainConfig)(nil),  // 4: usvl.v1.ChainConfig
 }
 var file_usvl_v1_genesis_proto_depIdxs = []int32{
-	1, // 0: usvl.v1.GenesisState.params:type_name -> usvl.v1.Params
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: usvl.v1.GenesisState.params:type_name -> usvl.v1.Params
+	4, // 1: usvl.v1.GenesisState.chain_configs:type_name -> usvl.v1.ChainConfig
+	0, // 2: usvl.v1.ChainConfig.network_type:type_name -> usvl.v1.NetworkType
+	1, // 3: usvl.v1.ChainConfig.vm_type:type_name -> usvl.v1.VmType
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_usvl_v1_genesis_proto_init() }
@@ -1029,19 +2290,32 @@ func file_usvl_v1_genesis_proto_init() {
 				return nil
 			}
 		}
+		file_usvl_v1_genesis_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ChainConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_usvl_v1_genesis_proto_rawDesc,
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_usvl_v1_genesis_proto_goTypes,
 		DependencyIndexes: file_usvl_v1_genesis_proto_depIdxs,
+		EnumInfos:         file_usvl_v1_genesis_proto_enumTypes,
 		MessageInfos:      file_usvl_v1_genesis_proto_msgTypes,
 	}.Build()
 	File_usvl_v1_genesis_proto = out.File

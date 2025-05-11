@@ -51,15 +51,18 @@ func MsgUpdateParams() *cobra.Command {
 				return err
 			}
 
-			msg := &types.MsgUpdateParams{
-				Authority: senderAddress.String(),
-				Params: types.Params{
-					SomeValue: someValue,
-				},
+			params := types.Params{
+				SomeValue: someValue,
 			}
 
-			if err := msg.Validate(); err != nil {
+			// Validate params directly
+			if err := params.Validate(); err != nil {
 				return err
+			}
+
+			msg := &types.MsgUpdateParams{
+				Authority: senderAddress.String(),
+				Params:    params,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)

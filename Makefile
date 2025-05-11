@@ -308,9 +308,6 @@ ictest-tokentransfer:
 	@echo "Running token transfer e2e test"
 	@cd interchaintest && go test -race -v -run TestTokenTransfer .
 
-ictest-usvl:
-	@echo "Running usvl governance e2e test"
-	@cd interchaintest && go test -race -v -run TestUSLVChainGovProposal .
 
 ###############################################################################
 ###                                    testnet                              ###

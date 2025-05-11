@@ -4,3 +4,6 @@ dist/
 
 # Create cosmos app
 web/
+
+# Ignore binary files
+build/pchaind

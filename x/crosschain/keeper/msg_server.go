@@ -191,7 +191,7 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	// txHash := msg.TxHash
 	// TODO
 	// 1. RPC call for verification
-	amountToMint := sdkmath.NewInt(1000) // 1 token
+	amountToMint := sdkmath.NewInt(1000000000000000) // 1 token
 
 	// nmscAddress := calculateKeccakSalt(msg.CaipString)
 

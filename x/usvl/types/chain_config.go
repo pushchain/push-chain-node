@@ -181,8 +181,8 @@ func DefaultEthereumSepoliaConfig() ChainConfigData {
 		ChainId:               "11155111",
 		ChainName:             "Ethereum Sepolia",
 		CaipPrefix:            "eip155:11155111",
-		LockerContractAddress: "0x0000000000000000000000000000000000000000", // Replace with actual locker contract address
-		UsdcAddress:           "0x0000000000000000000000000000000000000000", // Replace with actual USDC address on Sepolia
+		LockerContractAddress: "0x57235d27c8247CFE0E39248c9c9F22BD6EB054e1", // Replace with actual locker contract address
+		UsdcAddress:           "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06", // Replace with actual USDC address on Sepolia
 		PublicRpcUrl:          "https://rpc.sepolia.org",
 		NetworkType:           NetworkTypeTestnet,
 		VmType:                VmTypeEvm,

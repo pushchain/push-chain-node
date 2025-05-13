@@ -397,6 +397,125 @@ func (m *MsgDeleteChainConfigResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgDeleteChainConfigResponse proto.InternalMessageInfo
 
+// MsgVerifyExternalTransaction is the Msg/VerifyExternalTransaction request type.
+type MsgVerifyExternalTransaction struct {
+	// sender is the address submitting the verification request
+	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	// tx_hash is the transaction hash on the external chain
+	TxHash string `protobuf:"bytes,2,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
+	// caip_address is the CAIP-formatted address (chain:reference:address)
+	CaipAddress string `protobuf:"bytes,3,opt,name=caip_address,json=caipAddress,proto3" json:"caip_address,omitempty"`
+}
+
+func (m *MsgVerifyExternalTransaction) Reset()         { *m = MsgVerifyExternalTransaction{} }
+func (m *MsgVerifyExternalTransaction) String() string { return proto.CompactTextString(m) }
+func (*MsgVerifyExternalTransaction) ProtoMessage()    {}
+func (*MsgVerifyExternalTransaction) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{8}
+}
+func (m *MsgVerifyExternalTransaction) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgVerifyExternalTransaction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgVerifyExternalTransaction.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgVerifyExternalTransaction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVerifyExternalTransaction.Merge(m, src)
+}
+func (m *MsgVerifyExternalTransaction) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgVerifyExternalTransaction) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVerifyExternalTransaction.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgVerifyExternalTransaction proto.InternalMessageInfo
+
+func (m *MsgVerifyExternalTransaction) GetSender() string {
+	if m != nil {
+		return m.Sender
+	}
+	return ""
+}
+
+func (m *MsgVerifyExternalTransaction) GetTxHash() string {
+	if m != nil {
+		return m.TxHash
+	}
+	return ""
+}
+
+func (m *MsgVerifyExternalTransaction) GetCaipAddress() string {
+	if m != nil {
+		return m.CaipAddress
+	}
+	return ""
+}
+
+// MsgVerifyExternalTransactionResponse is the Msg/VerifyExternalTransaction response type.
+type MsgVerifyExternalTransactionResponse struct {
+	// verified indicates whether the transaction was successfully verified
+	Verified bool `protobuf:"varint,1,opt,name=verified,proto3" json:"verified,omitempty"`
+	// tx_info contains basic transaction information if verified
+	TxInfo string `protobuf:"bytes,2,opt,name=tx_info,json=txInfo,proto3" json:"tx_info,omitempty"`
+}
+
+func (m *MsgVerifyExternalTransactionResponse) Reset()         { *m = MsgVerifyExternalTransactionResponse{} }
+func (m *MsgVerifyExternalTransactionResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgVerifyExternalTransactionResponse) ProtoMessage()    {}
+func (*MsgVerifyExternalTransactionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a174a5adf514d39, []int{9}
+}
+func (m *MsgVerifyExternalTransactionResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgVerifyExternalTransactionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgVerifyExternalTransactionResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgVerifyExternalTransactionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVerifyExternalTransactionResponse.Merge(m, src)
+}
+func (m *MsgVerifyExternalTransactionResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgVerifyExternalTransactionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVerifyExternalTransactionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgVerifyExternalTransactionResponse proto.InternalMessageInfo
+
+func (m *MsgVerifyExternalTransactionResponse) GetVerified() bool {
+	if m != nil {
+		return m.Verified
+	}
+	return false
+}
+
+func (m *MsgVerifyExternalTransactionResponse) GetTxInfo() string {
+	if m != nil {
+		return m.TxInfo
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "usvl.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "usvl.v1.MsgUpdateParamsResponse")
@@ -406,41 +525,52 @@ func init() {
 	proto.RegisterType((*MsgUpdateChainConfigResponse)(nil), "usvl.v1.MsgUpdateChainConfigResponse")
 	proto.RegisterType((*MsgDeleteChainConfig)(nil), "usvl.v1.MsgDeleteChainConfig")
 	proto.RegisterType((*MsgDeleteChainConfigResponse)(nil), "usvl.v1.MsgDeleteChainConfigResponse")
+	proto.RegisterType((*MsgVerifyExternalTransaction)(nil), "usvl.v1.MsgVerifyExternalTransaction")
+	proto.RegisterType((*MsgVerifyExternalTransactionResponse)(nil), "usvl.v1.MsgVerifyExternalTransactionResponse")
 }
 
 func init() { proto.RegisterFile("usvl/v1/tx.proto", fileDescriptor_5a174a5adf514d39) }
 
 var fileDescriptor_5a174a5adf514d39 = []byte{
-	// 463 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x28, 0x2d, 0x2e, 0xcb,
-	0xd1, 0x2f, 0x33, 0xd4, 0x2f, 0xa9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x07, 0x89,
-	0xe8, 0x95, 0x19, 0x4a, 0x89, 0x27, 0xe7, 0x17, 0xe7, 0xe6, 0x17, 0xeb, 0xe7, 0x16, 0xa7, 0x83,
-	0x14, 0xe4, 0x16, 0xa7, 0x43, 0x54, 0x48, 0x89, 0xc2, 0xf4, 0xa4, 0xa7, 0xe6, 0xa5, 0x16, 0x67,
-	0x16, 0x43, 0x85, 0x45, 0xd2, 0xf3, 0xd3, 0xf3, 0xc1, 0x4c, 0x7d, 0x10, 0x0b, 0x22, 0xaa, 0xd4,
-	0xc2, 0xc8, 0xc5, 0xef, 0x5b, 0x9c, 0x1e, 0x5a, 0x90, 0x92, 0x58, 0x92, 0x1a, 0x90, 0x58, 0x94,
-	0x98, 0x5b, 0x2c, 0x64, 0xc4, 0xc5, 0x99, 0x58, 0x5a, 0x92, 0x91, 0x5f, 0x94, 0x59, 0x52, 0x29,
-	0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0xe9, 0x24, 0xf2, 0xe9, 0x9e, 0xbc, 0x40, 0x65, 0x62, 0x6e, 0x8e,
-	0x95, 0x12, 0x5c, 0x4a, 0x29, 0x08, 0xa1, 0x4c, 0x48, 0x97, 0x8b, 0xad, 0x00, 0xac, 0x5b, 0x82,
-	0x49, 0x81, 0x51, 0x83, 0xdb, 0x88, 0x5f, 0x0f, 0xea, 0x4e, 0x3d, 0x88, 0xa1, 0x4e, 0x2c, 0x27,
-	0xee, 0xc9, 0x33, 0x04, 0x41, 0x15, 0x59, 0xf1, 0x35, 0x3d, 0xdf, 0xa0, 0x85, 0xd0, 0xae, 0x24,
-	0xc9, 0x25, 0x8e, 0xe6, 0x8a, 0xa0, 0xd4, 0xe2, 0x82, 0xfc, 0xbc, 0xe2, 0x54, 0xa5, 0x69, 0x8c,
-	0x5c, 0x82, 0xbe, 0xc5, 0xe9, 0x8e, 0x29, 0x29, 0xce, 0x19, 0x89, 0x99, 0x79, 0xce, 0xf9, 0x79,
-	0x69, 0x99, 0xe9, 0x64, 0xb9, 0xd1, 0x96, 0x8b, 0x27, 0x19, 0x64, 0x44, 0x7c, 0x32, 0xd8, 0x0c,
-	0xa8, 0x4b, 0x45, 0xe0, 0x2e, 0x45, 0x32, 0x1f, 0xea, 0x5c, 0xee, 0x64, 0x84, 0x10, 0x86, 0x9b,
-	0xa5, 0xb9, 0x24, 0x31, 0xdc, 0x05, 0x77, 0xf5, 0x4c, 0x46, 0x2e, 0x11, 0xb8, 0x8f, 0x06, 0x99,
-	0xc3, 0xe5, 0xb8, 0x64, 0xb0, 0x39, 0x0d, 0xee, 0xf6, 0x52, 0xb0, 0xd3, 0x5d, 0x52, 0x73, 0x52,
-	0x29, 0x77, 0xba, 0x24, 0x17, 0x07, 0xc4, 0xe9, 0x99, 0x29, 0x60, 0x67, 0x73, 0x06, 0xb1, 0x83,
-	0xf9, 0x9e, 0x29, 0x38, 0x9c, 0x85, 0x61, 0x2d, 0xcc, 0x59, 0x46, 0x0f, 0x98, 0xb8, 0x98, 0x7d,
-	0x8b, 0xd3, 0x85, 0xbc, 0xb8, 0x78, 0x50, 0x92, 0xab, 0x04, 0x3c, 0x1c, 0xd0, 0x92, 0x90, 0x94,
-	0x02, 0x2e, 0x19, 0x98, 0x99, 0x42, 0x01, 0x5c, 0x7c, 0x68, 0x09, 0x4b, 0x0a, 0x59, 0x0f, 0xaa,
-	0x9c, 0x94, 0x12, 0x6e, 0x39, 0xb8, 0x89, 0x91, 0x5c, 0x82, 0x98, 0x91, 0x2e, 0x8b, 0xe9, 0x10,
-	0x64, 0x73, 0x55, 0xf1, 0x4a, 0x23, 0x1b, 0x8d, 0x19, 0x29, 0x28, 0x46, 0x63, 0x48, 0xa3, 0x1a,
-	0x8d, 0x33, 0x6c, 0xa5, 0x58, 0x1b, 0x9e, 0x6f, 0xd0, 0x62, 0x74, 0xf2, 0x3a, 0xf1, 0x48, 0x8e,
-	0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0xb8, 0xf0, 0x58,
-	0x8e, 0xe1, 0xc6, 0x63, 0x39, 0x86, 0x28, 0x83, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd, 0xe4,
-	0xfc, 0x5c, 0xfd, 0x82, 0xd2, 0xe2, 0x0c, 0x5d, 0x70, 0xf1, 0x91, 0x9c, 0x9f, 0x03, 0xe1, 0x81,
-	0xe3, 0x54, 0xbf, 0x42, 0x1f, 0x5c, 0xf4, 0x94, 0x54, 0x16, 0xa4, 0x16, 0x27, 0xb1, 0x81, 0x55,
-	0x18, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3e, 0xe5, 0xa3, 0x47, 0xc3, 0x04, 0x00, 0x00,
+	// 594 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x94, 0x4d, 0x8b, 0xd3, 0x5e,
+	0x14, 0xc6, 0x9b, 0x7f, 0xff, 0xf6, 0xe5, 0xb6, 0xcc, 0x4b, 0xa8, 0xb6, 0x8d, 0x9a, 0xa9, 0x41,
+	0x61, 0x18, 0x68, 0xe3, 0xd4, 0x5d, 0xc1, 0xc5, 0x74, 0x14, 0x9c, 0x81, 0xc2, 0x10, 0x54, 0x50,
+	0x17, 0xe5, 0x4e, 0x72, 0x9b, 0x5c, 0x68, 0x72, 0x63, 0xee, 0x6d, 0x69, 0x57, 0x8a, 0xf8, 0x01,
+	0x5c, 0x09, 0x7e, 0x8b, 0xf9, 0x18, 0xb3, 0x1c, 0x70, 0xe3, 0x6a, 0x90, 0x76, 0x31, 0x7b, 0x3f,
+	0x81, 0xe4, 0x26, 0x4d, 0x9b, 0xc6, 0x0c, 0xa2, 0x1b, 0x77, 0x39, 0xe7, 0x79, 0xce, 0x93, 0x5f,
+	0xe9, 0x39, 0x01, 0x5b, 0x23, 0x3a, 0x1e, 0xaa, 0xe3, 0x7d, 0x95, 0x4d, 0x5a, 0xae, 0x47, 0x18,
+	0x11, 0xf3, 0x7e, 0xa7, 0x35, 0xde, 0x97, 0xaa, 0x3a, 0xa1, 0x36, 0xa1, 0xaa, 0x4d, 0x4d, 0xdf,
+	0x60, 0x53, 0x33, 0x70, 0x48, 0x37, 0x17, 0x33, 0x26, 0x72, 0x10, 0xc5, 0x34, 0x6c, 0x57, 0x4c,
+	0x62, 0x12, 0xfe, 0xa8, 0xfa, 0x4f, 0x41, 0x57, 0xf9, 0x28, 0x80, 0xcd, 0x1e, 0x35, 0x5f, 0xb8,
+	0x06, 0x64, 0xe8, 0x04, 0x7a, 0xd0, 0xa6, 0x62, 0x1b, 0x14, 0xe1, 0x88, 0x59, 0xc4, 0xc3, 0x6c,
+	0x5a, 0x13, 0x1a, 0xc2, 0x6e, 0xb1, 0x5b, 0xf9, 0x71, 0xb9, 0xb3, 0x35, 0x85, 0xf6, 0xb0, 0xa3,
+	0x44, 0x92, 0xa2, 0x2d, 0x6d, 0x62, 0x13, 0xe4, 0x5c, 0x3e, 0x5d, 0xfb, 0xaf, 0x21, 0xec, 0x96,
+	0xda, 0x9b, 0xad, 0x90, 0xb3, 0x15, 0x84, 0x76, 0xff, 0x3f, 0xbf, 0xdc, 0xc9, 0x68, 0xa1, 0xa9,
+	0xb3, 0xf1, 0xe1, 0xea, 0x6c, 0x6f, 0x39, 0xae, 0xd4, 0x41, 0x75, 0x8d, 0x42, 0x43, 0xd4, 0x25,
+	0x0e, 0x45, 0xca, 0x67, 0x01, 0x6c, 0xf7, 0xa8, 0x79, 0x60, 0x18, 0x87, 0x16, 0xc4, 0xce, 0x21,
+	0x71, 0x06, 0xd8, 0xfc, 0x23, 0xc6, 0xc7, 0xa0, 0xac, 0xfb, 0x11, 0x7d, 0x9d, 0x67, 0x84, 0xa4,
+	0x95, 0x88, 0x74, 0x25, 0x3f, 0xc4, 0x2d, 0xe9, 0xcb, 0x56, 0x82, 0xf9, 0x36, 0xa8, 0x27, 0xb8,
+	0x22, 0xea, 0x2f, 0x02, 0xa8, 0x44, 0xbf, 0xe8, 0x1f, 0x03, 0x97, 0xc1, 0x9d, 0x5f, 0xa1, 0x45,
+	0xec, 0x23, 0x8e, 0xfe, 0x04, 0x0d, 0xd1, 0xdf, 0xa3, 0xd7, 0x41, 0x21, 0x40, 0xc7, 0x06, 0xc7,
+	0x2e, 0x6a, 0x79, 0x5e, 0x1f, 0x19, 0x29, 0x58, 0x89, 0xd7, 0x46, 0x58, 0xef, 0xb8, 0xfe, 0x12,
+	0x79, 0x78, 0x30, 0x7d, 0x3a, 0x61, 0xc8, 0x73, 0xe0, 0xf0, 0xb9, 0x07, 0x1d, 0x0a, 0x75, 0x86,
+	0x89, 0x23, 0xde, 0x02, 0x39, 0x8a, 0x1c, 0x03, 0x79, 0x01, 0x9b, 0x16, 0x56, 0x62, 0x15, 0xe4,
+	0xd9, 0xa4, 0x6f, 0x41, 0x6a, 0x85, 0x04, 0x39, 0x36, 0x79, 0x06, 0xa9, 0x25, 0xde, 0x03, 0x65,
+	0x1d, 0x62, 0xb7, 0x0f, 0x0d, 0xc3, 0x43, 0x94, 0xd6, 0xb2, 0x5c, 0x2d, 0xf9, 0xbd, 0x83, 0xa0,
+	0xd5, 0x29, 0xf9, 0x8c, 0x61, 0x90, 0xf2, 0x06, 0xdc, 0xbf, 0x0e, 0x60, 0x01, 0x2a, 0x4a, 0xa0,
+	0x30, 0xf6, 0x4d, 0x18, 0x19, 0x1c, 0xa5, 0xa0, 0x45, 0x75, 0x08, 0x83, 0x9d, 0x01, 0x59, 0xc2,
+	0x1c, 0x39, 0x03, 0xd2, 0xfe, 0x9a, 0x05, 0xd9, 0x1e, 0x35, 0xc5, 0x63, 0x50, 0x8e, 0x1d, 0x63,
+	0x2d, 0xfa, 0x97, 0xd7, 0x0e, 0x44, 0x6a, 0xa4, 0x29, 0x11, 0xc8, 0x09, 0xd8, 0x58, 0x3b, 0x1b,
+	0x69, 0x75, 0x26, 0xae, 0x49, 0x4a, 0xba, 0x16, 0x25, 0xbe, 0x02, 0xdb, 0xc9, 0x95, 0xbe, 0x9b,
+	0x04, 0x59, 0xcd, 0x7d, 0x70, 0xad, 0xbc, 0x1a, 0x9d, 0x5c, 0xb9, 0x58, 0x74, 0x42, 0x8e, 0x47,
+	0xa7, 0x6e, 0x8e, 0xf8, 0x16, 0xd4, 0xd3, 0xd7, 0x26, 0x96, 0x91, 0x6a, 0x93, 0x9a, 0xbf, 0x65,
+	0x5b, 0xbc, 0x52, 0xba, 0xf1, 0xfe, 0xea, 0x6c, 0x4f, 0xe8, 0x1e, 0x9f, 0xcf, 0x64, 0xe1, 0x62,
+	0x26, 0x0b, 0xdf, 0x67, 0xb2, 0xf0, 0x69, 0x2e, 0x67, 0x2e, 0xe6, 0x72, 0xe6, 0xdb, 0x5c, 0xce,
+	0xbc, 0x7e, 0x68, 0x62, 0x66, 0x8d, 0x4e, 0x5b, 0x3a, 0xb1, 0x55, 0x77, 0x44, 0xad, 0x26, 0xff,
+	0x1e, 0xeb, 0x64, 0x18, 0x54, 0xfc, 0x48, 0xd4, 0x89, 0xca, 0xbf, 0xe5, 0x6c, 0xea, 0x22, 0x7a,
+	0x9a, 0xe3, 0x8e, 0x47, 0x3f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x9c, 0x77, 0xff, 0x65, 0x14, 0x06,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -464,6 +594,8 @@ type MsgClient interface {
 	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
 	// DeleteChainConfig defines a governance operation for removing a chain configuration.
 	DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error)
+	// VerifyExternalTransaction validates a transaction that occurred on an external chain
+	VerifyExternalTransaction(ctx context.Context, in *MsgVerifyExternalTransaction, opts ...grpc.CallOption) (*MsgVerifyExternalTransactionResponse, error)
 }
 
 type msgClient struct {
@@ -510,6 +642,15 @@ func (c *msgClient) DeleteChainConfig(ctx context.Context, in *MsgDeleteChainCon
 	return out, nil
 }
 
+func (c *msgClient) VerifyExternalTransaction(ctx context.Context, in *MsgVerifyExternalTransaction, opts ...grpc.CallOption) (*MsgVerifyExternalTransactionResponse, error) {
+	out := new(MsgVerifyExternalTransactionResponse)
+	err := c.cc.Invoke(ctx, "/usvl.v1.Msg/VerifyExternalTransaction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	// UpdateParams defines a governance operation for updating the module parameters.
@@ -521,6 +662,8 @@ type MsgServer interface {
 	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
 	// DeleteChainConfig defines a governance operation for removing a chain configuration.
 	DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error)
+	// VerifyExternalTransaction validates a transaction that occurred on an external chain
+	VerifyExternalTransaction(context.Context, *MsgVerifyExternalTransaction) (*MsgVerifyExternalTransactionResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -538,6 +681,9 @@ func (*UnimplementedMsgServer) UpdateChainConfig(ctx context.Context, req *MsgUp
 }
 func (*UnimplementedMsgServer) DeleteChainConfig(ctx context.Context, req *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteChainConfig not implemented")
+}
+func (*UnimplementedMsgServer) VerifyExternalTransaction(ctx context.Context, req *MsgVerifyExternalTransaction) (*MsgVerifyExternalTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyExternalTransaction not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -616,6 +762,24 @@ func _Msg_DeleteChainConfig_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_VerifyExternalTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVerifyExternalTransaction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VerifyExternalTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/usvl.v1.Msg/VerifyExternalTransaction",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VerifyExternalTransaction(ctx, req.(*MsgVerifyExternalTransaction))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "usvl.v1.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -635,6 +799,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteChainConfig",
 			Handler:    _Msg_DeleteChainConfig_Handler,
+		},
+		{
+			MethodName: "VerifyExternalTransaction",
+			Handler:    _Msg_VerifyExternalTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -890,6 +1058,90 @@ func (m *MsgDeleteChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, e
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgVerifyExternalTransaction) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgVerifyExternalTransaction) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgVerifyExternalTransaction) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.CaipAddress) > 0 {
+		i -= len(m.CaipAddress)
+		copy(dAtA[i:], m.CaipAddress)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CaipAddress)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.TxHash) > 0 {
+		i -= len(m.TxHash)
+		copy(dAtA[i:], m.TxHash)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.TxHash)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Sender) > 0 {
+		i -= len(m.Sender)
+		copy(dAtA[i:], m.Sender)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Sender)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgVerifyExternalTransactionResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgVerifyExternalTransactionResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgVerifyExternalTransactionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.TxInfo) > 0 {
+		i -= len(m.TxInfo)
+		copy(dAtA[i:], m.TxInfo)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.TxInfo)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Verified {
+		i--
+		if m.Verified {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -996,6 +1248,43 @@ func (m *MsgDeleteChainConfigResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	return n
+}
+
+func (m *MsgVerifyExternalTransaction) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Sender)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.TxHash)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.CaipAddress)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgVerifyExternalTransactionResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Verified {
+		n += 2
+	}
+	l = len(m.TxInfo)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
 	return n
 }
 
@@ -1643,6 +1932,254 @@ func (m *MsgDeleteChainConfigResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: MsgDeleteChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgVerifyExternalTransaction) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgVerifyExternalTransaction: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgVerifyExternalTransaction: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Sender = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TxHash = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaipAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CaipAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgVerifyExternalTransactionResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgVerifyExternalTransactionResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgVerifyExternalTransactionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Verified", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Verified = bool(v != 0)
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TxInfo", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TxInfo = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

@@ -2,9 +2,10 @@ package types
 
 // Event types for the usvl module
 const (
-	EventTypeAddChainConfig    = "add_chain_config"
-	EventTypeUpdateChainConfig = "update_chain_config"
-	EventTypeDeleteChainConfig = "delete_chain_config"
+	EventTypeAddChainConfig              = "add_chain_config"
+	EventTypeUpdateChainConfig           = "update_chain_config"
+	EventTypeDeleteChainConfig           = "delete_chain_config"
+	EventTypeExternalTransactionVerified = "external_transaction_verified"
 )
 
 // EventAddChainConfig is emitted when a chain configuration is added
@@ -22,4 +23,11 @@ type EventUpdateChainConfig struct {
 // EventDeleteChainConfig is emitted when a chain configuration is deleted
 type EventDeleteChainConfig struct {
 	ChainId string `yaml:"chain_id"`
+}
+
+// EventExternalTransactionVerified is emitted when an external transaction is verified
+type EventExternalTransactionVerified struct {
+	TxHash      string `yaml:"tx_hash"`
+	CaipAddress string `yaml:"caip_address"`
+	Verified    bool   `yaml:"verified"`
 }

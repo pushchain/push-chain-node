@@ -23,7 +23,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/client/snapshot"
-	"github.com/cosmos/cosmos-sdk/server"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -139,16 +138,14 @@ func initRootCmd(
 
 	// add keybase, auxiliary RPC, query, genesis, and tx child commands
 	rootCmd.AddCommand(
-		server.StatusCommand(),
+		sdkserver.StatusCommand(),
 
 		queryCommand(),
 		txCommand(),
 	)
 
-	var err error
-	// add general tx flags to the root command
-	rootCmd, err = srvflags.AddTxFlags(rootCmd)
-	if err != nil {
+	// add general tx flags to the root command, ignore returned command
+	if _, err := srvflags.AddTxFlags(rootCmd); err != nil {
 		panic(err)
 	}
 
@@ -188,8 +185,6 @@ func queryCommand() *cobra.Command {
 		sdkserver.QueryBlockResultsCmd(),
 	)
 
-	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
-
 	return cmd
 }
 
@@ -213,8 +208,6 @@ func txCommand() *cobra.Command {
 		authcmd.GetDecodeCommand(),
 		authcmd.GetSimulateCmd(),
 	)
-
-	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
 }
@@ -267,7 +260,7 @@ func appExport(
 	}
 
 	// overwrite the FlagInvCheckPeriod
-	viperAppOpts.Set(server.FlagInvCheckPeriod, 1)
+	viperAppOpts.Set(sdkserver.FlagInvCheckPeriod, 1)
 	appOpts = viperAppOpts
 
 	chainApp = app.NewChainApp(

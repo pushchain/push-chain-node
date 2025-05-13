@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName      = "/usvl.v1.Msg/UpdateParams"
-	Msg_AddChainConfig_FullMethodName    = "/usvl.v1.Msg/AddChainConfig"
-	Msg_UpdateChainConfig_FullMethodName = "/usvl.v1.Msg/UpdateChainConfig"
-	Msg_DeleteChainConfig_FullMethodName = "/usvl.v1.Msg/DeleteChainConfig"
+	Msg_UpdateParams_FullMethodName              = "/usvl.v1.Msg/UpdateParams"
+	Msg_AddChainConfig_FullMethodName            = "/usvl.v1.Msg/AddChainConfig"
+	Msg_UpdateChainConfig_FullMethodName         = "/usvl.v1.Msg/UpdateChainConfig"
+	Msg_DeleteChainConfig_FullMethodName         = "/usvl.v1.Msg/DeleteChainConfig"
+	Msg_VerifyExternalTransaction_FullMethodName = "/usvl.v1.Msg/VerifyExternalTransaction"
 )
 
 // MsgClient is the client API for Msg service.
@@ -38,6 +39,8 @@ type MsgClient interface {
 	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
 	// DeleteChainConfig defines a governance operation for removing a chain configuration.
 	DeleteChainConfig(ctx context.Context, in *MsgDeleteChainConfig, opts ...grpc.CallOption) (*MsgDeleteChainConfigResponse, error)
+	// VerifyExternalTransaction validates a transaction that occurred on an external chain
+	VerifyExternalTransaction(ctx context.Context, in *MsgVerifyExternalTransaction, opts ...grpc.CallOption) (*MsgVerifyExternalTransactionResponse, error)
 }
 
 type msgClient struct {
@@ -84,6 +87,15 @@ func (c *msgClient) DeleteChainConfig(ctx context.Context, in *MsgDeleteChainCon
 	return out, nil
 }
 
+func (c *msgClient) VerifyExternalTransaction(ctx context.Context, in *MsgVerifyExternalTransaction, opts ...grpc.CallOption) (*MsgVerifyExternalTransactionResponse, error) {
+	out := new(MsgVerifyExternalTransactionResponse)
+	err := c.cc.Invoke(ctx, Msg_VerifyExternalTransaction_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -97,6 +109,8 @@ type MsgServer interface {
 	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
 	// DeleteChainConfig defines a governance operation for removing a chain configuration.
 	DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error)
+	// VerifyExternalTransaction validates a transaction that occurred on an external chain
+	VerifyExternalTransaction(context.Context, *MsgVerifyExternalTransaction) (*MsgVerifyExternalTransactionResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -115,6 +129,9 @@ func (UnimplementedMsgServer) UpdateChainConfig(context.Context, *MsgUpdateChain
 }
 func (UnimplementedMsgServer) DeleteChainConfig(context.Context, *MsgDeleteChainConfig) (*MsgDeleteChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteChainConfig not implemented")
+}
+func (UnimplementedMsgServer) VerifyExternalTransaction(context.Context, *MsgVerifyExternalTransaction) (*MsgVerifyExternalTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyExternalTransaction not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -201,6 +218,24 @@ func _Msg_DeleteChainConfig_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_VerifyExternalTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVerifyExternalTransaction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VerifyExternalTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VerifyExternalTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VerifyExternalTransaction(ctx, req.(*MsgVerifyExternalTransaction))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -223,6 +258,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteChainConfig",
 			Handler:    _Msg_DeleteChainConfig_Handler,
+		},
+		{
+			MethodName: "VerifyExternalTransaction",
+			Handler:    _Msg_VerifyExternalTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

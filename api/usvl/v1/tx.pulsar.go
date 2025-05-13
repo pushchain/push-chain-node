@@ -3419,6 +3419,1028 @@ func (x *fastReflection_MsgDeleteChainConfigResponse) ProtoMethods() *protoiface
 	}
 }
 
+var (
+	md_MsgVerifyExternalTransaction              protoreflect.MessageDescriptor
+	fd_MsgVerifyExternalTransaction_sender       protoreflect.FieldDescriptor
+	fd_MsgVerifyExternalTransaction_tx_hash      protoreflect.FieldDescriptor
+	fd_MsgVerifyExternalTransaction_caip_address protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_usvl_v1_tx_proto_init()
+	md_MsgVerifyExternalTransaction = File_usvl_v1_tx_proto.Messages().ByName("MsgVerifyExternalTransaction")
+	fd_MsgVerifyExternalTransaction_sender = md_MsgVerifyExternalTransaction.Fields().ByName("sender")
+	fd_MsgVerifyExternalTransaction_tx_hash = md_MsgVerifyExternalTransaction.Fields().ByName("tx_hash")
+	fd_MsgVerifyExternalTransaction_caip_address = md_MsgVerifyExternalTransaction.Fields().ByName("caip_address")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVerifyExternalTransaction)(nil)
+
+type fastReflection_MsgVerifyExternalTransaction MsgVerifyExternalTransaction
+
+func (x *MsgVerifyExternalTransaction) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVerifyExternalTransaction)(x)
+}
+
+func (x *MsgVerifyExternalTransaction) slowProtoReflect() protoreflect.Message {
+	mi := &file_usvl_v1_tx_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgVerifyExternalTransaction_messageType fastReflection_MsgVerifyExternalTransaction_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVerifyExternalTransaction_messageType{}
+
+type fastReflection_MsgVerifyExternalTransaction_messageType struct{}
+
+func (x fastReflection_MsgVerifyExternalTransaction_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVerifyExternalTransaction)(nil)
+}
+func (x fastReflection_MsgVerifyExternalTransaction_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVerifyExternalTransaction)
+}
+func (x fastReflection_MsgVerifyExternalTransaction_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVerifyExternalTransaction
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgVerifyExternalTransaction) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVerifyExternalTransaction
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgVerifyExternalTransaction) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVerifyExternalTransaction_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVerifyExternalTransaction) New() protoreflect.Message {
+	return new(fastReflection_MsgVerifyExternalTransaction)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgVerifyExternalTransaction) Interface() protoreflect.ProtoMessage {
+	return (*MsgVerifyExternalTransaction)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgVerifyExternalTransaction) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Sender != "" {
+		value := protoreflect.ValueOfString(x.Sender)
+		if !f(fd_MsgVerifyExternalTransaction_sender, value) {
+			return
+		}
+	}
+	if x.TxHash != "" {
+		value := protoreflect.ValueOfString(x.TxHash)
+		if !f(fd_MsgVerifyExternalTransaction_tx_hash, value) {
+			return
+		}
+	}
+	if x.CaipAddress != "" {
+		value := protoreflect.ValueOfString(x.CaipAddress)
+		if !f(fd_MsgVerifyExternalTransaction_caip_address, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgVerifyExternalTransaction) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		return x.Sender != ""
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		return x.TxHash != ""
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		return x.CaipAddress != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransaction) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		x.Sender = ""
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		x.TxHash = ""
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		x.CaipAddress = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgVerifyExternalTransaction) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		value := x.Sender
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		value := x.TxHash
+		return protoreflect.ValueOfString(value)
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		value := x.CaipAddress
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransaction) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		x.Sender = value.Interface().(string)
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		x.TxHash = value.Interface().(string)
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		x.CaipAddress = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransaction) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		panic(fmt.Errorf("field sender of message usvl.v1.MsgVerifyExternalTransaction is not mutable"))
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		panic(fmt.Errorf("field tx_hash of message usvl.v1.MsgVerifyExternalTransaction is not mutable"))
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		panic(fmt.Errorf("field caip_address of message usvl.v1.MsgVerifyExternalTransaction is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgVerifyExternalTransaction) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransaction.sender":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.MsgVerifyExternalTransaction.tx_hash":
+		return protoreflect.ValueOfString("")
+	case "usvl.v1.MsgVerifyExternalTransaction.caip_address":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransaction"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransaction does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgVerifyExternalTransaction) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in usvl.v1.MsgVerifyExternalTransaction", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgVerifyExternalTransaction) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransaction) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgVerifyExternalTransaction) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgVerifyExternalTransaction) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVerifyExternalTransaction)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Sender)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.TxHash)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.CaipAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVerifyExternalTransaction)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.CaipAddress) > 0 {
+			i -= len(x.CaipAddress)
+			copy(dAtA[i:], x.CaipAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.CaipAddress)))
+			i--
+			dAtA[i] = 0x1a
+		}
+		if len(x.TxHash) > 0 {
+			i -= len(x.TxHash)
+			copy(dAtA[i:], x.TxHash)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.TxHash)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if len(x.Sender) > 0 {
+			i -= len(x.Sender)
+			copy(dAtA[i:], x.Sender)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Sender)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVerifyExternalTransaction)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVerifyExternalTransaction: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVerifyExternalTransaction: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Sender = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.TxHash = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field CaipAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.CaipAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_MsgVerifyExternalTransactionResponse          protoreflect.MessageDescriptor
+	fd_MsgVerifyExternalTransactionResponse_verified protoreflect.FieldDescriptor
+	fd_MsgVerifyExternalTransactionResponse_tx_info  protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_usvl_v1_tx_proto_init()
+	md_MsgVerifyExternalTransactionResponse = File_usvl_v1_tx_proto.Messages().ByName("MsgVerifyExternalTransactionResponse")
+	fd_MsgVerifyExternalTransactionResponse_verified = md_MsgVerifyExternalTransactionResponse.Fields().ByName("verified")
+	fd_MsgVerifyExternalTransactionResponse_tx_info = md_MsgVerifyExternalTransactionResponse.Fields().ByName("tx_info")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVerifyExternalTransactionResponse)(nil)
+
+type fastReflection_MsgVerifyExternalTransactionResponse MsgVerifyExternalTransactionResponse
+
+func (x *MsgVerifyExternalTransactionResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVerifyExternalTransactionResponse)(x)
+}
+
+func (x *MsgVerifyExternalTransactionResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_usvl_v1_tx_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgVerifyExternalTransactionResponse_messageType fastReflection_MsgVerifyExternalTransactionResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVerifyExternalTransactionResponse_messageType{}
+
+type fastReflection_MsgVerifyExternalTransactionResponse_messageType struct{}
+
+func (x fastReflection_MsgVerifyExternalTransactionResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVerifyExternalTransactionResponse)(nil)
+}
+func (x fastReflection_MsgVerifyExternalTransactionResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVerifyExternalTransactionResponse)
+}
+func (x fastReflection_MsgVerifyExternalTransactionResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVerifyExternalTransactionResponse
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVerifyExternalTransactionResponse
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVerifyExternalTransactionResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgVerifyExternalTransactionResponse)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgVerifyExternalTransactionResponse)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Verified != false {
+		value := protoreflect.ValueOfBool(x.Verified)
+		if !f(fd_MsgVerifyExternalTransactionResponse_verified, value) {
+			return
+		}
+	}
+	if x.TxInfo != "" {
+		value := protoreflect.ValueOfString(x.TxInfo)
+		if !f(fd_MsgVerifyExternalTransactionResponse_tx_info, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		return x.Verified != false
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		return x.TxInfo != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		x.Verified = false
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		x.TxInfo = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		value := x.Verified
+		return protoreflect.ValueOfBool(value)
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		value := x.TxInfo
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		x.Verified = value.Bool()
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		x.TxInfo = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		panic(fmt.Errorf("field verified of message usvl.v1.MsgVerifyExternalTransactionResponse is not mutable"))
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		panic(fmt.Errorf("field tx_info of message usvl.v1.MsgVerifyExternalTransactionResponse is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.verified":
+		return protoreflect.ValueOfBool(false)
+	case "usvl.v1.MsgVerifyExternalTransactionResponse.tx_info":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: usvl.v1.MsgVerifyExternalTransactionResponse"))
+		}
+		panic(fmt.Errorf("message usvl.v1.MsgVerifyExternalTransactionResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in usvl.v1.MsgVerifyExternalTransactionResponse", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgVerifyExternalTransactionResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVerifyExternalTransactionResponse)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.Verified {
+			n += 2
+		}
+		l = len(x.TxInfo)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVerifyExternalTransactionResponse)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.TxInfo) > 0 {
+			i -= len(x.TxInfo)
+			copy(dAtA[i:], x.TxInfo)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.TxInfo)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if x.Verified {
+			i--
+			if x.Verified {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+			i--
+			dAtA[i] = 0x8
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVerifyExternalTransactionResponse)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVerifyExternalTransactionResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVerifyExternalTransactionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Verified", wireType)
+				}
+				var v int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				x.Verified = bool(v != 0)
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field TxInfo", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.TxInfo = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -3724,6 +4746,107 @@ func (*MsgDeleteChainConfigResponse) Descriptor() ([]byte, []int) {
 	return file_usvl_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
+// MsgVerifyExternalTransaction is the Msg/VerifyExternalTransaction request type.
+type MsgVerifyExternalTransaction struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// sender is the address submitting the verification request
+	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	// tx_hash is the transaction hash on the external chain
+	TxHash string `protobuf:"bytes,2,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
+	// caip_address is the CAIP-formatted address (chain:reference:address)
+	CaipAddress string `protobuf:"bytes,3,opt,name=caip_address,json=caipAddress,proto3" json:"caip_address,omitempty"`
+}
+
+func (x *MsgVerifyExternalTransaction) Reset() {
+	*x = MsgVerifyExternalTransaction{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_usvl_v1_tx_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgVerifyExternalTransaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVerifyExternalTransaction) ProtoMessage() {}
+
+// Deprecated: Use MsgVerifyExternalTransaction.ProtoReflect.Descriptor instead.
+func (*MsgVerifyExternalTransaction) Descriptor() ([]byte, []int) {
+	return file_usvl_v1_tx_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *MsgVerifyExternalTransaction) GetSender() string {
+	if x != nil {
+		return x.Sender
+	}
+	return ""
+}
+
+func (x *MsgVerifyExternalTransaction) GetTxHash() string {
+	if x != nil {
+		return x.TxHash
+	}
+	return ""
+}
+
+func (x *MsgVerifyExternalTransaction) GetCaipAddress() string {
+	if x != nil {
+		return x.CaipAddress
+	}
+	return ""
+}
+
+// MsgVerifyExternalTransactionResponse is the Msg/VerifyExternalTransaction response type.
+type MsgVerifyExternalTransactionResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// verified indicates whether the transaction was successfully verified
+	Verified bool `protobuf:"varint,1,opt,name=verified,proto3" json:"verified,omitempty"`
+	// tx_info contains basic transaction information if verified
+	TxInfo string `protobuf:"bytes,2,opt,name=tx_info,json=txInfo,proto3" json:"tx_info,omitempty"`
+}
+
+func (x *MsgVerifyExternalTransactionResponse) Reset() {
+	*x = MsgVerifyExternalTransactionResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_usvl_v1_tx_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgVerifyExternalTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVerifyExternalTransactionResponse) ProtoMessage() {}
+
+// Deprecated: Use MsgVerifyExternalTransactionResponse.ProtoReflect.Descriptor instead.
+func (*MsgVerifyExternalTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_usvl_v1_tx_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *MsgVerifyExternalTransactionResponse) GetVerified() bool {
+	if x != nil {
+		return x.Verified
+	}
+	return false
+}
+
+func (x *MsgVerifyExternalTransactionResponse) GetTxInfo() string {
+	if x != nil {
+		return x.TxInfo
+	}
+	return ""
+}
+
 var File_usvl_v1_tx_proto protoreflect.FileDescriptor
 
 var file_usvl_v1_tx_proto_rawDesc = []byte{
@@ -3775,39 +4898,60 @@ var file_usvl_v1_tx_proto_rawDesc = []byte{
 	0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x3a, 0x0e, 0x82, 0xe7,
 	0xb0, 0x2a, 0x09, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x22, 0x1e, 0x0a, 0x1c,
 	0x4d, 0x73, 0x67, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xe0, 0x02, 0x0a,
-	0x03, 0x4d, 0x73, 0x67, 0x12, 0x4a, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61,
-	0x72, 0x61, 0x6d, 0x73, 0x12, 0x18, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x20,
-	0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x50, 0x0a, 0x0e, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x12, 0x1a, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x22,
-	0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43,
-	0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x59, 0x0a, 0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x1d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76,
-	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x25, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x59, 0x0a,
-	0x11, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x12, 0x1d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x1a, 0x25, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44,
+	0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x7f, 0x0a, 0x1c,
+	0x4d, 0x73, 0x67, 0x56, 0x65, 0x72, 0x69, 0x66, 0x79, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61,
+	0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x16, 0x0a, 0x06,
+	0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x65,
+	0x6e, 0x64, 0x65, 0x72, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x48, 0x61, 0x73, 0x68, 0x12, 0x21, 0x0a,
+	0x0c, 0x63, 0x61, 0x69, 0x70, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0b, 0x63, 0x61, 0x69, 0x70, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
+	0x3a, 0x0b, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x22, 0x5b, 0x0a,
+	0x24, 0x4d, 0x73, 0x67, 0x56, 0x65, 0x72, 0x69, 0x66, 0x79, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e,
+	0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65,
+	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65,
+	0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x49, 0x6e, 0x66, 0x6f, 0x32, 0xd3, 0x03, 0x0a, 0x03, 0x4d,
+	0x73, 0x67, 0x12, 0x4a, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
+	0x6d, 0x73, 0x12, 0x18, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x20, 0x2e, 0x75,
+	0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x50,
+	0x0a, 0x0e, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x12, 0x1a, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64,
+	0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x22, 0x2e, 0x75,
+	0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61,
+	0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x59, 0x0a, 0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x1d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e,
+	0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x1a, 0x25, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x59, 0x0a, 0x11, 0x44,
 	0x65, 0x6c, 0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42,
-	0x8b, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x42,
-	0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x36, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x75, 0x73, 0x76, 0x6c, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x73, 0x76, 0x6c,
-	0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c, 0x2e,
-	0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55,
-	0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61,
-	0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x73, 0x76, 0x6c, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x12, 0x1d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a,
+	0x25, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x6c,
+	0x65, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x71, 0x0a, 0x19, 0x56, 0x65, 0x72, 0x69, 0x66, 0x79,
+	0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x12, 0x25, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
+	0x67, 0x56, 0x65, 0x72, 0x69, 0x66, 0x79, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x54,
+	0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x1a, 0x2d, 0x2e, 0x75, 0x73, 0x76,
+	0x6c, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x65, 0x72, 0x69, 0x66, 0x79, 0x45, 0x78,
+	0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01,
+	0x42, 0x8b, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x73, 0x76, 0x6c, 0x2e, 0x76, 0x31,
+	0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x36, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x73, 0x76, 0x6c, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x73, 0x76,
+	0x6c, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c,
+	0x2e, 0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13,
+	0x55, 0x73, 0x76, 0x6c, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64,
+	0x61, 0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x73, 0x76, 0x6c, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3822,36 +4966,40 @@ func file_usvl_v1_tx_proto_rawDescGZIP() []byte {
 	return file_usvl_v1_tx_proto_rawDescData
 }
 
-var file_usvl_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_usvl_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_usvl_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),              // 0: usvl.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),      // 1: usvl.v1.MsgUpdateParamsResponse
-	(*MsgAddChainConfig)(nil),            // 2: usvl.v1.MsgAddChainConfig
-	(*MsgAddChainConfigResponse)(nil),    // 3: usvl.v1.MsgAddChainConfigResponse
-	(*MsgUpdateChainConfig)(nil),         // 4: usvl.v1.MsgUpdateChainConfig
-	(*MsgUpdateChainConfigResponse)(nil), // 5: usvl.v1.MsgUpdateChainConfigResponse
-	(*MsgDeleteChainConfig)(nil),         // 6: usvl.v1.MsgDeleteChainConfig
-	(*MsgDeleteChainConfigResponse)(nil), // 7: usvl.v1.MsgDeleteChainConfigResponse
-	(*Params)(nil),                       // 8: usvl.v1.Params
-	(*ChainConfig)(nil),                  // 9: usvl.v1.ChainConfig
+	(*MsgUpdateParams)(nil),                      // 0: usvl.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),              // 1: usvl.v1.MsgUpdateParamsResponse
+	(*MsgAddChainConfig)(nil),                    // 2: usvl.v1.MsgAddChainConfig
+	(*MsgAddChainConfigResponse)(nil),            // 3: usvl.v1.MsgAddChainConfigResponse
+	(*MsgUpdateChainConfig)(nil),                 // 4: usvl.v1.MsgUpdateChainConfig
+	(*MsgUpdateChainConfigResponse)(nil),         // 5: usvl.v1.MsgUpdateChainConfigResponse
+	(*MsgDeleteChainConfig)(nil),                 // 6: usvl.v1.MsgDeleteChainConfig
+	(*MsgDeleteChainConfigResponse)(nil),         // 7: usvl.v1.MsgDeleteChainConfigResponse
+	(*MsgVerifyExternalTransaction)(nil),         // 8: usvl.v1.MsgVerifyExternalTransaction
+	(*MsgVerifyExternalTransactionResponse)(nil), // 9: usvl.v1.MsgVerifyExternalTransactionResponse
+	(*Params)(nil),                               // 10: usvl.v1.Params
+	(*ChainConfig)(nil),                          // 11: usvl.v1.ChainConfig
 }
 var file_usvl_v1_tx_proto_depIdxs = []int32{
-	8, // 0: usvl.v1.MsgUpdateParams.params:type_name -> usvl.v1.Params
-	9, // 1: usvl.v1.MsgAddChainConfig.chain_config:type_name -> usvl.v1.ChainConfig
-	9, // 2: usvl.v1.MsgUpdateChainConfig.chain_config:type_name -> usvl.v1.ChainConfig
-	0, // 3: usvl.v1.Msg.UpdateParams:input_type -> usvl.v1.MsgUpdateParams
-	2, // 4: usvl.v1.Msg.AddChainConfig:input_type -> usvl.v1.MsgAddChainConfig
-	4, // 5: usvl.v1.Msg.UpdateChainConfig:input_type -> usvl.v1.MsgUpdateChainConfig
-	6, // 6: usvl.v1.Msg.DeleteChainConfig:input_type -> usvl.v1.MsgDeleteChainConfig
-	1, // 7: usvl.v1.Msg.UpdateParams:output_type -> usvl.v1.MsgUpdateParamsResponse
-	3, // 8: usvl.v1.Msg.AddChainConfig:output_type -> usvl.v1.MsgAddChainConfigResponse
-	5, // 9: usvl.v1.Msg.UpdateChainConfig:output_type -> usvl.v1.MsgUpdateChainConfigResponse
-	7, // 10: usvl.v1.Msg.DeleteChainConfig:output_type -> usvl.v1.MsgDeleteChainConfigResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	10, // 0: usvl.v1.MsgUpdateParams.params:type_name -> usvl.v1.Params
+	11, // 1: usvl.v1.MsgAddChainConfig.chain_config:type_name -> usvl.v1.ChainConfig
+	11, // 2: usvl.v1.MsgUpdateChainConfig.chain_config:type_name -> usvl.v1.ChainConfig
+	0,  // 3: usvl.v1.Msg.UpdateParams:input_type -> usvl.v1.MsgUpdateParams
+	2,  // 4: usvl.v1.Msg.AddChainConfig:input_type -> usvl.v1.MsgAddChainConfig
+	4,  // 5: usvl.v1.Msg.UpdateChainConfig:input_type -> usvl.v1.MsgUpdateChainConfig
+	6,  // 6: usvl.v1.Msg.DeleteChainConfig:input_type -> usvl.v1.MsgDeleteChainConfig
+	8,  // 7: usvl.v1.Msg.VerifyExternalTransaction:input_type -> usvl.v1.MsgVerifyExternalTransaction
+	1,  // 8: usvl.v1.Msg.UpdateParams:output_type -> usvl.v1.MsgUpdateParamsResponse
+	3,  // 9: usvl.v1.Msg.AddChainConfig:output_type -> usvl.v1.MsgAddChainConfigResponse
+	5,  // 10: usvl.v1.Msg.UpdateChainConfig:output_type -> usvl.v1.MsgUpdateChainConfigResponse
+	7,  // 11: usvl.v1.Msg.DeleteChainConfig:output_type -> usvl.v1.MsgDeleteChainConfigResponse
+	9,  // 12: usvl.v1.Msg.VerifyExternalTransaction:output_type -> usvl.v1.MsgVerifyExternalTransactionResponse
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_usvl_v1_tx_proto_init() }
@@ -3957,6 +5105,30 @@ func file_usvl_v1_tx_proto_init() {
 				return nil
 			}
 		}
+		file_usvl_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgVerifyExternalTransaction); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_usvl_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgVerifyExternalTransactionResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3964,7 +5136,7 @@ func file_usvl_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_usvl_v1_tx_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

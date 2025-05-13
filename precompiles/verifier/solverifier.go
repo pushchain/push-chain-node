@@ -73,33 +73,32 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	if len(contract.Input) < 4 {
+		return nil, vm.ErrExecutionReverted
+	}
+
+	methodID := contract.Input[:4]
+	// NOTE: this function iterates over the method map and returns
+	// the method with the given ID
+	method, err := p.MethodById(methodID)
 	if err != nil {
 		return nil, err
 	}
 
-	// This handles any out of gas errors that may occur during the execution of a precompile query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+	argsBz := contract.Input[4:]
+	args, err := method.Inputs.Unpack(argsBz)
+	if err != nil {
+		return nil, err
+	}
 
 	switch method.Name {
 	case VerifyEd25519Method:
-		bz, err = p.VerifyEd25519(ctx, contract, method, args)
+		bz, err = p.VerifyEd25519(method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
 
 	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
 		return nil, err
 	}
 

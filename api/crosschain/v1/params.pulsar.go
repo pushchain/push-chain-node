@@ -1074,8 +1074,8 @@ func (x *fastReflection_CrossChainPayload) Range(f func(protoreflect.FieldDescri
 			return
 		}
 	}
-	if len(x.Data) != 0 {
-		value := protoreflect.ValueOfBytes(x.Data)
+	if x.Data != "" {
+		value := protoreflect.ValueOfString(x.Data)
 		if !f(fd_CrossChainPayload_data, value) {
 			return
 		}
@@ -1130,7 +1130,7 @@ func (x *fastReflection_CrossChainPayload) Has(fd protoreflect.FieldDescriptor) 
 	case "crosschain.v1.CrossChainPayload.value":
 		return x.Value != ""
 	case "crosschain.v1.CrossChainPayload.data":
-		return len(x.Data) != 0
+		return x.Data != ""
 	case "crosschain.v1.CrossChainPayload.gas_limit":
 		return x.GasLimit != ""
 	case "crosschain.v1.CrossChainPayload.max_fee_per_gas":
@@ -1162,7 +1162,7 @@ func (x *fastReflection_CrossChainPayload) Clear(fd protoreflect.FieldDescriptor
 	case "crosschain.v1.CrossChainPayload.value":
 		x.Value = ""
 	case "crosschain.v1.CrossChainPayload.data":
-		x.Data = nil
+		x.Data = ""
 	case "crosschain.v1.CrossChainPayload.gas_limit":
 		x.GasLimit = ""
 	case "crosschain.v1.CrossChainPayload.max_fee_per_gas":
@@ -1197,7 +1197,7 @@ func (x *fastReflection_CrossChainPayload) Get(descriptor protoreflect.FieldDesc
 		return protoreflect.ValueOfString(value)
 	case "crosschain.v1.CrossChainPayload.data":
 		value := x.Data
-		return protoreflect.ValueOfBytes(value)
+		return protoreflect.ValueOfString(value)
 	case "crosschain.v1.CrossChainPayload.gas_limit":
 		value := x.GasLimit
 		return protoreflect.ValueOfString(value)
@@ -1238,7 +1238,7 @@ func (x *fastReflection_CrossChainPayload) Set(fd protoreflect.FieldDescriptor, 
 	case "crosschain.v1.CrossChainPayload.value":
 		x.Value = value.Interface().(string)
 	case "crosschain.v1.CrossChainPayload.data":
-		x.Data = value.Bytes()
+		x.Data = value.Interface().(string)
 	case "crosschain.v1.CrossChainPayload.gas_limit":
 		x.GasLimit = value.Interface().(string)
 	case "crosschain.v1.CrossChainPayload.max_fee_per_gas":
@@ -1303,7 +1303,7 @@ func (x *fastReflection_CrossChainPayload) NewField(fd protoreflect.FieldDescrip
 	case "crosschain.v1.CrossChainPayload.value":
 		return protoreflect.ValueOfString("")
 	case "crosschain.v1.CrossChainPayload.data":
-		return protoreflect.ValueOfBytes(nil)
+		return protoreflect.ValueOfString("")
 	case "crosschain.v1.CrossChainPayload.gas_limit":
 		return protoreflect.ValueOfString("")
 	case "crosschain.v1.CrossChainPayload.max_fee_per_gas":
@@ -1617,7 +1617,7 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
 				}
-				var byteLen int
+				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -1627,25 +1627,23 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					byteLen |= int(b&0x7F) << shift
+					stringLen |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				if byteLen < 0 {
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
-				postIndex := iNdEx + byteLen
+				postIndex := iNdEx + intStringLen
 				if postIndex < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Data = append(x.Data[:0], dAtA[iNdEx:postIndex]...)
-				if x.Data == nil {
-					x.Data = []byte{}
-				}
+				x.Data = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 4:
 				if wireType != 2 {
@@ -1954,7 +1952,7 @@ type CrossChainPayload struct {
 
 	Target               string `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`                                                               // EVM address as hex string (0x...)
 	Value                string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                                                 // Amount in wei as string (uint256)
-	Data                 []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
+	Data                 string `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
 	GasLimit             string `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`                                           // uint256 as string
 	MaxFeePerGas         string `protobuf:"bytes,5,opt,name=max_fee_per_gas,json=maxFeePerGas,proto3" json:"max_fee_per_gas,omitempty"`                           // uint256 as string
 	MaxPriorityFeePerGas string `protobuf:"bytes,6,opt,name=max_priority_fee_per_gas,json=maxPriorityFeePerGas,proto3" json:"max_priority_fee_per_gas,omitempty"` // uint256 as string
@@ -1996,11 +1994,11 @@ func (x *CrossChainPayload) GetValue() string {
 	return ""
 }
 
-func (x *CrossChainPayload) GetData() []byte {
+func (x *CrossChainPayload) GetData() string {
 	if x != nil {
 		return x.Data
 	}
-	return nil
+	return ""
 }
 
 func (x *CrossChainPayload) GetGasLimit() string {
@@ -2066,7 +2064,7 @@ var file_crosschain_v1_params_proto_rawDesc = []byte{
 	0x67, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x61, 0x72, 0x67, 0x65,
 	0x74, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
 	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18,
-	0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x1b, 0x0a, 0x09, 0x67,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x1b, 0x0a, 0x09, 0x67,
 	0x61, 0x73, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
 	0x67, 0x61, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x25, 0x0a, 0x0f, 0x6d, 0x61, 0x78, 0x5f,
 	0x66, 0x65, 0x65, 0x5f, 0x70, 0x65, 0x72, 0x5f, 0x67, 0x61, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28,

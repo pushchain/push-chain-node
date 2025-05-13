@@ -14,11 +14,12 @@ import (
 
 // Error codes for the USVL module
 const (
-	BaseErrCode uint32 = 1
+	BaseErrCode uint32 = 100 // Using a higher base to avoid conflicts with existing error codes
 )
 
 var (
-	ErrUnauthorized = sdkerrors.Register("usvl", BaseErrCode, "unauthorized")
+	ErrUnauthorized   = sdkerrors.Register("usvl", BaseErrCode, "unauthorized")
+	ErrInvalidRequest = sdkerrors.Register("usvl", BaseErrCode+1, "invalid request")
 )
 
 type msgServer struct {
@@ -125,6 +126,33 @@ func (ms msgServer) DeleteChainConfig(goCtx context.Context, msg *types.MsgDelet
 	})
 
 	return &types.MsgDeleteChainConfigResponse{}, nil
+}
+
+// VerifyExternalTransaction handles verification of transactions on external chains
+func (ms msgServer) VerifyExternalTransaction(goCtx context.Context, msg *types.MsgVerifyExternalTransaction) (*types.MsgVerifyExternalTransactionResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Verify the transaction using the keeper
+	result, err := ms.Keeper.VerifyExternalTransaction(ctx, msg.TxHash, msg.CaipAddress)
+	if err != nil {
+		return nil, sdkerrors.Wrapf(ErrInvalidRequest, "transaction verification failed: %s", err.Error())
+	}
+
+	// Emit an event for the verification result
+	ctx.EventManager().EmitEvents(sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeExternalTransactionVerified,
+			sdk.NewAttribute("tx_hash", msg.TxHash),
+			sdk.NewAttribute("caip_address", msg.CaipAddress),
+			sdk.NewAttribute("verified", fmt.Sprintf("%t", result.Verified)),
+		),
+	})
+
+	// Return the verification result
+	return &types.MsgVerifyExternalTransactionResponse{
+		Verified: result.Verified,
+		TxInfo:   result.TxInfo,
+	}, nil
 }
 
 // UpdateParams implements the MsgServer.UpdateParams method.

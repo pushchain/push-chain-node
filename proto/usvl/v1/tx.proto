@@ -23,6 +23,9 @@ service Msg {
 
   // DeleteChainConfig defines a governance operation for removing a chain configuration.
   rpc DeleteChainConfig(MsgDeleteChainConfig) returns (MsgDeleteChainConfigResponse);
+  
+  // VerifyExternalTransaction validates a transaction that occurred on an external chain
+  rpc VerifyExternalTransaction(MsgVerifyExternalTransaction) returns (MsgVerifyExternalTransactionResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -80,3 +83,26 @@ message MsgDeleteChainConfig {
 
 // MsgDeleteChainConfigResponse is the Msg/DeleteChainConfig response type.
 message MsgDeleteChainConfigResponse {}
+
+// MsgVerifyExternalTransaction is the Msg/VerifyExternalTransaction request type.
+message MsgVerifyExternalTransaction {
+  option (cosmos.msg.v1.signer) = "sender";
+  
+  // sender is the address submitting the verification request
+  string sender = 1;
+  
+  // tx_hash is the transaction hash on the external chain
+  string tx_hash = 2;
+  
+  // caip_address is the CAIP-formatted address (chain:reference:address)
+  string caip_address = 3;
+}
+
+// MsgVerifyExternalTransactionResponse is the Msg/VerifyExternalTransaction response type.
+message MsgVerifyExternalTransactionResponse {
+  // verified indicates whether the transaction was successfully verified
+  bool verified = 1;
+  
+  // tx_info contains basic transaction information if verified
+  string tx_info = 2;
+}

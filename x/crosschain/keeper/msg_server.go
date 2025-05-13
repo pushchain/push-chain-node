@@ -18,6 +18,7 @@ import (
 	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	pushtypes "github.com/rollchains/pchain/types"
 	"github.com/rollchains/pchain/x/crosschain/types"
 )
 
@@ -248,12 +249,12 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 		return nil, errors.Wrapf(err, "failed to convert EVM address to Cosmos address")
 	}
 
-	err = ms.k.bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin("npush", amountToMint)))
+	err = ms.k.bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(pushtypes.BaseDenom, amountToMint)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to mint coins")
 	}
 
-	err = ms.k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, cosmosAddr, sdk.NewCoins(sdk.NewCoin("npush", amountToMint)))
+	err = ms.k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, cosmosAddr, sdk.NewCoins(sdk.NewCoin(pushtypes.BaseDenom, amountToMint)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to send coins from module to account")
 	}
@@ -304,6 +305,15 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, err
 	}
 
+	fmt.Println("EVM tx hash:", receipt.Hash)
+	fmt.Println("Gas used:", receipt.GasUsed)
+	fmt.Println("Logs:", receipt.Logs)
+	fmt.Println("Returned data:", receipt.Ret)
+	if receipt.VmError != "" {
+		fmt.Println("VM Error:", receipt.VmError)
+	}
+	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
+
 	if receipt.VmError != "" {
 		fmt.Println("VM Error:", receipt.VmError)
 	}
@@ -318,17 +328,28 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, err
 	}
 
+	fmt.Println(parsedNMSCABI)
+
 	protoPayload := msg.CrosschainPayload // your existing proto-generated struct
+	dataVal, err := hexToBytes(protoPayload.Data)
+	if err != nil {
+		return nil, err
+	}
 
 	payload := types.AbiCrossChainPayload{
 		Target:               common.HexToAddress(protoPayload.Target),
 		Value:                stringToBigInt(protoPayload.Value),
-		Data:                 protoPayload.Data,
+		Data:                 dataVal,
 		GasLimit:             stringToBigInt(protoPayload.GasLimit),
 		MaxFeePerGas:         stringToBigInt(protoPayload.MaxFeePerGas),
 		MaxPriorityFeePerGas: stringToBigInt(protoPayload.MaxPriorityFeePerGas),
 		Nonce:                stringToBigInt(protoPayload.Nonce),
 		Deadline:             stringToBigInt(protoPayload.Deadline),
+	}
+
+	signatureVal, err := hexToBytes(msg.Signature)
+	if err != nil {
+		return nil, err
 	}
 
 	// Calling the NMSC contract
@@ -340,7 +361,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		true,           // commit = true
 		"executePayload",
 		payload,
-		msg.Signature,
+		signatureVal,
 	)
 	if err != nil {
 		return nil, err
@@ -354,6 +375,33 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		fmt.Println("VM Error:", receipt.VmError)
 	}
 	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
+
+	// Deduct fee from targetAddr
+	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
+	burnAmt := sdkmath.NewInt(int64(receipt.GasUsed))     // ← set based on your gasUsed * gasPrice logic
+	burnCoin := sdk.NewCoin(pushtypes.BaseDenom, burnAmt) // or your chain's denom
+
+	err = ms.k.bankKeeper.SendCoinsFromAccountToModule(
+		ctx,
+		nmscAccAddr,
+		types.ModuleName, // or any module account name
+		sdk.NewCoins(burnCoin),
+	)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Received tokens from nmsc addr in module")
+
+	// Burn from module account
+	err = ms.k.bankKeeper.BurnCoins(
+		ctx,
+		types.ModuleName,
+		sdk.NewCoins(burnCoin),
+	)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Burned tokens from module account")
 
 	return &types.MsgExecutePayloadResponse{}, nil
 }

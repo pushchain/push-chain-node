@@ -39,7 +39,7 @@ message CrossChainPayload {
 
   string target = 1;                 // EVM address as hex string (0x...)
   string value = 2;                  // Amount in wei as string (uint256)
-  bytes data = 3;                    // ABI-encoded calldata
+  string data = 3;                    // ABI-encoded calldata
   string gas_limit = 4;             // uint256 as string
   string max_fee_per_gas = 5;       // uint256 as string
   string max_priority_fee_per_gas = 6; // uint256 as string

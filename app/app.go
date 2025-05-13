@@ -159,23 +159,25 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
-  
-  // ed25519 precompile types
+
+	// ed25519 precompile types
 	verifierprecompile "github.com/rollchains/pchain/precompiles/verifier"
 	verifier "github.com/rollchains/pchain/x/verifier"
 	verifierkeeper "github.com/rollchains/pchain/x/verifier/keeper"
 	verifiertypes "github.com/rollchains/pchain/x/verifier/types"
-  
-  // crosschain module
+
+	// crosschain module
 	crosschain "github.com/rollchains/pchain/x/crosschain"
 	crosschainkeeper "github.com/rollchains/pchain/x/crosschain/keeper"
 	crosschaintypes "github.com/rollchains/pchain/x/crosschain/types"
-  
+
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
+
+	pushtypes "github.com/rollchains/pchain/types"
 )
 
 const (
@@ -213,7 +215,7 @@ var (
 
 	BaseDenomUnit int64 = 18
 
-	BaseDenom    = "npush"
+	BaseDenom    = pushtypes.BaseDenom
 	DisplayDenom = "MY_DENOM_DISPLAY" // TODO: ?
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address
@@ -1572,7 +1574,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
-  paramsKeeper.Subspace(erc20types.ModuleName)
+	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(verifiertypes.ModuleName)
 	paramsKeeper.Subspace(crosschaintypes.ModuleName)
 

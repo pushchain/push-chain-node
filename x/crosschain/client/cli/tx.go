@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"encoding/hex"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -211,22 +209,13 @@ func MsgExecutePayload() *cobra.Command {
 			caipString := args[0]
 			target := args[1]
 			value := args[2]
-
-			data, err := hex.DecodeString(strings.TrimPrefix(args[3], "0x"))
-			if err != nil {
-				return err
-			}
-
+			data := args[3]
 			gasLimit := args[4]
 			maxFeePerGas := args[5]
 			maxPriorityFeePerGas := args[6]
 			nonce := args[7]
 			deadline := args[8]
-
-			signature, err := hex.DecodeString(strings.TrimPrefix(args[9], "0x"))
-			if err != nil {
-				return err
-			}
+			signature := args[9]
 
 			msg := &types.MsgExecutePayload{
 				Signer:     senderAddress.String(),

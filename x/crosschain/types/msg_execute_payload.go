@@ -14,7 +14,7 @@ func NewMsgExecutePayload(
 	sender sdk.Address,
 	caipString string,
 	crosschain_payload *CrossChainPayload,
-	signature []byte,
+	signature string,
 ) *MsgExecutePayload {
 	return &MsgExecutePayload{
 		Signer:            sender.String(),

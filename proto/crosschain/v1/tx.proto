@@ -128,7 +128,7 @@ message MsgExecutePayload {
   CrossChainPayload crosschain_payload = 3;
 
   // signature is the signature of the payload by user
-  bytes signature = 4;
+  string signature = 4;
 }
 
 // MsgExecutePayloadResponse defines the response for MsgExecutePayload.

@@ -3748,8 +3748,8 @@ func (x *fastReflection_MsgExecutePayload) Range(f func(protoreflect.FieldDescri
 			return
 		}
 	}
-	if len(x.Signature) != 0 {
-		value := protoreflect.ValueOfBytes(x.Signature)
+	if x.Signature != "" {
+		value := protoreflect.ValueOfString(x.Signature)
 		if !f(fd_MsgExecutePayload_signature, value) {
 			return
 		}
@@ -3776,7 +3776,7 @@ func (x *fastReflection_MsgExecutePayload) Has(fd protoreflect.FieldDescriptor) 
 	case "crosschain.v1.MsgExecutePayload.crosschain_payload":
 		return x.CrosschainPayload != nil
 	case "crosschain.v1.MsgExecutePayload.signature":
-		return len(x.Signature) != 0
+		return x.Signature != ""
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: crosschain.v1.MsgExecutePayload"))
@@ -3800,7 +3800,7 @@ func (x *fastReflection_MsgExecutePayload) Clear(fd protoreflect.FieldDescriptor
 	case "crosschain.v1.MsgExecutePayload.crosschain_payload":
 		x.CrosschainPayload = nil
 	case "crosschain.v1.MsgExecutePayload.signature":
-		x.Signature = nil
+		x.Signature = ""
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: crosschain.v1.MsgExecutePayload"))
@@ -3828,7 +3828,7 @@ func (x *fastReflection_MsgExecutePayload) Get(descriptor protoreflect.FieldDesc
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	case "crosschain.v1.MsgExecutePayload.signature":
 		value := x.Signature
-		return protoreflect.ValueOfBytes(value)
+		return protoreflect.ValueOfString(value)
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: crosschain.v1.MsgExecutePayload"))
@@ -3856,7 +3856,7 @@ func (x *fastReflection_MsgExecutePayload) Set(fd protoreflect.FieldDescriptor, 
 	case "crosschain.v1.MsgExecutePayload.crosschain_payload":
 		x.CrosschainPayload = value.Message().Interface().(*CrossChainPayload)
 	case "crosschain.v1.MsgExecutePayload.signature":
-		x.Signature = value.Bytes()
+		x.Signature = value.Interface().(string)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: crosschain.v1.MsgExecutePayload"))
@@ -3909,7 +3909,7 @@ func (x *fastReflection_MsgExecutePayload) NewField(fd protoreflect.FieldDescrip
 		m := new(CrossChainPayload)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	case "crosschain.v1.MsgExecutePayload.signature":
-		return protoreflect.ValueOfBytes(nil)
+		return protoreflect.ValueOfString("")
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: crosschain.v1.MsgExecutePayload"))
@@ -4212,7 +4212,7 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
 				}
-				var byteLen int
+				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -4222,25 +4222,23 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					byteLen |= int(b&0x7F) << shift
+					stringLen |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				if byteLen < 0 {
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
-				postIndex := iNdEx + byteLen
+				postIndex := iNdEx + intStringLen
 				if postIndex < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Signature = append(x.Signature[:0], dAtA[iNdEx:postIndex]...)
-				if x.Signature == nil {
-					x.Signature = []byte{}
-				}
+				x.Signature = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
@@ -4998,7 +4996,7 @@ type MsgExecutePayload struct {
 	// payload is the crosschain payload to be executed
 	CrosschainPayload *CrossChainPayload `protobuf:"bytes,3,opt,name=crosschain_payload,json=crosschainPayload,proto3" json:"crosschain_payload,omitempty"`
 	// signature is the signature of the payload by user
-	Signature []byte `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (x *MsgExecutePayload) Reset() {
@@ -5042,11 +5040,11 @@ func (x *MsgExecutePayload) GetCrosschainPayload() *CrossChainPayload {
 	return nil
 }
 
-func (x *MsgExecutePayload) GetSignature() []byte {
+func (x *MsgExecutePayload) GetSignature() string {
 	if x != nil {
 		return x.Signature
 	}
-	return nil
+	return ""
 }
 
 // MsgExecutePayloadResponse defines the response for MsgExecutePayload.
@@ -5156,7 +5154,7 @@ var file_crosschain_v1_tx_proto_rawDesc = []byte{
 	0x2e, 0x43, 0x72, 0x6f, 0x73, 0x73, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x50, 0x61, 0x79, 0x6c, 0x6f,
 	0x61, 0x64, 0x52, 0x11, 0x63, 0x72, 0x6f, 0x73, 0x73, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x50, 0x61,
 	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
-	0x72, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x72, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
 	0x75, 0x72, 0x65, 0x3a, 0x2c, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
 	0x8a, 0xe7, 0xb0, 0x2a, 0x1c, 0x63, 0x72, 0x6f, 0x73, 0x73, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f,
 	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,

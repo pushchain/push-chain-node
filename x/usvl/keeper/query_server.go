@@ -56,30 +56,6 @@ func (q queryServer) ChainConfig(ctx context.Context, req *types.QueryChainConfi
 	}, nil
 }
 
-// ChainConfigWithRpcOverride returns a chain configuration with RPC override if available
-func (q queryServer) ChainConfigWithRpcOverride(ctx context.Context, req *types.QueryChainConfigRequest) (*types.QueryChainConfigResponse, error) {
-	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "empty request")
-	}
-
-	if req.ChainId == "" {
-		return nil, status.Error(codes.InvalidArgument, "chain ID cannot be empty")
-	}
-
-	configData, err := q.Keeper.GetChainConfigWithRPCOverride(ctx, req.ChainId)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, "chain configuration not found")
-	}
-
-	// Convert from internal ChainConfigData to protobuf ChainConfig
-	config := configData.ToProto()
-
-	// Need to create a pointer from our value type
-	return &types.QueryChainConfigResponse{
-		ChainConfig: &config,
-	}, nil
-}
-
 // ChainConfigs returns all available chain configurations
 func (q queryServer) ChainConfigs(ctx context.Context, req *types.QueryChainConfigsRequest) (*types.QueryChainConfigsResponse, error) {
 	if req == nil {

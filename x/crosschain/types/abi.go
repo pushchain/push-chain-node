@@ -1,9 +1,9 @@
 package types
 
 import (
-	"math/big"
+	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 // FactoryV1ABI contains the ABI for the deploySmartAccount function only.
@@ -94,13 +94,10 @@ const SmartAccountV1ABI = `[
 	}
 ]`
 
-type AbiCrossChainPayload struct {
-	Target               common.Address
-	Value                *big.Int
-	Data                 []byte
-	GasLimit             *big.Int
-	MaxFeePerGas         *big.Int
-	MaxPriorityFeePerGas *big.Int
-	Nonce                *big.Int
-	Deadline             *big.Int
+func ParseFactoryABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(FactoryV1ABI))
+}
+
+func ParseSmartAccountABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(SmartAccountV1ABI))
 }

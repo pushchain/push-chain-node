@@ -29,6 +29,31 @@ func (k Keeper) CallFactoryToComputeAddress(
 	)
 }
 
+func (k Keeper) CallFactoryToDeployNMSC(
+	ctx sdk.Context,
+	from, factoryAddr, verifierPrecompile common.Address,
+	userKey []byte,
+	caip string,
+	ownerType uint8,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	abi, err := types.ParseFactoryABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse factory ABI")
+	}
+	return k.evmKeeper.CallEVM(
+		ctx,
+		abi,
+		from,        // who is sending the transaction
+		factoryAddr, // destination: your FactoryV1 contract
+		true,        // commit = true (you want real tx, not simulation)
+		"deploySmartAccount",
+		userKey,
+		caip,
+		ownerType,
+		verifierPrecompile,
+	)
+}
+
 // CallNMSCExecutePayload wraps smart account execution logic.
 func (k Keeper) CallNMSCExecutePayload(
 	ctx sdk.Context,

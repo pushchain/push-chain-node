@@ -2,9 +2,6 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
-	"math/big"
-	"strings"
 
 	"fmt"
 	"math"
@@ -16,7 +13,6 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	pchaintypes "github.com/rollchains/pchain/types"
 	"github.com/rollchains/pchain/util"
@@ -28,34 +24,6 @@ type msgServer struct {
 }
 
 var _ types.MsgServer = msgServer{}
-
-func hexToBytes(hexStr string) ([]byte, error) {
-	hexStr = strings.TrimPrefix(hexStr, "0x")
-	fmt.Println("Hex string:", hexStr)
-	fmt.Println(hex.DecodeString(hexStr))
-	return hex.DecodeString(hexStr)
-}
-
-func stringToBigInt(s string) *big.Int {
-	bi, _ := new(big.Int).SetString(s, 10)
-	return bi
-}
-
-func evmToCosmosAddress(evmAddr string) (sdk.AccAddress, error) {
-	if len(evmAddr) != 42 {
-		return nil, fmt.Errorf("invalid EVM address length")
-	}
-
-	// Decode the hex address (without 0x)
-	addrBytes, err := hex.DecodeString(evmAddr[2:])
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to cosmos bech32 address
-	cosmosAddr := sdk.AccAddress(addrBytes)
-	return cosmosAddr, nil
-}
 
 // NewMsgServerImpl returns an implementation of the module MsgServer interface.
 func NewMsgServerImpl(keeper Keeper) types.MsgServer {
@@ -96,28 +64,9 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 		return nil, errors.Wrapf(err, "failed to get admin params")
 	}
 
-	fmt.Println("Admin params:", adminParams)
-	fmt.Println(msg.UserKey)
-	fmt.Println(msg.CaipString)
-	fmt.Println(msg.OwnerType)
-	fmt.Println(msg.Signer)
-
-	// Get the Cosmos address in Bech32 format (from the signer in MsgDeployNMSC)
-	signer := msg.Signer
-
-	// Convert the Bech32 address to sdk.AccAddress
-	cosmosAddr, err := sdk.AccAddressFromBech32(signer)
+	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert Bech32 address")
-	}
-
-	// Now convert the Cosmos address to an EVM address
-	evmFromAddress := common.BytesToAddress(cosmosAddr.Bytes()[len(cosmosAddr)-20:])
-
-	// Parse ABI once
-	parsedABI, err := abi.JSON(strings.NewReader(types.FactoryV1ABI))
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
 	if msg.OwnerType > math.MaxUint8 {
@@ -125,7 +74,7 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	}
 
 	// EVM Call arguments
-	userKey, err := hexToBytes(msg.UserKey)
+	userKey, err := util.HexToBytes(msg.UserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -135,44 +84,19 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
 	verifierPrecompile := common.HexToAddress(adminParams.VerifierPrecompile)
 
-	userKeys := common.HexToAddress("0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4").Bytes()
-	fmt.Println("User key:", userKeys)
-
-	fmt.Println("Factory address:", factoryAddress)
-	fmt.Println("Verifier precompile address:", verifierPrecompile)
-	fmt.Println("User key:", userKey)
-	fmt.Println(msg.UserKey)
-	fmt.Println("CAIP string:", caipString)
-	fmt.Println("Owner type:", ownerType)
-	fmt.Println("EVM from address:", evmFromAddress)
-	fmt.Println(ms.k.evmKeeper)
-
 	// Use your keeper CallEVM directly
-	receipt, err := ms.k.evmKeeper.CallEVM(
+	receipt, err := ms.k.CallFactoryToDeployNMSC(
 		sdkCtx,
-		parsedABI,
-		evmFromAddress, // who is sending the transaction
-		factoryAddress, // destination: your FactoryV1 contract
-		true,           // commit = true (you want real tx, not simulation)
-		"deploySmartAccount",
+		evmFromAddress,
+		factoryAddress,
+		verifierPrecompile,
 		userKey,
 		caipString,
 		ownerType,
-		verifierPrecompile,
 	)
-
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("EVM tx hash:", receipt.Hash)
-	fmt.Println("Gas used:", receipt.GasUsed)
-	fmt.Println("Logs:", receipt.Logs)
-	fmt.Println("Returned data:", receipt.Ret)
-	if receipt.VmError != "" {
-		fmt.Println("VM Error:", receipt.VmError)
-	}
-	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
 
 	return &types.MsgDeployNMSCResponse{
 		SmartAccount: receipt.Ret,
@@ -194,49 +118,22 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	// 1. RPC call for verification
 	amountToMint := sdkmath.NewInt(1000000000000000) // 1 token
 
-	// nmscAddress := calculateKeccakSalt(msg.CaipString)
-
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get admin params")
 	}
 
-	// Get the Cosmos address in Bech32 format (from the signer in MsgDeployNMSC)
-	signer := msg.Signer
-
-	// Convert the Bech32 address to sdk.AccAddress
-	cosmosAddr, err := sdk.AccAddressFromBech32(signer)
+	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert Bech32 address")
+		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
-
-	// Now convert the Cosmos address to an EVM address
-	evmFromAddress := common.BytesToAddress(cosmosAddr.Bytes()[len(cosmosAddr)-20:])
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
 
-	// Parse ABI once
-	parsedABI, err := abi.JSON(strings.NewReader(types.FactoryV1ABI))
+	// Calling factory contract to compute the smart account address
+	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, msg.CaipString)
 	if err != nil {
 		return nil, err
-	}
-
-	// Use your keeper CallEVM directly
-	receipt, err := ms.k.evmKeeper.CallEVM(
-		sdkCtx,
-		parsedABI,
-		evmFromAddress, // who is sending the transaction
-		factoryAddress, // destination: your FactoryV1 contract
-		false,          // commit = true (you want real tx, not simulation)
-		"computeSmartAccountAddress",
-		msg.CaipString,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if receipt.VmError != "" {
-		fmt.Println("VM Error:", receipt.VmError)
 	}
 
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
@@ -244,7 +141,7 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	nmscComputedAddress := "0x" + addressBytes
 
 	// Convert the computed address to a Cosmos address
-	cosmosAddr, err = evmToCosmosAddress(nmscComputedAddress)
+	cosmosAddr, err := util.ConvertAnyAddressToBytes(nmscComputedAddress)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert EVM address to Cosmos address")
@@ -308,7 +205,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, err
 	}
 
-	signatureVal, err := hexToBytes(msg.Signature)
+	signatureVal, err := util.HexToBytes(msg.Signature)
 	if err != nil {
 		return nil, err
 	}

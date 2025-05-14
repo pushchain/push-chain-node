@@ -17,6 +17,16 @@ type rpcClient struct {
 
 // newRPCClient creates a new production-grade RPC client with proper timeout, connection pooling
 func newRPCClient() *rpcClient {
+	// Check if we have a mock client first
+	if globalRPCClient != nil {
+		if isMock, ok := globalRPCClient.(*MockRPCClient); ok && isMock != nil {
+			return &rpcClient{
+				client: &http.Client{}, // Dummy client, won't be used
+			}
+		}
+	}
+
+	// Otherwise create a real client
 	transport := &http.Transport{
 		MaxIdleConns:        100,              // Increased for better connection reuse
 		MaxIdleConnsPerHost: 10,               // Increased for better connection reuse to same host
@@ -131,4 +141,44 @@ func (r *rpcClient) callRPC(ctx context.Context, url string, method string, para
 		return responseBytes, nil // Return partial success if we have any data
 	}
 	return nil, fmt.Errorf("failed to get response after %d attempts", maxRetries)
+}
+
+// MockRPCClient is a mock implementation of the rpcClient for testing
+type MockRPCClient struct {
+	CallRPCFunc func(ctx context.Context, rpcURL, method string, params interface{}) ([]byte, error)
+}
+
+// callRPC implements the mocked RPC call interface
+func (m *MockRPCClient) callRPC(ctx context.Context, rpcURL, method string, params interface{}) ([]byte, error) {
+	if m.CallRPCFunc != nil {
+		return m.CallRPCFunc(ctx, rpcURL, method, params)
+	}
+	return nil, fmt.Errorf("mock RPC client not implemented")
+}
+
+// Global instance of the RPC client for easier mocking in tests
+var globalRPCClient interface {
+	callRPC(ctx context.Context, rpcURL, method string, params interface{}) ([]byte, error)
+}
+
+// GetRPCClient returns the current RPC client (used for testing)
+func GetRPCClient() interface{} {
+	return globalRPCClient
+}
+
+// SetRPCClient sets a new RPC client (used for testing)
+func SetRPCClient(client interface{}) {
+	if client, ok := client.(interface {
+		callRPC(ctx context.Context, rpcURL, method string, params interface{}) ([]byte, error)
+	}); ok {
+		globalRPCClient = client
+	}
+}
+
+// Initialize the global RPC client
+func init() {
+	// Create and set the default RPC client if it hasn't been set
+	if globalRPCClient == nil {
+		globalRPCClient = newRPCClient()
+	}
 }

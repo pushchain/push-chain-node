@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
@@ -33,6 +34,7 @@ type Keeper struct {
 	Schema       collections.Schema
 	Params       collections.Item[types.Params]
 	ChainConfigs collections.Map[string, string] // chainID -> serialized ChainConfigData
+	VerifiedTxs  collections.Map[string, string] // txHash:caipAddress -> serialized VerifiedTransaction
 	OrmDB        apiv1.StateStore
 
 	authority string
@@ -68,6 +70,7 @@ func NewKeeper(
 		logger:       logger,
 		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigKey, "chain_configs", collections.StringKey, collections.StringValue),
+		VerifiedTxs:  collections.NewMap(sb, types.VerifiedTxKey, "verified_txs", collections.StringKey, collections.StringValue),
 		OrmDB:        store,
 		authority:    authority,
 	}
@@ -193,6 +196,74 @@ func (k Keeper) GetAllChainConfigs(ctx context.Context) ([]types.ChainConfigData
 	}
 
 	return configs, nil
+}
+
+// serializeVerifiedTx converts VerifiedTransaction to JSON string
+func (k Keeper) serializeVerifiedTx(tx types.VerifiedTransaction) (string, error) {
+	bz, err := json.Marshal(tx)
+	if err != nil {
+		return "", err
+	}
+	return string(bz), nil
+}
+
+// deserializeVerifiedTx converts JSON string to VerifiedTransaction
+func (k Keeper) deserializeVerifiedTx(data string) (types.VerifiedTransaction, error) {
+	var tx types.VerifiedTransaction
+	err := json.Unmarshal([]byte(data), &tx)
+	if err != nil {
+		return types.VerifiedTransaction{}, err
+	}
+	return tx, nil
+}
+
+// createTxKey creates a compound key for storing transactions
+// Format: txHash:caipAddress
+func createTxKey(txHash, caipAddress string) string {
+	return fmt.Sprintf("%s:%s", txHash, caipAddress)
+}
+
+// CreateTxKey creates a compound key for storing transactions (exported for testing)
+// Format: txHash:caipAddress
+func CreateTxKey(txHash, caipAddress string) string {
+	return createTxKey(txHash, caipAddress)
+}
+
+// IsTransactionVerified checks if a transaction has already been verified
+func (k Keeper) IsTransactionVerified(ctx context.Context, txHash, caipAddress string) (bool, error) {
+	key := createTxKey(txHash, caipAddress)
+	return k.VerifiedTxs.Has(ctx, key)
+}
+
+// StoreVerifiedTransaction stores a verified transaction in the KV store
+func (k Keeper) StoreVerifiedTransaction(ctx context.Context, txHash, caipAddress, chainId string) error {
+	key := createTxKey(txHash, caipAddress)
+
+	// Check if the transaction already exists
+	exists, err := k.VerifiedTxs.Has(ctx, key)
+	if err != nil {
+		return fmt.Errorf("failed to check if transaction exists: %w", err)
+	}
+
+	if exists {
+		return fmt.Errorf("transaction already verified: %s for address %s", txHash, caipAddress)
+	}
+
+	// Create a new verified transaction record
+	tx := types.VerifiedTransaction{
+		TxHash:      txHash,
+		ChainId:     chainId,
+		CaipAddress: caipAddress,
+		VerifiedAt:  time.Now().UTC(),
+	}
+
+	// Serialize and store the transaction
+	serialized, err := k.serializeVerifiedTx(tx)
+	if err != nil {
+		return fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	return k.VerifiedTxs.Set(ctx, key, serialized)
 }
 
 // InitGenesis initializes the module's state from a genesis state.

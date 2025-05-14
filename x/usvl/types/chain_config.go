@@ -10,6 +10,9 @@ import (
 var (
 	// ChainConfigKey defines the key for storing chain configurations
 	ChainConfigKey = collections.NewPrefix(1)
+
+	// VerifiedTxKey defines the key for storing verified transactions
+	VerifiedTxKey = collections.NewPrefix(2)
 )
 
 // String returns the string representation of NetworkType
@@ -87,6 +90,10 @@ type ChainConfigData struct {
 
 	// VmType identifies the virtual machine type (EVM, SVM, etc.)
 	VmType VmType `json:"vm_type" yaml:"vm_type"`
+
+	// BlockConfirmation specifies the minimum number of block confirmations required
+	// before a transaction is considered valid
+	BlockConfirmation uint64 `json:"block_confirmation" yaml:"block_confirmation"`
 }
 
 // NewChainConfigData creates a new ChainConfigData instance
@@ -99,6 +106,7 @@ func NewChainConfigData(
 	publicRpcUrl string,
 	networkType NetworkType,
 	vmType VmType,
+	blockConfirmation uint64,
 ) ChainConfigData {
 	return ChainConfigData{
 		ChainId:               chainId,
@@ -109,6 +117,7 @@ func NewChainConfigData(
 		PublicRpcUrl:          publicRpcUrl,
 		NetworkType:           networkType,
 		VmType:                vmType,
+		BlockConfirmation:     blockConfirmation,
 	}
 }
 
@@ -158,6 +167,7 @@ func (cc ChainConfigData) ToProto() ChainConfig {
 		PublicRpcUrl:          cc.PublicRpcUrl,
 		NetworkType:           NetworkType(cc.NetworkType),
 		VmType:                VmType(cc.VmType),
+		BlockConfirmation:     cc.BlockConfirmation,
 	}
 }
 
@@ -172,6 +182,7 @@ func ChainConfigDataFromProto(config ChainConfig) ChainConfigData {
 		PublicRpcUrl:          config.PublicRpcUrl,
 		NetworkType:           NetworkType(config.NetworkType),
 		VmType:                VmType(config.VmType),
+		BlockConfirmation:     config.BlockConfirmation,
 	}
 }
 
@@ -186,5 +197,6 @@ func DefaultEthereumSepoliaConfig() ChainConfigData {
 		PublicRpcUrl:          "https://rpc.sepolia.org",
 		NetworkType:           NetworkTypeTestnet,
 		VmType:                VmTypeEvm,
+		BlockConfirmation:     12, // Default block confirmation for Sepolia
 	}
 }

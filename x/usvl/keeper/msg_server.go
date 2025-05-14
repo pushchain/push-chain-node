@@ -138,15 +138,16 @@ func (ms msgServer) VerifyExternalTransaction(goCtx context.Context, msg *types.
 		return nil, sdkerrors.Wrapf(ErrInvalidRequest, "transaction verification failed: %s", err.Error())
 	}
 
-	// Emit an event for the verification result
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			types.EventTypeExternalTransactionVerified,
-			sdk.NewAttribute("tx_hash", msg.TxHash),
-			sdk.NewAttribute("caip_address", msg.CaipAddress),
-			sdk.NewAttribute("verified", fmt.Sprintf("%t", result.Verified)),
-		),
-	})
+	// Always emit an event with the verification result, even for failed verifications
+	event := sdk.NewEvent(
+		types.EventTypeExternalTransactionVerified,
+		sdk.NewAttribute("tx_hash", msg.TxHash),
+		sdk.NewAttribute("caip_address", msg.CaipAddress),
+		sdk.NewAttribute("verified", fmt.Sprintf("%t", result.Verified)),
+	)
+
+	// Emit the event
+	ctx.EventManager().EmitEvent(event)
 
 	// Return the verification result
 	return &types.MsgVerifyExternalTransactionResponse{

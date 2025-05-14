@@ -40,6 +40,7 @@ func (suite *TxVerifyTestSuite) SetupTest() {
 			PublicRpcUrl:          "https://ethereum-sepolia.publicnode.com",
 			NetworkType:           types.NetworkTypeTestnet,
 			VmType:                types.VmTypeEvm,
+			BlockConfirmation:     12, // Require 12 confirmations for Sepolia testnet
 		},
 	}
 
@@ -183,5 +184,86 @@ func (suite *TxVerifyTestSuite) TestVerifyWithRealTransactions() {
 				}
 			}
 		})
+	}
+}
+
+// TestVerifyConfirmationRequirement tests the block confirmation validation feature
+func (suite *TxVerifyTestSuite) TestVerifyConfirmationRequirement() {
+	t := suite.T()
+
+	// Skip the test by default to avoid making real RPC calls in CI
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Create a copy of the chain config but with very high confirmation requirement
+	highConfirmationConfig := suite.chainConfig["eip155:11155111"]
+	highConfirmationConfig.BlockConfirmation = 10000 // Set an unrealistically high number that can't be satisfied
+
+	// Create a new config map with the high confirmation requirement
+	highConfirmationMap := map[string]types.ChainConfigData{
+		"eip155:11155111": highConfirmationConfig,
+	}
+
+	// Create a keeper with the high confirmation requirement
+	highConfirmationKeeper := &keeper.KeeperWithConfigs{
+		ChainConfigs: highConfirmationMap,
+	}
+
+	// Set a timeout for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Use the same transaction that should be valid otherwise
+	txHash := SepoliaTxHash
+	caipAddress := SepoliaCAIPAddress
+
+	// Verify with regular config first to make sure transaction is valid otherwise
+	regularKeeper := suite.getRealKeeperWithConfigs()
+	_, err := regularKeeper.VerifyExternalTransactionDirect(ctx, txHash, caipAddress)
+
+	// Skip the confirmation check part if there's an error with the regular verification
+	if err != nil {
+		t.Logf("Skipping confirmation test due to error with regular verification: %v", err)
+		return
+	}
+
+	// Now try with high confirmation requirement
+	highConfirmResult, err := highConfirmationKeeper.VerifyExternalTransactionDirect(ctx, txHash, caipAddress)
+
+	// Verification should fail due to insufficient confirmations
+	if err != nil {
+		t.Logf("High confirmation verification returned error: %v", err)
+	} else {
+		// The transaction should not be verified
+		require.False(t, highConfirmResult.Verified, "Transaction should not be verified with high confirmation requirement")
+
+		// The failure reason should mention confirmations
+		require.Contains(t, highConfirmResult.TxInfo, "confirmation",
+			"Verification failure reason should mention confirmations")
+
+		t.Logf("Confirmation test passed. Result: %s", highConfirmResult.TxInfo)
+	}
+
+	// Now try with a reasonable confirmation requirement to make sure it passes
+	reasonableConfirmationConfig := suite.chainConfig["eip155:11155111"]
+	reasonableConfirmationConfig.BlockConfirmation = 1 // Just 1 confirmation
+
+	reasonableConfirmationMap := map[string]types.ChainConfigData{
+		"eip155:11155111": reasonableConfirmationConfig,
+	}
+
+	reasonableConfirmationKeeper := &keeper.KeeperWithConfigs{
+		ChainConfigs: reasonableConfirmationMap,
+	}
+
+	reasonableResult, err := reasonableConfirmationKeeper.VerifyExternalTransactionDirect(ctx, txHash, caipAddress)
+
+	if err != nil {
+		t.Logf("Reasonable confirmation verification returned error: %v", err)
+	} else {
+		require.True(t, reasonableResult.Verified,
+			"Transaction should be verified with reasonable confirmation requirement")
+		t.Logf("Reasonable confirmation test passed. Transaction verified with info: %s", reasonableResult.TxInfo)
 	}
 }

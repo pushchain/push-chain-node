@@ -82,4 +82,8 @@ message ChainConfig {
   
   // vm_type identifies the virtual machine type (EVM, SVM, etc.)
   VmType vm_type = 8;
+  
+  // block_confirmation specifies the minimum number of block confirmations required
+  // before a transaction is considered valid
+  uint64 block_confirmation = 9;
 }

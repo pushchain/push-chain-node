@@ -15,7 +15,7 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	anteinterfaces "github.com/evmos/os/ante/interfaces"
 	evmtypes "github.com/evmos/os/x/evm/types"
-	"github.com/rollchains/pchain/util"
+	crosschaintypes "github.com/rollchains/pchain/x/crosschain/types"
 )
 
 // MinGasPriceDecorator will check if the transaction's fee is at least as large
@@ -81,7 +81,7 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 		}
 	}
 
-	if util.IsGaslessTx(tx) {
+	if crosschaintypes.IsGaslessTx(tx) {
 		// Skip fee deduction for MsgGaslessUpdate
 		return next(ctx, tx, simulate)
 	}

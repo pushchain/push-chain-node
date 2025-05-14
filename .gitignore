@@ -7,3 +7,5 @@ web/
 
 # Ignore binary files
 build/pchaind
+
+.env

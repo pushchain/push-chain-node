@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/push-protocol/push-chain/utils/env"
 	"github.com/push-protocol/push-chain/x/usvl/types"
 )
 
@@ -71,27 +72,47 @@ func (k Keeper) VerifyExternalTransaction(ctx context.Context, txHash string, ca
 	// Get chain ID from CAIP format
 	chainIdentifier := caip.GetChainIdentifier()
 
-	// Find matching chain config
+	// First check the in-memory cache for a matching chain config by CAIP prefix
 	var matchedConfig types.ChainConfigData
 	var found bool
 
-	// Get all chain configs
-	chainConfigs, err := k.GetAllChainConfigs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain configs: %w", err)
-	}
+	// Try to find the config in the cache first
+	matchedConfig, found = k.configCache.GetByCaipPrefix(chainIdentifier)
 
-	// Find the chain config with matching CAIP prefix
-	for _, config := range chainConfigs {
-		if config.CaipPrefix == chainIdentifier {
-			matchedConfig = config
-			found = true
-			break
+	// If not found in cache, load from chain state
+	if !found {
+		// Get all chain configs
+		chainConfigs, err := k.GetAllChainConfigs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain configs: %w", err)
+		}
+
+		// Find the chain config with matching CAIP prefix
+		for _, config := range chainConfigs {
+			if config.CaipPrefix == chainIdentifier {
+				matchedConfig = config
+				found = true
+
+				// Add to cache for future use
+				k.configCache.Set(config.ChainId, config)
+				break
+			}
 		}
 	}
 
 	if !found {
 		return nil, fmt.Errorf("no chain configuration found for CAIP prefix %s", chainIdentifier)
+	}
+
+	// Check for environment variable override for RPC URL
+	if customRPC, found := env.GetRpcUrlOverride(matchedConfig.ChainId); found {
+		k.logger.Info("Using custom RPC from environment",
+			"chain_id", matchedConfig.ChainId,
+			"original_rpc", matchedConfig.PublicRpcUrl,
+			"custom_rpc", customRPC)
+		configCopy := matchedConfig
+		configCopy.PublicRpcUrl = customRPC
+		matchedConfig = configCopy
 	}
 
 	// Use the chain configuration to determine how to verify the transaction
@@ -120,6 +141,13 @@ func (k Keeper) VerifyExternalTransaction(ctx context.Context, txHash string, ca
 
 // verifyEVMTransaction verifies a transaction on an EVM-compatible chain
 func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConfigData, txHash string, address string) (*TransactionVerificationResult, error) {
+	// Log the RPC URL being used
+	print("Making RPC call to verify EVM transaction",
+		"txHash", txHash,
+		"address", address,
+		"chainId", config.ChainId,
+		"rpcUrl", config.PublicRpcUrl)
+
 	// Use the global RPC client so it can be mocked in tests
 	responseBytes, err := globalRPCClient.callRPC(ctx, config.PublicRpcUrl, "eth_getTransactionByHash", []interface{}{txHash})
 	if err != nil {

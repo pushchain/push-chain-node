@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/push-protocol/push-chain/utils/env"
 	"github.com/push-protocol/push-chain/x/usvl/keeper"
 	"github.com/push-protocol/push-chain/x/usvl/types"
 	"github.com/stretchr/testify/require"
@@ -59,6 +60,9 @@ func (suite *TxVerifyTestSuite) SetupTest() {
 
 // TestTxVerifyTestSuite runs the test suite
 func TestTxVerifyTestSuite(t *testing.T) {
+	// Attempt to load .env file but don't fail if it doesn't exist
+	_ = env.LoadEnv() // Ignore the error since we handle missing .env gracefully
+
 	suite.Run(t, new(TxVerifyTestSuite))
 }
 
@@ -80,11 +84,8 @@ func (suite *TxVerifyTestSuite) TestVerifyExternalTransactionBasic() {
 // getRealKeeperWithConfigs creates a real keeper with the test chain configurations
 // This is needed for integration tests that make actual RPC calls
 func (suite *TxVerifyTestSuite) getRealKeeperWithConfigs() *keeper.KeeperWithConfigs {
-	// Create a wrapper around the real keeper that has direct access to chain configs
-	return &keeper.KeeperWithConfigs{
-		// Initialize with our test configurations
-		ChainConfigs: suite.chainConfig,
-	}
+	// Create a wrapper around the real keeper using our new constructor
+	return keeper.NewKeeperWithConfigs(suite.chainConfig)
 }
 
 // Integration test for Sepolia

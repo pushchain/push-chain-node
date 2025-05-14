@@ -7,9 +7,16 @@ import (
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/push-protocol/push-chain/app"
+	"github.com/push-protocol/push-chain/utils/env"
 )
 
 func main() {
+	// Load .env file if it exists
+	if err := env.LoadEnv(); err != nil {
+		// Continue even if .env doesn't exist or can't be loaded
+		// Error is already logged in the LoadEnv function
+	}
+
 	setupSDKConfig()
 
 	rootCmd := NewRootCmd()

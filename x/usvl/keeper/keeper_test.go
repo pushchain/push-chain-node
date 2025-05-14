@@ -28,6 +28,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/push-protocol/push-chain/app"
+	"github.com/push-protocol/push-chain/utils/env"
 	module "github.com/push-protocol/push-chain/x/usvl"
 	"github.com/push-protocol/push-chain/x/usvl/keeper"
 	"github.com/push-protocol/push-chain/x/usvl/types"
@@ -149,6 +150,8 @@ func registerBaseSDKModules(
 }
 
 func TestKeeperTestSuite(t *testing.T) {
+	// Load .env file before running tests
+	env.LoadEnv() // This will only load once due to the IsLoaded check in the utility
 	suite.Run(t, new(KeeperTestSuite))
 }
 

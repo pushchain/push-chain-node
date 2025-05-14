@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -19,11 +18,79 @@ import (
 	"cosmossdk.io/orm/model/ormdb"
 
 	apiv1 "github.com/push-protocol/push-chain/api/usvl/v1"
+	"github.com/push-protocol/push-chain/utils/env"
 	"github.com/push-protocol/push-chain/x/usvl/types"
 )
 
 // ChainRpcEnvPrefix is the prefix used for environment variables containing custom RPCs
 const ChainRpcEnvPrefix = "USVL_CHAIN_RPC_"
+
+// ConfigCache is a cache for chain configurations
+type ConfigCache struct {
+	configs map[string]types.ChainConfigData // Map of chainID -> ChainConfigData
+	mutex   sync.RWMutex                     // To make the cache thread-safe
+}
+
+// NewConfigCache creates a new chain configuration cache
+func NewConfigCache() *ConfigCache {
+	return &ConfigCache{
+		configs: make(map[string]types.ChainConfigData),
+	}
+}
+
+// Set adds or updates a chain configuration in the cache
+func (c *ConfigCache) Set(chainID string, config types.ChainConfigData) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.configs[chainID] = config
+}
+
+// Get retrieves a chain configuration from the cache
+func (c *ConfigCache) Get(chainID string) (types.ChainConfigData, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	config, found := c.configs[chainID]
+	return config, found
+}
+
+// Delete removes a chain configuration from the cache
+func (c *ConfigCache) Delete(chainID string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	delete(c.configs, chainID)
+}
+
+// GetByCaipPrefix retrieves a chain configuration by CAIP prefix
+func (c *ConfigCache) GetByCaipPrefix(caipPrefix string) (types.ChainConfigData, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	for _, config := range c.configs {
+		if config.CaipPrefix == caipPrefix {
+			return config, true
+		}
+	}
+	return types.ChainConfigData{}, false
+}
+
+// Clear empties the cache
+func (c *ConfigCache) Clear() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.configs = make(map[string]types.ChainConfigData)
+}
+
+// GetAll returns all configurations in the cache
+func (c *ConfigCache) GetAll() []types.ChainConfigData {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	configs := make([]types.ChainConfigData, 0, len(c.configs))
+	for _, config := range c.configs {
+		configs = append(configs, config)
+	}
+	return configs
+}
 
 type Keeper struct {
 	cdc codec.BinaryCodec
@@ -36,6 +103,9 @@ type Keeper struct {
 	ChainConfigs collections.Map[string, string] // chainID -> serialized ChainConfigData
 	VerifiedTxs  collections.Map[string, string] // txHash:caipAddress -> serialized VerifiedTransaction
 	OrmDB        apiv1.StateStore
+
+	// In-memory cache for chain configurations
+	configCache *ConfigCache
 
 	authority string
 }
@@ -72,6 +142,7 @@ func NewKeeper(
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigKey, "chain_configs", collections.StringKey, collections.StringValue),
 		VerifiedTxs:  collections.NewMap(sb, types.VerifiedTxKey, "verified_txs", collections.StringKey, collections.StringValue),
 		OrmDB:        store,
+		configCache:  NewConfigCache(),
 		authority:    authority,
 	}
 
@@ -125,6 +196,9 @@ func (k Keeper) AddChainConfig(ctx context.Context, chainConfig types.ChainConfi
 		return err
 	}
 
+	// Add to cache
+	k.configCache.Set(chainConfig.ChainId, chainConfig)
+
 	return k.ChainConfigs.Set(ctx, chainConfig.ChainId, serialized)
 }
 
@@ -136,17 +210,33 @@ func (k Keeper) DeleteChainConfig(ctx context.Context, chainID string) error {
 		return fmt.Errorf("chain config for %s does not exist", chainID)
 	}
 
+	// Remove from cache
+	k.configCache.Delete(chainID)
+
 	return k.ChainConfigs.Remove(ctx, chainID)
 }
 
 // GetChainConfig retrieves a chain configuration by chain ID
 func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.ChainConfigData, error) {
+	// First, try to get the config from the cache
+	if config, found := k.configCache.Get(chainID); found {
+		return config, nil
+	}
+
 	serialized, err := k.ChainConfigs.Get(ctx, chainID)
 	if err != nil {
 		return types.ChainConfigData{}, err
 	}
 
-	return k.deserializeChainConfig(serialized)
+	config, err := k.deserializeChainConfig(serialized)
+	if err != nil {
+		return types.ChainConfigData{}, err
+	}
+
+	// Add to cache
+	k.configCache.Set(chainID, config)
+
+	return config, nil
 }
 
 // GetChainConfigWithRPCOverride retrieves a chain configuration and overrides RPC if environment variable is set
@@ -156,10 +246,9 @@ func (k Keeper) GetChainConfigWithRPCOverride(ctx context.Context, chainID strin
 		return types.ChainConfigData{}, err
 	}
 
-	// Check for environment variable override for RPC URL
-	envVarName := fmt.Sprintf("%s%s", ChainRpcEnvPrefix, strings.ToUpper(strings.Replace(chainID, "-", "_", -1)))
-	if customRPC := os.Getenv(envVarName); customRPC != "" {
-		k.logger.Info("Using custom RPC from environment", "chain_id", chainID, "env_var", envVarName)
+	// Use the environment utility to get RPC override
+	if customRPC, found := env.GetRpcUrlOverride(chainID); found {
+		k.logger.Info("Using custom RPC from environment", "chain_id", chainID)
 		config.PublicRpcUrl = customRPC
 	}
 

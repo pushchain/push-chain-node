@@ -19,10 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName                     = "/usvl.v1.Query/Params"
-	Query_ChainConfig_FullMethodName                = "/usvl.v1.Query/ChainConfig"
-	Query_ChainConfigWithRpcOverride_FullMethodName = "/usvl.v1.Query/ChainConfigWithRpcOverride"
-	Query_ChainConfigs_FullMethodName               = "/usvl.v1.Query/ChainConfigs"
+	Query_Params_FullMethodName       = "/usvl.v1.Query/Params"
+	Query_ChainConfig_FullMethodName  = "/usvl.v1.Query/ChainConfig"
+	Query_ChainConfigs_FullMethodName = "/usvl.v1.Query/ChainConfigs"
 )
 
 // QueryClient is the client API for Query service.
@@ -33,8 +32,6 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// ChainConfig returns the configuration for a specific chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
-	// ChainConfigWithRpcOverride returns the configuration for a specific chain with RPC override if available.
-	ChainConfigWithRpcOverride(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 	// ChainConfigs returns the list of all configured chains with pagination.
 	ChainConfigs(ctx context.Context, in *QueryChainConfigsRequest, opts ...grpc.CallOption) (*QueryChainConfigsResponse, error)
 }
@@ -65,15 +62,6 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 	return out, nil
 }
 
-func (c *queryClient) ChainConfigWithRpcOverride(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error) {
-	out := new(QueryChainConfigResponse)
-	err := c.cc.Invoke(ctx, Query_ChainConfigWithRpcOverride_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *queryClient) ChainConfigs(ctx context.Context, in *QueryChainConfigsRequest, opts ...grpc.CallOption) (*QueryChainConfigsResponse, error) {
 	out := new(QueryChainConfigsResponse)
 	err := c.cc.Invoke(ctx, Query_ChainConfigs_FullMethodName, in, out, opts...)
@@ -91,8 +79,6 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// ChainConfig returns the configuration for a specific chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
-	// ChainConfigWithRpcOverride returns the configuration for a specific chain with RPC override if available.
-	ChainConfigWithRpcOverride(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 	// ChainConfigs returns the list of all configured chains with pagination.
 	ChainConfigs(context.Context, *QueryChainConfigsRequest) (*QueryChainConfigsResponse, error)
 	mustEmbedUnimplementedQueryServer()
@@ -107,9 +93,6 @@ func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*Q
 }
 func (UnimplementedQueryServer) ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
-}
-func (UnimplementedQueryServer) ChainConfigWithRpcOverride(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ChainConfigWithRpcOverride not implemented")
 }
 func (UnimplementedQueryServer) ChainConfigs(context.Context, *QueryChainConfigsRequest) (*QueryChainConfigsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfigs not implemented")
@@ -163,24 +146,6 @@ func _Query_ChainConfig_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ChainConfigWithRpcOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryChainConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).ChainConfigWithRpcOverride(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_ChainConfigWithRpcOverride_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ChainConfigWithRpcOverride(ctx, req.(*QueryChainConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Query_ChainConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryChainConfigsRequest)
 	if err := dec(in); err != nil {
@@ -213,10 +178,6 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChainConfig",
 			Handler:    _Query_ChainConfig_Handler,
-		},
-		{
-			MethodName: "ChainConfigWithRpcOverride",
-			Handler:    _Query_ChainConfigWithRpcOverride_Handler,
 		},
 		{
 			MethodName: "ChainConfigs",

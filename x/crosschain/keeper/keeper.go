@@ -25,9 +25,10 @@ type Keeper struct {
 	Params       collections.Item[types.Params]
 	AdminParams  collections.Item[types.AdminParams]
 
-	authority  string
-	evmKeeper  types.EVMKeeper
-	bankKeeper types.BankKeeper
+	authority       string
+	evmKeeper       types.EVMKeeper
+	feemarketKeeper types.FeeMarketKeeper
+	bankKeeper      types.BankKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -37,6 +38,7 @@ func NewKeeper(
 	logger log.Logger,
 	authority string,
 	evmKeeper types.EVMKeeper,
+	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
@@ -54,9 +56,10 @@ func NewKeeper(
 		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, "admin_params", codec.CollValue[types.AdminParams](cdc)),
 
-		authority:  authority,
-		evmKeeper:  evmKeeper,
-		bankKeeper: bankKeeper,
+		authority:       authority,
+		evmKeeper:       evmKeeper,
+		feemarketKeeper: feemarketKeeper,
+		bankKeeper:      bankKeeper,
 	}
 
 	return k

@@ -730,6 +730,7 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.EVMKeeper,
+		app.FeeMarketKeeper,
 		app.BankKeeper,
 	)
 
@@ -1010,7 +1011,7 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		verifier.NewAppModule(appCodec, app.VerifierKeeper),
-		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.BankKeeper),
+		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

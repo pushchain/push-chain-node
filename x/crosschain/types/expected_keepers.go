@@ -3,6 +3,8 @@ package types
 import (
 	"context"
 
+	"cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +28,11 @@ type EVMKeeper interface {
 		method string,
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
+}
+
+// FeeMarketKeeper defines the expected interface for the fee market module.
+type FeeMarketKeeper interface {
+	GetBaseFee(ctx sdk.Context) math.LegacyDec
 }
 
 // BankKeeper defines the expected interface for the bank module.

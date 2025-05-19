@@ -11,9 +11,13 @@ import (
 	"github.com/rollchains/pchain/x/crosschain/types"
 )
 
-func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasUsed *big.Int) error {
-	amt := sdkmath.NewIntFromBigInt(gasUsed) // optionally multiply with gasPrice
-	// TODO: Calculate fees based on base fee & priority fee
+// DeductAndBurnFees deducts gas fees from the user's smart account and burns them.
+// The process happens in two steps:
+// 1. Transfer coins from user account to module account
+// 2. Burn coins from module account
+// Returns error if either transfer or burn fails
+func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasCost *big.Int) error {
+	amt := sdkmath.NewIntFromBigInt(gasCost)
 	coin := sdk.NewCoin(pchaintypes.BaseDenom, amt)
 
 	err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, from, types.ModuleName, sdk.NewCoins(coin))
@@ -24,9 +28,14 @@ func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasU
 	return k.bankKeeper.BurnCoins(ctx, types.ModuleName, sdk.NewCoins(coin))
 }
 
-// CalculateGasCost calculates the gas cost based on the base fee, max fee per gas, max priority fee per gas, and gas used.
-// Effective Gas Price = min(max_fee_per_gas, base_fee + max_priority_fee_per_gas)
-// Total Fee = gas_used × Effective Gas Price
+// CalculateGasCost calculates the gas cost based on EIP-1559 fee mechanism:
+// 1. Effective Gas Price = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+// 2. Total Fee = gasUsed × Effective Gas Price
+// Parameters:
+// - baseFee: current network base fee
+// - maxFeePerGas: maximum total fee user is willing to pay
+// - maxPriorityFeePerGas: maximum tip to validator
+// - gasUsed: amount of gas consumed
 func (k Keeper) CalculateGasCost(
 	baseFee sdkmath.LegacyDec,
 	maxFeePerGas *big.Int,
@@ -35,25 +44,23 @@ func (k Keeper) CalculateGasCost(
 ) (*big.Int, error) {
 	baseFeeBig := baseFee.BigInt()
 
-	// Check if maxFeePerGas is less than baseFee
+	// Step 1: Validate maxFeePerGas >= baseFee
 	if maxFeePerGas.Cmp(baseFeeBig) < 0 {
-		// If maxFeePerGas is less than baseFee, return an error
 		return nil, fmt.Errorf("maxFeePerGas (%s) cannot be less than baseFee (%s)", maxFeePerGas, baseFeeBig)
 	}
 
-	// baseFee + maxPriorityFeePerGas
+	// Step 2: Calculate baseFee + maxPriorityFeePerGas (potential effective gas price)
 	tipPlusBase := new(big.Int).Add(baseFeeBig, maxPriorityFeePerGas)
 
-	// min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+	// Step 3: Find effective gas price by taking minimum
 	effectiveGasPrice := new(big.Int).Set(maxFeePerGas)
 	if tipPlusBase.Cmp(maxFeePerGas) == -1 {
 		effectiveGasPrice = tipPlusBase
 	}
 
-	// gasCost = effectiveGasPrice * gasUsed
+	// Step 4: Calculate final gas cost: effectiveGasPrice * gasUsed
 	gasUsedBig := new(big.Int).SetUint64(gasUsed)
 	gasCost := new(big.Int).Mul(effectiveGasPrice, gasUsedBig)
 
-	// TODO: ADJUST GAS CALCULATION ACC TO DECIMALS
 	return gasCost, nil
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-// FactoryV1ABI contains the ABI for the deploySmartAccount function only.
+// FactoryV1ABI contains the ABI for the factory contract
 const FactoryV1ABI = `[
 	{
 		"inputs": [
@@ -31,6 +31,7 @@ const FactoryV1ABI = `[
 	}
 ]`
 
+// SmartAccountV1ABI contains the ABI for the NMSC contract
 const SmartAccountV1ABI = `[
 	{
 		"inputs": [

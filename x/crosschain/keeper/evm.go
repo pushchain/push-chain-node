@@ -29,6 +29,8 @@ func (k Keeper) CallFactoryToComputeAddress(
 	)
 }
 
+// CallFactoryToDeployNMSC deploys a new smart account using factory contract
+// Returns deployment response or error if deployment fails
 func (k Keeper) CallFactoryToDeployNMSC(
 	ctx sdk.Context,
 	from, factoryAddr, verifierPrecompile common.Address,
@@ -54,7 +56,7 @@ func (k Keeper) CallFactoryToDeployNMSC(
 	)
 }
 
-// CallNMSCExecutePayload wraps smart account execution logic.
+// CallNMSCExecutePayload executes a cross-chain payload through smart account
 func (k Keeper) CallNMSCExecutePayload(
 	ctx sdk.Context,
 	from, nmscAddr common.Address,

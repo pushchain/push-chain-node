@@ -53,8 +53,8 @@ func NewKeeper(
 		cdc:          cdc,
 		logger:       logger,
 		storeService: storeService,
-		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, "admin_params", codec.CollValue[types.AdminParams](cdc)),
+		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, types.AdminParamsName, codec.CollValue[types.AdminParams](cdc)),
 
 		authority:       authority,
 		evmKeeper:       evmKeeper,

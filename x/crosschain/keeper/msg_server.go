@@ -2,16 +2,13 @@ package keeper
 
 import (
 	"context"
-
 	"math"
 
+	"cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-
-	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/common"
 	pchaintypes "github.com/rollchains/pchain/types"
 	"github.com/rollchains/pchain/util"
@@ -24,11 +21,13 @@ type msgServer struct {
 
 var _ types.MsgServer = msgServer{}
 
-// NewMsgServerImpl returns an implementation of the module MsgServer interface.
+// NewMsgServerImpl returns an implementation of the module MsgServer interface
 func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 	return &msgServer{k: keeper}
 }
 
+// UpdateParams handles MsgUpdateParams for updating module parameters.
+// Only authorized governance account can execute this.
 func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	if ms.k.authority != msg.Authority {
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
@@ -37,7 +36,8 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return nil, ms.k.Params.Set(ctx, msg.Params)
 }
 
-// UpdateAdminParams implements types.MsgServer.
+// UpdateAdminParams handles updates to admin parameters.
+// Only current admin can execute this.
 func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateAdminParams) (*types.MsgUpdateAdminParamsResponse, error) {
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
@@ -53,9 +53,11 @@ func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateA
 	return nil, ms.k.AdminParams.Set(ctx, msg.AdminParams)
 }
 
-// DeployNMSC implements types.MsgServer.
+// DeployNMSC handles the deployment of new Smart Account (NMSC).
 func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// TODO: RPC call to verify if user has locked funds on source chain
 
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
@@ -102,7 +104,7 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	}, nil
 }
 
-// MintPush implements types.MsgServer.
+// MintPush handles token minting to the user's NMSC for the tokens locked on source chain.
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -115,7 +117,7 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	// txHash := msg.TxHash
 	// TODO
 	// 1. RPC call for verification
-	amountToMint := sdkmath.NewInt(1000000000000000) // 1 token
+	amountToMint := sdkmath.NewInt(1000000000000000000) // 1 token
 
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
@@ -127,7 +129,11 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
+
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	if factoryAddress == common.HexToAddress("0x0") {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid factory address")
+	}
 
 	// Calling factory contract to compute the smart account address
 	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, msg.CaipString)
@@ -159,26 +165,30 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	return &types.MsgMintPushResponse{}, nil
 }
 
-// ExecutePayload implements types.MsgServer.
+// ExecutePayload handles cross-chain payload execution on the NMSC.
 func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Retrieve the current Params
+	// Step 1: Get params and validate addresses
 	adminParams, err := ms.k.AdminParams.Get(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get admin params")
 	}
 
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	if factoryAddress == common.HexToAddress("0x0") {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid factory address")
+	}
+
 	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	// Calling factory contract to compute the smart account address
+	// Step 2: Compute smart account address
 	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, msg.CaipString)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to compute smart account for CAIP: %s", msg.CaipString)
 	}
 
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
@@ -186,44 +196,42 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	nmscComputedAddress := "0x" + addressBytes
 	nmscAddr := common.HexToAddress(nmscComputedAddress)
 
+	// Step 3: Parse and validate payload and signature
 	payload, err := types.NewAbiCrossChainPayload(msg.CrosschainPayload)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "invalid cross-chain payload")
 	}
 
 	signatureVal, err := util.HexToBytes(msg.Signature)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "invalid signature format")
 	}
 
-	// Calling the NMSC contract
+	// Step 4: Execute payload through NMSC
 	receipt, err = ms.k.CallNMSCExecutePayload(sdkCtx, evmFromAddress, nmscAddr, payload, signatureVal)
 	if err != nil {
 		return nil, err
 	}
 
-	// Deduct fee from targetAddr
+	// Step 5: Handle fee calculation and deduction
 	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
 
 	baseFee := ms.k.feemarketKeeper.GetBaseFee(sdkCtx)
-	maxPriorityFeePerGas := payload.MaxPriorityFeePerGas
-	maxFeePerGas := payload.MaxFeePerGas
-	gasLimit := payload.GasLimit
+	if baseFee.IsNil() {
+		return nil, errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
+	}
 
-	gasCost, err := ms.k.CalculateGasCost(baseFee, maxFeePerGas, maxPriorityFeePerGas, receipt.GasUsed)
+	gasCost, err := ms.k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, receipt.GasUsed)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to calculate gas cost")
 	}
 
-	// Convert gasLimit to uint64 (if it's a string or big.Int you may need to parse it first)
 	if gasCost.Cmp(payload.GasLimit) > 0 {
-		return nil, errors.Wrapf(sdkErrors.ErrOutOfGas, "actual gas cost (%d) exceeds gas limit (%d)", gasCost, gasLimit)
+		return nil, errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
 	}
 
-	err = ms.k.DeductAndBurnFees(ctx, nmscAccAddr, gasCost)
-
-	if err != nil {
-		return nil, err
+	if err = ms.k.DeductAndBurnFees(ctx, nmscAccAddr, gasCost); err != nil {
+		return nil, errors.Wrapf(err, "failed to deduct fees from %s", nmscAccAddr)
 	}
 
 	return &types.MsgExecutePayloadResponse{}, nil

@@ -202,20 +202,6 @@ func (k Keeper) AddChainConfig(ctx context.Context, chainConfig types.ChainConfi
 	return k.ChainConfigs.Set(ctx, chainConfig.ChainId, serialized)
 }
 
-// DeleteChainConfig removes a chain configuration
-func (k Keeper) DeleteChainConfig(ctx context.Context, chainID string) error {
-	if has, err := k.ChainConfigs.Has(ctx, chainID); err != nil {
-		return err
-	} else if !has {
-		return fmt.Errorf("chain config for %s does not exist", chainID)
-	}
-
-	// Remove from cache
-	k.configCache.Delete(chainID)
-
-	return k.ChainConfigs.Remove(ctx, chainID)
-}
-
 // GetChainConfig retrieves a chain configuration by chain ID
 func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.ChainConfigData, error) {
 	// First, try to get the config from the cache

@@ -104,29 +104,7 @@ func (ms msgServer) UpdateChainConfig(goCtx context.Context, msg *types.MsgUpdat
 	return &types.MsgUpdateChainConfigResponse{}, nil
 }
 
-// DeleteChainConfig deletes an existing chain configuration
-func (ms msgServer) DeleteChainConfig(goCtx context.Context, msg *types.MsgDeleteChainConfig) (*types.MsgDeleteChainConfigResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	if !ms.hasAuthority(msg.Authority) {
-		return nil, sdkerrors.Wrapf(ErrUnauthorized, "unauthorized access: %s", msg.Authority)
-	}
-
-	// Delete the chain configuration
-	if err := ms.Keeper.DeleteChainConfig(ctx, msg.ChainId); err != nil {
-		return nil, err
-	}
-
-	// Emit standard event
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			types.EventTypeDeleteChainConfig,
-			sdk.NewAttribute("chain_id", msg.ChainId),
-		),
-	})
-
-	return &types.MsgDeleteChainConfigResponse{}, nil
-}
 
 // VerifyExternalTransaction handles verification of transactions on external chains
 func (ms msgServer) VerifyExternalTransaction(goCtx context.Context, msg *types.MsgVerifyExternalTransaction) (*types.MsgVerifyExternalTransactionResponse, error) {
@@ -176,4 +154,11 @@ func (ms msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 // hasAuthority returns true if the provided address is the authority for the module or a gov proposal
 func (ms msgServer) hasAuthority(authority string) bool {
 	return authority == ms.Keeper.GetAuthority() || authority == authtypes.NewModuleAddress(govtypes.ModuleName).String()
+}
+
+// DeleteChainConfig implements types.MsgServer.
+func (ms msgServer) DeleteChainConfig(ctx context.Context, msg *types.MsgDeleteChainConfig) (*types.MsgDeleteChainConfigResponse, error) {
+	// ctx := sdk.UnwrapSDKContext(goCtx)
+	panic("DeleteChainConfig is unimplemented")
+	return &types.MsgDeleteChainConfigResponse{}, nil
 }

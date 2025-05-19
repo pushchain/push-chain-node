@@ -4,7 +4,6 @@ package types
 const (
 	EventTypeAddChainConfig              = "add_chain_config"
 	EventTypeUpdateChainConfig           = "update_chain_config"
-	EventTypeDeleteChainConfig           = "delete_chain_config"
 	EventTypeExternalTransactionVerified = "external_transaction_verified"
 )
 
@@ -18,11 +17,6 @@ type EventAddChainConfig struct {
 type EventUpdateChainConfig struct {
 	ChainId    string `yaml:"chain_id"`
 	CaipPrefix string `yaml:"caip_prefix"`
-}
-
-// EventDeleteChainConfig is emitted when a chain configuration is deleted
-type EventDeleteChainConfig struct {
-	ChainId string `yaml:"chain_id"`
 }
 
 // EventExternalTransactionVerified is emitted when an external transaction is verified

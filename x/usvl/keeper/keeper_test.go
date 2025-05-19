@@ -269,36 +269,6 @@ func (suite *KeeperTestSuite) TestUpdateChainConfig() {
 	suite.Require().Equal(newConfig.ChainId, retrievedConfig.ChainId)
 }
 
-func (suite *KeeperTestSuite) TestDeleteChainConfig() {
-	k := suite.fixture.k
-	ctx := suite.fixture.ctx
-
-	// Create and add a test chain config
-	config := types.ChainConfigData{
-		ChainId:               "1",
-		ChainName:             "Ethereum Mainnet",
-		CaipPrefix:            "eip155:1",
-		LockerContractAddress: "0x1234567890AbCdEf1234567890AbCdEf12345678",
-		UsdcAddress:           "0xabcdef1234567890AbCdEf1234567890AbCdEf12",
-		PublicRpcUrl:          "https://ethereum-rpc.example.com",
-	}
-
-	err := k.AddChainConfig(ctx, config)
-	suite.Require().NoError(err)
-
-	// Delete the chain config
-	err = k.DeleteChainConfig(ctx, config.ChainId)
-	suite.Require().NoError(err)
-
-	// Check if the chain config was deleted correctly
-	_, err = k.GetChainConfig(ctx, config.ChainId)
-	suite.Require().Error(err, "Getting a deleted chain config should fail")
-
-	// Test deleting a non-existent chain config
-	err = k.DeleteChainConfig(ctx, "non-existent-chain")
-	suite.Require().Error(err, "Deleting a non-existent chain config should fail")
-}
-
 func (suite *KeeperTestSuite) TestGetChainConfigWithRPCOverride() {
 	k := suite.fixture.k
 	ctx := suite.fixture.ctx

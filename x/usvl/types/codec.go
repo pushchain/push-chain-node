@@ -32,7 +32,6 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&MsgUpdateParams{},
 		&MsgAddChainConfig{},
 		&MsgUpdateChainConfig{},
-		&MsgDeleteChainConfig{},
 		&MsgVerifyExternalTransaction{},
 	)
 

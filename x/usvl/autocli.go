@@ -1,3 +1,4 @@
+// filepath: /Users/ashispradhan/Desktop/Projects/EPNS/push-chain/x/usvl/autocli.go
 package module
 
 import (
@@ -24,6 +25,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "UpdateParams",
 					Skip:      false, // set to true if authority gated
+				},
+				{
+					RpcMethod: "DeleteChainConfig",
+					Skip:      true, // skip this method as it has been removed from the codebase
 				},
 			},
 		},

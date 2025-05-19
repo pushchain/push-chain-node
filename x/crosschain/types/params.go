@@ -2,10 +2,6 @@ package types
 
 import (
 	"encoding/json"
-
-	"cosmossdk.io/errors"
-	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/rollchains/pchain/util"
 )
 
 // DefaultParams returns default module parameters.
@@ -27,9 +23,5 @@ func (p Params) String() string {
 
 // Validate does the sanity check on the params.
 func (p Params) Validate() error {
-	isValidAdmin := util.IsValidAddress(p.Admin, util.COSMOS)
-	if !isValidAdmin {
-		return errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid admin address: %s", p.Admin)
-	}
 	return nil
 }

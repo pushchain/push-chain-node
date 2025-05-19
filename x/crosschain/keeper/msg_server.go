@@ -58,6 +58,7 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// TODO: RPC call to verify if user has locked funds on source chain
+	// use msg.TxHash to verify the transaction on source chain
 
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)

@@ -86,6 +86,9 @@ message MsgDeployNMSC {
 
   // owner_type corresponds to the SmartAccountV1.OwnerType enum used in the contract
   uint32 owner_type = 4;
+
+  // tx_hash is the hash of the transaction in which user locked the tokens
+  string tx_hash = 5;
 }
 
 // MsgDeployNMSCResponse defines the response for MsgDeployNMSC.

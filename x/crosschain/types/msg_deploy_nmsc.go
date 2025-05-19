@@ -15,12 +15,14 @@ func NewMsgDeployNMSC(
 	userKey string,
 	caipString string,
 	ownerType uint32,
+	txHash string,
 ) *MsgDeployNMSC {
 	return &MsgDeployNMSC{
 		Signer:     sender.String(),
 		UserKey:    userKey,
 		CaipString: caipString,
 		OwnerType:  ownerType,
+		TxHash:     txHash,
 	}
 }
 

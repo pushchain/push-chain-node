@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 
-	"fmt"
 	"math"
 
 	sdkmath "cosmossdk.io/math"
@@ -182,19 +181,6 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, err
 	}
 
-	fmt.Println("EVM tx hash:", receipt.Hash)
-	fmt.Println("Gas used:", receipt.GasUsed)
-	fmt.Println("Logs:", receipt.Logs)
-	fmt.Println("Returned data:", receipt.Ret)
-	if receipt.VmError != "" {
-		fmt.Println("VM Error:", receipt.VmError)
-	}
-	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
-
-	if receipt.VmError != "" {
-		fmt.Println("VM Error:", receipt.VmError)
-	}
-
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
 	addressBytes := returnedBytesHex[24:] // last 20 bytes
 	nmscComputedAddress := "0x" + addressBytes
@@ -216,19 +202,25 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, err
 	}
 
-	fmt.Println("EVM tx hash:", receipt.Hash)
-	fmt.Println("Gas used:", receipt.GasUsed)
-	fmt.Println("Logs:", receipt.Logs)
-	fmt.Println("Returned data:", receipt.Ret)
-	if receipt.VmError != "" {
-		fmt.Println("VM Error:", receipt.VmError)
-	}
-	fmt.Println("Return data:", common.Bytes2Hex(receipt.Ret))
-
 	// Deduct fee from targetAddr
 	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
 
-	err = ms.k.DeductAndBurnFees(ctx, nmscAccAddr, uint64(receipt.GasUsed))
+	baseFee := ms.k.feemarketKeeper.GetBaseFee(sdkCtx)
+	maxPriorityFeePerGas := payload.MaxPriorityFeePerGas
+	maxFeePerGas := payload.MaxFeePerGas
+	gasLimit := payload.GasLimit
+
+	gasCost, err := ms.k.CalculateGasCost(baseFee, maxFeePerGas, maxPriorityFeePerGas, receipt.GasUsed)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to calculate gas cost")
+	}
+
+	// Convert gasLimit to uint64 (if it's a string or big.Int you may need to parse it first)
+	if gasCost.Cmp(payload.GasLimit) > 0 {
+		return nil, errors.Wrapf(sdkErrors.ErrOutOfGas, "actual gas cost (%d) exceeds gas limit (%d)", gasCost, gasLimit)
+	}
+
+	err = ms.k.DeductAndBurnFees(ctx, nmscAccAddr, gasCost)
 
 	if err != nil {
 		return nil, err

@@ -14,8 +14,6 @@ message Params {
 
   // The admin account of the crosschain module.
   string admin = 1;
-
-  bool some_value = 2;
 }
 
 // AdminParams defines parameters only the admin can update.

@@ -49,11 +49,6 @@ func MsgUpdateParams() *cobra.Command {
 
 			senderAddress := cliCtx.GetFromAddress()
 
-			someValue, err := strconv.ParseBool(args[0])
-			if err != nil {
-				return err
-			}
-
 			adminAddr := args[1]
 
 			// Validate Bech32 address
@@ -65,8 +60,7 @@ func MsgUpdateParams() *cobra.Command {
 			msg := &types.MsgUpdateParams{
 				Authority: senderAddress.String(),
 				Params: types.Params{
-					SomeValue: someValue,
-					Admin:     adminAddr,
+					Admin: adminAddr,
 				},
 			}
 

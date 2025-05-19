@@ -36,7 +36,7 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				},
 				{
 					RpcMethod: "DeployNMSC",
-					Use:       "deploy-nmsc [user-key] [caip-string] [owner-type]",
+					Use:       "deploy-nmsc [user-key] [caip-string] [owner-type] [tx-hash]",
 				},
 				{
 					RpcMethod: "MintPush",

@@ -13,13 +13,11 @@ var (
 func NewMsgUpdateParams(
 	sender sdk.Address,
 	admin sdk.Address,
-	someValue bool,
 ) *MsgUpdateParams {
 	return &MsgUpdateParams{
 		Authority: sender.String(),
 		Params: Params{
-			SomeValue: someValue,
-			Admin:     admin.String(),
+			Admin: admin.String(),
 		},
 	}
 }

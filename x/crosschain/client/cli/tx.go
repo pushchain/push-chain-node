@@ -206,7 +206,7 @@ func MsgMintPush() *cobra.Command {
 
 func MsgExecutePayload() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "execute-payload [caip-string] [target] [value] [data-hex] [gas-limit] [max-fee-per-gas] [max-priority-fee-per-gas] [nonce] [deadline] [signature-hex]",
+		Use:   "execute-payload [namespace] [chain-id] [owner-key] [vm-type] [target] [value] [data-hex] [gas-limit] [max-fee-per-gas] [max-priority-fee-per-gas] [nonce] [deadline] [signature-hex]",
 		Short: "Execute a cross-chain payload with a signature",
 		Args:  cobra.ExactArgs(9),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -217,20 +217,31 @@ func MsgExecutePayload() *cobra.Command {
 
 			senderAddress := cliCtx.GetFromAddress()
 
-			caipString := args[0]
-			target := args[1]
-			value := args[2]
-			data := args[3]
-			gasLimit := args[4]
-			maxFeePerGas := args[5]
-			maxPriorityFeePerGas := args[6]
-			nonce := args[7]
-			deadline := args[8]
-			signature := args[9]
+			nameSpace := args[0]
+			chainId := args[1]
+			ownerKey := args[2]
+			vmType, err := strconv.ParseUint(args[3], 10, 8)
+			if err != nil {
+				return err
+			}
+			target := args[4]
+			value := args[5]
+			data := args[6]
+			gasLimit := args[7]
+			maxFeePerGas := args[8]
+			maxPriorityFeePerGas := args[9]
+			nonce := args[10]
+			deadline := args[11]
+			signature := args[12]
 
 			msg := &types.MsgExecutePayload{
-				Signer:     senderAddress.String(),
-				CaipString: caipString,
+				Signer: senderAddress.String(),
+				AccountId: &types.AccountId{
+					Namespace: nameSpace,
+					ChainId:   chainId,
+					OwnerKey:  ownerKey,
+					VmType:    types.VM_TYPE(vmType),
+				},
 				CrosschainPayload: &types.CrossChainPayload{
 					Target:               target,
 					Value:                value,

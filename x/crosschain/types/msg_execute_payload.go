@@ -16,13 +16,13 @@ var (
 // NewMsgExecutePayload creates new instance of MsgExecutePayload
 func NewMsgExecutePayload(
 	sender sdk.Address,
-	caipString string,
+	accountId *AccountId,
 	crosschain_payload *CrossChainPayload,
 	signature string,
 ) *MsgExecutePayload {
 	return &MsgExecutePayload{
 		Signer:            sender.String(),
-		CaipString:        caipString,
+		AccountId:         accountId,
 		CrosschainPayload: crosschain_payload,
 		Signature:         signature,
 	}
@@ -52,9 +52,9 @@ func (msg *MsgExecutePayload) Validate() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate caipString
-	if len(msg.CaipString) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "caipString cannot be empty")
+	// Validate accountId
+	if msg.AccountId == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "accountId cannot be nil")
 	}
 
 	// Validate crosschain payload
@@ -70,5 +70,15 @@ func (msg *MsgExecutePayload) Validate() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid signature hex")
 	}
 
-	return msg.CrosschainPayload.Validate()
+	// Validate accountId structure
+	if err := msg.AccountId.Validate(); err != nil {
+		return errors.Wrap(err, "invalid accountId")
+	}
+
+	// Validate crosschain payload structure
+	if err := msg.CrosschainPayload.Validate(); err != nil {
+		return errors.Wrap(err, "invalid crosschain payload")
+	}
+
+	return nil
 }

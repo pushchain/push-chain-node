@@ -171,8 +171,9 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	}
 
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
-	if factoryAddress == common.HexToAddress("0x0") {
-		return nil, errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid factory address")
+	accountId, err := types.NewAbiAccountId(msg.AccountId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create accountId")
 	}
 
 	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
@@ -181,9 +182,9 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	}
 
 	// Step 2: Compute smart account address
-	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, msg.CaipString)
+	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, accountId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to compute smart account for CAIP: %s", msg.CaipString)
+		return nil, err
 	}
 
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)

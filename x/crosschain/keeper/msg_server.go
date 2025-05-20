@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"context"
-	"math"
+	"fmt"
 
 	"cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -71,34 +71,27 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	if msg.OwnerType > math.MaxUint8 {
-		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "ownerType must be a uint8 integer, got %d", msg.OwnerType)
-	}
-
 	// EVM Call arguments
-	userKey, err := util.HexToBytes(msg.UserKey)
-	if err != nil {
-		return nil, err
-	}
-
-	caipString := msg.CaipString
-	ownerType := uint8(msg.OwnerType)
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
-	verifierPrecompile := common.HexToAddress(adminParams.VerifierPrecompile)
+	accountId, err := types.NewAbiAccountId(msg.AccountId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create accountId")
+	}
 
 	// Use your keeper CallEVM directly
 	receipt, err := ms.k.CallFactoryToDeployNMSC(
 		sdkCtx,
 		evmFromAddress,
 		factoryAddress,
-		verifierPrecompile,
-		userKey,
-		caipString,
-		ownerType,
+		accountId,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("DeployNMSC receipt:", receipt)
+	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
+	fmt.Println("Returned Bytes Hex:", returnedBytesHex)
 
 	return &types.MsgDeployNMSCResponse{
 		SmartAccount: receipt.Ret,

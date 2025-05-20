@@ -13,13 +13,11 @@ var (
 func NewMsgUpdateAdminParams(
 	sender sdk.Address,
 	factoryAddress string,
-	verifierPrecompile string,
 ) *MsgUpdateAdminParams {
 	return &MsgUpdateAdminParams{
 		Admin: sender.String(),
 		AdminParams: AdminParams{
-			FactoryAddress:     factoryAddress,
-			VerifierPrecompile: verifierPrecompile,
+			FactoryAddress: factoryAddress,
 		},
 	}
 }

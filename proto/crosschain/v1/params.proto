@@ -44,3 +44,25 @@ message CrossChainPayload {
   string nonce = 7;                 // uint256 as string
   string deadline = 8;              // uint256 as string
 }
+
+// VM_TYPE is the type of the vm of the network
+enum VM_TYPE {
+  EVM = 0;
+  SVM = 1;
+  MOVE_VM = 2;
+  WASM_VM = 3;
+  CAIRO_VM = 4;
+  OTHER_VM = 5;
+}
+
+// AccountId is the identifier of a crosschain owner account
+message AccountId {
+  option (amino.name) = "crosschain/account_id";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string namespace = 1; 
+  string chain_id = 2;
+  string owner_key = 3;
+  VM_TYPE vm_type = 4;
+}

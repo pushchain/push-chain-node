@@ -25,9 +25,5 @@ func (p AdminParams) Validate() error {
 		return errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid factory address: %s", p.FactoryAddress)
 	}
 
-	isValidVerifierPrecompile := util.IsValidAddress(p.VerifierPrecompile, util.HEX)
-	if !isValidVerifierPrecompile {
-		return errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid verifier precompile address: %s", p.VerifierPrecompile)
-	}
 	return nil
 }

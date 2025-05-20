@@ -80,7 +80,7 @@ func MsgUpdateParams() *cobra.Command {
 // contract for the module.
 func MsgUpdateAdminParams() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-admin-params [factory-address] [verifier-precompile]",
+		Use:   "update-admin-params [factory-address]",
 		Short: "Update the admin params (must be submitted from the admin)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,13 +92,11 @@ func MsgUpdateAdminParams() *cobra.Command {
 			senderAddress := cliCtx.GetFromAddress()
 
 			factoryAddr := args[0]
-			verifierPrecompile := args[1]
 
 			msg := &types.MsgUpdateAdminParams{
 				Admin: senderAddress.String(),
 				AdminParams: types.AdminParams{
-					FactoryAddress:     factoryAddr,
-					VerifierPrecompile: verifierPrecompile,
+					FactoryAddress: factoryAddr,
 				},
 			}
 

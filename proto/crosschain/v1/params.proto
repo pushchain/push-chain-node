@@ -24,9 +24,6 @@ message AdminParams {
 
   // The factory address (EVM).
   string factory_address = 1;
-
-  // The verifier precompile contract address (EVM).
-  string verifier_precompile = 2;
 }
 
 // CrossChainPayload mirrors the Solidity struct

@@ -33,10 +33,8 @@ func (k Keeper) CallFactoryToComputeAddress(
 // Returns deployment response or error if deployment fails
 func (k Keeper) CallFactoryToDeployNMSC(
 	ctx sdk.Context,
-	from, factoryAddr, verifierPrecompile common.Address,
-	userKey []byte,
-	caip string,
-	ownerType uint8,
+	from, factoryAddr common.Address,
+	accountId types.AbiAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
@@ -46,13 +44,10 @@ func (k Keeper) CallFactoryToDeployNMSC(
 		ctx,
 		abi,
 		from,        // who is sending the transaction
-		factoryAddr, // destination: your FactoryV1 contract
-		true,        // commit = true (you want real tx, not simulation)
+		factoryAddr, // destination: FactoryV1 contract
+		true,        // commit = true (real tx, not simulation)
 		"deploySmartAccount",
-		userKey,
-		caip,
-		ownerType,
-		verifierPrecompile,
+		accountId,
 	)
 }
 

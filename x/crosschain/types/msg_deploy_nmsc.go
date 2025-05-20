@@ -1,9 +1,6 @@
 package types
 
 import (
-	"encoding/hex"
-	"strings"
-
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -16,17 +13,13 @@ var (
 // NewMsgDeployNMSC creates new instance of MsgDeployNMSC
 func NewMsgDeployNMSC(
 	sender sdk.Address,
-	userKey string,
-	caipString string,
-	ownerType uint32,
+	accountId *AccountId,
 	txHash string,
 ) *MsgDeployNMSC {
 	return &MsgDeployNMSC{
-		Signer:     sender.String(),
-		UserKey:    userKey,
-		CaipString: caipString,
-		OwnerType:  ownerType,
-		TxHash:     txHash,
+		Signer:    sender.String(),
+		AccountId: accountId,
+		TxHash:    txHash,
 	}
 }
 
@@ -54,17 +47,9 @@ func (msg *MsgDeployNMSC) Validate() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate userKey is non-empty and valid hex
-	if len(msg.UserKey) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "userKey cannot be empty")
-	}
-	if _, err := hex.DecodeString(strings.TrimPrefix(msg.UserKey, "0x")); err != nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "userKey must be valid hex string")
-	}
-
-	// Validate caipString
-	if len(msg.CaipString) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "caipString cannot be empty")
+	// Validate accountId
+	if msg.AccountId == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "accountId cannot be nil")
 	}
 
 	// Validate txHash
@@ -72,5 +57,5 @@ func (msg *MsgDeployNMSC) Validate() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "txHash cannot be empty")
 	}
 
-	return nil
+	return msg.AccountId.Validate()
 }

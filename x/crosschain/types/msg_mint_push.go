@@ -14,13 +14,13 @@ var (
 // NewMsgMintPush creates new instance of MsgMintPush
 func NewMsgMintPush(
 	sender sdk.Address,
+	accountId *AccountId,
 	txHash string,
-	caipString string,
 ) *MsgMintPush {
 	return &MsgMintPush{
-		Signer:     sender.String(),
-		TxHash:     txHash,
-		CaipString: caipString,
+		Signer:    sender.String(),
+		AccountId: accountId,
+		TxHash:    txHash,
 	}
 }
 
@@ -47,9 +47,9 @@ func (msg *MsgMintPush) Validate() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate caipString
-	if len(msg.CaipString) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "caipString cannot be empty")
+	// Validate accountId
+	if msg.AccountId == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "accountId cannot be nil")
 	}
 
 	// Validate txHash
@@ -57,5 +57,5 @@ func (msg *MsgMintPush) Validate() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "txHash cannot be empty")
 	}
 
-	return nil
+	return msg.AccountId.Validate()
 }

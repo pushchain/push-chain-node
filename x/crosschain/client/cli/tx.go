@@ -161,7 +161,7 @@ func MsgDeployNMSC() *cobra.Command {
 
 func MsgMintPush() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mint-push [tx-hash] [caip-string]",
+		Use:   "mint-push [namespace] [chain-id] [owner-key] [vm-type] [tx-hash]",
 		Short: "Mint Push tokens based on locked amount",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -172,13 +172,24 @@ func MsgMintPush() *cobra.Command {
 
 			senderAddress := cliCtx.GetFromAddress()
 
-			txHash := args[0]
-			caipString := args[1]
+			nameSpace := args[0]
+			chainId := args[1]
+			ownerKey := args[2]
+			vmType, err := strconv.ParseUint(args[3], 10, 8)
+			if err != nil {
+				return err
+			}
+			txHash := args[4]
 
 			msg := &types.MsgMintPush{
-				Signer:     senderAddress.String(),
-				TxHash:     txHash,
-				CaipString: caipString,
+				Signer: senderAddress.String(),
+				AccountId: &types.AccountId{
+					Namespace: nameSpace,
+					ChainId:   chainId,
+					OwnerKey:  ownerKey,
+					VmType:    types.VM_TYPE(vmType),
+				},
+				TxHash: txHash,
 			}
 
 			if err := msg.Validate(); err != nil {

@@ -12,7 +12,7 @@ import (
 func (k Keeper) CallFactoryToComputeAddress(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	caip string,
+	accountId types.AbiAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
@@ -25,7 +25,7 @@ func (k Keeper) CallFactoryToComputeAddress(
 		factoryAddr,
 		false, // commit
 		"computeSmartAccountAddress",
-		caip,
+		accountId,
 	)
 }
 

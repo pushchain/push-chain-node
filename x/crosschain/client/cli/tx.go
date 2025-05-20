@@ -116,7 +116,7 @@ func MsgUpdateAdminParams() *cobra.Command {
 
 func MsgDeployNMSC() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy-nmsc [user-key] [caip-string] [owner-type] [tx-hash]",
+		Use:   "deploy-nmsc [namespace] [chain-id] [owner-key] [vm-type] [tx-hash]",
 		Short: "Deploy a new NMSC Smart Account",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -127,20 +127,24 @@ func MsgDeployNMSC() *cobra.Command {
 
 			senderAddress := cliCtx.GetFromAddress()
 
-			userKey := args[0]
-			caipString := args[1]
-			ownerType, err := strconv.ParseUint(args[2], 10, 8)
+			nameSpace := args[0]
+			chainId := args[1]
+			ownerKey := args[2]
+			vmType, err := strconv.ParseUint(args[3], 10, 8)
 			if err != nil {
 				return err
 			}
-			txHash := args[3]
+			txHash := args[4]
 
 			msg := &types.MsgDeployNMSC{
-				Signer:     senderAddress.String(),
-				UserKey:    userKey,
-				CaipString: caipString,
-				OwnerType:  uint32(ownerType),
-				TxHash:     txHash,
+				Signer: senderAddress.String(),
+				AccountId: &types.AccountId{
+					Namespace: nameSpace,
+					ChainId:   chainId,
+					OwnerKey:  ownerKey,
+					VmType:    types.VM_TYPE(vmType),
+				},
+				TxHash: txHash,
 			}
 
 			if err := msg.Validate(); err != nil {

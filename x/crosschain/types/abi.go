@@ -1,34 +1,62 @@
 package types
 
 import (
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/rollchains/pchain/util"
 )
 
 // FactoryV1ABI contains the ABI for the factory contract
 const FactoryV1ABI = `[
 	{
-		"inputs": [
-			{"internalType": "bytes", "name": "userKey", "type": "bytes"},
-			{"internalType": "string", "name": "caipString", "type": "string"},
-			{"internalType": "enum SmartAccountV1.OwnerType", "name": "ownerType", "type": "uint8"},
-			{"internalType": "address", "name": "verifierPrecompile", "type": "address"}
-		],
-		"name": "deploySmartAccount",
-		"outputs": [{"internalType": "address", "name": "", "type": "address"}],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
+      "type": "function",
+      "name": "deploySmartAccount",
+      "inputs": [
+        {
+          "name": "_id",
+          "type": "tuple",
+          "internalType": "struct AccountId",
+          "components": [
+            { "name": "namespace", "type": "string", "internalType": "string" },
+            { "name": "chainId", "type": "string", "internalType": "string" },
+            { "name": "ownerKey", "type": "bytes", "internalType": "bytes" },
+            {
+              "name": "vmType",
+              "type": "uint8",
+              "internalType": "enum VM_TYPE"
+            }
+          ]
+        }
+      ],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "stateMutability": "nonpayable"
+    },
 	{
-		"inputs": [
-			{"internalType": "string", "name": "caipString", "type": "string"}
-		],
-		"name": "computeSmartAccountAddress",
-		"outputs": [{"internalType": "address", "name": "", "type": "address"}],
-		"stateMutability": "view",
-		"type": "function"
-	}
+      "type": "function",
+      "name": "computeSmartAccountAddress",
+      "inputs": [
+        {
+          "name": "_id",
+          "type": "tuple",
+          "internalType": "struct AccountId",
+          "components": [
+            { "name": "namespace", "type": "string", "internalType": "string" },
+            { "name": "chainId", "type": "string", "internalType": "string" },
+            { "name": "ownerKey", "type": "bytes", "internalType": "bytes" },
+            {
+              "name": "vmType",
+              "type": "uint8",
+              "internalType": "enum VM_TYPE"
+            }
+          ]
+        }
+      ],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "stateMutability": "view"
+    }
 ]`
 
 // SmartAccountV1ABI contains the ABI for the NMSC contract
@@ -101,4 +129,53 @@ func ParseFactoryABI() (abi.ABI, error) {
 
 func ParseSmartAccountABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(SmartAccountV1ABI))
+}
+
+type AbiCrossChainPayload struct {
+	Target               common.Address
+	Value                *big.Int
+	Data                 []byte
+	GasLimit             *big.Int
+	MaxFeePerGas         *big.Int
+	MaxPriorityFeePerGas *big.Int
+	Nonce                *big.Int
+	Deadline             *big.Int
+}
+
+func NewAbiCrossChainPayload(proto *CrossChainPayload) (AbiCrossChainPayload, error) {
+	data, err := util.HexToBytes(proto.Data)
+	if err != nil {
+		return AbiCrossChainPayload{}, err
+	}
+	return AbiCrossChainPayload{
+		Target:               common.HexToAddress(proto.Target),
+		Value:                util.StringToBigInt(proto.Value),
+		Data:                 data,
+		GasLimit:             util.StringToBigInt(proto.GasLimit),
+		MaxFeePerGas:         util.StringToBigInt(proto.MaxFeePerGas),
+		MaxPriorityFeePerGas: util.StringToBigInt(proto.MaxPriorityFeePerGas),
+		Nonce:                util.StringToBigInt(proto.Nonce),
+		Deadline:             util.StringToBigInt(proto.Deadline),
+	}, nil
+}
+
+type AbiAccountId struct {
+	Namespace string
+	ChainId   string
+	OwnerKey  []byte
+	VmType    uint8
+}
+
+func NewAbiAccountId(proto *AccountId) (AbiAccountId, error) {
+	ownerKey, err := util.HexToBytes(proto.OwnerKey)
+	if err != nil {
+		return AbiAccountId{}, err
+	}
+
+	return AbiAccountId{
+		Namespace: proto.Namespace,
+		ChainId:   proto.ChainId,
+		OwnerKey:  ownerKey,
+		VmType:    uint8(proto.VmType),
+	}, nil
 }

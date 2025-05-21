@@ -351,7 +351,6 @@ func TestVerifyExternalTransaction(t *testing.T) {
 		{
 			name: "valid transaction verification",
 			request: &types.MsgVerifyExternalTransaction{
-				Sender:      "sender", // Will be replaced with a real address
 				TxHash:      "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36",
 				CaipAddress: "eip155:11155111:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB",
 			},
@@ -361,7 +360,6 @@ func TestVerifyExternalTransaction(t *testing.T) {
 		{
 			name: "valid transaction but wrong address",
 			request: &types.MsgVerifyExternalTransaction{
-				Sender:      "sender", // Will be replaced with a real address
 				TxHash:      "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36",
 				CaipAddress: "eip155:11155111:0x3Dfc53E3C77bb4e30Ce333Be1a66Ce62558bE395",
 			},
@@ -371,7 +369,6 @@ func TestVerifyExternalTransaction(t *testing.T) {
 		{
 			name: "invalid transaction hash",
 			request: &types.MsgVerifyExternalTransaction{
-				Sender:      "sender", // Will be replaced with a real address
 				TxHash:      "0xinvalidtxhash",
 				CaipAddress: "eip155:11155111:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB",
 			},
@@ -381,7 +378,6 @@ func TestVerifyExternalTransaction(t *testing.T) {
 		{
 			name: "invalid CAIP address format",
 			request: &types.MsgVerifyExternalTransaction{
-				Sender:      "sender", // Will be replaced with a real address
 				TxHash:      "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36",
 				CaipAddress: "invalid:address:format",
 			},
@@ -391,7 +387,7 @@ func TestVerifyExternalTransaction(t *testing.T) {
 		{
 			name: "unsupported chain",
 			request: &types.MsgVerifyExternalTransaction{
-				Sender:      "sender", // Will be replaced with a real address
+				 // Will be replaced with a real address
 				TxHash:      "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36",
 				CaipAddress: "eip155:1:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB", // Ethereum mainnet not in our config
 			},
@@ -406,8 +402,6 @@ func TestVerifyExternalTransaction(t *testing.T) {
 			// Create a fresh test fixture for each test case
 			f := SetupTest(t)
 
-			// Update sender with actual address from fixture
-			tc.request.Sender = f.addrs[0].String()
 
 			// Skip long-running external RPC calls in CI or quick test runs
 			if testing.Short() && tc.name != "invalid CAIP address format" && tc.name != "unsupported chain" {
@@ -530,7 +524,6 @@ func TestVerifyExternalTransactionDuplicates(t *testing.T) {
 
 	// 1. First verification should succeed
 	resp, err := f.msgServer.VerifyExternalTransaction(f.ctx, &types.MsgVerifyExternalTransaction{
-		Sender:      f.addrs[0].String(),
 		TxHash:      txHash,
 		CaipAddress: caipAddress,
 	})
@@ -549,7 +542,6 @@ func TestVerifyExternalTransactionDuplicates(t *testing.T) {
 
 	// 2. Second verification of the same transaction should fail
 	_, err = f.msgServer.VerifyExternalTransaction(f.ctx, &types.MsgVerifyExternalTransaction{
-		Sender:      f.addrs[0].String(),
 		TxHash:      txHash,
 		CaipAddress: caipAddress,
 	})
@@ -581,7 +573,6 @@ func TestVerifyExternalTransactionDuplicates(t *testing.T) {
 	// Try verifying with a different address (should fail since it doesn't match the actual sender)
 	differentAddress := "eip155:11155111:0x1234567890123456789012345678901234567890"
 	_, err = f.msgServer.VerifyExternalTransaction(f.ctx, &types.MsgVerifyExternalTransaction{
-		Sender:      f.addrs[0].String(),
 		TxHash:      txHash,
 		CaipAddress: differentAddress,
 	})

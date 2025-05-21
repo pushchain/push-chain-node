@@ -744,7 +744,6 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
-		app.UsvlKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.

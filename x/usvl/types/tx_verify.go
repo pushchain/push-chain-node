@@ -13,12 +13,10 @@ const (
 
 // NewMsgVerifyExternalTransaction creates a new MsgVerifyExternalTransaction instance
 func NewMsgVerifyExternalTransaction(
-	sender sdk.AccAddress,
 	txHash string,
 	caipAddress string,
 ) *MsgVerifyExternalTransaction {
 	return &MsgVerifyExternalTransaction{
-		Sender:      sender.String(),
 		TxHash:      txHash,
 		CaipAddress: caipAddress,
 	}
@@ -32,14 +30,6 @@ func (m MsgVerifyExternalTransaction) Type() string { return TypeMsgVerifyExtern
 
 // ValidateBasic implements the sdk.Msg interface
 func (m MsgVerifyExternalTransaction) ValidateBasic() error {
-	if m.Sender == "" {
-		return fmt.Errorf("sender address cannot be empty")
-	}
-
-	if _, err := sdk.AccAddressFromBech32(m.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-
 	if m.TxHash == "" {
 		return fmt.Errorf("transaction hash cannot be empty")
 	}
@@ -59,11 +49,9 @@ func (m MsgVerifyExternalTransaction) ValidateBasic() error {
 
 // GetSigners implements the sdk.Msg interface
 func (m MsgVerifyExternalTransaction) GetSigners() []sdk.AccAddress {
-	sender, err := sdk.AccAddressFromBech32(m.Sender)
-	if err != nil {
-		panic(err)
-	}
-	return []sdk.AccAddress{sender}
+	// Since we removed the sender field, this message doesn't require a signer
+	// For governance messages or permissionless interactions, we can return an empty slice or a module address
+	return []sdk.AccAddress{} // Empty slice - no signer required
 }
 
 // GetSignBytes implements the sdk.Msg interface

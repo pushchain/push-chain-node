@@ -86,16 +86,11 @@ message MsgDeleteChainConfigResponse {}
 
 // MsgVerifyExternalTransaction is the Msg/VerifyExternalTransaction request type.
 message MsgVerifyExternalTransaction {
-  option (cosmos.msg.v1.signer) = "sender";
-  
-  // sender is the address submitting the verification request
-  string sender = 1;
-  
   // tx_hash is the transaction hash on the external chain
-  string tx_hash = 2;
+  string tx_hash = 1;
   
   // caip_address is the CAIP-formatted address (chain:reference:address)
-  string caip_address = 3;
+  string caip_address = 2;
 }
 
 // MsgVerifyExternalTransactionResponse is the Msg/VerifyExternalTransaction response type.

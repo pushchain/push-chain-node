@@ -57,8 +57,34 @@ func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateA
 func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// TODO: RPC call to verify if user has locked funds on source chain
-	// use msg.TxHash to verify the transaction on source chain
+	// Construct CAIP address from AccountId for transaction verification
+	if msg.AccountId == nil {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "account ID is required")
+	}
+
+	// Format: namespace:chainId:ownerKey (e.g., eip155:1:0x123...)
+	caipAddress := fmt.Sprintf("%s:%s:%s",
+		msg.AccountId.Namespace,
+		msg.AccountId.ChainId,
+		msg.AccountId.OwnerKey)
+
+	// Verify the transaction on the source chain using the USVL module
+	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransaction(ctx, msg.TxHash, caipAddress)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
+	}
+
+	// Check if the transaction was verified successfully
+	if !verificationResult.Verified {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest,
+			"transaction verification failed: %s", verificationResult.TxInfo)
+	}
+
+	// Log that transaction verification was successful
+	ms.k.logger.Info("Transaction verified successfully",
+		"txHash", msg.TxHash,
+		"caipAddress", caipAddress,
+		"txInfo", verificationResult.TxInfo)
 
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
@@ -102,15 +128,35 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// caipArr := strings.Split(msg.CaipString, ":")
-	// if len(caipArr) != 3 {
-	// 	return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "invalid CAIP string; expected format: <namespace>:<chain>:<address>, got %s", msg.CaipString)
-	// }
+	// Construct CAIP address from AccountId for transaction verification
+	if msg.AccountId == nil {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "account ID is required")
+	}
 
-	// userAddr := caipArr[2]
-	// txHash := msg.TxHash
-	// TODO
-	// 1. RPC call for verification
+	// Format: namespace:chainId:ownerKey (e.g., eip155:1:0x123...)
+	caipAddress := fmt.Sprintf("%s:%s:%s",
+		msg.AccountId.Namespace,
+		msg.AccountId.ChainId,
+		msg.AccountId.OwnerKey)
+
+	// Verify the transaction on the source chain using the USVL module
+	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransaction(ctx, msg.TxHash, caipAddress)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
+	}
+
+	// Check if the transaction was verified successfully
+	if !verificationResult.Verified {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest,
+			"transaction verification failed: %s", verificationResult.TxInfo)
+	}
+
+	// Log that transaction verification was successful
+	ms.k.logger.Info("Transaction verified successfully",
+		"txHash", msg.TxHash,
+		"caipAddress", caipAddress,
+		"txInfo", verificationResult.TxInfo)
+
 	amountToMint := sdkmath.NewInt(1000000000000000000) // 1 token
 
 	// Retrieve the current Params

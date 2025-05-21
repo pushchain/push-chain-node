@@ -735,7 +735,8 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
-	// Create the crosschain Keeper
+	// Create the crosschain Keeper with USVL adapter
+	usvlAdapter := crosschainkeeper.NewUsvlKeeperAdapter(app.UsvlKeeper)
 	app.CrosschainKeeper = crosschainkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[crosschaintypes.StoreKey]),
@@ -744,6 +745,7 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
+		usvlAdapter,
 	)
 
 	// NOTE: we are adding all available EVM extensions.

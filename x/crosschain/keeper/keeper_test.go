@@ -32,6 +32,8 @@ import (
 	module "github.com/push-protocol/push-chain/x/crosschain"
 	"github.com/push-protocol/push-chain/x/crosschain/keeper"
 	"github.com/push-protocol/push-chain/x/crosschain/types"
+	usvlkeeper "github.com/push-protocol/push-chain/x/usvl/keeper"
+	usvltypes "github.com/push-protocol/push-chain/x/usvl/types"
 )
 
 var maccPerms = map[string][]string{
@@ -55,6 +57,7 @@ type testFixture struct {
 	bankkeeper    bankkeeper.BaseKeeper
 	stakingKeeper *stakingkeeper.Keeper
 	mintkeeper    mintkeeper.Keeper
+	usvlKeeper    usvlkeeper.Keeper
 
 	addrs      []sdk.AccAddress
 	govModAddr string
@@ -81,14 +84,41 @@ func SetupTest(t *testing.T) *testFixture {
 	f.govModAddr = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	f.addrs = simtestutil.CreateIncrementalAccounts(3)
 
-	keys := storetypes.NewKVStoreKeys(authtypes.ModuleName, banktypes.ModuleName, stakingtypes.ModuleName, minttypes.ModuleName, types.ModuleName)
+	keys := storetypes.NewKVStoreKeys(
+		authtypes.ModuleName,
+		banktypes.ModuleName,
+		stakingtypes.ModuleName,
+		minttypes.ModuleName,
+		types.ModuleName,
+		usvltypes.ModuleName,
+	)
 	f.ctx = sdk.NewContext(integration.CreateMultiStore(keys, logger), cmtproto.Header{}, false, logger)
 
 	// Register SDK modules.
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
+	// Setup real USVL keeper
+	f.usvlKeeper = usvlkeeper.NewKeeper(
+		encCfg.Codec,
+		runtime.NewKVStoreService(keys[usvltypes.ModuleName]),
+		logger,
+		f.govModAddr,
+	)
+
+	// Create a real USVL adapter
+	usvlAdapter := keeper.NewUsvlKeeperAdapter(f.usvlKeeper)
+
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper)
+	f.k = keeper.NewKeeper(
+		encCfg.Codec,
+		runtime.NewKVStoreService(keys[types.ModuleName]),
+		logger,
+		f.govModAddr,
+		&evmkeeper.Keeper{},
+		&feemarketkeeper.Keeper{},
+		f.bankkeeper,
+		usvlAdapter,
+	)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper)

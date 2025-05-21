@@ -11,6 +11,16 @@ import (
 	"github.com/evmos/os/x/evm/types"
 )
 
+// USVLKeeper defines the expected interface for the USVL module.
+type USVLKeeper interface {
+	VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
+}
+
+// UsvlVerificationResult is the same structure as USVL's TransactionVerificationResult
+type UsvlVerificationResult struct {
+	Verified bool
+	TxInfo   string
+}
 
 // EVMKeeper defines the expected interface for the EVM module.
 type EVMKeeper interface {

@@ -22,6 +22,6 @@ func (p Params) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p Params) Validate() error {
+func (p Params) ValidateBasic() error {
 	return nil
 }

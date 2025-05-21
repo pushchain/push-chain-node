@@ -46,7 +46,7 @@ func (msg *MsgExecutePayload) GetSigners() []sdk.AccAddress {
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgExecutePayload) Validate() error {
+func (msg *MsgExecutePayload) ValidateBasic() error {
 	// Validate signer
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
@@ -71,12 +71,12 @@ func (msg *MsgExecutePayload) Validate() error {
 	}
 
 	// Validate accountId structure
-	if err := msg.AccountId.Validate(); err != nil {
+	if err := msg.AccountId.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid accountId")
 	}
 
 	// Validate crosschain payload structure
-	if err := msg.CrosschainPayload.Validate(); err != nil {
+	if err := msg.CrosschainPayload.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid crosschain payload")
 	}
 

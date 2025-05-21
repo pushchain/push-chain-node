@@ -64,7 +64,7 @@ func MsgUpdateParams() *cobra.Command {
 				},
 			}
 
-			if err := msg.Validate(); err != nil {
+			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -100,7 +100,7 @@ func MsgUpdateAdminParams() *cobra.Command {
 				},
 			}
 
-			if err := msg.Validate(); err != nil {
+			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -145,7 +145,7 @@ func MsgDeployNMSC() *cobra.Command {
 				TxHash: txHash,
 			}
 
-			if err := msg.Validate(); err != nil {
+			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -190,7 +190,7 @@ func MsgMintPush() *cobra.Command {
 				TxHash: txHash,
 			}
 
-			if err := msg.Validate(); err != nil {
+			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -253,7 +253,7 @@ func MsgExecutePayload() *cobra.Command {
 				Signature: signature,
 			}
 
-			if err := msg.Validate(); err != nil {
+			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
 

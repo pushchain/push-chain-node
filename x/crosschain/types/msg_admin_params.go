@@ -40,10 +40,10 @@ func (msg *MsgUpdateAdminParams) GetSigners() []sdk.AccAddress {
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgUpdateAdminParams) Validate() error {
+func (msg *MsgUpdateAdminParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Admin); err != nil {
 		return errors.Wrap(err, "invalid admin address")
 	}
 
-	return msg.AdminParams.Validate()
+	return msg.AdminParams.ValidateBasic()
 }

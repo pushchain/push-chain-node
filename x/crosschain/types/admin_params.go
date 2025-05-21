@@ -19,7 +19,7 @@ func (p AdminParams) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p AdminParams) Validate() error {
+func (p AdminParams) ValidateBasic() error {
 	isValidFactoryAddr := util.IsValidAddress(p.FactoryAddress, util.HEX)
 	if !isValidFactoryAddr {
 		return errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid factory address: %s", p.FactoryAddress)

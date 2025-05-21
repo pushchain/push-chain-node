@@ -27,7 +27,7 @@ func TestGenesisState_Validate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.genState.Validate()
+			err := tc.genState.ValidateBasic()
 			if tc.valid {
 				require.NoError(t, err)
 			} else {

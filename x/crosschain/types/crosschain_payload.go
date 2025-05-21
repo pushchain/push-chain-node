@@ -21,7 +21,7 @@ func (p CrossChainPayload) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p CrossChainPayload) Validate() error {
+func (p CrossChainPayload) ValidateBasic() error {
 	// Validate target address
 	isValidTarget := util.IsValidAddress(p.Target, util.HEX)
 	if !isValidTarget {

@@ -20,7 +20,7 @@ func (p AccountId) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p AccountId) Validate() error {
+func (p AccountId) ValidateBasic() error {
 
 	// Validate namespace is non-empty
 	if len(p.Namespace) == 0 {

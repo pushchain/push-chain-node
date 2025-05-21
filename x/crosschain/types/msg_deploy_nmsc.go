@@ -41,7 +41,7 @@ func (msg *MsgDeployNMSC) GetSigners() []sdk.AccAddress {
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgDeployNMSC) Validate() error {
+func (msg *MsgDeployNMSC) ValidateBasic() error {
 	// Validate signer
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
@@ -57,5 +57,5 @@ func (msg *MsgDeployNMSC) Validate() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "txHash cannot be empty")
 	}
 
-	return msg.AccountId.Validate()
+	return msg.AccountId.ValidateBasic()
 }

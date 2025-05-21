@@ -17,6 +17,25 @@ type TransactionVerificationResult struct {
 	TxInfo   string
 }
 
+type LogEntry struct {
+	Address string   `json:"address"`
+	Topics  []string `json:"topics"`
+	Data    string   `json:"data"`
+}
+
+type TransactionDetails struct {
+	TransactionHash  string     `json:"transactionHash"`
+	BlockNumber      string     `json:"blockNumber"`
+	TransactionIndex string     `json:"transactionIndex"`
+	From             string     `json:"from"`
+	To               string     `json:"to,omitempty"`
+	Value            string     `json:"value"`
+	Status           string     `json:"status"`
+	GasUsed          string     `json:"gasUsed"`
+	CurrentBlockNum  string     `json:"currentBlockNum"`
+	Logs             []LogEntry `json:"logs"`
+}
+
 // VerifyExternalTransaction verifies a transaction on an external chain
 func (k Keeper) VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*TransactionVerificationResult, error) {
 	// Check if this transaction has already been verified with the exact same address
@@ -139,23 +158,21 @@ func (k Keeper) VerifyExternalTransaction(ctx context.Context, txHash string, ca
 	return result, nil
 }
 
-// verifyEVMTransaction verifies a transaction on an EVM-compatible chain
-func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConfigData, txHash string, address string) (*TransactionVerificationResult, error) {
+// fetches details of the transaction from the EVM-compatible chain
+func (k Keeper) fetchTransactionDetails(ctx context.Context, config types.ChainConfigData, txHash string) (*TransactionDetails, error) {
 	// Log the RPC URL being used
-	print("Making RPC call to verify EVM transaction",
+	k.logger.Info("Making RPC call to fetch transaction details",
 		"txHash", txHash,
-		"address", address,
 		"chainId", config.ChainId,
 		"rpcUrl", config.PublicRpcUrl)
 
-	// Use the global RPC client so it can be mocked in tests
-	responseBytes, err := globalRPCClient.callRPC(ctx, config.PublicRpcUrl, "eth_getTransactionByHash", []interface{}{txHash})
+	// Get transaction details
+	txResponseBytes, err := globalRPCClient.callRPC(ctx, config.PublicRpcUrl, "eth_getTransactionByHash", []interface{}{txHash})
 	if err != nil {
-		return nil, fmt.Errorf("EVM RPC error: %w", err)
+		return nil, fmt.Errorf("EVM RPC error getting transaction: %w", err)
 	}
 
-	// Decode the response
-	var rpcResponse struct {
+	var txResponse struct {
 		Result struct {
 			Hash             string `json:"hash"`
 			From             string `json:"from"`
@@ -166,24 +183,43 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConf
 		} `json:"result"`
 	}
 
-	if err := json.Unmarshal(responseBytes, &rpcResponse); err != nil {
-		return nil, fmt.Errorf("failed to decode RPC response: %w", err)
+	if err := json.Unmarshal(txResponseBytes, &txResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode transaction response: %w", err)
 	}
 
 	// Check if transaction exists
-	if rpcResponse.Result.Hash == "" {
-		return &TransactionVerificationResult{
-			Verified: false,
-			TxInfo:   "Transaction not found",
-		}, nil
+	if txResponse.Result.Hash == "" {
+		return nil, fmt.Errorf("transaction not found")
 	}
 
 	// Check if transaction has been mined (has a block number)
-	if rpcResponse.Result.BlockNumber == "" {
-		return &TransactionVerificationResult{
-			Verified: false,
-			TxInfo:   "Transaction is pending and not yet mined",
-		}, nil
+	if txResponse.Result.BlockNumber == "" {
+		return nil, fmt.Errorf("transaction is pending and not yet mined")
+	}
+
+	// Get transaction receipt to get logs and status
+	receiptBytes, err := globalRPCClient.callRPC(ctx, config.PublicRpcUrl, "eth_getTransactionReceipt", []interface{}{txHash})
+	if err != nil {
+		return nil, fmt.Errorf("EVM RPC error getting receipt: %w", err)
+	}
+
+	var receiptResponse struct {
+		Result struct {
+			TransactionHash  string `json:"transactionHash"`
+			BlockNumber      string `json:"blockNumber"`
+			TransactionIndex string `json:"transactionIndex"`
+			Status           string `json:"status"`
+			GasUsed          string `json:"gasUsed"`
+			Logs             []struct {
+				Address string   `json:"address"`
+				Topics  []string `json:"topics"`
+				Data    string   `json:"data"`
+			} `json:"logs"`
+		} `json:"result"`
+	}
+
+	if err := json.Unmarshal(receiptBytes, &receiptResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode receipt response: %w", err)
 	}
 
 	// Get current block number for confirmation check
@@ -199,22 +235,107 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConf
 		return nil, fmt.Errorf("failed to decode current block response: %w", err)
 	}
 
-	// Convert hex block numbers to integers
-	txBlockNumHex := rpcResponse.Result.BlockNumber
-	currentBlockNumHex := currentBlockResponse.Result
+	// Convert addresses to checksum format
+	from := toChecksumAddress(txResponse.Result.From)
 
-	txBlockNum, err := hexToUint64(txBlockNumHex)
+	// Create merged transaction details
+	txDetails := &TransactionDetails{
+		TransactionHash:  txResponse.Result.Hash,
+		BlockNumber:      txResponse.Result.BlockNumber,
+		TransactionIndex: txResponse.Result.TransactionIndex,
+		From:             from,
+		CurrentBlockNum:  currentBlockResponse.Result,
+	}
+
+	// Add "to" address if it exists
+	if txResponse.Result.To != "" {
+		txDetails.To = toChecksumAddress(txResponse.Result.To)
+	}
+
+	// Add value
+	txDetails.Value = txResponse.Result.Value
+
+	// Add receipt data if available
+	if receiptResponse.Result.Status != "" {
+		txDetails.Status = receiptResponse.Result.Status
+		txDetails.GasUsed = receiptResponse.Result.GasUsed
+
+		// Convert logs to our LogEntry type
+		logs := make([]LogEntry, len(receiptResponse.Result.Logs))
+		for i, log := range receiptResponse.Result.Logs {
+			logs[i] = LogEntry{
+				Address: log.Address,
+				Topics:  log.Topics,
+				Data:    log.Data,
+			}
+		}
+		txDetails.Logs = logs
+	}
+
+	// Print transaction details for debugging purposes
+	k.logger.Info("Transaction details",
+		"hash", txDetails.TransactionHash,
+		"blockNumber", txDetails.BlockNumber,
+		"currentBlock", txDetails.CurrentBlockNum,
+		"txIndex", txDetails.TransactionIndex,
+		"from", txDetails.From,
+		"to", txDetails.To,
+		"value", txDetails.Value,
+		"status", txDetails.Status,
+		"gasUsed", txDetails.GasUsed)
+
+	// Calculate confirmations for debugging
+	txBlockNum, _ := hexToUint64(txDetails.BlockNumber)
+	currentBlockNum, _ := hexToUint64(txDetails.CurrentBlockNum)
+	confirmations := currentBlockNum - txBlockNum
+	k.logger.Info("Block confirmations", "confirmations", confirmations)
+
+	// Print logs separately for better visibility
+	if len(txDetails.Logs) > 0 {
+		k.logger.Info("Transaction logs found", "count", len(txDetails.Logs))
+		for i, log := range txDetails.Logs {
+			topicsJSON, _ := json.Marshal(log.Topics)
+			k.logger.Info(fmt.Sprintf("Log #%d", i+1),
+				"address", log.Address,
+				"topics", string(topicsJSON),
+				"data", log.Data)
+		}
+	} else {
+		k.logger.Info("No transaction logs/events found")
+	}
+
+	// For very detailed debugging, print the entire structure as JSON
+	detailedJSON, _ := json.MarshalIndent(txDetails, "", "  ")
+	k.logger.Debug("Transaction details (full JSON)", "details", string(detailedJSON))
+
+	return txDetails, nil
+}
+
+// verifyEVMTransaction verifies a transaction on an EVM-compatible chain
+func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConfigData, txHash string, address string) (*TransactionVerificationResult, error) {
+	// Fetch the transaction details
+	txDetails, err := k.fetchTransactionDetails(ctx, config, txHash)
+	if err != nil {
+		return &TransactionVerificationResult{
+			Verified: false,
+			TxInfo:   fmt.Sprintf("Failed to fetch transaction details: %s", err.Error()),
+		}, nil
+	}
+
+	// Convert block numbers to integers for confirmation check
+	txBlockNum, err := hexToUint64(txDetails.BlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse transaction block number: %w", err)
 	}
 
-	currentBlockNum, err := hexToUint64(currentBlockNumHex)
+	currentBlockNum, err := hexToUint64(txDetails.CurrentBlockNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse current block number: %w", err)
 	}
 
 	// Calculate confirmations
 	confirmations := currentBlockNum - txBlockNum
+
 	// Check if transaction has enough confirmations
 	if confirmations < config.BlockConfirmation {
 		return &TransactionVerificationResult{
@@ -223,39 +344,49 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, config types.ChainConf
 		}, nil
 	}
 
-	// Convert both addresses to EIP-55 checksum format for standardized comparison
-	fromAddress := normalizeCaseInsensitiveAddress(rpcResponse.Result.From)
+	// Convert input address to EIP-55 checksum format for standardized comparison
 	inputAddress := normalizeCaseInsensitiveAddress(address)
 
 	// Verify that the transaction is from the expected address
-	if fromAddress != inputAddress {
+	if txDetails.From != inputAddress {
 		return &TransactionVerificationResult{
 			Verified: false,
-			TxInfo:   fmt.Sprintf("Transaction exists but is from %s, not %s", fromAddress, inputAddress),
+			TxInfo:   fmt.Sprintf("Transaction exists but is from %s, not %s", txDetails.From, inputAddress),
 		}, nil
 	}
 
 	// Update the response data (all addresses already in checksum format)
 	txInfoResponse := struct {
-		Hash             string `json:"hash"`
-		From             string `json:"from"`
-		To               string `json:"to,omitempty"`
-		BlockNumber      string `json:"blockNumber"`
-		TransactionIndex string `json:"transactionIndex"`
-		Value            string `json:"value"`
-		Confirmations    uint64 `json:"confirmations"`
+		Hash             string          `json:"hash"`
+		From             string          `json:"from"`
+		To               string          `json:"to,omitempty"`
+		BlockNumber      string          `json:"blockNumber"`
+		TransactionIndex string          `json:"transactionIndex"`
+		Value            string          `json:"value"`
+		Status           string          `json:"status,omitempty"`
+		GasUsed          string          `json:"gasUsed,omitempty"`
+		Confirmations    uint64          `json:"confirmations"`
+		Logs             json.RawMessage `json:"logs,omitempty"` // Include logs from receipt
 	}{
-		Hash:             rpcResponse.Result.Hash,
-		From:             fromAddress,
-		BlockNumber:      rpcResponse.Result.BlockNumber,
-		TransactionIndex: rpcResponse.Result.TransactionIndex,
-		Value:            rpcResponse.Result.Value,
+		Hash:             txDetails.TransactionHash,
+		From:             txDetails.From,
+		BlockNumber:      txDetails.BlockNumber,
+		TransactionIndex: txDetails.TransactionIndex,
+		Value:            txDetails.Value,
 		Confirmations:    confirmations,
+		Status:           txDetails.Status,
+		GasUsed:          txDetails.GasUsed,
 	}
 
-	// Convert "to" address to checksum if it exists
-	if rpcResponse.Result.To != "" {
-		txInfoResponse.To = toChecksumAddress(rpcResponse.Result.To)
+	// Add "to" address if it exists
+	if txDetails.To != "" {
+		txInfoResponse.To = txDetails.To
+	}
+
+	// Add logs data
+	if len(txDetails.Logs) > 0 {
+		logsJSON, _ := json.Marshal(txDetails.Logs)
+		txInfoResponse.Logs = logsJSON
 	}
 
 	// Transaction is verified

@@ -164,7 +164,6 @@ func (suite *TxVerifyTestSuite) TestVerifyWithRealTransactions() {
 		t.Run(tc.name, func(t *testing.T) {
 			// Use the direct verification method
 			result, err := realKeeper.VerifyExternalTransactionDirect(ctx, tc.txHash, tc.caipAddress)
-
 			t.Logf("Test case: %s", tc.name)
 			t.Logf("Transaction hash: %s", tc.txHash)
 			t.Logf("CAIP address: %s", tc.caipAddress)

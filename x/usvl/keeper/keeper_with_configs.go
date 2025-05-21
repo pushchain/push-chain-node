@@ -9,15 +9,7 @@ import (
 	"github.com/push-protocol/push-chain/x/usvl/types"
 )
 
-// NoOpLogger is a logger that does nothing, used for testing
-type NoOpLogger struct{}
-
-func (l NoOpLogger) Debug(msg string, keyVals ...interface{}) {}
-func (l NoOpLogger) Info(msg string, keyVals ...interface{})  {}
-func (l NoOpLogger) Error(msg string, keyVals ...interface{}) {}
-// func (l NoOpLogger) With(keyVals ...interface{}) log.Logger   { return l }
-
-// NewNoOpLogger creates a new no-op logger for testing
+// We're using log.NewNopLogger() from cosmossdk.io/log instead of a custom logger
 
 // KeeperWithConfigs is a special version of Keeper for testing
 // that directly contains the chain configurations, bypassing the need
@@ -40,7 +32,7 @@ func NewKeeperWithConfigs(configs map[string]types.ChainConfigData) *KeeperWithC
 	return &KeeperWithConfigs{
 		ChainConfigs: configs,
 		configCache:  cache,
-		// logger:       NewNoOpLogger(),
+		logger:       log.NewNopLogger(),
 	}
 }
 

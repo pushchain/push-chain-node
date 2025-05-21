@@ -1,0 +1,14 @@
+syntax = "proto3";
+package crosschain.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "crosschain/v1/params.proto";
+
+option go_package = "github.com/rollchains/pchain/x/crosschain/types";
+
+// GenesisState defines the module genesis state
+message GenesisState {
+  // Params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}

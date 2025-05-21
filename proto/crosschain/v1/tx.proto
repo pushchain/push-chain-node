@@ -1,0 +1,132 @@
+syntax = "proto3";
+package crosschain.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "crosschain/v1/params.proto";
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/rollchains/pchain/x/crosschain/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a governance operation for updating the parameters.
+  //
+  // Since: cosmos-sdk 0.47
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // UpdateAdminParams defines a admin operation for updating the admin parameters.
+  rpc UpdateAdminParams(MsgUpdateAdminParams) returns (MsgUpdateAdminParamsResponse);
+
+  // DeployNMSC defines a message to deploy a new smart account.
+  rpc DeployNMSC(MsgDeployNMSC) returns (MsgDeployNMSCResponse);
+
+  // MintPush defines a message to mint PUSH tokens to a smart account,
+  rpc MintPush(MsgMintPush) returns (MsgMintPushResponse);
+
+  // ExecutePayload defines a message for executing a cross-chain payload
+  rpc ExecutePayload(MsgExecutePayload) returns (MsgExecutePayloadResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParams {
+  option (amino.name) = "crosschain/MsgUpdateParams";
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParamsResponse {}
+
+// MsgUpdateAdminParams is the message used by the admin to update AdminParams.
+message MsgUpdateAdminParams {
+  option (amino.name) = "crosschain/MsgUpdateAdminParams";
+  option (cosmos.msg.v1.signer) = "admin";
+
+  // admin is the address authorized to update admin parameters.
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // admin_params defines the admin-only parameters to update.
+  //
+  // NOTE: All fields must be supplied.
+  AdminParams admin_params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateAdminParamsResponse defines the response for MsgUpdateAdminParams.
+message MsgUpdateAdminParamsResponse {}
+
+// MsgDeployNMSC is the message used to deploy a new smart account.
+message MsgDeployNMSC {
+  option (amino.name) = "crosschain/MsgDeployNMSC";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address initiating the tx (used for tx signing)
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // account_id is the identifier of the crosschain owner account
+  AccountId account_id = 2;
+
+  // tx_hash is the hash of the transaction in which user locked the tokens
+  string tx_hash = 3;
+}
+
+// MsgDeployNMSCResponse defines the response for MsgDeployNMSC.
+message MsgDeployNMSCResponse {
+  // smart_account is the address of the newly deployed smart account
+  bytes smart_account = 1;
+}
+
+// MsgMintPush represents a message to mint PUSH tokens to a smart account,
+// based on the amount locked by the user in the locker contract.
+message MsgMintPush {
+  option (amino.name) = "crosschain/MsgMintPush";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address initiating the tx (used for tx signing)
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // account_id is the identifier of the crosschain owner account
+  AccountId account_id = 2;
+
+  // tx_hash is the hash of the transaction in which user locked the tokens
+  string tx_hash = 3;
+}
+
+// MsgMintPushResponse defines the response for MsgMintPush.
+message MsgMintPushResponse {}
+
+// MsgExecutePayload defines a message for executing a cross-chain payload
+message MsgExecutePayload {
+  option (amino.name) = "crosschain/MsgExecutePayload";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address initiating the tx (used for tx signing)
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // account_id is the identifier of the crosschain owner account
+  AccountId account_id = 2;
+
+  // payload is the crosschain payload to be executed
+  CrossChainPayload crosschain_payload = 3;
+
+  // signature is the signature of the payload by user
+  string signature = 4;
+}
+
+// MsgExecutePayloadResponse defines the response for MsgExecutePayload.
+message MsgExecutePayloadResponse {}

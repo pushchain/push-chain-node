@@ -86,4 +86,7 @@ message ChainConfig {
   // block_confirmation specifies the minimum number of block confirmations required
   // before a transaction is considered valid
   uint64 block_confirmation = 9;
+  
+  // funds_added_event_topic is the event topic signature for FundsAdded event
+  string funds_added_event_topic = 10;
 }

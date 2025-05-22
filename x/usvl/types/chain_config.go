@@ -94,6 +94,11 @@ type ChainConfigData struct {
 	// BlockConfirmation specifies the minimum number of block confirmations required
 	// before a transaction is considered valid
 	BlockConfirmation uint64 `json:"block_confirmation" yaml:"block_confirmation"`
+
+	// FundsAddedEventTopic is the event topic signature for the FundsAdded event
+	// For EVM chains, this is a 32-byte (64 character) hex string prefixed with 0x
+	// Example: "0xddcd6ef7998ae51b4ead4e9aa669a7d5ff30af88eddaa5062c91b08153da07c0"
+	FundsAddedEventTopic string `json:"funds_added_event_topic" yaml:"funds_added_event_topic"`
 }
 
 // NewChainConfigData creates a new ChainConfigData instance
@@ -107,6 +112,7 @@ func NewChainConfigData(
 	networkType NetworkType,
 	vmType VmType,
 	blockConfirmation uint64,
+	fundsAddedEventTopic string,
 ) ChainConfigData {
 	return ChainConfigData{
 		ChainId:               chainId,
@@ -118,6 +124,7 @@ func NewChainConfigData(
 		NetworkType:           networkType,
 		VmType:                vmType,
 		BlockConfirmation:     blockConfirmation,
+		FundsAddedEventTopic:  fundsAddedEventTopic,
 	}
 }
 
@@ -168,6 +175,7 @@ func (cc ChainConfigData) ToProto() ChainConfig {
 		NetworkType:           NetworkType(cc.NetworkType),
 		VmType:                VmType(cc.VmType),
 		BlockConfirmation:     cc.BlockConfirmation,
+		FundsAddedEventTopic:  cc.FundsAddedEventTopic,
 	}
 }
 
@@ -183,6 +191,7 @@ func ChainConfigDataFromProto(config ChainConfig) ChainConfigData {
 		NetworkType:           NetworkType(config.NetworkType),
 		VmType:                VmType(config.VmType),
 		BlockConfirmation:     config.BlockConfirmation,
+		FundsAddedEventTopic:  config.FundsAddedEventTopic,
 	}
 }
 
@@ -197,6 +206,7 @@ func DefaultEthereumSepoliaConfig() ChainConfigData {
 		PublicRpcUrl:          "https://rpc.sepolia.org",
 		NetworkType:           NetworkTypeTestnet,
 		VmType:                VmTypeEvm,
-		BlockConfirmation:     12, // Default block confirmation for Sepolia
+		BlockConfirmation:     12,                                                                   // Default block confirmation for Sepolia
+		FundsAddedEventTopic:  "0xddcd6ef7998ae51b4ead4e9aa669a7d5ff30af88eddaa5062c91b08153da07c0", // Default FundsAdded event topic
 	}
 }

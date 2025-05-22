@@ -15,6 +15,8 @@ import (
 type USVLKeeper interface {
 	VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
 	VerifyExternalTransactionToLocker(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
+	// GetFundsAddedEventTopic returns the event topic signature for the FundsAdded event for a given chain identifier
+	GetFundsAddedEventTopic(ctx context.Context, chainIdentifier string) (string, error)
 }
 
 // UsvlVerificationResult is the same structure as USVL's TransactionVerificationResult

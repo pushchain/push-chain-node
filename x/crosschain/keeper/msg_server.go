@@ -2,7 +2,9 @@ package keeper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -159,7 +161,39 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 		"caipAddress", caipAddress,
 		"txInfo", verificationResult.TxInfo)
 
-	amountToMint := sdkmath.NewInt(1000000000000000000) // 1 token
+	// Parse CAIP address to get the chain identifier (e.g., "eip155:11155111")
+	parts := strings.Split(caipAddress, ":")
+	if len(parts) < 2 {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "invalid CAIP address format: %s", caipAddress)
+	}
+	chainIdentifier := parts[0] + ":" + parts[1]
+
+	// Extract the token amount from the FundsAdded event in the transaction logs
+	// The FundsAdded event has signature: FundsAdded(msg.sender, usdtReceived, _transactionHash)
+	// Get the event topic signature for this chain
+	fundsAddedTopic, err := ms.k.usvlKeeper.GetFundsAddedEventTopic(ctx, chainIdentifier)
+	if err != nil {
+		ms.k.logger.Error("Failed to get FundsAddedEventTopic, using default",
+			"chainIdentifier", chainIdentifier,
+			"error", err.Error())
+		// Fall back to the default topic signature if there was an error
+		fundsAddedTopic = "0xddcd6ef7998ae51b4ead4e9aa669a7d5ff30af88eddaa5062c91b08153da07c0"
+	}
+	// Get the VM type from the chain identifier (for future support of different VM types)
+	// For now, we assume it's EVM since that's the only implementation
+	vmType := uint8(1) // 1 = VmTypeEvm
+	
+	amountToMint, err := ExtractAmountFromTransactionLogs(verificationResult.TxInfo, fundsAddedTopic, vmType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to extract token amount from transaction logs")
+	}
+
+	// If amount is zero or not found, fallback to a default amount (should not happen in production)
+	if amountToMint.IsZero() {
+		ms.k.logger.Error("Failed to extract valid amount from transaction logs, using fallback amount",
+			"txHash", msg.TxHash)
+		amountToMint = sdkmath.NewInt(1000000000000000000) // 1 token as fallback
+	}
 
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
@@ -279,4 +313,109 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	}
 
 	return &types.MsgExecutePayloadResponse{}, nil
+}
+
+// ExtractAmountFromTransactionLogs extracts the token amount from transaction logs
+// based on a specific event topic signature. It supports different VMs by using
+// the vmType parameter to determine how to parse the logs.
+func ExtractAmountFromTransactionLogs(txInfoJSON string, eventTopicSignature string, vmType uint8) (sdkmath.Int, error) {
+	// Parse the transaction info JSON
+	var txInfo struct {
+		Logs json.RawMessage `json:"logs"`
+	}
+	if err := json.Unmarshal([]byte(txInfoJSON), &txInfo); err != nil {
+		return sdkmath.ZeroInt(), fmt.Errorf("failed to parse transaction info: %w", err)
+	}
+
+	// If logs is null or empty array JSON, return error
+	if string(txInfo.Logs) == "null" || string(txInfo.Logs) == "[]" {
+		return sdkmath.ZeroInt(), fmt.Errorf("no logs found in transaction")
+	}
+
+	// Extract based on VM type
+	switch vmType {
+	case 1: // VmTypeEvm
+		return ExtractAmountFromEVMLogs(txInfo.Logs, eventTopicSignature)
+	case 2: // VmTypeSvm (Solana)
+		// For future implementation
+		return sdkmath.ZeroInt(), fmt.Errorf("Solana VM log extraction not yet implemented")
+	case 3: // VmTypeWasm
+		// For future implementation
+		return sdkmath.ZeroInt(), fmt.Errorf("WASM VM log extraction not yet implemented")
+	default:
+		// Default to EVM for backward compatibility
+		return ExtractAmountFromEVMLogs(txInfo.Logs, eventTopicSignature)
+	}
+}
+
+// ExtractAmountFromEVMLogs extracts amount from EVM-formatted logs
+func ExtractAmountFromEVMLogs(logsJSON json.RawMessage, eventTopicSignature string) (sdkmath.Int, error) {
+	var logs []struct {
+		Address string   `json:"address"`
+		Topics  []string `json:"topics"`
+		Data    string   `json:"data"`
+	}
+	if err := json.Unmarshal(logsJSON, &logs); err != nil {
+		return sdkmath.ZeroInt(), fmt.Errorf("failed to parse EVM transaction logs: %w", err)
+	}
+
+	// Check if logs array is empty
+	if len(logs) == 0 {
+		return sdkmath.ZeroInt(), fmt.Errorf("no logs found in transaction")
+	}
+
+	// Look for the specific event (FundsAdded) based on topic signature
+	for _, log := range logs {
+		if len(log.Topics) > 0 && log.Topics[0] == eventTopicSignature {
+			// First try to extract amount from topics (indexed parameter case)
+			// For event: FundsAdded(address indexed sender, uint256 indexed usdtReceived, bytes32 _transactionHash)
+			if len(log.Topics) >= 3 {
+				// Check if the third topic contains the amount (typical for indexed param)
+				amountTopic := log.Topics[2]
+				// Remove "0x" prefix if present
+				if strings.HasPrefix(amountTopic, "0x") {
+					amountTopic = amountTopic[2:]
+				}
+				
+				// Try parsing as hex by adding 0x prefix
+				bigInt, success := sdkmath.NewIntFromString("0x" + amountTopic)
+				if success {
+					return bigInt, nil
+				}
+			}
+
+			// If no amount in topics, check data field for non-indexed parameters
+			// For event: FundsAdded(address indexed sender, uint256 usdtReceived, bytes32 _transactionHash)
+			if log.Data != "" {
+				// Remove "0x" prefix if present
+				data := log.Data
+				if strings.HasPrefix(data, "0x") {
+					data = data[2:]
+				}
+
+				// In EVM logs, parameters are 32 bytes each (64 hex chars)
+				if len(data) >= 64 { // At least 1 parameter
+					// First try extracting the first 32 bytes (most common for amount in our case)
+					amountHex := data[0:64]
+					// Try parsing as hex
+					bigInt, success := sdkmath.NewIntFromString("0x" + amountHex)
+					if success {
+						return bigInt, nil
+					}
+					
+					// If the first parameter doesn't work, try the second parameter
+					// (some contracts might have a different layout)
+					if len(data) >= 128 {
+						amountHex = data[64:128]
+						bigInt, success = sdkmath.NewIntFromString("0x" + amountHex)
+						if success {
+							return bigInt, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return sdkmath.ZeroInt(), fmt.Errorf("FundsAdded event or amount parameter not found in EVM logs")
 }

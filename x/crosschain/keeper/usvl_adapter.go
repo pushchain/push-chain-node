@@ -50,3 +50,27 @@ func (a UsvlKeeperAdapter) VerifyExternalTransactionToLocker(ctx context.Context
 		TxInfo:   result.TxInfo,
 	}, nil
 }
+
+// GetFundsAddedEventTopic returns the event topic signature for the FundsAdded event for a given chain identifier
+func (a UsvlKeeperAdapter) GetFundsAddedEventTopic(ctx context.Context, chainIdentifier string) (string, error) {
+	// First try to get all chain configs
+	configs, err := a.keeper.GetAllChainConfigs(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Look for the chain with matching CAIP prefix
+	for _, config := range configs {
+		if config.CaipPrefix == chainIdentifier {
+			// Return the FundsAddedEventTopic from the matching config
+			if config.FundsAddedEventTopic != "" {
+				return config.FundsAddedEventTopic, nil
+			}
+			// If not set in config, return the default value
+			return "0xddcd6ef7998ae51b4ead4e9aa669a7d5ff30af88eddaa5062c91b08153da07c0", nil
+		}
+	}
+
+	// If no matching chain is found, return the default value
+	return "0xddcd6ef7998ae51b4ead4e9aa669a7d5ff30af88eddaa5062c91b08153da07c0", nil
+}

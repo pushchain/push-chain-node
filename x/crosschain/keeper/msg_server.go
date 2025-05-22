@@ -69,7 +69,8 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 		msg.AccountId.OwnerKey)
 
 	// Verify the transaction on the source chain using the USVL module
-	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransaction(ctx, msg.TxHash, caipAddress)
+	// Ensure the transaction is directed to the locker contract
+	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
 	}
@@ -81,7 +82,7 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	}
 
 	// Log that transaction verification was successful
-	ms.k.logger.Info("Transaction verified successfully",
+	ms.k.logger.Info("Transaction verified successfully as directed to locker contract",
 		"txHash", msg.TxHash,
 		"caipAddress", caipAddress,
 		"txInfo", verificationResult.TxInfo)
@@ -140,7 +141,8 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 		msg.AccountId.OwnerKey)
 
 	// Verify the transaction on the source chain using the USVL module
-	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransaction(ctx, msg.TxHash, caipAddress)
+	// Ensure the transaction is directed to the locker contract
+	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
 	}
@@ -152,7 +154,7 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	}
 
 	// Log that transaction verification was successful
-	ms.k.logger.Info("Transaction verified successfully",
+	ms.k.logger.Info("Transaction verified successfully as directed to locker contract",
 		"txHash", msg.TxHash,
 		"caipAddress", caipAddress,
 		"txInfo", verificationResult.TxInfo)

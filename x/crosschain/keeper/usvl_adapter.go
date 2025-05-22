@@ -34,3 +34,19 @@ func (a UsvlKeeperAdapter) VerifyExternalTransaction(ctx context.Context, txHash
 		TxInfo:   result.TxInfo,
 	}, nil
 }
+
+// VerifyExternalTransactionToLocker verifies that a transaction is directed to the locker contract
+// by delegating to the actual USVL keeper and converting the response type
+func (a UsvlKeeperAdapter) VerifyExternalTransactionToLocker(ctx context.Context, txHash string, caipAddress string) (*types.UsvlVerificationResult, error) {
+	// Call the actual USVL keeper implementation
+	result, err := a.keeper.VerifyExternalTransactionToLocker(ctx, txHash, caipAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert the result type to match crosschain's expected interface
+	return &types.UsvlVerificationResult{
+		Verified: result.Verified,
+		TxInfo:   result.TxInfo,
+	}, nil
+}

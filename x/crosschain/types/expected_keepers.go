@@ -14,6 +14,7 @@ import (
 // USVLKeeper defines the expected interface for the USVL module.
 type USVLKeeper interface {
 	VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
+	VerifyExternalTransactionToLocker(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
 }
 
 // UsvlVerificationResult is the same structure as USVL's TransactionVerificationResult

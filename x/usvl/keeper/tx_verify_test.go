@@ -13,12 +13,6 @@ import (
 )
 
 // Change these values to test with real transactions
-const (
-	// Ethereum Sepolia test transaction
-	// This is a placeholder - replace with a real transaction hash
-	SepoliaTxHash      = "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36"
-	SepoliaCAIPAddress = "eip155:11155111:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB"
-)
 
 type TxVerifyTestSuite struct {
 	suite.Suite
@@ -91,7 +85,12 @@ func (suite *TxVerifyTestSuite) getRealKeeperWithConfigs() *keeper.KeeperWithCon
 // Integration test for Sepolia
 func (suite *TxVerifyTestSuite) TestVerifySepoliaTransaction() {
 	t := suite.T()
-
+	const (
+		// Ethereum Sepolia test transaction
+		// This is a placeholder - replace with a real transaction hash
+		SepoliaTxHash      = "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36"
+		SepoliaCAIPAddress = "eip155:11155111:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB"
+	)
 	// Skip the test by default to avoid making real RPC calls in CI
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -190,7 +189,12 @@ func (suite *TxVerifyTestSuite) TestVerifyWithRealTransactions() {
 // TestVerifyConfirmationRequirement tests the block confirmation validation feature
 func (suite *TxVerifyTestSuite) TestVerifyConfirmationRequirement() {
 	t := suite.T()
-
+	const (
+		// Ethereum Sepolia test transaction
+		// This is a placeholder - replace with a real transaction hash
+		SepoliaTxHash      = "0xcea123f57055dcf5d673008b094d27f5207e696674e05637cd6ba1ef0abc2e36"
+		SepoliaCAIPAddress = "eip155:11155111:0xFcEAf1850965F7E601d4E468DB14321fC1Ba17eB"
+	)
 	// Skip the test by default to avoid making real RPC calls in CI
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

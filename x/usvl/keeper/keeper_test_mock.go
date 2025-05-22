@@ -15,6 +15,7 @@ type KeeperTest struct {
 	getAllChainConfigsFn func(ctx context.Context) ([]types.ChainConfigData, error)
 	getChainConfigFn     func(ctx context.Context, chainID string) (types.ChainConfigData, error)
 	verifyTxFn           func(ctx context.Context, txHash string, caipAddress string) (*TransactionVerificationResult, error)
+	verifyTxToLockerFn   func(ctx context.Context, txHash string, caipAddress string) (*TransactionVerificationResult, error)
 }
 
 // NewKeeperTest creates a new KeeperTest instance

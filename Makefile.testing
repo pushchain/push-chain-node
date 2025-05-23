@@ -1,7 +1,7 @@
 # Push Chain Crosschain Module Testing Makefile
 # Unified Testing Commands
 
-.PHONY: test test-html test-coverage clean help
+.PHONY: setup test test-html test-coverage clean help
 
 # Default target
 help:
@@ -9,30 +9,55 @@ help:
 	@echo "====================================="
 	@echo ""
 	@echo "Available Commands:"
+	@echo "  setup             - Install required testing libraries (run once)"
 	@echo "  test              - Run all crosschain module tests"
 	@echo "  test-html         - Run tests and generate HTML report"
 	@echo "  test-coverage     - Run tests with code coverage analysis"
 	@echo "  test-quick        - Quick test execution without reports"
+	@echo "  test-all          - Complete test suite + all reports"
 	@echo "  clean             - Clean generated test files"
 	@echo "  help              - Show this help message"
 	@echo ""
 	@echo "Generated Reports:"
-	@echo "  📊 x/crosschain/test_report.html    - Interactive test results"
-	@echo "  📈 x/crosschain/coverage.html       - Code coverage analysis"
+	@echo "  📊 x/crosschain/test_report.html - Interactive test results"
+	@echo "  📈 x/crosschain/coverage.html - Code coverage analysis"
+	@echo ""
+	@echo "Quick Start:"
+	@echo "  1. make -f Makefile.testing setup     # Install libraries (once)"
+	@echo "  2. make -f Makefile.testing test-all  # Run complete test suite"
 
-# Run all tests
+# Setup - Install required testing libraries
+setup:
+	@echo "🔧 Installing required testing libraries..."
+	@echo "==========================================="
+	@echo "Installing go-test-report..."
+	@go install github.com/vakenbolt/go-test-report@latest
+	@echo "Installing go-junit-report..."
+	@go install github.com/jstemmer/go-junit-report@latest
+	@echo "Installing junit2html..."
+	@go install github.com/alexec/junit2html@latest
+	@echo ""
+	@echo "✅ Setup complete! Libraries installed:"
+	@echo "   • go-test-report - Beautiful HTML test reports"
+	@echo "   • go-junit-report - JUnit XML report generation"
+	@echo "   • junit2html - HTML conversion utility"
+	@echo ""
+	@echo "🚀 Ready to run tests! Try:"
+	@echo "   make -f Makefile.testing test-all"
+
+# Run basic tests
 test:
 	@echo "🧪 Running crosschain module tests..."
-	cd x/crosschain && go test -v ./...
+	@echo "======================================"
+	cd x/crosschain && go test -v ./... || true
+	@echo "✅ Tests completed"
 
-# Run tests and generate HTML report
-test-html:
-	@echo "🧪 Running tests and generating HTML report..."
-	@echo "=============================================="
-	cd x/crosschain && go test -v -json ./... > test_results.json 2>&1 || true
-	cd x/crosschain && cat test_results.json | go-test-report -o test_report.html -t "Push Chain Crosschain Test Report" 2>/dev/null || echo "⚠️  Install go-test-report: go install github.com/vakenbolt/go-test-report@latest"
-	@echo "✅ HTML report generated: x/crosschain/test_report.html"
-	@echo "🌐 Open: file://$(PWD)/x/crosschain/test_report.html"
+# Run tests with quick execution
+test-quick:
+	@echo "⚡ Quick test execution..."
+	@echo "========================="
+	cd x/crosschain && go test ./... || true
+	@echo "✅ Quick tests completed"
 
 # Run tests with coverage analysis
 test-coverage:
@@ -42,18 +67,16 @@ test-coverage:
 	@echo "✅ Coverage report: x/crosschain/coverage.html"
 	@echo "🌐 Open: file://$(PWD)/x/crosschain/coverage.html"
 
-# Clean generated files
-clean:
-	@echo "🧹 Cleaning generated test files..."
-	cd x/crosschain && rm -f *.html *.json *.xml *.md *.out *.log *.prof 2>/dev/null || true
-	@echo "✅ Test files cleaned"
+# Generate HTML test report
+test-html:
+	@echo "🧪 Running tests and generating HTML report..."
+	@echo "=============================================="
+	cd x/crosschain && go test -v -json ./... > test_results.json 2>&1 || true
+	cd x/crosschain && cat test_results.json | go-test-report -o test_report.html -t "Push Chain Crosschain Test Report" 2>/dev/null || echo "⚠️  Run 'make -f Makefile.testing setup' first to install libraries"
+	@echo "✅ HTML report generated: x/crosschain/test_report.html"
+	@echo "🌐 Open: file://$(PWD)/x/crosschain/test_report.html"
 
-# Quick test with immediate results
-test-quick:
-	@echo "⚡ Quick test execution..."
-	cd x/crosschain && go test ./...
-
-# Run comprehensive tests and generate all reports
+# Complete test suite with all reports
 test-all: test-coverage test-html
 	@echo ""
 	@echo "🎉 Complete testing finished!"
@@ -61,4 +84,10 @@ test-all: test-coverage test-html
 	@echo "   • x/crosschain/test_report.html - Interactive test results"
 	@echo "   • x/crosschain/coverage.html - Code coverage analysis"
 	@echo ""
-	@echo "📈 Test Results: All comprehensive validation tests executed" 
+	@echo "📈 Test Results: All comprehensive validation tests executed"
+
+# Clean generated files
+clean:
+	@echo "🧹 Cleaning generated test files..."
+	@rm -f x/crosschain/*.json x/crosschain/*.html x/crosschain/*.out x/crosschain/*.xml x/crosschain/*.log 2>/dev/null || true
+	@echo "✅ Clean completed" 

@@ -1,0 +1,64 @@
+# Push Chain Crosschain Module Testing Makefile
+# Unified Testing Commands
+
+.PHONY: test test-html test-coverage clean help
+
+# Default target
+help:
+	@echo "Push Chain Crosschain Module Testing"
+	@echo "====================================="
+	@echo ""
+	@echo "Available Commands:"
+	@echo "  test              - Run all crosschain module tests"
+	@echo "  test-html         - Run tests and generate HTML report"
+	@echo "  test-coverage     - Run tests with code coverage analysis"
+	@echo "  test-quick        - Quick test execution without reports"
+	@echo "  clean             - Clean generated test files"
+	@echo "  help              - Show this help message"
+	@echo ""
+	@echo "Generated Reports:"
+	@echo "  📊 x/crosschain/test_report.html    - Interactive test results"
+	@echo "  📈 x/crosschain/coverage.html       - Code coverage analysis"
+
+# Run all tests
+test:
+	@echo "🧪 Running crosschain module tests..."
+	cd x/crosschain && go test -v ./...
+
+# Run tests and generate HTML report
+test-html:
+	@echo "🧪 Running tests and generating HTML report..."
+	@echo "=============================================="
+	cd x/crosschain && go test -v -json ./... > test_results.json 2>&1 || true
+	cd x/crosschain && cat test_results.json | go-test-report -o test_report.html -t "Push Chain Crosschain Test Report" 2>/dev/null || echo "⚠️  Install go-test-report: go install github.com/vakenbolt/go-test-report@latest"
+	@echo "✅ HTML report generated: x/crosschain/test_report.html"
+	@echo "🌐 Open: file://$(PWD)/x/crosschain/test_report.html"
+
+# Run tests with coverage analysis
+test-coverage:
+	@echo "📊 Running tests with coverage analysis..."
+	cd x/crosschain && go test -v -coverprofile=coverage.out ./... || true
+	cd x/crosschain && go tool cover -html=coverage.out -o coverage.html || true
+	@echo "✅ Coverage report: x/crosschain/coverage.html"
+	@echo "🌐 Open: file://$(PWD)/x/crosschain/coverage.html"
+
+# Clean generated files
+clean:
+	@echo "🧹 Cleaning generated test files..."
+	cd x/crosschain && rm -f *.html *.json *.xml *.md *.out *.log *.prof 2>/dev/null || true
+	@echo "✅ Test files cleaned"
+
+# Quick test with immediate results
+test-quick:
+	@echo "⚡ Quick test execution..."
+	cd x/crosschain && go test ./...
+
+# Run comprehensive tests and generate all reports
+test-all: test-coverage test-html
+	@echo ""
+	@echo "🎉 Complete testing finished!"
+	@echo "📊 Generated reports:"
+	@echo "   • x/crosschain/test_report.html - Interactive test results"
+	@echo "   • x/crosschain/coverage.html - Code coverage analysis"
+	@echo ""
+	@echo "📈 Test Results: All comprehensive validation tests executed" 

@@ -4,3 +4,51 @@ dist/
 
 # Create cosmos app
 web/
+
+# Test Reports and Generated Files
+# =================================
+# JSON test outputs
+**/test_results.json
+**/test-results.json
+
+# HTML test reports
+**/test_report.html
+**/detailed_test_report.html
+**/security_report.html
+**/admin_params_report.html
+**/junit_report.html
+**/*_report.html
+
+# XML test reports
+**/test_report.xml
+**/junit_report.xml
+**/*_report.xml
+
+# Coverage reports
+**/coverage.out
+**/coverage.html
+**/coverage.xml
+
+# Security reports
+**/automated_security_report.md
+**/automated_test_report.md
+**/crosschain_security_report.md
+**/vulnerability_summary.json
+
+# Test logs
+**/security_test.log
+**/test.log
+**/*.test.log
+
+# Profiling files
+**/mem.prof
+**/cpu.prof
+**/*.prof
+
+# Temporary test files
+**/tmp_*
+**/temp_*
+
+# OS-specific files
+.DS_Store
+**/.DS_Store

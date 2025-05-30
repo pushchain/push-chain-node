@@ -108,7 +108,6 @@ var (
 
 func GetEncodingConfig() *moduletestutil.TestEncodingConfig {
 	cfg := cosmos.DefaultEncoding()
-	// TODO: add encoding types here for the modules you want to use
 	wasm.RegisterInterfaces(cfg.InterfaceRegistry)
 	tokenfactory.RegisterInterfaces(cfg.InterfaceRegistry)
 	evmtypes.RegisterInterfaces(cfg.InterfaceRegistry)

@@ -165,9 +165,6 @@ import (
 
 	// ed25519 precompile types
 	verifierprecompile "github.com/push-protocol/push-chain/precompiles/verifier"
-	verifier "github.com/push-protocol/push-chain/x/verifier"
-	verifierkeeper "github.com/push-protocol/push-chain/x/verifier/keeper"
-	verifiertypes "github.com/push-protocol/push-chain/x/verifier/types"
 
 	// crosschain module
 	crosschain "github.com/push-protocol/push-chain/x/crosschain"
@@ -219,7 +216,7 @@ var (
 	BaseDenomUnit int64 = 18
 
 	BaseDenom    = pushtypes.BaseDenom
-	DisplayDenom = "MY_DENOM_DISPLAY" // TODO: ?
+	DisplayDenom = "MY_DENOM_DISPLAY"
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address
 	Bech32PrefixAccAddr = Bech32Prefix
@@ -319,8 +316,6 @@ type ChainApp struct {
 	UsvlKeeper                usvlkeeper.Keeper
 	CrosschainKeeper          crosschainkeeper.Keeper
 
-	VerifierKeeper verifierkeeper.Keeper
-
 	// the module manager
 	ModuleManager      *module.Manager
 	BasicModuleManager module.BasicManager
@@ -344,8 +339,6 @@ func NewChainApp(
 	evmosAppOptions EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *ChainApp {
-
-	// TODO: verify
 
 	encodingConfig := evmosencoding.MakeConfig()
 	interfaceRegistry := encodingConfig.InterfaceRegistry
@@ -433,7 +426,6 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		usvltypes.StoreKey,
-		verifiertypes.StoreKey,
 		crosschaintypes.StoreKey,
 	)
 
@@ -691,13 +683,6 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	// Create the verifier Keeper
-	app.VerifierKeeper = verifierkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[verifiertypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
@@ -765,7 +750,7 @@ func NewChainApp(
 	)
 
 	// Add the verifier precompile
-	verifierPrecompile, err := verifierprecompile.NewPrecompile(app.VerifierKeeper)
+	verifierPrecompile, err := verifierprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate verifier precompile: %w", err))
 	}
@@ -1025,7 +1010,6 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		usvl.NewAppModule(appCodec, app.UsvlKeeper),
-		verifier.NewAppModule(appCodec, app.VerifierKeeper),
 		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
 	)
 
@@ -1074,7 +1058,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	)
 
@@ -1098,7 +1081,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	)
 
@@ -1149,7 +1131,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1595,7 +1576,6 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(usvltypes.ModuleName)
-	paramsKeeper.Subspace(verifiertypes.ModuleName)
 	paramsKeeper.Subspace(crosschaintypes.ModuleName)
 
 	return paramsKeeper

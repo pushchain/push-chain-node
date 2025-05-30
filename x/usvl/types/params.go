@@ -6,7 +6,6 @@ import (
 
 // DefaultParams returns default module parameters.
 func DefaultParams() Params {
-	// TODO:
 	return Params{
 		SomeValue: true,
 	}
@@ -24,6 +23,5 @@ func (p Params) String() string {
 
 // Validate does the sanity check on the params.
 func (p Params) Validate() error {
-	// TODO:
 	return nil
 }

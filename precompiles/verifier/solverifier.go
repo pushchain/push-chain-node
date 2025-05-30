@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/evmos/os/x/evm/core/vm"
-	"github.com/push-protocol/push-chain/x/verifier/keeper"
 
 	cmn "github.com/evmos/os/precompiles/common"
 )
@@ -27,7 +26,6 @@ var f embed.FS
 // Precompile defines the precompile
 type Precompile struct {
 	cmn.Precompile
-	keeper keeper.Keeper
 }
 
 // return address of the precompile
@@ -35,7 +33,7 @@ func GetAddress() common.Address {
 	return common.HexToAddress(SolverifierPrecompileAddress)
 }
 
-func NewPrecompile(keeper keeper.Keeper) (*Precompile, error) {
+func NewPrecompile() (*Precompile, error) {
 	verifierABI, err := cmn.LoadABI(f, "abi.json")
 
 	if err != nil {
@@ -48,7 +46,6 @@ func NewPrecompile(keeper keeper.Keeper) (*Precompile, error) {
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
-		keeper: keeper,
 	}
 
 	p.SetAddress(GetAddress())

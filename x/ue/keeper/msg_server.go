@@ -70,9 +70,9 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 		msg.AccountId.ChainId,
 		msg.AccountId.OwnerKey)
 
-	// Verify the transaction on the source chain using the USVL module
+	// Verify the transaction on the source chain using the UTV module
 	// Ensure the transaction is directed to the locker contract
-	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
+	verificationResult, err := ms.k.utvKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
 	}
@@ -142,9 +142,9 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 		msg.AccountId.ChainId,
 		msg.AccountId.OwnerKey)
 
-	// Verify the transaction on the source chain using the USVL module
+	// Verify the transaction on the source chain using the UTV module
 	// Ensure the transaction is directed to the locker contract
-	verificationResult, err := ms.k.usvlKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
+	verificationResult, err := ms.k.utvKeeper.VerifyExternalTransactionToLocker(ctx, msg.TxHash, caipAddress)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify transaction %s for CAIP address %s", msg.TxHash, caipAddress)
 	}
@@ -171,7 +171,7 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	// Extract the token amount from the FundsAdded event in the transaction logs
 	// The FundsAdded event has signature: FundsAdded(msg.sender, usdtReceived, _transactionHash)
 	// Get the event topic signature for this chain
-	fundsAddedTopic, err := ms.k.usvlKeeper.GetFundsAddedEventTopic(ctx, chainIdentifier)
+	fundsAddedTopic, err := ms.k.utvKeeper.GetFundsAddedEventTopic(ctx, chainIdentifier)
 	if err != nil {
 		ms.k.logger.Error("Failed to get FundsAddedEventTopic, using default",
 			"chainIdentifier", chainIdentifier,

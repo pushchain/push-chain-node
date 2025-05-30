@@ -63,7 +63,7 @@ func LoadEnv() error {
 
 	// Create a default .env file with Sepolia config
 	defaultEnv := []byte("# Temporary .env file created for testing\n" +
-		"USVL_CHAIN_RPC_11155111=https://ethereum-sepolia.publicnode.com\n")
+		"UTV_CHAIN_RPC_11155111=https://ethereum-sepolia.publicnode.com\n")
 
 	if writeErr := os.WriteFile(tempEnvPath, defaultEnv, 0644); writeErr != nil {
 		fmt.Printf("Warning: Could not create temporary .env file: %v\n", writeErr)
@@ -96,13 +96,13 @@ func LoadEnvWithPath(filePath string) error {
 }
 
 // GetRpcUrlOverride gets a custom RPC URL from environment variables
-// Format: "USVL_CHAIN_RPC_CHAINID" (e.g., USVL_CHAIN_RPC_11155111 for Sepolia)
+// Format: "UTV_CHAIN_RPC_CHAINID" (e.g., UTV_CHAIN_RPC_11155111 for Sepolia)
 func GetRpcUrlOverride(chainID string) (string, bool) {
 	// Ensure environment variables are loaded
 	LoadEnv()
 
 	// Create environment variable name from chain ID
-	envVarName := fmt.Sprintf("USVL_CHAIN_RPC_%s", strings.ToUpper(strings.Replace(chainID, "-", "_", -1)))
+	envVarName := fmt.Sprintf("UTV_CHAIN_RPC_%s", strings.ToUpper(strings.Replace(chainID, "-", "_", -1)))
 
 	// Check if the environment variable exists
 	customRPC := os.Getenv(envVarName)
@@ -116,6 +116,6 @@ func GetRpcUrlOverride(chainID string) (string, bool) {
 // SetChainRpcEnvVar sets an RPC URL override for a chain
 // This is useful for tests that need to set environment variables dynamically
 func SetChainRpcEnvVar(chainID, rpcURL string) {
-	envVarName := fmt.Sprintf("USVL_CHAIN_RPC_%s", strings.ToUpper(strings.Replace(chainID, "-", "_", -1)))
+	envVarName := fmt.Sprintf("UTV_CHAIN_RPC_%s", strings.ToUpper(strings.Replace(chainID, "-", "_", -1)))
 	os.Setenv(envVarName, rpcURL)
 }

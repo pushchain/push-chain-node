@@ -1,0 +1,103 @@
+syntax = "proto3";
+package utv.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "utv/v1/genesis.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/push-protocol/push-chain/x/utv/types";
+
+// Msg defines the module Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a governance operation for updating the module parameters.
+  // The authority is defined in the keeper.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  
+  // AddChainConfig defines a governance operation for adding a new chain configuration.
+  rpc AddChainConfig(MsgAddChainConfig) returns (MsgAddChainConfigResponse);
+
+  // UpdateChainConfig defines a governance operation for updating an existing chain configuration.
+  rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
+
+  // DeleteChainConfig defines a governance operation for removing a chain configuration.
+  rpc DeleteChainConfig(MsgDeleteChainConfig) returns (MsgDeleteChainConfigResponse);
+  
+  // VerifyExternalTransaction validates a transaction that occurred on an external chain
+  rpc VerifyExternalTransaction(MsgVerifyExternalTransaction) returns (MsgVerifyExternalTransactionResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // params defines the module parameters to update.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse is the Msg/UpdateParams response type.
+message MsgUpdateParamsResponse {}
+
+// MsgAddChainConfig is the Msg/AddChainConfig request type.
+message MsgAddChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_config defines the chain configuration to add.
+  ChainConfig chain_config = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgAddChainConfigResponse is the Msg/AddChainConfig response type.
+message MsgAddChainConfigResponse {}
+
+// MsgUpdateChainConfig is the Msg/UpdateChainConfig request type.
+message MsgUpdateChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_config defines the updated chain configuration.
+  ChainConfig chain_config = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateChainConfigResponse is the Msg/UpdateChainConfig response type.
+message MsgUpdateChainConfigResponse {}
+
+// MsgDeleteChainConfig is the Msg/DeleteChainConfig request type.
+message MsgDeleteChainConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(gogoproto.moretags) = "yaml:\"authority\""];
+
+  // chain_id is the unique identifier of the chain configuration to delete.
+  string chain_id = 2;
+}
+
+// MsgDeleteChainConfigResponse is the Msg/DeleteChainConfig response type.
+message MsgDeleteChainConfigResponse {}
+
+// MsgVerifyExternalTransaction is the Msg/VerifyExternalTransaction request type.
+message MsgVerifyExternalTransaction {
+  // tx_hash is the transaction hash on the external chain
+  string tx_hash = 1;
+  
+  // caip_address is the CAIP-formatted address (chain:reference:address)
+  string caip_address = 2;
+}
+
+// MsgVerifyExternalTransactionResponse is the Msg/VerifyExternalTransaction response type.
+message MsgVerifyExternalTransactionResponse {
+  // verified indicates whether the transaction was successfully verified
+  bool verified = 1;
+  
+  // tx_info contains basic transaction information if verified
+  string tx_info = 2;
+}

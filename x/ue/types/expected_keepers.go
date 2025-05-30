@@ -11,16 +11,16 @@ import (
 	"github.com/evmos/os/x/evm/types"
 )
 
-// USVLKeeper defines the expected interface for the USVL module.
-type USVLKeeper interface {
-	VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
-	VerifyExternalTransactionToLocker(ctx context.Context, txHash string, caipAddress string) (*UsvlVerificationResult, error)
+// UTVKeeper defines the expected interface for the UTV module.
+type UTVKeeper interface {
+	VerifyExternalTransaction(ctx context.Context, txHash string, caipAddress string) (*UtvVerificationResult, error)
+	VerifyExternalTransactionToLocker(ctx context.Context, txHash string, caipAddress string) (*UtvVerificationResult, error)
 	// GetFundsAddedEventTopic returns the event topic signature for the FundsAdded event for a given chain identifier
 	GetFundsAddedEventTopic(ctx context.Context, chainIdentifier string) (string, error)
 }
 
-// UsvlVerificationResult is the same structure as USVL's TransactionVerificationResult
-type UsvlVerificationResult struct {
+// UtvVerificationResult is the same structure as UTV's TransactionVerificationResult
+type UtvVerificationResult struct {
 	Verified bool
 	TxInfo   string
 }

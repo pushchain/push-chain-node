@@ -32,8 +32,8 @@ import (
 	module "github.com/push-protocol/push-chain/x/ue"
 	"github.com/push-protocol/push-chain/x/ue/keeper"
 	"github.com/push-protocol/push-chain/x/ue/types"
-	usvlkeeper "github.com/push-protocol/push-chain/x/usvl/keeper"
-	usvltypes "github.com/push-protocol/push-chain/x/usvl/types"
+	utvkeeper "github.com/push-protocol/push-chain/x/utv/keeper"
+	utvtypes "github.com/push-protocol/push-chain/x/utv/types"
 )
 
 var maccPerms = map[string][]string{
@@ -57,7 +57,7 @@ type testFixture struct {
 	bankkeeper    bankkeeper.BaseKeeper
 	stakingKeeper *stakingkeeper.Keeper
 	mintkeeper    mintkeeper.Keeper
-	usvlKeeper    usvlkeeper.Keeper
+	utvKeeper     utvkeeper.Keeper
 
 	addrs      []sdk.AccAddress
 	govModAddr string
@@ -90,23 +90,23 @@ func SetupTest(t *testing.T) *testFixture {
 		stakingtypes.ModuleName,
 		minttypes.ModuleName,
 		types.ModuleName,
-		usvltypes.ModuleName,
+		utvtypes.ModuleName,
 	)
 	f.ctx = sdk.NewContext(integration.CreateMultiStore(keys, logger), cmtproto.Header{}, false, logger)
 
 	// Register SDK modules.
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
-	// Setup real USVL keeper
-	f.usvlKeeper = usvlkeeper.NewKeeper(
+	// Setup real Utv keeper
+	f.utvKeeper = utvkeeper.NewKeeper(
 		encCfg.Codec,
-		runtime.NewKVStoreService(keys[usvltypes.ModuleName]),
+		runtime.NewKVStoreService(keys[utvtypes.ModuleName]),
 		logger,
 		f.govModAddr,
 	)
 
-	// Create a real USVL adapter
-	usvlAdapter := keeper.NewUsvlKeeperAdapter(f.usvlKeeper)
+	// Create a real Utv adapter
+	utvAdapter := keeper.NewUtvKeeperAdapter(f.utvKeeper)
 
 	// Setup Keeper.
 	f.k = keeper.NewKeeper(
@@ -117,7 +117,7 @@ func SetupTest(t *testing.T) *testFixture {
 		&evmkeeper.Keeper{},
 		&feemarketkeeper.Keeper{},
 		f.bankkeeper,
-		usvlAdapter,
+		utvAdapter,
 	)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)

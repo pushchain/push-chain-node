@@ -29,7 +29,7 @@ type Keeper struct {
 	evmKeeper       types.EVMKeeper
 	feemarketKeeper types.FeeMarketKeeper
 	bankKeeper      types.BankKeeper
-	usvlKeeper      types.USVLKeeper
+	utvKeeper       types.UTVKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -41,7 +41,7 @@ func NewKeeper(
 	evmKeeper types.EVMKeeper,
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
-	usvlKeeper types.USVLKeeper,
+	utvKeeper types.UTVKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -62,7 +62,7 @@ func NewKeeper(
 		evmKeeper:       evmKeeper,
 		feemarketKeeper: feemarketKeeper,
 		bankKeeper:      bankKeeper,
-		usvlKeeper:      usvlKeeper,
+		utvKeeper:       utvKeeper,
 	}
 
 	return k
@@ -72,9 +72,9 @@ func (k Keeper) Logger() log.Logger {
 	return k.logger
 }
 
-// USVLKeeper returns the usvlKeeper instance
-func (k Keeper) USVLKeeper() types.USVLKeeper {
-	return k.usvlKeeper
+// UTVKeeper returns the utvKeeper instance
+func (k Keeper) UTVKeeper() types.UTVKeeper {
+	return k.utvKeeper
 }
 
 // InitGenesis initializes the module's state from a genesis state.

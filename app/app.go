@@ -159,9 +159,9 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/push-protocol/push-chain/app/ante"
-	usvl "github.com/push-protocol/push-chain/x/usvl"
-	usvlkeeper "github.com/push-protocol/push-chain/x/usvl/keeper"
-	usvltypes "github.com/push-protocol/push-chain/x/usvl/types"
+	utv "github.com/push-protocol/push-chain/x/utv"
+	utvkeeper "github.com/push-protocol/push-chain/x/utv/keeper"
+	utvtypes "github.com/push-protocol/push-chain/x/utv/types"
 
 	// ed25519 precompile types
 	verifierprecompile "github.com/push-protocol/push-chain/precompiles/verifier"
@@ -313,7 +313,7 @@ type ChainApp struct {
 	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
-	UsvlKeeper                usvlkeeper.Keeper
+	UtvKeeper                 utvkeeper.Keeper
 	UeKeeper                  uekeeper.Keeper
 
 	// the module manager
@@ -425,7 +425,7 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
-		usvltypes.StoreKey,
+		utvtypes.StoreKey,
 		uetypes.StoreKey,
 	)
 
@@ -676,10 +676,10 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the usvl Keeper
-	app.UsvlKeeper = usvlkeeper.NewKeeper(
+	// Create the utv Keeper
+	app.UtvKeeper = utvkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[usvltypes.StoreKey]),
+		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
@@ -720,8 +720,8 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
-	// Create the ue Keeper with USVL adapter
-	usvlAdapter := uekeeper.NewUsvlKeeperAdapter(app.UsvlKeeper)
+	// Create the ue Keeper with Utv adapter
+	utvAdapter := uekeeper.NewUtvKeeperAdapter(app.UtvKeeper)
 	app.UeKeeper = uekeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[uetypes.StoreKey]),
@@ -730,7 +730,7 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
-		usvlAdapter,
+		utvAdapter,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1009,7 +1009,7 @@ func NewChainApp(
 		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		usvl.NewAppModule(appCodec, app.UsvlKeeper),
+		utv.NewAppModule(appCodec, app.UtvKeeper),
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
 	)
 
@@ -1057,7 +1057,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		usvltypes.ModuleName,
+		utvtypes.ModuleName,
 		uetypes.ModuleName,
 	)
 
@@ -1080,7 +1080,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		usvltypes.ModuleName,
+		utvtypes.ModuleName,
 		uetypes.ModuleName,
 	)
 
@@ -1130,7 +1130,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		usvltypes.ModuleName,
+		utvtypes.ModuleName,
 		uetypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1575,7 +1575,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
-	paramsKeeper.Subspace(usvltypes.ModuleName)
+	paramsKeeper.Subspace(utvtypes.ModuleName)
 	paramsKeeper.Subspace(uetypes.ModuleName)
 
 	return paramsKeeper

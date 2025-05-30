@@ -166,10 +166,10 @@ import (
 	// ed25519 precompile types
 	verifierprecompile "github.com/push-protocol/push-chain/precompiles/verifier"
 
-	// crosschain module
-	crosschain "github.com/push-protocol/push-chain/x/crosschain"
-	crosschainkeeper "github.com/push-protocol/push-chain/x/crosschain/keeper"
-	crosschaintypes "github.com/push-protocol/push-chain/x/crosschain/types"
+	// ue module
+	ue "github.com/push-protocol/push-chain/x/ue"
+	uekeeper "github.com/push-protocol/push-chain/x/ue/keeper"
+	uetypes "github.com/push-protocol/push-chain/x/ue/types"
 
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
@@ -250,7 +250,7 @@ var maccPerms = map[string][]string{
 	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
-	crosschaintypes.ModuleName:   {authtypes.Minter, authtypes.Burner},
+	uetypes.ModuleName:           {authtypes.Minter, authtypes.Burner},
 }
 
 var (
@@ -314,7 +314,7 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UsvlKeeper                usvlkeeper.Keeper
-	CrosschainKeeper          crosschainkeeper.Keeper
+	UeKeeper                  uekeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -426,7 +426,7 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		usvltypes.StoreKey,
-		crosschaintypes.StoreKey,
+		uetypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -720,11 +720,11 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
-	// Create the crosschain Keeper with USVL adapter
-	usvlAdapter := crosschainkeeper.NewUsvlKeeperAdapter(app.UsvlKeeper)
-	app.CrosschainKeeper = crosschainkeeper.NewKeeper(
+	// Create the ue Keeper with USVL adapter
+	usvlAdapter := uekeeper.NewUsvlKeeperAdapter(app.UsvlKeeper)
+	app.UeKeeper = uekeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[crosschaintypes.StoreKey]),
+		runtime.NewKVStoreService(keys[uetypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.EVMKeeper,
@@ -1010,7 +1010,7 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		usvl.NewAppModule(appCodec, app.UsvlKeeper),
-		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1058,7 +1058,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		crosschaintypes.ModuleName,
+		uetypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1081,7 +1081,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		crosschaintypes.ModuleName,
+		uetypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1131,7 +1131,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		usvltypes.ModuleName,
-		crosschaintypes.ModuleName,
+		uetypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1576,7 +1576,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(usvltypes.ModuleName)
-	paramsKeeper.Subspace(crosschaintypes.ModuleName)
+	paramsKeeper.Subspace(uetypes.ModuleName)
 
 	return paramsKeeper
 }

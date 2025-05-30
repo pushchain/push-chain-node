@@ -1,0 +1,38 @@
+syntax = "proto3";
+package ue.v1;
+
+import "google/api/annotations.proto";
+import "ue/v1/params.proto";
+
+option go_package = "github.com/rollchains/pchain/x/ue/types";
+
+// Query provides defines the gRPC querier service.
+service Query {
+  // Params queries all parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/ue/v1/params";
+  }
+
+  // AdminParams queries all admin-controlled parameters of the module.
+  rpc AdminParams(QueryAdminParamsRequest) returns (QueryAdminParamsResponse) {
+    option (google.api.http).get = "/ue/v1/admin_params";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params defines the parameters of the module.
+  Params params = 1;
+}
+
+// QueryAdminParamsRequest is the request type for the Query/AdminParams RPC method.
+message QueryAdminParamsRequest {}
+
+// QueryAdminParamsResponse is the response type for the Query/AdminParams RPC method.
+message QueryAdminParamsResponse {
+  // admin_params defines the admin-controlled parameters of the module.
+  AdminParams admin_params = 1;
+}

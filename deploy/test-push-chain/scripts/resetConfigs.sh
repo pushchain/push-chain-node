@@ -9,7 +9,7 @@ export BLOCK_TIME=${BLOCK_TIME:-"1s"}
 export CHAIN_HOME="$HOME/.pchain"
 
 # your chain id
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 # your node name
 export MONIKER="val-2"
 # keyring type

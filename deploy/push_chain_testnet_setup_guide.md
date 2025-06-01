@@ -5,7 +5,7 @@ This guide walks through setting up a multi-node Push Chain testnet with:
 - **Validator Node (val-2)**: Additional validator that joins the network
 
 ## Network Configuration
-- **Chain ID**: `42101`
+- **Chain ID**: `push_42101-1`
 - **Denomination**: `npc` (base unit), `PUSH` (display unit)
 - **Total Supply**: 10 Billion PUSH tokens
 - **Genesis Accounts**: 5 accounts with 2 billion PUSH each
@@ -293,7 +293,7 @@ export KEYRING="test"
 export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"  # acc1
 export NODE_OWNER_WALLET="<VALIDATOR_WALLET_ADDRESS>"  # From step 5.1
 export ONE_PUSH="000000000000000000npush"
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 
 # Transfer 30,000 PUSH to validator wallet
 pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "30000$ONE_PUSH" \
@@ -335,7 +335,7 @@ cat register-validator.json
 
 ```bash
 export NODE_OWNER_WALLET_NAME="acc21"
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 export ONE_PUSH="000000000000000000npush"
 export GENESIS_NODE_IP="<GENESIS_NODE_IP>"
 
@@ -398,12 +398,12 @@ pchaind query block | jq '.block.header | {height, time, proposer_address}'
 
 ```bash
 # Check balances
-pchaind query bank balances <WALLET_ADDRESS> --chain-id 42101
+pchaind query bank balances <WALLET_ADDRESS> --chain-id push_42101-1
 
 # Send test transaction
 pchaind tx bank send <FROM_WALLET> <TO_WALLET> "1000000000000000000npush" \
   --fees 1000000000000000npush \
-  --chain-id 42101 \
+  --chain-id push_42101-1 \
   --keyring-backend test \
   --yes
 ```
@@ -439,7 +439,7 @@ pchaind tx staking edit-validator \
   --new-moniker="New Name" \
   --website="https://new-website.com" \
   --details="Updated description" \
-  --chain-id 42101 \
+  --chain-id push_42101-1 \
   --fees "1000000000000000000npush" \
   --from acc21 \
   --keyring-backend test \
@@ -447,7 +447,7 @@ pchaind tx staking edit-validator \
 
 # Unjail validator (if jailed)
 pchaind tx slashing unjail \
-  --chain-id 42101 \
+  --chain-id push_42101-1 \
   --fees "1000000000000000000npush" \
   --from acc21 \
   --keyring-backend test \
@@ -553,7 +553,7 @@ For non-validator nodes:
 
 ## Network Information Summary
 
-- **Chain ID**: `42101`
+- **Chain ID**: `push_42101-1`
 - **Genesis Node**: Creates network with 5 funded accounts
 - **Token Supply**: 10 billion PUSH (each account gets 2 billion)
 - **Block Time**: 1000ms (1 second)

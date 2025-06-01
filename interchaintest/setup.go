@@ -31,7 +31,7 @@ var (
 	Denom = "npush"
 	Name  = "pchain"
 
-	ChainID = "42101"
+	ChainID = "push_42101-1"
 	Binary  = "pchaind"
 	Bech32  = "push"
 	ibcPath = "ibc-path"

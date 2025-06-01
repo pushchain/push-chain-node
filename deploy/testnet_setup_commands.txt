@@ -93,7 +93,7 @@ pip3 install tomlkit
 python3 --version
 
 
-
+rm -rf app  snap .pchain .pchaind
 mkdir ~/app
 mkdir ~/.pchaind
 
@@ -261,7 +261,7 @@ gallery awkward dream such inspire scissors table wrist gauge orange danger lady
 export FAUCET_WALLET=push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc
 export NODE_OWNER_WALLET=push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl
 export ONE_PUSH=000000000000000000npush
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 
 
 TO BE RUN on V1
@@ -270,7 +270,7 @@ shoaibmohammed@push-chain-testnet-val-01:~$ export KEYRING="test"
 export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"  # acc1 address
 export NODE_OWNER_WALLET="push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl"  # acc21 address from validator node
 export ONE_PUSH="000000000000000000npush"
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 
 shoaibmohammed@push-chain-testnet-val-01:~$ pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID" --keyring-backend "$KEYRING" --yes
 code: 0
@@ -290,7 +290,7 @@ txhash: 2100FD1AA1F59D879CB27D7E02FF346B764DEB6A37B56DDA3DE54DF480F17F36
 
 
 shoaibmohammed@push-chain-testnet-val-02:~/app$ export NODE_OWNER_WALLET_NAME="acc21"
-export CHAIN_ID="42101"
+export CHAIN_ID="push_42101-1"
 export ONE_PUSH="000000000000000000npush"
 
 pchaind tx staking create-validator register-validator.json \

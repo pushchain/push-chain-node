@@ -6,18 +6,18 @@
       "description": "The native token of pchain",
       "denom_units": [
         {
-          "denom": "npush",
+          "denom": "npc",
           "exponent": 0
         },
         {
-          "denom": "NPUSH",
+          "denom": "NPC",
           "exponent": 18
         }
       ],
-      "base": "npush",
-      "name": "pchain NPUSH",
-      "display": "npush",
-      "symbol": "NPUSH",
+      "base": "npc",
+      "name": "pchain NPC",
+      "display": "npc",
+      "symbol": "NPC",
       "logo_URIs": {
         "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
         "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg"

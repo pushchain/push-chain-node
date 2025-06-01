@@ -3,10 +3,10 @@
 #
 # Push Test Net:
 # pn1:
-# CHAIN_ID="push_502-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
+# CHAIN_ID="42101" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
 #
 # Examples:
-# CHAIN_ID="push_502-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
+# CHAIN_ID="42101" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
 shopt -s expand_aliases
 set -eu
@@ -21,7 +21,7 @@ export KEYALGO="eth_secp256k1"
 export KEYRING=${KEYRING:-"test"}
 export HOME_DIR=$(eval echo "${HOME_DIR:-"~/.pchain"}")
 export BINARY=${BINARY:-pchaind}
-export DENOM=${DENOM:-npush}
+export DENOM=${DENOM:-npc}
 
 export CLEAN=${CLEAN:-"false"}
 export RPC=${RPC:-"26657"}

@@ -5,7 +5,7 @@
 cd push-chain
 make install
 cd push-chain/scripts
-CHAIN_ID="push_502-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
+CHAIN_ID="42101" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
 ```
 
 # dev.push.org test net (1..N nodes)
@@ -69,7 +69,7 @@ chmod u+x ~/app/*.sh
 #   add_key $KEY1 2 3 has the correct wallet mnemonic which you own
 #   after creation remove make_first_node.sh to hide keys (this is not not very safe)
 cd ~/app
-CHAIN_ID="push_502-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_first_node.sh
+CHAIN_ID="42101" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_first_node.sh
 # CTRL-C to stop
 
 # run in the backgr
@@ -169,7 +169,7 @@ export FAUCET_WALLET=push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20
 #  node wallet (from the cmd above: pchaind tendermint show-node-id)
 export NODE_OWNER_WALLET=push1upvlrjlsvxpgk03nz327szz9wgcjh8afhk26k0
 export ONE_PUSH=000000000000000000npush
-export CHAIN_ID="push_502-1"
+export CHAIN_ID="42101"
 
 # we transfer 20k PUSH
 pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET"   "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID"  --keyring-backend "$KEYRING"

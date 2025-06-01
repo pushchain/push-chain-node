@@ -184,7 +184,7 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID = "push_502-1"
+	ChainID = "42101"
 )
 
 var (
@@ -214,7 +214,7 @@ var (
 
 	BaseDenomUnit int64 = 18
 
-	BaseDenom    = "npush"
+	BaseDenom    = "npc"
 	DisplayDenom = "MY_DENOM_DISPLAY" // TODO: ?
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address

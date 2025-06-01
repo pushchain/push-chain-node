@@ -9,13 +9,13 @@ export BLOCK_TIME=${BLOCK_TIME:-"1s"}
 export CHAIN_HOME="$HOME/.pchain"
 
 # your chain id
-export CHAIN_ID="push_502-1"
+export CHAIN_ID="42101"
 # your node name
 export MONIKER="val-2"
 # keyring type
 export KEYRING="test"
 # token name
-export DENOM="npush"
+export DENOM="npc"
 
 read -p "-> This will remove all config .toml files. Type DELETEALL to continue " response
 if [[ "$response" == "DELETEALL" || "$response" == "deleteall" ]]; then

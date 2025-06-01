@@ -317,7 +317,7 @@ setup-testnet: mod-tidy is-localic-installed install local-image set-testnet-con
 # Run this before testnet keys are added
 # This chain id is used in the testnet.json as well
 set-testnet-configs:
-	pchaind config set client chain-id push_502-1
+	pchaind config set client chain-id 42101
 	pchaind config set client keyring-backend test
 	pchaind config set client output text
 

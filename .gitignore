@@ -4,3 +4,6 @@ dist/
 
 # Create cosmos app
 web/
+build/pchaind
+genesis.json
+.DS_Store

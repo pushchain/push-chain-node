@@ -184,7 +184,7 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID = "localchain_9000-1"
+	ChainID = "push_502-1"
 )
 
 var (

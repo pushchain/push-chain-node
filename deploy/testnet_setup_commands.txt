@@ -1,0 +1,318 @@
+# 1. Reserve static external IPs for validator-01 and validator-02
+gcloud compute addresses create push-chain-testnet-val-01-ip --region=us-central1
+gcloud compute addresses create push-chain-testnet-val-02-ip --region=us-central1
+
+# 2. Create the val-01 node (no SSH metadata here)
+gcloud compute instances create push-chain-testnet-val-01 \
+  --zone=us-central1-a \
+  --machine-type=custom-4-10496 \
+  --image-family=ubuntu-2204-lts \
+  --image-project=ubuntu-os-cloud \
+  --boot-disk-size=200GB \
+  --boot-disk-type=pd-ssd \
+  --network=cosmos-network \
+  --subnet=cosmos-network \
+  --address=push-chain-testnet-val-01-ip \
+  --tags=cosmos-p2p,http-server,https-server \
+  --maintenance-policy=MIGRATE \
+  --shielded-vtpm \
+  --shielded-integrity-monitoring \
+  --service-account=764067207434-compute@developer.gserviceaccount.com \
+  --scopes=\
+https://www.googleapis.com/auth/devstorage.read_only,\
+https://www.googleapis.com/auth/logging.write,\
+https://www.googleapis.com/auth/monitoring.write,\
+https://www.googleapis.com/auth/pubsub,\
+https://www.googleapis.com/auth/service.management.readonly,\
+https://www.googleapis.com/auth/servicecontrol,\
+https://www.googleapis.com/auth/trace.append
+
+# 3. Create the first validator node (no SSH metadata here)
+gcloud compute instances create push-chain-testnet-val-02 \
+  --zone=us-central1-a \
+  --machine-type=custom-4-10496 \
+  --image-family=ubuntu-2204-lts \
+  --image-project=ubuntu-os-cloud \
+  --boot-disk-size=200GB \
+  --boot-disk-type=pd-ssd \
+  --network=cosmos-network \
+  --subnet=cosmos-network \
+  --address=push-chain-testnet-val-02-ip \
+  --tags=cosmos-p2p,http-server,https-server \
+  --maintenance-policy=MIGRATE \
+  --shielded-vtpm \
+  --shielded-integrity-monitoring \
+  --service-account=764067207434-compute@developer.gserviceaccount.com \
+  --scopes=\
+https://www.googleapis.com/auth/devstorage.read_only,\
+https://www.googleapis.com/auth/logging.write,\
+https://www.googleapis.com/auth/monitoring.write,\
+https://www.googleapis.com/auth/pubsub,\
+https://www.googleapis.com/auth/service.management.readonly,\
+https://www.googleapis.com/auth/servicecontrol,\
+https://www.googleapis.com/auth/trace.append
+
+gcloud compute instances add-metadata push-chain-testnet-val-01 \
+  --zone=us-central1-a \
+  --metadata=ssh-keys="shoaibmohammed:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCksx/mCH7xZH3EIq6QpNgBLRehq2XISdTvhXDYuHvz3C7LgUn05mFvx04HyyU9S7il0MBbmwEX1r4IsHxwdQ85Lbnxz725XO1q7TR1P0+3nH54CCz3QUpMSfaFeR6IvQDnLiQAg5x1AkCPIYH2G+3nce4frnNog2sBuqSTtSfwgegQCkPP0+b1PIugJD1GjmCIMfMB/KUs5yVXaZo6eqbguNgf/4CycTrbjwtKELDMf8N5+A8JtVn21O1uKCiVWlR9Wl7aknzN74wfhk0CxMp4345ua75I6AEunpXiOOR5tA/sxYkR5JfgQtsIqsXC+02B2ATT9UgRCmOXSL6sEpFH shoaibmohammed@Shoaibs-MacBook-Pro.local"
+
+
+gcloud compute instances add-metadata push-chain-testnet-val-02 \
+  --zone=us-central1-a \
+  --metadata=ssh-keys="shoaibmohammed:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCksx/mCH7xZH3EIq6QpNgBLRehq2XISdTvhXDYuHvz3C7LgUn05mFvx04HyyU9S7il0MBbmwEX1r4IsHxwdQ85Lbnxz725XO1q7TR1P0+3nH54CCz3QUpMSfaFeR6IvQDnLiQAg5x1AkCPIYH2G+3nce4frnNog2sBuqSTtSfwgegQCkPP0+b1PIugJD1GjmCIMfMB/KUs5yVXaZo6eqbguNgf/4CycTrbjwtKELDMf8N5+A8JtVn21O1uKCiVWlR9Wl7aknzN74wfhk0CxMp4345ua75I6AEunpXiOOR5tA/sxYkR5JfgQtsIqsXC+02B2ATT9UgRCmOXSL6sEpFH shoaibmohammed@Shoaibs-MacBook-Pro.local"
+
+
+
+
+V-1 node
+
+
+
+nc -l 26656
+telnet $REMOTE_HOST 26656
+
+# Update package list
+sudo apt-get update
+
+# Install required packages
+sudo apt-get install -y \
+    build-essential \
+    git \
+    golang-go \
+    jq \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    netcat
+
+# Install Python dependencies
+pip3 install tomlkit
+
+# Verify Python version (should be 3.10+)
+python3 --version
+
+
+
+mkdir ~/app
+mkdir ~/.pchaind
+
+echo 'export PATH="$HOME/app:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+
+
+from local to gensis
+
+
+
+scp "build/pchaind" "34.9.66.201:~/app/pchaind"
+scp "deploy/make_first_node.sh" "34.9.66.201:~/app/make_first_node.sh"
+scp -r deploy/test-push-chain/scripts/* "34.9.66.201:~/app/"
+
+scp \
+  build/pchaind \
+  deploy/make_first_node.sh \
+  deploy/test-push-chain/scripts/* \
+  34.9.66.201:~/app/
+
+
+SSH Node-1
+
+chmod +x ~/app/pchaind
+chmod u+x ~/app/*.sh
+sudo rm /usr/local/bin/pchaind
+sudo ln -s ~/app/pchaind /usr/local/bin/pchaind
+
+~/app/make_first_node.sh
+~/app/start.sh
+~/app/showLogs.sh
+
+
+
+V-2 node
+
+mkdir ~/app
+mkdir ~/.pchaind
+echo 'export PATH="$HOME/app:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+
+# Update package list
+sudo apt-get update
+
+# Install required packages
+sudo apt-get install -y \
+    build-essential \
+    git \
+    golang-go \
+    jq \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    netcat
+
+# Install Python dependencies
+pip3 install tomlkit
+
+# Verify Python version (should be 3.10+)
+python3 --version
+
+
+
+from local to validator
+
+
+scp "build/pchaind" "34.29.120.247:~/app/pchaind"
+scp -r deploy/test-push-chain/scripts/* "34.29.120.247:~/app/"
+scp -r deploy/test-push-chain/config/* "34.29.120.247:~/app/config-tmp/"
+scp "deploy/test-push-chain/scripts/toml_edit.py" "34.29.120.247:~/app/toml_edit.py"
+
+On node 
+
+chmod u+x ~/app/pchaind
+chmod u+x ~/app/*.sh
+sudo rm /usr/local/bin/pchain && \
+sudo ln -s ~/app/pchaind /usr/local/bin/pchain
+
+
+
+
+~/app/resetConfigs.sh
+python3 ~/app/toml_edit.py \
+  ~/.pchain/config/config.toml \
+  "moniker" \
+  "val-2"
+
+
+
+# note : execute this cmd on the remote node to get it's id : pchaind tendermint show-node-id 
+export pn1_url="cc55976a4eba4ef4165b91c13679c3afceb08fa8@34.9.66.201:26656"
+
+#Step 1: Copy from node 1 to local:
+scp "34.9.66.201:~/.pchain/config/genesis.json" "./genesis.json"
+
+# Step 2: Copy from local to node 2:
+scp "./genesis.json" "34.29.120.247:~/.pchain/config/genesis.json"
+
+
+
+
+python3 ~/app/toml_edit.py \
+  ~/.pchain/config/config.toml \
+  "p2p.persistent_peers" \
+  "$pn1_url"
+
+
+echo '{"height":"0","round":0,"step":0}' > ~/.pchain/data/priv_validator_state.json
+
+chmod 600 ~/.pchain/config/priv_validator_key.json 2>/dev/null || true
+
+
+
+pchaind tendermint show-node-id
+427a34b407ccb89a4959aae97c27490e9bdf82b5 
+
+
+export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
+export ONE_PUSH=000000000000000000npush
+export VALIDATOR_NAME=\"val-2\"
+cat <<EOF > register-validator.json
+{
+	"pubkey": $VALIDATOR_PUBKEY,
+	"amount": "20000$ONE_PUSH",
+	"moniker": $VALIDATOR_NAME,
+	"website": "example.com",
+	"security": "swein2@gmail.com",
+	"details": "a test validator",
+	"commission-rate": "0.1",
+	"commission-max-rate": "0.2",
+	"commission-max-change-rate": "0.01",
+	"min-self-delegation": "1"
+}
+EOF
+echo "validator name: $VALIDATOR_NAME, pubkey is $VALIDATOR_PUBKEY"
+echo "json cmd is "
+
+
+cat register-validator.json
+
+
+
+shoaibmohammed@push-chain-testnet-val-02:~/.pchain$ 
+export KEYRING="test"
+export NODE_OWNER_WALLET_NAME=acc21
+# write & save mnemonic for future use
+pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
+
+- address: push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl
+  name: acc21
+  pubkey: '{"@type":"/os.crypto.v1.ethsecp256k1.PubKey","key":"AtUZlBEw186q2g+Ax31DLYQG6/3C/GV0TSQTvh7x1jTv"}'
+  type: local
+
+
+**Important** write this mnemonic phrase in a safe place.
+It is the only way to recover your account if you ever forget your password.
+
+gallery awkward dream such inspire scissors table wrist gauge orange danger lady calm print permit detect flame march dad knife toddler eyebrow blind soft
+
+
+export FAUCET_WALLET=push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc
+export NODE_OWNER_WALLET=push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl
+export ONE_PUSH=000000000000000000npush
+export CHAIN_ID="push_502-1"
+
+
+TO BE RUN on V1
+
+shoaibmohammed@push-chain-testnet-val-01:~$ export KEYRING="test"
+export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"  # acc1 address
+export NODE_OWNER_WALLET="push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl"  # acc21 address from validator node
+export ONE_PUSH="000000000000000000npush"
+export CHAIN_ID="push_502-1"
+
+shoaibmohammed@push-chain-testnet-val-01:~$ pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID" --keyring-backend "$KEYRING" --yes
+code: 0
+codespace: ""
+data: ""
+events: []
+gas_used: "0"
+gas_wanted: "0"
+height: "0"
+info: ""
+logs: []
+raw_log: ""
+timestamp: ""
+tx: null
+txhash: 2100FD1AA1F59D879CB27D7E02FF346B764DEB6A37B56DDA3DE54DF480F17F36
+
+
+
+shoaibmohammed@push-chain-testnet-val-02:~/app$ export NODE_OWNER_WALLET_NAME="acc21"
+export CHAIN_ID="push_502-1"
+export ONE_PUSH="000000000000000000npush"
+
+pchaind tx staking create-validator register-validator.json \
+  --chain-id $CHAIN_ID \
+  --fees "1$ONE_PUSH" \
+  --gas "1000000" \
+  --from $NODE_OWNER_WALLET_NAME \
+  --node=tcp://34.9.66.201:26657 \
+  --keyring-backend test \
+  --yes
+code: 0
+codespace: ""
+data: ""
+events: []
+gas_used: "0"
+gas_wanted: "0"
+height: "0"
+info: ""
+logs: []
+raw_log: ""
+timestamp: ""
+tx: null
+txhash: 415430F6860B4788895837F636433D69C9BD63FA4A566CD0C5B83F9427FE84B4
+
+

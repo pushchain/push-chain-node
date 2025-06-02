@@ -160,8 +160,8 @@ import (
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
 
-	// ed25519 precompile types
-	verifierprecompile "github.com/rollchains/pchain/precompiles/verifier"
+	// usv precompile types
+	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 
 	// ue module
 	ue "github.com/rollchains/pchain/x/ue"
@@ -736,12 +736,12 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the verifier precompile
-	verifierPrecompile, err := verifierprecompile.NewPrecompile()
+	// Add the usv precompile
+	usvPrecompile, err := usvprecompile.NewPrecompile()
 	if err != nil {
-		panic(fmt.Errorf("failed to instantiate verifier precompile: %w", err))
+		panic(fmt.Errorf("failed to instantiate usv precompile: %w", err))
 	}
-	corePrecompiles[verifierPrecompile.Address()] = verifierPrecompile
+	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,

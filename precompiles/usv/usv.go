@@ -34,7 +34,7 @@ func GetAddress() common.Address {
 }
 
 func NewPrecompile() (*Precompile, error) {
-	verifierABI, err := cmn.LoadABI(f, "abi.json")
+	usvABI, err := cmn.LoadABI(f, "abi.json")
 
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func NewPrecompile() (*Precompile, error) {
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  verifierABI,
+			ABI:                  usvABI,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},

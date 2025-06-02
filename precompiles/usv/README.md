@@ -8,7 +8,7 @@ This is the USV (Universal Signature Verifier) precompile, responsible for verif
 
 ```bash
 cd precompiles/usv
-solc USV.sol --abi
+solcjs USV.sol --abi
 mv *.abi abi.json
 jq --argjson abi "$(cat abi.json)" '{"_format": "hh-sol-artifact-1", "contractName": "USV", "sourceName": "precompiles/USV.sol", "bytecode": "0x", "deployedBytecode": "0x", "linkReferences": {}, "deployedLinkReferences": {}, "abi": $abi}' <<< '{}' > abi.json
 cd ../../

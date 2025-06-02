@@ -162,9 +162,6 @@ import (
 
 	// ed25519 precompile types
 	verifierprecompile "github.com/rollchains/pchain/precompiles/verifier"
-	verifier "github.com/rollchains/pchain/x/verifier"
-	verifierkeeper "github.com/rollchains/pchain/x/verifier/keeper"
-	verifiertypes "github.com/rollchains/pchain/x/verifier/types"
 
 	// crosschain module
 	crosschain "github.com/rollchains/pchain/x/crosschain"
@@ -315,8 +312,6 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	CrosschainKeeper          crosschainkeeper.Keeper
 
-	VerifierKeeper verifierkeeper.Keeper
-
 	// the module manager
 	ModuleManager      *module.Manager
 	BasicModuleManager module.BasicManager
@@ -428,7 +423,6 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
-		verifiertypes.StoreKey,
 		crosschaintypes.StoreKey,
 	)
 
@@ -679,14 +673,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the verifier Keeper
-	app.VerifierKeeper = verifierkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[verifiertypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -751,7 +737,7 @@ func NewChainApp(
 	)
 
 	// Add the verifier precompile
-	verifierPrecompile, err := verifierprecompile.NewPrecompile(app.VerifierKeeper)
+	verifierPrecompile, err := verifierprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate verifier precompile: %w", err))
 	}
@@ -1010,7 +996,6 @@ func NewChainApp(
 		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		verifier.NewAppModule(appCodec, app.VerifierKeeper),
 		crosschain.NewAppModule(appCodec, app.CrosschainKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
 	)
 
@@ -1058,7 +1043,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	)
 
@@ -1081,7 +1065,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	)
 
@@ -1131,7 +1114,6 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		verifiertypes.ModuleName,
 		crosschaintypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1576,7 +1558,6 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
-	paramsKeeper.Subspace(verifiertypes.ModuleName)
 	paramsKeeper.Subspace(crosschaintypes.ModuleName)
 
 	return paramsKeeper

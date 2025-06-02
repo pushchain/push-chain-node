@@ -1,4 +1,4 @@
-package solverifier
+package usv
 
 import (
 	"crypto/ed25519"

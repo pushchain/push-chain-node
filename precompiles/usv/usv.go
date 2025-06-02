@@ -1,4 +1,4 @@
-package solverifier
+package usv
 
 import (
 	"embed"
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	SolverifierPrecompileAddress = "0x0000000000000000000000000000000000000901"
+	UsvPrecompileAddress = "0x00000000000000000000000000000000000000ca"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -30,7 +30,7 @@ type Precompile struct {
 
 // return address of the precompile
 func GetAddress() common.Address {
-	return common.HexToAddress(SolverifierPrecompileAddress)
+	return common.HexToAddress(UsvPrecompileAddress)
 }
 
 func NewPrecompile() (*Precompile, error) {

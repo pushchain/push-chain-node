@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
@@ -159,22 +158,19 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
-
-	// usv precompile types
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
-
-	// ue module
 	ue "github.com/rollchains/pchain/x/ue"
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
-
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-
 	pushtypes "github.com/rollchains/pchain/types"
+	utv "github.com/rollchains/pchain/x/utv"
+	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
+	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
 const (
@@ -311,6 +307,7 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UeKeeper                  uekeeper.Keeper
+	UtvKeeper utvkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -424,6 +421,7 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		uetypes.StoreKey,
+		utvtypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -672,6 +670,14 @@ func NewChainApp(
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
+
+	// Create the utv Keeper
+	app.UtvKeeper = utvkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
@@ -997,6 +1003,8 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
+		utv.NewAppModule(appCodec, app.UtvKeeper),
+
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1044,6 +1052,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
+		utvtypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1066,6 +1075,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
+		utvtypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1115,6 +1125,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
+		utvtypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1559,6 +1570,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uetypes.ModuleName)
+	paramsKeeper.Subspace(utvtypes.ModuleName)
 
 	return paramsKeeper
 }

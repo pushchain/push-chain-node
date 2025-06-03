@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName = "/utv.v1.Query/Params"
+	Query_Params_FullMethodName         = "/utv.v1.Query/Params"
+	Query_VerifiedTxHash_FullMethodName = "/utv.v1.Query/VerifiedTxHash"
 )
 
 // QueryClient is the client API for Query service.
@@ -28,6 +29,8 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// VerifiedTxHash queries if a transaction hash is verified on a specific chain.
+	VerifiedTxHash(ctx context.Context, in *QueryVerifiedTxHashRequest, opts ...grpc.CallOption) (*QueryVerifiedTxHashResponse, error)
 }
 
 type queryClient struct {
@@ -47,12 +50,23 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
+func (c *queryClient) VerifiedTxHash(ctx context.Context, in *QueryVerifiedTxHashRequest, opts ...grpc.CallOption) (*QueryVerifiedTxHashResponse, error) {
+	out := new(QueryVerifiedTxHashResponse)
+	err := c.cc.Invoke(ctx, Query_VerifiedTxHash_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// VerifiedTxHash queries if a transaction hash is verified on a specific chain.
+	VerifiedTxHash(context.Context, *QueryVerifiedTxHashRequest) (*QueryVerifiedTxHashResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -62,6 +76,9 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (UnimplementedQueryServer) VerifiedTxHash(context.Context, *QueryVerifiedTxHashRequest) (*QueryVerifiedTxHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifiedTxHash not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -94,6 +111,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_VerifiedTxHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryVerifiedTxHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).VerifiedTxHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_VerifiedTxHash_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).VerifiedTxHash(ctx, req.(*QueryVerifiedTxHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -104,6 +139,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "VerifiedTxHash",
+			Handler:    _Query_VerifiedTxHash_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

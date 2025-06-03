@@ -24,6 +24,9 @@ type Keeper struct {
 	Params      collections.Item[types.Params]
 	VerifiedTxs collections.Map[string, bool]
 
+	// keepers
+	ueKeeper types.UeKeeper
+
 	authority string
 }
 
@@ -33,6 +36,7 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
+	ueKeeper types.UeKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -50,6 +54,7 @@ func NewKeeper(
 		VerifiedTxs: collections.NewMap(sb, types.VerifiedTxsKeyPrefix, types.VerifiedTxsName, collections.StringKey, collections.BoolValue),
 
 		authority: authority,
+		ueKeeper:  ueKeeper,
 	}
 
 	return k

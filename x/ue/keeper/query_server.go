@@ -44,7 +44,7 @@ func (k Querier) AdminParams(goCtx context.Context, req *types.QueryAdminParamsR
 func (k Querier) ChainConfig(goCtx context.Context, req *types.QueryChainConfigRequest) (*types.QueryChainConfigResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	cc, err := k.Keeper.ChainConfigs.Get(ctx, req.ChainId)
+	cc, err := k.Keeper.GetChainConfig(ctx, req.ChainId)
 	if err != nil {
 		return nil, err
 	}

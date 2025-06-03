@@ -92,3 +92,11 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		Params: params,
 	}
 }
+
+func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.ChainConfig, error) {
+	config, err := k.ChainConfigs.Get(ctx, chainID)
+	if err != nil {
+		return types.ChainConfig{}, err
+	}
+	return config, nil
+}

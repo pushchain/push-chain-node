@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
@@ -159,18 +160,18 @@ import (
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
+	pushtypes "github.com/rollchains/pchain/types"
 	ue "github.com/rollchains/pchain/x/ue"
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
+	utv "github.com/rollchains/pchain/x/utv"
+	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
+	utvtypes "github.com/rollchains/pchain/x/utv/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-	pushtypes "github.com/rollchains/pchain/types"
-	utv "github.com/rollchains/pchain/x/utv"
-	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
 const (
@@ -307,7 +308,7 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UeKeeper                  uekeeper.Keeper
-	UtvKeeper utvkeeper.Keeper
+	UtvKeeper                 utvkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -677,6 +678,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.UeKeeper,
 	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
@@ -1003,8 +1005,7 @@ func NewChainApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
-		utv.NewAppModule(appCodec, app.UtvKeeper),
-
+		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

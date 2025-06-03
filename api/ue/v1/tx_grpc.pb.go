@@ -24,6 +24,7 @@ const (
 	Msg_DeployNMSC_FullMethodName        = "/ue.v1.Msg/DeployNMSC"
 	Msg_MintPush_FullMethodName          = "/ue.v1.Msg/MintPush"
 	Msg_ExecutePayload_FullMethodName    = "/ue.v1.Msg/ExecutePayload"
+	Msg_AddChainConfig_FullMethodName    = "/ue.v1.Msg/AddChainConfig"
 )
 
 // MsgClient is the client API for Msg service.
@@ -42,6 +43,8 @@ type MsgClient interface {
 	MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error)
 	// ExecutePayload defines a message for executing a cross-chain payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
+	// AddChainConfig adds a new ChainConfig entry
+	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
 }
 
 type msgClient struct {
@@ -97,6 +100,15 @@ func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, o
 	return out, nil
 }
 
+func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
+	out := new(MsgAddChainConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_AddChainConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -113,6 +125,8 @@ type MsgServer interface {
 	MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error)
 	// ExecutePayload defines a message for executing a cross-chain payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
+	// AddChainConfig adds a new ChainConfig entry
+	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -134,6 +148,9 @@ func (UnimplementedMsgServer) MintPush(context.Context, *MsgMintPush) (*MsgMintP
 }
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
+}
+func (UnimplementedMsgServer) AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddChainConfig not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -238,6 +255,24 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAddChainConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AddChainConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_AddChainConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -264,6 +299,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecutePayload",
 			Handler:    _Msg_ExecutePayload_Handler,
+		},
+		{
+			MethodName: "AddChainConfig",
+			Handler:    _Msg_AddChainConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

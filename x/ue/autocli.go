@@ -21,6 +21,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "admin-params",
 					Short:     "Query the current admin parameters",
 				},
+				{
+					RpcMethod: "ChainConfig",
+					Use:       "chain-config --chain-id [chain-id]",
+					Short:     "Query the chain configuration for a specific chain ID",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -36,15 +41,19 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				},
 				{
 					RpcMethod: "DeployNMSC",
-					Use:       "deploy-nmsc [user-key] [caip-string] [owner-type] [tx-hash]",
+					Use:       "deploy-nmsc --account-id [account-id] --tx-hash [tx-hash]",
 				},
 				{
 					RpcMethod: "MintPush",
-					Use:       "mint-push [tx-hash] [caip-string]",
+					Use:       "mint-push --account-id [account-id] --tx-hash [tx-hash]",
 				},
 				{
 					RpcMethod: "ExecutePayload",
-					Use:       "execute-payload [caip-string] [target] [value] [data-hex] [gas-limit] [max-fee-per-gas] [max-priority-fee-per-gas] [nonce] [deadline] [signature-hex]",
+					Use:       "execute-payload --account-id [account-id] --crosschain_payload [crosschain_payload]",
+				},
+				{
+					RpcMethod: "AddChainConfig",
+					Use:       "add-chain-config --chain-config [chain-config]",
 				},
 			},
 		},

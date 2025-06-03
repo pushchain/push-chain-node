@@ -39,3 +39,15 @@ func (k Querier) AdminParams(goCtx context.Context, req *types.QueryAdminParamsR
 	}
 	return &types.QueryAdminParamsResponse{AdminParams: &ap}, nil
 }
+
+// ChainConfig implements types.QueryServer.
+func (k Querier) ChainConfig(goCtx context.Context, req *types.QueryChainConfigRequest) (*types.QueryChainConfigResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	cc, err := k.Keeper.ChainConfigs.Get(ctx, req.ChainId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryChainConfigResponse{Config: &cc}, nil
+}

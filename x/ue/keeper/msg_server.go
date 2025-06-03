@@ -232,3 +232,18 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 
 	return &types.MsgExecutePayloadResponse{}, nil
 }
+
+// AddChainConfig implements types.MsgServer.
+func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	return nil, ms.k.ChainConfigs.Set(ctx, msg.ChainConfig.ChainId, *msg.ChainConfig)
+}

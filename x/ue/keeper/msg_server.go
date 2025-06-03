@@ -233,7 +233,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	return &types.MsgExecutePayloadResponse{}, nil
 }
 
-// AddChainConfig implements types.MsgServer.
+// AddChainConfig enables the addition of a new chain configuration - Admin restricted.
 func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
@@ -242,8 +242,41 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 	}
 
 	if params.Admin != msg.Signer {
-		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	return nil, ms.k.ChainConfigs.Set(ctx, msg.ChainConfig.ChainId, *msg.ChainConfig)
+	chainConfig := msg.ChainConfig
+
+	// Check if chain ID already exists
+	if has, err := ms.k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
+		return nil, err
+	} else if has {
+		return nil, fmt.Errorf("chain config for %s already exists", chainConfig.ChainId)
+	}
+
+	return nil, ms.k.ChainConfigs.Set(ctx, chainConfig.ChainId, *chainConfig)
+}
+
+// UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
+func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateChainConfig) (*types.MsgUpdateChainConfigResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	chainConfig := msg.ChainConfig
+
+	// Check if chain ID exists
+	if has, err := ms.k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
+		return nil, err
+	} else if !has {
+		return nil, fmt.Errorf("chain config for %s does not exist", chainConfig.ChainId)
+	}
+
+	return nil, ms.k.ChainConfigs.Set(ctx, chainConfig.ChainId, *chainConfig)
 }

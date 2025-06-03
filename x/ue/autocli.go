@@ -55,6 +55,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "AddChainConfig",
 					Use:       "add-chain-config --chain-config [chain-config]",
 				},
+				{
+					RpcMethod: "UpdateChainConfig",
+					Use:       "update-chain-config --chain-config [chain-config]",
+				},
 			},
 		},
 	}

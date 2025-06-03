@@ -111,31 +111,142 @@ func (m *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
+// QueryVerifiedTxHashRequest is the request type for querying if a transaction hash is verified.
+type QueryVerifiedTxHashRequest struct {
+	// chain_id is the identifier of the chain to query.
+	ChainId string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	// hash is the hash of the transaction to query.
+	TxHash string `protobuf:"bytes,2,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
+}
+
+func (m *QueryVerifiedTxHashRequest) Reset()         { *m = QueryVerifiedTxHashRequest{} }
+func (m *QueryVerifiedTxHashRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryVerifiedTxHashRequest) ProtoMessage()    {}
+func (*QueryVerifiedTxHashRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ce5bcfa2e50dd02, []int{2}
+}
+func (m *QueryVerifiedTxHashRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryVerifiedTxHashRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryVerifiedTxHashRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryVerifiedTxHashRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryVerifiedTxHashRequest.Merge(m, src)
+}
+func (m *QueryVerifiedTxHashRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryVerifiedTxHashRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryVerifiedTxHashRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryVerifiedTxHashRequest proto.InternalMessageInfo
+
+func (m *QueryVerifiedTxHashRequest) GetChainId() string {
+	if m != nil {
+		return m.ChainId
+	}
+	return ""
+}
+
+func (m *QueryVerifiedTxHashRequest) GetTxHash() string {
+	if m != nil {
+		return m.TxHash
+	}
+	return ""
+}
+
+// QueryVerifiedTxHashResponse is the response type for the Query/VerifiedTxHash RPC method.
+type QueryVerifiedTxHashResponse struct {
+	// status indicates whether the transaction hash is already verified.
+	Status bool `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+}
+
+func (m *QueryVerifiedTxHashResponse) Reset()         { *m = QueryVerifiedTxHashResponse{} }
+func (m *QueryVerifiedTxHashResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryVerifiedTxHashResponse) ProtoMessage()    {}
+func (*QueryVerifiedTxHashResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ce5bcfa2e50dd02, []int{3}
+}
+func (m *QueryVerifiedTxHashResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryVerifiedTxHashResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryVerifiedTxHashResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryVerifiedTxHashResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryVerifiedTxHashResponse.Merge(m, src)
+}
+func (m *QueryVerifiedTxHashResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryVerifiedTxHashResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryVerifiedTxHashResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryVerifiedTxHashResponse proto.InternalMessageInfo
+
+func (m *QueryVerifiedTxHashResponse) GetStatus() bool {
+	if m != nil {
+		return m.Status
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "utv.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "utv.v1.QueryParamsResponse")
+	proto.RegisterType((*QueryVerifiedTxHashRequest)(nil), "utv.v1.QueryVerifiedTxHashRequest")
+	proto.RegisterType((*QueryVerifiedTxHashResponse)(nil), "utv.v1.QueryVerifiedTxHashResponse")
 }
 
 func init() { proto.RegisterFile("utv/v1/query.proto", fileDescriptor_5ce5bcfa2e50dd02) }
 
 var fileDescriptor_5ce5bcfa2e50dd02 = []byte{
-	// 254 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2a, 0x2d, 0x29, 0xd3,
-	0x2f, 0x33, 0xd4, 0x2f, 0x2c, 0x4d, 0x2d, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62,
-	0x2b, 0x2d, 0x29, 0xd3, 0x2b, 0x33, 0x94, 0x92, 0x49, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f,
-	0x2c, 0xc8, 0xd4, 0x4f, 0xcc, 0xcb, 0xcb, 0x2f, 0x49, 0x2c, 0xc9, 0xcc, 0xcf, 0x2b, 0x86, 0xa8,
-	0x92, 0x12, 0x81, 0xea, 0x4c, 0x4f, 0xcd, 0x4b, 0x2d, 0xce, 0x84, 0x8a, 0x2a, 0x89, 0x70, 0x09,
-	0x05, 0x82, 0x8c, 0x0a, 0x48, 0x2c, 0x4a, 0xcc, 0x2d, 0x0e, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e,
-	0x51, 0xb2, 0xe5, 0x12, 0x46, 0x11, 0x2d, 0x2e, 0xc8, 0xcf, 0x2b, 0x4e, 0x15, 0x52, 0xe3, 0x62,
-	0x2b, 0x00, 0x8b, 0x48, 0x30, 0x2a, 0x30, 0x6a, 0x70, 0x1b, 0xf1, 0xe9, 0x41, 0x6c, 0xd6, 0x83,
-	0xaa, 0x83, 0xca, 0x1a, 0x25, 0x71, 0xb1, 0x82, 0xb5, 0x0b, 0x45, 0x72, 0xb1, 0x41, 0xa4, 0x84,
-	0xa4, 0x60, 0x4a, 0x31, 0x6d, 0x93, 0x92, 0xc6, 0x2a, 0x07, 0xb1, 0x53, 0x49, 0xac, 0xe9, 0xf2,
-	0x93, 0xc9, 0x4c, 0x02, 0x42, 0x7c, 0xfa, 0x50, 0xf7, 0x43, 0xec, 0x70, 0x72, 0x3a, 0xf1, 0x48,
-	0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0xb8, 0xf0,
-	0x58, 0x8e, 0xe1, 0xc6, 0x63, 0x39, 0x86, 0x28, 0x8d, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd,
-	0xe4, 0xfc, 0x5c, 0xfd, 0xa2, 0xfc, 0x9c, 0x9c, 0xe4, 0x8c, 0xc4, 0xcc, 0xbc, 0x62, 0xfd, 0x02,
-	0x30, 0xad, 0x5f, 0x01, 0x36, 0xa7, 0xa4, 0xb2, 0x20, 0xb5, 0x38, 0x89, 0x0d, 0x1c, 0x06, 0xc6,
-	0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbd, 0x7b, 0x12, 0xda, 0x55, 0x01, 0x00, 0x00,
+	// 370 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x52, 0xcf, 0x4a, 0x02, 0x41,
+	0x18, 0x77, 0x84, 0x56, 0x9b, 0x40, 0x62, 0x12, 0xb3, 0x35, 0x96, 0xd8, 0x20, 0xbc, 0xb4, 0x83,
+	0x86, 0xc7, 0x2e, 0x9e, 0xea, 0x66, 0x12, 0x41, 0x5d, 0x64, 0xd4, 0x69, 0x77, 0x40, 0x77, 0xd6,
+	0x9d, 0xd9, 0x45, 0x11, 0x2f, 0x3d, 0x81, 0xd0, 0x4b, 0x75, 0x14, 0xba, 0x74, 0x0c, 0xed, 0x15,
+	0xba, 0x47, 0x33, 0xe3, 0x41, 0x5a, 0x3a, 0x2d, 0xf3, 0x7d, 0xbf, 0x7f, 0xdf, 0x8f, 0x85, 0x28,
+	0x91, 0x29, 0x4e, 0x1b, 0x78, 0x92, 0xd0, 0x78, 0xe6, 0x45, 0x31, 0x97, 0x1c, 0x59, 0x89, 0x4c,
+	0xbd, 0xb4, 0x61, 0x9f, 0xfa, 0x9c, 0xfb, 0x23, 0x8a, 0x49, 0xc4, 0x30, 0x09, 0x43, 0x2e, 0x89,
+	0x64, 0x3c, 0x14, 0x1a, 0x65, 0x97, 0x0d, 0xd3, 0xa7, 0x21, 0x15, 0xcc, 0x4c, 0xdd, 0x32, 0x44,
+	0x77, 0xbf, 0x52, 0x1d, 0x12, 0x93, 0xb1, 0xe8, 0xd2, 0x49, 0x42, 0x85, 0x74, 0xaf, 0xe1, 0xd1,
+	0xce, 0x54, 0x44, 0x3c, 0x14, 0x14, 0x5d, 0x40, 0x2b, 0x52, 0x93, 0x2a, 0x38, 0x03, 0xf5, 0x83,
+	0x66, 0xc9, 0xd3, 0xce, 0x9e, 0xc1, 0x99, 0xad, 0xdb, 0x81, 0xb6, 0xa2, 0x3f, 0xd0, 0x98, 0x3d,
+	0x33, 0x3a, 0xbc, 0x9f, 0xde, 0x10, 0x11, 0x18, 0x71, 0x74, 0x02, 0x8b, 0x83, 0x80, 0xb0, 0xb0,
+	0xc7, 0x86, 0x4a, 0x67, 0xbf, 0x5b, 0x50, 0xef, 0xdb, 0x21, 0x3a, 0x86, 0x05, 0x39, 0xed, 0x05,
+	0x44, 0x04, 0xd5, 0xbc, 0xda, 0x58, 0x52, 0x51, 0xdd, 0x16, 0xac, 0x65, 0x2a, 0x9a, 0x60, 0x15,
+	0x68, 0x09, 0x49, 0x64, 0xa2, 0x83, 0x15, 0xbb, 0xe6, 0xd5, 0xfc, 0x06, 0x70, 0x4f, 0xf1, 0xd0,
+	0x23, 0xb4, 0x74, 0x48, 0x64, 0x6f, 0x43, 0xff, 0xbd, 0xdb, 0xae, 0x65, 0xee, 0xb4, 0x89, 0x5b,
+	0x79, 0x79, 0xff, 0x7a, 0xcd, 0x1f, 0xa2, 0x12, 0x36, 0x4d, 0xea, 0x6b, 0xd1, 0x12, 0xc0, 0xd2,
+	0x6e, 0x2e, 0xe4, 0xee, 0xe8, 0x64, 0xd6, 0x60, 0x9f, 0xff, 0x8b, 0x31, 0x9e, 0x2d, 0xe5, 0x89,
+	0xd1, 0xe5, 0xd6, 0x33, 0x35, 0xb8, 0x9e, 0xe9, 0x09, 0xcf, 0xb7, 0x5d, 0x2e, 0xf0, 0xdc, 0xcc,
+	0x16, 0xed, 0xf6, 0xdb, 0xda, 0x01, 0xab, 0xb5, 0x03, 0x3e, 0xd7, 0x0e, 0x58, 0x6e, 0x9c, 0xdc,
+	0x6a, 0xe3, 0xe4, 0x3e, 0x36, 0x4e, 0xee, 0xa9, 0xee, 0x33, 0x19, 0x24, 0x7d, 0x6f, 0xc0, 0xc7,
+	0x38, 0xe6, 0xa3, 0x91, 0x62, 0x0b, 0x1c, 0xa9, 0x2f, 0x9e, 0x2a, 0x1b, 0x39, 0x8b, 0xa8, 0xe8,
+	0x5b, 0xea, 0x07, 0xb9, 0xfa, 0x09, 0x00, 0x00, 0xff, 0xff, 0x05, 0xe8, 0x97, 0x7a, 0x72, 0x02,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -152,6 +263,8 @@ const _ = grpc.SupportPackageIsVersion4
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// VerifiedTxHash queries if a transaction hash is verified on a specific chain.
+	VerifiedTxHash(ctx context.Context, in *QueryVerifiedTxHashRequest, opts ...grpc.CallOption) (*QueryVerifiedTxHashResponse, error)
 }
 
 type queryClient struct {
@@ -171,10 +284,21 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
+func (c *queryClient) VerifiedTxHash(ctx context.Context, in *QueryVerifiedTxHashRequest, opts ...grpc.CallOption) (*QueryVerifiedTxHashResponse, error) {
+	out := new(QueryVerifiedTxHashResponse)
+	err := c.cc.Invoke(ctx, "/utv.v1.Query/VerifiedTxHash", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// VerifiedTxHash queries if a transaction hash is verified on a specific chain.
+	VerifiedTxHash(context.Context, *QueryVerifiedTxHashRequest) (*QueryVerifiedTxHashResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -183,6 +307,9 @@ type UnimplementedQueryServer struct {
 
 func (*UnimplementedQueryServer) Params(ctx context.Context, req *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (*UnimplementedQueryServer) VerifiedTxHash(ctx context.Context, req *QueryVerifiedTxHashRequest) (*QueryVerifiedTxHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifiedTxHash not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -207,6 +334,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_VerifiedTxHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryVerifiedTxHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).VerifiedTxHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/utv.v1.Query/VerifiedTxHash",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).VerifiedTxHash(ctx, req.(*QueryVerifiedTxHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "utv.v1.Query",
 	HandlerType: (*QueryServer)(nil),
@@ -214,6 +359,10 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "VerifiedTxHash",
+			Handler:    _Query_VerifiedTxHash_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -278,6 +427,76 @@ func (m *QueryParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *QueryVerifiedTxHashRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryVerifiedTxHashRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryVerifiedTxHashRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.TxHash) > 0 {
+		i -= len(m.TxHash)
+		copy(dAtA[i:], m.TxHash)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.TxHash)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ChainId) > 0 {
+		i -= len(m.ChainId)
+		copy(dAtA[i:], m.ChainId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.ChainId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryVerifiedTxHashResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryVerifiedTxHashResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryVerifiedTxHashResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Status {
+		i--
+		if m.Status {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	offset -= sovQuery(v)
 	base := offset
@@ -307,6 +526,35 @@ func (m *QueryParamsResponse) Size() (n int) {
 	if m.Params != nil {
 		l = m.Params.Size()
 		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryVerifiedTxHashRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ChainId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	l = len(m.TxHash)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryVerifiedTxHashResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Status {
+		n += 2
 	}
 	return n
 }
@@ -432,6 +680,190 @@ func (m *QueryParamsResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryVerifiedTxHashRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryVerifiedTxHashRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryVerifiedTxHashRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TxHash = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryVerifiedTxHashResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryVerifiedTxHashResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryVerifiedTxHashResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Status = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipQuery(dAtA[iNdEx:])

@@ -1,14 +1,24 @@
 package types
 
 import (
-	"cosmossdk.io/collections"
+	"fmt"
+	"strings"
 
-	ormv1alpha1 "cosmossdk.io/api/cosmos/orm/v1alpha1"
+	"cosmossdk.io/collections"
 )
 
 var (
 	// ParamsKey saves the current module params.
 	ParamsKey = collections.NewPrefix(0)
+
+	// ParamsName is the name of the params collection.
+	ParamsName = "params"
+
+	// VerifiedTxsKey saves the verified transactions collection prefix
+	VerifiedTxsKeyPrefix = collections.NewPrefix(1)
+
+	// VerifiedTxsName is the name of the verified transactions collection.
+	VerifiedTxsName = "verified_txs"
 )
 
 const (
@@ -19,9 +29,8 @@ const (
 	QuerierRoute = ModuleName
 )
 
-var ORMModuleSchema = ormv1alpha1.ModuleSchemaDescriptor{
-	SchemaFile: []*ormv1alpha1.ModuleSchemaDescriptor_FileEntry{
-		{Id: 1, ProtoFileName: "utv/v1/state.proto"},
-	},
-	Prefix: []byte{0},
+// GetVerifiedTxStorageKey returns the storage key for a verified transaction hash using the format "chainId:txHash".
+func GetVerifiedTxStorageKey(chainId, txHash string) string {
+	// Normalize to lowercase and strip whitespace
+	return fmt.Sprintf("%s:%s", strings.ToLower(chainId), strings.ToLower(strings.TrimSpace(txHash)))
 }

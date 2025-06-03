@@ -1,0 +1,38 @@
+syntax = "proto3";
+package ue.v1;
+
+// import "cosmos/orm/v1/orm.proto";
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "ue/v1/params.proto";
+
+option go_package = "github.com/rollchains/pchain/x/ue/types";
+
+// https://github.com/cosmos/cosmos-sdk/blob/main/orm/README.md
+
+// ChainConfig defines the configuration for a supported source or destination chain
+message ChainConfig {
+  option (amino.name) = "ue/chain_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string namespace = 1; // Namespace for the chain configuration
+  string chain_id = 2; // Unique identifier for the chain
+  string public_rpc_url = 3; // RPC URL for the chain
+  VM_TYPE vm_type = 4; // Type of the VM used by the chain
+  
+  string locker_contract_address = 5; // locker_contract_address is the address of the fee locker contract on the external chain
+  uint64 block_confirmation = 6; // block_confirmation is the number of blocks to wait for confirmation on the external chain
+  
+  string funds_added_event_topic = 7; // funds_added_event_topic is the event topic signature for FundsAdded event
+}
+
+// message ChainConfigEntry {
+//   option (cosmos.orm.v1.table) = {
+//     id: 1;
+//     primary_key: { fields: "chain_id" }
+//   };
+
+//   string chain_id = 1;
+//   ChainConfig config = 2;
+// }

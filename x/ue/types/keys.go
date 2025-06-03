@@ -2,6 +2,8 @@ package types
 
 import (
 	"cosmossdk.io/collections"
+
+	ormv1alpha1 "cosmossdk.io/api/cosmos/orm/v1alpha1"
 )
 
 var (
@@ -16,6 +18,12 @@ var (
 
 	// AdminParamsName is the name of the admin params collection.
 	AdminParamsName = "admin_params"
+
+	// ChainConfigsKey saves the current module chainConfigs collection prefix
+	ChainConfigsKey = collections.NewPrefix(2)
+
+	// ChainConfigsName is the name of the chainConfigs collection.
+	ChainConfigsName = "chain_configs"
 )
 
 const (
@@ -25,3 +33,10 @@ const (
 
 	QuerierRoute = ModuleName
 )
+
+var ORMModuleSchema = ormv1alpha1.ModuleSchemaDescriptor{
+	SchemaFile: []*ormv1alpha1.ModuleSchemaDescriptor_FileEntry{
+		{Id: 1, ProtoFileName: "ue/v1/state.proto"},
+	},
+	Prefix: []byte{0},
+}

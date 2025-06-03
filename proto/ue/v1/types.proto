@@ -63,3 +63,20 @@ message AccountId {
   string owner_key = 3;
   VM_TYPE vm_type = 4;
 }
+
+// ChainConfig defines the configuration for a supported source or destination chain
+message ChainConfig {
+  option (amino.name) = "ue/chain_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string namespace = 1; // Namespace for the chain configuration
+  string chain_id = 2; // Unique identifier for the chain
+  string public_rpc_url = 3; // RPC URL for the chain
+  VM_TYPE vm_type = 4; // Type of the VM used by the chain
+  
+  string locker_contract_address = 5; // locker_contract_address is the address of the fee locker contract on the external chain
+  uint64 block_confirmation = 6; // block_confirmation is the number of blocks to wait for confirmation on the external chain
+  
+  string funds_added_event_topic = 7; // funds_added_event_topic is the event topic signature for FundsAdded event
+}

@@ -16,6 +16,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current consensus parameters",
 				},
+				{
+					RpcMethod: "VerifiedTxHash",
+					Use:       "verified-tx-hash --chain-id <chain_id> --hash <hash>",
+					Short:     "Check if a transaction hash has been verified on the chain",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

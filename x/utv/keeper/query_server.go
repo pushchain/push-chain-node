@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -27,4 +28,26 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 	}
 
 	return &types.QueryParamsResponse{Params: &p}, nil
+}
+
+// VerifiedTx returns if the txHash has already been verified on the chain.
+func (q Querier) VerifiedTxHash(
+	goCtx context.Context,
+	req *types.QueryVerifiedTxHashRequest,
+) (*types.QueryVerifiedTxHashResponse, error) {
+	if req.ChainId == "" || req.TxHash == "" {
+		return nil, fmt.Errorf("chain_id and tx_hash are required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// check verification status
+	isVerified, err := q.Keeper.IsTxHashVerified(ctx, req.ChainId, req.TxHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryVerifiedTxHashResponse{
+		Status: isVerified,
+	}, nil
 }

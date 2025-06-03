@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
@@ -11,9 +12,6 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	"cosmossdk.io/orm/model/ormdb"
-
-	apiv1 "github.com/rollchains/pchain/api/utv/v1"
 	"github.com/rollchains/pchain/x/utv/types"
 )
 
@@ -23,9 +21,8 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	Schema collections.Schema
-	Params collections.Item[types.Params]
-	OrmDB  apiv1.StateStore
+	Params      collections.Item[types.Params]
+	VerifiedTxs collections.Map[string, bool]
 
 	authority string
 }
@@ -45,32 +42,15 @@ func NewKeeper(
 		authority = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	}
 
-	db, err := ormdb.NewModuleDB(&types.ORMModuleSchema, ormdb.ModuleDBOptions{KVStoreService: storeService})
-	if err != nil {
-		panic(err)
-	}
-
-	store, err := apiv1.NewStateStore(db)
-	if err != nil {
-		panic(err)
-	}
-
 	k := Keeper{
 		cdc:    cdc,
 		logger: logger,
 
-		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		OrmDB:  store,
+		Params:      collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		VerifiedTxs: collections.NewMap(sb, types.VerifiedTxsKeyPrefix, types.VerifiedTxsName, collections.StringKey, collections.BoolValue),
 
 		authority: authority,
 	}
-
-	schema, err := sb.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	k.Schema = schema
 
 	return k
 }
@@ -99,4 +79,26 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params: params,
 	}
+}
+
+func (k *Keeper) StoreVerifiedTx(ctx context.Context, chainId, txHash string) error {
+	if chainId == "" || txHash == "" {
+		return fmt.Errorf("chain_id and tx_hash are required")
+	}
+
+	storageKey := types.GetVerifiedTxStorageKey(chainId, txHash)
+	return k.VerifiedTxs.Set(ctx, storageKey, true)
+}
+
+func (k *Keeper) IsTxHashVerified(ctx context.Context, chainId, txHash string) (bool, error) {
+	storageKey := types.GetVerifiedTxStorageKey(chainId, txHash)
+
+	// Check if tx hash exists for passed chainId
+	if has, err := k.VerifiedTxs.Has(ctx, storageKey); err != nil {
+		return false, err
+	} else if !has {
+		return false, nil // Not present
+	}
+
+	return true, nil // Verified
 }

@@ -86,7 +86,7 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k *Keeper) StoreVerifiedTx(ctx context.Context, chainId, txHash string) error {
+func (k *Keeper) storeVerifiedTx(ctx context.Context, chainId, txHash string) error {
 	if chainId == "" || txHash == "" {
 		return fmt.Errorf("chain_id and tx_hash are required")
 	}

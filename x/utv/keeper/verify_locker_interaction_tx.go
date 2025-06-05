@@ -9,11 +9,6 @@ import (
 
 // VerifyLockerInteractionTx only verifies if the user has interacted with the locker on the source chain.
 func (k Keeper) VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
-	// 1. Fetch Chain config
-	// 2. Check if already verified -> return
-	// 3. Redirect to specific VM verification fn
-	// 4. Return error if verification fails
-
 	if exists, err := k.IsTxHashVerified(ctx, chainId, txHash); err != nil {
 		return err
 	} else if exists {
@@ -31,7 +26,7 @@ func (k Keeper) VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash,
 			return fmt.Errorf("evm tx verification failed: %w", err)
 		}
 	case types.VM_TYPE_SVM:
-		if err := k.verifySVMInteraction(ctx, ownerKey, txHash, chainId); err != nil {
+		if err := k.verifySVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("svm tx verification failed: %w", err)
 		}
 	default:

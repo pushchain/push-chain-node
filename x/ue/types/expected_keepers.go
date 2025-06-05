@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	"cosmossdk.io/math"
 
@@ -67,7 +68,7 @@ type BankKeeper interface {
 // UtvKeeper defines the expected interface for the UTV module.
 type UtvKeeper interface {
 	VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error
-	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (string, error)
+	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, error)
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

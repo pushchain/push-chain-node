@@ -2,16 +2,11 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	"cosmossdk.io/errors"
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/ethereum/go-ethereum/common"
-	pchaintypes "github.com/rollchains/pchain/types"
-	"github.com/rollchains/pchain/util"
+	"github.com/rollchains/pchain/utils"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
@@ -33,7 +28,12 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
 
-	return nil, ms.k.Params.Set(ctx, msg.Params)
+	err := ms.k.updateParams(ctx, msg.Params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateParamsResponse{}, nil
 }
 
 // UpdateAdminParams handles updates to admin parameters.
@@ -50,112 +50,41 @@ func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateA
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid admin; expected admin address %s, got %s", params.Admin, msg.Admin)
 	}
 
-	return nil, ms.k.AdminParams.Set(ctx, msg.AdminParams)
-}
-
-// DeployNMSC handles the deployment of new Smart Account (NMSC).
-func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
-	// Retrieve the current Params
-	adminParams, err := ms.k.AdminParams.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get admin params")
-	}
-
-	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse signer address")
-	}
-
-	// EVM Call arguments
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
-	accountId, err := types.NewAbiAccountId(msg.AccountId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create accountId")
-	}
-
-	// RPC call verification to verify the locker interaction tx on source chain
-	err = ms.k.utvKeeper.VerifyLockerInteractionTx(ctx, msg.AccountId.OwnerKey, msg.TxHash, msg.AccountId.ChainId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
-	}
-
-	// Use your keeper CallEVM directly
-	receipt, err := ms.k.CallFactoryToDeployNMSC(
-		sdkCtx,
-		evmFromAddress,
-		factoryAddress,
-		accountId,
-	)
+	err = ms.k.updateAdminParams(ctx, msg.AdminParams)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("DeployNMSC receipt:", receipt)
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	fmt.Println("Returned Bytes Hex:", returnedBytesHex)
+	return &types.MsgUpdateAdminParamsResponse{}, nil
+}
+
+// DeployNMSC handles the deployment of new Smart Account (NMSC).
+func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
+	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse signer address")
+	}
+
+	sa, err := ms.k.deployNMSC(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
+	if err != nil {
+		return nil, err
+	}
 
 	return &types.MsgDeployNMSCResponse{
-		SmartAccount: receipt.Ret,
+		SmartAccount: sa,
 	}, nil
 }
 
 // MintPush handles token minting to the user's NMSC for the tokens locked on source chain.
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
-	amountToMint := sdkmath.NewInt(1000000000000000000) // 1 token
-
-	// Retrieve the current Params
-	adminParams, err := ms.k.AdminParams.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get admin params")
-	}
-
-	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
+	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
-	accountId, err := types.NewAbiAccountId(msg.AccountId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create accountId")
-	}
-
-	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, err := ms.k.utvKeeper.VerifyAndGetLockedFunds(ctx, msg.AccountId.OwnerKey, msg.TxHash, msg.AccountId.ChainId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
-	}
-	fmt.Println(amountOfUsdLocked)
-
-	// Calling factory contract to compute the smart account address
-	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, accountId)
+	err = ms.k.mintPush(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
 	if err != nil {
 		return nil, err
-	}
-
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	nmscComputedAddress := "0x" + addressBytes
-
-	// Convert the computed address to a Cosmos address
-	cosmosAddr, err := util.ConvertAnyAddressToBytes(nmscComputedAddress)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert EVM address to Cosmos address")
-	}
-
-	err = ms.k.bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint)))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to mint coins")
-	}
-
-	err = ms.k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, cosmosAddr, sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint)))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to send coins from module to account")
 	}
 
 	return &types.MsgMintPushResponse{}, nil
@@ -163,72 +92,14 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 
 // ExecutePayload handles cross-chain payload execution on the NMSC.
 func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
-	// Step 1: Get params and validate addresses
-	adminParams, err := ms.k.AdminParams.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get admin params")
-	}
-
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
-	accountId, err := types.NewAbiAccountId(msg.AccountId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create accountId")
-	}
-
-	_, evmFromAddress, err := util.GetAddressPair(msg.Signer)
+	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	// Step 2: Compute smart account address
-	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, accountId)
+	err = ms.k.executePayload(ctx, evmFromAddress, msg.AccountId, msg.CrosschainPayload, msg.Signature)
 	if err != nil {
 		return nil, err
-	}
-
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	nmscComputedAddress := "0x" + addressBytes
-	nmscAddr := common.HexToAddress(nmscComputedAddress)
-
-	// Step 3: Parse and validate payload and signature
-	payload, err := types.NewAbiCrossChainPayload(msg.CrosschainPayload)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid cross-chain payload")
-	}
-
-	signatureVal, err := util.HexToBytes(msg.Signature)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid signature format")
-	}
-
-	// Step 4: Execute payload through NMSC
-	receipt, err = ms.k.CallNMSCExecutePayload(sdkCtx, evmFromAddress, nmscAddr, payload, signatureVal)
-	if err != nil {
-		return nil, err
-	}
-
-	// Step 5: Handle fee calculation and deduction
-	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
-
-	baseFee := ms.k.feemarketKeeper.GetBaseFee(sdkCtx)
-	if baseFee.IsNil() {
-		return nil, errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
-	}
-
-	gasCost, err := ms.k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, receipt.GasUsed)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to calculate gas cost")
-	}
-
-	if gasCost.Cmp(payload.GasLimit) > 0 {
-		return nil, errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
-	}
-
-	if err = ms.k.DeductAndBurnFees(ctx, nmscAccAddr, gasCost); err != nil {
-		return nil, errors.Wrapf(err, "failed to deduct fees from %s", nmscAccAddr)
 	}
 
 	return &types.MsgExecutePayloadResponse{}, nil
@@ -246,16 +117,12 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	chainConfig := msg.ChainConfig
-
-	// Check if chain ID already exists
-	if has, err := ms.k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
+	err = ms.k.addChainConfig(ctx, msg.ChainConfig)
+	if err != nil {
 		return nil, err
-	} else if has {
-		return nil, fmt.Errorf("chain config for %s already exists", chainConfig.ChainId)
 	}
 
-	return nil, ms.k.ChainConfigs.Set(ctx, chainConfig.ChainId, *chainConfig)
+	return &types.MsgAddChainConfigResponse{}, nil
 }
 
 // UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
@@ -270,14 +137,10 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	chainConfig := msg.ChainConfig
-
-	// Check if chain ID exists
-	if has, err := ms.k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
+	err = ms.k.updateChainConfig(ctx, msg.ChainConfig)
+	if err != nil {
 		return nil, err
-	} else if !has {
-		return nil, fmt.Errorf("chain config for %s does not exist", chainConfig.ChainId)
 	}
 
-	return nil, ms.k.ChainConfigs.Set(ctx, chainConfig.ChainId, *chainConfig)
+	return &types.MsgUpdateChainConfigResponse{}, nil
 }

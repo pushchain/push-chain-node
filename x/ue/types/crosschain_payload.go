@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/rollchains/pchain/util"
+	"github.com/rollchains/pchain/utils"
 )
 
 // Stringer method for Params.
@@ -23,7 +23,7 @@ func (p CrossChainPayload) String() string {
 // Validate does the sanity check on the params.
 func (p CrossChainPayload) ValidateBasic() error {
 	// Validate target address
-	isValidTarget := util.IsValidAddress(p.Target, util.HEX)
+	isValidTarget := utils.IsValidAddress(p.Target, utils.HEX)
 	if !isValidTarget {
 		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid target address format: %s", p.Target)
 	}

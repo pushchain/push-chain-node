@@ -97,13 +97,18 @@ func (k *Keeper) storeVerifiedTx(ctx context.Context, chainId, txHash string) er
 
 func (k *Keeper) IsTxHashVerified(ctx context.Context, chainId, txHash string) (bool, error) {
 	storageKey := types.GetVerifiedTxStorageKey(chainId, txHash)
+	fmt.Println("Checking if transaction hash is verified:", storageKey)
 
 	// Check if tx hash exists for passed chainId
 	if has, err := k.VerifiedTxs.Has(ctx, storageKey); err != nil {
+		fmt.Println("Error checking if transaction hash is verified:", err)
 		return false, err
 	} else if !has {
+		fmt.Println("Transaction hash not found in verified transactions:", has)
 		return false, nil // Not present
 	}
+
+	fmt.Println("Transaction hash is verified:", storageKey)
 
 	return true, nil // Verified
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rollchains/pchain/util"
+	"github.com/rollchains/pchain/utils"
 )
 
 // FactoryV1ABI contains the ABI for the factory contract
@@ -143,19 +143,19 @@ type AbiCrossChainPayload struct {
 }
 
 func NewAbiCrossChainPayload(proto *CrossChainPayload) (AbiCrossChainPayload, error) {
-	data, err := util.HexToBytes(proto.Data)
+	data, err := utils.HexToBytes(proto.Data)
 	if err != nil {
 		return AbiCrossChainPayload{}, err
 	}
 	return AbiCrossChainPayload{
 		Target:               common.HexToAddress(proto.Target),
-		Value:                util.StringToBigInt(proto.Value),
+		Value:                utils.StringToBigInt(proto.Value),
 		Data:                 data,
-		GasLimit:             util.StringToBigInt(proto.GasLimit),
-		MaxFeePerGas:         util.StringToBigInt(proto.MaxFeePerGas),
-		MaxPriorityFeePerGas: util.StringToBigInt(proto.MaxPriorityFeePerGas),
-		Nonce:                util.StringToBigInt(proto.Nonce),
-		Deadline:             util.StringToBigInt(proto.Deadline),
+		GasLimit:             utils.StringToBigInt(proto.GasLimit),
+		MaxFeePerGas:         utils.StringToBigInt(proto.MaxFeePerGas),
+		MaxPriorityFeePerGas: utils.StringToBigInt(proto.MaxPriorityFeePerGas),
+		Nonce:                utils.StringToBigInt(proto.Nonce),
+		Deadline:             utils.StringToBigInt(proto.Deadline),
 	}, nil
 }
 
@@ -167,7 +167,7 @@ type AbiAccountId struct {
 }
 
 func NewAbiAccountId(proto *AccountId) (AbiAccountId, error) {
-	ownerKey, err := util.HexToBytes(proto.OwnerKey)
+	ownerKey, err := utils.HexToBytes(proto.OwnerKey)
 	if err != nil {
 		return AbiAccountId{}, err
 	}

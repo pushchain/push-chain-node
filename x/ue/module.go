@@ -47,6 +47,7 @@ type AppModule struct {
 	evmKeeper       types.EVMKeeper
 	feemarketKeeper types.FeeMarketKeeper
 	bankKeeper      types.BankKeeper
+	utvKeeper       types.UtvKeeper
 }
 
 // NewAppModule constructor
@@ -56,6 +57,7 @@ func NewAppModule(
 	evmKeeper types.EVMKeeper,
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
+	utvKeeper types.UtvKeeper,
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic:  AppModuleBasic{cdc: cdc},
@@ -63,6 +65,7 @@ func NewAppModule(
 		evmKeeper:       evmKeeper,
 		feemarketKeeper: feemarketKeeper,
 		bankKeeper:      bankKeeper,
+		utvKeeper:       utvKeeper,
 	}
 }
 

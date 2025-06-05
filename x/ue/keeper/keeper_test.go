@@ -32,6 +32,8 @@ import (
 	module "github.com/rollchains/pchain/x/ue"
 	"github.com/rollchains/pchain/x/ue/keeper"
 	"github.com/rollchains/pchain/x/ue/types"
+
+	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 )
 
 var maccPerms = map[string][]string{
@@ -88,10 +90,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &utvkeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &utvkeeper.Keeper{})
 
 	return f
 }

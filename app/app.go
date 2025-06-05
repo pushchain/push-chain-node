@@ -672,15 +672,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the utv Keeper
-	app.UtvKeeper = utvkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UeKeeper,
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -726,6 +717,16 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
+		&app.UtvKeeper,
+	)
+
+	// Create the utv Keeper
+	app.UtvKeeper = utvkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.UeKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1004,7 +1005,7 @@ func NewChainApp(
 		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
 	)
 

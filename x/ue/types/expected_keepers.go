@@ -64,6 +64,12 @@ type BankKeeper interface {
 	) error
 }
 
+// UtvKeeper defines the expected interface for the UTV module.
+type UtvKeeper interface {
+	VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error
+	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (string, error)
+}
+
 // ParamSubspace defines the expected Subspace interface for parameters.
 type ParamSubspace interface {
 	Get(context.Context, []byte, interface{})

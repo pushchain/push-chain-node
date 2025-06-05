@@ -57,9 +57,6 @@ func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateA
 func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// TODO: RPC call to verify if user has locked funds on source chain
-	// use msg.TxHash to verify the transaction on source chain
-
 	// Retrieve the current Params
 	adminParams, err := ms.k.AdminParams.Get(ctx)
 	if err != nil {
@@ -76,6 +73,12 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 	accountId, err := types.NewAbiAccountId(msg.AccountId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create accountId")
+	}
+
+	// RPC call verification to verify the locker interaction tx on source chain
+	err = ms.k.utvKeeper.VerifyLockerInteractionTx(ctx, msg.AccountId.OwnerKey, msg.TxHash, msg.AccountId.ChainId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
 	}
 
 	// Use your keeper CallEVM directly
@@ -102,15 +105,6 @@ func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// caipArr := strings.Split(msg.CaipString, ":")
-	// if len(caipArr) != 3 {
-	// 	return nil, errors.Wrapf(sdkErrors.ErrInvalidRequest, "invalid CAIP string; expected format: <namespace>:<chain>:<address>, got %s", msg.CaipString)
-	// }
-
-	// userAddr := caipArr[2]
-	// txHash := msg.TxHash
-	// TODO
-	// 1. RPC call for verification
 	amountToMint := sdkmath.NewInt(1000000000000000000) // 1 token
 
 	// Retrieve the current Params
@@ -129,6 +123,13 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create accountId")
 	}
+
+	// RPC call verification to get amount to be mint
+	amountOfUsdLocked, err := ms.k.utvKeeper.VerifyAndGetLockedFunds(ctx, msg.AccountId.OwnerKey, msg.TxHash, msg.AccountId.ChainId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
+	}
+	fmt.Println(amountOfUsdLocked)
 
 	// Calling factory contract to compute the smart account address
 	receipt, err := ms.k.CallFactoryToComputeAddress(sdkCtx, evmFromAddress, factoryAddress, accountId)

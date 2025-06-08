@@ -34,16 +34,19 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		}
 		return amount, nil
 	case types.VM_TYPE_SVM:
-		amount, err := k.verifySVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
+		amountStr, err := k.verifySVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
-			return amount, fmt.Errorf("svm tx verification failed: %w", err)
+			return *big.NewInt(0), fmt.Errorf("svm tx verification failed: %w", err)
 		}
+
+		amount := new(big.Int)
+		amount.SetString(amountStr, 10)
 
 		// tx is verified, now store it
 		if err := k.storeVerifiedTx(ctx, chainId, txHash); err != nil {
-			return amount, fmt.Errorf("failed to store verified tx: %w", err)
+			return *amount, fmt.Errorf("failed to store verified tx: %w", err)
 		}
-		return amount, nil
+		return *amount, nil
 	default:
 		return *big.NewInt(0), fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chainId)
 	}

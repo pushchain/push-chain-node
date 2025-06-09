@@ -81,6 +81,8 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
+	deployFactoryContract(ctx, k.evmKeeper)
+
 	return k.Params.Set(ctx, data.Params)
 }
 

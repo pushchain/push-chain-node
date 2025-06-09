@@ -100,16 +100,17 @@ from_scratch () {
   update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="86400s"'
 
   update_test_genesis `printf '.app_state["evm"]["params"]["evm_denom"]="%s"' $DENOM`
-  update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
   # Extract numeric part from CHAIN_ID for EVM chain_id (e.g., localchain_9000-1 -> 9000)
   EVM_CHAIN_ID=$(echo $CHAIN_ID | sed 's/.*_\([0-9]*\).*/\1/')
   update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["chain_id"]="%s"' $EVM_CHAIN_ID`
   update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["denom"]="%s"' $DENOM`
   update_test_genesis '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
+  update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
   update_test_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' # https://eips.ethereum.org/EIPS/eip-7528
   update_test_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
-  update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=true'
-  update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="0.000000000000000000"'
+  update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=false'
+  update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="0.000000100000000000"'
+  update_test_genesis '.app_state["feemarket"]["params"]["min_gas_price"]="0.000000100000000000"'
 
   # staking
   update_test_genesis `printf '.app_state["staking"]["params"]["bond_denom"]="%s"' $DENOM`
@@ -138,7 +139,7 @@ from_scratch () {
 
   # Sign genesis transaction
   # 10 000 . 000000000 000000000
-  BINARY genesis gentx $KEY1 10000000000000000000000$DENOM --gas-prices 0${DENOM} --keyring-backend $KEYRING --chain-id $CHAIN_ID
+  BINARY genesis gentx $KEY1 10000000000000000000000$DENOM --gas-prices 1${DENOM} --keyring-backend $KEYRING --chain-id $CHAIN_ID
 
   BINARY genesis collect-gentxs
 
@@ -181,4 +182,4 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=0$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+BINARY start --pruning=nothing  --minimum-gas-prices=1$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

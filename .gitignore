@@ -7,3 +7,5 @@ web/
 build/pchaind
 genesis.json
 .DS_Store
+
+.env

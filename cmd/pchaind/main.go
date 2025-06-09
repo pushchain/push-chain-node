@@ -6,10 +6,14 @@ import (
 
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/joho/godotenv"
 	"github.com/rollchains/pchain/app"
 )
 
 func main() {
+	// Try loading .env file for local development
+	_ = godotenv.Load() // No panic if it doesn't exist
+
 	setupSDKConfig()
 
 	rootCmd := NewRootCmd()

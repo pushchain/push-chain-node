@@ -1,0 +1,14 @@
+syntax = "proto3";
+package ue.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "ue/v1/types.proto";
+
+option go_package = "github.com/rollchains/pchain/x/ue/types";
+
+// GenesisState defines the module genesis state
+message GenesisState {
+  // Params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}

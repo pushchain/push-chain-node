@@ -209,7 +209,7 @@ var (
 	BaseDenomUnit int64 = 18
 
 	BaseDenom    = "upc"
-	DisplayDenom = "upc"
+	DisplayDenom = "MY_DENOM_DISPLAY"
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address
 	Bech32PrefixAccAddr = Bech32Prefix

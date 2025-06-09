@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/evmos/os/x/evm/statedb"
 	"github.com/evmos/os/x/evm/types"
 )
 
@@ -29,6 +30,9 @@ type EVMKeeper interface {
 		method string,
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
+	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
+	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
+	SetCode(ctx sdk.Context, codeHash, code []byte)
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.

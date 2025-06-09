@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
 	"cosmossdk.io/core/address"
@@ -26,12 +27,15 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	evmkeeper "github.com/evmos/os/x/evm/keeper"
+	"github.com/evmos/os/x/evm/statedb"
 	feemarketkeeper "github.com/evmos/os/x/feemarket/keeper"
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/ue"
 	"github.com/rollchains/pchain/x/ue/keeper"
 	"github.com/rollchains/pchain/x/ue/types"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	evmtypes "github.com/evmos/os/x/evm/types"
 
 	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 )
@@ -90,10 +94,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &utvkeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &utvkeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &utvkeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &utvkeeper.Keeper{})
 
 	return f
 }
@@ -149,4 +153,43 @@ func registerBaseSDKModules(
 		f.stakingKeeper, f.accountkeeper, f.bankkeeper,
 		authtypes.FeeCollectorName, f.govModAddr,
 	)
+}
+
+// MockEVMKeeper implements only the methods used by your `InitGenesis` function.
+type MockEVMKeeper struct{}
+
+func (m MockEVMKeeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error {
+	// no-op mock
+	return nil
+}
+
+func (m MockEVMKeeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
+	// no-op mock
+}
+
+func (m MockEVMKeeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
+	// no-op mock
+}
+
+func (m MockEVMKeeper) CallEVMWithData(
+	ctx sdk.Context,
+	from common.Address,
+	contract *common.Address,
+	data []byte,
+	commit bool,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	// no-op mock
+	return nil, nil
+}
+
+func (m MockEVMKeeper) CallEVM(
+	ctx sdk.Context,
+	abi abi.ABI,
+	from, contract common.Address,
+	commit bool,
+	method string,
+	args ...interface{},
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	// no-op mock
+	return nil, nil
 }

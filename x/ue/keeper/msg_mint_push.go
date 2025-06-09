@@ -69,7 +69,7 @@ func ConvertUsdToPushTokens(usdAmount *big.Int) sdkmath.Int {
 	multiplied := new(big.Int).Mul(usdAmount, big.NewInt(10))
 
 	// Multiply by 1e18 to match PUSH token's decimal places
-	pushTokens := new(big.Int).Mul(multiplied, big.NewInt(1e18))
+	pushTokens := new(big.Int).Mul(multiplied, big.NewInt(1e12))
 
 	return sdkmath.NewIntFromBigInt(pushTokens)
 }

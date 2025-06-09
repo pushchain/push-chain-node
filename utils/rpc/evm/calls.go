@@ -12,6 +12,7 @@ func EthGetTransactionByHash(ctx context.Context, rpcURL, txHash string) (*Trans
 	client := rpc.GetClient()
 
 	var result Transaction
+	fmt.Println(rpcURL)
 	err := client.Call(ctx, rpcURL, "eth_getTransactionByHash", []interface{}{txHash}, &result)
 	if err != nil {
 		fmt.Println("Error calling eth_getTransactionByHash:", err)

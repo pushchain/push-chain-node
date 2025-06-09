@@ -1,5 +1,5 @@
 package types
 
 var (
-	BaseDenom = "npush"
+	BaseDenom = "upc"
 )

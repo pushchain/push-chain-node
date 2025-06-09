@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rollchains/pchain/utils"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
@@ -20,12 +21,17 @@ func (k Keeper) VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash,
 		return err
 	}
 
+	// Load .env override
+	rpcURL := utils.GetEnvRPCOverride(chainId, chainConfig.PublicRpcUrl)
+
 	switch chainConfig.VmType {
 	case types.VM_TYPE_EVM:
+		chainConfig.PublicRpcUrl = rpcURL
 		if err := k.verifyEVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("evm tx verification failed: %w", err)
 		}
 	case types.VM_TYPE_SVM:
+		chainConfig.PublicRpcUrl = rpcURL
 		if err := k.verifySVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("svm tx verification failed: %w", err)
 		}

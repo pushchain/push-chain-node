@@ -4,3 +4,5 @@ dist/
 
 # Create cosmos app
 web/
+
+.env

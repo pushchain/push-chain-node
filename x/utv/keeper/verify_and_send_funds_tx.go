@@ -35,6 +35,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		return amount, nil
 	case types.VM_TYPE_SVM:
 		amountStr, err := k.verifySVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
+		fmt.Println("amountStr IN THE VASFTG", amountStr)
 		if err != nil {
 			return *big.NewInt(0), fmt.Errorf("svm tx verification failed: %w", err)
 		}

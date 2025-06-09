@@ -22,8 +22,8 @@ func GetTransaction(ctx context.Context, rpcURL, txHash string) (*Transaction, e
 		ID:      1,
 		Method:  "getTransaction",
 		Params: []interface{}{txHash, map[string]interface{}{
-			"encoding":                       "json",
-			"maxSupportedTransactionVersion": 0,
+			// "encoding":                       "json",
+			// "maxSupportedTransactionVersion": 0,
 		}},
 	}
 
@@ -226,5 +226,5 @@ func GetSlot(ctx context.Context, rpcURL string) (uint64, error) {
 		return 0, fmt.Errorf("failed to unmarshal result: %w", err)
 	}
 
-	return result.Slot, nil
+	return uint64(result), nil
 }

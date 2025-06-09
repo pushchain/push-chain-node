@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math/big"
@@ -135,8 +136,16 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 		return "", fmt.Errorf("no accounts found in transaction")
 	}
 	sender := tx.Transaction.Message.AccountKeys[0]
-	if !strings.EqualFold(sender, ownerKey) {
-		return "", fmt.Errorf("transaction sender %s does not match ownerKey %s", sender, ownerKey)
+
+	// Convert Solana address to hex format for comparison
+	senderBytes := base58.Decode(sender)
+	if senderBytes == nil {
+		return "", fmt.Errorf("failed to decode Solana address: %s", sender)
+	}
+	senderHex := fmt.Sprintf("0x%x", senderBytes)
+
+	if senderHex != ownerKey {
+		return "", fmt.Errorf("transaction sender %s (hex: %s) does not match ownerKey %s", sender, senderHex, ownerKey)
 	}
 
 	// Verify program ID
@@ -164,57 +173,99 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	var usdExponent int32
 	foundEvent := false
 
+	// FundsAddedEvent discriminator - first 8 bytes of SHA-256("event:FundsAddedEvent")
+	FundsAddedDiscriminator := []byte{0x7f, 0x1f, 0x6c, 0xff, 0xbb, 0x13, 0x46, 0x44}
+
+	fmt.Println("tx.Meta.LogMessages", tx.Meta.LogMessages)
 	for _, log := range tx.Meta.LogMessages {
-		if strings.Contains(log, "Program log: "+chainConfig.FundsAddedEventTopic) {
-			// The event data is in the next log message
-			// Format: "Program data: <base58 encoded event data>"
-			eventData := strings.TrimPrefix(log, "Program data: ")
-			decodedEvent := base58.Decode(eventData)
-			if decodedEvent == nil {
-				return "", fmt.Errorf("failed to decode event data")
+		fmt.Printf("Processing log: %s\n", log)
+		if strings.HasPrefix(log, "Program data: ") {
+			encoded := strings.TrimPrefix(log, "Program data: ")
+			fmt.Printf("Found program data: %s\n", encoded)
+
+			// Try to decode the base64 data
+			raw, err := base64.StdEncoding.DecodeString(encoded)
+			if err != nil {
+				fmt.Printf("Failed to decode base64 data: %v\n", err)
+				continue
 			}
 
-			// Parse the event data
-			// The event data is serialized using Anchor's format
-			// We need to skip the discriminator (8 bytes) and then parse the fields
-			if len(decodedEvent) < 8 {
-				return "", fmt.Errorf("invalid event data length")
+			fmt.Printf("Decoded length: %d, first 8 bytes: %x\n", len(raw), raw[:8])
+			if len(raw) < 100 {
+				fmt.Printf("Data too short: %d < 100\n", len(raw))
+				continue
 			}
 
-			// Skip discriminator
-			eventData = string(decodedEvent[8:])
-
-			// Parse fields
-			// Format: [user(32)][sol_amount(8)][usd_equivalent(16)][usd_exponent(4)][tx_hash(32)]
-			if len(eventData) >= 92 { // 32 + 8 + 16 + 4 + 32
-				// Skip user (32 bytes) and sol_amount (8 bytes)
-				// Read usd_equivalent (16 bytes)
-				usdAmount = new(big.Int).SetBytes([]byte(eventData[40:56]))
-				// Read usd_exponent (4 bytes)
-				usdExponent = int32(binary.LittleEndian.Uint32([]byte(eventData[56:60])))
-				foundEvent = true
-				break
+			// Check discriminator
+			fmt.Printf("Checking discriminator: %x vs expected %x\n", raw[:8], FundsAddedDiscriminator)
+			if !bytes.Equal(raw[:8], FundsAddedDiscriminator) {
+				fmt.Println("Discriminator mismatch")
+				continue
 			}
+
+			// Parse event
+			eventBytes := raw[8:]
+			fmt.Printf("Event bytes length: %d\n", len(eventBytes))
+
+			// Skip user (32 bytes) and sol_amount (8 bytes)
+			// Read usd_equivalent (16 bytes) as i128
+			usdAmount = readI128LE(eventBytes[40:56])
+			// Read usd_exponent (4 bytes)
+			usdExponent = int32(binary.LittleEndian.Uint32(eventBytes[56:60]))
+			fmt.Printf("Found event - USD amount: %s, exponent: %d\n", usdAmount.String(), usdExponent)
+			foundEvent = true
+			break
 		}
 	}
 
 	if !foundEvent {
 		return "", fmt.Errorf("FundsAddedEvent not found in transaction logs")
 	}
+	fmt.Println("usdAmount HEREEEEEEEeeee", usdAmount)
 
-	// Calculate final USD amount using the exponent
-	// Convert to string with proper decimal places
-	usdAmountStr := usdAmount.String()
+	// Apply the exponent to get the final amount
 	if usdExponent < 0 {
-		// Add decimal point
-		decimals := -int(usdExponent)
-		if len(usdAmountStr) > decimals {
-			usdAmountStr = usdAmountStr[:len(usdAmountStr)-decimals] + "." + usdAmountStr[len(usdAmountStr)-decimals:]
-		} else {
-			// Pad with leading zeros
-			usdAmountStr = "0." + strings.Repeat("0", decimals-len(usdAmountStr)) + usdAmountStr
-		}
+		// For negative exponents, we need to divide by 10^|exponent|
+		divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-usdExponent)), nil)
+		usdAmount = new(big.Int).Div(usdAmount, divisor)
+	} else if usdExponent > 0 {
+		// For positive exponents, we need to multiply by 10^exponent
+		multiplier := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(usdExponent)), nil)
+		usdAmount = new(big.Int).Mul(usdAmount, multiplier)
+	}
+	fmt.Println("usdAmount RETURNEEeeeee", usdAmount)
+
+	return usdAmount.String(), nil
+}
+
+// readI128LE decodes a little-endian i128 value from Anchor logs
+func readI128LE(b []byte) *big.Int {
+	if len(b) != 16 {
+		panic("i128 must be 16 bytes")
 	}
 
-	return usdAmountStr, nil
+	// Interpret as little-endian
+	// Copy bytes into 16-byte array
+	var le [16]byte
+	copy(le[:], b[:16])
+
+	// Convert to big.Int (will be positive)
+	i := new(big.Int).SetBytes(reverseBytes(le[:]))
+
+	// Check if it's negative (signed i128)
+	if le[15]&0x80 != 0 {
+		// 2's complement negative: i - 2^128
+		two128 := new(big.Int).Lsh(big.NewInt(1), 128)
+		i.Sub(i, two128)
+	}
+	return i
+}
+
+// reverseBytes reverses a byte slice (from little to big-endian)
+func reverseBytes(b []byte) []byte {
+	out := make([]byte, len(b))
+	for i := range b {
+		out[i] = b[len(b)-1-i]
+	}
+	return out
 }

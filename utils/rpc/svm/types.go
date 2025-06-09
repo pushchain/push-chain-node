@@ -39,6 +39,4 @@ type Block struct {
 }
 
 // Slot represents a Solana slot response from getSlot
-type Slot struct {
-	Slot uint64 `json:"result"`
-}
+type Slot uint64

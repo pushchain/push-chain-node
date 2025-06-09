@@ -233,9 +233,11 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 		multiplier := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(usdExponent)), nil)
 		usdAmount = new(big.Int).Mul(usdAmount, multiplier)
 	}
-	fmt.Println("usdAmount RETURNEEeeeee", usdAmount)
 
-	return usdAmount.String(), nil
+	usdReturn := new(big.Int).Mul(usdAmount, big.NewInt(1e6))
+	fmt.Println("usdAmount RETURNEEeeeee", usdReturn)
+
+	return usdReturn.String(), nil
 }
 
 // readI128LE decodes a little-endian i128 value from Anchor logs

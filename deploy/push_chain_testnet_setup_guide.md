@@ -6,7 +6,7 @@ This guide walks through setting up a multi-node Push Chain testnet with:
 
 ## Network Configuration
 - **Chain ID**: `push_42101-1`
-- **Denomination**: `npc` (base unit), `PUSH` (display unit)
+- **Denomination**: `upc` (base unit), `PUSH` (display unit)
 - **Total Supply**: 10 Billion PUSH tokens
 - **Genesis Accounts**: 5 accounts with 2 billion PUSH each
 

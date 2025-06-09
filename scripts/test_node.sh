@@ -21,7 +21,7 @@ export KEYALGO="eth_secp256k1"
 export KEYRING=${KEYRING:-"test"}
 export HOME_DIR=$(eval echo "${HOME_DIR:-"~/.pchain"}")
 export BINARY=${BINARY:-pchaind}
-export DENOM=${DENOM:-npc}
+export DENOM=${DENOM:-upc}
 
 export CLEAN=${CLEAN:-"false"}
 export RPC=${RPC:-"26657"}
@@ -92,14 +92,20 @@ from_scratch () {
 
   # Block
   update_test_genesis '.consensus_params["block"]["max_gas"]="100000000"'
+  update_test_genesis '.consensus_params["block"]["time_iota_ms"]="1000"'
 
   # Gov
   update_test_genesis `printf '.app_state["gov"]["params"]["min_deposit"]=[{"denom":"%s","amount":"1000000"}]' $DENOM`
-  update_test_genesis '.app_state["gov"]["params"]["voting_period"]="30s"'
-  update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="15s"'
+  update_test_genesis '.app_state["gov"]["params"]["voting_period"]="172800s"'
+  update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="86400s"'
 
   update_test_genesis `printf '.app_state["evm"]["params"]["evm_denom"]="%s"' $DENOM`
   update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
+  # Extract numeric part from CHAIN_ID for EVM chain_id (e.g., localchain_9000-1 -> 9000)
+  EVM_CHAIN_ID=$(echo $CHAIN_ID | sed 's/.*_\([0-9]*\).*/\1/')
+  update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["chain_id"]="%s"' $EVM_CHAIN_ID`
+  update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["denom"]="%s"' $DENOM`
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
   update_test_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' # https://eips.ethereum.org/EIPS/eip-7528
   update_test_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
   update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=true'

@@ -15,7 +15,7 @@ export MONIKER="val-2"
 # keyring type
 export KEYRING="test"
 # token name
-export DENOM="npc"
+export DENOM="upc"
 
 read -p "-> This will remove all config .toml files. Type DELETEALL to continue " response
 if [[ "$response" == "DELETEALL" || "$response" == "deleteall" ]]; then

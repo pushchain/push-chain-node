@@ -59,6 +59,7 @@ require (
 	github.com/cosmos/ibc-go/modules/capability v1.0.1
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092650-57fcdb9a9a9d
 	github.com/cosmos/ibc-go/v8 v8.5.2
+	github.com/decred/base58 v1.0.5
 	github.com/ethereum/go-ethereum v1.15.3
 	github.com/evmos/os v0.0.0-20250130185216-d2cab8abc34d
 	github.com/golang/protobuf v1.5.4
@@ -126,6 +127,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
+	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect

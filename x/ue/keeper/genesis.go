@@ -22,7 +22,7 @@ var FactoryRuntimeBytecode = common.FromHex("0x608060405234801561000f575f80fd5b5
 func deployFactoryContract(ctx context.Context, evmKeeper types.EVMKeeper) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	factoryAddress := common.HexToAddress(FactoryAddressHex)
-	owner := common.HexToAddress("0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4")
+	owner := common.HexToAddress(OwnerAddressHex)
 
 	// Compute the code hash from the runtime bytecode
 	codeHash := crypto.Keccak256(FactoryRuntimeBytecode)

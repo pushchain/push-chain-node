@@ -8,7 +8,7 @@ import (
 )
 
 // GetTransaction fetches transaction details using getTransaction RPC method
-func GetTransaction(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
+func SolGetTransactionBySig(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
 	var result Transaction
 	err := baserpc.GetClient().Call(ctx, rpcURL, "getTransaction", []interface{}{txHash}, &result)
 	if err != nil {
@@ -18,7 +18,7 @@ func GetTransaction(ctx context.Context, rpcURL, txHash string) (*Transaction, e
 }
 
 // GetSlot fetches current slot using getSlot RPC method
-func GetSlot(ctx context.Context, rpcURL string) (uint64, error) {
+func SolGetCurrentSlot(ctx context.Context, rpcURL string) (uint64, error) {
 	var result Slot
 	err := baserpc.GetClient().Call(ctx, rpcURL, "getSlot", nil, &result)
 	if err != nil {

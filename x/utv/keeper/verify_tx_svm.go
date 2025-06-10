@@ -18,7 +18,7 @@ import (
 // verifySVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
 func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
 	// Get transaction details
-	tx, err := svmrpc.GetTransaction(ctx, chainConfig.PublicRpcUrl, txHash)
+	tx, err := svmrpc.SolGetTransactionBySig(ctx, chainConfig.PublicRpcUrl, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -113,7 +113,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
 func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (string, error) {
 	// Step 1: Fetch transaction
-	tx, err := svmrpc.GetTransaction(ctx, chainConfig.PublicRpcUrl, txHash)
+	tx, err := svmrpc.SolGetTransactionBySig(ctx, chainConfig.PublicRpcUrl, txHash)
 	if err != nil {
 		return "", fmt.Errorf("fetch tx failed: %w", err)
 	}
@@ -151,7 +151,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Step 2: Verify confirmations
-	currentSlot, err := svmrpc.GetSlot(ctx, chainConfig.PublicRpcUrl)
+	currentSlot, err := svmrpc.SolGetCurrentSlot(ctx, chainConfig.PublicRpcUrl)
 	if err != nil {
 		return "", fmt.Errorf("fetch current slot failed: %w", err)
 	}

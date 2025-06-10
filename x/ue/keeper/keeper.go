@@ -106,3 +106,11 @@ func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.Chain
 	}
 	return config, nil
 }
+
+func (k Keeper) IsChainEnabled(ctx context.Context, chainID string) (bool, error) {
+	enabled, err := k.ChainConfigs.Has(ctx, chainID)
+	if err != nil {
+		return false, err
+	}
+	return enabled, nil
+}

@@ -15,7 +15,7 @@ import (
 func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
 	rpcURL := chainConfig.PublicRpcUrl
 
-	tx, err := evmrpc.EthGetTransactionByHash(ctx, rpcURL, txHash)
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcURL, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -43,7 +43,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	rpcURL := chainConfig.PublicRpcUrl
 
 	// Step 1: Fetch transaction receipt
-	receipt, err := evmrpc.EthGetTransactionReceipt(ctx, rpcURL, txHash)
+	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcURL, txHash)
 	if err != nil {
 		return *big.NewInt(0), fmt.Errorf("fetch receipt failed: %w", err)
 	}
@@ -64,7 +64,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Get latest block number
-	latestBlock, err := evmrpc.EthGetBlockByNumber(ctx, rpcURL, "latest", false)
+	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcURL, "latest", false)
 	if err != nil {
 		return *big.NewInt(0), fmt.Errorf("fetch latest block failed: %w", err)
 	}

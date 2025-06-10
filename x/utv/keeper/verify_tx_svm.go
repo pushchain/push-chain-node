@@ -28,14 +28,11 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 		return fmt.Errorf("transaction failed with error: %v", tx.Meta.Err)
 	}
 
-	fmt.Println("tx.Transaction.Message.AccountKeys", tx.Transaction.Message.AccountKeys)
-	// Verify sender address (first account in AccountKeys)
+	// Verify sender address
 	if len(tx.Transaction.Message.AccountKeys) == 0 {
 		return fmt.Errorf("no accounts found in transaction")
 	}
 	sender := tx.Transaction.Message.AccountKeys[0]
-	fmt.Println("sender", sender)
-	fmt.Println("ownerKey (input)", ownerKey)
 
 	// Convert Solana address to hex format for comparison
 	senderBytes := base58.Decode(sender)
@@ -43,7 +40,6 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 		return fmt.Errorf("failed to decode Solana address: %s", sender)
 	}
 	senderHex := fmt.Sprintf("0x%x", senderBytes)
-	fmt.Println("senderHex", senderHex)
 
 	if senderHex != ownerKey {
 		return fmt.Errorf("transaction sender %s (hex: %s) does not match ownerKey %s", sender, senderHex, ownerKey)
@@ -63,7 +59,6 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 		}
 
 		programID := tx.Transaction.Message.AccountKeys[instruction.ProgramIDIndex]
-		fmt.Println("program ID", programID)
 
 		if strings.EqualFold(programID, chainConfig.LockerContractAddress) {
 			foundLockerCall = true
@@ -79,8 +74,6 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			}
 
 			// Verify instruction data format
-			// The first 8 bytes should be the instruction discriminator for "add_funds"
-			// Anchor uses first 8 bytes of SHA-256("global:add_funds")
 			if len(instruction.Data) < 8 {
 				return fmt.Errorf("instruction data too short")
 			}
@@ -106,7 +99,6 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			if !bytes.Equal(actualDiscriminator, expectedDiscriminator) {
 				return fmt.Errorf("invalid instruction discriminator: expected %x, got %x", expectedDiscriminator, actualDiscriminator)
 			}
-
 			break
 		}
 	}
@@ -153,6 +145,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 		return "", fmt.Errorf("no instructions found in transaction")
 	}
 	programID := tx.Transaction.Message.AccountKeys[tx.Transaction.Message.Instructions[0].ProgramIDIndex]
+
 	if !strings.EqualFold(programID, chainConfig.LockerContractAddress) {
 		return "", fmt.Errorf("transaction program ID %s does not match locker contract %s", programID, chainConfig.LockerContractAddress)
 	}
@@ -176,43 +169,33 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// FundsAddedEvent discriminator - first 8 bytes of SHA-256("event:FundsAddedEvent")
 	FundsAddedDiscriminator := []byte{0x7f, 0x1f, 0x6c, 0xff, 0xbb, 0x13, 0x46, 0x44}
 
-	fmt.Println("tx.Meta.LogMessages", tx.Meta.LogMessages)
 	for _, log := range tx.Meta.LogMessages {
-		fmt.Printf("Processing log: %s\n", log)
 		if strings.HasPrefix(log, "Program data: ") {
 			encoded := strings.TrimPrefix(log, "Program data: ")
-			fmt.Printf("Found program data: %s\n", encoded)
 
 			// Try to decode the base64 data
 			raw, err := base64.StdEncoding.DecodeString(encoded)
 			if err != nil {
-				fmt.Printf("Failed to decode base64 data: %v\n", err)
 				continue
 			}
 
-			fmt.Printf("Decoded length: %d, first 8 bytes: %x\n", len(raw), raw[:8])
 			if len(raw) < 100 {
-				fmt.Printf("Data too short: %d < 100\n", len(raw))
 				continue
 			}
 
 			// Check discriminator
-			fmt.Printf("Checking discriminator: %x vs expected %x\n", raw[:8], FundsAddedDiscriminator)
 			if !bytes.Equal(raw[:8], FundsAddedDiscriminator) {
-				fmt.Println("Discriminator mismatch")
 				continue
 			}
 
 			// Parse event
 			eventBytes := raw[8:]
-			fmt.Printf("Event bytes length: %d\n", len(eventBytes))
 
 			// Skip user (32 bytes) and sol_amount (8 bytes)
 			// Read usd_equivalent (16 bytes) as i128
 			usdAmount = readI128LE(eventBytes[40:56])
 			// Read usd_exponent (4 bytes)
 			usdExponent = int32(binary.LittleEndian.Uint32(eventBytes[56:60]))
-			fmt.Printf("Found event - USD amount: %s, exponent: %d\n", usdAmount.String(), usdExponent)
 			foundEvent = true
 			break
 		}
@@ -221,21 +204,17 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	if !foundEvent {
 		return "", fmt.Errorf("FundsAddedEvent not found in transaction logs")
 	}
-	fmt.Println("usdAmount HEREEEEEEEeeee", usdAmount)
 
 	// Apply the exponent to get the final amount
 	if usdExponent < 0 {
-		// For negative exponents, we need to divide by 10^|exponent|
 		divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-usdExponent)), nil)
 		usdAmount = new(big.Int).Div(usdAmount, divisor)
 	} else if usdExponent > 0 {
-		// For positive exponents, we need to multiply by 10^exponent
 		multiplier := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(usdExponent)), nil)
 		usdAmount = new(big.Int).Mul(usdAmount, multiplier)
 	}
 
 	usdReturn := new(big.Int).Mul(usdAmount, big.NewInt(1e6))
-	fmt.Println("usdAmount RETURNEEeeeee", usdReturn)
 
 	return usdReturn.String(), nil
 }

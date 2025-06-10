@@ -8,7 +8,7 @@ import (
 )
 
 // GetTransaction fetches transaction details using getTransaction RPC method
-func SolGetTransactionBySig(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
+func SVMGetTransactionBySig(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
 	var result Transaction
 	err := baserpc.GetClient().Call(ctx, rpcURL, "getTransaction", []interface{}{txHash}, &result)
 	if err != nil {
@@ -18,7 +18,7 @@ func SolGetTransactionBySig(ctx context.Context, rpcURL, txHash string) (*Transa
 }
 
 // GetSlot fetches current slot using getSlot RPC method
-func SolGetCurrentSlot(ctx context.Context, rpcURL string) (uint64, error) {
+func SVMGetCurrentSlot(ctx context.Context, rpcURL string) (uint64, error) {
 	var result Slot
 	err := baserpc.GetClient().Call(ctx, rpcURL, "getSlot", nil, &result)
 	if err != nil {

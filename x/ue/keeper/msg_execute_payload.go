@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -19,6 +20,15 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, acco
 	adminParams, err := k.AdminParams.Get(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get admin params")
+	}
+
+	chainConfig, err := k.GetChainConfig(sdkCtx, accountId.ChainId)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chain config for chain %s", accountId.ChainId)
+	}
+
+	if !chainConfig.Enabled {
+		return fmt.Errorf("chain %s is not enabled", accountId.ChainId)
 	}
 
 	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)

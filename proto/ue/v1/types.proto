@@ -79,4 +79,6 @@ message ChainConfig {
   uint64 block_confirmation = 6; // block_confirmation is the number of blocks to wait for confirmation on the external chain
   
   string funds_added_event_topic = 7; // funds_added_event_topic is the event topic signature for FundsAdded event
+
+  bool enabled = 8; // Whether this chain is currently enabled or not
 }

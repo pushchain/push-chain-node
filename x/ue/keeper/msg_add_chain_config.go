@@ -9,6 +9,8 @@ import (
 
 // updateParams is for updating params collections of the module
 func (k Keeper) addChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
+	fmt.Println("Adding chain config:", chainConfig)
+	fmt.Println(chainConfig.Enabled)
 	// Check if chain ID already exists
 	if has, err := k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
 		return err

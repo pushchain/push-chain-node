@@ -21,6 +21,10 @@ func (k Keeper) VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash,
 		return err
 	}
 
+	if !chainConfig.Enabled {
+		return fmt.Errorf("chain %s is not enabled", chainId)
+	}
+
 	// Load .env override
 	rpcURL := utils.GetEnvRPCOverride(chainId, chainConfig.PublicRpcUrl)
 

@@ -21,6 +21,10 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		return *big.NewInt(0), err
 	}
 
+	if !chainConfig.Enabled {
+		return *big.NewInt(0), fmt.Errorf("chain %s is not enabled", chainId)
+	}
+
 	switch chainConfig.VmType {
 	case types.VM_TYPE_EVM:
 		amount, err := k.verifyEVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)

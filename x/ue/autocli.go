@@ -17,11 +17,6 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:     "Query the current gov gated parameters",
 				},
 				{
-					RpcMethod: "AdminParams",
-					Use:       "admin-params",
-					Short:     "Query the current admin parameters",
-				},
-				{
 					RpcMethod: "ChainConfig",
 					Use:       "chain-config --chain-id [chain-id]",
 					Short:     "Query the chain configuration for a specific chain ID",
@@ -33,10 +28,6 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 			RpcCommandOptions: []*autocliv1.RpcCommandOptions{
 				{
 					RpcMethod: "UpdateParams",
-					Skip:      false, // set to true if authority gated (to hide from cli)
-				},
-				{
-					RpcMethod: "UpdateAdminParams",
 					Skip:      false, // set to true if authority gated (to hide from cli)
 				},
 				{

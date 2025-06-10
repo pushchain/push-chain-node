@@ -13,11 +13,6 @@ service Query {
     option (google.api.http).get = "/ue/v1/params";
   }
 
-  // AdminParams queries all admin-controlled parameters of the module.
-  rpc AdminParams(QueryAdminParamsRequest) returns (QueryAdminParamsResponse) {
-    option (google.api.http).get = "/ue/v1/admin_params";
-  }
-
   // ChainConfig queries a ChainConfig by chain_id.
   rpc ChainConfig(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
     option (google.api.http).get = "/ue/v1/chain_config/{chain_id}";
@@ -31,15 +26,6 @@ message QueryParamsRequest {}
 message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
-}
-
-// QueryAdminParamsRequest is the request type for the Query/AdminParams RPC method.
-message QueryAdminParamsRequest {}
-
-// QueryAdminParamsResponse is the response type for the Query/AdminParams RPC method.
-message QueryAdminParamsResponse {
-  // admin_params defines the admin-controlled parameters of the module.
-  AdminParams admin_params = 1;
 }
 
 // QueryChainConfigRequest is the request type for querying a ChainConfig by chain_id.

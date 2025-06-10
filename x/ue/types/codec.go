@@ -22,7 +22,6 @@ func init() {
 // RegisterLegacyAminoCodec registers concrete types on the LegacyAmino codec
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgUpdateParams{}, ModuleName+"/MsgUpdateParams", nil)
-	cdc.RegisterConcrete(&MsgUpdateAdminParams{}, ModuleName+"/MsgUpdateAdminParams", nil)
 	cdc.RegisterConcrete(&MsgDeployNMSC{}, ModuleName+"/MsgDeployNMSCResponse", nil)
 	cdc.RegisterConcrete(&MsgMintPush{}, ModuleName+"/MsgMintPush", nil)
 	cdc.RegisterConcrete(&MsgExecutePayload{}, ModuleName+"/MsgExecutePayload", nil)
@@ -34,7 +33,6 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 	registry.RegisterImplementations(
 		(*sdk.Msg)(nil),
 		&MsgUpdateParams{},
-		&MsgUpdateAdminParams{},
 		&MsgDeployNMSCResponse{},
 		&MsgMintPush{},
 		&MsgExecutePayload{},

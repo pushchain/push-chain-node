@@ -16,12 +16,6 @@ import (
 func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, crosschainPayload *types.CrossChainPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Step 1: Get params and validate addresses
-	adminParams, err := k.AdminParams.Get(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get admin params")
-	}
-
 	chainConfig, err := k.GetChainConfig(sdkCtx, accountId.ChainId)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get chain config for chain %s", accountId.ChainId)
@@ -31,9 +25,9 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, acco
 		return fmt.Errorf("chain %s is not enabled", accountId.ChainId)
 	}
 
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
-	// Step 2: Compute smart account address
+	// Step 1: Compute smart account address
 	receipt, err := k.CallFactoryToComputeAddress(sdkCtx, evmFrom, factoryAddress, accountId)
 	if err != nil {
 		return err
@@ -44,7 +38,7 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, acco
 	nmscComputedAddress := "0x" + addressBytes
 	nmscAddr := common.HexToAddress(nmscComputedAddress)
 
-	// Step 3: Parse and validate payload and signature
+	// Step 2: Parse and validate payload and signature
 	payload, err := types.NewAbiCrossChainPayload(crosschainPayload)
 	if err != nil {
 		return errors.Wrapf(err, "invalid cross-chain payload")
@@ -55,13 +49,13 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, acco
 		return errors.Wrapf(err, "invalid signature format")
 	}
 
-	// Step 4: Execute payload through NMSC
+	// Step 3: Execute payload through NMSC
 	receipt, err = k.CallNMSCExecutePayload(sdkCtx, evmFrom, nmscAddr, payload, signatureVal)
 	if err != nil {
 		return err
 	}
 
-	// Step 5: Handle fee calculation and deduction
+	// Step 4: Handle fee calculation and deduction
 	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
 
 	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)

@@ -14,17 +14,11 @@ import (
 func (k Keeper) deployNMSC(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, txHash string) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Retrieve the current Params
-	adminParams, err := k.AdminParams.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get admin params")
-	}
-
 	// EVM Call arguments
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
 	// RPC call verification to verify the locker interaction tx on source chain
-	err = k.utvKeeper.VerifyLockerInteractionTx(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
+	err := k.utvKeeper.VerifyLockerInteractionTx(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
 	}

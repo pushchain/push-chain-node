@@ -111,89 +111,6 @@ func (m *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
-// QueryAdminParamsRequest is the request type for the Query/AdminParams RPC method.
-type QueryAdminParamsRequest struct {
-}
-
-func (m *QueryAdminParamsRequest) Reset()         { *m = QueryAdminParamsRequest{} }
-func (m *QueryAdminParamsRequest) String() string { return proto.CompactTextString(m) }
-func (*QueryAdminParamsRequest) ProtoMessage()    {}
-func (*QueryAdminParamsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4f584bc3b15bf59c, []int{2}
-}
-func (m *QueryAdminParamsRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *QueryAdminParamsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_QueryAdminParamsRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *QueryAdminParamsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryAdminParamsRequest.Merge(m, src)
-}
-func (m *QueryAdminParamsRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *QueryAdminParamsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryAdminParamsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_QueryAdminParamsRequest proto.InternalMessageInfo
-
-// QueryAdminParamsResponse is the response type for the Query/AdminParams RPC method.
-type QueryAdminParamsResponse struct {
-	// admin_params defines the admin-controlled parameters of the module.
-	AdminParams *AdminParams `protobuf:"bytes,1,opt,name=admin_params,json=adminParams,proto3" json:"admin_params,omitempty"`
-}
-
-func (m *QueryAdminParamsResponse) Reset()         { *m = QueryAdminParamsResponse{} }
-func (m *QueryAdminParamsResponse) String() string { return proto.CompactTextString(m) }
-func (*QueryAdminParamsResponse) ProtoMessage()    {}
-func (*QueryAdminParamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4f584bc3b15bf59c, []int{3}
-}
-func (m *QueryAdminParamsResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *QueryAdminParamsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_QueryAdminParamsResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *QueryAdminParamsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryAdminParamsResponse.Merge(m, src)
-}
-func (m *QueryAdminParamsResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *QueryAdminParamsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryAdminParamsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_QueryAdminParamsResponse proto.InternalMessageInfo
-
-func (m *QueryAdminParamsResponse) GetAdminParams() *AdminParams {
-	if m != nil {
-		return m.AdminParams
-	}
-	return nil
-}
-
 // QueryChainConfigRequest is the request type for querying a ChainConfig by chain_id.
 type QueryChainConfigRequest struct {
 	ChainId string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
@@ -203,7 +120,7 @@ func (m *QueryChainConfigRequest) Reset()         { *m = QueryChainConfigRequest
 func (m *QueryChainConfigRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryChainConfigRequest) ProtoMessage()    {}
 func (*QueryChainConfigRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4f584bc3b15bf59c, []int{4}
+	return fileDescriptor_4f584bc3b15bf59c, []int{2}
 }
 func (m *QueryChainConfigRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -248,7 +165,7 @@ func (m *QueryChainConfigResponse) Reset()         { *m = QueryChainConfigRespon
 func (m *QueryChainConfigResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryChainConfigResponse) ProtoMessage()    {}
 func (*QueryChainConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4f584bc3b15bf59c, []int{5}
+	return fileDescriptor_4f584bc3b15bf59c, []int{3}
 }
 func (m *QueryChainConfigResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -287,8 +204,6 @@ func (m *QueryChainConfigResponse) GetConfig() *ChainConfig {
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "ue.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "ue.v1.QueryParamsResponse")
-	proto.RegisterType((*QueryAdminParamsRequest)(nil), "ue.v1.QueryAdminParamsRequest")
-	proto.RegisterType((*QueryAdminParamsResponse)(nil), "ue.v1.QueryAdminParamsResponse")
 	proto.RegisterType((*QueryChainConfigRequest)(nil), "ue.v1.QueryChainConfigRequest")
 	proto.RegisterType((*QueryChainConfigResponse)(nil), "ue.v1.QueryChainConfigResponse")
 }
@@ -296,33 +211,29 @@ func init() {
 func init() { proto.RegisterFile("ue/v1/query.proto", fileDescriptor_4f584bc3b15bf59c) }
 
 var fileDescriptor_4f584bc3b15bf59c = []byte{
-	// 404 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0xcf, 0x4e, 0xea, 0x40,
-	0x14, 0xc6, 0x29, 0x09, 0xbd, 0xf7, 0x4e, 0x2f, 0xb9, 0xb9, 0x83, 0x44, 0xa8, 0x66, 0x24, 0x4d,
-	0xfc, 0x13, 0x17, 0x9d, 0x80, 0xba, 0x73, 0x83, 0x24, 0x26, 0xee, 0x84, 0x85, 0x0b, 0x37, 0x64,
-	0x80, 0xb1, 0x34, 0x42, 0xa7, 0xf4, 0x0f, 0x91, 0x18, 0x37, 0x3e, 0x81, 0x89, 0xaf, 0xe4, 0xc2,
-	0x25, 0x89, 0x1b, 0x97, 0x06, 0x7c, 0x10, 0xd3, 0xe9, 0x31, 0xb6, 0x16, 0x57, 0x4d, 0xbf, 0x73,
-	0xce, 0xf7, 0x3b, 0xf3, 0xcd, 0xa0, 0xff, 0x21, 0xa7, 0xd3, 0x3a, 0x9d, 0x84, 0xdc, 0x9b, 0x99,
-	0xae, 0x27, 0x02, 0x81, 0x0b, 0x21, 0x37, 0xa7, 0x75, 0x7d, 0xd3, 0x12, 0xc2, 0x1a, 0x71, 0xca,
-	0x5c, 0x9b, 0x32, 0xc7, 0x11, 0x01, 0x0b, 0x6c, 0xe1, 0xf8, 0x71, 0x93, 0x0e, 0x73, 0xc1, 0xcc,
-	0xe5, 0x20, 0x19, 0x6b, 0x08, 0xb7, 0x23, 0x9b, 0x73, 0xe6, 0xb1, 0xb1, 0xdf, 0xe1, 0x93, 0x90,
-	0xfb, 0x81, 0x71, 0x8c, 0x4a, 0x29, 0xd5, 0x77, 0x85, 0xe3, 0x73, 0xbc, 0x8d, 0x54, 0x57, 0x2a,
-	0x15, 0xa5, 0xa6, 0xec, 0x69, 0x8d, 0xa2, 0x29, 0xa9, 0x26, 0xb4, 0x41, 0xd1, 0xa8, 0xa2, 0x75,
-	0x39, 0xdd, 0x1c, 0x8c, 0x6d, 0x27, 0x6d, 0xdc, 0x46, 0x95, 0x6c, 0x09, 0xdc, 0x8f, 0xd0, 0x5f,
-	0x16, 0xc9, 0xdd, 0x14, 0x03, 0x03, 0x23, 0x39, 0xa1, 0xb1, 0xaf, 0x1f, 0xe3, 0x10, 0x68, 0xad,
-	0x21, 0xb3, 0x9d, 0x96, 0x70, 0xae, 0x6c, 0x0b, 0x68, 0xb8, 0x8a, 0x7e, 0xf7, 0x23, 0xb5, 0x6b,
-	0x0f, 0xa4, 0xdb, 0x9f, 0xce, 0x2f, 0xf9, 0x7f, 0x36, 0x30, 0x4e, 0x61, 0x91, 0xd4, 0x14, 0x2c,
-	0xb2, 0x8f, 0xd4, 0xbe, 0x54, 0xbe, 0xad, 0x90, 0xec, 0x85, 0x8e, 0xc6, 0x53, 0x1e, 0x15, 0xa4,
-	0x11, 0xbe, 0x40, 0x6a, 0xbc, 0x11, 0xae, 0x42, 0x7f, 0x36, 0x58, 0x5d, 0x5f, 0x55, 0x8a, 0xb1,
-	0x46, 0xf9, 0xfe, 0xe5, 0xfd, 0x31, 0xff, 0x0f, 0x17, 0x69, 0x7c, 0x4d, 0x71, 0x0c, 0xf8, 0x1a,
-	0x69, 0x89, 0xb3, 0x63, 0x92, 0x74, 0xc8, 0x26, 0xac, 0x6f, 0xfd, 0x58, 0x07, 0xcc, 0x86, 0xc4,
-	0x94, 0x71, 0x09, 0x30, 0xc9, 0xcc, 0xf1, 0x14, 0x69, 0x89, 0x53, 0xa6, 0x61, 0xd9, 0x80, 0xd3,
-	0xb0, 0x15, 0x51, 0x1a, 0x3b, 0x12, 0x56, 0xc3, 0x04, 0x60, 0xf1, 0x75, 0xc4, 0xd9, 0xd1, 0xdb,
-	0xcf, 0xcb, 0xb9, 0x3b, 0x69, 0x3e, 0x2f, 0x88, 0x32, 0x5f, 0x10, 0xe5, 0x6d, 0x41, 0x94, 0x87,
-	0x25, 0xc9, 0xcd, 0x97, 0x24, 0xf7, 0xba, 0x24, 0xb9, 0xcb, 0x5d, 0xcb, 0x0e, 0x86, 0x61, 0xcf,
-	0xec, 0x8b, 0x31, 0xf5, 0xc4, 0x68, 0x24, 0x67, 0x7c, 0xea, 0xca, 0x2f, 0xbd, 0x89, 0x7c, 0xe5,
-	0x7b, 0xee, 0xa9, 0xf2, 0x41, 0x1f, 0x7c, 0x04, 0x00, 0x00, 0xff, 0xff, 0xfa, 0x51, 0x18, 0x4d,
-	0x1d, 0x03, 0x00, 0x00,
+	// 344 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2c, 0x4d, 0xd5, 0x2f,
+	0x33, 0xd4, 0x2f, 0x2c, 0x4d, 0x2d, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x2d,
+	0x4d, 0xd5, 0x2b, 0x33, 0x94, 0x92, 0x49, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f, 0x2c, 0xc8,
+	0xd4, 0x4f, 0xcc, 0xcb, 0xcb, 0x2f, 0x49, 0x2c, 0xc9, 0xcc, 0xcf, 0x2b, 0x86, 0x28, 0x92, 0x82,
+	0xea, 0x2b, 0xa9, 0x2c, 0x48, 0x85, 0x0a, 0x29, 0x89, 0x70, 0x09, 0x05, 0x82, 0x8c, 0x09, 0x48,
+	0x2c, 0x4a, 0xcc, 0x2d, 0x0e, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e, 0x51, 0xb2, 0xe1, 0x12, 0x46,
+	0x11, 0x2d, 0x2e, 0xc8, 0xcf, 0x2b, 0x4e, 0x15, 0x52, 0xe5, 0x62, 0x2b, 0x00, 0x8b, 0x48, 0x30,
+	0x2a, 0x30, 0x6a, 0x70, 0x1b, 0xf1, 0xea, 0x81, 0x6d, 0xd5, 0x83, 0x2a, 0x83, 0x4a, 0x2a, 0x99,
+	0x70, 0x89, 0x83, 0x75, 0x3b, 0x67, 0x24, 0x66, 0xe6, 0x39, 0xe7, 0xe7, 0xa5, 0x65, 0xa6, 0x43,
+	0x0d, 0x16, 0x92, 0xe4, 0xe2, 0x48, 0x06, 0x89, 0xc6, 0x67, 0xa6, 0x80, 0xcd, 0xe0, 0x0c, 0x62,
+	0x07, 0xf3, 0x3d, 0x53, 0x94, 0xdc, 0xb8, 0x24, 0x30, 0x75, 0x41, 0x2d, 0xd6, 0xe2, 0x62, 0x4b,
+	0x06, 0x8b, 0x40, 0x2d, 0x16, 0x82, 0x5a, 0x8c, 0xac, 0x16, 0xaa, 0xc2, 0xe8, 0x3a, 0x23, 0x17,
+	0x2b, 0xd8, 0x20, 0xa1, 0x30, 0x2e, 0x36, 0x88, 0xcb, 0x84, 0x24, 0xa1, 0xea, 0x31, 0xbd, 0x2a,
+	0x25, 0x85, 0x4d, 0x0a, 0x62, 0xad, 0x92, 0x68, 0xd3, 0xe5, 0x27, 0x93, 0x99, 0xf8, 0x85, 0x78,
+	0xf5, 0x21, 0x01, 0x07, 0xf1, 0x9f, 0x50, 0x19, 0x17, 0x37, 0x92, 0xc5, 0x42, 0x72, 0xc8, 0x26,
+	0x60, 0xfa, 0x59, 0x4a, 0x1e, 0xa7, 0x3c, 0xd4, 0x1a, 0x35, 0xb0, 0x35, 0x0a, 0x42, 0x72, 0x50,
+	0x6b, 0x20, 0x21, 0x04, 0xf1, 0x8e, 0x7e, 0x35, 0x2c, 0xbc, 0x6a, 0x9d, 0x1c, 0x4f, 0x3c, 0x92,
+	0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x09, 0x8f, 0xe5, 0x18, 0x2e, 0x3c,
+	0x96, 0x63, 0xb8, 0xf1, 0x58, 0x8e, 0x21, 0x4a, 0x3d, 0x3d, 0xb3, 0x24, 0xa3, 0x34, 0x49, 0x2f,
+	0x39, 0x3f, 0x57, 0xbf, 0x28, 0x3f, 0x27, 0x07, 0xac, 0xa7, 0x58, 0xbf, 0x00, 0x4c, 0xeb, 0x57,
+	0x80, 0xcc, 0x05, 0x47, 0x7a, 0x12, 0x1b, 0x38, 0xd6, 0x8d, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff,
+	0xb9, 0x18, 0x51, 0xa2, 0x42, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -339,8 +250,6 @@ const _ = grpc.SupportPackageIsVersion4
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// AdminParams queries all admin-controlled parameters of the module.
-	AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain_id.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 }
@@ -362,15 +271,6 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
-func (c *queryClient) AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error) {
-	out := new(QueryAdminParamsResponse)
-	err := c.cc.Invoke(ctx, "/ue.v1.Query/AdminParams", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error) {
 	out := new(QueryChainConfigResponse)
 	err := c.cc.Invoke(ctx, "/ue.v1.Query/ChainConfig", in, out, opts...)
@@ -384,8 +284,6 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// AdminParams queries all admin-controlled parameters of the module.
-	AdminParams(context.Context, *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain_id.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 }
@@ -396,9 +294,6 @@ type UnimplementedQueryServer struct {
 
 func (*UnimplementedQueryServer) Params(ctx context.Context, req *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
-}
-func (*UnimplementedQueryServer) AdminParams(ctx context.Context, req *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AdminParams not implemented")
 }
 func (*UnimplementedQueryServer) ChainConfig(ctx context.Context, req *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
@@ -422,24 +317,6 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Query_AdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryAdminParamsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).AdminParams(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/ue.v1.Query/AdminParams",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).AdminParams(ctx, req.(*QueryAdminParamsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -469,10 +346,6 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
-		},
-		{
-			MethodName: "AdminParams",
-			Handler:    _Query_AdminParams_Handler,
 		},
 		{
 			MethodName: "ChainConfig",
@@ -529,64 +402,6 @@ func (m *QueryParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.Params != nil {
 		{
 			size, err := m.Params.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintQuery(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *QueryAdminParamsRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *QueryAdminParamsRequest) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *QueryAdminParamsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	return len(dAtA) - i, nil
-}
-
-func (m *QueryAdminParamsResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *QueryAdminParamsResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *QueryAdminParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.AdminParams != nil {
-		{
-			size, err := m.AdminParams.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -692,28 +507,6 @@ func (m *QueryParamsResponse) Size() (n int) {
 	_ = l
 	if m.Params != nil {
 		l = m.Params.Size()
-		n += 1 + l + sovQuery(uint64(l))
-	}
-	return n
-}
-
-func (m *QueryAdminParamsRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	return n
-}
-
-func (m *QueryAdminParamsResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.AdminParams != nil {
-		l = m.AdminParams.Size()
 		n += 1 + l + sovQuery(uint64(l))
 	}
 	return n
@@ -863,142 +656,6 @@ func (m *QueryParamsResponse) Unmarshal(dAtA []byte) error {
 				m.Params = &Params{}
 			}
 			if err := m.Params.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipQuery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *QueryAdminParamsRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowQuery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: QueryAdminParamsRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryAdminParamsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipQuery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *QueryAdminParamsResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowQuery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: QueryAdminParamsResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryAdminParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AdminParams", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowQuery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthQuery
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.AdminParams == nil {
-				m.AdminParams = &AdminParams{}
-			}
-			if err := m.AdminParams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

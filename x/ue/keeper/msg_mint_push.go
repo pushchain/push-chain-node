@@ -18,13 +18,7 @@ import (
 func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, txHash string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Retrieve the current Params
-	adminParams, err := k.AdminParams.Get(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get admin params")
-	}
-
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
 	amountOfUsdLocked, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, accountId.OwnerKey, txHash, accountId.ChainId)

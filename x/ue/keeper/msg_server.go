@@ -36,28 +36,6 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// UpdateAdminParams handles updates to admin parameters.
-// Only current admin can execute this.
-func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateAdminParams) (*types.MsgUpdateAdminParamsResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
-	}
-
-	// Check if the sender is the admin (from params)
-	if params.Admin != msg.Admin {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid admin; expected admin address %s, got %s", params.Admin, msg.Admin)
-	}
-
-	err = ms.k.updateAdminParams(ctx, msg.AdminParams)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MsgUpdateAdminParamsResponse{}, nil
-}
-
 // DeployNMSC handles the deployment of new Smart Account (NMSC).
 func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)

@@ -20,7 +20,6 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Msg_UpdateParams_FullMethodName      = "/ue.v1.Msg/UpdateParams"
-	Msg_UpdateAdminParams_FullMethodName = "/ue.v1.Msg/UpdateAdminParams"
 	Msg_DeployNMSC_FullMethodName        = "/ue.v1.Msg/DeployNMSC"
 	Msg_MintPush_FullMethodName          = "/ue.v1.Msg/MintPush"
 	Msg_ExecutePayload_FullMethodName    = "/ue.v1.Msg/ExecutePayload"
@@ -36,8 +35,6 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// UpdateAdminParams defines a admin operation for updating the admin parameters.
-	UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error)
 	// DeployNMSC defines a message to deploy a new smart account.
 	DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error)
 	// MintPush defines a message to mint PUSH tokens to a smart account,
@@ -61,15 +58,6 @@ func NewMsgClient(cc grpc.ClientConnInterface) MsgClient {
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, Msg_UpdateParams_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error) {
-	out := new(MsgUpdateAdminParamsResponse)
-	err := c.cc.Invoke(ctx, Msg_UpdateAdminParams_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +117,6 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// UpdateAdminParams defines a admin operation for updating the admin parameters.
-	UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error)
 	// DeployNMSC defines a message to deploy a new smart account.
 	DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error)
 	// MintPush defines a message to mint PUSH tokens to a smart account,
@@ -150,9 +136,6 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
-}
-func (UnimplementedMsgServer) UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateAdminParams not implemented")
 }
 func (UnimplementedMsgServer) DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeployNMSC not implemented")
@@ -196,24 +179,6 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).UpdateParams(ctx, req.(*MsgUpdateParams))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_UpdateAdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgUpdateAdminParams)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).UpdateAdminParams(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_UpdateAdminParams_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).UpdateAdminParams(ctx, req.(*MsgUpdateAdminParams))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -318,10 +283,6 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
-		},
-		{
-			MethodName: "UpdateAdminParams",
-			Handler:    _Msg_UpdateAdminParams_Handler,
 		},
 		{
 			MethodName: "DeployNMSC",

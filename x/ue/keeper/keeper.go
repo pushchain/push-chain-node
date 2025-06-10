@@ -23,7 +23,6 @@ type Keeper struct {
 	// state management
 	storeService storetypes.KVStoreService
 	Params       collections.Item[types.Params]
-	AdminParams  collections.Item[types.AdminParams]
 	ChainConfigs collections.Map[string, types.ChainConfig]
 
 	authority       string
@@ -57,7 +56,6 @@ func NewKeeper(
 		logger:       logger,
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
-		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, types.AdminParamsName, codec.CollValue[types.AdminParams](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 
 		authority:       authority,

@@ -7,8 +7,8 @@ import (
 	rpc "github.com/rollchains/pchain/utils/rpc"
 )
 
-// EthGetTransactionByHash fetches tx info
-func EthGetTransactionByHash(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
+// EVMGetTransactionByHash fetches tx info
+func EVMGetTransactionByHash(ctx context.Context, rpcURL, txHash string) (*Transaction, error) {
 	client := rpc.GetClient()
 
 	var result Transaction
@@ -21,8 +21,8 @@ func EthGetTransactionByHash(ctx context.Context, rpcURL, txHash string) (*Trans
 	return &result, nil
 }
 
-// EthGetTransactionReceipt fetches receipt + logs
-func EthGetTransactionReceipt(ctx context.Context, rpcURL, txHash string) (*TransactionReceipt, error) {
+// EVMGetTransactionReceipt fetches receipt + logs
+func EVMGetTransactionReceipt(ctx context.Context, rpcURL, txHash string) (*TransactionReceipt, error) {
 	client := rpc.GetClient()
 
 	var result TransactionReceipt
@@ -34,8 +34,8 @@ func EthGetTransactionReceipt(ctx context.Context, rpcURL, txHash string) (*Tran
 	return &result, nil
 }
 
-// EthGetBlockByNumber fetches block details
-func EthGetBlockByNumber(ctx context.Context, rpcURL, blockNumber string, fullTx bool) (*Block, error) {
+// EVMGetBlockByNumber fetches block details
+func EVMGetBlockByNumber(ctx context.Context, rpcURL, blockNumber string, fullTx bool) (*Block, error) {
 	client := rpc.GetClient()
 
 	var result Block

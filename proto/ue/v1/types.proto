@@ -54,6 +54,13 @@ message AccountId {
   VM_TYPE vm_type = 4;
 }
 
+// MethodConfig defines the configuration for a method that can be used for cross-chain operations
+message MethodConfig {
+  string name = 1;  // Name of the method
+  string selector = 2; // Selector is the method selector (first 4 bytes of the keccak256 hash of the method signature)
+  string event_topic = 3; // event_topic is the topic of the event emitted by the method
+}
+
 // ChainConfig defines the configuration for a supported source or destination chain
 message ChainConfig {
   option (amino.name) = "ue/chain_config";
@@ -68,7 +75,7 @@ message ChainConfig {
   string locker_contract_address = 5; // locker_contract_address is the address of the fee locker contract on the external chain
   uint64 block_confirmation = 6; // block_confirmation is the number of blocks to wait for confirmation on the external chain
   
-  string funds_added_event_topic = 7; // funds_added_event_topic is the event topic signature for FundsAdded event
+  repeated MethodConfig gateway_methods = 7; // List of methods that can be used for cross-chain operations
 
   bool enabled = 8; // Whether this chain is currently enabled or not
 }

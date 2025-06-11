@@ -126,58 +126,59 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
-func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (string, error) {
+func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
 	// Step 1: Fetch transaction
 	tx, err := svmrpc.SVMGetTransactionBySig(ctx, chainConfig.PublicRpcUrl, txHash)
 	if err != nil {
-		return "", fmt.Errorf("fetch tx failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch tx failed: %w", err)
 	}
 
 	// Verify transaction status
 	if tx.Meta.Err != nil {
-		return "", fmt.Errorf("transaction failed with error: %v", tx.Meta.Err)
+		return *big.NewInt(0), 0, fmt.Errorf("transaction failed with error: %v", tx.Meta.Err)
 	}
 
 	// Verify sender address
 	if len(tx.Transaction.Message.AccountKeys) == 0 {
-		return "", fmt.Errorf("no accounts found in transaction")
+		return *big.NewInt(0), 0, fmt.Errorf("no accounts found in transaction")
 	}
 	sender := tx.Transaction.Message.AccountKeys[0]
 
 	// Convert Solana address to hex format for comparison
 	senderBytes := base58.Decode(sender)
 	if senderBytes == nil {
-		return "", fmt.Errorf("failed to decode Solana address: %s", sender)
+		return *big.NewInt(0), 0, fmt.Errorf("failed to decode Solana address: %s", sender)
 	}
 	senderHex := fmt.Sprintf("0x%x", senderBytes)
 
 	if senderHex != ownerKey {
-		return "", fmt.Errorf("transaction sender %s (hex: %s) does not match ownerKey %s", sender, senderHex, ownerKey)
+		return *big.NewInt(0), 0, fmt.Errorf("transaction sender %s (hex: %s) does not match ownerKey %s", sender, senderHex, ownerKey)
 	}
 
 	// Verify program ID
 	if len(tx.Transaction.Message.Instructions) == 0 {
-		return "", fmt.Errorf("no instructions found in transaction")
+		return *big.NewInt(0), 0, fmt.Errorf("no instructions found in transaction")
 	}
 	programID := tx.Transaction.Message.AccountKeys[tx.Transaction.Message.Instructions[0].ProgramIDIndex]
 
 	if !strings.EqualFold(programID, chainConfig.LockerContractAddress) {
-		return "", fmt.Errorf("transaction program ID %s does not match locker contract %s", programID, chainConfig.LockerContractAddress)
+		return *big.NewInt(0), 0, fmt.Errorf("transaction program ID %s does not match locker contract %s", programID, chainConfig.LockerContractAddress)
 	}
 
 	// Step 2: Verify confirmations
 	currentSlot, err := svmrpc.SVMGetCurrentSlot(ctx, chainConfig.PublicRpcUrl)
 	if err != nil {
-		return "", fmt.Errorf("fetch current slot failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch current slot failed: %w", err)
 	}
 
 	confirmations := currentSlot - tx.Slot
 	if confirmations < uint64(chainConfig.BlockConfirmation) {
-		return "", fmt.Errorf("insufficient confirmations: got %d, need %d", confirmations, chainConfig.BlockConfirmation)
+		return *big.NewInt(0), 0, fmt.Errorf("insufficient confirmations: got %d, need %d", confirmations, chainConfig.BlockConfirmation)
 	}
 
 	// Step 3: Parse logs for FundsAddedEvent
 	var usdAmount *big.Int
+	var decimals uint32
 	var usdExponent int32
 	foundEvent := false
 
@@ -232,21 +233,20 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	if !foundEvent {
-		return "", fmt.Errorf("FundsAddedEvent not found in transaction logs")
+		return *big.NewInt(0), 0, fmt.Errorf("FundsAddedEvent not found in transaction logs")
 	}
 
-	// Apply the exponent to get the final amount
+	// Normalize exponent into decimals
 	if usdExponent < 0 {
-		divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-usdExponent)), nil)
-		usdAmount = new(big.Int).Div(usdAmount, divisor)
-	} else if usdExponent > 0 {
+		decimals = uint32(-usdExponent)
+		// no scaling needed
+	} else {
+		decimals = uint32(usdExponent)
 		multiplier := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(usdExponent)), nil)
 		usdAmount = new(big.Int).Mul(usdAmount, multiplier)
 	}
 
-	usdReturn := new(big.Int).Mul(usdAmount, big.NewInt(1e6))
-
-	return usdReturn.String(), nil
+	return *usdAmount, decimals, nil
 }
 
 // readI128LE decodes a little-endian i128 value from Anchor logs

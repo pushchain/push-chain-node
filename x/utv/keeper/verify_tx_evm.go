@@ -39,13 +39,13 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // Verifies and extracts locked amount (used in mint)
-func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, error) {
+func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
 	rpcURL := chainConfig.PublicRpcUrl
 
 	// Step 1: Fetch transaction receipt
 	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcURL, txHash)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("fetch receipt failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch receipt failed: %w", err)
 	}
 
 	// Normalize addresses for comparison
@@ -55,28 +55,28 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
 
 	if from != expectedFrom || to != expectedTo {
-		return *big.NewInt(0), fmt.Errorf("tx not sent from %s to locker %s", receipt.From, chainConfig.LockerContractAddress)
+		return *big.NewInt(0), 0, fmt.Errorf("tx not sent from %s to locker %s", receipt.From, chainConfig.LockerContractAddress)
 	}
 
 	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
 	if !ok {
-		return *big.NewInt(0), fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
+		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
 	}
 
 	// Get latest block number
 	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcURL, "latest", false)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("fetch latest block failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch latest block failed: %w", err)
 	}
 	latestBlockNum, ok := new(big.Int).SetString(latestBlock.Number[2:], 16)
 	if !ok {
-		return *big.NewInt(0), fmt.Errorf("invalid block number in latest block: %s", latestBlock.Number)
+		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in latest block: %s", latestBlock.Number)
 	}
 
 	confirmations := new(big.Int).Sub(latestBlockNum, txBlockNum)
 	required := big.NewInt(int64(chainConfig.BlockConfirmation))
 	if confirmations.Cmp(required) < 0 {
-		return *big.NewInt(0), fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), chainConfig.BlockConfirmation)
+		return *big.NewInt(0), 0, fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), chainConfig.BlockConfirmation)
 	}
 
 	// Step 3: Extract amount from logs
@@ -90,12 +90,12 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	if eventTopic == "" {
 		return *big.NewInt(0), fmt.Errorf("add_funds method not found in gateway methods")
 	}
-	amount, err := extractAmountFromLogs(receipt.Logs, eventTopic)
+	amount, decimals, err := extractAmountFromLogs(receipt.Logs, eventTopic)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("amount extract failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("amount extract failed: %w", err)
 	}
 
-	return amount, nil
+	return amount, decimals, nil
 }
 
 // didSendToLocker checks if tx.To equals locker contract address
@@ -109,7 +109,7 @@ func NormalizeAddress(addr string) string {
 }
 
 // extractAmountFromLogs parses logs to extract the locked amount using the given event topic
-func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, error) {
+func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, uint32, error) {
 	expectedTopic = strings.ToLower(expectedTopic)
 
 	for _, rawLog := range logs {
@@ -136,14 +136,18 @@ func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, e
 		}
 
 		dataBytes, err := hex.DecodeString(dataHex[2:])
-		if err != nil || len(dataBytes) < 32 {
-			continue
+		if err != nil || len(dataBytes) < 64 {
+			return *big.NewInt(0), 0, err
 		}
 
-		// Assume amount is the first 32 bytes
+		// First 32 bytes: amountInUSD
 		amount := new(big.Int).SetBytes(dataBytes[:32])
-		return *amount, nil
+
+		// Second 32 bytes: decimals (only last byte relevant)
+		decimals := uint32(uint8(dataBytes[63]))
+
+		return *amount, decimals, nil
 	}
 
-	return *big.NewInt(0), fmt.Errorf("amount not found with expected topic %s", expectedTopic)
+	return *big.NewInt(0), 0, fmt.Errorf("amount not found with expected topic %s", expectedTopic)
 }

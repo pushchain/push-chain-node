@@ -21,11 +21,11 @@ func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, accountId 
 	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
+	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
 	if err != nil {
 		return errors.Wrapf(err, "failed to verify locker interaction transaction")
 	}
-	amountToMint := ConvertUsdToPushTokens(&amountOfUsdLocked)
+	amountToMint := ConvertUsdToPushTokens(&amountOfUsdLocked, usdDecimals)
 
 	// Calling factory contract to compute the smart account address
 	receipt, err := k.CallFactoryToComputeAddress(sdkCtx, evmFrom, factoryAddress, accountId)
@@ -58,12 +58,13 @@ func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, accountId 
 }
 
 // ConvertUsdToPushTokens converts locked USD amount (in wei) to PUSH tokens (with 18 decimals)
-func ConvertUsdToPushTokens(usdAmount *big.Int) sdkmath.Int {
-	// Multiply usdAmount by 10 (conversion rate)
+func ConvertUsdToPushTokens(usdAmount *big.Int, usdDecimals uint32) sdkmath.Int {
+	// Multiply usdAmount by PC token's conversion rate (10)
 	multiplied := new(big.Int).Mul(usdAmount, big.NewInt(10))
 
-	// Multiply by 1e18 to match PUSH token's decimal places
-	pushTokens := new(big.Int).Mul(multiplied, big.NewInt(1e12))
+	// Scale to 18 decimals (PC token), accounting for usdDecimals
+	scaleFactor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(18-usdDecimals)), nil)
+	pushTokens := new(big.Int).Mul(multiplied, scaleFactor)
 
 	return sdkmath.NewIntFromBigInt(pushTokens)
 }

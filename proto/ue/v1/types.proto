@@ -56,6 +56,7 @@ message AccountId {
 
 // MethodConfig defines the configuration for a method that can be used for cross-chain operations
 message MethodConfig {
+  option (gogoproto.equal) = true;
   string name = 1;  // Name of the method
   string selector = 2; // Selector is the method selector (first 4 bytes of the keccak256 hash of the method signature)
   string event_topic = 3; // event_topic is the topic of the event emitted by the method

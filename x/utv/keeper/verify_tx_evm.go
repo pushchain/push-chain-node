@@ -88,7 +88,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 		}
 	}
 	if eventTopic == "" {
-		return *big.NewInt(0), fmt.Errorf("add_funds method not found in gateway methods")
+		return *big.NewInt(0), 0, fmt.Errorf("add_funds method not found in gateway methods")
 	}
 	amount, decimals, err := extractAmountFromLogs(receipt.Logs, eventTopic)
 	if err != nil {

@@ -189,13 +189,13 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 			// Convert hex string to bytes
 			eventDiscriminator, err = hex.DecodeString(method.EventTopic)
 			if err != nil {
-				return "", fmt.Errorf("invalid event discriminator in chain config: %w", err)
+				return *big.NewInt(0), 0, fmt.Errorf("invalid event discriminator in chain config: %w", err)
 			}
 			break
 		}
 	}
 	if eventDiscriminator == nil {
-		return "", fmt.Errorf("add_funds method not found in chain config")
+		return *big.NewInt(0), 0, fmt.Errorf("add_funds method not found in chain config")
 	}
 
 	for _, log := range tx.Meta.LogMessages {

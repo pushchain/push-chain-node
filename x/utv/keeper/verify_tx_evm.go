@@ -82,13 +82,13 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// Step 3: Extract amount from logs
 	eventTopic := ""
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == "add_funds" {
+		if method.Name == "addFunds" {
 			eventTopic = method.EventTopic
 			break
 		}
 	}
 	if eventTopic == "" {
-		return *big.NewInt(0), 0, fmt.Errorf("add_funds method not found in gateway methods")
+		return *big.NewInt(0), 0, fmt.Errorf("addFunds method not found in gateway methods")
 	}
 	amount, decimals, err := extractAmountFromLogs(receipt.Logs, eventTopic)
 	if err != nil {

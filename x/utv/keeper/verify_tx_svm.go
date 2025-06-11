@@ -3,9 +3,9 @@ package keeper
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -92,9 +92,24 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			// Take first 8 bytes as discriminator
 			actualDiscriminator := instructionDataBytes[:8]
 
-			// Calculate the discriminator for "global:add_funds" using SHA-256
-			hash := sha256.Sum256([]byte("global:add_funds"))
-			expectedDiscriminator := hash[:8]
+			// Get the expected discriminator from chain config
+			var expectedDiscriminator []byte
+			for _, method := range chainConfig.GatewayMethods {
+				if method.Name == "add_funds" {
+					// Convert hex string to bytes
+					expectedDiscriminator, err = hex.DecodeString(method.Selector)
+					if err != nil {
+						return fmt.Errorf("invalid discriminator in chain config: %w", err)
+					}
+					break
+				}
+			}
+			if expectedDiscriminator == nil {
+				return fmt.Errorf("add_funds method not found in chain config")
+			}
+
+			fmt.Printf("[SVM] Function actual discriminator: %x\n", actualDiscriminator)
+			fmt.Printf("[SVM] Function expected discriminator: %x\n", expectedDiscriminator)
 
 			if !bytes.Equal(actualDiscriminator, expectedDiscriminator) {
 				return fmt.Errorf("invalid instruction discriminator: expected %x, got %x", expectedDiscriminator, actualDiscriminator)
@@ -167,8 +182,21 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	var usdExponent int32
 	foundEvent := false
 
-	// FundsAddedEvent discriminator - first 8 bytes of SHA-256("event:FundsAddedEvent")
-	FundsAddedDiscriminator := []byte{0x7f, 0x1f, 0x6c, 0xff, 0xbb, 0x13, 0x46, 0x44}
+	// Get the event discriminator from chain config
+	var eventDiscriminator []byte
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == "add_funds" {
+			// Convert hex string to bytes
+			eventDiscriminator, err = hex.DecodeString(method.EventTopic)
+			if err != nil {
+				return *big.NewInt(0), 0, fmt.Errorf("invalid event discriminator in chain config: %w", err)
+			}
+			break
+		}
+	}
+	if eventDiscriminator == nil {
+		return *big.NewInt(0), 0, fmt.Errorf("add_funds method not found in chain config")
+	}
 
 	for _, log := range tx.Meta.LogMessages {
 		if strings.HasPrefix(log, "Program data: ") {
@@ -185,7 +213,9 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 			}
 
 			// Check discriminator
-			if !bytes.Equal(raw[:8], FundsAddedDiscriminator) {
+			fmt.Printf("[SVM] Event actual discriminator: %x\n", raw[:8])
+			fmt.Printf("[SVM] Event expected discriminator: %x\n", eventDiscriminator)
+			if !bytes.Equal(raw[:8], eventDiscriminator) {
 				continue
 			}
 

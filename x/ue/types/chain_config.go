@@ -40,14 +40,22 @@ func (p ChainConfig) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "locker_contract_address cannot be empty")
 	}
 
-	// Validate fundsAddedEventTopic is non-empty
-	if len(p.FundsAddedEventTopic) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "funds_added_event_topic cannot be empty")
-	}
-
 	// Ensure vm_type is within the known enum range
 	if p.VmType < 0 || int(p.VmType) > int(VM_TYPE_OTHER_VM) {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid vm_type")
+	}
+
+	// Validate gateway_methods is not empty
+	if len(p.GatewayMethods) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gateway_methods cannot be empty")
+	}
+
+	// Validate each method in gateway_methods
+	for _, method := range p.GatewayMethods {
+		err := method.ValidateBasic()
+		if err != nil {
+			return errors.Wrapf(err, "invalid method in gateway_methods: %s", method.Name)
+		}
 	}
 
 	return nil

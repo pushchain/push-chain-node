@@ -52,14 +52,9 @@ func (p ChainConfig) ValidateBasic() error {
 
 	// Validate each method in gateway_methods
 	for _, method := range p.GatewayMethods {
-		if len(method.Name) == 0 {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "method name cannot be empty")
-		}
-		if len(method.Selector) == 0 {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "method selector cannot be empty")
-		}
-		if len(method.EventTopic) == 0 {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "method event_topic cannot be empty")
+		err := method.ValidateBasic()
+		if err != nil {
+			return errors.Wrapf(err, "invalid method in gateway_methods: %s", method.Name)
 		}
 	}
 

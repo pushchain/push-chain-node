@@ -31,8 +31,14 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Check if tx.To matches locker contract address
-	if !didSendToLocker(tx, expectedTo) {
+	if !didSendToLocker(tx.To, expectedTo) {
 		return fmt.Errorf("transaction recipient %s is not locker contract %s", tx.To, expectedTo)
+	}
+
+	// Check if transaction is calling addFunds method
+	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
 	}
 
 	return nil
@@ -48,6 +54,12 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 		return *big.NewInt(0), 0, fmt.Errorf("fetch receipt failed: %w", err)
 	}
 
+	// Step 2: Verify transaction details
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcURL, txHash)
+	if err != nil {
+		return *big.NewInt(0), 0, fmt.Errorf("failed to fetch transaction: %w", err)
+	}
+
 	// Normalize addresses for comparison
 	from := NormalizeAddress(receipt.From)
 	to := NormalizeAddress(receipt.To)
@@ -56,6 +68,17 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 
 	if from != expectedFrom || to != expectedTo {
 		return *big.NewInt(0), 0, fmt.Errorf("tx not sent from %s to locker %s", receipt.From, chainConfig.LockerContractAddress)
+	}
+
+	// Check if tx.To matches locker contract address
+	if !didSendToLocker(receipt.To, expectedTo) {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not locker contract %s", receipt.To, expectedTo)
+	}
+
+	// Check if transaction is calling addFunds method
+	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
 	}
 
 	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
@@ -99,8 +122,21 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 }
 
 // didSendToLocker checks if tx.To equals locker contract address
-func didSendToLocker(tx *evmrpc.Transaction, lockerAddress string) bool {
-	return NormalizeAddress(tx.To) == lockerAddress
+func didSendToLocker(toAddress string, lockerAddress string) bool {
+	return NormalizeAddress(toAddress) == lockerAddress
+}
+
+func isCallingAddFunds(txInput string, chainConfig types.ChainConfig) (bool, string) {
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == "addFunds" {
+			selector := method.Selector
+			if strings.HasPrefix(txInput, selector) {
+				return true, selector
+			}
+			return false, selector
+		}
+	}
+	return false, ""
 }
 
 // NormalizeAddress returns a lowercase hex address without 0x prefix

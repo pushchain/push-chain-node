@@ -13,9 +13,9 @@ service Query {
     option (google.api.http).get = "/ue/v1/params";
   }
 
-  // ChainConfig queries a ChainConfig by chain_id.
+  // ChainConfig queries a ChainConfig by chain.
   rpc ChainConfig(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
-    option (google.api.http).get = "/ue/v1/chain_config/{chain_id}";
+    option (google.api.http).get = "/ue/v1/chain_config/{chain}";
   }
 }
 
@@ -28,9 +28,9 @@ message QueryParamsResponse {
   Params params = 1;
 }
 
-// QueryChainConfigRequest is the request type for querying a ChainConfig by chain_id.
+// QueryChainConfigRequest is the request type for querying a ChainConfig by chain.
 message QueryChainConfigRequest {
-  string chain_id = 1;
+  string chain = 1;
 }
 
 // QueryChainConfigResponse is the response type containing the ChainConfig.

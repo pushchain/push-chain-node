@@ -15,7 +15,7 @@ service Query {
 
   // VerifiedTxHash queries if a transaction hash is verified on a specific chain.
   rpc VerifiedTxHash(QueryVerifiedTxHashRequest) returns (QueryVerifiedTxHashResponse) {
-    option (google.api.http).get = "/utv/v1/verified_tx_hash/{chain_id}/{tx_hash}";
+    option (google.api.http).get = "/utv/v1/verified_tx_hash/{chain}/{tx_hash}";
   }
 }
 
@@ -30,8 +30,8 @@ message QueryParamsResponse {
 
 // QueryVerifiedTxHashRequest is the request type for querying if a transaction hash is verified.
 message QueryVerifiedTxHashRequest {
-  // chain_id is the identifier of the chain to query.
-  string chain_id = 1; 
+  // chain is the identifier of the chain to query.
+  string chain = 1; 
 
   // hash is the hash of the transaction to query.
   string tx_hash = 2;

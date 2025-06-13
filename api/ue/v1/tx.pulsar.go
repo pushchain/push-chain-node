@@ -872,29 +872,29 @@ func (x *fastReflection_MsgUpdateParamsResponse) ProtoMethods() *protoiface.Meth
 }
 
 var (
-	md_MsgDeployNMSC            protoreflect.MessageDescriptor
-	fd_MsgDeployNMSC_signer     protoreflect.FieldDescriptor
-	fd_MsgDeployNMSC_account_id protoreflect.FieldDescriptor
-	fd_MsgDeployNMSC_tx_hash    protoreflect.FieldDescriptor
+	md_MsgDeployUEA                   protoreflect.MessageDescriptor
+	fd_MsgDeployUEA_signer            protoreflect.FieldDescriptor
+	fd_MsgDeployUEA_universal_account protoreflect.FieldDescriptor
+	fd_MsgDeployUEA_tx_hash           protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
-	md_MsgDeployNMSC = File_ue_v1_tx_proto.Messages().ByName("MsgDeployNMSC")
-	fd_MsgDeployNMSC_signer = md_MsgDeployNMSC.Fields().ByName("signer")
-	fd_MsgDeployNMSC_account_id = md_MsgDeployNMSC.Fields().ByName("account_id")
-	fd_MsgDeployNMSC_tx_hash = md_MsgDeployNMSC.Fields().ByName("tx_hash")
+	md_MsgDeployUEA = File_ue_v1_tx_proto.Messages().ByName("MsgDeployUEA")
+	fd_MsgDeployUEA_signer = md_MsgDeployUEA.Fields().ByName("signer")
+	fd_MsgDeployUEA_universal_account = md_MsgDeployUEA.Fields().ByName("universal_account")
+	fd_MsgDeployUEA_tx_hash = md_MsgDeployUEA.Fields().ByName("tx_hash")
 }
 
-var _ protoreflect.Message = (*fastReflection_MsgDeployNMSC)(nil)
+var _ protoreflect.Message = (*fastReflection_MsgDeployUEA)(nil)
 
-type fastReflection_MsgDeployNMSC MsgDeployNMSC
+type fastReflection_MsgDeployUEA MsgDeployUEA
 
-func (x *MsgDeployNMSC) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgDeployNMSC)(x)
+func (x *MsgDeployUEA) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgDeployUEA)(x)
 }
 
-func (x *MsgDeployNMSC) slowProtoReflect() protoreflect.Message {
+func (x *MsgDeployUEA) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_tx_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -906,43 +906,43 @@ func (x *MsgDeployNMSC) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_MsgDeployNMSC_messageType fastReflection_MsgDeployNMSC_messageType
-var _ protoreflect.MessageType = fastReflection_MsgDeployNMSC_messageType{}
+var _fastReflection_MsgDeployUEA_messageType fastReflection_MsgDeployUEA_messageType
+var _ protoreflect.MessageType = fastReflection_MsgDeployUEA_messageType{}
 
-type fastReflection_MsgDeployNMSC_messageType struct{}
+type fastReflection_MsgDeployUEA_messageType struct{}
 
-func (x fastReflection_MsgDeployNMSC_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgDeployNMSC)(nil)
+func (x fastReflection_MsgDeployUEA_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgDeployUEA)(nil)
 }
-func (x fastReflection_MsgDeployNMSC_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgDeployNMSC)
+func (x fastReflection_MsgDeployUEA_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgDeployUEA)
 }
-func (x fastReflection_MsgDeployNMSC_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgDeployNMSC
+func (x fastReflection_MsgDeployUEA_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgDeployUEA
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_MsgDeployNMSC) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgDeployNMSC
+func (x *fastReflection_MsgDeployUEA) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgDeployUEA
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_MsgDeployNMSC) Type() protoreflect.MessageType {
-	return _fastReflection_MsgDeployNMSC_messageType
+func (x *fastReflection_MsgDeployUEA) Type() protoreflect.MessageType {
+	return _fastReflection_MsgDeployUEA_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgDeployNMSC) New() protoreflect.Message {
-	return new(fastReflection_MsgDeployNMSC)
+func (x *fastReflection_MsgDeployUEA) New() protoreflect.Message {
+	return new(fastReflection_MsgDeployUEA)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_MsgDeployNMSC) Interface() protoreflect.ProtoMessage {
-	return (*MsgDeployNMSC)(x)
+func (x *fastReflection_MsgDeployUEA) Interface() protoreflect.ProtoMessage {
+	return (*MsgDeployUEA)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -950,22 +950,22 @@ func (x *fastReflection_MsgDeployNMSC) Interface() protoreflect.ProtoMessage {
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_MsgDeployNMSC) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+func (x *fastReflection_MsgDeployUEA) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
 	if x.Signer != "" {
 		value := protoreflect.ValueOfString(x.Signer)
-		if !f(fd_MsgDeployNMSC_signer, value) {
+		if !f(fd_MsgDeployUEA_signer, value) {
 			return
 		}
 	}
-	if x.AccountId != nil {
-		value := protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
-		if !f(fd_MsgDeployNMSC_account_id, value) {
+	if x.UniversalAccount != nil {
+		value := protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
+		if !f(fd_MsgDeployUEA_universal_account, value) {
 			return
 		}
 	}
 	if x.TxHash != "" {
 		value := protoreflect.ValueOfString(x.TxHash)
-		if !f(fd_MsgDeployNMSC_tx_hash, value) {
+		if !f(fd_MsgDeployUEA_tx_hash, value) {
 			return
 		}
 	}
@@ -982,19 +982,19 @@ func (x *fastReflection_MsgDeployNMSC) Range(f func(protoreflect.FieldDescriptor
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_MsgDeployNMSC) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_MsgDeployUEA) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSC.signer":
+	case "ue.v1.MsgDeployUEA.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgDeployNMSC.account_id":
-		return x.AccountId != nil
-	case "ue.v1.MsgDeployNMSC.tx_hash":
+	case "ue.v1.MsgDeployUEA.universal_account":
+		return x.UniversalAccount != nil
+	case "ue.v1.MsgDeployUEA.tx_hash":
 		return x.TxHash != ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1004,19 +1004,19 @@ func (x *fastReflection_MsgDeployNMSC) Has(fd protoreflect.FieldDescriptor) bool
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSC) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_MsgDeployUEA) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSC.signer":
+	case "ue.v1.MsgDeployUEA.signer":
 		x.Signer = ""
-	case "ue.v1.MsgDeployNMSC.account_id":
-		x.AccountId = nil
-	case "ue.v1.MsgDeployNMSC.tx_hash":
+	case "ue.v1.MsgDeployUEA.universal_account":
+		x.UniversalAccount = nil
+	case "ue.v1.MsgDeployUEA.tx_hash":
 		x.TxHash = ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1026,22 +1026,22 @@ func (x *fastReflection_MsgDeployNMSC) Clear(fd protoreflect.FieldDescriptor) {
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_MsgDeployNMSC) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEA) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.MsgDeployNMSC.signer":
+	case "ue.v1.MsgDeployUEA.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgDeployNMSC.account_id":
-		value := x.AccountId
+	case "ue.v1.MsgDeployUEA.universal_account":
+		value := x.UniversalAccount
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	case "ue.v1.MsgDeployNMSC.tx_hash":
+	case "ue.v1.MsgDeployUEA.tx_hash":
 		value := x.TxHash
 		return protoreflect.ValueOfString(value)
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -1055,19 +1055,19 @@ func (x *fastReflection_MsgDeployNMSC) Get(descriptor protoreflect.FieldDescript
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSC) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_MsgDeployUEA) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSC.signer":
+	case "ue.v1.MsgDeployUEA.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgDeployNMSC.account_id":
-		x.AccountId = value.Message().Interface().(*AccountId)
-	case "ue.v1.MsgDeployNMSC.tx_hash":
+	case "ue.v1.MsgDeployUEA.universal_account":
+		x.UniversalAccount = value.Message().Interface().(*UniversalAccount)
+	case "ue.v1.MsgDeployUEA.tx_hash":
 		x.TxHash = value.Interface().(string)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1081,52 +1081,52 @@ func (x *fastReflection_MsgDeployNMSC) Set(fd protoreflect.FieldDescriptor, valu
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSC) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEA) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSC.account_id":
-		if x.AccountId == nil {
-			x.AccountId = new(AccountId)
+	case "ue.v1.MsgDeployUEA.universal_account":
+		if x.UniversalAccount == nil {
+			x.UniversalAccount = new(UniversalAccount)
 		}
-		return protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
-	case "ue.v1.MsgDeployNMSC.signer":
-		panic(fmt.Errorf("field signer of message ue.v1.MsgDeployNMSC is not mutable"))
-	case "ue.v1.MsgDeployNMSC.tx_hash":
-		panic(fmt.Errorf("field tx_hash of message ue.v1.MsgDeployNMSC is not mutable"))
+		return protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
+	case "ue.v1.MsgDeployUEA.signer":
+		panic(fmt.Errorf("field signer of message ue.v1.MsgDeployUEA is not mutable"))
+	case "ue.v1.MsgDeployUEA.tx_hash":
+		panic(fmt.Errorf("field tx_hash of message ue.v1.MsgDeployUEA is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_MsgDeployNMSC) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEA) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSC.signer":
+	case "ue.v1.MsgDeployUEA.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgDeployNMSC.account_id":
-		m := new(AccountId)
+	case "ue.v1.MsgDeployUEA.universal_account":
+		m := new(UniversalAccount)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	case "ue.v1.MsgDeployNMSC.tx_hash":
+	case "ue.v1.MsgDeployUEA.tx_hash":
 		return protoreflect.ValueOfString("")
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSC"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEA"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSC does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEA does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_MsgDeployNMSC) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_MsgDeployUEA) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgDeployNMSC", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgDeployUEA", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -1134,7 +1134,7 @@ func (x *fastReflection_MsgDeployNMSC) WhichOneof(d protoreflect.OneofDescriptor
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_MsgDeployNMSC) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_MsgDeployUEA) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -1145,7 +1145,7 @@ func (x *fastReflection_MsgDeployNMSC) GetUnknown() protoreflect.RawFields {
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSC) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_MsgDeployUEA) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -1157,7 +1157,7 @@ func (x *fastReflection_MsgDeployNMSC) SetUnknown(fields protoreflect.RawFields)
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_MsgDeployNMSC) IsValid() bool {
+func (x *fastReflection_MsgDeployUEA) IsValid() bool {
 	return x != nil
 }
 
@@ -1167,9 +1167,9 @@ func (x *fastReflection_MsgDeployNMSC) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_MsgDeployUEA) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgDeployNMSC)
+		x := input.Message.Interface().(*MsgDeployUEA)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1185,8 +1185,8 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.AccountId != nil {
-			l = options.Size(x.AccountId)
+		if x.UniversalAccount != nil {
+			l = options.Size(x.UniversalAccount)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		l = len(x.TxHash)
@@ -1203,7 +1203,7 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*MsgDeployNMSC)
+		x := input.Message.Interface().(*MsgDeployUEA)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1229,8 +1229,8 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x1a
 		}
-		if x.AccountId != nil {
-			encoded, err := options.Marshal(x.AccountId)
+		if x.UniversalAccount != nil {
+			encoded, err := options.Marshal(x.UniversalAccount)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1261,7 +1261,7 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*MsgDeployNMSC)
+		x := input.Message.Interface().(*MsgDeployUEA)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1293,10 +1293,10 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployNMSC: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployUEA: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployNMSC: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployUEA: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
@@ -1333,7 +1333,7 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -1360,10 +1360,10 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.AccountId == nil {
-					x.AccountId = &AccountId{}
+				if x.UniversalAccount == nil {
+					x.UniversalAccount = &UniversalAccount{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.AccountId); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.UniversalAccount); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -1435,25 +1435,25 @@ func (x *fastReflection_MsgDeployNMSC) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-	md_MsgDeployNMSCResponse               protoreflect.MessageDescriptor
-	fd_MsgDeployNMSCResponse_smart_account protoreflect.FieldDescriptor
+	md_MsgDeployUEAResponse     protoreflect.MessageDescriptor
+	fd_MsgDeployUEAResponse_UEA protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
-	md_MsgDeployNMSCResponse = File_ue_v1_tx_proto.Messages().ByName("MsgDeployNMSCResponse")
-	fd_MsgDeployNMSCResponse_smart_account = md_MsgDeployNMSCResponse.Fields().ByName("smart_account")
+	md_MsgDeployUEAResponse = File_ue_v1_tx_proto.Messages().ByName("MsgDeployUEAResponse")
+	fd_MsgDeployUEAResponse_UEA = md_MsgDeployUEAResponse.Fields().ByName("UEA")
 }
 
-var _ protoreflect.Message = (*fastReflection_MsgDeployNMSCResponse)(nil)
+var _ protoreflect.Message = (*fastReflection_MsgDeployUEAResponse)(nil)
 
-type fastReflection_MsgDeployNMSCResponse MsgDeployNMSCResponse
+type fastReflection_MsgDeployUEAResponse MsgDeployUEAResponse
 
-func (x *MsgDeployNMSCResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgDeployNMSCResponse)(x)
+func (x *MsgDeployUEAResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgDeployUEAResponse)(x)
 }
 
-func (x *MsgDeployNMSCResponse) slowProtoReflect() protoreflect.Message {
+func (x *MsgDeployUEAResponse) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_tx_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1465,43 +1465,43 @@ func (x *MsgDeployNMSCResponse) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_MsgDeployNMSCResponse_messageType fastReflection_MsgDeployNMSCResponse_messageType
-var _ protoreflect.MessageType = fastReflection_MsgDeployNMSCResponse_messageType{}
+var _fastReflection_MsgDeployUEAResponse_messageType fastReflection_MsgDeployUEAResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgDeployUEAResponse_messageType{}
 
-type fastReflection_MsgDeployNMSCResponse_messageType struct{}
+type fastReflection_MsgDeployUEAResponse_messageType struct{}
 
-func (x fastReflection_MsgDeployNMSCResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgDeployNMSCResponse)(nil)
+func (x fastReflection_MsgDeployUEAResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgDeployUEAResponse)(nil)
 }
-func (x fastReflection_MsgDeployNMSCResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgDeployNMSCResponse)
+func (x fastReflection_MsgDeployUEAResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgDeployUEAResponse)
 }
-func (x fastReflection_MsgDeployNMSCResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgDeployNMSCResponse
+func (x fastReflection_MsgDeployUEAResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgDeployUEAResponse
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_MsgDeployNMSCResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgDeployNMSCResponse
+func (x *fastReflection_MsgDeployUEAResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgDeployUEAResponse
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_MsgDeployNMSCResponse) Type() protoreflect.MessageType {
-	return _fastReflection_MsgDeployNMSCResponse_messageType
+func (x *fastReflection_MsgDeployUEAResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgDeployUEAResponse_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgDeployNMSCResponse) New() protoreflect.Message {
-	return new(fastReflection_MsgDeployNMSCResponse)
+func (x *fastReflection_MsgDeployUEAResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgDeployUEAResponse)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_MsgDeployNMSCResponse) Interface() protoreflect.ProtoMessage {
-	return (*MsgDeployNMSCResponse)(x)
+func (x *fastReflection_MsgDeployUEAResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgDeployUEAResponse)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -1509,10 +1509,10 @@ func (x *fastReflection_MsgDeployNMSCResponse) Interface() protoreflect.ProtoMes
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_MsgDeployNMSCResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if len(x.SmartAccount) != 0 {
-		value := protoreflect.ValueOfBytes(x.SmartAccount)
-		if !f(fd_MsgDeployNMSCResponse_smart_account, value) {
+func (x *fastReflection_MsgDeployUEAResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if len(x.UEA) != 0 {
+		value := protoreflect.ValueOfBytes(x.UEA)
+		if !f(fd_MsgDeployUEAResponse_UEA, value) {
 			return
 		}
 	}
@@ -1529,15 +1529,15 @@ func (x *fastReflection_MsgDeployNMSCResponse) Range(f func(protoreflect.FieldDe
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_MsgDeployNMSCResponse) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_MsgDeployUEAResponse) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
-		return len(x.SmartAccount) != 0
+	case "ue.v1.MsgDeployUEAResponse.UEA":
+		return len(x.UEA) != 0
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1547,15 +1547,15 @@ func (x *fastReflection_MsgDeployNMSCResponse) Has(fd protoreflect.FieldDescript
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSCResponse) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_MsgDeployUEAResponse) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
-		x.SmartAccount = nil
+	case "ue.v1.MsgDeployUEAResponse.UEA":
+		x.UEA = nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1565,16 +1565,16 @@ func (x *fastReflection_MsgDeployNMSCResponse) Clear(fd protoreflect.FieldDescri
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_MsgDeployNMSCResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEAResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
-		value := x.SmartAccount
+	case "ue.v1.MsgDeployUEAResponse.UEA":
+		value := x.UEA
 		return protoreflect.ValueOfBytes(value)
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -1588,15 +1588,15 @@ func (x *fastReflection_MsgDeployNMSCResponse) Get(descriptor protoreflect.Field
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSCResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_MsgDeployUEAResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
-		x.SmartAccount = value.Bytes()
+	case "ue.v1.MsgDeployUEAResponse.UEA":
+		x.UEA = value.Bytes()
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1610,40 +1610,40 @@ func (x *fastReflection_MsgDeployNMSCResponse) Set(fd protoreflect.FieldDescript
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSCResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEAResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
-		panic(fmt.Errorf("field smart_account of message ue.v1.MsgDeployNMSCResponse is not mutable"))
+	case "ue.v1.MsgDeployUEAResponse.UEA":
+		panic(fmt.Errorf("field UEA of message ue.v1.MsgDeployUEAResponse is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_MsgDeployNMSCResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgDeployUEAResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgDeployNMSCResponse.smart_account":
+	case "ue.v1.MsgDeployUEAResponse.UEA":
 		return protoreflect.ValueOfBytes(nil)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployNMSCResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgDeployUEAResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgDeployNMSCResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgDeployUEAResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_MsgDeployNMSCResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_MsgDeployUEAResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgDeployNMSCResponse", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgDeployUEAResponse", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -1651,7 +1651,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) WhichOneof(d protoreflect.OneofDe
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_MsgDeployNMSCResponse) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_MsgDeployUEAResponse) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -1662,7 +1662,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) GetUnknown() protoreflect.RawFiel
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgDeployNMSCResponse) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_MsgDeployUEAResponse) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -1674,7 +1674,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) SetUnknown(fields protoreflect.Ra
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_MsgDeployNMSCResponse) IsValid() bool {
+func (x *fastReflection_MsgDeployUEAResponse) IsValid() bool {
 	return x != nil
 }
 
@@ -1684,9 +1684,9 @@ func (x *fastReflection_MsgDeployNMSCResponse) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_MsgDeployUEAResponse) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgDeployNMSCResponse)
+		x := input.Message.Interface().(*MsgDeployUEAResponse)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1698,7 +1698,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 		var n int
 		var l int
 		_ = l
-		l = len(x.SmartAccount)
+		l = len(x.UEA)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
@@ -1712,7 +1712,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*MsgDeployNMSCResponse)
+		x := input.Message.Interface().(*MsgDeployUEAResponse)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1731,10 +1731,10 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
-		if len(x.SmartAccount) > 0 {
-			i -= len(x.SmartAccount)
-			copy(dAtA[i:], x.SmartAccount)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.SmartAccount)))
+		if len(x.UEA) > 0 {
+			i -= len(x.UEA)
+			copy(dAtA[i:], x.UEA)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.UEA)))
 			i--
 			dAtA[i] = 0xa
 		}
@@ -1749,7 +1749,7 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*MsgDeployNMSCResponse)
+		x := input.Message.Interface().(*MsgDeployUEAResponse)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1781,15 +1781,15 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployNMSCResponse: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployUEAResponse: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployNMSCResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgDeployUEAResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SmartAccount", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UEA", wireType)
 				}
 				var byteLen int
 				for shift := uint(0); ; shift += 7 {
@@ -1816,9 +1816,9 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.SmartAccount = append(x.SmartAccount[:0], dAtA[iNdEx:postIndex]...)
-				if x.SmartAccount == nil {
-					x.SmartAccount = []byte{}
+				x.UEA = append(x.UEA[:0], dAtA[iNdEx:postIndex]...)
+				if x.UEA == nil {
+					x.UEA = []byte{}
 				}
 				iNdEx = postIndex
 			default:
@@ -1857,17 +1857,17 @@ func (x *fastReflection_MsgDeployNMSCResponse) ProtoMethods() *protoiface.Method
 }
 
 var (
-	md_MsgMintPush            protoreflect.MessageDescriptor
-	fd_MsgMintPush_signer     protoreflect.FieldDescriptor
-	fd_MsgMintPush_account_id protoreflect.FieldDescriptor
-	fd_MsgMintPush_tx_hash    protoreflect.FieldDescriptor
+	md_MsgMintPush                   protoreflect.MessageDescriptor
+	fd_MsgMintPush_signer            protoreflect.FieldDescriptor
+	fd_MsgMintPush_universal_account protoreflect.FieldDescriptor
+	fd_MsgMintPush_tx_hash           protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
 	md_MsgMintPush = File_ue_v1_tx_proto.Messages().ByName("MsgMintPush")
 	fd_MsgMintPush_signer = md_MsgMintPush.Fields().ByName("signer")
-	fd_MsgMintPush_account_id = md_MsgMintPush.Fields().ByName("account_id")
+	fd_MsgMintPush_universal_account = md_MsgMintPush.Fields().ByName("universal_account")
 	fd_MsgMintPush_tx_hash = md_MsgMintPush.Fields().ByName("tx_hash")
 }
 
@@ -1942,9 +1942,9 @@ func (x *fastReflection_MsgMintPush) Range(f func(protoreflect.FieldDescriptor, 
 			return
 		}
 	}
-	if x.AccountId != nil {
-		value := protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
-		if !f(fd_MsgMintPush_account_id, value) {
+	if x.UniversalAccount != nil {
+		value := protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
+		if !f(fd_MsgMintPush_universal_account, value) {
 			return
 		}
 	}
@@ -1971,8 +1971,8 @@ func (x *fastReflection_MsgMintPush) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
 	case "ue.v1.MsgMintPush.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgMintPush.account_id":
-		return x.AccountId != nil
+	case "ue.v1.MsgMintPush.universal_account":
+		return x.UniversalAccount != nil
 	case "ue.v1.MsgMintPush.tx_hash":
 		return x.TxHash != ""
 	default:
@@ -1993,8 +1993,8 @@ func (x *fastReflection_MsgMintPush) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
 	case "ue.v1.MsgMintPush.signer":
 		x.Signer = ""
-	case "ue.v1.MsgMintPush.account_id":
-		x.AccountId = nil
+	case "ue.v1.MsgMintPush.universal_account":
+		x.UniversalAccount = nil
 	case "ue.v1.MsgMintPush.tx_hash":
 		x.TxHash = ""
 	default:
@@ -2016,8 +2016,8 @@ func (x *fastReflection_MsgMintPush) Get(descriptor protoreflect.FieldDescriptor
 	case "ue.v1.MsgMintPush.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgMintPush.account_id":
-		value := x.AccountId
+	case "ue.v1.MsgMintPush.universal_account":
+		value := x.UniversalAccount
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	case "ue.v1.MsgMintPush.tx_hash":
 		value := x.TxHash
@@ -2044,8 +2044,8 @@ func (x *fastReflection_MsgMintPush) Set(fd protoreflect.FieldDescriptor, value 
 	switch fd.FullName() {
 	case "ue.v1.MsgMintPush.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgMintPush.account_id":
-		x.AccountId = value.Message().Interface().(*AccountId)
+	case "ue.v1.MsgMintPush.universal_account":
+		x.UniversalAccount = value.Message().Interface().(*UniversalAccount)
 	case "ue.v1.MsgMintPush.tx_hash":
 		x.TxHash = value.Interface().(string)
 	default:
@@ -2068,11 +2068,11 @@ func (x *fastReflection_MsgMintPush) Set(fd protoreflect.FieldDescriptor, value 
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_MsgMintPush) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgMintPush.account_id":
-		if x.AccountId == nil {
-			x.AccountId = new(AccountId)
+	case "ue.v1.MsgMintPush.universal_account":
+		if x.UniversalAccount == nil {
+			x.UniversalAccount = new(UniversalAccount)
 		}
-		return protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
+		return protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
 	case "ue.v1.MsgMintPush.signer":
 		panic(fmt.Errorf("field signer of message ue.v1.MsgMintPush is not mutable"))
 	case "ue.v1.MsgMintPush.tx_hash":
@@ -2092,8 +2092,8 @@ func (x *fastReflection_MsgMintPush) NewField(fd protoreflect.FieldDescriptor) p
 	switch fd.FullName() {
 	case "ue.v1.MsgMintPush.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgMintPush.account_id":
-		m := new(AccountId)
+	case "ue.v1.MsgMintPush.universal_account":
+		m := new(UniversalAccount)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	case "ue.v1.MsgMintPush.tx_hash":
 		return protoreflect.ValueOfString("")
@@ -2170,8 +2170,8 @@ func (x *fastReflection_MsgMintPush) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.AccountId != nil {
-			l = options.Size(x.AccountId)
+		if x.UniversalAccount != nil {
+			l = options.Size(x.UniversalAccount)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		l = len(x.TxHash)
@@ -2214,8 +2214,8 @@ func (x *fastReflection_MsgMintPush) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x1a
 		}
-		if x.AccountId != nil {
-			encoded, err := options.Marshal(x.AccountId)
+		if x.UniversalAccount != nil {
+			encoded, err := options.Marshal(x.UniversalAccount)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -2318,7 +2318,7 @@ func (x *fastReflection_MsgMintPush) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -2345,10 +2345,10 @@ func (x *fastReflection_MsgMintPush) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.AccountId == nil {
-					x.AccountId = &AccountId{}
+				if x.UniversalAccount == nil {
+					x.UniversalAccount = &UniversalAccount{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.AccountId); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.UniversalAccount); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -2776,19 +2776,19 @@ func (x *fastReflection_MsgMintPushResponse) ProtoMethods() *protoiface.Methods 
 }
 
 var (
-	md_MsgExecutePayload                    protoreflect.MessageDescriptor
-	fd_MsgExecutePayload_signer             protoreflect.FieldDescriptor
-	fd_MsgExecutePayload_account_id         protoreflect.FieldDescriptor
-	fd_MsgExecutePayload_crosschain_payload protoreflect.FieldDescriptor
-	fd_MsgExecutePayload_signature          protoreflect.FieldDescriptor
+	md_MsgExecutePayload                   protoreflect.MessageDescriptor
+	fd_MsgExecutePayload_signer            protoreflect.FieldDescriptor
+	fd_MsgExecutePayload_universal_account protoreflect.FieldDescriptor
+	fd_MsgExecutePayload_universal_payload protoreflect.FieldDescriptor
+	fd_MsgExecutePayload_signature         protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
 	md_MsgExecutePayload = File_ue_v1_tx_proto.Messages().ByName("MsgExecutePayload")
 	fd_MsgExecutePayload_signer = md_MsgExecutePayload.Fields().ByName("signer")
-	fd_MsgExecutePayload_account_id = md_MsgExecutePayload.Fields().ByName("account_id")
-	fd_MsgExecutePayload_crosschain_payload = md_MsgExecutePayload.Fields().ByName("crosschain_payload")
+	fd_MsgExecutePayload_universal_account = md_MsgExecutePayload.Fields().ByName("universal_account")
+	fd_MsgExecutePayload_universal_payload = md_MsgExecutePayload.Fields().ByName("universal_payload")
 	fd_MsgExecutePayload_signature = md_MsgExecutePayload.Fields().ByName("signature")
 }
 
@@ -2863,15 +2863,15 @@ func (x *fastReflection_MsgExecutePayload) Range(f func(protoreflect.FieldDescri
 			return
 		}
 	}
-	if x.AccountId != nil {
-		value := protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
-		if !f(fd_MsgExecutePayload_account_id, value) {
+	if x.UniversalAccount != nil {
+		value := protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
+		if !f(fd_MsgExecutePayload_universal_account, value) {
 			return
 		}
 	}
-	if x.CrosschainPayload != nil {
-		value := protoreflect.ValueOfMessage(x.CrosschainPayload.ProtoReflect())
-		if !f(fd_MsgExecutePayload_crosschain_payload, value) {
+	if x.UniversalPayload != nil {
+		value := protoreflect.ValueOfMessage(x.UniversalPayload.ProtoReflect())
+		if !f(fd_MsgExecutePayload_universal_payload, value) {
 			return
 		}
 	}
@@ -2898,10 +2898,10 @@ func (x *fastReflection_MsgExecutePayload) Has(fd protoreflect.FieldDescriptor) 
 	switch fd.FullName() {
 	case "ue.v1.MsgExecutePayload.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgExecutePayload.account_id":
-		return x.AccountId != nil
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		return x.CrosschainPayload != nil
+	case "ue.v1.MsgExecutePayload.universal_account":
+		return x.UniversalAccount != nil
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		return x.UniversalPayload != nil
 	case "ue.v1.MsgExecutePayload.signature":
 		return x.Signature != ""
 	default:
@@ -2922,10 +2922,10 @@ func (x *fastReflection_MsgExecutePayload) Clear(fd protoreflect.FieldDescriptor
 	switch fd.FullName() {
 	case "ue.v1.MsgExecutePayload.signer":
 		x.Signer = ""
-	case "ue.v1.MsgExecutePayload.account_id":
-		x.AccountId = nil
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		x.CrosschainPayload = nil
+	case "ue.v1.MsgExecutePayload.universal_account":
+		x.UniversalAccount = nil
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		x.UniversalPayload = nil
 	case "ue.v1.MsgExecutePayload.signature":
 		x.Signature = ""
 	default:
@@ -2947,11 +2947,11 @@ func (x *fastReflection_MsgExecutePayload) Get(descriptor protoreflect.FieldDesc
 	case "ue.v1.MsgExecutePayload.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgExecutePayload.account_id":
-		value := x.AccountId
+	case "ue.v1.MsgExecutePayload.universal_account":
+		value := x.UniversalAccount
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		value := x.CrosschainPayload
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		value := x.UniversalPayload
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	case "ue.v1.MsgExecutePayload.signature":
 		value := x.Signature
@@ -2978,10 +2978,10 @@ func (x *fastReflection_MsgExecutePayload) Set(fd protoreflect.FieldDescriptor, 
 	switch fd.FullName() {
 	case "ue.v1.MsgExecutePayload.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgExecutePayload.account_id":
-		x.AccountId = value.Message().Interface().(*AccountId)
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		x.CrosschainPayload = value.Message().Interface().(*CrossChainPayload)
+	case "ue.v1.MsgExecutePayload.universal_account":
+		x.UniversalAccount = value.Message().Interface().(*UniversalAccount)
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		x.UniversalPayload = value.Message().Interface().(*UniversalPayload)
 	case "ue.v1.MsgExecutePayload.signature":
 		x.Signature = value.Interface().(string)
 	default:
@@ -3004,16 +3004,16 @@ func (x *fastReflection_MsgExecutePayload) Set(fd protoreflect.FieldDescriptor, 
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_MsgExecutePayload) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgExecutePayload.account_id":
-		if x.AccountId == nil {
-			x.AccountId = new(AccountId)
+	case "ue.v1.MsgExecutePayload.universal_account":
+		if x.UniversalAccount == nil {
+			x.UniversalAccount = new(UniversalAccount)
 		}
-		return protoreflect.ValueOfMessage(x.AccountId.ProtoReflect())
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		if x.CrosschainPayload == nil {
-			x.CrosschainPayload = new(CrossChainPayload)
+		return protoreflect.ValueOfMessage(x.UniversalAccount.ProtoReflect())
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		if x.UniversalPayload == nil {
+			x.UniversalPayload = new(UniversalPayload)
 		}
-		return protoreflect.ValueOfMessage(x.CrosschainPayload.ProtoReflect())
+		return protoreflect.ValueOfMessage(x.UniversalPayload.ProtoReflect())
 	case "ue.v1.MsgExecutePayload.signer":
 		panic(fmt.Errorf("field signer of message ue.v1.MsgExecutePayload is not mutable"))
 	case "ue.v1.MsgExecutePayload.signature":
@@ -3033,11 +3033,11 @@ func (x *fastReflection_MsgExecutePayload) NewField(fd protoreflect.FieldDescrip
 	switch fd.FullName() {
 	case "ue.v1.MsgExecutePayload.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgExecutePayload.account_id":
-		m := new(AccountId)
+	case "ue.v1.MsgExecutePayload.universal_account":
+		m := new(UniversalAccount)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	case "ue.v1.MsgExecutePayload.crosschain_payload":
-		m := new(CrossChainPayload)
+	case "ue.v1.MsgExecutePayload.universal_payload":
+		m := new(UniversalPayload)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	case "ue.v1.MsgExecutePayload.signature":
 		return protoreflect.ValueOfString("")
@@ -3114,12 +3114,12 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.AccountId != nil {
-			l = options.Size(x.AccountId)
+		if x.UniversalAccount != nil {
+			l = options.Size(x.UniversalAccount)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.CrosschainPayload != nil {
-			l = options.Size(x.CrosschainPayload)
+		if x.UniversalPayload != nil {
+			l = options.Size(x.UniversalPayload)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		l = len(x.Signature)
@@ -3162,8 +3162,8 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x22
 		}
-		if x.CrosschainPayload != nil {
-			encoded, err := options.Marshal(x.CrosschainPayload)
+		if x.UniversalPayload != nil {
+			encoded, err := options.Marshal(x.UniversalPayload)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -3176,8 +3176,8 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x1a
 		}
-		if x.AccountId != nil {
-			encoded, err := options.Marshal(x.AccountId)
+		if x.UniversalAccount != nil {
+			encoded, err := options.Marshal(x.UniversalAccount)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -3280,7 +3280,7 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -3307,16 +3307,16 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.AccountId == nil {
-					x.AccountId = &AccountId{}
+				if x.UniversalAccount == nil {
+					x.UniversalAccount = &UniversalAccount{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.AccountId); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.UniversalAccount); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
 			case 3:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field CrosschainPayload", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UniversalPayload", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -3343,10 +3343,10 @@ func (x *fastReflection_MsgExecutePayload) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.CrosschainPayload == nil {
-					x.CrosschainPayload = &CrossChainPayload{}
+				if x.UniversalPayload == nil {
+					x.UniversalPayload = &UniversalPayload{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.CrosschainPayload); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.UniversalPayload); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -5576,22 +5576,22 @@ func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{1}
 }
 
-// MsgDeployNMSC is the message used to deploy a new smart account.
-type MsgDeployNMSC struct {
+// MsgDeployUEA is the message used to deploy a new smart account.
+type MsgDeployUEA struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
 	// tx_hash is the hash of the transaction in which user locked the tokens
 	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
 }
 
-func (x *MsgDeployNMSC) Reset() {
-	*x = MsgDeployNMSC{}
+func (x *MsgDeployUEA) Reset() {
+	*x = MsgDeployUEA{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -5599,50 +5599,50 @@ func (x *MsgDeployNMSC) Reset() {
 	}
 }
 
-func (x *MsgDeployNMSC) String() string {
+func (x *MsgDeployUEA) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgDeployNMSC) ProtoMessage() {}
+func (*MsgDeployUEA) ProtoMessage() {}
 
-// Deprecated: Use MsgDeployNMSC.ProtoReflect.Descriptor instead.
-func (*MsgDeployNMSC) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgDeployUEA.ProtoReflect.Descriptor instead.
+func (*MsgDeployUEA) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *MsgDeployNMSC) GetSigner() string {
+func (x *MsgDeployUEA) GetSigner() string {
 	if x != nil {
 		return x.Signer
 	}
 	return ""
 }
 
-func (x *MsgDeployNMSC) GetAccountId() *AccountId {
+func (x *MsgDeployUEA) GetUniversalAccount() *UniversalAccount {
 	if x != nil {
-		return x.AccountId
+		return x.UniversalAccount
 	}
 	return nil
 }
 
-func (x *MsgDeployNMSC) GetTxHash() string {
+func (x *MsgDeployUEA) GetTxHash() string {
 	if x != nil {
 		return x.TxHash
 	}
 	return ""
 }
 
-// MsgDeployNMSCResponse defines the response for MsgDeployNMSC.
-type MsgDeployNMSCResponse struct {
+// MsgDeployUEAResponse defines the response for MsgDeployUEA.
+type MsgDeployUEAResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// smart_account is the address of the newly deployed smart account
-	SmartAccount []byte `protobuf:"bytes,1,opt,name=smart_account,json=smartAccount,proto3" json:"smart_account,omitempty"`
+	// uea is the address of the newly deployed smart account
+	UEA []byte `protobuf:"bytes,1,opt,name=UEA,proto3" json:"UEA,omitempty"`
 }
 
-func (x *MsgDeployNMSCResponse) Reset() {
-	*x = MsgDeployNMSCResponse{}
+func (x *MsgDeployUEAResponse) Reset() {
+	*x = MsgDeployUEAResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -5650,20 +5650,20 @@ func (x *MsgDeployNMSCResponse) Reset() {
 	}
 }
 
-func (x *MsgDeployNMSCResponse) String() string {
+func (x *MsgDeployUEAResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgDeployNMSCResponse) ProtoMessage() {}
+func (*MsgDeployUEAResponse) ProtoMessage() {}
 
-// Deprecated: Use MsgDeployNMSCResponse.ProtoReflect.Descriptor instead.
-func (*MsgDeployNMSCResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgDeployUEAResponse.ProtoReflect.Descriptor instead.
+func (*MsgDeployUEAResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *MsgDeployNMSCResponse) GetSmartAccount() []byte {
+func (x *MsgDeployUEAResponse) GetUEA() []byte {
 	if x != nil {
-		return x.SmartAccount
+		return x.UEA
 	}
 	return nil
 }
@@ -5677,8 +5677,8 @@ type MsgMintPush struct {
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
 	// tx_hash is the hash of the transaction in which user locked the tokens
 	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
 }
@@ -5710,9 +5710,9 @@ func (x *MsgMintPush) GetSigner() string {
 	return ""
 }
 
-func (x *MsgMintPush) GetAccountId() *AccountId {
+func (x *MsgMintPush) GetUniversalAccount() *UniversalAccount {
 	if x != nil {
-		return x.AccountId
+		return x.UniversalAccount
 	}
 	return nil
 }
@@ -5751,7 +5751,7 @@ func (*MsgMintPushResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{5}
 }
 
-// MsgExecutePayload defines a message for executing a cross-chain payload
+// MsgExecutePayload defines a message for executing a universal payload
 type MsgExecutePayload struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -5759,10 +5759,10 @@ type MsgExecutePayload struct {
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	// payload is the crosschain payload to be executed
-	CrosschainPayload *CrossChainPayload `protobuf:"bytes,3,opt,name=crosschain_payload,json=crosschainPayload,proto3" json:"crosschain_payload,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
+	// payload is the universal payload to be executed
+	UniversalPayload *UniversalPayload `protobuf:"bytes,3,opt,name=universal_payload,json=universalPayload,proto3" json:"universal_payload,omitempty"`
 	// signature is the signature of the payload by user
 	Signature string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
@@ -5794,16 +5794,16 @@ func (x *MsgExecutePayload) GetSigner() string {
 	return ""
 }
 
-func (x *MsgExecutePayload) GetAccountId() *AccountId {
+func (x *MsgExecutePayload) GetUniversalAccount() *UniversalAccount {
 	if x != nil {
-		return x.AccountId
+		return x.UniversalAccount
 	}
 	return nil
 }
 
-func (x *MsgExecutePayload) GetCrosschainPayload() *CrossChainPayload {
+func (x *MsgExecutePayload) GetUniversalPayload() *UniversalPayload {
 	if x != nil {
-		return x.CrosschainPayload
+		return x.UniversalPayload
 	}
 	return nil
 }
@@ -6011,113 +6011,115 @@ var file_ue_v1_tx_proto_rawDesc = []byte{
 	0x8a, 0xe7, 0xb0, 0x2a, 0x12, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
 	0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0x19, 0x0a, 0x17, 0x4d, 0x73, 0x67, 0x55, 0x70,
 	0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0xad, 0x01, 0x0a, 0x0d, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79,
-	0x4e, 0x4d, 0x53, 0x43, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06,
-	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x0a, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x52, 0x09, 0x61, 0x63,
-	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61,
+	0x73, 0x65, 0x22, 0xc0, 0x01, 0x0a, 0x0c, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79,
+	0x55, 0x45, 0x41, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e,
+	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73,
+	0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x44, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x74,
+	0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78,
+	0x48, 0x61, 0x73, 0x68, 0x3a, 0x1f, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
+	0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x0f, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c,
+	0x6f, 0x79, 0x55, 0x45, 0x41, 0x22, 0x28, 0x0a, 0x14, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c,
+	0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a,
+	0x03, 0x55, 0x45, 0x41, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x55, 0x45, 0x41, 0x22,
+	0xbe, 0x01, 0x0a, 0x0b, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x12,
+	0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42,
+	0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72,
+	0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
+	0x72, 0x12, 0x44, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x61,
+	0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75,
+	0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
+	0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61,
 	0x73, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x48, 0x61, 0x73, 0x68,
-	0x3a, 0x20, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0,
-	0x2a, 0x10, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x4e, 0x4d,
-	0x53, 0x43, 0x22, 0x3c, 0x0a, 0x15, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x4e,
-	0x4d, 0x53, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x23, 0x0a, 0x0d, 0x73,
-	0x6d, 0x61, 0x72, 0x74, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0c, 0x52, 0x0c, 0x73, 0x6d, 0x61, 0x72, 0x74, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74,
-	0x22, 0xa9, 0x01, 0x0a, 0x0b, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68,
-	0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64,
-	0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e,
-	0x65, 0x72, 0x12, 0x2f, 0x0a, 0x0a, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x69, 0x64,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x41,
-	0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x52, 0x09, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x03,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x48, 0x61, 0x73, 0x68, 0x3a, 0x1e, 0x82, 0xe7,
-	0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x0e, 0x75, 0x65,
-	0x2f, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x22, 0x15, 0x0a, 0x13,
-	0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x83, 0x02, 0x0a, 0x11, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67,
-	0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72,
-	0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x0a, 0x61,
-	0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49,
-	0x64, 0x52, 0x09, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x47, 0x0a, 0x12,
-	0x63, 0x72, 0x6f, 0x73, 0x73, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f,
-	0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x43, 0x72, 0x6f, 0x73, 0x73, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x50, 0x61, 0x79, 0x6c, 0x6f,
-	0x61, 0x64, 0x52, 0x11, 0x63, 0x72, 0x6f, 0x73, 0x73, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x50, 0x61,
-	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
-	0x72, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
-	0x75, 0x72, 0x65, 0x3a, 0x24, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
-	0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x1b, 0x0a, 0x19, 0x4d, 0x73, 0x67,
-	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa2, 0x01, 0x0a, 0x11, 0x4d, 0x73, 0x67, 0x41, 0x64,
-	0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x30, 0x0a, 0x06,
-	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4,
-	0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
-	0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x35,
-	0x0a, 0x0c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61,
-	0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x3a, 0x24, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e,
-	0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64,
-	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x1b, 0x0a, 0x19, 0x4d,
-	0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa8, 0x01, 0x0a, 0x14, 0x4d, 0x73, 0x67,
+	0x3a, 0x1e, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0,
+	0x2a, 0x0e, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68,
+	0x22, 0x15, 0x0a, 0x13, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x95, 0x02, 0x0a, 0x11, 0x4d, 0x73, 0x67, 0x45,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x30, 0x0a,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2,
+	0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12,
+	0x44, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63,
+	0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e,
+	0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f,
+	0x75, 0x6e, 0x74, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x44, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x73,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09,
+	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x3a, 0x24, 0x82, 0xe7, 0xb0, 0x2a, 0x06,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x4d, 0x73,
+	0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22,
+	0x1b, 0x0a, 0x19, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
+	0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa2, 0x01, 0x0a,
+	0x11, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69,
+	0x67, 0x6e, 0x65, 0x72, 0x12, 0x35, 0x0a, 0x0c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x75, 0x65, 0x2e,
+	0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0b,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x3a, 0x24, 0x82, 0xe7, 0xb0,
+	0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f,
+	0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
+	0x67, 0x22, 0x1b, 0x0a, 0x19, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e,
+	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa8,
+	0x01, 0x0a, 0x14, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69,
+	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
+	0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e,
+	0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x35, 0x0a, 0x0c, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x12, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x52, 0x0b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x3a, 0x27, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0,
+	0x2a, 0x17, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68,
+	0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x1e, 0x0a, 0x1c, 0x4d, 0x73, 0x67,
 	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64,
-	0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67,
-	0x6e, 0x65, 0x72, 0x12, 0x35, 0x0a, 0x0c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x75, 0x65, 0x2e, 0x76,
-	0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0b, 0x63,
-	0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x3a, 0x27, 0x82, 0xe7, 0xb0, 0x2a,
-	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x17, 0x75, 0x65, 0x2f, 0x4d,
-	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x22, 0x1e, 0x0a, 0x1c, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x32, 0xc5, 0x03, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72,
-	0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x40, 0x0a, 0x0a, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x4e, 0x4d, 0x53,
-	0x43, 0x12, 0x14, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70,
-	0x6c, 0x6f, 0x79, 0x4e, 0x4d, 0x53, 0x43, 0x1a, 0x1c, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x4e, 0x4d, 0x53, 0x43, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3a, 0x0a, 0x08, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73,
-	0x68, 0x12, 0x12, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e,
-	0x74, 0x50, 0x75, 0x73, 0x68, 0x1a, 0x1a, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c,
-	0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45,
-	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e,
-	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65,
-	0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x4c, 0x0a, 0x0e, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64,
-	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x20, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x55, 0x0a,
-	0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x12, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a,
-	0x23, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63,
-	0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74,
-	0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69,
-	0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31,
-	0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02,
-	0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47,
-	0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a,
-	0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xc2, 0x03, 0x0a, 0x03, 0x4d, 0x73,
+	0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d,
+	0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64,
+	0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76,
+	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d,
+	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70,
+	0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65,
+	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3a, 0x0a, 0x08, 0x4d, 0x69, 0x6e, 0x74,
+	0x50, 0x75, 0x73, 0x68, 0x12, 0x12, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x1a, 0x1a, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x75, 0x73, 0x68, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50,
+	0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64,
+	0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x20,
+	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61,
+	0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x55, 0x0a, 0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
+	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x1a, 0x23, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
+	0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76,
+	0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50,
+	0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75,
+	0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56,
+	0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56,
+	0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06,
+	0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -6136,8 +6138,8 @@ var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_ue_v1_tx_proto_goTypes = []interface{}{
 	(*MsgUpdateParams)(nil),              // 0: ue.v1.MsgUpdateParams
 	(*MsgUpdateParamsResponse)(nil),      // 1: ue.v1.MsgUpdateParamsResponse
-	(*MsgDeployNMSC)(nil),                // 2: ue.v1.MsgDeployNMSC
-	(*MsgDeployNMSCResponse)(nil),        // 3: ue.v1.MsgDeployNMSCResponse
+	(*MsgDeployUEA)(nil),                 // 2: ue.v1.MsgDeployUEA
+	(*MsgDeployUEAResponse)(nil),         // 3: ue.v1.MsgDeployUEAResponse
 	(*MsgMintPush)(nil),                  // 4: ue.v1.MsgMintPush
 	(*MsgMintPushResponse)(nil),          // 5: ue.v1.MsgMintPushResponse
 	(*MsgExecutePayload)(nil),            // 6: ue.v1.MsgExecutePayload
@@ -6147,26 +6149,26 @@ var file_ue_v1_tx_proto_goTypes = []interface{}{
 	(*MsgUpdateChainConfig)(nil),         // 10: ue.v1.MsgUpdateChainConfig
 	(*MsgUpdateChainConfigResponse)(nil), // 11: ue.v1.MsgUpdateChainConfigResponse
 	(*Params)(nil),                       // 12: ue.v1.Params
-	(*AccountId)(nil),                    // 13: ue.v1.AccountId
-	(*CrossChainPayload)(nil),            // 14: ue.v1.CrossChainPayload
+	(*UniversalAccount)(nil),             // 13: ue.v1.UniversalAccount
+	(*UniversalPayload)(nil),             // 14: ue.v1.UniversalPayload
 	(*ChainConfig)(nil),                  // 15: ue.v1.ChainConfig
 }
 var file_ue_v1_tx_proto_depIdxs = []int32{
 	12, // 0: ue.v1.MsgUpdateParams.params:type_name -> ue.v1.Params
-	13, // 1: ue.v1.MsgDeployNMSC.account_id:type_name -> ue.v1.AccountId
-	13, // 2: ue.v1.MsgMintPush.account_id:type_name -> ue.v1.AccountId
-	13, // 3: ue.v1.MsgExecutePayload.account_id:type_name -> ue.v1.AccountId
-	14, // 4: ue.v1.MsgExecutePayload.crosschain_payload:type_name -> ue.v1.CrossChainPayload
+	13, // 1: ue.v1.MsgDeployUEA.universal_account:type_name -> ue.v1.UniversalAccount
+	13, // 2: ue.v1.MsgMintPush.universal_account:type_name -> ue.v1.UniversalAccount
+	13, // 3: ue.v1.MsgExecutePayload.universal_account:type_name -> ue.v1.UniversalAccount
+	14, // 4: ue.v1.MsgExecutePayload.universal_payload:type_name -> ue.v1.UniversalPayload
 	15, // 5: ue.v1.MsgAddChainConfig.chain_config:type_name -> ue.v1.ChainConfig
 	15, // 6: ue.v1.MsgUpdateChainConfig.chain_config:type_name -> ue.v1.ChainConfig
 	0,  // 7: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
-	2,  // 8: ue.v1.Msg.DeployNMSC:input_type -> ue.v1.MsgDeployNMSC
+	2,  // 8: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
 	4,  // 9: ue.v1.Msg.MintPush:input_type -> ue.v1.MsgMintPush
 	6,  // 10: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
 	8,  // 11: ue.v1.Msg.AddChainConfig:input_type -> ue.v1.MsgAddChainConfig
 	10, // 12: ue.v1.Msg.UpdateChainConfig:input_type -> ue.v1.MsgUpdateChainConfig
 	1,  // 13: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
-	3,  // 14: ue.v1.Msg.DeployNMSC:output_type -> ue.v1.MsgDeployNMSCResponse
+	3,  // 14: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
 	5,  // 15: ue.v1.Msg.MintPush:output_type -> ue.v1.MsgMintPushResponse
 	7,  // 16: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
 	9,  // 17: ue.v1.Msg.AddChainConfig:output_type -> ue.v1.MsgAddChainConfigResponse
@@ -6210,7 +6212,7 @@ func file_ue_v1_tx_proto_init() {
 			}
 		}
 		file_ue_v1_tx_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgDeployNMSC); i {
+			switch v := v.(*MsgDeployUEA); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6222,7 +6224,7 @@ func file_ue_v1_tx_proto_init() {
 			}
 		}
 		file_ue_v1_tx_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgDeployNMSCResponse); i {
+			switch v := v.(*MsgDeployUEAResponse); i {
 			case 0:
 				return &v.state
 			case 1:

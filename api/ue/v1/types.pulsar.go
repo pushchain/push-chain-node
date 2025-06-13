@@ -435,39 +435,41 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-	md_CrossChainPayload                          protoreflect.MessageDescriptor
-	fd_CrossChainPayload_target                   protoreflect.FieldDescriptor
-	fd_CrossChainPayload_value                    protoreflect.FieldDescriptor
-	fd_CrossChainPayload_data                     protoreflect.FieldDescriptor
-	fd_CrossChainPayload_gas_limit                protoreflect.FieldDescriptor
-	fd_CrossChainPayload_max_fee_per_gas          protoreflect.FieldDescriptor
-	fd_CrossChainPayload_max_priority_fee_per_gas protoreflect.FieldDescriptor
-	fd_CrossChainPayload_nonce                    protoreflect.FieldDescriptor
-	fd_CrossChainPayload_deadline                 protoreflect.FieldDescriptor
+	md_UniversalPayload                          protoreflect.MessageDescriptor
+	fd_UniversalPayload_to                       protoreflect.FieldDescriptor
+	fd_UniversalPayload_value                    protoreflect.FieldDescriptor
+	fd_UniversalPayload_data                     protoreflect.FieldDescriptor
+	fd_UniversalPayload_gas_limit                protoreflect.FieldDescriptor
+	fd_UniversalPayload_max_fee_per_gas          protoreflect.FieldDescriptor
+	fd_UniversalPayload_max_priority_fee_per_gas protoreflect.FieldDescriptor
+	fd_UniversalPayload_nonce                    protoreflect.FieldDescriptor
+	fd_UniversalPayload_deadline                 protoreflect.FieldDescriptor
+	fd_UniversalPayload_signature_type           protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_types_proto_init()
-	md_CrossChainPayload = File_ue_v1_types_proto.Messages().ByName("CrossChainPayload")
-	fd_CrossChainPayload_target = md_CrossChainPayload.Fields().ByName("target")
-	fd_CrossChainPayload_value = md_CrossChainPayload.Fields().ByName("value")
-	fd_CrossChainPayload_data = md_CrossChainPayload.Fields().ByName("data")
-	fd_CrossChainPayload_gas_limit = md_CrossChainPayload.Fields().ByName("gas_limit")
-	fd_CrossChainPayload_max_fee_per_gas = md_CrossChainPayload.Fields().ByName("max_fee_per_gas")
-	fd_CrossChainPayload_max_priority_fee_per_gas = md_CrossChainPayload.Fields().ByName("max_priority_fee_per_gas")
-	fd_CrossChainPayload_nonce = md_CrossChainPayload.Fields().ByName("nonce")
-	fd_CrossChainPayload_deadline = md_CrossChainPayload.Fields().ByName("deadline")
+	md_UniversalPayload = File_ue_v1_types_proto.Messages().ByName("UniversalPayload")
+	fd_UniversalPayload_to = md_UniversalPayload.Fields().ByName("to")
+	fd_UniversalPayload_value = md_UniversalPayload.Fields().ByName("value")
+	fd_UniversalPayload_data = md_UniversalPayload.Fields().ByName("data")
+	fd_UniversalPayload_gas_limit = md_UniversalPayload.Fields().ByName("gas_limit")
+	fd_UniversalPayload_max_fee_per_gas = md_UniversalPayload.Fields().ByName("max_fee_per_gas")
+	fd_UniversalPayload_max_priority_fee_per_gas = md_UniversalPayload.Fields().ByName("max_priority_fee_per_gas")
+	fd_UniversalPayload_nonce = md_UniversalPayload.Fields().ByName("nonce")
+	fd_UniversalPayload_deadline = md_UniversalPayload.Fields().ByName("deadline")
+	fd_UniversalPayload_signature_type = md_UniversalPayload.Fields().ByName("signature_type")
 }
 
-var _ protoreflect.Message = (*fastReflection_CrossChainPayload)(nil)
+var _ protoreflect.Message = (*fastReflection_UniversalPayload)(nil)
 
-type fastReflection_CrossChainPayload CrossChainPayload
+type fastReflection_UniversalPayload UniversalPayload
 
-func (x *CrossChainPayload) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_CrossChainPayload)(x)
+func (x *UniversalPayload) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_UniversalPayload)(x)
 }
 
-func (x *CrossChainPayload) slowProtoReflect() protoreflect.Message {
+func (x *UniversalPayload) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_types_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -479,43 +481,43 @@ func (x *CrossChainPayload) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_CrossChainPayload_messageType fastReflection_CrossChainPayload_messageType
-var _ protoreflect.MessageType = fastReflection_CrossChainPayload_messageType{}
+var _fastReflection_UniversalPayload_messageType fastReflection_UniversalPayload_messageType
+var _ protoreflect.MessageType = fastReflection_UniversalPayload_messageType{}
 
-type fastReflection_CrossChainPayload_messageType struct{}
+type fastReflection_UniversalPayload_messageType struct{}
 
-func (x fastReflection_CrossChainPayload_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_CrossChainPayload)(nil)
+func (x fastReflection_UniversalPayload_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_UniversalPayload)(nil)
 }
-func (x fastReflection_CrossChainPayload_messageType) New() protoreflect.Message {
-	return new(fastReflection_CrossChainPayload)
+func (x fastReflection_UniversalPayload_messageType) New() protoreflect.Message {
+	return new(fastReflection_UniversalPayload)
 }
-func (x fastReflection_CrossChainPayload_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_CrossChainPayload
+func (x fastReflection_UniversalPayload_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalPayload
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_CrossChainPayload) Descriptor() protoreflect.MessageDescriptor {
-	return md_CrossChainPayload
+func (x *fastReflection_UniversalPayload) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalPayload
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_CrossChainPayload) Type() protoreflect.MessageType {
-	return _fastReflection_CrossChainPayload_messageType
+func (x *fastReflection_UniversalPayload) Type() protoreflect.MessageType {
+	return _fastReflection_UniversalPayload_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_CrossChainPayload) New() protoreflect.Message {
-	return new(fastReflection_CrossChainPayload)
+func (x *fastReflection_UniversalPayload) New() protoreflect.Message {
+	return new(fastReflection_UniversalPayload)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_CrossChainPayload) Interface() protoreflect.ProtoMessage {
-	return (*CrossChainPayload)(x)
+func (x *fastReflection_UniversalPayload) Interface() protoreflect.ProtoMessage {
+	return (*UniversalPayload)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -523,52 +525,58 @@ func (x *fastReflection_CrossChainPayload) Interface() protoreflect.ProtoMessage
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_CrossChainPayload) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Target != "" {
-		value := protoreflect.ValueOfString(x.Target)
-		if !f(fd_CrossChainPayload_target, value) {
+func (x *fastReflection_UniversalPayload) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.To != "" {
+		value := protoreflect.ValueOfString(x.To)
+		if !f(fd_UniversalPayload_to, value) {
 			return
 		}
 	}
 	if x.Value != "" {
 		value := protoreflect.ValueOfString(x.Value)
-		if !f(fd_CrossChainPayload_value, value) {
+		if !f(fd_UniversalPayload_value, value) {
 			return
 		}
 	}
 	if x.Data != "" {
 		value := protoreflect.ValueOfString(x.Data)
-		if !f(fd_CrossChainPayload_data, value) {
+		if !f(fd_UniversalPayload_data, value) {
 			return
 		}
 	}
 	if x.GasLimit != "" {
 		value := protoreflect.ValueOfString(x.GasLimit)
-		if !f(fd_CrossChainPayload_gas_limit, value) {
+		if !f(fd_UniversalPayload_gas_limit, value) {
 			return
 		}
 	}
 	if x.MaxFeePerGas != "" {
 		value := protoreflect.ValueOfString(x.MaxFeePerGas)
-		if !f(fd_CrossChainPayload_max_fee_per_gas, value) {
+		if !f(fd_UniversalPayload_max_fee_per_gas, value) {
 			return
 		}
 	}
 	if x.MaxPriorityFeePerGas != "" {
 		value := protoreflect.ValueOfString(x.MaxPriorityFeePerGas)
-		if !f(fd_CrossChainPayload_max_priority_fee_per_gas, value) {
+		if !f(fd_UniversalPayload_max_priority_fee_per_gas, value) {
 			return
 		}
 	}
 	if x.Nonce != "" {
 		value := protoreflect.ValueOfString(x.Nonce)
-		if !f(fd_CrossChainPayload_nonce, value) {
+		if !f(fd_UniversalPayload_nonce, value) {
 			return
 		}
 	}
 	if x.Deadline != "" {
 		value := protoreflect.ValueOfString(x.Deadline)
-		if !f(fd_CrossChainPayload_deadline, value) {
+		if !f(fd_UniversalPayload_deadline, value) {
+			return
+		}
+	}
+	if x.SignatureType != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.SignatureType))
+		if !f(fd_UniversalPayload_signature_type, value) {
 			return
 		}
 	}
@@ -585,29 +593,31 @@ func (x *fastReflection_CrossChainPayload) Range(f func(protoreflect.FieldDescri
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_CrossChainPayload) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_UniversalPayload) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.CrossChainPayload.target":
-		return x.Target != ""
-	case "ue.v1.CrossChainPayload.value":
+	case "ue.v1.UniversalPayload.to":
+		return x.To != ""
+	case "ue.v1.UniversalPayload.value":
 		return x.Value != ""
-	case "ue.v1.CrossChainPayload.data":
+	case "ue.v1.UniversalPayload.data":
 		return x.Data != ""
-	case "ue.v1.CrossChainPayload.gas_limit":
+	case "ue.v1.UniversalPayload.gas_limit":
 		return x.GasLimit != ""
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
 		return x.MaxFeePerGas != ""
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
 		return x.MaxPriorityFeePerGas != ""
-	case "ue.v1.CrossChainPayload.nonce":
+	case "ue.v1.UniversalPayload.nonce":
 		return x.Nonce != ""
-	case "ue.v1.CrossChainPayload.deadline":
+	case "ue.v1.UniversalPayload.deadline":
 		return x.Deadline != ""
+	case "ue.v1.UniversalPayload.signature_type":
+		return x.SignatureType != 0
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -617,29 +627,31 @@ func (x *fastReflection_CrossChainPayload) Has(fd protoreflect.FieldDescriptor) 
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_CrossChainPayload) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_UniversalPayload) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.CrossChainPayload.target":
-		x.Target = ""
-	case "ue.v1.CrossChainPayload.value":
+	case "ue.v1.UniversalPayload.to":
+		x.To = ""
+	case "ue.v1.UniversalPayload.value":
 		x.Value = ""
-	case "ue.v1.CrossChainPayload.data":
+	case "ue.v1.UniversalPayload.data":
 		x.Data = ""
-	case "ue.v1.CrossChainPayload.gas_limit":
+	case "ue.v1.UniversalPayload.gas_limit":
 		x.GasLimit = ""
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
 		x.MaxFeePerGas = ""
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
 		x.MaxPriorityFeePerGas = ""
-	case "ue.v1.CrossChainPayload.nonce":
+	case "ue.v1.UniversalPayload.nonce":
 		x.Nonce = ""
-	case "ue.v1.CrossChainPayload.deadline":
+	case "ue.v1.UniversalPayload.deadline":
 		x.Deadline = ""
+	case "ue.v1.UniversalPayload.signature_type":
+		x.SignatureType = 0
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -649,37 +661,40 @@ func (x *fastReflection_CrossChainPayload) Clear(fd protoreflect.FieldDescriptor
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_CrossChainPayload) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalPayload) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.CrossChainPayload.target":
-		value := x.Target
+	case "ue.v1.UniversalPayload.to":
+		value := x.To
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.value":
+	case "ue.v1.UniversalPayload.value":
 		value := x.Value
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.data":
+	case "ue.v1.UniversalPayload.data":
 		value := x.Data
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.gas_limit":
+	case "ue.v1.UniversalPayload.gas_limit":
 		value := x.GasLimit
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
 		value := x.MaxFeePerGas
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
 		value := x.MaxPriorityFeePerGas
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.nonce":
+	case "ue.v1.UniversalPayload.nonce":
 		value := x.Nonce
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.CrossChainPayload.deadline":
+	case "ue.v1.UniversalPayload.deadline":
 		value := x.Deadline
 		return protoreflect.ValueOfString(value)
+	case "ue.v1.UniversalPayload.signature_type":
+		value := x.SignatureType
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -693,29 +708,31 @@ func (x *fastReflection_CrossChainPayload) Get(descriptor protoreflect.FieldDesc
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_CrossChainPayload) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_UniversalPayload) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.CrossChainPayload.target":
-		x.Target = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.value":
+	case "ue.v1.UniversalPayload.to":
+		x.To = value.Interface().(string)
+	case "ue.v1.UniversalPayload.value":
 		x.Value = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.data":
+	case "ue.v1.UniversalPayload.data":
 		x.Data = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.gas_limit":
+	case "ue.v1.UniversalPayload.gas_limit":
 		x.GasLimit = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
 		x.MaxFeePerGas = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
 		x.MaxPriorityFeePerGas = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.nonce":
+	case "ue.v1.UniversalPayload.nonce":
 		x.Nonce = value.Interface().(string)
-	case "ue.v1.CrossChainPayload.deadline":
+	case "ue.v1.UniversalPayload.deadline":
 		x.Deadline = value.Interface().(string)
+	case "ue.v1.UniversalPayload.signature_type":
+		x.SignatureType = (SignatureType)(value.Enum())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -729,68 +746,72 @@ func (x *fastReflection_CrossChainPayload) Set(fd protoreflect.FieldDescriptor, 
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_CrossChainPayload) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalPayload) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.CrossChainPayload.target":
-		panic(fmt.Errorf("field target of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.value":
-		panic(fmt.Errorf("field value of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.data":
-		panic(fmt.Errorf("field data of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.gas_limit":
-		panic(fmt.Errorf("field gas_limit of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
-		panic(fmt.Errorf("field max_fee_per_gas of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
-		panic(fmt.Errorf("field max_priority_fee_per_gas of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.nonce":
-		panic(fmt.Errorf("field nonce of message ue.v1.CrossChainPayload is not mutable"))
-	case "ue.v1.CrossChainPayload.deadline":
-		panic(fmt.Errorf("field deadline of message ue.v1.CrossChainPayload is not mutable"))
+	case "ue.v1.UniversalPayload.to":
+		panic(fmt.Errorf("field to of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.value":
+		panic(fmt.Errorf("field value of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.data":
+		panic(fmt.Errorf("field data of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.gas_limit":
+		panic(fmt.Errorf("field gas_limit of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
+		panic(fmt.Errorf("field max_fee_per_gas of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
+		panic(fmt.Errorf("field max_priority_fee_per_gas of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.nonce":
+		panic(fmt.Errorf("field nonce of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.deadline":
+		panic(fmt.Errorf("field deadline of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.signature_type":
+		panic(fmt.Errorf("field signature_type of message ue.v1.UniversalPayload is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_CrossChainPayload) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalPayload) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.CrossChainPayload.target":
+	case "ue.v1.UniversalPayload.to":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.value":
+	case "ue.v1.UniversalPayload.value":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.data":
+	case "ue.v1.UniversalPayload.data":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.gas_limit":
+	case "ue.v1.UniversalPayload.gas_limit":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.max_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_fee_per_gas":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.max_priority_fee_per_gas":
+	case "ue.v1.UniversalPayload.max_priority_fee_per_gas":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.nonce":
+	case "ue.v1.UniversalPayload.nonce":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.CrossChainPayload.deadline":
+	case "ue.v1.UniversalPayload.deadline":
 		return protoreflect.ValueOfString("")
+	case "ue.v1.UniversalPayload.signature_type":
+		return protoreflect.ValueOfEnum(0)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.CrossChainPayload"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
 		}
-		panic(fmt.Errorf("message ue.v1.CrossChainPayload does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalPayload does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_CrossChainPayload) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_UniversalPayload) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.CrossChainPayload", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.UniversalPayload", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -798,7 +819,7 @@ func (x *fastReflection_CrossChainPayload) WhichOneof(d protoreflect.OneofDescri
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_CrossChainPayload) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_UniversalPayload) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -809,7 +830,7 @@ func (x *fastReflection_CrossChainPayload) GetUnknown() protoreflect.RawFields {
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_CrossChainPayload) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_UniversalPayload) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -821,7 +842,7 @@ func (x *fastReflection_CrossChainPayload) SetUnknown(fields protoreflect.RawFie
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_CrossChainPayload) IsValid() bool {
+func (x *fastReflection_UniversalPayload) IsValid() bool {
 	return x != nil
 }
 
@@ -831,9 +852,9 @@ func (x *fastReflection_CrossChainPayload) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*CrossChainPayload)
+		x := input.Message.Interface().(*UniversalPayload)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -845,7 +866,7 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 		var n int
 		var l int
 		_ = l
-		l = len(x.Target)
+		l = len(x.To)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
@@ -877,6 +898,9 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+		if x.SignatureType != 0 {
+			n += 1 + runtime.Sov(uint64(x.SignatureType))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -887,7 +911,7 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*CrossChainPayload)
+		x := input.Message.Interface().(*UniversalPayload)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -905,6 +929,11 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.SignatureType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.SignatureType))
+			i--
+			dAtA[i] = 0x48
 		}
 		if len(x.Deadline) > 0 {
 			i -= len(x.Deadline)
@@ -955,10 +984,10 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x12
 		}
-		if len(x.Target) > 0 {
-			i -= len(x.Target)
-			copy(dAtA[i:], x.Target)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Target)))
+		if len(x.To) > 0 {
+			i -= len(x.To)
+			copy(dAtA[i:], x.To)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.To)))
 			i--
 			dAtA[i] = 0xa
 		}
@@ -973,7 +1002,7 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*CrossChainPayload)
+		x := input.Message.Interface().(*UniversalPayload)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1005,15 +1034,15 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: CrossChainPayload: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalPayload: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: CrossChainPayload: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalPayload: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field To", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -1041,7 +1070,7 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Target = string(dAtA[iNdEx:postIndex])
+				x.To = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
@@ -1267,6 +1296,25 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 				}
 				x.Deadline = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
+			case 9:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SignatureType", wireType)
+				}
+				x.SignatureType = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.SignatureType |= SignatureType(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -1303,31 +1351,27 @@ func (x *fastReflection_CrossChainPayload) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-	md_AccountId           protoreflect.MessageDescriptor
-	fd_AccountId_namespace protoreflect.FieldDescriptor
-	fd_AccountId_chain_id  protoreflect.FieldDescriptor
-	fd_AccountId_owner_key protoreflect.FieldDescriptor
-	fd_AccountId_vm_type   protoreflect.FieldDescriptor
+	md_UniversalAccount       protoreflect.MessageDescriptor
+	fd_UniversalAccount_chain protoreflect.FieldDescriptor
+	fd_UniversalAccount_owner protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_types_proto_init()
-	md_AccountId = File_ue_v1_types_proto.Messages().ByName("AccountId")
-	fd_AccountId_namespace = md_AccountId.Fields().ByName("namespace")
-	fd_AccountId_chain_id = md_AccountId.Fields().ByName("chain_id")
-	fd_AccountId_owner_key = md_AccountId.Fields().ByName("owner_key")
-	fd_AccountId_vm_type = md_AccountId.Fields().ByName("vm_type")
+	md_UniversalAccount = File_ue_v1_types_proto.Messages().ByName("UniversalAccount")
+	fd_UniversalAccount_chain = md_UniversalAccount.Fields().ByName("chain")
+	fd_UniversalAccount_owner = md_UniversalAccount.Fields().ByName("owner")
 }
 
-var _ protoreflect.Message = (*fastReflection_AccountId)(nil)
+var _ protoreflect.Message = (*fastReflection_UniversalAccount)(nil)
 
-type fastReflection_AccountId AccountId
+type fastReflection_UniversalAccount UniversalAccount
 
-func (x *AccountId) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_AccountId)(x)
+func (x *UniversalAccount) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_UniversalAccount)(x)
 }
 
-func (x *AccountId) slowProtoReflect() protoreflect.Message {
+func (x *UniversalAccount) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_types_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1339,43 +1383,43 @@ func (x *AccountId) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_AccountId_messageType fastReflection_AccountId_messageType
-var _ protoreflect.MessageType = fastReflection_AccountId_messageType{}
+var _fastReflection_UniversalAccount_messageType fastReflection_UniversalAccount_messageType
+var _ protoreflect.MessageType = fastReflection_UniversalAccount_messageType{}
 
-type fastReflection_AccountId_messageType struct{}
+type fastReflection_UniversalAccount_messageType struct{}
 
-func (x fastReflection_AccountId_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_AccountId)(nil)
+func (x fastReflection_UniversalAccount_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_UniversalAccount)(nil)
 }
-func (x fastReflection_AccountId_messageType) New() protoreflect.Message {
-	return new(fastReflection_AccountId)
+func (x fastReflection_UniversalAccount_messageType) New() protoreflect.Message {
+	return new(fastReflection_UniversalAccount)
 }
-func (x fastReflection_AccountId_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_AccountId
+func (x fastReflection_UniversalAccount_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalAccount
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_AccountId) Descriptor() protoreflect.MessageDescriptor {
-	return md_AccountId
+func (x *fastReflection_UniversalAccount) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalAccount
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_AccountId) Type() protoreflect.MessageType {
-	return _fastReflection_AccountId_messageType
+func (x *fastReflection_UniversalAccount) Type() protoreflect.MessageType {
+	return _fastReflection_UniversalAccount_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_AccountId) New() protoreflect.Message {
-	return new(fastReflection_AccountId)
+func (x *fastReflection_UniversalAccount) New() protoreflect.Message {
+	return new(fastReflection_UniversalAccount)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_AccountId) Interface() protoreflect.ProtoMessage {
-	return (*AccountId)(x)
+func (x *fastReflection_UniversalAccount) Interface() protoreflect.ProtoMessage {
+	return (*UniversalAccount)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -1383,28 +1427,16 @@ func (x *fastReflection_AccountId) Interface() protoreflect.ProtoMessage {
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_AccountId) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Namespace != "" {
-		value := protoreflect.ValueOfString(x.Namespace)
-		if !f(fd_AccountId_namespace, value) {
+func (x *fastReflection_UniversalAccount) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Chain != "" {
+		value := protoreflect.ValueOfString(x.Chain)
+		if !f(fd_UniversalAccount_chain, value) {
 			return
 		}
 	}
-	if x.ChainId != "" {
-		value := protoreflect.ValueOfString(x.ChainId)
-		if !f(fd_AccountId_chain_id, value) {
-			return
-		}
-	}
-	if x.OwnerKey != "" {
-		value := protoreflect.ValueOfString(x.OwnerKey)
-		if !f(fd_AccountId_owner_key, value) {
-			return
-		}
-	}
-	if x.VmType != 0 {
-		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.VmType))
-		if !f(fd_AccountId_vm_type, value) {
+	if x.Owner != "" {
+		value := protoreflect.ValueOfString(x.Owner)
+		if !f(fd_UniversalAccount_owner, value) {
 			return
 		}
 	}
@@ -1421,21 +1453,17 @@ func (x *fastReflection_AccountId) Range(f func(protoreflect.FieldDescriptor, pr
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_AccountId) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_UniversalAccount) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.AccountId.namespace":
-		return x.Namespace != ""
-	case "ue.v1.AccountId.chain_id":
-		return x.ChainId != ""
-	case "ue.v1.AccountId.owner_key":
-		return x.OwnerKey != ""
-	case "ue.v1.AccountId.vm_type":
-		return x.VmType != 0
+	case "ue.v1.UniversalAccount.chain":
+		return x.Chain != ""
+	case "ue.v1.UniversalAccount.owner":
+		return x.Owner != ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1445,21 +1473,17 @@ func (x *fastReflection_AccountId) Has(fd protoreflect.FieldDescriptor) bool {
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_AccountId) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_UniversalAccount) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.AccountId.namespace":
-		x.Namespace = ""
-	case "ue.v1.AccountId.chain_id":
-		x.ChainId = ""
-	case "ue.v1.AccountId.owner_key":
-		x.OwnerKey = ""
-	case "ue.v1.AccountId.vm_type":
-		x.VmType = 0
+	case "ue.v1.UniversalAccount.chain":
+		x.Chain = ""
+	case "ue.v1.UniversalAccount.owner":
+		x.Owner = ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1469,25 +1493,19 @@ func (x *fastReflection_AccountId) Clear(fd protoreflect.FieldDescriptor) {
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_AccountId) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccount) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.AccountId.namespace":
-		value := x.Namespace
+	case "ue.v1.UniversalAccount.chain":
+		value := x.Chain
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.AccountId.chain_id":
-		value := x.ChainId
+	case "ue.v1.UniversalAccount.owner":
+		value := x.Owner
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.AccountId.owner_key":
-		value := x.OwnerKey
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.AccountId.vm_type":
-		value := x.VmType
-		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -1501,21 +1519,17 @@ func (x *fastReflection_AccountId) Get(descriptor protoreflect.FieldDescriptor) 
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_AccountId) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_UniversalAccount) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.AccountId.namespace":
-		x.Namespace = value.Interface().(string)
-	case "ue.v1.AccountId.chain_id":
-		x.ChainId = value.Interface().(string)
-	case "ue.v1.AccountId.owner_key":
-		x.OwnerKey = value.Interface().(string)
-	case "ue.v1.AccountId.vm_type":
-		x.VmType = (VM_TYPE)(value.Enum())
+	case "ue.v1.UniversalAccount.chain":
+		x.Chain = value.Interface().(string)
+	case "ue.v1.UniversalAccount.owner":
+		x.Owner = value.Interface().(string)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1529,52 +1543,44 @@ func (x *fastReflection_AccountId) Set(fd protoreflect.FieldDescriptor, value pr
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_AccountId) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccount) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.AccountId.namespace":
-		panic(fmt.Errorf("field namespace of message ue.v1.AccountId is not mutable"))
-	case "ue.v1.AccountId.chain_id":
-		panic(fmt.Errorf("field chain_id of message ue.v1.AccountId is not mutable"))
-	case "ue.v1.AccountId.owner_key":
-		panic(fmt.Errorf("field owner_key of message ue.v1.AccountId is not mutable"))
-	case "ue.v1.AccountId.vm_type":
-		panic(fmt.Errorf("field vm_type of message ue.v1.AccountId is not mutable"))
+	case "ue.v1.UniversalAccount.chain":
+		panic(fmt.Errorf("field chain of message ue.v1.UniversalAccount is not mutable"))
+	case "ue.v1.UniversalAccount.owner":
+		panic(fmt.Errorf("field owner of message ue.v1.UniversalAccount is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_AccountId) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccount) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.AccountId.namespace":
+	case "ue.v1.UniversalAccount.chain":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.AccountId.chain_id":
+	case "ue.v1.UniversalAccount.owner":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.AccountId.owner_key":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.AccountId.vm_type":
-		return protoreflect.ValueOfEnum(0)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.AccountId"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
 		}
-		panic(fmt.Errorf("message ue.v1.AccountId does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_AccountId) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_UniversalAccount) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.AccountId", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.UniversalAccount", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -1582,7 +1588,7 @@ func (x *fastReflection_AccountId) WhichOneof(d protoreflect.OneofDescriptor) pr
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_AccountId) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_UniversalAccount) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -1593,7 +1599,7 @@ func (x *fastReflection_AccountId) GetUnknown() protoreflect.RawFields {
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_AccountId) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_UniversalAccount) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -1605,7 +1611,7 @@ func (x *fastReflection_AccountId) SetUnknown(fields protoreflect.RawFields) {
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_AccountId) IsValid() bool {
+func (x *fastReflection_UniversalAccount) IsValid() bool {
 	return x != nil
 }
 
@@ -1615,9 +1621,9 @@ func (x *fastReflection_AccountId) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*AccountId)
+		x := input.Message.Interface().(*UniversalAccount)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1629,20 +1635,13 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 		var n int
 		var l int
 		_ = l
-		l = len(x.Namespace)
+		l = len(x.Chain)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		l = len(x.ChainId)
+		l = len(x.Owner)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.OwnerKey)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		if x.VmType != 0 {
-			n += 1 + runtime.Sov(uint64(x.VmType))
 		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
@@ -1654,7 +1653,7 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*AccountId)
+		x := input.Message.Interface().(*UniversalAccount)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1673,29 +1672,17 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
-		if x.VmType != 0 {
-			i = runtime.EncodeVarint(dAtA, i, uint64(x.VmType))
-			i--
-			dAtA[i] = 0x20
-		}
-		if len(x.OwnerKey) > 0 {
-			i -= len(x.OwnerKey)
-			copy(dAtA[i:], x.OwnerKey)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.OwnerKey)))
-			i--
-			dAtA[i] = 0x1a
-		}
-		if len(x.ChainId) > 0 {
-			i -= len(x.ChainId)
-			copy(dAtA[i:], x.ChainId)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainId)))
+		if len(x.Owner) > 0 {
+			i -= len(x.Owner)
+			copy(dAtA[i:], x.Owner)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Owner)))
 			i--
 			dAtA[i] = 0x12
 		}
-		if len(x.Namespace) > 0 {
-			i -= len(x.Namespace)
-			copy(dAtA[i:], x.Namespace)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Namespace)))
+		if len(x.Chain) > 0 {
+			i -= len(x.Chain)
+			copy(dAtA[i:], x.Chain)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Chain)))
 			i--
 			dAtA[i] = 0xa
 		}
@@ -1710,7 +1697,7 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*AccountId)
+		x := input.Message.Interface().(*UniversalAccount)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1742,15 +1729,15 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: AccountId: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccount: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: AccountId: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccount: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Chain", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -1778,11 +1765,11 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Namespace = string(dAtA[iNdEx:postIndex])
+				x.Chain = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Owner", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -1810,59 +1797,8 @@ func (x *fastReflection_AccountId) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.ChainId = string(dAtA[iNdEx:postIndex])
+				x.Owner = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
-			case 3:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field OwnerKey", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.OwnerKey = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 4:
-				if wireType != 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field VmType", wireType)
-				}
-				x.VmType = 0
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					x.VmType |= VM_TYPE(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -2446,63 +2382,62 @@ func (x *fastReflection_MethodConfig) ProtoMethods() *protoiface.Methods {
 	}
 }
 
-var _ protoreflect.List = (*_ChainConfig_7_list)(nil)
+var _ protoreflect.List = (*_ChainConfig_6_list)(nil)
 
-type _ChainConfig_7_list struct {
+type _ChainConfig_6_list struct {
 	list *[]*MethodConfig
 }
 
-func (x *_ChainConfig_7_list) Len() int {
+func (x *_ChainConfig_6_list) Len() int {
 	if x.list == nil {
 		return 0
 	}
 	return len(*x.list)
 }
 
-func (x *_ChainConfig_7_list) Get(i int) protoreflect.Value {
+func (x *_ChainConfig_6_list) Get(i int) protoreflect.Value {
 	return protoreflect.ValueOfMessage((*x.list)[i].ProtoReflect())
 }
 
-func (x *_ChainConfig_7_list) Set(i int, value protoreflect.Value) {
+func (x *_ChainConfig_6_list) Set(i int, value protoreflect.Value) {
 	valueUnwrapped := value.Message()
 	concreteValue := valueUnwrapped.Interface().(*MethodConfig)
 	(*x.list)[i] = concreteValue
 }
 
-func (x *_ChainConfig_7_list) Append(value protoreflect.Value) {
+func (x *_ChainConfig_6_list) Append(value protoreflect.Value) {
 	valueUnwrapped := value.Message()
 	concreteValue := valueUnwrapped.Interface().(*MethodConfig)
 	*x.list = append(*x.list, concreteValue)
 }
 
-func (x *_ChainConfig_7_list) AppendMutable() protoreflect.Value {
+func (x *_ChainConfig_6_list) AppendMutable() protoreflect.Value {
 	v := new(MethodConfig)
 	*x.list = append(*x.list, v)
 	return protoreflect.ValueOfMessage(v.ProtoReflect())
 }
 
-func (x *_ChainConfig_7_list) Truncate(n int) {
+func (x *_ChainConfig_6_list) Truncate(n int) {
 	for i := n; i < len(*x.list); i++ {
 		(*x.list)[i] = nil
 	}
 	*x.list = (*x.list)[:n]
 }
 
-func (x *_ChainConfig_7_list) NewElement() protoreflect.Value {
+func (x *_ChainConfig_6_list) NewElement() protoreflect.Value {
 	v := new(MethodConfig)
 	return protoreflect.ValueOfMessage(v.ProtoReflect())
 }
 
-func (x *_ChainConfig_7_list) IsValid() bool {
+func (x *_ChainConfig_6_list) IsValid() bool {
 	return x.list != nil
 }
 
 var (
 	md_ChainConfig                         protoreflect.MessageDescriptor
-	fd_ChainConfig_namespace               protoreflect.FieldDescriptor
-	fd_ChainConfig_chain_id                protoreflect.FieldDescriptor
-	fd_ChainConfig_public_rpc_url          protoreflect.FieldDescriptor
+	fd_ChainConfig_chain                   protoreflect.FieldDescriptor
 	fd_ChainConfig_vm_type                 protoreflect.FieldDescriptor
+	fd_ChainConfig_public_rpc_url          protoreflect.FieldDescriptor
 	fd_ChainConfig_locker_contract_address protoreflect.FieldDescriptor
 	fd_ChainConfig_block_confirmation      protoreflect.FieldDescriptor
 	fd_ChainConfig_gateway_methods         protoreflect.FieldDescriptor
@@ -2512,10 +2447,9 @@ var (
 func init() {
 	file_ue_v1_types_proto_init()
 	md_ChainConfig = File_ue_v1_types_proto.Messages().ByName("ChainConfig")
-	fd_ChainConfig_namespace = md_ChainConfig.Fields().ByName("namespace")
-	fd_ChainConfig_chain_id = md_ChainConfig.Fields().ByName("chain_id")
-	fd_ChainConfig_public_rpc_url = md_ChainConfig.Fields().ByName("public_rpc_url")
+	fd_ChainConfig_chain = md_ChainConfig.Fields().ByName("chain")
 	fd_ChainConfig_vm_type = md_ChainConfig.Fields().ByName("vm_type")
+	fd_ChainConfig_public_rpc_url = md_ChainConfig.Fields().ByName("public_rpc_url")
 	fd_ChainConfig_locker_contract_address = md_ChainConfig.Fields().ByName("locker_contract_address")
 	fd_ChainConfig_block_confirmation = md_ChainConfig.Fields().ByName("block_confirmation")
 	fd_ChainConfig_gateway_methods = md_ChainConfig.Fields().ByName("gateway_methods")
@@ -2587,27 +2521,21 @@ func (x *fastReflection_ChainConfig) Interface() protoreflect.ProtoMessage {
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_ChainConfig) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Namespace != "" {
-		value := protoreflect.ValueOfString(x.Namespace)
-		if !f(fd_ChainConfig_namespace, value) {
-			return
-		}
-	}
-	if x.ChainId != "" {
-		value := protoreflect.ValueOfString(x.ChainId)
-		if !f(fd_ChainConfig_chain_id, value) {
-			return
-		}
-	}
-	if x.PublicRpcUrl != "" {
-		value := protoreflect.ValueOfString(x.PublicRpcUrl)
-		if !f(fd_ChainConfig_public_rpc_url, value) {
+	if x.Chain != "" {
+		value := protoreflect.ValueOfString(x.Chain)
+		if !f(fd_ChainConfig_chain, value) {
 			return
 		}
 	}
 	if x.VmType != 0 {
 		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.VmType))
 		if !f(fd_ChainConfig_vm_type, value) {
+			return
+		}
+	}
+	if x.PublicRpcUrl != "" {
+		value := protoreflect.ValueOfString(x.PublicRpcUrl)
+		if !f(fd_ChainConfig_public_rpc_url, value) {
 			return
 		}
 	}
@@ -2624,7 +2552,7 @@ func (x *fastReflection_ChainConfig) Range(f func(protoreflect.FieldDescriptor, 
 		}
 	}
 	if len(x.GatewayMethods) != 0 {
-		value := protoreflect.ValueOfList(&_ChainConfig_7_list{list: &x.GatewayMethods})
+		value := protoreflect.ValueOfList(&_ChainConfig_6_list{list: &x.GatewayMethods})
 		if !f(fd_ChainConfig_gateway_methods, value) {
 			return
 		}
@@ -2650,14 +2578,12 @@ func (x *fastReflection_ChainConfig) Range(f func(protoreflect.FieldDescriptor, 
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_ChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.ChainConfig.namespace":
-		return x.Namespace != ""
-	case "ue.v1.ChainConfig.chain_id":
-		return x.ChainId != ""
-	case "ue.v1.ChainConfig.public_rpc_url":
-		return x.PublicRpcUrl != ""
+	case "ue.v1.ChainConfig.chain":
+		return x.Chain != ""
 	case "ue.v1.ChainConfig.vm_type":
 		return x.VmType != 0
+	case "ue.v1.ChainConfig.public_rpc_url":
+		return x.PublicRpcUrl != ""
 	case "ue.v1.ChainConfig.locker_contract_address":
 		return x.LockerContractAddress != ""
 	case "ue.v1.ChainConfig.block_confirmation":
@@ -2682,14 +2608,12 @@ func (x *fastReflection_ChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_ChainConfig) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.ChainConfig.namespace":
-		x.Namespace = ""
-	case "ue.v1.ChainConfig.chain_id":
-		x.ChainId = ""
-	case "ue.v1.ChainConfig.public_rpc_url":
-		x.PublicRpcUrl = ""
+	case "ue.v1.ChainConfig.chain":
+		x.Chain = ""
 	case "ue.v1.ChainConfig.vm_type":
 		x.VmType = 0
+	case "ue.v1.ChainConfig.public_rpc_url":
+		x.PublicRpcUrl = ""
 	case "ue.v1.ChainConfig.locker_contract_address":
 		x.LockerContractAddress = ""
 	case "ue.v1.ChainConfig.block_confirmation":
@@ -2714,18 +2638,15 @@ func (x *fastReflection_ChainConfig) Clear(fd protoreflect.FieldDescriptor) {
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_ChainConfig) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.ChainConfig.namespace":
-		value := x.Namespace
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.ChainConfig.chain_id":
-		value := x.ChainId
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.ChainConfig.public_rpc_url":
-		value := x.PublicRpcUrl
+	case "ue.v1.ChainConfig.chain":
+		value := x.Chain
 		return protoreflect.ValueOfString(value)
 	case "ue.v1.ChainConfig.vm_type":
 		value := x.VmType
 		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+	case "ue.v1.ChainConfig.public_rpc_url":
+		value := x.PublicRpcUrl
+		return protoreflect.ValueOfString(value)
 	case "ue.v1.ChainConfig.locker_contract_address":
 		value := x.LockerContractAddress
 		return protoreflect.ValueOfString(value)
@@ -2734,9 +2655,9 @@ func (x *fastReflection_ChainConfig) Get(descriptor protoreflect.FieldDescriptor
 		return protoreflect.ValueOfUint64(value)
 	case "ue.v1.ChainConfig.gateway_methods":
 		if len(x.GatewayMethods) == 0 {
-			return protoreflect.ValueOfList(&_ChainConfig_7_list{})
+			return protoreflect.ValueOfList(&_ChainConfig_6_list{})
 		}
-		listValue := &_ChainConfig_7_list{list: &x.GatewayMethods}
+		listValue := &_ChainConfig_6_list{list: &x.GatewayMethods}
 		return protoreflect.ValueOfList(listValue)
 	case "ue.v1.ChainConfig.enabled":
 		value := x.Enabled
@@ -2761,21 +2682,19 @@ func (x *fastReflection_ChainConfig) Get(descriptor protoreflect.FieldDescriptor
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_ChainConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.ChainConfig.namespace":
-		x.Namespace = value.Interface().(string)
-	case "ue.v1.ChainConfig.chain_id":
-		x.ChainId = value.Interface().(string)
-	case "ue.v1.ChainConfig.public_rpc_url":
-		x.PublicRpcUrl = value.Interface().(string)
+	case "ue.v1.ChainConfig.chain":
+		x.Chain = value.Interface().(string)
 	case "ue.v1.ChainConfig.vm_type":
 		x.VmType = (VM_TYPE)(value.Enum())
+	case "ue.v1.ChainConfig.public_rpc_url":
+		x.PublicRpcUrl = value.Interface().(string)
 	case "ue.v1.ChainConfig.locker_contract_address":
 		x.LockerContractAddress = value.Interface().(string)
 	case "ue.v1.ChainConfig.block_confirmation":
 		x.BlockConfirmation = value.Uint()
 	case "ue.v1.ChainConfig.gateway_methods":
 		lv := value.List()
-		clv := lv.(*_ChainConfig_7_list)
+		clv := lv.(*_ChainConfig_6_list)
 		x.GatewayMethods = *clv.list
 	case "ue.v1.ChainConfig.enabled":
 		x.Enabled = value.Bool()
@@ -2803,16 +2722,14 @@ func (x *fastReflection_ChainConfig) Mutable(fd protoreflect.FieldDescriptor) pr
 		if x.GatewayMethods == nil {
 			x.GatewayMethods = []*MethodConfig{}
 		}
-		value := &_ChainConfig_7_list{list: &x.GatewayMethods}
+		value := &_ChainConfig_6_list{list: &x.GatewayMethods}
 		return protoreflect.ValueOfList(value)
-	case "ue.v1.ChainConfig.namespace":
-		panic(fmt.Errorf("field namespace of message ue.v1.ChainConfig is not mutable"))
-	case "ue.v1.ChainConfig.chain_id":
-		panic(fmt.Errorf("field chain_id of message ue.v1.ChainConfig is not mutable"))
-	case "ue.v1.ChainConfig.public_rpc_url":
-		panic(fmt.Errorf("field public_rpc_url of message ue.v1.ChainConfig is not mutable"))
+	case "ue.v1.ChainConfig.chain":
+		panic(fmt.Errorf("field chain of message ue.v1.ChainConfig is not mutable"))
 	case "ue.v1.ChainConfig.vm_type":
 		panic(fmt.Errorf("field vm_type of message ue.v1.ChainConfig is not mutable"))
+	case "ue.v1.ChainConfig.public_rpc_url":
+		panic(fmt.Errorf("field public_rpc_url of message ue.v1.ChainConfig is not mutable"))
 	case "ue.v1.ChainConfig.locker_contract_address":
 		panic(fmt.Errorf("field locker_contract_address of message ue.v1.ChainConfig is not mutable"))
 	case "ue.v1.ChainConfig.block_confirmation":
@@ -2832,21 +2749,19 @@ func (x *fastReflection_ChainConfig) Mutable(fd protoreflect.FieldDescriptor) pr
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_ChainConfig) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.ChainConfig.namespace":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.ChainConfig.chain_id":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.ChainConfig.public_rpc_url":
+	case "ue.v1.ChainConfig.chain":
 		return protoreflect.ValueOfString("")
 	case "ue.v1.ChainConfig.vm_type":
 		return protoreflect.ValueOfEnum(0)
+	case "ue.v1.ChainConfig.public_rpc_url":
+		return protoreflect.ValueOfString("")
 	case "ue.v1.ChainConfig.locker_contract_address":
 		return protoreflect.ValueOfString("")
 	case "ue.v1.ChainConfig.block_confirmation":
 		return protoreflect.ValueOfUint64(uint64(0))
 	case "ue.v1.ChainConfig.gateway_methods":
 		list := []*MethodConfig{}
-		return protoreflect.ValueOfList(&_ChainConfig_7_list{list: &list})
+		return protoreflect.ValueOfList(&_ChainConfig_6_list{list: &list})
 	case "ue.v1.ChainConfig.enabled":
 		return protoreflect.ValueOfBool(false)
 	default:
@@ -2918,20 +2833,16 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 		var n int
 		var l int
 		_ = l
-		l = len(x.Namespace)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.ChainId)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.PublicRpcUrl)
+		l = len(x.Chain)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if x.VmType != 0 {
 			n += 1 + runtime.Sov(uint64(x.VmType))
+		}
+		l = len(x.PublicRpcUrl)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		l = len(x.LockerContractAddress)
 		if l > 0 {
@@ -2986,7 +2897,7 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 				dAtA[i] = 0
 			}
 			i--
-			dAtA[i] = 0x40
+			dAtA[i] = 0x38
 		}
 		if len(x.GatewayMethods) > 0 {
 			for iNdEx := len(x.GatewayMethods) - 1; iNdEx >= 0; iNdEx-- {
@@ -3001,25 +2912,20 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 				copy(dAtA[i:], encoded)
 				i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
 				i--
-				dAtA[i] = 0x3a
+				dAtA[i] = 0x32
 			}
 		}
 		if x.BlockConfirmation != 0 {
 			i = runtime.EncodeVarint(dAtA, i, uint64(x.BlockConfirmation))
 			i--
-			dAtA[i] = 0x30
+			dAtA[i] = 0x28
 		}
 		if len(x.LockerContractAddress) > 0 {
 			i -= len(x.LockerContractAddress)
 			copy(dAtA[i:], x.LockerContractAddress)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.LockerContractAddress)))
 			i--
-			dAtA[i] = 0x2a
-		}
-		if x.VmType != 0 {
-			i = runtime.EncodeVarint(dAtA, i, uint64(x.VmType))
-			i--
-			dAtA[i] = 0x20
+			dAtA[i] = 0x22
 		}
 		if len(x.PublicRpcUrl) > 0 {
 			i -= len(x.PublicRpcUrl)
@@ -3028,17 +2934,15 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x1a
 		}
-		if len(x.ChainId) > 0 {
-			i -= len(x.ChainId)
-			copy(dAtA[i:], x.ChainId)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainId)))
+		if x.VmType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.VmType))
 			i--
-			dAtA[i] = 0x12
+			dAtA[i] = 0x10
 		}
-		if len(x.Namespace) > 0 {
-			i -= len(x.Namespace)
-			copy(dAtA[i:], x.Namespace)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Namespace)))
+		if len(x.Chain) > 0 {
+			i -= len(x.Chain)
+			copy(dAtA[i:], x.Chain)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Chain)))
 			i--
 			dAtA[i] = 0xa
 		}
@@ -3093,7 +2997,7 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 			switch fieldNum {
 			case 1:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Chain", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -3121,13 +3025,13 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Namespace = string(dAtA[iNdEx:postIndex])
+				x.Chain = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 2:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field VmType", wireType)
 				}
-				var stringLen uint64
+				x.VmType = 0
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -3137,24 +3041,11 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
+					x.VmType |= VM_TYPE(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.ChainId = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
 			case 3:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field PublicRpcUrl", wireType)
@@ -3188,25 +3079,6 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 				x.PublicRpcUrl = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 4:
-				if wireType != 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field VmType", wireType)
-				}
-				x.VmType = 0
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					x.VmType |= VM_TYPE(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-			case 5:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field LockerContractAddress", wireType)
 				}
@@ -3238,7 +3110,7 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 				}
 				x.LockerContractAddress = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
-			case 6:
+			case 5:
 				if wireType != 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field BlockConfirmation", wireType)
 				}
@@ -3257,7 +3129,7 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 						break
 					}
 				}
-			case 7:
+			case 6:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field GatewayMethods", wireType)
 				}
@@ -3291,7 +3163,7 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
-			case 8:
+			case 7:
 				if wireType != 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Enabled", wireType)
 				}
@@ -3363,12 +3235,15 @@ const (
 type VM_TYPE int32
 
 const (
-	VM_TYPE_EVM      VM_TYPE = 0
-	VM_TYPE_SVM      VM_TYPE = 1
-	VM_TYPE_MOVE_VM  VM_TYPE = 2
-	VM_TYPE_WASM_VM  VM_TYPE = 3
-	VM_TYPE_CAIRO_VM VM_TYPE = 4
-	VM_TYPE_OTHER_VM VM_TYPE = 5
+	VM_TYPE_EVM            VM_TYPE = 0 // Ethereum, BSC, Polygon, etc.
+	VM_TYPE_SVM            VM_TYPE = 1 // Solana
+	VM_TYPE_MOVE_VM        VM_TYPE = 2 // Aptos, Sui
+	VM_TYPE_WASM_VM        VM_TYPE = 3 // CosmWasm, Near, Polkadot
+	VM_TYPE_CAIRO_VM       VM_TYPE = 4 // Starknet
+	VM_TYPE_TRON_VM        VM_TYPE = 5 // TRON
+	VM_TYPE_STELLAR_VM     VM_TYPE = 6 // Stellar
+	VM_TYPE_BITCOIN_SCRIPT VM_TYPE = 7 // Bitcoin, Litecoin, etc.
+	VM_TYPE_OTHER_VM       VM_TYPE = 8 // Fallback
 )
 
 // Enum value maps for VM_TYPE.
@@ -3379,15 +3254,21 @@ var (
 		2: "MOVE_VM",
 		3: "WASM_VM",
 		4: "CAIRO_VM",
-		5: "OTHER_VM",
+		5: "TRON_VM",
+		6: "STELLAR_VM",
+		7: "BITCOIN_SCRIPT",
+		8: "OTHER_VM",
 	}
 	VM_TYPE_value = map[string]int32{
-		"EVM":      0,
-		"SVM":      1,
-		"MOVE_VM":  2,
-		"WASM_VM":  3,
-		"CAIRO_VM": 4,
-		"OTHER_VM": 5,
+		"EVM":            0,
+		"SVM":            1,
+		"MOVE_VM":        2,
+		"WASM_VM":        3,
+		"CAIRO_VM":       4,
+		"TRON_VM":        5,
+		"STELLAR_VM":     6,
+		"BITCOIN_SCRIPT": 7,
+		"OTHER_VM":       8,
 	}
 )
 
@@ -3416,6 +3297,53 @@ func (x VM_TYPE) Number() protoreflect.EnumNumber {
 // Deprecated: Use VM_TYPE.Descriptor instead.
 func (VM_TYPE) EnumDescriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{0}
+}
+
+// Signature verification types
+type SignatureType int32
+
+const (
+	SignatureType_signedVerification      SignatureType = 0 // Signed verification using a signature
+	SignatureType_universalTxVerification SignatureType = 1 // Universal transaction verification
+)
+
+// Enum value maps for SignatureType.
+var (
+	SignatureType_name = map[int32]string{
+		0: "signedVerification",
+		1: "universalTxVerification",
+	}
+	SignatureType_value = map[string]int32{
+		"signedVerification":      0,
+		"universalTxVerification": 1,
+	}
+)
+
+func (x SignatureType) Enum() *SignatureType {
+	p := new(SignatureType)
+	*p = x
+	return p
+}
+
+func (x SignatureType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SignatureType) Descriptor() protoreflect.EnumDescriptor {
+	return file_ue_v1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (SignatureType) Type() protoreflect.EnumType {
+	return &file_ue_v1_types_proto_enumTypes[1]
+}
+
+func (x SignatureType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SignatureType.Descriptor instead.
+func (SignatureType) EnumDescriptor() ([]byte, []int) {
+	return file_ue_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 // Params defines the set of module parameters.
@@ -3455,24 +3383,25 @@ func (x *Params) GetAdmin() string {
 	return ""
 }
 
-// CrossChainPayload mirrors the Solidity struct
-type CrossChainPayload struct {
+// UniversalPayload mirrors the Solidity struct
+type UniversalPayload struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Target               string `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`                                                               // EVM address as hex string (0x...)
-	Value                string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                                                 // Amount in wei as string (uint256)
-	Data                 string `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
-	GasLimit             string `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`                                           // uint256 as string
-	MaxFeePerGas         string `protobuf:"bytes,5,opt,name=max_fee_per_gas,json=maxFeePerGas,proto3" json:"max_fee_per_gas,omitempty"`                           // uint256 as string
-	MaxPriorityFeePerGas string `protobuf:"bytes,6,opt,name=max_priority_fee_per_gas,json=maxPriorityFeePerGas,proto3" json:"max_priority_fee_per_gas,omitempty"` // uint256 as string
-	Nonce                string `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`                                                                 // uint256 as string
-	Deadline             string `protobuf:"bytes,8,opt,name=deadline,proto3" json:"deadline,omitempty"`                                                           // uint256 as string
+	To                   string        `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`                                                                       // EVM address as hex string (0x...)
+	Value                string        `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                                                 // Amount in upc as string (uint256)
+	Data                 string        `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
+	GasLimit             string        `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`                                           // uint256 as string
+	MaxFeePerGas         string        `protobuf:"bytes,5,opt,name=max_fee_per_gas,json=maxFeePerGas,proto3" json:"max_fee_per_gas,omitempty"`                           // uint256 as string
+	MaxPriorityFeePerGas string        `protobuf:"bytes,6,opt,name=max_priority_fee_per_gas,json=maxPriorityFeePerGas,proto3" json:"max_priority_fee_per_gas,omitempty"` // uint256 as string
+	Nonce                string        `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`                                                                 // uint256 as string
+	Deadline             string        `protobuf:"bytes,8,opt,name=deadline,proto3" json:"deadline,omitempty"`                                                           // uint256 as string
+	SignatureType        SignatureType `protobuf:"varint,9,opt,name=signature_type,json=signatureType,proto3,enum=ue.v1.SignatureType" json:"signature_type,omitempty"`  // Type of signature verification
 }
 
-func (x *CrossChainPayload) Reset() {
-	*x = CrossChainPayload{}
+func (x *UniversalPayload) Reset() {
+	*x = UniversalPayload{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_types_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3480,87 +3409,92 @@ func (x *CrossChainPayload) Reset() {
 	}
 }
 
-func (x *CrossChainPayload) String() string {
+func (x *UniversalPayload) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CrossChainPayload) ProtoMessage() {}
+func (*UniversalPayload) ProtoMessage() {}
 
-// Deprecated: Use CrossChainPayload.ProtoReflect.Descriptor instead.
-func (*CrossChainPayload) Descriptor() ([]byte, []int) {
+// Deprecated: Use UniversalPayload.ProtoReflect.Descriptor instead.
+func (*UniversalPayload) Descriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CrossChainPayload) GetTarget() string {
+func (x *UniversalPayload) GetTo() string {
 	if x != nil {
-		return x.Target
+		return x.To
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetValue() string {
+func (x *UniversalPayload) GetValue() string {
 	if x != nil {
 		return x.Value
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetData() string {
+func (x *UniversalPayload) GetData() string {
 	if x != nil {
 		return x.Data
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetGasLimit() string {
+func (x *UniversalPayload) GetGasLimit() string {
 	if x != nil {
 		return x.GasLimit
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetMaxFeePerGas() string {
+func (x *UniversalPayload) GetMaxFeePerGas() string {
 	if x != nil {
 		return x.MaxFeePerGas
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetMaxPriorityFeePerGas() string {
+func (x *UniversalPayload) GetMaxPriorityFeePerGas() string {
 	if x != nil {
 		return x.MaxPriorityFeePerGas
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetNonce() string {
+func (x *UniversalPayload) GetNonce() string {
 	if x != nil {
 		return x.Nonce
 	}
 	return ""
 }
 
-func (x *CrossChainPayload) GetDeadline() string {
+func (x *UniversalPayload) GetDeadline() string {
 	if x != nil {
 		return x.Deadline
 	}
 	return ""
 }
 
-// AccountId is the identifier of a crosschain owner account
-type AccountId struct {
+func (x *UniversalPayload) GetSignatureType() SignatureType {
+	if x != nil {
+		return x.SignatureType
+	}
+	return SignatureType_signedVerification
+}
+
+// UniversalAccount is the identifier of a owner account
+type UniversalAccount struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Namespace string  `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	ChainId   string  `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	OwnerKey  string  `protobuf:"bytes,3,opt,name=owner_key,json=ownerKey,proto3" json:"owner_key,omitempty"`
-	VmType    VM_TYPE `protobuf:"varint,4,opt,name=vm_type,json=vmType,proto3,enum=ue.v1.VM_TYPE" json:"vm_type,omitempty"`
+	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"` // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+	Owner string `protobuf:"bytes,2,opt,name=owner,proto3" json:"owner,omitempty"` // Owner's public key bytes or address in hex format
 }
 
-func (x *AccountId) Reset() {
-	*x = AccountId{}
+func (x *UniversalAccount) Reset() {
+	*x = UniversalAccount{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_types_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3568,46 +3502,32 @@ func (x *AccountId) Reset() {
 	}
 }
 
-func (x *AccountId) String() string {
+func (x *UniversalAccount) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AccountId) ProtoMessage() {}
+func (*UniversalAccount) ProtoMessage() {}
 
-// Deprecated: Use AccountId.ProtoReflect.Descriptor instead.
-func (*AccountId) Descriptor() ([]byte, []int) {
+// Deprecated: Use UniversalAccount.ProtoReflect.Descriptor instead.
+func (*UniversalAccount) Descriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AccountId) GetNamespace() string {
+func (x *UniversalAccount) GetChain() string {
 	if x != nil {
-		return x.Namespace
+		return x.Chain
 	}
 	return ""
 }
 
-func (x *AccountId) GetChainId() string {
+func (x *UniversalAccount) GetOwner() string {
 	if x != nil {
-		return x.ChainId
+		return x.Owner
 	}
 	return ""
 }
 
-func (x *AccountId) GetOwnerKey() string {
-	if x != nil {
-		return x.OwnerKey
-	}
-	return ""
-}
-
-func (x *AccountId) GetVmType() VM_TYPE {
-	if x != nil {
-		return x.VmType
-	}
-	return VM_TYPE_EVM
-}
-
-// MethodConfig defines the configuration for a method that can be used for cross-chain operations
+// MethodConfig defines the configuration for a method that can be used for universal operations
 type MethodConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3665,14 +3585,13 @@ type ChainConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Namespace             string          `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                        // Namespace for the chain configuration
-	ChainId               string          `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`                                             // Unique identifier for the chain
+	Chain                 string          `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`                                                                // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+	VmType                VM_TYPE         `protobuf:"varint,2,opt,name=vm_type,json=vmType,proto3,enum=ue.v1.VM_TYPE" json:"vm_type,omitempty"`                            // vm_type is the type of the virtual machine used by the chain
 	PublicRpcUrl          string          `protobuf:"bytes,3,opt,name=public_rpc_url,json=publicRpcUrl,proto3" json:"public_rpc_url,omitempty"`                            // RPC URL for the chain
-	VmType                VM_TYPE         `protobuf:"varint,4,opt,name=vm_type,json=vmType,proto3,enum=ue.v1.VM_TYPE" json:"vm_type,omitempty"`                            // Type of the VM used by the chain
-	LockerContractAddress string          `protobuf:"bytes,5,opt,name=locker_contract_address,json=lockerContractAddress,proto3" json:"locker_contract_address,omitempty"` // locker_contract_address is the address of the fee locker contract on the external chain
-	BlockConfirmation     uint64          `protobuf:"varint,6,opt,name=block_confirmation,json=blockConfirmation,proto3" json:"block_confirmation,omitempty"`              // block_confirmation is the number of blocks to wait for confirmation on the external chain
-	GatewayMethods        []*MethodConfig `protobuf:"bytes,7,rep,name=gateway_methods,json=gatewayMethods,proto3" json:"gateway_methods,omitempty"`                        // List of methods that can be used for cross-chain operations
-	Enabled               bool            `protobuf:"varint,8,opt,name=enabled,proto3" json:"enabled,omitempty"`                                                           // Whether this chain is currently enabled or not
+	LockerContractAddress string          `protobuf:"bytes,4,opt,name=locker_contract_address,json=lockerContractAddress,proto3" json:"locker_contract_address,omitempty"` // locker_contract_address is the address of the fee locker contract on the external chain
+	BlockConfirmation     uint64          `protobuf:"varint,5,opt,name=block_confirmation,json=blockConfirmation,proto3" json:"block_confirmation,omitempty"`              // block_confirmation is the number of blocks to wait for confirmation on the external chain
+	GatewayMethods        []*MethodConfig `protobuf:"bytes,6,rep,name=gateway_methods,json=gatewayMethods,proto3" json:"gateway_methods,omitempty"`                        // List of methods that can be used for universal operations
+	Enabled               bool            `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`                                                           // Whether this chain is currently enabled or not
 }
 
 func (x *ChainConfig) Reset() {
@@ -3695,23 +3614,9 @@ func (*ChainConfig) Descriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ChainConfig) GetNamespace() string {
+func (x *ChainConfig) GetChain() string {
 	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ChainConfig) GetChainId() string {
-	if x != nil {
-		return x.ChainId
-	}
-	return ""
-}
-
-func (x *ChainConfig) GetPublicRpcUrl() string {
-	if x != nil {
-		return x.PublicRpcUrl
+		return x.Chain
 	}
 	return ""
 }
@@ -3721,6 +3626,13 @@ func (x *ChainConfig) GetVmType() VM_TYPE {
 		return x.VmType
 	}
 	return VM_TYPE_EVM
+}
+
+func (x *ChainConfig) GetPublicRpcUrl() string {
+	if x != nil {
+		return x.PublicRpcUrl
+	}
+	return ""
 }
 
 func (x *ChainConfig) GetLockerContractAddress() string {
@@ -3761,81 +3673,85 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x6f, 0x74, 0x6f, 0x22, 0x36, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x14, 0x0a,
 	0x05, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x61, 0x64,
 	0x6d, 0x69, 0x6e, 0x3a, 0x16, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0,
-	0x2a, 0x09, 0x75, 0x65, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xa7, 0x02, 0x0a, 0x11,
-	0x43, 0x72, 0x6f, 0x73, 0x73, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x12, 0x16, 0x0a, 0x06, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x06, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
-	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12,
-	0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x64,
-	0x61, 0x74, 0x61, 0x12, 0x1b, 0x0a, 0x09, 0x67, 0x61, 0x73, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74,
-	0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x67, 0x61, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74,
-	0x12, 0x25, 0x0a, 0x0f, 0x6d, 0x61, 0x78, 0x5f, 0x66, 0x65, 0x65, 0x5f, 0x70, 0x65, 0x72, 0x5f,
-	0x67, 0x61, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x6d, 0x61, 0x78, 0x46, 0x65,
-	0x65, 0x50, 0x65, 0x72, 0x47, 0x61, 0x73, 0x12, 0x36, 0x0a, 0x18, 0x6d, 0x61, 0x78, 0x5f, 0x70,
-	0x72, 0x69, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x5f, 0x66, 0x65, 0x65, 0x5f, 0x70, 0x65, 0x72, 0x5f,
-	0x67, 0x61, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x14, 0x6d, 0x61, 0x78, 0x50, 0x72,
-	0x69, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x46, 0x65, 0x65, 0x50, 0x65, 0x72, 0x47, 0x61, 0x73, 0x12,
-	0x14, 0x0a, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
-	0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e,
-	0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e,
-	0x65, 0x3a, 0x22, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x15,
-	0x75, 0x65, 0x2f, 0x63, 0x72, 0x6f, 0x73, 0x73, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x70, 0x61,
-	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0xa6, 0x01, 0x0a, 0x09, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x49, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63,
-	0x65, 0x12, 0x19, 0x0a, 0x08, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09,
-	0x6f, 0x77, 0x6e, 0x65, 0x72, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x08, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x4b, 0x65, 0x79, 0x12, 0x27, 0x0a, 0x07, 0x76, 0x6d, 0x5f,
-	0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0e, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x56, 0x4d, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x52, 0x06, 0x76, 0x6d, 0x54, 0x79,
-	0x70, 0x65, 0x3a, 0x1a, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a,
-	0x0d, 0x75, 0x65, 0x2f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x22, 0x7e,
-	0x0a, 0x0c, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x12,
-	0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61,
-	0x6d, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x12, 0x1f,
-	0x0a, 0x0b, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x6f, 0x70, 0x69, 0x63, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x0a, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x3a,
-	0x1d, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x10, 0x75, 0x65,
-	0x2f, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0xf2,
-	0x02, 0x0a, 0x0b, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x1c,
-	0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12, 0x19, 0x0a, 0x08,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x12, 0x24, 0x0a, 0x0e, 0x70, 0x75, 0x62, 0x6c, 0x69,
-	0x63, 0x5f, 0x72, 0x70, 0x63, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x0c, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x52, 0x70, 0x63, 0x55, 0x72, 0x6c, 0x12, 0x27, 0x0a,
-	0x07, 0x76, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0e,
-	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x56, 0x4d, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x52, 0x06,
-	0x76, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x12, 0x36, 0x0a, 0x17, 0x6c, 0x6f, 0x63, 0x6b, 0x65, 0x72,
-	0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x15, 0x6c, 0x6f, 0x63, 0x6b, 0x65, 0x72, 0x43,
-	0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x2d,
-	0x0a, 0x12, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x72, 0x6d, 0x61,
-	0x74, 0x69, 0x6f, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04, 0x52, 0x11, 0x62, 0x6c, 0x6f, 0x63,
-	0x6b, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x3c, 0x0a,
-	0x0f, 0x67, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x5f, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x73,
-	0x18, 0x07, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x65, 0x74, 0x68, 0x6f, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0e, 0x67, 0x61, 0x74,
-	0x65, 0x77, 0x61, 0x79, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x65,
-	0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18, 0x08, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x65, 0x6e,
-	0x61, 0x62, 0x6c, 0x65, 0x64, 0x3a, 0x1c, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a,
-	0xe7, 0xb0, 0x2a, 0x0f, 0x75, 0x65, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x2a, 0x51, 0x0a, 0x07, 0x56, 0x4d, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x12, 0x07,
-	0x0a, 0x03, 0x45, 0x56, 0x4d, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x53, 0x56, 0x4d, 0x10, 0x01,
-	0x12, 0x0b, 0x0a, 0x07, 0x4d, 0x4f, 0x56, 0x45, 0x5f, 0x56, 0x4d, 0x10, 0x02, 0x12, 0x0b, 0x0a,
-	0x07, 0x57, 0x41, 0x53, 0x4d, 0x5f, 0x56, 0x4d, 0x10, 0x03, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x41,
-	0x49, 0x52, 0x4f, 0x5f, 0x56, 0x4d, 0x10, 0x04, 0x12, 0x0c, 0x0a, 0x08, 0x4f, 0x54, 0x48, 0x45,
-	0x52, 0x5f, 0x56, 0x4d, 0x10, 0x05, 0x42, 0x79, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54, 0x79, 0x70, 0x65, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50,
-	0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f,
-	0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02,
-	0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55,
-	0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42,
-	0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56,
-	0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x2a, 0x09, 0x75, 0x65, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xda, 0x02, 0x0a, 0x10,
+	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64,
+	0x12, 0x0e, 0x0a, 0x02, 0x74, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x74, 0x6f,
+	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x1b, 0x0a, 0x09, 0x67, 0x61,
+	0x73, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x67,
+	0x61, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x25, 0x0a, 0x0f, 0x6d, 0x61, 0x78, 0x5f, 0x66,
+	0x65, 0x65, 0x5f, 0x70, 0x65, 0x72, 0x5f, 0x67, 0x61, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0c, 0x6d, 0x61, 0x78, 0x46, 0x65, 0x65, 0x50, 0x65, 0x72, 0x47, 0x61, 0x73, 0x12, 0x36,
+	0x0a, 0x18, 0x6d, 0x61, 0x78, 0x5f, 0x70, 0x72, 0x69, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x5f, 0x66,
+	0x65, 0x65, 0x5f, 0x70, 0x65, 0x72, 0x5f, 0x67, 0x61, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x14, 0x6d, 0x61, 0x78, 0x50, 0x72, 0x69, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x46, 0x65, 0x65,
+	0x50, 0x65, 0x72, 0x47, 0x61, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x18,
+	0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x12, 0x1a, 0x0a, 0x08,
+	0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
+	0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e, 0x65, 0x12, 0x3b, 0x0a, 0x0e, 0x73, 0x69, 0x67, 0x6e,
+	0x61, 0x74, 0x75, 0x72, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0e,
+	0x32, 0x14, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
+	0x72, 0x65, 0x54, 0x79, 0x70, 0x65, 0x52, 0x0d, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a,
+	0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
+	0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x61, 0x0a, 0x10, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x14, 0x0a, 0x05,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0,
+	0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x7e, 0x0a, 0x0c, 0x4d,
+	0x65, 0x74, 0x68, 0x6f, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x12, 0x0a, 0x04, 0x6e,
+	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12,
+	0x1a, 0x0a, 0x08, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x08, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x12, 0x1f, 0x0a, 0x0b, 0x65,
+	0x76, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x6f, 0x70, 0x69, 0x63, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0a, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x3a, 0x1d, 0x98, 0xa0,
+	0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x10, 0x75, 0x65, 0x2f, 0x6d, 0x65,
+	0x74, 0x68, 0x6f, 0x64, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0xcf, 0x02, 0x0a, 0x0b,
+	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x14, 0x0a, 0x05, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61, 0x69,
+	0x6e, 0x12, 0x27, 0x0a, 0x07, 0x76, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0e, 0x32, 0x0e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x56, 0x4d, 0x5f, 0x54, 0x59,
+	0x50, 0x45, 0x52, 0x06, 0x76, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x12, 0x24, 0x0a, 0x0e, 0x70, 0x75,
+	0x62, 0x6c, 0x69, 0x63, 0x5f, 0x72, 0x70, 0x63, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0c, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x52, 0x70, 0x63, 0x55, 0x72, 0x6c,
+	0x12, 0x36, 0x0a, 0x17, 0x6c, 0x6f, 0x63, 0x6b, 0x65, 0x72, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x72,
+	0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x15, 0x6c, 0x6f, 0x63, 0x6b, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63,
+	0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x2d, 0x0a, 0x12, 0x62, 0x6c, 0x6f, 0x63,
+	0x6b, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x05,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x11, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x43, 0x6f, 0x6e, 0x66, 0x69,
+	0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x3c, 0x0a, 0x0f, 0x67, 0x61, 0x74, 0x65, 0x77,
+	0x61, 0x79, 0x5f, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x73, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0e, 0x67, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x4d, 0x65,
+	0x74, 0x68, 0x6f, 0x64, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x3a,
+	0x1c, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x0f, 0x75, 0x65,
+	0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2a, 0x82, 0x01,
+	0x0a, 0x07, 0x56, 0x4d, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x12, 0x07, 0x0a, 0x03, 0x45, 0x56, 0x4d,
+	0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x53, 0x56, 0x4d, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x4d,
+	0x4f, 0x56, 0x45, 0x5f, 0x56, 0x4d, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x41, 0x53, 0x4d,
+	0x5f, 0x56, 0x4d, 0x10, 0x03, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x41, 0x49, 0x52, 0x4f, 0x5f, 0x56,
+	0x4d, 0x10, 0x04, 0x12, 0x0b, 0x0a, 0x07, 0x54, 0x52, 0x4f, 0x4e, 0x5f, 0x56, 0x4d, 0x10, 0x05,
+	0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x54, 0x45, 0x4c, 0x4c, 0x41, 0x52, 0x5f, 0x56, 0x4d, 0x10, 0x06,
+	0x12, 0x12, 0x0a, 0x0e, 0x42, 0x49, 0x54, 0x43, 0x4f, 0x49, 0x4e, 0x5f, 0x53, 0x43, 0x52, 0x49,
+	0x50, 0x54, 0x10, 0x07, 0x12, 0x0c, 0x0a, 0x08, 0x4f, 0x54, 0x48, 0x45, 0x52, 0x5f, 0x56, 0x4d,
+	0x10, 0x08, 0x2a, 0x44, 0x0a, 0x0d, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x54,
+	0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x12, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x56, 0x65, 0x72,
+	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x00, 0x12, 0x1b, 0x0a, 0x17, 0x75,
+	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x54, 0x78, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69,
+	0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x01, 0x42, 0x79, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e,
+	0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54, 0x79, 0x70, 0x65, 0x73, 0x50, 0x72, 0x6f, 0x74,
+	0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
+	0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69,
+	0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31,
+	0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02,
+	0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47,
+	0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a,
+	0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3850,20 +3766,21 @@ func file_ue_v1_types_proto_rawDescGZIP() []byte {
 	return file_ue_v1_types_proto_rawDescData
 }
 
-var file_ue_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_ue_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_ue_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_ue_v1_types_proto_goTypes = []interface{}{
-	(VM_TYPE)(0),              // 0: ue.v1.VM_TYPE
-	(*Params)(nil),            // 1: ue.v1.Params
-	(*CrossChainPayload)(nil), // 2: ue.v1.CrossChainPayload
-	(*AccountId)(nil),         // 3: ue.v1.AccountId
-	(*MethodConfig)(nil),      // 4: ue.v1.MethodConfig
-	(*ChainConfig)(nil),       // 5: ue.v1.ChainConfig
+	(VM_TYPE)(0),             // 0: ue.v1.VM_TYPE
+	(SignatureType)(0),       // 1: ue.v1.SignatureType
+	(*Params)(nil),           // 2: ue.v1.Params
+	(*UniversalPayload)(nil), // 3: ue.v1.UniversalPayload
+	(*UniversalAccount)(nil), // 4: ue.v1.UniversalAccount
+	(*MethodConfig)(nil),     // 5: ue.v1.MethodConfig
+	(*ChainConfig)(nil),      // 6: ue.v1.ChainConfig
 }
 var file_ue_v1_types_proto_depIdxs = []int32{
-	0, // 0: ue.v1.AccountId.vm_type:type_name -> ue.v1.VM_TYPE
+	1, // 0: ue.v1.UniversalPayload.signature_type:type_name -> ue.v1.SignatureType
 	0, // 1: ue.v1.ChainConfig.vm_type:type_name -> ue.v1.VM_TYPE
-	4, // 2: ue.v1.ChainConfig.gateway_methods:type_name -> ue.v1.MethodConfig
+	5, // 2: ue.v1.ChainConfig.gateway_methods:type_name -> ue.v1.MethodConfig
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -3890,7 +3807,7 @@ func file_ue_v1_types_proto_init() {
 			}
 		}
 		file_ue_v1_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrossChainPayload); i {
+			switch v := v.(*UniversalPayload); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3902,7 +3819,7 @@ func file_ue_v1_types_proto_init() {
 			}
 		}
 		file_ue_v1_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AccountId); i {
+			switch v := v.(*UniversalAccount); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3943,7 +3860,7 @@ func file_ue_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ue_v1_types_proto_rawDesc,
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,

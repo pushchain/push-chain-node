@@ -29,7 +29,7 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain_id.
+	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 }
 
@@ -65,7 +65,7 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain_id.
+	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }

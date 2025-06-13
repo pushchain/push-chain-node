@@ -29,7 +29,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 	case types.VM_TYPE_EVM:
 		amount, decimals, err := k.verifyEVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
-			return amount, decimals, fmt.Errorf("svm tx verification failed: %w", err)
+			return amount, decimals, fmt.Errorf("evm tx verification failed: %w", err)
 		}
 
 		// tx is verified, now store it

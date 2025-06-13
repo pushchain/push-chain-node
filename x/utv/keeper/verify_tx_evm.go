@@ -66,12 +66,12 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	expectedFrom := NormalizeAddress(ownerKey)
 	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
 
-	if from != expectedFrom || to != expectedTo {
-		return *big.NewInt(0), 0, fmt.Errorf("tx not sent from %s to locker %s", receipt.From, chainConfig.LockerContractAddress)
+	if from != expectedFrom {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction sender %s does not match ownerKey %s", receipt.From, expectedFrom)
 	}
 
 	// Check if tx.To matches locker contract address
-	if !didSendToLocker(receipt.To, expectedTo) {
+	if !didSendToLocker(to, expectedTo) {
 		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not locker contract %s", receipt.To, expectedTo)
 	}
 

@@ -35,14 +35,14 @@ func (q Querier) VerifiedTxHash(
 	goCtx context.Context,
 	req *types.QueryVerifiedTxHashRequest,
 ) (*types.QueryVerifiedTxHashResponse, error) {
-	if req.ChainId == "" || req.TxHash == "" {
+	if req.Chain == "" || req.TxHash == "" {
 		return nil, fmt.Errorf("chain_id and tx_hash are required")
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	// check verification status
-	isVerified, err := q.Keeper.IsTxHashVerified(ctx, req.ChainId, req.TxHash)
+	isVerified, err := q.Keeper.IsTxHashVerified(ctx, req.Chain, req.TxHash)
 	if err != nil {
 		return nil, err
 	}

@@ -16,15 +16,15 @@ var (
 // NewMsgExecutePayload creates new instance of MsgExecutePayload
 func NewMsgExecutePayload(
 	sender sdk.Address,
-	accountId *AccountId,
-	crosschain_payload *CrossChainPayload,
+	universalAccount *UniversalAccount,
+	universalPayload *UniversalPayload,
 	signature string,
 ) *MsgExecutePayload {
 	return &MsgExecutePayload{
-		Signer:            sender.String(),
-		AccountId:         accountId,
-		CrosschainPayload: crosschain_payload,
-		Signature:         signature,
+		Signer:           sender.String(),
+		UniversalAccount: universalAccount,
+		UniversalPayload: universalPayload,
+		Signature:        signature,
 	}
 }
 
@@ -32,7 +32,7 @@ func NewMsgExecutePayload(
 func (msg MsgExecutePayload) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgExecutePayload) Type() string { return "deploy_nmsc" }
+func (msg MsgExecutePayload) Type() string { return "execute_payload" }
 
 // GetSignBytes implements the LegacyMsg interface.
 func (msg MsgExecutePayload) GetSignBytes() []byte {
@@ -52,14 +52,14 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate accountId
-	if msg.AccountId == nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "accountId cannot be nil")
+	// Validate universalAccount
+	if msg.UniversalAccount == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal account cannot be nil")
 	}
 
-	// Validate crosschain payload
-	if msg.CrosschainPayload == nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "crosschain payload cannot be nil")
+	// Validate universal payload
+	if msg.UniversalPayload == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal payload cannot be nil")
 	}
 
 	// Validate signature
@@ -70,14 +70,14 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid signature hex")
 	}
 
-	// Validate accountId structure
-	if err := msg.AccountId.ValidateBasic(); err != nil {
-		return errors.Wrap(err, "invalid accountId")
+	// Validate universalAccount structure
+	if err := msg.UniversalAccount.ValidateBasic(); err != nil {
+		return errors.Wrap(err, "invalid universalAccount")
 	}
 
-	// Validate crosschain payload structure
-	if err := msg.CrosschainPayload.ValidateBasic(); err != nil {
-		return errors.Wrap(err, "invalid crosschain payload")
+	// Validate universal payload structure
+	if err := msg.UniversalPayload.ValidateBasic(); err != nil {
+		return errors.Wrap(err, "invalid universal payload")
 	}
 
 	return nil

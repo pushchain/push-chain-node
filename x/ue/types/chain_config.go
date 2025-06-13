@@ -20,14 +20,9 @@ func (p ChainConfig) String() string {
 // Validate does the sanity check on the params.
 func (p ChainConfig) ValidateBasic() error {
 
-	// Validate namespace is non-empty
-	if len(p.Namespace) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "namespace cannot be empty")
-	}
-
-	// Validate chainId is non-empty
-	if len(p.ChainId) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chainId cannot be empty")
+	// Validate chain is non-empty
+	if len(p.Chain) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain cannot be empty")
 	}
 
 	// Validate publicRpcUrl is non-empty

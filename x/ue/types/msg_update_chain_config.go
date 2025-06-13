@@ -6,39 +6,39 @@ import (
 )
 
 var (
-	_ sdk.Msg = &MsgAddChainConfig{}
+	_ sdk.Msg = &MsgUpdateChainConfig{}
 )
 
-// MsgAddChainConfig creates new instance of MsgAddChainConfig
-func NewMsgAddChainConfig(
+// MsgUpdateChainConfig creates new instance of MsgUpdateChainConfig
+func NewMsgUpdateChainConfig(
 	sender sdk.Address,
 	chain_config *ChainConfig,
-) *MsgAddChainConfig {
-	return &MsgAddChainConfig{
+) *MsgUpdateChainConfig {
+	return &MsgUpdateChainConfig{
 		Signer:      sender.String(),
 		ChainConfig: chain_config,
 	}
 }
 
 // Route returns the name of the module
-func (msg MsgAddChainConfig) Route() string { return ModuleName }
+func (msg MsgUpdateChainConfig) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgAddChainConfig) Type() string { return "add_chain_config" }
+func (msg MsgUpdateChainConfig) Type() string { return "update_chain_config" }
 
 // GetSignBytes implements the LegacyMsg interface.
-func (msg MsgAddChainConfig) GetSignBytes() []byte {
+func (msg MsgUpdateChainConfig) GetSignBytes() []byte {
 	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&msg))
 }
 
-// GetSigners returns the expected signers for a MsgAddChainConfig message.
-func (msg *MsgAddChainConfig) GetSigners() []sdk.AccAddress {
+// GetSigners returns the expected signers for a MsgUpdateChainConfig message.
+func (msg *MsgUpdateChainConfig) GetSigners() []sdk.AccAddress {
 	addr, _ := sdk.AccAddressFromBech32(msg.Signer)
 	return []sdk.AccAddress{addr}
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgAddChainConfig) ValidateBasic() error {
+func (msg *MsgUpdateChainConfig) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
 	}

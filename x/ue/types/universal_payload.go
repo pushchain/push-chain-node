@@ -11,7 +11,7 @@ import (
 )
 
 // Stringer method for Params.
-func (p CrossChainPayload) String() string {
+func (p UniversalPayload) String() string {
 	bz, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -21,11 +21,11 @@ func (p CrossChainPayload) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p CrossChainPayload) ValidateBasic() error {
-	// Validate target address
-	isValidTarget := utils.IsValidAddress(p.Target, utils.HEX)
-	if !isValidTarget {
-		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid target address format: %s", p.Target)
+func (p UniversalPayload) ValidateBasic() error {
+	// Validate to address
+	isValidTo := utils.IsValidAddress(p.To, utils.HEX)
+	if !isValidTo {
+		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid to address format: %s", p.To)
 	}
 
 	// Validate data (hex string)

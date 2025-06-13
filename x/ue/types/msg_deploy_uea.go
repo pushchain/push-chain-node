@@ -3,21 +3,20 @@ package types
 import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
-	_ sdk.Msg = &MsgMintPush{}
+	_ sdk.Msg = &MsgDeployUEA{}
 )
 
-// NewMsgMintPush creates new instance of MsgMintPush
-func NewMsgMintPush(
+// NewMsgDeployUEA creates new instance of MsgDeployUEA
+func NewMsgDeployUEA(
 	sender sdk.Address,
 	universalAccount *UniversalAccount,
 	txHash string,
-) *MsgMintPush {
-	return &MsgMintPush{
+) *MsgDeployUEA {
+	return &MsgDeployUEA{
 		Signer:           sender.String(),
 		UniversalAccount: universalAccount,
 		TxHash:           txHash,
@@ -25,24 +24,25 @@ func NewMsgMintPush(
 }
 
 // Route returns the name of the module
-func (msg MsgMintPush) Route() string { return ModuleName }
+func (msg MsgDeployUEA) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgMintPush) Type() string { return "mint_push" }
+func (msg MsgDeployUEA) Type() string { return "deploy_uea" }
 
 // GetSignBytes implements the LegacyMsg interface.
-func (msg MsgMintPush) GetSignBytes() []byte {
+func (msg MsgDeployUEA) GetSignBytes() []byte {
 	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&msg))
 }
 
-// GetSigners returns the expected signers for a MsgMintPush message.
-func (msg *MsgMintPush) GetSigners() []sdk.AccAddress {
+// GetSigners returns the expected signers for a MsgDeployUEA message.
+func (msg *MsgDeployUEA) GetSigners() []sdk.AccAddress {
 	addr, _ := sdk.AccAddressFromBech32(msg.Signer)
 	return []sdk.AccAddress{addr}
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgMintPush) ValidateBasic() error {
+func (msg *MsgDeployUEA) ValidateBasic() error {
+	// Validate signer
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
 	}

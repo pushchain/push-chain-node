@@ -11,30 +11,36 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) deployNMSC(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, txHash string) ([]byte, error) {
+func (k Keeper) deployUEA(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	fmt.Println("Base Fee:", baseFee)
+
+	baseFeeBig := baseFee.BigInt()
+	fmt.Println("Base Fee BigInt:", baseFeeBig)
 
 	// EVM Call arguments
 	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
 	// RPC call verification to verify the locker interaction tx on source chain
-	err := k.utvKeeper.VerifyLockerInteractionTx(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
+	err := k.utvKeeper.VerifyLockerInteractionTx(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
 	}
 
 	// Use your keeper CallEVM directly
-	receipt, err := k.CallFactoryToDeployNMSC(
+	receipt, err := k.CallFactoryToDeployUEA(
 		sdkCtx,
 		evmFrom,
 		factoryAddress,
-		accountId,
+		universalAccount,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("DeployNMSC receipt:", receipt)
+	fmt.Println("DeployUEA receipt:", receipt)
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
 	fmt.Println("Returned Bytes Hex:", returnedBytesHex)
 

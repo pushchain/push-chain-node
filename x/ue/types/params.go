@@ -7,7 +7,7 @@ import (
 // DefaultParams returns default module parameters.
 func DefaultParams() Params {
 	return Params{
-		Admin: "push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc", // added acc1 as default admin for now
+		Admin: "push1jtdw9kjc2yptl6yjyad69q73v2gcl29xfmmq5a", // added acc1 as default admin for now
 	}
 }
 

@@ -3,10 +3,10 @@
 #
 # Push Test Net:
 # pn1:
-# CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_node.sh
+# CHAIN_ID="push_42101-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_node.sh
 #
 # Examples:
-# CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
+# CHAIN_ID="push_42101-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
 shopt -s expand_aliases
 set -eu
@@ -14,16 +14,18 @@ set -eu
 export KEY1="acc1"
 export KEY2="acc2"
 export KEY3="acc3"
+export KEY4="acc4"
+export KEY5="acc5"
 
-export CHAIN_ID=${CHAIN_ID:-"localchain_9000-1"}
-export MONIKER=${MONIKER:-"localvalidator"}
+export CHAIN_ID="push_42101-1"
+export MONIKER="val-1"
 export KEYALGO="eth_secp256k1"
 export KEYRING=${KEYRING:-"test"}
-export HOME_DIR=$(eval echo "${HOME_DIR:-"~/.pchain"}")
+export HOME_DIR=$(eval echo "~/.pchain")
 export BINARY=${BINARY:-pchaind}
-export DENOM=${DENOM:-npush}
+export DENOM=${DENOM:-upc}
 
-export CLEAN=${CLEAN:-"false"}
+export CLEAN="true"
 export RPC=${RPC:-"26657"}
 export REST=${REST:-"1317"}
 export PROFF=${PROFF:-"6060"}
@@ -31,7 +33,7 @@ export P2P=${P2P:-"26656"}
 export GRPC=${GRPC:-"9090"}
 export GRPC_WEB=${GRPC_WEB:-"9091"}
 export ROSETTA=${ROSETTA:-"8080"}
-export BLOCK_TIME=${BLOCK_TIME:-"1s"}
+export BLOCK_TIME="1000ms"
 
 # if which binary does not exist, install it
 if [ -z `which $BINARY` ]; then
@@ -78,12 +80,7 @@ from_scratch () {
   # NOTE: mnemonics can be created via:
   # pushchaind keys add acc1
 
-  # push1ss5j8c8j453uecnczt3ms23lze30kxt4pzfvh9
-  add_key $KEY1 "!!!PUT MNEMONIC1 HERE!!!"
-  # push1j55s4vpvmncruakqhj2k2fywnc9mvsuhcap28q
-  add_key $KEY2 "!!!PUT MNEMONIC2 HERE!!!"
-  # push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9
-  add_key $KEY3 "!!!PUT MNEMONIC3 HERE!!!"
+  
 
   BINARY init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM
 
@@ -95,18 +92,25 @@ from_scratch () {
 
   # Block
   update_test_genesis '.consensus_params["block"]["max_gas"]="100000000"'
+  update_test_genesis '.consensus_params["block"]["time_iota_ms"]="1000"'
 
   # Gov
   update_test_genesis `printf '.app_state["gov"]["params"]["min_deposit"]=[{"denom":"%s","amount":"1000000"}]' $DENOM`
-  update_test_genesis '.app_state["gov"]["params"]["voting_period"]="30s"'
-  update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="15s"'
+  update_test_genesis '.app_state["gov"]["params"]["voting_period"]="172800s"'
+  update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="86400s"'
 
   update_test_genesis `printf '.app_state["evm"]["params"]["evm_denom"]="%s"' $DENOM`
-  update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
+  update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
+  # Extract numeric part from CHAIN_ID for EVM chain_id (e.g., push_42101-1 -> 42101)
+  EVM_CHAIN_ID=$(echo $CHAIN_ID | sed 's/.*_\([0-9]*\).*/\1/')
+  #update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["chain_id"]="%s"' $EVM_CHAIN_ID`
+  #update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["denom"]="%s"' $DENOM`
+  #update_test_genesis '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
   update_test_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' # https://eips.ethereum.org/EIPS/eip-7528
   update_test_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
-  update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=true'
-  update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="0.000000000000000000"'
+  update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=false'
+  update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="0.000000100000000000"'
+  update_test_genesis '.app_state["feemarket"]["params"]["min_gas_price"]="0.000000100000000000"'
 
   # staking
   update_test_genesis `printf '.app_state["staking"]["params"]["bond_denom"]="%s"' $DENOM`
@@ -128,14 +132,21 @@ from_scratch () {
 
 
   # Allocate genesis accounts
-  # total: 10 000000000 . 000000000 000000000
-  BINARY genesis add-genesis-account $KEY1 5000000000000000000000000000$DENOM,100000000test --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY2 3000000000000000000000000000$DENOM,90000000test --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY3 2000000000000000000000000000$DENOM,90000000test --keyring-backend $KEYRING --append
+  # Total Supply: 10 Billion PUSH (10 * 10^9 PUSH)
+  # Each account gets 2 Billion PUSH (2 * 10^9 PUSH)
+  # Amount format for PUSH token (upc): amount * 10^18
+  # So, 2 Billion PUSH = 2 * 10^9 * 10^18 = 2 * 10^27 upc -> we want to mint 2 billion PUSH
+  # Represented as 2000000000000000000000000000
+  local two_billion_npush="2000000000000000000000000000" # 2 followed by 27 zeros
+  BINARY genesis add-genesis-account $KEY1 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $KEY2 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $KEY3 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $KEY4 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $KEY5 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
 
   # Sign genesis transaction
   # 10 000 . 000000000 000000000
-  BINARY genesis gentx $KEY1 10000000000000000000000$DENOM --gas-prices 0${DENOM} --keyring-backend $KEYRING --chain-id $CHAIN_ID
+  BINARY genesis gentx $KEY1 10000000000000000000000$DENOM --gas-prices 1${DENOM} --keyring-backend $KEYRING --chain-id $CHAIN_ID
 
   BINARY genesis collect-gentxs
 
@@ -182,4 +193,4 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=0$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+BINARY start --pruning=nothing  --minimum-gas-prices=1$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

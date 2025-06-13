@@ -36,31 +36,31 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// DeployNMSC handles the deployment of new Smart Account (NMSC).
-func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
+// DeployUEA handles the deployment of new Smart Account (UEA).
+func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*types.MsgDeployUEAResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	sa, err := ms.k.deployNMSC(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
+	sa, err := ms.k.deployUEA(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgDeployNMSCResponse{
-		SmartAccount: sa,
+	return &types.MsgDeployUEAResponse{
+		UEA: sa,
 	}, nil
 }
 
-// MintPush handles token minting to the user's NMSC for the tokens locked on source chain.
+// MintPush handles token minting to the user's UEA for the tokens locked on source chain.
 func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.mintPush(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
+	err = ms.k.mintPush(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
@@ -68,14 +68,14 @@ func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*type
 	return &types.MsgMintPushResponse{}, nil
 }
 
-// ExecutePayload handles cross-chain payload execution on the NMSC.
+// ExecutePayload handles universal payload execution on the UEA.
 func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.executePayload(ctx, evmFromAddress, msg.AccountId, msg.CrosschainPayload, msg.Signature)
+	err = ms.k.executePayload(ctx, evmFromAddress, msg.UniversalAccount, msg.UniversalPayload, msg.Signature)
 	if err != nil {
 		return nil, err
 	}

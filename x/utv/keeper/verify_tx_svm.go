@@ -11,14 +11,21 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
+	"github.com/rollchains/pchain/utils"
+	"github.com/rollchains/pchain/utils/rpc"
 	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
 // verifySVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
 func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
+
 	// Get transaction details
-	tx, err := svmrpc.SVMGetTransactionBySig(ctx, chainConfig.PublicRpcUrl, txHash)
+	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -127,8 +134,13 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
 func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
+
 	// Step 1: Fetch transaction
-	tx, err := svmrpc.SVMGetTransactionBySig(ctx, chainConfig.PublicRpcUrl, txHash)
+	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHash)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("fetch tx failed: %w", err)
 	}
@@ -166,7 +178,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Step 2: Verify confirmations
-	currentSlot, err := svmrpc.SVMGetCurrentSlot(ctx, chainConfig.PublicRpcUrl)
+	currentSlot, err := svmrpc.SVMGetCurrentSlot(ctx, rpcCfg)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("fetch current slot failed: %w", err)
 	}

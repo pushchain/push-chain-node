@@ -7,15 +7,20 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/rollchains/pchain/utils"
+	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
 // verifyEVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
 func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
-	rpcURL := chainConfig.PublicRpcUrl
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
-	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcURL, txHash)
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -46,16 +51,19 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 
 // Verifies and extracts locked amount (used in mint)
 func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
-	rpcURL := chainConfig.PublicRpcUrl
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
 	// Step 1: Fetch transaction receipt
-	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcURL, txHash)
+	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("fetch receipt failed: %w", err)
 	}
 
 	// Step 2: Verify transaction details
-	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcURL, txHash)
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -87,7 +95,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Get latest block number
-	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcURL, "latest", false)
+	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcCfg, "latest", false)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("fetch latest block failed: %w", err)
 	}

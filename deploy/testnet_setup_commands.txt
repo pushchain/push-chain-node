@@ -93,7 +93,7 @@ pip3 install tomlkit
 python3 --version
 
 
-rm -rf app  snap .pchain .pchaind
+sudo rm -rf app  snap .pchain .pchaind
 mkdir ~/app
 mkdir ~/.pchaind
 
@@ -131,7 +131,7 @@ sudo ln -s ~/app/pchaind /usr/local/bin/pchaind
 
 
 V-2 node
-
+rm -rf app  snap .pchain .pchaind
 mkdir ~/app
 mkdir ~/.pchaind
 echo 'export PATH="$HOME/app:$PATH"' >> ~/.bashrc
@@ -188,7 +188,7 @@ python3 ~/app/toml_edit.py \
 
 
 # note : execute this cmd on the remote node to get it's id : pchaind tendermint show-node-id 
-export pn1_url="cc55976a4eba4ef4165b91c13679c3afceb08fa8@34.9.66.201:26656"
+export pn1_url="3d9bed37c901aa7ae87d62afd88e2c575a0669d3@34.9.66.201:26656"
 
 #Step 1: Copy from node 1 to local:
 scp "34.9.66.201:~/.pchain/config/genesis.json" "./genesis.json"
@@ -197,7 +197,8 @@ scp "34.9.66.201:~/.pchain/config/genesis.json" "./genesis.json"
 scp "./genesis.json" "34.29.120.247:~/.pchain/config/genesis.json"
 
 
-
+export HOME_DIR="~/.pchain"
+export CHAIN_DIR="$HOME/.pchain"
 
 python3 ~/app/toml_edit.py \
   ~/.pchain/config/config.toml \
@@ -205,18 +206,24 @@ python3 ~/app/toml_edit.py \
   "$pn1_url"
 
 
+
 echo '{"height":"0","round":0,"step":0}' > ~/.pchain/data/priv_validator_state.json
 
 chmod 600 ~/.pchain/config/priv_validator_key.json 2>/dev/null || true
 
 
+~/app/stop.sh
+~/app/start.sh
+tail -n 100 ~/app/chain.log
+~/app/waitFullSync.sh
+
+
 
 pchaind tendermint show-node-id
-427a34b407ccb89a4959aae97c27490e9bdf82b5 
-
+b54e4a35997c29d2aa81c56af7ccadb291a61297
 
 export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
-export ONE_PUSH=000000000000000000npush
+export ONE_PUSH=000000000000000000upc
 export VALIDATOR_NAME=\"val-2\"
 cat <<EOF > register-validator.json
 {
@@ -244,35 +251,36 @@ shoaibmohammed@push-chain-testnet-val-02:~/.pchain$
 export KEYRING="test"
 export NODE_OWNER_WALLET_NAME=acc21
 # write & save mnemonic for future use
-pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
+shoaibmohammed@push-chain-testnet-val-02:~/.pchaind$ pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
 
-- address: push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl
+- address: push12exvrdv7lk3junydgyss3nxgvuytyzc293694d
   name: acc21
-  pubkey: '{"@type":"/os.crypto.v1.ethsecp256k1.PubKey","key":"AtUZlBEw186q2g+Ax31DLYQG6/3C/GV0TSQTvh7x1jTv"}'
+  pubkey: '{"@type":"/os.crypto.v1.ethsecp256k1.PubKey","key":"Aq+ksGWvNhl/ulFFq49uzspANhrSMq4z1mvlNHDEtelx"}'
   type: local
 
 
 **Important** write this mnemonic phrase in a safe place.
 It is the only way to recover your account if you ever forget your password.
 
-gallery awkward dream such inspire scissors table wrist gauge orange danger lady calm print permit detect flame march dad knife toddler eyebrow blind soft
+tide good cook point occur seven basket absorb bargain hurdle fault strategy caught skull mail museum person suggest increase buddy fire attend license toast
 
 
 export FAUCET_WALLET=push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc
-export NODE_OWNER_WALLET=push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl
-export ONE_PUSH=000000000000000000npush
+export NODE_OWNER_WALLET=push12exvrdv7lk3junydgyss3nxgvuytyzc293694d
+export ONE_PUSH=000000000000000000upc
 export CHAIN_ID="push_42101-1"
 
 
 TO BE RUN on V1
 
-shoaibmohammed@push-chain-testnet-val-01:~$ export KEYRING="test"
-export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"  # acc1 address
-export NODE_OWNER_WALLET="push1pjnedth4tezmu6z2ywwswx8c4lpnerqlgkw3sl"  # acc21 address from validator node
-export ONE_PUSH="000000000000000000npush"
+shoaibmohammed@push-chain-testnet-val-01:~$ 
+export KEYRING="test"
+export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"
+export NODE_OWNER_WALLET="push12exvrdv7lk3junydgyss3nxgvuytyzc293694d"
+export ONE_PUSH="000000000000000000upc"
 export CHAIN_ID="push_42101-1"
 
-shoaibmohammed@push-chain-testnet-val-01:~$ pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID" --keyring-backend "$KEYRING" --yes
+shoaibmohammed@push-chain-testnet-val-01:~$ pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "25000$ONE_PUSH" --fees 1000000000000000upc --chain-id "$CHAIN_ID" --keyring-backend "$KEYRING" --yes
 code: 0
 codespace: ""
 data: ""
@@ -285,13 +293,14 @@ logs: []
 raw_log: ""
 timestamp: ""
 tx: null
-txhash: 2100FD1AA1F59D879CB27D7E02FF346B764DEB6A37B56DDA3DE54DF480F17F36
+txhash: 55CFBA44F44733BAB34AC9D6EA770E4024E7F9E9AC63C535BDF491C25D6145D1
 
 
+pchaind query tx 55CFBA44F44733BAB34AC9D6EA770E4024E7F9E9AC63C535BDF491C25D6145D1 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
 shoaibmohammed@push-chain-testnet-val-02:~/app$ export NODE_OWNER_WALLET_NAME="acc21"
 export CHAIN_ID="push_42101-1"
-export ONE_PUSH="000000000000000000npush"
+export ONE_PUSH="000000000000000000upc"
 
 pchaind tx staking create-validator register-validator.json \
   --chain-id $CHAIN_ID \
@@ -301,6 +310,8 @@ pchaind tx staking create-validator register-validator.json \
   --node=tcp://34.9.66.201:26657 \
   --keyring-backend test \
   --yes
+
+
 code: 0
 codespace: ""
 data: ""
@@ -313,6 +324,8 @@ logs: []
 raw_log: ""
 timestamp: ""
 tx: null
-txhash: 415430F6860B4788895837F636433D69C9BD63FA4A566CD0C5B83F9427FE84B4
+txhash: 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649
 
+pchaind query tx 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
+pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="val-2")'

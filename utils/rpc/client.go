@@ -15,6 +15,16 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type RpcCallConfig struct {
+	PrivateRPC string
+	PublicRPC  string
+}
+
+const (
+	defaultRetryCount  = 3
+	fallbackRetryCount = 1
+)
+
 var (
 	clientInstance *Client
 	once           sync.Once
@@ -40,8 +50,25 @@ func GetClient() *Client {
 	return clientInstance
 }
 
-// Call performs the actual JSON-RPC call with retry logic
+// Call performs a JSON-RPC call with retry logic (3 retries).
 func (c *Client) Call(ctx context.Context, url, method string, params interface{}, result interface{}) error {
+	return c.callWithRetry(ctx, url, method, params, result, defaultRetryCount)
+}
+
+// CallWithFallback tries the private RPC (with retries), then public RPC (once) if private fails.
+func (c *Client) CallWithFallback(ctx context.Context, primaryURL, fallbackURL, method string, params interface{}, result interface{}) error {
+	// First try private RPC with retries
+	err := c.callWithRetry(ctx, primaryURL, method, params, result, defaultRetryCount)
+	if err == nil {
+		return nil
+	}
+
+	// Fallback: Try public RPC only once
+	return c.callWithRetry(ctx, fallbackURL, method, params, result, fallbackRetryCount)
+}
+
+// callWithRetry performs a JSON-RPC call with retry logic.
+func (c *Client) callWithRetry(ctx context.Context, url, method string, params interface{}, result interface{}, maxRetries int) error {
 	reqBody := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  method,
@@ -56,7 +83,6 @@ func (c *Client) Call(ctx context.Context, url, method string, params interface{
 
 	var respBytes []byte
 	backoff := 500 * time.Millisecond
-	maxRetries := 3
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {

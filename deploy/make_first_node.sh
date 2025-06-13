@@ -71,16 +71,17 @@ from_scratch () {
   # reset values if not set already after whipe
   set_config
 
-  add_key() {
-    key=$1
-    mnemonic=$2
-    echo $mnemonic | BINARY keys add $key --keyring-backend $KEYRING --algo $KEYALGO --recover
-  }
+  # Instead of adding private keys, use pre-computed addresses
+  # These addresses are provided for genesis account allocation
+  export ADDR1="push1jtdw9kjc2yptl6yjyad69q73v2gcl29xfmmq5a"
+  export ADDR2="push1fz5mkhr23kypp5ejq8u2ucltvm4gw2ln5vnpcz"
+  export ADDR3="push1cxrtcjgrxzup0s548467cqhtytmfh0cf4lzy2y"
+  export ADDR4="push1jm42e22eqxzcknhkhf3rrhpevpk0zcyv3c68xa"
+  export ADDR5="push1v9vw2m3jrrxeyql07ec63n8amrkhpl94ttsfsv"
 
-  # NOTE: mnemonics can be created via:
-  # pushchaind keys add acc1
-
-  
+  # NOTE: If you need different addresses, you can generate them using:
+  # echo "your-mnemonic-here" | pchaind keys add temp-key --keyring-backend test --algo eth_secp256k1 --recover --dry-run
+  # Then delete the temp key: pchaind keys delete temp-key --keyring-backend test
 
   BINARY init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM
 
@@ -131,18 +132,22 @@ from_scratch () {
   update_test_genesis '.app_state["tokenfactory"]["params"]["denom_creation_gas_consume"]=100000'
 
 
-  # Allocate genesis accounts
+  # Allocate genesis accounts using addresses directly (no private keys needed)
   # Total Supply: 10 Billion PUSH (10 * 10^9 PUSH)
   # Each account gets 2 Billion PUSH (2 * 10^9 PUSH)
   # Amount format for PUSH token (upc): amount * 10^18
   # So, 2 Billion PUSH = 2 * 10^9 * 10^18 = 2 * 10^27 upc -> we want to mint 2 billion PUSH
   # Represented as 2000000000000000000000000000
   local two_billion_npush="2000000000000000000000000000" # 2 followed by 27 zeros
-  BINARY genesis add-genesis-account $KEY1 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY2 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY3 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY4 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $KEY5 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR1 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR2 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR3 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR4 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR5 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+
+  # For gentx, you'll need to add at least one key for the validator
+  # This can be done separately or with a different approach
+  echo "<mnemonic>" | BINARY keys add $KEY1 --keyring-backend $KEYRING --algo $KEYALGO --recover
 
   # Sign genesis transaction
   # 10 000 . 000000000 000000000

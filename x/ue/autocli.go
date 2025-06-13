@@ -18,8 +18,8 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				},
 				{
 					RpcMethod: "ChainConfig",
-					Use:       "chain-config --chain-id [chain-id]",
-					Short:     "Query the chain configuration for a specific chain ID",
+					Use:       "chain-config --chain [chain]",
+					Short:     "Query the chain configuration for a specific chain",
 				},
 			},
 		},
@@ -31,16 +31,16 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Skip:      false, // set to true if authority gated (to hide from cli)
 				},
 				{
-					RpcMethod: "DeployNMSC",
-					Use:       "deploy-nmsc --account-id [account-id] --tx-hash [tx-hash]",
+					RpcMethod: "DeployUEA",
+					Use:       "deploy-uea --universal-account [universal-account] --tx-hash [tx-hash]",
 				},
 				{
 					RpcMethod: "MintPush",
-					Use:       "mint-push --account-id [account-id] --tx-hash [tx-hash]",
+					Use:       "mint-push --universal-account [universal-account] --tx-hash [tx-hash]",
 				},
 				{
 					RpcMethod: "ExecutePayload",
-					Use:       "execute-payload --account-id [account-id] --crosschain_payload [crosschain_payload]",
+					Use:       "execute-payload --universal-account [universal-account] --universal-payload [universal-payload]",
 				},
 				{
 					RpcMethod: "AddChainConfig",

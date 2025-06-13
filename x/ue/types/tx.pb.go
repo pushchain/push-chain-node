@@ -130,28 +130,28 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
-// MsgDeployNMSC is the message used to deploy a new smart account.
-type MsgDeployNMSC struct {
+// MsgDeployUEA is the message used to deploy a new smart account.
+type MsgDeployUEA struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
 	// tx_hash is the hash of the transaction in which user locked the tokens
 	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
 }
 
-func (m *MsgDeployNMSC) Reset()         { *m = MsgDeployNMSC{} }
-func (m *MsgDeployNMSC) String() string { return proto.CompactTextString(m) }
-func (*MsgDeployNMSC) ProtoMessage()    {}
-func (*MsgDeployNMSC) Descriptor() ([]byte, []int) {
+func (m *MsgDeployUEA) Reset()         { *m = MsgDeployUEA{} }
+func (m *MsgDeployUEA) String() string { return proto.CompactTextString(m) }
+func (*MsgDeployUEA) ProtoMessage()    {}
+func (*MsgDeployUEA) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f834ff460f0f5219, []int{2}
 }
-func (m *MsgDeployNMSC) XXX_Unmarshal(b []byte) error {
+func (m *MsgDeployUEA) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgDeployNMSC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgDeployUEA) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_MsgDeployNMSC.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgDeployUEA.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -161,57 +161,57 @@ func (m *MsgDeployNMSC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return b[:n], nil
 	}
 }
-func (m *MsgDeployNMSC) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgDeployNMSC.Merge(m, src)
+func (m *MsgDeployUEA) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeployUEA.Merge(m, src)
 }
-func (m *MsgDeployNMSC) XXX_Size() int {
+func (m *MsgDeployUEA) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgDeployNMSC) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgDeployNMSC.DiscardUnknown(m)
+func (m *MsgDeployUEA) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeployUEA.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgDeployNMSC proto.InternalMessageInfo
+var xxx_messageInfo_MsgDeployUEA proto.InternalMessageInfo
 
-func (m *MsgDeployNMSC) GetSigner() string {
+func (m *MsgDeployUEA) GetSigner() string {
 	if m != nil {
 		return m.Signer
 	}
 	return ""
 }
 
-func (m *MsgDeployNMSC) GetAccountId() *AccountId {
+func (m *MsgDeployUEA) GetUniversalAccount() *UniversalAccount {
 	if m != nil {
-		return m.AccountId
+		return m.UniversalAccount
 	}
 	return nil
 }
 
-func (m *MsgDeployNMSC) GetTxHash() string {
+func (m *MsgDeployUEA) GetTxHash() string {
 	if m != nil {
 		return m.TxHash
 	}
 	return ""
 }
 
-// MsgDeployNMSCResponse defines the response for MsgDeployNMSC.
-type MsgDeployNMSCResponse struct {
-	// smart_account is the address of the newly deployed smart account
-	SmartAccount []byte `protobuf:"bytes,1,opt,name=smart_account,json=smartAccount,proto3" json:"smart_account,omitempty"`
+// MsgDeployUEAResponse defines the response for MsgDeployUEA.
+type MsgDeployUEAResponse struct {
+	// uea is the address of the newly deployed smart account
+	UEA []byte `protobuf:"bytes,1,opt,name=UEA,proto3" json:"UEA,omitempty"`
 }
 
-func (m *MsgDeployNMSCResponse) Reset()         { *m = MsgDeployNMSCResponse{} }
-func (m *MsgDeployNMSCResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgDeployNMSCResponse) ProtoMessage()    {}
-func (*MsgDeployNMSCResponse) Descriptor() ([]byte, []int) {
+func (m *MsgDeployUEAResponse) Reset()         { *m = MsgDeployUEAResponse{} }
+func (m *MsgDeployUEAResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgDeployUEAResponse) ProtoMessage()    {}
+func (*MsgDeployUEAResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f834ff460f0f5219, []int{3}
 }
-func (m *MsgDeployNMSCResponse) XXX_Unmarshal(b []byte) error {
+func (m *MsgDeployUEAResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgDeployNMSCResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgDeployUEAResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_MsgDeployNMSCResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgDeployUEAResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -221,21 +221,21 @@ func (m *MsgDeployNMSCResponse) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return b[:n], nil
 	}
 }
-func (m *MsgDeployNMSCResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgDeployNMSCResponse.Merge(m, src)
+func (m *MsgDeployUEAResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgDeployUEAResponse.Merge(m, src)
 }
-func (m *MsgDeployNMSCResponse) XXX_Size() int {
+func (m *MsgDeployUEAResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgDeployNMSCResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgDeployNMSCResponse.DiscardUnknown(m)
+func (m *MsgDeployUEAResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgDeployUEAResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgDeployNMSCResponse proto.InternalMessageInfo
+var xxx_messageInfo_MsgDeployUEAResponse proto.InternalMessageInfo
 
-func (m *MsgDeployNMSCResponse) GetSmartAccount() []byte {
+func (m *MsgDeployUEAResponse) GetUEA() []byte {
 	if m != nil {
-		return m.SmartAccount
+		return m.UEA
 	}
 	return nil
 }
@@ -245,8 +245,8 @@ func (m *MsgDeployNMSCResponse) GetSmartAccount() []byte {
 type MsgMintPush struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
 	// tx_hash is the hash of the transaction in which user locked the tokens
 	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
 }
@@ -291,9 +291,9 @@ func (m *MsgMintPush) GetSigner() string {
 	return ""
 }
 
-func (m *MsgMintPush) GetAccountId() *AccountId {
+func (m *MsgMintPush) GetUniversalAccount() *UniversalAccount {
 	if m != nil {
-		return m.AccountId
+		return m.UniversalAccount
 	}
 	return nil
 }
@@ -342,14 +342,14 @@ func (m *MsgMintPushResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgMintPushResponse proto.InternalMessageInfo
 
-// MsgExecutePayload defines a message for executing a cross-chain payload
+// MsgExecutePayload defines a message for executing a universal payload
 type MsgExecutePayload struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// account_id is the identifier of the crosschain owner account
-	AccountId *AccountId `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	// payload is the crosschain payload to be executed
-	CrosschainPayload *CrossChainPayload `protobuf:"bytes,3,opt,name=crosschain_payload,json=crosschainPayload,proto3" json:"crosschain_payload,omitempty"`
+	// universal_account is the identifier of the owner account
+	UniversalAccount *UniversalAccount `protobuf:"bytes,2,opt,name=universal_account,json=universalAccount,proto3" json:"universal_account,omitempty"`
+	// payload is the universal payload to be executed
+	UniversalPayload *UniversalPayload `protobuf:"bytes,3,opt,name=universal_payload,json=universalPayload,proto3" json:"universal_payload,omitempty"`
 	// signature is the signature of the payload by user
 	Signature string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
@@ -394,16 +394,16 @@ func (m *MsgExecutePayload) GetSigner() string {
 	return ""
 }
 
-func (m *MsgExecutePayload) GetAccountId() *AccountId {
+func (m *MsgExecutePayload) GetUniversalAccount() *UniversalAccount {
 	if m != nil {
-		return m.AccountId
+		return m.UniversalAccount
 	}
 	return nil
 }
 
-func (m *MsgExecutePayload) GetCrosschainPayload() *CrossChainPayload {
+func (m *MsgExecutePayload) GetUniversalPayload() *UniversalPayload {
 	if m != nil {
-		return m.CrosschainPayload
+		return m.UniversalPayload
 	}
 	return nil
 }
@@ -639,8 +639,8 @@ var xxx_messageInfo_MsgUpdateChainConfigResponse proto.InternalMessageInfo
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "ue.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "ue.v1.MsgUpdateParamsResponse")
-	proto.RegisterType((*MsgDeployNMSC)(nil), "ue.v1.MsgDeployNMSC")
-	proto.RegisterType((*MsgDeployNMSCResponse)(nil), "ue.v1.MsgDeployNMSCResponse")
+	proto.RegisterType((*MsgDeployUEA)(nil), "ue.v1.MsgDeployUEA")
+	proto.RegisterType((*MsgDeployUEAResponse)(nil), "ue.v1.MsgDeployUEAResponse")
 	proto.RegisterType((*MsgMintPush)(nil), "ue.v1.MsgMintPush")
 	proto.RegisterType((*MsgMintPushResponse)(nil), "ue.v1.MsgMintPushResponse")
 	proto.RegisterType((*MsgExecutePayload)(nil), "ue.v1.MsgExecutePayload")
@@ -654,53 +654,52 @@ func init() {
 func init() { proto.RegisterFile("ue/v1/tx.proto", fileDescriptor_f834ff460f0f5219) }
 
 var fileDescriptor_f834ff460f0f5219 = []byte{
-	// 724 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x55, 0x4d, 0x6f, 0xd3, 0x4a,
-	0x14, 0x8d, 0xfb, 0x91, 0xf7, 0x72, 0x93, 0xf6, 0x35, 0x7e, 0xe9, 0x4b, 0xea, 0x56, 0x7e, 0x91,
-	0x0b, 0x6a, 0x55, 0x44, 0x4c, 0x8b, 0x60, 0x11, 0xb1, 0x20, 0x0d, 0x9f, 0x12, 0x46, 0x95, 0xab,
-	0x6e, 0xd8, 0x44, 0xae, 0x6d, 0x6c, 0x4b, 0xb1, 0xc7, 0xf2, 0xd8, 0x55, 0xb2, 0x43, 0xb0, 0x63,
-	0xc5, 0x1f, 0x60, 0xc3, 0x0a, 0x16, 0x48, 0x5d, 0xf0, 0x17, 0x90, 0xba, 0xac, 0x58, 0xb1, 0x42,
-	0xa8, 0x5d, 0xf4, 0x6f, 0x20, 0x8f, 0xc7, 0x9f, 0x4d, 0x41, 0x62, 0x41, 0x37, 0x89, 0xe7, 0xdc,
-	0x7b, 0xcf, 0x9c, 0x73, 0x3d, 0x73, 0x0d, 0xf3, 0x81, 0x2e, 0x1e, 0x6c, 0x8a, 0xfe, 0xa8, 0xe3,
-	0x7a, 0xc8, 0x47, 0xec, 0x6c, 0xa0, 0x77, 0x0e, 0x36, 0xb9, 0xba, 0x62, 0x5b, 0x0e, 0x12, 0xc9,
-	0x6f, 0x14, 0xe1, 0x9a, 0x2a, 0xc2, 0x36, 0xc2, 0xa2, 0x8d, 0x8d, 0xb0, 0xc2, 0xc6, 0x06, 0x0d,
-	0xd4, 0x29, 0xc5, 0xd8, 0xd5, 0x31, 0x85, 0x1a, 0x06, 0x32, 0x10, 0x79, 0x14, 0xc3, 0x27, 0x8a,
-	0x2e, 0x45, 0x0c, 0x83, 0x28, 0x10, 0x2d, 0xa2, 0x90, 0xf0, 0x96, 0x81, 0x7f, 0x24, 0x6c, 0xec,
-	0xb9, 0x9a, 0xe2, 0xeb, 0x3b, 0x8a, 0xa7, 0xd8, 0x98, 0xbd, 0x0d, 0x15, 0x25, 0xf0, 0x4d, 0xe4,
-	0x59, 0xfe, 0xb8, 0xc5, 0xb4, 0x99, 0xf5, 0xca, 0x76, 0xeb, 0xcb, 0xa7, 0xeb, 0x0d, 0x5a, 0xd8,
-	0xd3, 0x34, 0x4f, 0xc7, 0x78, 0xd7, 0xf7, 0x2c, 0xc7, 0x90, 0xd3, 0x54, 0xf6, 0x1a, 0x94, 0x5d,
-	0xc2, 0xd0, 0x9a, 0x6a, 0x33, 0xeb, 0xd5, 0xad, 0xb9, 0x0e, 0xf1, 0xd4, 0x89, 0x68, 0xb7, 0x67,
-	0x8e, 0xbe, 0xfd, 0x5f, 0x92, 0x69, 0x4a, 0xf7, 0xea, 0xcb, 0xb3, 0xc3, 0x8d, 0xb4, 0xf8, 0xf5,
-	0xd9, 0xe1, 0x06, 0x1b, 0xe8, 0x62, 0x41, 0x8b, 0xb0, 0x04, 0xcd, 0x02, 0x24, 0xeb, 0xd8, 0x45,
-	0x0e, 0xd6, 0x85, 0x8f, 0x0c, 0xcc, 0x49, 0xd8, 0xb8, 0xa7, 0xbb, 0x43, 0x34, 0x7e, 0x2a, 0xed,
-	0xf6, 0xd9, 0x1b, 0x50, 0xc6, 0x96, 0xe1, 0xe8, 0xde, 0x2f, 0x55, 0xd3, 0x3c, 0x56, 0x04, 0x50,
-	0x54, 0x15, 0x05, 0x8e, 0x3f, 0xb0, 0x34, 0x2a, 0x7b, 0x81, 0xca, 0xee, 0x45, 0x81, 0xc7, 0x9a,
-	0x5c, 0x51, 0xe2, 0x47, 0xb6, 0x09, 0x7f, 0xf9, 0xa3, 0x81, 0xa9, 0x60, 0xb3, 0x35, 0x1d, 0xee,
-	0x21, 0x97, 0xfd, 0xd1, 0x23, 0x05, 0x9b, 0xdd, 0x76, 0xe8, 0x87, 0xd2, 0x86, 0x66, 0x16, 0x22,
-	0x33, 0xa9, 0x3a, 0xe1, 0x0e, 0x2c, 0xe6, 0x80, 0xd8, 0x08, 0xbb, 0x0a, 0x73, 0xd8, 0x56, 0x3c,
-	0x7f, 0x40, 0xb7, 0x21, 0xea, 0x6b, 0x72, 0x8d, 0x80, 0x54, 0x85, 0xf0, 0x81, 0x81, 0xaa, 0x84,
-	0x0d, 0xc9, 0x72, 0xfc, 0x9d, 0x00, 0x9b, 0x97, 0xea, 0x95, 0x2f, 0x78, 0x9d, 0x8f, 0xbc, 0xc6,
-	0xda, 0x84, 0x45, 0xf8, 0x37, 0xb3, 0x4c, 0x5e, 0xd8, 0xab, 0x29, 0xa8, 0x4b, 0xd8, 0xb8, 0x3f,
-	0xd2, 0xd5, 0x20, 0x7c, 0x9b, 0xe3, 0x21, 0x52, 0xb4, 0x3f, 0x61, 0xe4, 0x21, 0xb0, 0xaa, 0x87,
-	0x30, 0x56, 0x4d, 0xc5, 0x72, 0x06, 0x6e, 0xb4, 0x31, 0xf1, 0x54, 0xdd, 0x6a, 0xd1, 0xc2, 0x7e,
-	0x98, 0xd0, 0x0f, 0x13, 0xa8, 0x30, 0xb9, 0x9e, 0xd6, 0xc4, 0x5a, 0x57, 0xa0, 0x12, 0x6a, 0x50,
-	0xfc, 0xc0, 0xd3, 0x5b, 0x33, 0xa4, 0x27, 0x29, 0xd0, 0xbd, 0x52, 0x68, 0x4b, 0x23, 0x6a, 0x4b,
-	0xde, 0xaf, 0xb0, 0x0c, 0x4b, 0xe7, 0xc0, 0xa4, 0x45, 0xef, 0x18, 0xd2, 0xa2, 0x9e, 0xa6, 0x11,
-	0x29, 0x7d, 0xe4, 0x3c, 0xb7, 0x8c, 0xdf, 0x68, 0xd1, 0x2d, 0xa8, 0x45, 0x66, 0x55, 0xc2, 0x40,
-	0x9b, 0xc4, 0xc6, 0x5e, 0x53, 0x6e, 0xb9, 0xaa, 0xa6, 0x8b, 0x8b, 0x1c, 0xe4, 0xe5, 0x50, 0x07,
-	0x79, 0x30, 0x71, 0xf0, 0x9e, 0x81, 0x46, 0x72, 0x63, 0x2f, 0xc5, 0xc4, 0x5a, 0xc1, 0x44, 0x33,
-	0x3b, 0x56, 0xb2, 0x3e, 0x78, 0x58, 0x99, 0x84, 0xc7, 0x56, 0xb6, 0x3e, 0x4f, 0xc3, 0xb4, 0x84,
-	0x0d, 0xf6, 0x01, 0xd4, 0x72, 0xf3, 0xf1, 0x3f, 0xaa, 0xa0, 0x30, 0x98, 0x38, 0x7e, 0x32, 0x9e,
-	0xdc, 0xf3, 0xbb, 0x00, 0x99, 0x61, 0xd5, 0x48, 0xb3, 0x53, 0x94, 0x5b, 0x99, 0x84, 0x26, 0x0c,
-	0x5d, 0xf8, 0x3b, 0x19, 0x00, 0x6c, 0x9a, 0x19, 0x63, 0x1c, 0x77, 0x1e, 0x4b, 0x6a, 0x9f, 0xc0,
-	0x7c, 0xe1, 0xe6, 0xb5, 0xd2, 0xec, 0x7c, 0x84, 0x6b, 0x5f, 0x14, 0xc9, 0xb2, 0x15, 0x0e, 0x69,
-	0x86, 0x2d, 0x1f, 0xc9, 0xb2, 0x4d, 0x3e, 0x34, 0xec, 0x1e, 0xd4, 0xcf, 0x1f, 0x98, 0xe5, 0x62,
-	0x3b, 0xb3, 0x9c, 0xab, 0x3f, 0x09, 0xc6, 0xb4, 0xdc, 0xec, 0x8b, 0xb3, 0xc3, 0x0d, 0x66, 0xbb,
-	0x77, 0x74, 0xc2, 0x33, 0xc7, 0x27, 0x3c, 0xf3, 0xfd, 0x84, 0x67, 0xde, 0x9c, 0xf2, 0xa5, 0xe3,
-	0x53, 0xbe, 0xf4, 0xf5, 0x94, 0x2f, 0x3d, 0x5b, 0x33, 0x2c, 0xdf, 0x0c, 0xf6, 0x3b, 0x2a, 0xb2,
-	0x45, 0x0f, 0x0d, 0x87, 0xe4, 0x18, 0x61, 0xd1, 0x25, 0xff, 0xe2, 0x48, 0x0c, 0xf4, 0xe8, 0xeb,
-	0xba, 0x5f, 0x26, 0x5f, 0xcb, 0x9b, 0x3f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x30, 0x07, 0x4a, 0x6a,
-	0xb6, 0x07, 0x00, 0x00,
+	// 706 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xbd, 0x6f, 0xd3, 0x40,
+	0x1c, 0x8d, 0x9b, 0x36, 0x90, 0x6b, 0x68, 0x1b, 0x37, 0x90, 0xd4, 0xad, 0xdc, 0xca, 0x80, 0x5a,
+	0x15, 0x11, 0xd3, 0x22, 0x18, 0x22, 0x31, 0xa4, 0x1f, 0x88, 0x81, 0x48, 0x95, 0x51, 0x16, 0x96,
+	0xc8, 0x75, 0x8e, 0xb3, 0xa5, 0xd8, 0x67, 0xf9, 0xec, 0x2a, 0xd9, 0x10, 0x23, 0x13, 0x0b, 0x23,
+	0x0b, 0x13, 0x63, 0x07, 0x66, 0x84, 0x98, 0x3a, 0x56, 0x4c, 0x4c, 0x08, 0xb5, 0x43, 0xff, 0x0d,
+	0xe4, 0xbb, 0xf3, 0x67, 0x52, 0x90, 0x58, 0xca, 0x92, 0xdc, 0xbd, 0xf7, 0xbb, 0xe7, 0xf7, 0x7e,
+	0xbe, 0x3b, 0x83, 0xb9, 0x00, 0xaa, 0x47, 0x5b, 0xaa, 0x3f, 0x6c, 0xba, 0x1e, 0xf6, 0xb1, 0x38,
+	0x13, 0xc0, 0xe6, 0xd1, 0x96, 0x54, 0xd5, 0x6d, 0xcb, 0xc1, 0x2a, 0xfd, 0x65, 0x8c, 0x54, 0x37,
+	0x30, 0xb1, 0x31, 0x51, 0x6d, 0x82, 0xc2, 0x15, 0x36, 0x41, 0x9c, 0xa8, 0x72, 0x89, 0x91, 0x0b,
+	0x09, 0x87, 0x6a, 0x08, 0x23, 0x4c, 0x87, 0x6a, 0x38, 0xe2, 0xe8, 0x12, 0x53, 0xe8, 0x31, 0x82,
+	0x4d, 0x18, 0xa5, 0x7c, 0x10, 0xc0, 0x7c, 0x87, 0xa0, 0xae, 0xdb, 0xd7, 0x7d, 0x78, 0xa0, 0x7b,
+	0xba, 0x4d, 0xc4, 0xc7, 0xa0, 0xac, 0x07, 0xbe, 0x89, 0x3d, 0xcb, 0x1f, 0x35, 0x84, 0x35, 0x61,
+	0xa3, 0xbc, 0xd3, 0xf8, 0xfe, 0xf9, 0x7e, 0x8d, 0x2f, 0x6c, 0xf7, 0xfb, 0x1e, 0x24, 0xe4, 0x85,
+	0xef, 0x59, 0x0e, 0xd2, 0x92, 0x52, 0xf1, 0x1e, 0x28, 0xb9, 0x54, 0xa1, 0x31, 0xb5, 0x26, 0x6c,
+	0xcc, 0x6e, 0xdf, 0x68, 0xd2, 0x4c, 0x4d, 0x26, 0xbb, 0x33, 0x7d, 0xf2, 0x73, 0xb5, 0xa0, 0xf1,
+	0x92, 0xd6, 0xdd, 0x37, 0x17, 0xc7, 0x9b, 0xc9, 0xe2, 0xb7, 0x17, 0xc7, 0x9b, 0x62, 0x00, 0xd5,
+	0x9c, 0x17, 0x65, 0x09, 0xd4, 0x73, 0x90, 0x06, 0x89, 0x8b, 0x1d, 0x02, 0x95, 0xaf, 0x02, 0xa8,
+	0x74, 0x08, 0xda, 0x83, 0xee, 0x00, 0x8f, 0xba, 0xfb, 0x6d, 0xf1, 0x01, 0x28, 0x11, 0x0b, 0x39,
+	0xd0, 0xfb, 0xab, 0x69, 0x5e, 0x27, 0xee, 0x81, 0x6a, 0xe0, 0x58, 0x47, 0xd0, 0x23, 0xfa, 0xa0,
+	0xa7, 0x1b, 0x06, 0x0e, 0x1c, 0x9f, 0x9b, 0xaf, 0x73, 0xf3, 0xdd, 0x88, 0x6f, 0x33, 0x5a, 0x5b,
+	0x08, 0x72, 0x88, 0x58, 0x07, 0xd7, 0xfc, 0x61, 0xcf, 0xd4, 0x89, 0xd9, 0x28, 0x86, 0x0f, 0xd6,
+	0x4a, 0xfe, 0xf0, 0x99, 0x4e, 0xcc, 0xd6, 0x6a, 0x98, 0x91, 0x3f, 0x2b, 0x0c, 0x38, 0xcf, 0x02,
+	0xc6, 0x8e, 0x95, 0x0d, 0x50, 0x4b, 0xcf, 0xa3, 0x68, 0xe2, 0x02, 0x28, 0x76, 0xf7, 0xdb, 0x34,
+	0x46, 0x45, 0x0b, 0x87, 0xca, 0x17, 0x01, 0xcc, 0x76, 0x08, 0xea, 0x58, 0x8e, 0x7f, 0x10, 0x10,
+	0xf3, 0xff, 0xcb, 0x2a, 0xe7, 0xb2, 0xce, 0xb1, 0xac, 0x91, 0x61, 0xe5, 0x26, 0x58, 0x4c, 0x4d,
+	0xe3, 0x97, 0xf8, 0x7e, 0x0a, 0x54, 0x3b, 0x04, 0xed, 0x0f, 0xa1, 0x11, 0x84, 0x6f, 0x78, 0x34,
+	0xc0, 0x7a, 0xff, 0xca, 0xd2, 0x65, 0x54, 0x5c, 0x66, 0x86, 0xe6, 0x9c, 0xa0, 0xc2, 0xbd, 0xa6,
+	0x54, 0x22, 0xf7, 0x2b, 0xa0, 0x1c, 0xba, 0xd2, 0xfd, 0xc0, 0x83, 0x8d, 0x69, 0xda, 0xa5, 0x04,
+	0x68, 0xdd, 0xc9, 0x35, 0xaa, 0xc6, 0x1a, 0x95, 0xed, 0x80, 0xb2, 0x0c, 0x96, 0xc6, 0xc0, 0xb8,
+	0x69, 0x1f, 0x05, 0xda, 0xb4, 0x76, 0xbf, 0xbf, 0x6b, 0xea, 0x96, 0xb3, 0x8b, 0x9d, 0x57, 0x16,
+	0xfa, 0x87, 0xa6, 0x3d, 0x02, 0x15, 0x23, 0x14, 0xe8, 0x19, 0x54, 0x81, 0xf7, 0x4b, 0xe4, 0x49,
+	0x53, 0xda, 0xda, 0xac, 0x91, 0x4c, 0x2e, 0x4b, 0x90, 0xb5, 0xc3, 0x13, 0x64, 0xc1, 0x38, 0xc1,
+	0x27, 0x81, 0xee, 0x7c, 0x76, 0xae, 0xaf, 0x24, 0xc4, 0x7a, 0x2e, 0x44, 0x3d, 0x7d, 0xf9, 0xa4,
+	0x73, 0xc8, 0x60, 0x65, 0x12, 0x1e, 0x45, 0xd9, 0xfe, 0x56, 0x04, 0xc5, 0x0e, 0x41, 0xe2, 0x53,
+	0x50, 0xc9, 0xdc, 0xa2, 0xb7, 0xb8, 0x83, 0xdc, 0xf5, 0x25, 0xc9, 0x93, 0xf1, 0xf8, 0xec, 0x3f,
+	0x01, 0xe5, 0xe4, 0x4a, 0x5b, 0x4c, 0x8a, 0x63, 0x50, 0x5a, 0x9e, 0x00, 0xc6, 0xcb, 0x5b, 0xe0,
+	0x7a, 0x7c, 0x49, 0x88, 0x49, 0x61, 0x84, 0x49, 0xd2, 0x38, 0x16, 0xaf, 0x7d, 0x0e, 0xe6, 0x72,
+	0x07, 0xb1, 0x91, 0x54, 0x67, 0x19, 0x69, 0xed, 0x32, 0x26, 0xad, 0x96, 0xdb, 0xa1, 0x29, 0xb5,
+	0x2c, 0x93, 0x56, 0x9b, 0xbc, 0x63, 0xc4, 0x2e, 0xa8, 0x8e, 0xef, 0x96, 0xe5, 0x7c, 0x2f, 0xd3,
+	0x9a, 0xb7, 0xff, 0x40, 0x46, 0xb2, 0xd2, 0xcc, 0xeb, 0x8b, 0xe3, 0x4d, 0x61, 0xa7, 0x7d, 0x72,
+	0x26, 0x0b, 0xa7, 0x67, 0xb2, 0xf0, 0xeb, 0x4c, 0x16, 0xde, 0x9d, 0xcb, 0x85, 0xd3, 0x73, 0xb9,
+	0xf0, 0xe3, 0x5c, 0x2e, 0xbc, 0x5c, 0x47, 0x96, 0x6f, 0x06, 0x87, 0x4d, 0x03, 0xdb, 0xaa, 0x87,
+	0x07, 0x03, 0xba, 0x87, 0x88, 0xea, 0xd2, 0x7f, 0x75, 0xa8, 0x06, 0x90, 0x7d, 0x80, 0x0f, 0x4b,
+	0xf4, 0x83, 0xfa, 0xf0, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x4c, 0x3a, 0x60, 0x98, 0xd9, 0x07,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -719,11 +718,11 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// DeployNMSC defines a message to deploy a new smart account.
-	DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error)
+	// DeployUEA defines a message to deploy a new smart account.
+	DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error)
 	// MintPush defines a message to mint PUSH tokens to a smart account,
 	MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error)
-	// ExecutePayload defines a message for executing a cross-chain payload
+	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// AddChainConfig adds a new ChainConfig entry
 	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
@@ -748,9 +747,9 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
-func (c *msgClient) DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error) {
-	out := new(MsgDeployNMSCResponse)
-	err := c.cc.Invoke(ctx, "/ue.v1.Msg/DeployNMSC", in, out, opts...)
+func (c *msgClient) DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error) {
+	out := new(MsgDeployUEAResponse)
+	err := c.cc.Invoke(ctx, "/ue.v1.Msg/DeployUEA", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -799,11 +798,11 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// DeployNMSC defines a message to deploy a new smart account.
-	DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error)
+	// DeployUEA defines a message to deploy a new smart account.
+	DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error)
 	// MintPush defines a message to mint PUSH tokens to a smart account,
 	MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error)
-	// ExecutePayload defines a message for executing a cross-chain payload
+	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// AddChainConfig adds a new ChainConfig entry
 	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
@@ -818,8 +817,8 @@ type UnimplementedMsgServer struct {
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
 }
-func (*UnimplementedMsgServer) DeployNMSC(ctx context.Context, req *MsgDeployNMSC) (*MsgDeployNMSCResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeployNMSC not implemented")
+func (*UnimplementedMsgServer) DeployUEA(ctx context.Context, req *MsgDeployUEA) (*MsgDeployUEAResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeployUEA not implemented")
 }
 func (*UnimplementedMsgServer) MintPush(ctx context.Context, req *MsgMintPush) (*MsgMintPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MintPush not implemented")
@@ -856,20 +855,20 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_DeployNMSC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgDeployNMSC)
+func _Msg_DeployUEA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgDeployUEA)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).DeployNMSC(ctx, in)
+		return srv.(MsgServer).DeployUEA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ue.v1.Msg/DeployNMSC",
+		FullMethod: "/ue.v1.Msg/DeployUEA",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).DeployNMSC(ctx, req.(*MsgDeployNMSC))
+		return srv.(MsgServer).DeployUEA(ctx, req.(*MsgDeployUEA))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -955,8 +954,8 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_UpdateParams_Handler,
 		},
 		{
-			MethodName: "DeployNMSC",
-			Handler:    _Msg_DeployNMSC_Handler,
+			MethodName: "DeployUEA",
+			Handler:    _Msg_DeployUEA_Handler,
 		},
 		{
 			MethodName: "MintPush",
@@ -1042,7 +1041,7 @@ func (m *MsgUpdateParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgDeployNMSC) Marshal() (dAtA []byte, err error) {
+func (m *MsgDeployUEA) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1052,12 +1051,12 @@ func (m *MsgDeployNMSC) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgDeployNMSC) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgDeployUEA) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgDeployNMSC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgDeployUEA) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1069,9 +1068,9 @@ func (m *MsgDeployNMSC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x1a
 	}
-	if m.AccountId != nil {
+	if m.UniversalAccount != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.UniversalAccount.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1091,7 +1090,7 @@ func (m *MsgDeployNMSC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgDeployNMSCResponse) Marshal() (dAtA []byte, err error) {
+func (m *MsgDeployUEAResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1101,20 +1100,20 @@ func (m *MsgDeployNMSCResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgDeployNMSCResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgDeployUEAResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgDeployNMSCResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgDeployUEAResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SmartAccount) > 0 {
-		i -= len(m.SmartAccount)
-		copy(dAtA[i:], m.SmartAccount)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.SmartAccount)))
+	if len(m.UEA) > 0 {
+		i -= len(m.UEA)
+		copy(dAtA[i:], m.UEA)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.UEA)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1148,9 +1147,9 @@ func (m *MsgMintPush) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x1a
 	}
-	if m.AccountId != nil {
+	if m.UniversalAccount != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.UniversalAccount.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1220,9 +1219,9 @@ func (m *MsgExecutePayload) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x22
 	}
-	if m.CrosschainPayload != nil {
+	if m.UniversalPayload != nil {
 		{
-			size, err := m.CrosschainPayload.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.UniversalPayload.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1232,9 +1231,9 @@ func (m *MsgExecutePayload) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x1a
 	}
-	if m.AccountId != nil {
+	if m.UniversalAccount != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.UniversalAccount.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1442,7 +1441,7 @@ func (m *MsgUpdateParamsResponse) Size() (n int) {
 	return n
 }
 
-func (m *MsgDeployNMSC) Size() (n int) {
+func (m *MsgDeployUEA) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1452,8 +1451,8 @@ func (m *MsgDeployNMSC) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.UniversalAccount != nil {
+		l = m.UniversalAccount.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	l = len(m.TxHash)
@@ -1463,13 +1462,13 @@ func (m *MsgDeployNMSC) Size() (n int) {
 	return n
 }
 
-func (m *MsgDeployNMSCResponse) Size() (n int) {
+func (m *MsgDeployUEAResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	l = len(m.SmartAccount)
+	l = len(m.UEA)
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
@@ -1486,8 +1485,8 @@ func (m *MsgMintPush) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.UniversalAccount != nil {
+		l = m.UniversalAccount.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	l = len(m.TxHash)
@@ -1516,12 +1515,12 @@ func (m *MsgExecutePayload) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.UniversalAccount != nil {
+		l = m.UniversalAccount.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.CrosschainPayload != nil {
-		l = m.CrosschainPayload.Size()
+	if m.UniversalPayload != nil {
+		l = m.UniversalPayload.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	l = len(m.Signature)
@@ -1763,7 +1762,7 @@ func (m *MsgUpdateParamsResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
+func (m *MsgDeployUEA) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1786,10 +1785,10 @@ func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgDeployNMSC: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgDeployUEA: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgDeployNMSC: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgDeployUEA: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1826,7 +1825,7 @@ func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1853,10 +1852,10 @@ func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.AccountId == nil {
-				m.AccountId = &AccountId{}
+			if m.UniversalAccount == nil {
+				m.UniversalAccount = &UniversalAccount{}
 			}
-			if err := m.AccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.UniversalAccount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1913,7 +1912,7 @@ func (m *MsgDeployNMSC) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgDeployNMSCResponse) Unmarshal(dAtA []byte) error {
+func (m *MsgDeployUEAResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1936,15 +1935,15 @@ func (m *MsgDeployNMSCResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgDeployNMSCResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgDeployUEAResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgDeployNMSCResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgDeployUEAResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SmartAccount", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UEA", wireType)
 			}
 			var byteLen int
 			for shift := uint(0); ; shift += 7 {
@@ -1971,9 +1970,9 @@ func (m *MsgDeployNMSCResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SmartAccount = append(m.SmartAccount[:0], dAtA[iNdEx:postIndex]...)
-			if m.SmartAccount == nil {
-				m.SmartAccount = []byte{}
+			m.UEA = append(m.UEA[:0], dAtA[iNdEx:postIndex]...)
+			if m.UEA == nil {
+				m.UEA = []byte{}
 			}
 			iNdEx = postIndex
 		default:
@@ -2060,7 +2059,7 @@ func (m *MsgMintPush) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2087,10 +2086,10 @@ func (m *MsgMintPush) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.AccountId == nil {
-				m.AccountId = &AccountId{}
+			if m.UniversalAccount == nil {
+				m.UniversalAccount = &UniversalAccount{}
 			}
-			if err := m.AccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.UniversalAccount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2260,7 +2259,7 @@ func (m *MsgExecutePayload) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UniversalAccount", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2287,16 +2286,16 @@ func (m *MsgExecutePayload) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.AccountId == nil {
-				m.AccountId = &AccountId{}
+			if m.UniversalAccount == nil {
+				m.UniversalAccount = &UniversalAccount{}
 			}
-			if err := m.AccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.UniversalAccount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CrosschainPayload", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UniversalPayload", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2323,10 +2322,10 @@ func (m *MsgExecutePayload) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.CrosschainPayload == nil {
-				m.CrosschainPayload = &CrossChainPayload{}
+			if m.UniversalPayload == nil {
+				m.UniversalPayload = &UniversalPayload{}
 			}
-			if err := m.CrosschainPayload.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.UniversalPayload.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

@@ -15,30 +15,30 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, txHash string) error {
+func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, accountId.OwnerKey, txHash, accountId.ChainId)
+	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
 	if err != nil {
 		return errors.Wrapf(err, "failed to verify locker interaction transaction")
 	}
 	amountToMint := ConvertUsdToPushTokens(&amountOfUsdLocked, usdDecimals)
 
-	// Calling factory contract to compute the smart account address
-	receipt, err := k.CallFactoryToComputeAddress(sdkCtx, evmFrom, factoryAddress, accountId)
+	// Calling factory contract to compute the UEA address
+	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)
 	if err != nil {
 		return err
 	}
 
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
 	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	nmscComputedAddress := "0x" + addressBytes
+	ueaComputedAddress := "0x" + addressBytes
 
 	// Convert the computed address to a Cosmos address
-	cosmosAddr, err := utils.ConvertAnyAddressToBytes(nmscComputedAddress)
+	cosmosAddr, err := utils.ConvertAnyAddressToBytes(ueaComputedAddress)
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert EVM address to Cosmos address")

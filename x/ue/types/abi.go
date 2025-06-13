@@ -13,21 +13,15 @@ import (
 const FactoryV1ABI = `[
 	{
       "type": "function",
-      "name": "deploySmartAccount",
+      "name": "deployUEA",
       "inputs": [
         {
           "name": "_id",
           "type": "tuple",
-          "internalType": "struct AccountId",
+          "internalType": "struct UniversalAccount",
           "components": [
-            { "name": "namespace", "type": "string", "internalType": "string" },
-            { "name": "chainId", "type": "string", "internalType": "string" },
-            { "name": "ownerKey", "type": "bytes", "internalType": "bytes" },
-            {
-              "name": "vmType",
-              "type": "uint8",
-              "internalType": "enum VM_TYPE"
-            }
+            { "name": "chain", "type": "string", "internalType": "string" },
+            { "name": "owner", "type": "bytes", "internalType": "bytes" }
           ]
         }
       ],
@@ -36,21 +30,15 @@ const FactoryV1ABI = `[
     },
 	{
       "type": "function",
-      "name": "computeSmartAccountAddress",
+      "name": "computeUEA",
       "inputs": [
         {
           "name": "_id",
           "type": "tuple",
-          "internalType": "struct AccountId",
+          "internalType": "struct UniversalAccount",
           "components": [
-            { "name": "namespace", "type": "string", "internalType": "string" },
-            { "name": "chainId", "type": "string", "internalType": "string" },
-            { "name": "ownerKey", "type": "bytes", "internalType": "bytes" },
-            {
-              "name": "vmType",
-              "type": "uint8",
-              "internalType": "enum VM_TYPE"
-            }
+            { "name": "chain", "type": "string", "internalType": "string" },
+            { "name": "owner", "type": "bytes", "internalType": "bytes" }
           ]
         }
       ],
@@ -59,80 +47,65 @@ const FactoryV1ABI = `[
     }
 ]`
 
-// SmartAccountV1ABI contains the ABI for the NMSC contract
-const SmartAccountV1ABI = `[
+// UeaV1ABI contains the ABI for the UEA contract
+const UeaV1ABI = `[
 	{
-		"inputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "target",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "value",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bytes",
-						"name": "data",
-						"type": "bytes"
-					},
-					{
-						"internalType": "uint256",
-						"name": "gasLimit",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "maxFeePerGas",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "maxPriorityFeePerGas",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "nonce",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "deadline",
-						"type": "uint256"
-					}
-				],
-				"internalType": "struct BytesStr.CrossChainPayload",
-				"name": "payload",
-				"type": "tuple"
-			},
-			{
-				"internalType": "bytes",
-				"name": "signature",
-				"type": "bytes"
-			}
-		],
-		"name": "executePayload",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	}
+      "type": "function",
+      "name": "executePayload",
+      "inputs": [
+        {
+          "name": "payload",
+          "type": "tuple",
+          "internalType": "struct UniversalPayload",
+          "components": [
+            { "name": "to", "type": "address", "internalType": "address" },
+            { "name": "value", "type": "uint256", "internalType": "uint256" },
+            { "name": "data", "type": "bytes", "internalType": "bytes" },
+            {
+              "name": "gasLimit",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxFeePerGas",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxPriorityFeePerGas",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            { "name": "nonce", "type": "uint256", "internalType": "uint256" },
+            {
+              "name": "deadline",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "sigType",
+              "type": "uint8",
+              "internalType": "enum SignatureType"
+            }
+          ]
+        },
+        { "name": "signature", "type": "bytes", "internalType": "bytes" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
 ]`
 
 func ParseFactoryABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(FactoryV1ABI))
 }
 
-func ParseSmartAccountABI() (abi.ABI, error) {
-	return abi.JSON(strings.NewReader(SmartAccountV1ABI))
+func ParseUeaABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(UeaV1ABI))
 }
 
-type AbiCrossChainPayload struct {
-	Target               common.Address
+type AbiUniversalPayload struct {
+	To                   common.Address
 	Value                *big.Int
 	Data                 []byte
 	GasLimit             *big.Int
@@ -140,15 +113,16 @@ type AbiCrossChainPayload struct {
 	MaxPriorityFeePerGas *big.Int
 	Nonce                *big.Int
 	Deadline             *big.Int
+	SignatureType        uint8
 }
 
-func NewAbiCrossChainPayload(proto *CrossChainPayload) (AbiCrossChainPayload, error) {
+func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error) {
 	data, err := utils.HexToBytes(proto.Data)
 	if err != nil {
-		return AbiCrossChainPayload{}, err
+		return AbiUniversalPayload{}, err
 	}
-	return AbiCrossChainPayload{
-		Target:               common.HexToAddress(proto.Target),
+	return AbiUniversalPayload{
+		To:                   common.HexToAddress(proto.To),
 		Value:                utils.StringToBigInt(proto.Value),
 		Data:                 data,
 		GasLimit:             utils.StringToBigInt(proto.GasLimit),
@@ -156,26 +130,23 @@ func NewAbiCrossChainPayload(proto *CrossChainPayload) (AbiCrossChainPayload, er
 		MaxPriorityFeePerGas: utils.StringToBigInt(proto.MaxPriorityFeePerGas),
 		Nonce:                utils.StringToBigInt(proto.Nonce),
 		Deadline:             utils.StringToBigInt(proto.Deadline),
+		SignatureType:        uint8(proto.SignatureType),
 	}, nil
 }
 
-type AbiAccountId struct {
-	Namespace string
-	ChainId   string
-	OwnerKey  []byte
-	VmType    uint8
+type AbiUniversalAccount struct {
+	Chain string
+	Owner []byte
 }
 
-func NewAbiAccountId(proto *AccountId) (AbiAccountId, error) {
-	ownerKey, err := utils.HexToBytes(proto.OwnerKey)
+func NewAbiUniversalAccount(proto *UniversalAccount) (AbiUniversalAccount, error) {
+	owner, err := utils.HexToBytes(proto.Owner)
 	if err != nil {
-		return AbiAccountId{}, err
+		return AbiUniversalAccount{}, err
 	}
 
-	return AbiAccountId{
-		Namespace: proto.Namespace,
-		ChainId:   proto.ChainId,
-		OwnerKey:  ownerKey,
-		VmType:    uint8(proto.VmType),
+	return AbiUniversalAccount{
+		Chain: proto.Chain,
+		Owner: owner,
 	}, nil
 }

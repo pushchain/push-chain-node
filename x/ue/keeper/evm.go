@@ -8,20 +8,20 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// CallFactoryToComputeAddress calls FactoryV1.computeSmartAccountAddress(...)
-func (k Keeper) CallFactoryToComputeAddress(
+// CallFactoryToComputeUEAAddress calls FactoryV1.computeUEA(...)
+func (k Keeper) CallFactoryToComputeUEAAddress(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	accountId *types.AccountId,
+	universalAccount *types.UniversalAccount,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	accountID, err := types.NewAbiAccountId(accountId)
+	abiUniversalAccount, err := types.NewAbiUniversalAccount(universalAccount)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create accountId")
+		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
 
 	return k.evmKeeper.CallEVM(
@@ -30,26 +30,26 @@ func (k Keeper) CallFactoryToComputeAddress(
 		from,
 		factoryAddr,
 		false, // commit
-		"computeSmartAccountAddress",
-		accountID,
+		"computeUEA",
+		abiUniversalAccount,
 	)
 }
 
-// CallFactoryToDeployNMSC deploys a new smart account using factory contract
+// CallFactoryToDeployUEA deploys a new UEA using factory contract
 // Returns deployment response or error if deployment fails
-func (k Keeper) CallFactoryToDeployNMSC(
+func (k Keeper) CallFactoryToDeployUEA(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	accountId *types.AccountId,
+	universalAccount *types.UniversalAccount,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	accountID, err := types.NewAbiAccountId(accountId)
+	abiUniversalAccount, err := types.NewAbiUniversalAccount(universalAccount)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create accountId")
+		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
 
 	return k.evmKeeper.CallEVM(
@@ -58,30 +58,36 @@ func (k Keeper) CallFactoryToDeployNMSC(
 		from,        // who is sending the transaction
 		factoryAddr, // destination: FactoryV1 contract
 		true,        // commit = true (real tx, not simulation)
-		"deploySmartAccount",
-		accountID,
+		"deployUEA",
+		abiUniversalAccount,
 	)
 }
 
-// CallNMSCExecutePayload executes a cross-chain payload through smart account
-func (k Keeper) CallNMSCExecutePayload(
+// CallUEAExecutePayload executes a universal payload through UEA
+func (k Keeper) CallUEAExecutePayload(
 	ctx sdk.Context,
-	from, nmscAddr common.Address,
-	payload types.AbiCrossChainPayload,
+	from, ueaAddr common.Address,
+	universal_payload *types.UniversalPayload,
 	signature []byte,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
-	abi, err := types.ParseSmartAccountABI()
+	abi, err := types.ParseUeaABI()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse smart account ABI")
+		return nil, errors.Wrap(err, "failed to parse UEA ABI")
 	}
+
+	abiUniversalPayload, err := types.NewAbiUniversalPayload(universal_payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create universal payload")
+	}
+
 	return k.evmKeeper.CallEVM(
 		ctx,
 		abi,
 		from,
-		nmscAddr,
+		ueaAddr,
 		true, // commit
 		"executePayload",
-		payload,
+		abiUniversalPayload,
 		signature,
 	)
 }

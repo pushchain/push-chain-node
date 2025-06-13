@@ -1,13 +1,4 @@
 #!/bin/bash
-# Run this script to quickly install, setup, and run the current version of the network without docker.
-#
-# Push Test Net:
-# pn1:
-# CHAIN_ID="push_42101-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./make_node.sh
-#
-# Examples:
-# CHAIN_ID="push_42101-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
-# CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
 shopt -s expand_aliases
 set -eu
 
@@ -18,7 +9,7 @@ export KEY4="acc4"
 export KEY5="acc5"
 
 export CHAIN_ID="push_42101-1"
-export MONIKER="val-1"
+export MONIKER="donut-node1"
 export KEYALGO="eth_secp256k1"
 export KEYRING=${KEYRING:-"test"}
 export HOME_DIR=$(eval echo "~/.pchain")

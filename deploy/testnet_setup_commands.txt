@@ -1,9 +1,9 @@
-# 1. Reserve static external IPs for validator-01 and validator-02
-gcloud compute addresses create push-chain-testnet-val-01-ip --region=us-central1
-gcloud compute addresses create push-chain-testnet-val-02-ip --region=us-central1
+# 1. Reserve static external IPs for donut-node1 and donut-node2
+gcloud compute addresses create push-chain-testnet-donut-node1-ip --region=us-central1
+gcloud compute addresses create push-chain-testnet-donut-node2-ip --region=us-central1
 
-# 2. Create the val-01 node (no SSH metadata here)
-gcloud compute instances create push-chain-testnet-val-01 \
+# 2. Create the donut-node1 (no SSH metadata here)
+gcloud compute instances create push-chain-testnet-donut-node1 \
   --zone=us-central1-a \
   --machine-type=custom-4-10496 \
   --image-family=ubuntu-2204-lts \
@@ -12,7 +12,7 @@ gcloud compute instances create push-chain-testnet-val-01 \
   --boot-disk-type=pd-ssd \
   --network=cosmos-network \
   --subnet=cosmos-network \
-  --address=push-chain-testnet-val-01-ip \
+  --address=push-chain-testnet-donut-node1-ip \
   --tags=cosmos-p2p,http-server,https-server \
   --maintenance-policy=MIGRATE \
   --shielded-vtpm \
@@ -27,8 +27,8 @@ https://www.googleapis.com/auth/service.management.readonly,\
 https://www.googleapis.com/auth/servicecontrol,\
 https://www.googleapis.com/auth/trace.append
 
-# 3. Create the first validator node (no SSH metadata here)
-gcloud compute instances create push-chain-testnet-val-02 \
+# 3. Create the donut-node2 (no SSH metadata here)
+gcloud compute instances create push-chain-testnet-donut-node2 \
   --zone=us-central1-a \
   --machine-type=custom-4-10496 \
   --image-family=ubuntu-2204-lts \
@@ -37,7 +37,7 @@ gcloud compute instances create push-chain-testnet-val-02 \
   --boot-disk-type=pd-ssd \
   --network=cosmos-network \
   --subnet=cosmos-network \
-  --address=push-chain-testnet-val-02-ip \
+  --address=push-chain-testnet-donut-node2-ip \
   --tags=cosmos-p2p,http-server,https-server \
   --maintenance-policy=MIGRATE \
   --shielded-vtpm \
@@ -52,12 +52,12 @@ https://www.googleapis.com/auth/service.management.readonly,\
 https://www.googleapis.com/auth/servicecontrol,\
 https://www.googleapis.com/auth/trace.append
 
-gcloud compute instances add-metadata push-chain-testnet-val-01 \
+gcloud compute instances add-metadata push-chain-testnet-donut-node1 \
   --zone=us-central1-a \
   --metadata=ssh-keys="shoaibmohammed:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCksx/mCH7xZH3EIq6QpNgBLRehq2XISdTvhXDYuHvz3C7LgUn05mFvx04HyyU9S7il0MBbmwEX1r4IsHxwdQ85Lbnxz725XO1q7TR1P0+3nH54CCz3QUpMSfaFeR6IvQDnLiQAg5x1AkCPIYH2G+3nce4frnNog2sBuqSTtSfwgegQCkPP0+b1PIugJD1GjmCIMfMB/KUs5yVXaZo6eqbguNgf/4CycTrbjwtKELDMf8N5+A8JtVn21O1uKCiVWlR9Wl7aknzN74wfhk0CxMp4345ua75I6AEunpXiOOR5tA/sxYkR5JfgQtsIqsXC+02B2ATT9UgRCmOXSL6sEpFH shoaibmohammed@Shoaibs-MacBook-Pro.local"
 
 
-gcloud compute instances add-metadata push-chain-testnet-val-02 \
+gcloud compute instances add-metadata push-chain-testnet-donut-node2 \
   --zone=us-central1-a \
   --metadata=ssh-keys="shoaibmohammed:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCksx/mCH7xZH3EIq6QpNgBLRehq2XISdTvhXDYuHvz3C7LgUn05mFvx04HyyU9S7il0MBbmwEX1r4IsHxwdQ85Lbnxz725XO1q7TR1P0+3nH54CCz3QUpMSfaFeR6IvQDnLiQAg5x1AkCPIYH2G+3nce4frnNog2sBuqSTtSfwgegQCkPP0+b1PIugJD1GjmCIMfMB/KUs5yVXaZo6eqbguNgf/4CycTrbjwtKELDMf8N5+A8JtVn21O1uKCiVWlR9Wl7aknzN74wfhk0CxMp4345ua75I6AEunpXiOOR5tA/sxYkR5JfgQtsIqsXC+02B2ATT9UgRCmOXSL6sEpFH shoaibmohammed@Shoaibs-MacBook-Pro.local"
 
@@ -102,7 +102,7 @@ source ~/.bashrc
 
 
 
-from local to gensis
+Deploy to DONUT-NODE1 (Genesis Node)
 
 
 
@@ -117,7 +117,7 @@ scp \
   34.9.66.201:~/app/
 
 
-SSH Node-1
+SSH to DONUT-NODE1
 
 chmod +x ~/app/pchaind
 chmod u+x ~/app/*.sh
@@ -130,7 +130,7 @@ sudo ln -s ~/app/pchaind /usr/local/bin/pchaind
 
 
 
-V-2 node
+DONUT-NODE2 (Validator Node)
 rm -rf app  snap .pchain .pchaind
 mkdir ~/app
 mkdir ~/.pchaind
@@ -161,7 +161,7 @@ python3 --version
 
 
 
-from local to validator
+Deploy to DONUT-NODE2 (Validator Node)
 
 
 scp "build/pchaind" "34.29.120.247:~/app/pchaind"
@@ -169,7 +169,7 @@ scp -r deploy/test-push-chain/scripts/* "34.29.120.247:~/app/"
 scp -r deploy/test-push-chain/config/* "34.29.120.247:~/app/config-tmp/"
 scp "deploy/test-push-chain/scripts/toml_edit.py" "34.29.120.247:~/app/toml_edit.py"
 
-On node 
+SSH to DONUT-NODE2 
 
 chmod u+x ~/app/pchaind
 chmod u+x ~/app/*.sh
@@ -183,7 +183,7 @@ sudo ln -s ~/app/pchaind /usr/local/bin/pchain
 python3 ~/app/toml_edit.py \
   ~/.pchain/config/config.toml \
   "moniker" \
-  "val-2"
+  "donut-node2"
 
 
 
@@ -224,13 +224,13 @@ b54e4a35997c29d2aa81c56af7ccadb291a61297
 
 export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
 export ONE_PUSH=000000000000000000upc
-export VALIDATOR_NAME=\"val-2\"
+export VALIDATOR_NAME=\"donut-node2\"
 cat <<EOF > register-validator.json
 {
 	"pubkey": $VALIDATOR_PUBKEY,
 	"amount": "20000$ONE_PUSH",
 	"moniker": $VALIDATOR_NAME,
-	"website": "example.com",
+	"website": "push.org",
 	"security": "swein2@gmail.com",
 	"details": "a test validator",
 	"commission-rate": "0.1",
@@ -328,4 +328,4 @@ txhash: 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649
 
 pchaind query tx 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
-pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="val-2")'
+pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="donut-node2")'

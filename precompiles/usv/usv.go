@@ -14,6 +14,8 @@ import (
 
 const (
 	UsvPrecompileAddress = "0x00000000000000000000000000000000000000ca"
+	// VerifyEd25519Gas is the gas cost for verifying an Ed25519 signature.
+	VerifyEd25519Gas uint64 = 4000
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -65,8 +67,12 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return 0
 	}
 
-	// false coz there are only query methods in this precompile
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	switch method.Name {
+	case VerifyEd25519Method:
+		return VerifyEd25519Gas
+	default:
+		return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	}
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {

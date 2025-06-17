@@ -25,7 +25,7 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, univ
 		return fmt.Errorf("chain %s is not enabled", universalAccount.Chain)
 	}
 
-	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
+	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// Step 1: Compute smart account address
 	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)

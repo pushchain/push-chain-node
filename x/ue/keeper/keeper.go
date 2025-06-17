@@ -79,8 +79,11 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// deploy factory at 0xEA address
-	deployFactoryContract(ctx, k.evmKeeper)
+	// deploy factory proxy at 0xEA address
+	err := deployFactoryEA(ctx, k.evmKeeper)
+	if err != nil {
+		return err
+	}
 
 	return k.Params.Set(ctx, data.Params)
 }

@@ -80,10 +80,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 	}
 
 	// deploy factory proxy at 0xEA address
-	err := deployFactoryEA(ctx, k.evmKeeper)
-	if err != nil {
-		return err
-	}
+	deployFactoryEA(ctx, k.evmKeeper)
 
 	return k.Params.Set(ctx, data.Params)
 }

@@ -21,7 +21,7 @@ export KEYALGO="eth_secp256k1"
 export KEYRING=${KEYRING:-"test"}
 export HOME_DIR=$(eval echo "${HOME_DIR:-"~/.pchain"}")
 export BINARY=${BINARY:-pchaind}
-export DENOM=${DENOM:-npush}
+export DENOM=${DENOM:-upc}
 
 export CLEAN=${CLEAN:-"false"}
 export RPC=${RPC:-"26657"}

@@ -8,7 +8,7 @@
                 "version": "local",
                 "uid-gid": ""
             },
-            "gas_prices": "0.0npush",
+            "gas_prices": "0.0upc",
             "gas_adjustment": 2,
             "genesis": {
                 "modify": [
@@ -22,7 +22,7 @@
                     },
                     {
                         "key": "app_state.gov.params.min_deposit.0.denom",
-                        "value": "npush"
+                        "value": "upc"
                     },
                     {
                         "key": "app_state.gov.params.min_deposit.0.amount",
@@ -78,7 +78,7 @@
             "coin_type": 60,
             "binary": "pchaind",
             "bech32_prefix": "push",
-            "denom": "npush",
+            "denom": "upc",
             "trusting_period": "336h",
             "debugging": false,
             "block_time": "2000ms",

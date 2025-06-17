@@ -7,8 +7,8 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// VerifyLockerInteractionTx only verifies if the user has interacted with the locker on the source chain.
-func (k Keeper) VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
+// VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.
+func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
 	if exists, err := k.IsTxHashVerified(ctx, chainId, txHash); err != nil {
 		return err
 	} else if exists {

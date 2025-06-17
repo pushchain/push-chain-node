@@ -71,7 +71,7 @@ type BankKeeper interface {
 
 // UtvKeeper defines the expected interface for the UTV module.
 type UtvKeeper interface {
-	VerifyLockerInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error
+	VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error
 	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error)
 }
 

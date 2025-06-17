@@ -23,7 +23,7 @@ func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalA
 	// RPC call verification to get amount to be mint
 	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
 	if err != nil {
-		return errors.Wrapf(err, "failed to verify locker interaction transaction")
+		return errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}
 	amountToMint := ConvertUsdToPushTokens(&amountOfUsdLocked, usdDecimals)
 

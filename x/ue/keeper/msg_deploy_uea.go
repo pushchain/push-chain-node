@@ -23,10 +23,10 @@ func (k Keeper) deployUEA(ctx context.Context, evmFrom common.Address, universal
 	// EVM Call arguments
 	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
 
-	// RPC call verification to verify the locker interaction tx on source chain
-	err := k.utvKeeper.VerifyLockerInteractionTx(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
+	// RPC call verification to verify the gateway interaction tx on source chain
+	err := k.utvKeeper.VerifyGatewayInteractionTx(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to verify locker interaction transaction")
+		return nil, errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}
 
 	// Use your keeper CallEVM directly

@@ -8,7 +8,7 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// VerifyLockerInteractionTx verifies if the user has interacted with the locker on the source chain and send the locked funds amount.
+// VerifyAndGetLockedFunds verifies if the user has interacted with the gateway on the source chain and send the locked funds amount.
 func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error) {
 	if exists, err := k.IsTxHashVerified(ctx, chainId, txHash); err != nil {
 		return *big.NewInt(0), 0, err

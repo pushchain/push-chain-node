@@ -130,8 +130,8 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 }
 
 // didSendToGateway checks if tx.To equals gateway address
-func didSendToGateway(toAddress string, lockerAddress string) bool {
-	return NormalizeAddress(toAddress) == lockerAddress
+func didSendToGateway(toAddress string, gatewayAddress string) bool {
+	return NormalizeAddress(toAddress) == gatewayAddress
 }
 
 func isCallingAddFunds(txInput string, chainConfig types.ChainConfig) (bool, string) {

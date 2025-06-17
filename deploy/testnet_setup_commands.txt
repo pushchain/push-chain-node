@@ -1,3 +1,6 @@
+ gcloud projects list
+ gcloud config set project push-chain-testnet
+
 # 1. Reserve static external IPs for donut-node1 and donut-node2
 gcloud compute addresses create push-chain-testnet-donut-node1-ip --region=us-central1
 gcloud compute addresses create push-chain-testnet-donut-node2-ip --region=us-central1
@@ -71,6 +74,37 @@ V-1 node
 nc -l 26656
 telnet $REMOTE_HOST 26656
 
+⏺ Cosmos Node Network Configuration Summary
+
+  Nodes Configured
+
+  - push-chain-testnet-donut-node1
+    - Internal IP: 10.128.0.4
+    - External IP: 34.57.209.0
+    - Tags: cosmos-p2p, http-server, https-server
+  - push-chain-testnet-donut-node2
+    - Internal IP: 10.128.0.3
+    - External IP: 34.123.139.31
+    - Tags: cosmos-p2p, http-server, https-server
+
+  Firewall Rules Created
+
+  1. cosmos-p2p-allow - TCP port 26656 (P2P communication)
+  2. allow-cosmos-p2p-26657 - TCP port 26657 (RPC)
+  3. allow-cosmos-p2p-8545 - TCP port 8545 (EVM RPC)
+
+  All rules:
+  - Allow traffic from 0.0.0.0/0 (any source)
+  - Target instances with tag: cosmos-p2p
+
+  Configuration Steps Performed
+
+  1. Created firewall rules matching push-dev-apps project setup
+  2. Verified nodes have correct network tags (cosmos-p2p, http-server, https-server)
+  3. Enabled communication between nodes on required Cosmos ports
+
+  Testing Connectivity
+
 # Update package list
 sudo apt-get update
 
@@ -106,15 +140,15 @@ Deploy to DONUT-NODE1 (Genesis Node)
 
 
 
-scp "build/pchaind" "34.9.66.201:~/app/pchaind"
-scp "deploy/make_first_node.sh" "34.9.66.201:~/app/make_first_node.sh"
-scp -r deploy/test-push-chain/scripts/* "34.9.66.201:~/app/"
+scp "build/pchaind" "34.57.209.0:~/app/pchaind"
+scp "deploy/make_first_node.sh" "34.57.209.0:~/app/make_first_node.sh"
+scp -r deploy/test-push-chain/scripts/* "34.57.209.0:~/app/"
 
 scp \
   build/pchaind \
   deploy/make_first_node.sh \
   deploy/test-push-chain/scripts/* \
-  34.9.66.201:~/app/
+  34.57.209.0:~/app/
 
 
 SSH to DONUT-NODE1
@@ -123,12 +157,12 @@ chmod +x ~/app/pchaind
 chmod u+x ~/app/*.sh
 sudo rm /usr/local/bin/pchaind
 sudo ln -s ~/app/pchaind /usr/local/bin/pchaind
-
+sudo sed -i 's/external_address = ""/external_address = "34.57.209.0:26656"/' /home/shoaibmohammed/.pchain/config/config.toml
 ~/app/make_first_node.sh
 ~/app/start.sh
 ~/app/showLogs.sh
 
-
+rm ~/app/make_first_node.sh
 
 DONUT-NODE2 (Validator Node)
 rm -rf app  snap .pchain .pchaind
@@ -164,10 +198,10 @@ python3 --version
 Deploy to DONUT-NODE2 (Validator Node)
 
 
-scp "build/pchaind" "34.29.120.247:~/app/pchaind"
-scp -r deploy/test-push-chain/scripts/* "34.29.120.247:~/app/"
-scp -r deploy/test-push-chain/config/* "34.29.120.247:~/app/config-tmp/"
-scp "deploy/test-push-chain/scripts/toml_edit.py" "34.29.120.247:~/app/toml_edit.py"
+scp "build/pchaind" "34.123.139.31:~/app/pchaind"
+scp -r deploy/test-push-chain/scripts/* "34.123.139.31:~/app/"
+scp -r deploy/test-push-chain/config/* "34.123.139.31:~/app/config-tmp/"
+scp "deploy/test-push-chain/scripts/toml_edit.py" "34.123.139.31:~/app/toml_edit.py"
 
 SSH to DONUT-NODE2 
 
@@ -188,13 +222,13 @@ python3 ~/app/toml_edit.py \
 
 
 # note : execute this cmd on the remote node to get it's id : pchaind tendermint show-node-id 
-export pn1_url="3d9bed37c901aa7ae87d62afd88e2c575a0669d3@34.9.66.201:26656"
+export pn1_url="021660c91763de249eca6b57ba423f10b2b89cec@34.57.209.0:26656"
 
 #Step 1: Copy from node 1 to local:
-scp "34.9.66.201:~/.pchain/config/genesis.json" "./genesis.json"
+scp "34.57.209.0:~/.pchain/config/genesis.json" "./genesis.json"
 
 # Step 2: Copy from local to node 2:
-scp "./genesis.json" "34.29.120.247:~/.pchain/config/genesis.json"
+scp "./genesis.json" "34.123.139.31:~/.pchain/config/genesis.json"
 
 
 export HOME_DIR="~/.pchain"
@@ -220,7 +254,7 @@ tail -n 100 ~/app/chain.log
 
 
 pchaind tendermint show-node-id
-b54e4a35997c29d2aa81c56af7ccadb291a61297
+ab75b1d4942c2275b1128814ff7bd3187917ea84
 
 export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
 export ONE_PUSH=000000000000000000upc
@@ -231,7 +265,7 @@ cat <<EOF > register-validator.json
 	"amount": "20000$ONE_PUSH",
 	"moniker": $VALIDATOR_NAME,
 	"website": "push.org",
-	"security": "swein2@gmail.com",
+	"security": "shoaib@push.org",
 	"details": "a test validator",
 	"commission-rate": "0.1",
 	"commission-max-rate": "0.2",
@@ -250,23 +284,9 @@ cat register-validator.json
 shoaibmohammed@push-chain-testnet-val-02:~/.pchain$ 
 export KEYRING="test"
 export NODE_OWNER_WALLET_NAME=acc21
-# write & save mnemonic for future use
-shoaibmohammed@push-chain-testnet-val-02:~/.pchaind$ pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
 
-- address: push12exvrdv7lk3junydgyss3nxgvuytyzc293694d
-  name: acc21
-  pubkey: '{"@type":"/os.crypto.v1.ethsecp256k1.PubKey","key":"Aq+ksGWvNhl/ulFFq49uzspANhrSMq4z1mvlNHDEtelx"}'
-  type: local
-
-
-**Important** write this mnemonic phrase in a safe place.
-It is the only way to recover your account if you ever forget your password.
-
-tide good cook point occur seven basket absorb bargain hurdle fault strategy caught skull mail museum person suggest increase buddy fire attend license toast
-
-
-export FAUCET_WALLET=push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc
-export NODE_OWNER_WALLET=push12exvrdv7lk3junydgyss3nxgvuytyzc293694d
+export FAUCET_WALLET=push1ly2z32h2t4ap2zd3etmwqjlyg9esf2hwrrj50p
+export NODE_OWNER_WALLET=push108x4hu24qdux00zncr4we409s8v3x0lgxt66gd
 export ONE_PUSH=000000000000000000upc
 export CHAIN_ID="push_42101-1"
 
@@ -275,7 +295,7 @@ TO BE RUN on V1
 
 shoaibmohammed@push-chain-testnet-val-01:~$ 
 export KEYRING="test"
-export FAUCET_WALLET="push10wqxnvqj9q56jtspzg3kcxsuju2ga3lrjcqurc"
+export FAUCET_WALLET="push1ly2z32h2t4ap2zd3etmwqjlyg9esf2hwrrj50p"
 export NODE_OWNER_WALLET="push12exvrdv7lk3junydgyss3nxgvuytyzc293694d"
 export ONE_PUSH="000000000000000000upc"
 export CHAIN_ID="push_42101-1"
@@ -293,10 +313,10 @@ logs: []
 raw_log: ""
 timestamp: ""
 tx: null
-txhash: 55CFBA44F44733BAB34AC9D6EA770E4024E7F9E9AC63C535BDF491C25D6145D1
+txhash: 5B18F5619897BCCA991A21743CADDFC2CE142B44889D96D445BB84A30F8DC067
 
 
-pchaind query tx 55CFBA44F44733BAB34AC9D6EA770E4024E7F9E9AC63C535BDF491C25D6145D1 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
+pchaind query tx 5B18F5619897BCCA991A21743CADDFC2CE142B44889D96D445BB84A30F8DC067 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
 shoaibmohammed@push-chain-testnet-val-02:~/app$ export NODE_OWNER_WALLET_NAME="acc21"
 export CHAIN_ID="push_42101-1"
@@ -307,7 +327,7 @@ pchaind tx staking create-validator register-validator.json \
   --fees "1$ONE_PUSH" \
   --gas "1000000" \
   --from $NODE_OWNER_WALLET_NAME \
-  --node=tcp://34.9.66.201:26657 \
+  --node=tcp://34.57.209.0:26657 \
   --keyring-backend test \
   --yes
 
@@ -324,8 +344,10 @@ logs: []
 raw_log: ""
 timestamp: ""
 tx: null
-txhash: 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649
+txhash: 64DAFDD500AC40B885D0047B1E686A6E040B159F7E0C1007F9776B6246250768
 
-pchaind query tx 9F174AE959F52D97E765114AAB6CF274D6B8B1C3D90F99F532259043C1178649 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
+pchaind query tx 64DAFDD500AC40B885D0047B1E686A6E040B159F7E0C1007F9776B6246250768 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
-pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="donut-node2")'
+pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="donut-node1")'
+
+sed -i 's/^enable = false/enable = true/' /home/shoaibmohammed/.pchain/config/app.toml && grep -A2 "\[json-rpc\]" /home/shoaibmohammed/.pchain/config/app.toml)

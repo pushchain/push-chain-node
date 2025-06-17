@@ -11,7 +11,7 @@ export CHAIN_HOME="$HOME/.pchain"
 # your chain id
 export CHAIN_ID="push_42101-1"
 # your node name
-export MONIKER="val-2"
+export MONIKER="donut-node2"
 # keyring type
 export KEYRING="test"
 # token name

@@ -130,15 +130,22 @@ from_scratch () {
   # So, 2 Billion PUSH = 2 * 10^9 * 10^18 = 2 * 10^27 upc -> we want to mint 2 billion PUSH
   # Represented as 2000000000000000000000000000
   local two_billion_npush="2000000000000000000000000000" # 2 followed by 27 zeros
+  local addr5_amount="1999000000000000000000000000" # 1.999 billion PUSH (1 million less)
+  local one_million_npush="1000000000000000000000000" # 1 million PUSH
+
   BINARY genesis add-genesis-account $ADDR1 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
   BINARY genesis add-genesis-account $ADDR2 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
   BINARY genesis add-genesis-account $ADDR3 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
   BINARY genesis add-genesis-account $ADDR4 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
-  BINARY genesis add-genesis-account $ADDR5 ${two_billion_npush}$DENOM --keyring-backend $KEYRING --append
+  BINARY genesis add-genesis-account $ADDR5 ${addr5_amount}$DENOM --keyring-backend $KEYRING --append
 
   # For gentx, you'll need to add at least one key for the validator
   # This can be done separately or with a different approach
   echo "<mnemonic>" | BINARY keys add $KEY1 --keyring-backend $KEYRING --algo $KEYALGO --recover
+
+  # Get the validator address and fund it with 1 million PUSH
+  VALIDATOR_ADDR=$(BINARY keys show $KEY1 -a --keyring-backend $KEYRING)
+  BINARY genesis add-genesis-account $VALIDATOR_ADDR ${one_million_npush}$DENOM --keyring-backend $KEYRING --append
 
   # Sign genesis transaction
   # 10 000 . 000000000 000000000

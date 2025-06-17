@@ -30,9 +30,9 @@ func (p ChainConfig) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "public_rpc_url cannot be empty")
 	}
 
-	// Validate lockerContractAddress is non-empty
-	if len(p.LockerContractAddress) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "locker_contract_address cannot be empty")
+	// Validate gatewayAddress is non-empty
+	if len(p.GatewayAddress) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gateway_address cannot be empty")
 	}
 
 	// Ensure vm_type is within the known enum range

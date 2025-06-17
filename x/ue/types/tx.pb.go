@@ -241,7 +241,7 @@ func (m *MsgDeployUEAResponse) GetUEA() []byte {
 }
 
 // MsgMintPush represents a message to mint PUSH tokens to a smart account,
-// based on the amount locked by the user in the locker contract.
+// based on the amount locked by the user in the gateway contract.
 type MsgMintPush struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`

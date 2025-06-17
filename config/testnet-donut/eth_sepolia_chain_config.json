@@ -2,8 +2,8 @@
   "chain": "eip155:11155111",
   "public_rpc_url": "https://1rpc.io/sepolia",
   "vm_type": 0,
-  "locker_contract_address": "0x8D6518CBc834Da6868916A55F6F3faB0fE2f8a59",
-  "block_confirmation": 6,
+  "gateway_address": "0x8D6518CBc834Da6868916A55F6F3faB0fE2f8a59",
+  "block_confirmation": 1,
   "gateway_methods": [
     {
       "name": "addFunds",

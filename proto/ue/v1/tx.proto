@@ -78,7 +78,7 @@ message MsgDeployUEAResponse {
 }
 
 // MsgMintPush represents a message to mint PUSH tokens to a smart account,
-// based on the amount locked by the user in the locker contract.
+// based on the amount locked by the user in the gateway contract.
 message MsgMintPush {
   option (amino.name) = "ue/MsgMintPush";
   option (cosmos.msg.v1.signer) = "signer";

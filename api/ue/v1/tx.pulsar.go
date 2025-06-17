@@ -5669,7 +5669,7 @@ func (x *MsgDeployUEAResponse) GetUEA() []byte {
 }
 
 // MsgMintPush represents a message to mint PUSH tokens to a smart account,
-// based on the amount locked by the user in the locker contract.
+// based on the amount locked by the user in the gateway contract.
 type MsgMintPush struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

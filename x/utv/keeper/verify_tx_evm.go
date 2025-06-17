@@ -13,7 +13,7 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// verifyEVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
+// verifyEVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
 func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
@@ -28,16 +28,16 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 	// Normalize addresses for comparison
 	from := NormalizeAddress(tx.From)
 	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
+	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
 
 	// Check if tx.From matches ownerKey
 	if from != expectedFrom {
 		return fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
 	}
 
-	// Check if tx.To matches locker contract address
-	if !didSendToLocker(tx.To, expectedTo) {
-		return fmt.Errorf("transaction recipient %s is not locker contract %s", tx.To, expectedTo)
+	// Check if tx.To matches gateway address
+	if !didSendToGateway(tx.To, expectedTo) {
+		return fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
 	}
 
 	// Check if transaction is calling addFunds method
@@ -72,15 +72,15 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	from := NormalizeAddress(receipt.From)
 	to := NormalizeAddress(receipt.To)
 	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
+	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
 
 	if from != expectedFrom {
 		return *big.NewInt(0), 0, fmt.Errorf("transaction sender %s does not match ownerKey %s", receipt.From, expectedFrom)
 	}
 
-	// Check if tx.To matches locker contract address
-	if !didSendToLocker(to, expectedTo) {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not locker contract %s", receipt.To, expectedTo)
+	// Check if tx.To matches gateway address
+	if !didSendToGateway(to, expectedTo) {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not gateway address %s", receipt.To, expectedTo)
 	}
 
 	// Check if transaction is calling addFunds method
@@ -129,8 +129,8 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	return amount, decimals, nil
 }
 
-// didSendToLocker checks if tx.To equals locker contract address
-func didSendToLocker(toAddress string, lockerAddress string) bool {
+// didSendToGateway checks if tx.To equals gateway address
+func didSendToGateway(toAddress string, lockerAddress string) bool {
 	return NormalizeAddress(toAddress) == lockerAddress
 }
 

@@ -17,7 +17,7 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// verifySVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
+// verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
 func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
@@ -57,8 +57,8 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 		return fmt.Errorf("no instructions found in transaction")
 	}
 
-	// Check if any instruction calls the locker contract
-	foundLockerCall := false
+	// Check if any instruction calls the gateway contract
+	foundGatewayCall := false
 	for _, instruction := range tx.Transaction.Message.Instructions {
 		// Verify program ID index is valid
 		if instruction.ProgramIDIndex < 0 || instruction.ProgramIDIndex >= len(tx.Transaction.Message.AccountKeys) {
@@ -67,17 +67,17 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 
 		programID := tx.Transaction.Message.AccountKeys[instruction.ProgramIDIndex]
 
-		if strings.EqualFold(programID, chainConfig.LockerContractAddress) {
-			foundLockerCall = true
+		if strings.EqualFold(programID, chainConfig.GatewayAddress) {
+			foundGatewayCall = true
 
 			// Verify the instruction has the required accounts
 			if len(instruction.Accounts) == 0 {
-				return fmt.Errorf("instruction calling locker contract has no accounts")
+				return fmt.Errorf("instruction calling gateway contract has no accounts")
 			}
 
 			// Verify the instruction has data
 			if instruction.Data == "" {
-				return fmt.Errorf("instruction calling locker contract has no data")
+				return fmt.Errorf("instruction calling gateway contract has no data")
 			}
 
 			// Verify instruction data format
@@ -125,8 +125,8 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 		}
 	}
 
-	if !foundLockerCall {
-		return fmt.Errorf("no instruction found calling the locker contract %s", chainConfig.LockerContractAddress)
+	if !foundGatewayCall {
+		return fmt.Errorf("no instruction found calling the gateway contract %s", chainConfig.GatewayAddress)
 	}
 
 	return nil
@@ -173,8 +173,8 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 	programID := tx.Transaction.Message.AccountKeys[tx.Transaction.Message.Instructions[0].ProgramIDIndex]
 
-	if !strings.EqualFold(programID, chainConfig.LockerContractAddress) {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction program ID %s does not match locker contract %s", programID, chainConfig.LockerContractAddress)
+	if !strings.EqualFold(programID, chainConfig.GatewayAddress) {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction program ID %s does not match gateway contract %s", programID, chainConfig.GatewayAddress)
 	}
 
 	// Step 2: Verify confirmations

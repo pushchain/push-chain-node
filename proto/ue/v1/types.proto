@@ -83,7 +83,7 @@ message ChainConfig {
   VM_TYPE vm_type = 2; // vm_type is the type of the virtual machine used by the chain
   string public_rpc_url = 3; // RPC URL for the chain
   
-  string locker_contract_address = 4; // locker_contract_address is the address of the fee locker contract on the external chain
+  string gateway_address = 4; // gateway_address is the address of the fee gateway contract on the external chain
   uint64 block_confirmation = 5; // block_confirmation is the number of blocks to wait for confirmation on the external chain
   
   repeated MethodConfig gateway_methods = 6; // List of methods that can be used for universal operations

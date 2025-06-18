@@ -43,7 +43,7 @@ func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*ty
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	sa, err := ms.k.deployUEA(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
+	sa, err := ms.k.DeployUEA(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}

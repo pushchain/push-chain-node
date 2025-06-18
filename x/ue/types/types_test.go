@@ -3,6 +3,7 @@ package types_test
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -17,4 +18,8 @@ func TestMain(m *testing.M) {
 
 	// Run tests
 	os.Exit(m.Run())
+}
+
+func ErrContains(err error, target string) bool {
+	return err != nil && strings.Contains(err.Error(), target)
 }

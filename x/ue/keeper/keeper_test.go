@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -36,8 +38,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	evmtypes "github.com/evmos/os/x/evm/types"
-
-	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 )
 
 var maccPerms = map[string][]string{
@@ -64,6 +64,7 @@ type testFixture struct {
 
 	addrs      []sdk.AccAddress
 	govModAddr string
+	evmAddrs   []common.Address
 }
 
 func SetupTest(t *testing.T) *testFixture {
@@ -87,6 +88,12 @@ func SetupTest(t *testing.T) *testFixture {
 	f.govModAddr = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	f.addrs = simtestutil.CreateIncrementalAccounts(3)
 
+	evmAddrs := make([]common.Address, len(f.addrs))
+	for i, addr := range f.addrs {
+		evmAddrs[i] = common.BytesToAddress(addr.Bytes())
+	}
+	f.evmAddrs = evmAddrs
+
 	keys := storetypes.NewKVStoreKeys(authtypes.ModuleName, banktypes.ModuleName, stakingtypes.ModuleName, minttypes.ModuleName, types.ModuleName)
 	f.ctx = sdk.NewContext(integration.CreateMultiStore(keys, logger), cmtproto.Header{}, false, logger)
 
@@ -94,10 +101,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &utvkeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &MockUTVKeeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &utvkeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &MockUTVKeeper{})
 
 	return f
 }
@@ -190,6 +197,17 @@ func (m MockEVMKeeper) CallEVM(
 	method string,
 	args ...interface{},
 ) (*evmtypes.MsgEthereumTxResponse, error) {
-	// no-op mock
-	return nil, nil
+	return &evmtypes.MsgEthereumTxResponse{
+		Ret: []byte{0x01, 0x02},
+	}, nil
+}
+
+type MockUTVKeeper struct{}
+
+func (m *MockUTVKeeper) VerifyGatewayInteractionTx(ctx context.Context, owner string, txHash string, chain string) error {
+	return nil // simulate a pass-through
+}
+
+func (m *MockUTVKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error) {
+	return *big.NewInt(0), 0, nil // simulate a pass-through
 }

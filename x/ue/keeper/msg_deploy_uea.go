@@ -11,7 +11,7 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) deployUEA(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) ([]byte, error) {
+func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// EVM Call arguments

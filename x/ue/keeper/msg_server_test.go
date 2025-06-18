@@ -54,3 +54,51 @@ func TestParams(t *testing.T) {
 		})
 	}
 }
+
+func TestMsgServer_DeployUEA(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	validSigner := f.addrs[0]
+	validUA := &types.UniversalAccount{
+		Owner: "0x1234567890abcdef1234567890abcdef12345678",
+		Chain: "ethereum",
+	}
+	validTxHash := "0xabc123"
+
+	t.Run("fail; invalid signer address", func(t *testing.T) {
+		msg := &types.MsgDeployUEA{
+			Signer:           "invalid_address",
+			UniversalAccount: validUA,
+			TxHash:           validTxHash,
+		}
+
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.ErrorContains(err, "failed to parse signer address")
+	})
+
+	t.Run("fail; gateway interaction tx not verified", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgDeployUEA{
+			Signer:           validSigner.String(),
+			UniversalAccount: validUA,
+			TxHash:           "invalid_tx",
+		}
+
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.Error(err)
+	})
+
+	t.Run("success; valid input returns UEA", func(t *testing.T) {
+		msg := &types.MsgDeployUEA{
+			Signer:           validSigner.String(),
+			UniversalAccount: validUA,
+			TxHash:           validTxHash,
+		}
+
+		res, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.NoError(err)
+		require.NotNil(res)
+		require.NotEmpty(res.UEA)
+	})
+}

@@ -9,8 +9,6 @@ import (
 
 // addChainConfig is for adding a new chain configuration
 func (k Keeper) addChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
-	fmt.Println("Adding chain config:", chainConfig)
-	fmt.Println(chainConfig.Enabled)
 	// Check if chain already exists
 	if has, err := k.ChainConfigs.Has(ctx, chainConfig.Chain); err != nil {
 		return err

@@ -50,13 +50,16 @@ func (k Keeper) CalculateGasCost(
 	}
 
 	// Step 2: Calculate baseFee + maxPriorityFeePerGas (potential effective gas price)
-	tipPlusBase := new(big.Int).Add(baseFeeBig, maxPriorityFeePerGas)
+	// @dev: Currently, we are not using maxPriorityFeePerGas in the calculation
+	// tipPlusBase := new(big.Int).Add(baseFeeBig, maxPriorityFeePerGas)
+	// tipPlusBase := maxFeePerGas
 
 	// Step 3: Find effective gas price by taking minimum
-	effectiveGasPrice := new(big.Int).Set(maxFeePerGas)
-	if tipPlusBase.Cmp(maxFeePerGas) == -1 {
-		effectiveGasPrice = tipPlusBase
-	}
+	// @dev: Currently, since we are not using maxPriorityFeePerGas, effectiveGasPrice is just baseFee
+	effectiveGasPrice := new(big.Int).Set(baseFeeBig)
+	// if tipPlusBase.Cmp(maxFeePerGas) == -1 {
+	// 	effectiveGasPrice = tipPlusBase
+	// }
 
 	// Step 4: Calculate final gas cost: effectiveGasPrice * gasUsed
 	gasUsedBig := new(big.Int).SetUint64(gasUsed)

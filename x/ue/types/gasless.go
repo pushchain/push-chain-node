@@ -14,7 +14,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 		GaslessMsgTypes = []string{
 			sdk.MsgTypeURL(&MsgExecutePayload{}),
 			sdk.MsgTypeURL(&MsgDeployUEA{}),
-			sdk.MsgTypeURL(&MsgMintPush{}),
+			sdk.MsgTypeURL(&MsgMintPC{}),
 		}
 	)
 

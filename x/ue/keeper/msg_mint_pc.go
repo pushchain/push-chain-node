@@ -15,7 +15,7 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) error {
+func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
@@ -25,7 +25,7 @@ func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalA
 	if err != nil {
 		return errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}
-	amountToMint := ConvertUsdToPushTokens(&amountOfUsdLocked, usdDecimals)
+	amountToMint := ConvertUsdToPCTokens(&amountOfUsdLocked, usdDecimals)
 
 	// Calling factory contract to compute the UEA address
 	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)
@@ -57,14 +57,14 @@ func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalA
 	return nil
 }
 
-// ConvertUsdToPushTokens converts locked USD amount (in wei) to PUSH tokens (with 18 decimals)
-func ConvertUsdToPushTokens(usdAmount *big.Int, usdDecimals uint32) sdkmath.Int {
+// ConvertUsdToPCTokens converts locked USD amount (in wei) to PC tokens (with 18 decimals)
+func ConvertUsdToPCTokens(usdAmount *big.Int, usdDecimals uint32) sdkmath.Int {
 	// Multiply usdAmount by PC token's conversion rate (10)
 	multiplied := new(big.Int).Mul(usdAmount, big.NewInt(10))
 
 	// Scale to 18 decimals (PC token), accounting for usdDecimals
 	scaleFactor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(18-usdDecimals)), nil)
-	pushTokens := new(big.Int).Mul(multiplied, scaleFactor)
+	pcTokens := new(big.Int).Mul(multiplied, scaleFactor)
 
-	return sdkmath.NewIntFromBigInt(pushTokens)
+	return sdkmath.NewIntFromBigInt(pcTokens)
 }

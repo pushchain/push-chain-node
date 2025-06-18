@@ -53,19 +53,19 @@ func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*ty
 	}, nil
 }
 
-// MintPush handles token minting to the user's UEA for the tokens locked on source chain.
-func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
+// MintPC handles token minting to the user's UEA for the tokens locked on source chain.
+func (ms msgServer) MintPC(ctx context.Context, msg *types.MsgMintPC) (*types.MsgMintPCResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.mintPush(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
+	err = ms.k.MintPC(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgMintPushResponse{}, nil
+	return &types.MsgMintPCResponse{}, nil
 }
 
 // ExecutePayload handles universal payload execution on the UEA.

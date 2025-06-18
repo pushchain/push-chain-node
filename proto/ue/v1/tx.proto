@@ -21,8 +21,8 @@ service Msg {
   // DeployUEA defines a message to deploy a new smart account.
   rpc DeployUEA(MsgDeployUEA) returns (MsgDeployUEAResponse);
 
-  // MintPush defines a message to mint PUSH tokens to a smart account,
-  rpc MintPush(MsgMintPush) returns (MsgMintPushResponse);
+  // MintPC defines a message to mint PC tokens to a smart account,
+  rpc MintPC(MsgMintPC) returns (MsgMintPCResponse);
 
   // ExecutePayload defines a message for executing a universal payload
   rpc ExecutePayload(MsgExecutePayload) returns (MsgExecutePayloadResponse);
@@ -77,10 +77,10 @@ message MsgDeployUEAResponse {
   bytes UEA = 1;
 }
 
-// MsgMintPush represents a message to mint PUSH tokens to a smart account,
+// MsgMintPC represents a message to mint PC tokens to a smart account,
 // based on the amount locked by the user in the gateway contract.
-message MsgMintPush {
-  option (amino.name) = "ue/MsgMintPush";
+message MsgMintPC {
+  option (amino.name) = "ue/MsgMintPC";
   option (cosmos.msg.v1.signer) = "signer";
 
   // signer is the Cosmos address initiating the tx (used for tx signing)
@@ -93,8 +93,8 @@ message MsgMintPush {
   string tx_hash = 3;
 }
 
-// MsgMintPushResponse defines the response for MsgMintPush.
-message MsgMintPushResponse {}
+// MsgMintPCResponse defines the response for MsgMintPC.
+message MsgMintPCResponse {}
 
 // MsgExecutePayload defines a message for executing a universal payload
 message MsgExecutePayload {

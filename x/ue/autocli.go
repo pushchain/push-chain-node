@@ -35,8 +35,8 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "deploy-uea --universal-account [universal-account] --tx-hash [tx-hash]",
 				},
 				{
-					RpcMethod: "MintPush",
-					Use:       "mint-push --universal-account [universal-account] --tx-hash [tx-hash]",
+					RpcMethod: "MintPC",
+					Use:       "mint-pc --universal-account [universal-account] --tx-hash [tx-hash]",
 				},
 				{
 					RpcMethod: "ExecutePayload",

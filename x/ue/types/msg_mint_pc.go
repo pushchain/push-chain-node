@@ -8,16 +8,16 @@ import (
 )
 
 var (
-	_ sdk.Msg = &MsgMintPush{}
+	_ sdk.Msg = &MsgMintPC{}
 )
 
-// NewMsgMintPush creates new instance of MsgMintPush
-func NewMsgMintPush(
+// NewMsgMintPC creates new instance of MsgMintPC
+func NewMsgMintPC(
 	sender sdk.Address,
 	universalAccount *UniversalAccount,
 	txHash string,
-) *MsgMintPush {
-	return &MsgMintPush{
+) *MsgMintPC {
+	return &MsgMintPC{
 		Signer:           sender.String(),
 		UniversalAccount: universalAccount,
 		TxHash:           txHash,
@@ -25,24 +25,24 @@ func NewMsgMintPush(
 }
 
 // Route returns the name of the module
-func (msg MsgMintPush) Route() string { return ModuleName }
+func (msg MsgMintPC) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgMintPush) Type() string { return "mint_push" }
+func (msg MsgMintPC) Type() string { return "mint_pc" }
 
 // GetSignBytes implements the LegacyMsg interface.
-func (msg MsgMintPush) GetSignBytes() []byte {
+func (msg MsgMintPC) GetSignBytes() []byte {
 	return sdk.MustSortJSON(AminoCdc.MustMarshalJSON(&msg))
 }
 
-// GetSigners returns the expected signers for a MsgMintPush message.
-func (msg *MsgMintPush) GetSigners() []sdk.AccAddress {
+// GetSigners returns the expected signers for a MsgMintPC message.
+func (msg *MsgMintPC) GetSigners() []sdk.AccAddress {
 	addr, _ := sdk.AccAddressFromBech32(msg.Signer)
 	return []sdk.AccAddress{addr}
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgMintPush) ValidateBasic() error {
+func (msg *MsgMintPC) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
 	}

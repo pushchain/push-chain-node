@@ -21,7 +21,7 @@ func (k Keeper) deployUEA(ctx context.Context, evmFrom common.Address, universal
 	fmt.Println("Base Fee BigInt:", baseFeeBig)
 
 	// EVM Call arguments
-	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
+	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to verify the gateway interaction tx on source chain
 	err := k.utvKeeper.VerifyGatewayInteractionTx(ctx, universalAccount.Owner, txHash, universalAccount.Chain)

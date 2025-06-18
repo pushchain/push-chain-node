@@ -18,7 +18,7 @@ import (
 func (k Keeper) mintPush(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	factoryAddress := common.HexToAddress(types.FACTORY_ADDRESS_HEX)
+	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
 	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.Chain)

@@ -14,12 +14,6 @@ import (
 func (k Keeper) deployUEA(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
-	fmt.Println("Base Fee:", baseFee)
-
-	baseFeeBig := baseFee.BigInt()
-	fmt.Println("Base Fee BigInt:", baseFeeBig)
-
 	// EVM Call arguments
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 

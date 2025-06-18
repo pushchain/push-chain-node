@@ -1,0 +1,92 @@
+syntax = "proto3";
+package ue.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/rollchains/pchain/x/ue/types";
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "ue/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the ue module.
+  string admin = 1;
+}
+
+// VM_TYPE is the type of the vm of the network
+enum VM_TYPE {
+  EVM = 0;            // Ethereum, BSC, Polygon, etc.
+  SVM = 1;            // Solana
+  MOVE_VM = 2;        // Aptos, Sui
+  WASM_VM = 3;        // CosmWasm, Near, Polkadot
+  CAIRO_VM = 4;       // Starknet
+  TRON_VM = 5;        // TRON
+  STELLAR_VM = 6;     // Stellar
+  BITCOIN_SCRIPT = 7; // Bitcoin, Litecoin, etc.
+  OTHER_VM = 8;       // Fallback
+}
+
+// Signature verification types
+enum SignatureType {
+  signedVerification = 0; // Signed verification using a signature
+  universalTxVerification = 1; // Universal transaction verification
+}
+
+// UniversalPayload mirrors the Solidity struct
+message UniversalPayload {
+  option (amino.name) = "ue/universal_payload";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string to = 1;                 // EVM address as hex string (0x...)
+  string value = 2;                  // Amount in upc as string (uint256)
+  string data = 3;                    // ABI-encoded calldata
+  string gas_limit = 4;             // uint256 as string
+  string max_fee_per_gas = 5;       // uint256 as string
+  string max_priority_fee_per_gas = 6; // uint256 as string
+  string nonce = 7;                 // uint256 as string
+  string deadline = 8;              // uint256 as string
+  SignatureType signature_type = 9; // Type of signature verification
+}
+
+// UniversalAccount is the identifier of a owner account
+message UniversalAccount {
+  option (amino.name) = "ue/universal_account";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string chain = 1; // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+  string owner = 2; // Owner's public key bytes or address in hex format
+}
+
+// MethodConfig defines the configuration for a method that can be used for universal operations
+message MethodConfig {
+  option (amino.name) = "ue/method_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string name = 1;  // Name of the method
+  string selector = 2; // Selector is the method selector (first 4 bytes of the keccak256 hash of the method signature)
+  string event_topic = 3; // event_topic is the topic of the event emitted by the method
+}
+
+// ChainConfig defines the configuration for a supported source or destination chain
+message ChainConfig {
+  option (amino.name) = "ue/chain_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string chain = 1; // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+  VM_TYPE vm_type = 2; // vm_type is the type of the virtual machine used by the chain
+  string public_rpc_url = 3; // RPC URL for the chain
+  
+  string gateway_address = 4; // gateway_address is the address of the fee gateway contract on the external chain
+  uint64 block_confirmation = 5; // block_confirmation is the number of blocks to wait for confirmation on the external chain
+  
+  repeated MethodConfig gateway_methods = 6; // List of methods that can be used for universal operations
+
+  bool enabled = 7; // Whether this chain is currently enabled or not
+}

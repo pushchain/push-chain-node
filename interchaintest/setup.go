@@ -28,7 +28,7 @@ var (
 	VotingPeriod     = "15s"
 	MaxDepositPeriod = "10s"
 
-	Denom = "npush"
+	Denom = "upc"
 	Name  = "pchain"
 
 	ChainID = "localchain_9000-1"

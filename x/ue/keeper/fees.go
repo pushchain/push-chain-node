@@ -43,6 +43,8 @@ func (k Keeper) CalculateGasCost(
 	gasUsed uint64,
 ) (*big.Int, error) {
 	baseFeeBig := baseFee.BigInt()
+	// @dev: baseFeeBig returns 1e18 for 1upc base fee
+	baseFeeBig.Div(baseFeeBig, big.NewInt(1e18))
 
 	// Step 1: Validate maxFeePerGas >= baseFee
 	if maxFeePerGas.Cmp(baseFeeBig) < 0 {

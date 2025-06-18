@@ -7,8 +7,8 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// updateParams is for updating params collections of the module
-func (k Keeper) updateChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
+// UpdateChainConfig updates the configuration for a specific chain.
+func (k Keeper) UpdateChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
 	// Check if chain exists
 	if has, err := k.ChainConfigs.Has(ctx, chainConfig.Chain); err != nil {
 		return err

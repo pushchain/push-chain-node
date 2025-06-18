@@ -113,7 +113,7 @@ type AbiUniversalPayload struct {
 	MaxPriorityFeePerGas *big.Int
 	Nonce                *big.Int
 	Deadline             *big.Int
-	SignatureType        uint8
+	SigType              uint8
 }
 
 func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error) {
@@ -130,7 +130,7 @@ func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error
 		MaxPriorityFeePerGas: utils.StringToBigInt(proto.MaxPriorityFeePerGas),
 		Nonce:                utils.StringToBigInt(proto.Nonce),
 		Deadline:             utils.StringToBigInt(proto.Deadline),
-		SignatureType:        uint8(proto.SignatureType),
+		SigType:              uint8(proto.SigType),
 	}, nil
 }
 

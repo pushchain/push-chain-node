@@ -49,7 +49,7 @@ message UniversalPayload {
   string max_priority_fee_per_gas = 6; // uint256 as string
   string nonce = 7;                 // uint256 as string
   string deadline = 8;              // uint256 as string
-  SignatureType signature_type = 9; // Type of signature verification
+  SignatureType sig_type = 9; // Type of signature verification
 }
 
 // UniversalAccount is the identifier of a owner account

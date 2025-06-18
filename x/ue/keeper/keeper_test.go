@@ -198,7 +198,7 @@ func (m MockEVMKeeper) CallEVM(
 	args ...interface{},
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	return &evmtypes.MsgEthereumTxResponse{
-		Ret: []byte{0x01, 0x02},
+		Ret: []byte{0x01, 0x02}, // flag : need to correct his mock for MintPC test
 	}, nil
 }
 

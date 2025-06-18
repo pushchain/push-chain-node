@@ -28,7 +28,7 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
 
-	err := ms.k.updateParams(ctx, msg.Params)
+	err := ms.k.UpdateParams(ctx, msg.Params)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.executePayload(ctx, evmFromAddress, msg.UniversalAccount, msg.UniversalPayload, msg.Signature)
+	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccount, msg.UniversalPayload, msg.Signature)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.addChainConfig(ctx, msg.ChainConfig)
+	err = ms.k.AddChainConfig(ctx, msg.ChainConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.updateChainConfig(ctx, msg.ChainConfig)
+	err = ms.k.UpdateChainConfig(ctx, msg.ChainConfig)
 	if err != nil {
 		return nil, err
 	}

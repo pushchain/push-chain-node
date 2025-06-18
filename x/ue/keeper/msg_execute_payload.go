@@ -13,7 +13,7 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, universalPayload *types.UniversalPayload, signature string) error {
+func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, universalPayload *types.UniversalPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	chainConfig, err := k.GetChainConfig(sdkCtx, universalAccount.Chain)

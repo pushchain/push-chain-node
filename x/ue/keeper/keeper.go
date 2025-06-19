@@ -97,16 +97,16 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.ChainConfig, error) {
-	config, err := k.ChainConfigs.Get(ctx, chainID)
+func (k Keeper) GetChainConfig(ctx context.Context, chain string) (types.ChainConfig, error) {
+	config, err := k.ChainConfigs.Get(ctx, chain)
 	if err != nil {
 		return types.ChainConfig{}, err
 	}
 	return config, nil
 }
 
-func (k Keeper) IsChainEnabled(ctx context.Context, chainID string) (bool, error) {
-	enabled, err := k.ChainConfigs.Has(ctx, chainID)
+func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) {
+	enabled, err := k.ChainConfigs.Has(ctx, chain)
 	if err != nil {
 		return false, err
 	}

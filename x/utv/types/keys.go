@@ -29,8 +29,8 @@ const (
 	QuerierRoute = ModuleName
 )
 
-// GetVerifiedTxStorageKey returns the storage key for a verified transaction hash using the format "chainId:txHash".
-func GetVerifiedTxStorageKey(chainId, txHash string) string {
+// GetVerifiedTxStorageKey returns the storage key for a verified transaction hash using the format "chain:txHash".
+func GetVerifiedTxStorageKey(chain, txHash string) string {
 	// Normalize to lowercase and strip whitespace
-	return fmt.Sprintf("%s:%s", strings.ToLower(chainId), strings.ToLower(strings.TrimSpace(txHash)))
+	return fmt.Sprintf("%s:%s", strings.ToLower(chain), strings.ToLower(strings.TrimSpace(txHash)))
 }

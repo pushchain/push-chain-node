@@ -9,20 +9,20 @@ import (
 )
 
 // VerifyAndGetLockedFunds verifies if the user has interacted with the gateway on the source chain and send the locked funds amount.
-func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error) {
-	if exists, err := k.IsTxHashVerified(ctx, chainId, txHash); err != nil {
+func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error) {
+	if exists, err := k.IsTxHashVerified(ctx, chain, txHash); err != nil {
 		return *big.NewInt(0), 0, err
 	} else if exists {
 		return *big.NewInt(0), 0, fmt.Errorf("tx is already verified once")
 	}
 
-	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chainId)
+	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return *big.NewInt(0), 0, err
 	}
 
 	if !chainConfig.Enabled {
-		return *big.NewInt(0), 0, fmt.Errorf("chain %s is not enabled", chainId)
+		return *big.NewInt(0), 0, fmt.Errorf("chain %s is not enabled", chain)
 	}
 
 	switch chainConfig.VmType {
@@ -33,7 +33,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		}
 
 		// tx is verified, now store it
-		if err := k.storeVerifiedTx(ctx, chainId, txHash); err != nil {
+		if err := k.storeVerifiedTx(ctx, chain, txHash); err != nil {
 			return amount, decimals, fmt.Errorf("failed to store verified tx: %w", err)
 		}
 		return amount, decimals, nil
@@ -44,11 +44,11 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		}
 
 		// tx is verified, now store it
-		if err := k.storeVerifiedTx(ctx, chainId, txHash); err != nil {
+		if err := k.storeVerifiedTx(ctx, chain, txHash); err != nil {
 			return amount, decimals, fmt.Errorf("failed to store verified tx: %w", err)
 		}
 		return amount, decimals, nil
 	default:
-		return *big.NewInt(0), 0, fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chainId)
+		return *big.NewInt(0), 0, fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chain)
 	}
 }

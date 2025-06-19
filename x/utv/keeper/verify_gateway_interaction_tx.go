@@ -8,20 +8,20 @@ import (
 )
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.
-func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
-	if exists, err := k.IsTxHashVerified(ctx, chainId, txHash); err != nil {
+func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error {
+	if exists, err := k.IsTxHashVerified(ctx, chain, txHash); err != nil {
 		return err
 	} else if exists {
 		return nil
 	}
 
-	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chainId)
+	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return err
 	}
 
 	if !chainConfig.Enabled {
-		return fmt.Errorf("chain %s is not enabled", chainId)
+		return fmt.Errorf("chain %s is not enabled", chain)
 	}
 
 	switch chainConfig.VmType {
@@ -34,7 +34,7 @@ func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash
 			return fmt.Errorf("svm tx verification failed: %w", err)
 		}
 	default:
-		return fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chainId)
+		return fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chain)
 	}
 	return nil
 }

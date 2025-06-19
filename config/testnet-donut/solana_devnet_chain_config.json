@@ -7,8 +7,8 @@
   "gateway_methods": [
     {
       "name": "add_funds",
-      "selector": "84ed4c39500ab38a",
-      "event_topic": "7f1f6cffbb134644"
+      "identifier": "84ed4c39500ab38a",
+      "event_identifier": "7f1f6cffbb134644"
     }
   ],
   "enabled": true

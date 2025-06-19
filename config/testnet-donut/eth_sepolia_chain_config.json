@@ -7,8 +7,8 @@
   "gateway_methods": [
     {
       "name": "addFunds",
-      "selector": "0xf9bfe8a7",
-      "event_topic": "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+      "identifier": "0xf9bfe8a7",
+      "event_identifier": "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
     }
   ],
   "enabled": true

@@ -104,7 +104,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			for _, method := range chainConfig.GatewayMethods {
 				if method.Name == "add_funds" {
 					// Convert hex string to bytes
-					expectedDiscriminator, err = hex.DecodeString(method.Selector)
+					expectedDiscriminator, err = hex.DecodeString(method.Identifier)
 					if err != nil {
 						return fmt.Errorf("invalid discriminator in chain config: %w", err)
 					}
@@ -199,7 +199,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	for _, method := range chainConfig.GatewayMethods {
 		if method.Name == "add_funds" {
 			// Convert hex string to bytes
-			eventDiscriminator, err = hex.DecodeString(method.EventTopic)
+			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
 			if err != nil {
 				return *big.NewInt(0), 0, fmt.Errorf("invalid event discriminator in chain config: %w", err)
 			}

@@ -1,7 +1,9 @@
 package types
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"strings"
 
 	"cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -19,16 +21,25 @@ func (p MethodConfig) String() string {
 
 // Validate does the sanity check on the params.
 func (p MethodConfig) ValidateBasic() error {
-
-	// Validate method name, selector, and event topic are non-empty
-	if len(p.Name) == 0 {
+	// Name must not be empty
+	if strings.TrimSpace(p.Name) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method name cannot be empty")
 	}
-	if len(p.Selector) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method selector cannot be empty")
+
+	//Identifier must not be empty and must be valid hex
+	if strings.TrimSpace(p.Identifier) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method identifier cannot be empty")
 	}
-	if len(p.EventTopic) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method event_topic cannot be empty")
+	if _, err := hex.DecodeString(strings.TrimPrefix(p.Identifier, "0x")); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "method selector must be valid hex: %s", err.Error())
+	}
+
+	// Event Identifier must not be empty and must be valid hex
+	if strings.TrimSpace(p.EventIdentifier) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method event_identifier cannot be empty")
+	}
+	if _, err := hex.DecodeString(strings.TrimPrefix(p.EventIdentifier, "0x")); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "method event_identifier must be valid hex: %s", err.Error())
 	}
 
 	return nil

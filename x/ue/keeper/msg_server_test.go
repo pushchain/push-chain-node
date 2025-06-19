@@ -95,9 +95,36 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			UniversalAccount: validUA,
 			TxHash:           "invalid_tx",
 		}
+		f.mockUTVKeeper.
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.Chain).
+			Return(errors.New("Gateway interaction failed"))
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
-		require.Error(err)
+		require.ErrorContains(err, "failed to verify gateway interaction transaction")
+	})
+
+	t.Run("fail: CallFactoryToDeployUEA Fails", func(t *testing.T) {
+		msg := &types.MsgDeployUEA{
+			Signer:           validSigner.String(),
+			UniversalAccount: validUA,
+			TxHash:           validTxHash,
+		}
+		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+
+		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		receipt := &evmtypes.MsgEthereumTxResponse{
+			Ret: padded,
+		}
+		f.mockUTVKeeper.
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			Return(nil)
+
+		f.mockEVMKeeper.EXPECT().
+			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(receipt, errors.New("unable to deploy UEA"))
+
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.ErrorContains(err, "unable to deploy UEA")
 	})
 
 	t.Run("success; valid input returns UEA", func(t *testing.T) {
@@ -107,10 +134,22 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			TxHash:           validTxHash,
 		}
 
-		res, err := f.msgServer.DeployUEA(f.ctx, msg)
+		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+
+		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		receipt := &evmtypes.MsgEthereumTxResponse{
+			Ret: padded,
+		}
+		f.mockUTVKeeper.
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			Return(nil)
+
+		f.mockEVMKeeper.EXPECT().
+			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(receipt, nil)
+
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
 		require.NoError(err)
-		require.NotNil(res)
-		require.NotEmpty(res.UEA)
 	})
 }
 

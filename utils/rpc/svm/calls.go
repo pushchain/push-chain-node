@@ -12,12 +12,21 @@ func SVMGetTransactionBySig(ctx context.Context, cfg rpc.RpcCallConfig, txHash s
 	client := rpc.GetClient()
 
 	var result Transaction
+	params := []interface{}{
+		txHash,
+		map[string]interface{}{
+			"commitment":                     "confirmed",
+			"maxSupportedTransactionVersion": 0,
+			"encoding":                       "json",
+		},
+	}
+
 	var err error
 	if cfg.PrivateRPC != "" {
-		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "getTransaction", []interface{}{txHash}, &result)
+		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "getTransaction", params, &result)
 	} else {
 		fmt.Println("Error calling getTransaction:", err)
-		err = client.Call(ctx, cfg.PublicRPC, "getTransaction", []interface{}{txHash}, &result)
+		err = client.Call(ctx, cfg.PublicRPC, "getTransaction", params, &result)
 	}
 
 	if err != nil {

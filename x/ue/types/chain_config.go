@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 
 	"cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -19,36 +20,37 @@ func (p ChainConfig) String() string {
 
 // Validate does the sanity check on the params.
 func (p ChainConfig) ValidateBasic() error {
-
-	// Validate chain is non-empty
-	if len(p.Chain) == 0 {
+	// Validate chain is non-empty and follows CAIP-2 format
+	chain := strings.TrimSpace(p.Chain)
+	if chain == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain cannot be empty")
 	}
+	if !strings.Contains(chain, ":") {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain must be in CAIP-2 format <namespace>:<reference>")
+	}
 
-	// Validate publicRpcUrl is non-empty
-	if len(p.PublicRpcUrl) == 0 {
+	// Validate publicRpcUrl
+	if strings.TrimSpace(p.PublicRpcUrl) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "public_rpc_url cannot be empty")
 	}
 
-	// Validate gatewayAddress is non-empty
-	if len(p.GatewayAddress) == 0 {
+	// Validate gatewayAddress
+	if strings.TrimSpace(p.GatewayAddress) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gateway_address cannot be empty")
 	}
 
-	// Ensure vm_type is within the known enum range
-	if p.VmType < 0 || int(p.VmType) > int(VM_TYPE_OTHER_VM) {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid vm_type")
+	// Validate vm_type is within known enum range
+	if _, ok := VM_TYPE_name[int32(p.VmType)]; !ok {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid vm_type: %v", p.VmType)
 	}
 
-	// Validate gateway_methods is not empty
+	// Validate gateway methods
 	if len(p.GatewayMethods) == 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gateway_methods cannot be empty")
 	}
 
-	// Validate each method in gateway_methods
 	for _, method := range p.GatewayMethods {
-		err := method.ValidateBasic()
-		if err != nil {
+		if err := method.ValidateBasic(); err != nil {
 			return errors.Wrapf(err, "invalid method in gateway_methods: %s", method.Name)
 		}
 	}

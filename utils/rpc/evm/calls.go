@@ -16,7 +16,6 @@ func EVMGetTransactionByHash(ctx context.Context, cfg rpc.RpcCallConfig, txHash 
 	if cfg.PrivateRPC != "" {
 		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "eth_getTransactionByHash", []interface{}{txHash}, &result)
 	} else {
-		fmt.Println("Error calling eth_getTransactionByHash:", err)
 		err = client.Call(ctx, cfg.PublicRPC, "eth_getTransactionByHash", []interface{}{txHash}, &result)
 	}
 
@@ -35,7 +34,6 @@ func EVMGetTransactionReceipt(ctx context.Context, cfg rpc.RpcCallConfig, txHash
 	if cfg.PrivateRPC != "" {
 		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "eth_getTransactionReceipt", []interface{}{txHash}, &result)
 	} else {
-		fmt.Println("Error calling eth_getTransactionReceipt:", err)
 		err = client.Call(ctx, cfg.PublicRPC, "eth_getTransactionReceipt", []interface{}{txHash}, &result)
 	}
 
@@ -55,7 +53,6 @@ func EVMGetBlockByNumber(ctx context.Context, cfg rpc.RpcCallConfig, blockNumber
 	if cfg.PrivateRPC != "" {
 		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "eth_getBlockByNumber", []interface{}{blockNumber, fullTx}, &result)
 	} else {
-		fmt.Println("Error calling eth_getBlockByNumber:", err)
 		err = client.Call(ctx, cfg.PublicRPC, "eth_getBlockByNumber", []interface{}{blockNumber, fullTx}, &result)
 	}
 

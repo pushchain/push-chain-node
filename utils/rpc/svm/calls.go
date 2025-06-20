@@ -25,7 +25,6 @@ func SVMGetTransactionBySig(ctx context.Context, cfg rpc.RpcCallConfig, txHash s
 	if cfg.PrivateRPC != "" {
 		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "getTransaction", params, &result)
 	} else {
-		fmt.Println("Error calling getTransaction:", err)
 		err = client.Call(ctx, cfg.PublicRPC, "getTransaction", params, &result)
 	}
 
@@ -44,7 +43,6 @@ func SVMGetCurrentSlot(ctx context.Context, cfg rpc.RpcCallConfig) (uint64, erro
 	if cfg.PrivateRPC != "" {
 		err = client.CallWithFallback(ctx, cfg.PrivateRPC, cfg.PublicRPC, "getSlot", nil, &result)
 	} else {
-		fmt.Println("Error calling getSlot:", err)
 		err = client.Call(ctx, cfg.PublicRPC, "getSlot", nil, &result)
 	}
 

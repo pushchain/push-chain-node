@@ -62,6 +62,7 @@ require (
 	github.com/decred/base58 v1.0.5
 	github.com/ethereum/go-ethereum v1.15.3
 	github.com/evmos/os v0.0.0-20250130185216-d2cab8abc34d
+	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -157,7 +158,6 @@ require (
 	github.com/gogo/status v1.1.0 // indirect
 	github.com/golang/glog v1.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect

@@ -131,7 +131,7 @@ pchaind tendermint show-node-id
 
 # mint some tokens via Faucet
 export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
-export ONE_PUSH=000000000000000000npush
+export ONE_PUSH=000000000000000000upc
 export VALIDATOR_NAME=\"pn2\"
 cat <<EOF > register-validator.json
 {
@@ -168,11 +168,11 @@ pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
 export FAUCET_WALLET=push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20
 #  node wallet (from the cmd above: pchaind tendermint show-node-id)
 export NODE_OWNER_WALLET=push1upvlrjlsvxpgk03nz327szz9wgcjh8afhk26k0
-export ONE_PUSH=000000000000000000npush
+export ONE_PUSH=000000000000000000upc
 export CHAIN_ID="push_42101-1"
 
 # we transfer 20k PUSH
-pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET"   "20000$ONE_PUSH" --fees 1000000000000000npush --chain-id "$CHAIN_ID"  --keyring-backend "$KEYRING"
+pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET"   "20000$ONE_PUSH" --fees 1000000000000000upc --chain-id "$CHAIN_ID"  --keyring-backend "$KEYRING"
 # check to have 20k PUSH
 pchaind query bank balances $NODE_OWNER_WALLET --chain-id $CHAIN_ID  --keyring-backend $KEYRING
 

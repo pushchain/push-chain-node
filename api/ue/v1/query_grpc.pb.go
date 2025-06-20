@@ -20,7 +20,6 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Query_Params_FullMethodName      = "/ue.v1.Query/Params"
-	Query_AdminParams_FullMethodName = "/ue.v1.Query/AdminParams"
 	Query_ChainConfig_FullMethodName = "/ue.v1.Query/ChainConfig"
 )
 
@@ -30,9 +29,7 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// AdminParams queries all admin-controlled parameters of the module.
-	AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain_id.
+	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 }
 
@@ -47,15 +44,6 @@ func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
 func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, Query_Params_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *queryClient) AdminParams(ctx context.Context, in *QueryAdminParamsRequest, opts ...grpc.CallOption) (*QueryAdminParamsResponse, error) {
-	out := new(QueryAdminParamsResponse)
-	err := c.cc.Invoke(ctx, Query_AdminParams_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +65,7 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// AdminParams queries all admin-controlled parameters of the module.
-	AdminParams(context.Context, *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain_id.
+	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
@@ -90,9 +76,6 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
-}
-func (UnimplementedQueryServer) AdminParams(context.Context, *QueryAdminParamsRequest) (*QueryAdminParamsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AdminParams not implemented")
 }
 func (UnimplementedQueryServer) ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
@@ -128,24 +111,6 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_AdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryAdminParamsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).AdminParams(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_AdminParams_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).AdminParams(ctx, req.(*QueryAdminParamsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Query_ChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryChainConfigRequest)
 	if err := dec(in); err != nil {
@@ -174,10 +139,6 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
-		},
-		{
-			MethodName: "AdminParams",
-			Handler:    _Query_AdminParams_Handler,
 		},
 		{
 			MethodName: "ChainConfig",

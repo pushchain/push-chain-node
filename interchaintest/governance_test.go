@@ -112,7 +112,7 @@ func TestGovernanceProposal(t *testing.T) {
 		cmd = TxCommandBuilder(ctx, chain, []string{
 			"tx", "gov", "submit-proposal",
 			fmt.Sprintf("%s/proposal.json", chain.HomeDir()),
-		}, proposer.KeyName(), "--gas-prices", "586181640.625000907913440340npush")
+		}, proposer.KeyName(), "--gas-prices", "586181640.625000907913440340upc")
 
 		out, _, err := chain.Exec(ctx, cmd, nil)
 		require.NoError(t, err, "Failed to submit governance proposal")

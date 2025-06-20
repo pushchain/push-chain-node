@@ -9,7 +9,7 @@ var (
 	_ sdk.Msg = &MsgAddChainConfig{}
 )
 
-// MsgAddChainConfig creates new instance of MsgUpdateParams
+// MsgAddChainConfig creates new instance of MsgAddChainConfig
 func NewMsgAddChainConfig(
 	sender sdk.Address,
 	chain_config *ChainConfig,
@@ -24,7 +24,7 @@ func NewMsgAddChainConfig(
 func (msg MsgAddChainConfig) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgAddChainConfig) Type() string { return "update_params" }
+func (msg MsgAddChainConfig) Type() string { return "add_chain_config" }
 
 // GetSignBytes implements the LegacyMsg interface.
 func (msg MsgAddChainConfig) GetSignBytes() []byte {

@@ -7,14 +7,14 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// updateParams is for updating params collections of the module
-func (k Keeper) addChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
-	// Check if chain ID already exists
-	if has, err := k.ChainConfigs.Has(ctx, chainConfig.ChainId); err != nil {
+// addChainConfig is for adding a new chain configuration
+func (k Keeper) AddChainConfig(ctx context.Context, chainConfig *types.ChainConfig) error {
+	// Check if chain already exists
+	if has, err := k.ChainConfigs.Has(ctx, chainConfig.Chain); err != nil {
 		return err
 	} else if has {
-		return fmt.Errorf("chain config for %s already exists", chainConfig.ChainId)
+		return fmt.Errorf("chain config for %s already exists", chainConfig.Chain)
 	}
 
-	return k.ChainConfigs.Set(ctx, chainConfig.ChainId, *chainConfig)
+	return k.ChainConfigs.Set(ctx, chainConfig.Chain, *chainConfig)
 }

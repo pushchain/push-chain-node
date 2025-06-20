@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -12,32 +14,35 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, accountId *types.AccountId, crosschainPayload *types.CrossChainPayload, signature string) error {
+func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, universalPayload *types.UniversalPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Step 1: Get params and validate addresses
-	adminParams, err := k.AdminParams.Get(ctx)
+	chainConfig, err := k.GetChainConfig(sdkCtx, universalAccount.Chain)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get admin params")
+		return errors.Wrapf(err, "failed to get chain config for chain %s", universalAccount.Chain)
 	}
 
-	factoryAddress := common.HexToAddress(adminParams.FactoryAddress)
+	if !chainConfig.Enabled {
+		return fmt.Errorf("chain %s is not enabled", universalAccount.Chain)
+	}
 
-	// Step 2: Compute smart account address
-	receipt, err := k.CallFactoryToComputeAddress(sdkCtx, evmFrom, factoryAddress, accountId)
+	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
+
+	// Step 1: Compute smart account address
+	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)
 	if err != nil {
 		return err
 	}
 
 	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
 	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	nmscComputedAddress := "0x" + addressBytes
-	nmscAddr := common.HexToAddress(nmscComputedAddress)
+	ueaComputedAddress := "0x" + addressBytes
+	ueaAddr := common.HexToAddress(ueaComputedAddress)
 
-	// Step 3: Parse and validate payload and signature
-	payload, err := types.NewAbiCrossChainPayload(crosschainPayload)
+	// // Step 2: Parse and validate payload and signature
+	payload, err := types.NewAbiUniversalPayload(universalPayload)
 	if err != nil {
-		return errors.Wrapf(err, "invalid cross-chain payload")
+		return errors.Wrapf(err, "invalid universal payload")
 	}
 
 	signatureVal, err := utils.HexToBytes(signature)
@@ -45,31 +50,34 @@ func (k Keeper) executePayload(ctx context.Context, evmFrom common.Address, acco
 		return errors.Wrapf(err, "invalid signature format")
 	}
 
-	// Step 4: Execute payload through NMSC
-	receipt, err = k.CallNMSCExecutePayload(sdkCtx, evmFrom, nmscAddr, payload, signatureVal)
+	// Step 3: Execute payload through UEA
+	receipt, err = k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, signatureVal)
 	if err != nil {
 		return err
 	}
 
-	// Step 5: Handle fee calculation and deduction
-	nmscAccAddr := sdk.AccAddress(nmscAddr.Bytes())
+	gasUnitsUsed := receipt.GasUsed
+	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
+
+	// Step 4: Handle fee calculation and deduction
+	ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
 
 	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
 	if baseFee.IsNil() {
 		return errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
 	}
 
-	gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, receipt.GasUsed)
+	gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, gasUnitsUsed)
 	if err != nil {
 		return errors.Wrapf(err, "failed to calculate gas cost")
 	}
 
-	if gasCost.Cmp(payload.GasLimit) > 0 {
+	if gasUnitsUsedBig.Cmp(payload.GasLimit) > 0 {
 		return errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
 	}
 
-	if err = k.DeductAndBurnFees(ctx, nmscAccAddr, gasCost); err != nil {
-		return errors.Wrapf(err, "failed to deduct fees from %s", nmscAccAddr)
+	if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
+		return errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
 	}
 
 	return nil

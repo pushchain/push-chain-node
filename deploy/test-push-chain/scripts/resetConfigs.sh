@@ -77,4 +77,4 @@ python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "rosetta.address"
 python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/config.toml" "consensus.timeout_commit" "$BLOCK_TIME"
 
 # Min gas price
-python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "minimum-gas-prices" "0npush"
+python3 "$HOME/app/toml_edit.py" "$CHAIN_HOME/config/app.toml" "minimum-gas-prices" "0upc"

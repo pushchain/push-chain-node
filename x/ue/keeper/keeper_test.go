@@ -1,7 +1,11 @@
 package keeper_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
+
+	"github.com/golang/mock/gomock"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
@@ -32,12 +36,11 @@ import (
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/ue"
 	"github.com/rollchains/pchain/x/ue/keeper"
+	"github.com/rollchains/pchain/x/ue/keeper/mocks"
 	"github.com/rollchains/pchain/x/ue/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	evmtypes "github.com/evmos/os/x/evm/types"
-
-	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 )
 
 var maccPerms = map[string][]string{
@@ -64,11 +67,24 @@ type testFixture struct {
 
 	addrs      []sdk.AccAddress
 	govModAddr string
+	evmAddrs   []common.Address
+
+	ctrl           *gomock.Controller
+	mockBankKeeper *mocks.MockBankKeeper
+	mockUTVKeeper  *mocks.MockUtvKeeper
+	mockEVMKeeper  *mocks.MockEVMKeeper
 }
 
 func SetupTest(t *testing.T) *testFixture {
 	t.Helper()
 	f := new(testFixture)
+
+	f.ctrl = gomock.NewController(t)
+	t.Cleanup(f.ctrl.Finish)
+
+	f.mockBankKeeper = mocks.NewMockBankKeeper(f.ctrl)
+	f.mockUTVKeeper = mocks.NewMockUtvKeeper(f.ctrl)
+	f.mockEVMKeeper = mocks.NewMockEVMKeeper(f.ctrl)
 
 	cfg := sdk.GetConfig() // do not seal, more set later
 	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
@@ -87,6 +103,12 @@ func SetupTest(t *testing.T) *testFixture {
 	f.govModAddr = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	f.addrs = simtestutil.CreateIncrementalAccounts(3)
 
+	evmAddrs := make([]common.Address, len(f.addrs))
+	for i, addr := range f.addrs {
+		evmAddrs[i] = common.BytesToAddress(addr.Bytes())
+	}
+	f.evmAddrs = evmAddrs
+
 	keys := storetypes.NewKVStoreKeys(authtypes.ModuleName, banktypes.ModuleName, stakingtypes.ModuleName, minttypes.ModuleName, types.ModuleName)
 	f.ctx = sdk.NewContext(integration.CreateMultiStore(keys, logger), cmtproto.Header{}, false, logger)
 
@@ -94,10 +116,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, f.bankkeeper, &utvkeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, MockEVMKeeper{}, &feemarketkeeper.Keeper{}, &f.bankkeeper, &utvkeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
 
 	return f
 }
@@ -190,6 +212,38 @@ func (m MockEVMKeeper) CallEVM(
 	method string,
 	args ...interface{},
 ) (*evmtypes.MsgEthereumTxResponse, error) {
-	// no-op mock
-	return nil, nil
+
+	addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+
+	// ABI‑style left‑pad to 32 bytes
+	padded := common.LeftPadBytes(addr.Bytes(), 32)
+	return &evmtypes.MsgEthereumTxResponse{
+		Ret: padded, // flag : need to correct his mock for MintPC test
+	}, nil
+}
+
+type MockUTVKeeper struct{}
+
+func (m *MockUTVKeeper) VerifyGatewayInteractionTx(ctx context.Context, owner string, txHash string, chain string) error {
+	return nil // simulate a pass-through
+}
+
+func (m *MockUTVKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error) {
+	return *big.NewInt(0), 0, nil // simulate a pass-through
+}
+
+type MockBankKeeper struct{}
+
+func (m MockBankKeeper) MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error {
+	return nil
+}
+func (m MockBankKeeper) SendCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error {
+	return nil
+}
+
+func (m MockBankKeeper) SendCoinsFromModuleToAccount(ctx context.Context, senderAddr string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
+	return nil
+}
+func (m MockBankKeeper) BurnCoins(ctx context.Context, moduleName string, amt sdk.Coins) error {
+	return nil
 }

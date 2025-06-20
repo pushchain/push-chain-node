@@ -23,7 +23,6 @@ type Keeper struct {
 	// state management
 	storeService storetypes.KVStoreService
 	Params       collections.Item[types.Params]
-	AdminParams  collections.Item[types.AdminParams]
 	ChainConfigs collections.Map[string, types.ChainConfig]
 
 	authority       string
@@ -57,7 +56,6 @@ func NewKeeper(
 		logger:       logger,
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
-		AdminParams:  collections.NewItem(sb, types.AdminParamsKey, types.AdminParamsName, codec.CollValue[types.AdminParams](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 
 		authority:       authority,
@@ -81,8 +79,8 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// deploy factory at 0xEA address
-	deployFactoryContract(ctx, k.evmKeeper)
+	// deploy factory proxy at 0xEA address
+	deployFactoryEA(ctx, k.evmKeeper)
 
 	return k.Params.Set(ctx, data.Params)
 }
@@ -99,10 +97,18 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k Keeper) GetChainConfig(ctx context.Context, chainID string) (types.ChainConfig, error) {
-	config, err := k.ChainConfigs.Get(ctx, chainID)
+func (k Keeper) GetChainConfig(ctx context.Context, chain string) (types.ChainConfig, error) {
+	config, err := k.ChainConfigs.Get(ctx, chain)
 	if err != nil {
 		return types.ChainConfig{}, err
 	}
 	return config, nil
+}
+
+func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) {
+	enabled, err := k.ChainConfigs.Has(ctx, chain)
+	if err != nil {
+		return false, err
+	}
+	return enabled, nil
 }

@@ -20,9 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Msg_UpdateParams_FullMethodName      = "/ue.v1.Msg/UpdateParams"
-	Msg_UpdateAdminParams_FullMethodName = "/ue.v1.Msg/UpdateAdminParams"
-	Msg_DeployNMSC_FullMethodName        = "/ue.v1.Msg/DeployNMSC"
-	Msg_MintPush_FullMethodName          = "/ue.v1.Msg/MintPush"
+	Msg_DeployUEA_FullMethodName         = "/ue.v1.Msg/DeployUEA"
+	Msg_MintPC_FullMethodName            = "/ue.v1.Msg/MintPC"
 	Msg_ExecutePayload_FullMethodName    = "/ue.v1.Msg/ExecutePayload"
 	Msg_AddChainConfig_FullMethodName    = "/ue.v1.Msg/AddChainConfig"
 	Msg_UpdateChainConfig_FullMethodName = "/ue.v1.Msg/UpdateChainConfig"
@@ -36,13 +35,11 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// UpdateAdminParams defines a admin operation for updating the admin parameters.
-	UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error)
-	// DeployNMSC defines a message to deploy a new smart account.
-	DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error)
-	// MintPush defines a message to mint PUSH tokens to a smart account,
-	MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error)
-	// ExecutePayload defines a message for executing a cross-chain payload
+	// DeployUEA defines a message to deploy a new smart account.
+	DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error)
+	// MintPC defines a message to mint PC tokens to a smart account,
+	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
+	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// AddChainConfig adds a new ChainConfig entry
 	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
@@ -67,27 +64,18 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
-func (c *msgClient) UpdateAdminParams(ctx context.Context, in *MsgUpdateAdminParams, opts ...grpc.CallOption) (*MsgUpdateAdminParamsResponse, error) {
-	out := new(MsgUpdateAdminParamsResponse)
-	err := c.cc.Invoke(ctx, Msg_UpdateAdminParams_FullMethodName, in, out, opts...)
+func (c *msgClient) DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error) {
+	out := new(MsgDeployUEAResponse)
+	err := c.cc.Invoke(ctx, Msg_DeployUEA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *msgClient) DeployNMSC(ctx context.Context, in *MsgDeployNMSC, opts ...grpc.CallOption) (*MsgDeployNMSCResponse, error) {
-	out := new(MsgDeployNMSCResponse)
-	err := c.cc.Invoke(ctx, Msg_DeployNMSC_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) MintPush(ctx context.Context, in *MsgMintPush, opts ...grpc.CallOption) (*MsgMintPushResponse, error) {
-	out := new(MsgMintPushResponse)
-	err := c.cc.Invoke(ctx, Msg_MintPush_FullMethodName, in, out, opts...)
+func (c *msgClient) MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error) {
+	out := new(MsgMintPCResponse)
+	err := c.cc.Invoke(ctx, Msg_MintPC_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +117,11 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// UpdateAdminParams defines a admin operation for updating the admin parameters.
-	UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error)
-	// DeployNMSC defines a message to deploy a new smart account.
-	DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error)
-	// MintPush defines a message to mint PUSH tokens to a smart account,
-	MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error)
-	// ExecutePayload defines a message for executing a cross-chain payload
+	// DeployUEA defines a message to deploy a new smart account.
+	DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error)
+	// MintPC defines a message to mint PC tokens to a smart account,
+	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
+	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// AddChainConfig adds a new ChainConfig entry
 	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
@@ -151,14 +137,11 @@ type UnimplementedMsgServer struct {
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
 }
-func (UnimplementedMsgServer) UpdateAdminParams(context.Context, *MsgUpdateAdminParams) (*MsgUpdateAdminParamsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateAdminParams not implemented")
+func (UnimplementedMsgServer) DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeployUEA not implemented")
 }
-func (UnimplementedMsgServer) DeployNMSC(context.Context, *MsgDeployNMSC) (*MsgDeployNMSCResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeployNMSC not implemented")
-}
-func (UnimplementedMsgServer) MintPush(context.Context, *MsgMintPush) (*MsgMintPushResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MintPush not implemented")
+func (UnimplementedMsgServer) MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MintPC not implemented")
 }
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
@@ -200,56 +183,38 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_UpdateAdminParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgUpdateAdminParams)
+func _Msg_DeployUEA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgDeployUEA)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).UpdateAdminParams(ctx, in)
+		return srv.(MsgServer).DeployUEA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Msg_UpdateAdminParams_FullMethodName,
+		FullMethod: Msg_DeployUEA_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).UpdateAdminParams(ctx, req.(*MsgUpdateAdminParams))
+		return srv.(MsgServer).DeployUEA(ctx, req.(*MsgDeployUEA))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_DeployNMSC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgDeployNMSC)
+func _Msg_MintPC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgMintPC)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).DeployNMSC(ctx, in)
+		return srv.(MsgServer).MintPC(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Msg_DeployNMSC_FullMethodName,
+		FullMethod: Msg_MintPC_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).DeployNMSC(ctx, req.(*MsgDeployNMSC))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_MintPush_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgMintPush)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).MintPush(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_MintPush_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).MintPush(ctx, req.(*MsgMintPush))
+		return srv.(MsgServer).MintPC(ctx, req.(*MsgMintPC))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -320,16 +285,12 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_UpdateParams_Handler,
 		},
 		{
-			MethodName: "UpdateAdminParams",
-			Handler:    _Msg_UpdateAdminParams_Handler,
+			MethodName: "DeployUEA",
+			Handler:    _Msg_DeployUEA_Handler,
 		},
 		{
-			MethodName: "DeployNMSC",
-			Handler:    _Msg_DeployNMSC_Handler,
-		},
-		{
-			MethodName: "MintPush",
-			Handler:    _Msg_MintPush_Handler,
+			MethodName: "MintPC",
+			Handler:    _Msg_MintPC_Handler,
 		},
 		{
 			MethodName: "ExecutePayload",

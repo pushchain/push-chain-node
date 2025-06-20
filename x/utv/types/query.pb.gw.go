@@ -62,15 +62,15 @@ func request_Query_VerifiedTxHash_0(ctx context.Context, marshaler runtime.Marsh
 		_   = err
 	)
 
-	val, ok = pathParams["chain_id"]
+	val, ok = pathParams["chain"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "chain_id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "chain")
 	}
 
-	protoReq.ChainId, err = runtime.String(val)
+	protoReq.Chain, err = runtime.String(val)
 
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "chain_id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "chain", err)
 	}
 
 	val, ok = pathParams["tx_hash"]
@@ -100,15 +100,15 @@ func local_request_Query_VerifiedTxHash_0(ctx context.Context, marshaler runtime
 		_   = err
 	)
 
-	val, ok = pathParams["chain_id"]
+	val, ok = pathParams["chain"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "chain_id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "chain")
 	}
 
-	protoReq.ChainId, err = runtime.String(val)
+	protoReq.Chain, err = runtime.String(val)
 
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "chain_id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "chain", err)
 	}
 
 	val, ok = pathParams["tx_hash"]
@@ -266,7 +266,7 @@ func RegisterQueryHandlerClient(ctx context.Context, mux *runtime.ServeMux, clie
 var (
 	pattern_Query_Params_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"utv", "v1", "params"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_VerifiedTxHash_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 1, 0, 4, 1, 5, 4}, []string{"utv", "v1", "verified_tx_hash", "chain_id", "tx_hash"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_VerifiedTxHash_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 1, 0, 4, 1, 5, 4}, []string{"utv", "v1", "verified_tx_hash", "chain", "tx_hash"}, "", runtime.AssumeColonVerbOpt(false)))
 )
 
 var (

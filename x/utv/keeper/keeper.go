@@ -86,20 +86,20 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k *Keeper) storeVerifiedTx(ctx context.Context, chainId, txHash string) error {
-	if chainId == "" || txHash == "" {
-		return fmt.Errorf("chain_id and tx_hash are required")
+func (k *Keeper) storeVerifiedTx(ctx context.Context, chain, txHash string) error {
+	if chain == "" || txHash == "" {
+		return fmt.Errorf("chain and tx_hash are required")
 	}
 
-	storageKey := types.GetVerifiedTxStorageKey(chainId, txHash)
+	storageKey := types.GetVerifiedTxStorageKey(chain, txHash)
 	return k.VerifiedTxs.Set(ctx, storageKey, true)
 }
 
-func (k *Keeper) IsTxHashVerified(ctx context.Context, chainId, txHash string) (bool, error) {
-	storageKey := types.GetVerifiedTxStorageKey(chainId, txHash)
+func (k *Keeper) IsTxHashVerified(ctx context.Context, chain, txHash string) (bool, error) {
+	storageKey := types.GetVerifiedTxStorageKey(chain, txHash)
 	fmt.Println("Checking if transaction hash is verified:", storageKey)
 
-	// Check if tx hash exists for passed chainId
+	// Check if tx hash exists for passed chain
 	if has, err := k.VerifiedTxs.Has(ctx, storageKey); err != nil {
 		fmt.Println("Error checking if transaction hash is verified:", err)
 		return false, err

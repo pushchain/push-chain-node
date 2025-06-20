@@ -29,22 +29,11 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 	return &types.QueryParamsResponse{Params: &p}, nil
 }
 
-// AdminParams implements types.QueryServer.
-func (k Querier) AdminParams(goCtx context.Context, req *types.QueryAdminParamsRequest) (*types.QueryAdminParamsResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	ap, err := k.Keeper.AdminParams.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &types.QueryAdminParamsResponse{AdminParams: &ap}, nil
-}
-
 // ChainConfig implements types.QueryServer.
 func (k Querier) ChainConfig(goCtx context.Context, req *types.QueryChainConfigRequest) (*types.QueryChainConfigResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	cc, err := k.Keeper.GetChainConfig(ctx, req.ChainId)
+	cc, err := k.Keeper.GetChainConfig(ctx, req.Chain)
 	if err != nil {
 		return nil, err
 	}

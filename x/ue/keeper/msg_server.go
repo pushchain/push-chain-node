@@ -28,7 +28,7 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
 
-	err := ms.k.updateParams(ctx, msg.Params)
+	err := ms.k.UpdateParams(ctx, msg.Params)
 	if err != nil {
 		return nil, err
 	}
@@ -36,68 +36,46 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// UpdateAdminParams handles updates to admin parameters.
-// Only current admin can execute this.
-func (ms msgServer) UpdateAdminParams(ctx context.Context, msg *types.MsgUpdateAdminParams) (*types.MsgUpdateAdminParamsResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
-	}
-
-	// Check if the sender is the admin (from params)
-	if params.Admin != msg.Admin {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid admin; expected admin address %s, got %s", params.Admin, msg.Admin)
-	}
-
-	err = ms.k.updateAdminParams(ctx, msg.AdminParams)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MsgUpdateAdminParamsResponse{}, nil
-}
-
-// DeployNMSC handles the deployment of new Smart Account (NMSC).
-func (ms msgServer) DeployNMSC(ctx context.Context, msg *types.MsgDeployNMSC) (*types.MsgDeployNMSCResponse, error) {
+// DeployUEA handles the deployment of new Smart Account (UEA).
+func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*types.MsgDeployUEAResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	sa, err := ms.k.deployNMSC(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
+	sa, err := ms.k.DeployUEA(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgDeployNMSCResponse{
-		SmartAccount: sa,
+	return &types.MsgDeployUEAResponse{
+		UEA: sa,
 	}, nil
 }
 
-// MintPush handles token minting to the user's NMSC for the tokens locked on source chain.
-func (ms msgServer) MintPush(ctx context.Context, msg *types.MsgMintPush) (*types.MsgMintPushResponse, error) {
+// MintPC handles token minting to the user's UEA for the tokens locked on source chain.
+func (ms msgServer) MintPC(ctx context.Context, msg *types.MsgMintPC) (*types.MsgMintPCResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.mintPush(ctx, evmFromAddress, msg.AccountId, msg.TxHash)
+	err = ms.k.MintPC(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgMintPushResponse{}, nil
+	return &types.MsgMintPCResponse{}, nil
 }
 
-// ExecutePayload handles cross-chain payload execution on the NMSC.
+// ExecutePayload handles universal payload execution on the UEA.
 func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.executePayload(ctx, evmFromAddress, msg.AccountId, msg.CrosschainPayload, msg.Signature)
+	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccount, msg.UniversalPayload, msg.Signature)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +95,7 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.addChainConfig(ctx, msg.ChainConfig)
+	err = ms.k.AddChainConfig(ctx, msg.ChainConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +115,7 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.updateChainConfig(ctx, msg.ChainConfig)
+	err = ms.k.UpdateChainConfig(ctx, msg.ChainConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -7,15 +7,20 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/rollchains/pchain/utils"
+	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// verifyEVMInteraction verifies user interacted with locker by checking tx sent by ownerKey to locker contract
+// verifyEVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
 func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
-	rpcURL := chainConfig.PublicRpcUrl
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
-	tx, err := evmrpc.EthGetTransactionByHash(ctx, rpcURL, txHash)
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -23,74 +28,123 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 	// Normalize addresses for comparison
 	from := NormalizeAddress(tx.From)
 	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
+	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
 
 	// Check if tx.From matches ownerKey
 	if from != expectedFrom {
 		return fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
 	}
 
-	// Check if tx.To matches locker contract address
-	if !didSendToLocker(tx, expectedTo) {
-		return fmt.Errorf("transaction recipient %s is not locker contract %s", tx.To, expectedTo)
+	// Check if tx.To matches gateway address
+	if !didSendToGateway(tx.To, expectedTo) {
+		return fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
+	}
+
+	// Check if transaction is calling addFunds method
+	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
 	}
 
 	return nil
 }
 
 // Verifies and extracts locked amount (used in mint)
-func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, error) {
-	rpcURL := chainConfig.PublicRpcUrl
+func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
 	// Step 1: Fetch transaction receipt
-	receipt, err := evmrpc.EthGetTransactionReceipt(ctx, rpcURL, txHash)
+	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("fetch receipt failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch receipt failed: %w", err)
+	}
+
+	// Step 2: Verify transaction details
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
+	if err != nil {
+		return *big.NewInt(0), 0, fmt.Errorf("failed to fetch transaction: %w", err)
 	}
 
 	// Normalize addresses for comparison
 	from := NormalizeAddress(receipt.From)
 	to := NormalizeAddress(receipt.To)
 	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.LockerContractAddress)
+	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
 
-	if from != expectedFrom || to != expectedTo {
-		return *big.NewInt(0), fmt.Errorf("tx not sent from %s to locker %s", receipt.From, chainConfig.LockerContractAddress)
+	if from != expectedFrom {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction sender %s does not match ownerKey %s", receipt.From, expectedFrom)
+	}
+
+	// Check if tx.To matches gateway address
+	if !didSendToGateway(to, expectedTo) {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not gateway address %s", receipt.To, expectedTo)
+	}
+
+	// Check if transaction is calling addFunds method
+	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return *big.NewInt(0), 0, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
 	}
 
 	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
 	if !ok {
-		return *big.NewInt(0), fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
+		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
 	}
 
 	// Get latest block number
-	latestBlock, err := evmrpc.EthGetBlockByNumber(ctx, rpcURL, "latest", false)
+	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcCfg, "latest", false)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("fetch latest block failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("fetch latest block failed: %w", err)
 	}
 	latestBlockNum, ok := new(big.Int).SetString(latestBlock.Number[2:], 16)
 	if !ok {
-		return *big.NewInt(0), fmt.Errorf("invalid block number in latest block: %s", latestBlock.Number)
+		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in latest block: %s", latestBlock.Number)
 	}
 
 	confirmations := new(big.Int).Sub(latestBlockNum, txBlockNum)
 	required := big.NewInt(int64(chainConfig.BlockConfirmation))
 	if confirmations.Cmp(required) < 0 {
-		return *big.NewInt(0), fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), chainConfig.BlockConfirmation)
+		return *big.NewInt(0), 0, fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), chainConfig.BlockConfirmation)
 	}
 
 	// Step 3: Extract amount from logs
-	amount, err := extractAmountFromLogs(receipt.Logs, chainConfig.FundsAddedEventTopic)
+	eventTopic := ""
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == "addFunds" {
+			eventTopic = method.EventIdentifier
+			break
+		}
+	}
+	if eventTopic == "" {
+		return *big.NewInt(0), 0, fmt.Errorf("addFunds method not found in gateway methods")
+	}
+	amount, decimals, err := extractAmountFromLogs(receipt.Logs, eventTopic)
 	if err != nil {
-		return *big.NewInt(0), fmt.Errorf("amount extract failed: %w", err)
+		return *big.NewInt(0), 0, fmt.Errorf("amount extract failed: %w", err)
 	}
 
-	return amount, nil
+	return amount, decimals, nil
 }
 
-// didSendToLocker checks if tx.To equals locker contract address
-func didSendToLocker(tx *evmrpc.Transaction, lockerAddress string) bool {
-	return NormalizeAddress(tx.To) == lockerAddress
+// didSendToGateway checks if tx.To equals gateway address
+func didSendToGateway(toAddress string, gatewayAddress string) bool {
+	return NormalizeAddress(toAddress) == gatewayAddress
+}
+
+func isCallingAddFunds(txInput string, chainConfig types.ChainConfig) (bool, string) {
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == "addFunds" {
+			selector := method.Identifier
+			if strings.HasPrefix(txInput, selector) {
+				return true, selector
+			}
+			return false, selector
+		}
+	}
+	return false, ""
 }
 
 // NormalizeAddress returns a lowercase hex address without 0x prefix
@@ -99,7 +153,7 @@ func NormalizeAddress(addr string) string {
 }
 
 // extractAmountFromLogs parses logs to extract the locked amount using the given event topic
-func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, error) {
+func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, uint32, error) {
 	expectedTopic = strings.ToLower(expectedTopic)
 
 	for _, rawLog := range logs {
@@ -126,14 +180,18 @@ func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, e
 		}
 
 		dataBytes, err := hex.DecodeString(dataHex[2:])
-		if err != nil || len(dataBytes) < 32 {
-			continue
+		if err != nil || len(dataBytes) < 64 {
+			return *big.NewInt(0), 0, err
 		}
 
-		// Assume amount is the first 32 bytes
+		// First 32 bytes: amountInUSD
 		amount := new(big.Int).SetBytes(dataBytes[:32])
-		return *amount, nil
+
+		// Second 32 bytes: decimals (only last byte relevant)
+		decimals := uint32(uint8(dataBytes[63]))
+
+		return *amount, decimals, nil
 	}
 
-	return *big.NewInt(0), fmt.Errorf("amount not found with expected topic %s", expectedTopic)
+	return *big.NewInt(0), 0, fmt.Errorf("amount not found with expected topic %s", expectedTopic)
 }

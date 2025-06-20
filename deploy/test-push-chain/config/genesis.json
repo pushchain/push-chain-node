@@ -55,7 +55,7 @@
           "address": "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
           "coins": [
             {
-              "denom": "npush",
+              "denom": "upc",
               "amount": "5000000000000000000000000000"
             },
             {
@@ -68,7 +68,7 @@
           "address": "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9",
           "coins": [
             {
-              "denom": "npush",
+              "denom": "upc",
               "amount": "2000000000000000000000000000"
             },
             {
@@ -81,7 +81,7 @@
           "address": "push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h",
           "coins": [
             {
-              "denom": "npush",
+              "denom": "upc",
               "amount": "3000000000000000000000000000"
             },
             {
@@ -93,7 +93,7 @@
       ],
       "supply": [
         {
-          "denom": "npush",
+          "denom": "upc",
           "amount": "10000000000000000000000000000"
         },
         {
@@ -115,7 +115,7 @@
     "consensus": null,
     "crisis": {
       "constant_fee": {
-        "denom": "npush",
+        "denom": "upc",
         "amount": "1000"
       }
     },
@@ -150,7 +150,7 @@
         {
           "contract_owner": 1,
           "erc20_address": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-          "denom": "npush",
+          "denom": "upc",
           "enabled": true
         }
       ]
@@ -161,7 +161,7 @@
     "evm": {
       "accounts": [],
       "params": {
-        "evm_denom": "npush",
+        "evm_denom": "upc",
         "extra_eips": [
           "ethereum_3855"
         ],
@@ -262,7 +262,7 @@
                   "key": "rOvGqLXH/2aD0LLU7XSR65k1DXL+66205numiS/SvWE="
                 },
                 "value": {
-                  "denom": "npush",
+                  "denom": "upc",
                   "amount": "10000000000000000000000"
                 }
               }
@@ -312,7 +312,7 @@
       "params": {
         "min_deposit": [
           {
-            "denom": "npush",
+            "denom": "upc",
             "amount": "1000000"
           }
         ],
@@ -328,7 +328,7 @@
         "expedited_threshold": "0.667000000000000000",
         "expedited_min_deposit": [
           {
-            "denom": "npush",
+            "denom": "upc",
             "amount": "50000000"
           }
         ],
@@ -417,7 +417,7 @@
         "annual_provisions": "0.000000000000000000"
       },
       "params": {
-        "mint_denom": "npush",
+        "mint_denom": "upc",
         "inflation_rate_change": "0.130000000000000000",
         "inflation_max": "0.200000000000000000",
         "inflation_min": "0.070000000000000000",
@@ -463,7 +463,7 @@
         "max_validators": 100,
         "max_entries": 7,
         "historical_entries": 10000,
-        "bond_denom": "npush",
+        "bond_denom": "upc",
         "min_commission_rate": "0.050000000000000000"
       },
       "last_total_power": "0",

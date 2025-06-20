@@ -547,7 +547,7 @@ func TestMsgServer_AddChainConfig(t *testing.T) {
 		require.ErrorContains(t, err, "invalid authority;")
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success!", func(t *testing.T) {
 		msg := &types.MsgAddChainConfig{
 			Signer:      validSigner.String(),
 			ChainConfig: &chainConfigTest,
@@ -557,4 +557,74 @@ func TestMsgServer_AddChainConfig(t *testing.T) {
 		require.NoError(t, err) // flag : need to add verify condition
 	})
 
+}
+
+func TestMsgServer_UpdateChainConfig(t *testing.T) {
+	f := SetupTest(t)
+	validSigner := f.addrs[0]
+
+	chainConfigTest := types.ChainConfig{
+		Chain:             "Ethereum",
+		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
+		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
+		BlockConfirmation: 12,
+		GatewayMethods:    []*ue.MethodConfig{},
+		Enabled:           true,
+	}
+
+	updatedChainConfigTest := types.ChainConfig{
+		Chain:             "Ethereum",
+		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
+		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
+		BlockConfirmation: 14,
+		GatewayMethods:    []*ue.MethodConfig{},
+		Enabled:           true,
+	}
+	t.Run("Failed to get params", func(t *testing.T) {
+		msg := &types.MsgUpdateChainConfig{
+			Signer:      validSigner.String(),
+			ChainConfig: &chainConfigTest,
+		}
+
+		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
+		require.ErrorContains(t, err, "failed to get params")
+	})
+	t.Run("fail : Invalid authority", func(t *testing.T) {
+		msg := &types.MsgUpdateChainConfig{
+			Signer:      validSigner.String(),
+			ChainConfig: &chainConfigTest,
+		}
+		f.k.Params.Set(f.ctx, ue.Params{})
+		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
+		require.ErrorContains(t, err, "invalid authority;")
+	})
+
+	t.Run("fail : config does not exist to update", func(t *testing.T) {
+		msg := &types.MsgUpdateChainConfig{
+			Signer:      validSigner.String(),
+			ChainConfig: &chainConfigTest,
+		}
+		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
+		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
+		require.ErrorContains(t, err, "chain config for Ethereum does not exist")
+	})
+
+	t.Run("success!", func(t *testing.T) {
+		addConfigMsg := &types.MsgAddChainConfig{
+			Signer:      validSigner.String(),
+			ChainConfig: &chainConfigTest,
+		}
+		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
+		_, err := f.msgServer.AddChainConfig(f.ctx, addConfigMsg)
+		require.NoError(t, err)
+
+		msg := &types.MsgUpdateChainConfig{
+			Signer:      validSigner.String(),
+			ChainConfig: &updatedChainConfigTest,
+		}
+		_, err = f.msgServer.UpdateChainConfig(f.ctx, msg)
+		require.NoError(t, err) // flag : need to add verify condition (cross-checking)
+	})
 }

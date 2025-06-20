@@ -140,10 +140,6 @@ Deploy to DONUT-NODE1 (Genesis Node)
 
 
 
-scp "build/pchaind" "34.57.209.0:~/app/pchaind"
-scp "deploy/make_first_node.sh" "34.57.209.0:~/app/make_first_node.sh"
-scp -r deploy/test-push-chain/scripts/* "34.57.209.0:~/app/"
-
 scp \
   build/pchaind \
   deploy/make_first_node.sh \
@@ -157,10 +153,19 @@ chmod +x ~/app/pchaind
 chmod u+x ~/app/*.sh
 sudo rm /usr/local/bin/pchaind
 sudo ln -s ~/app/pchaind /usr/local/bin/pchaind
-sudo sed -i 's/external_address = ""/external_address = "34.57.209.0:26656"/' /home/shoaibmohammed/.pchain/config/config.toml
+
+# Add mnemonic in the place holder
+
+
 ~/app/make_first_node.sh
+
+
 ~/app/start.sh
 ~/app/showLogs.sh
+
+
+sudo sed -i 's/external_address = ""/external_address = "34.57.209.0:26656"/' /home/shoaibmohammed/.pchain/config/config.toml
+
 
 rm ~/app/make_first_node.sh
 
@@ -222,7 +227,7 @@ python3 ~/app/toml_edit.py \
 
 
 # note : execute this cmd on the remote node to get it's id : pchaind tendermint show-node-id 
-export pn1_url="021660c91763de249eca6b57ba423f10b2b89cec@34.57.209.0:26656"
+export pn1_url="dc323e3c930d12369723373516267a213d74ea37@34.57.209.0:26656"
 
 #Step 1: Copy from node 1 to local:
 scp "34.57.209.0:~/.pchain/config/genesis.json" "./genesis.json"
@@ -254,7 +259,7 @@ tail -n 100 ~/app/chain.log
 
 
 pchaind tendermint show-node-id
-ab75b1d4942c2275b1128814ff7bd3187917ea84
+ce9e6c2a5486bb2547043257360796c5b77c173f
 
 export VALIDATOR_PUBKEY=$(pchaind comet show-validator)
 export ONE_PUSH=000000000000000000upc
@@ -285,38 +290,14 @@ shoaibmohammed@push-chain-testnet-val-02:~/.pchain$
 export KEYRING="test"
 export NODE_OWNER_WALLET_NAME=acc21
 
-export FAUCET_WALLET=push1ly2z32h2t4ap2zd3etmwqjlyg9esf2hwrrj50p
-export NODE_OWNER_WALLET=push108x4hu24qdux00zncr4we409s8v3x0lgxt66gd
+pchaind keys add $NODE_OWNER_WALLET_NAME --keyring-backend "$KEYRING"
+
+export NODE_OWNER_WALLET=push1qg8q9xvh7dq7eh6zawkaxszm0uu53yrgunjwdl
 export ONE_PUSH=000000000000000000upc
 export CHAIN_ID="push_42101-1"
 
 
-TO BE RUN on V1
-
-shoaibmohammed@push-chain-testnet-val-01:~$ 
-export KEYRING="test"
-export FAUCET_WALLET="push1ly2z32h2t4ap2zd3etmwqjlyg9esf2hwrrj50p"
-export NODE_OWNER_WALLET="push12exvrdv7lk3junydgyss3nxgvuytyzc293694d"
-export ONE_PUSH="000000000000000000upc"
-export CHAIN_ID="push_42101-1"
-
-shoaibmohammed@push-chain-testnet-val-01:~$ pchaind tx bank send "$FAUCET_WALLET" "$NODE_OWNER_WALLET" "25000$ONE_PUSH" --fees 1000000000000000upc --chain-id "$CHAIN_ID" --keyring-backend "$KEYRING" --yes
-code: 0
-codespace: ""
-data: ""
-events: []
-gas_used: "0"
-gas_wanted: "0"
-height: "0"
-info: ""
-logs: []
-raw_log: ""
-timestamp: ""
-tx: null
-txhash: 5B18F5619897BCCA991A21743CADDFC2CE142B44889D96D445BB84A30F8DC067
-
-
-pchaind query tx 5B18F5619897BCCA991A21743CADDFC2CE142B44889D96D445BB84A30F8DC067 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
+# Ask Nilesh to fund the node owner 
 
 shoaibmohammed@push-chain-testnet-val-02:~/app$ export NODE_OWNER_WALLET_NAME="acc21"
 export CHAIN_ID="push_42101-1"
@@ -344,10 +325,10 @@ logs: []
 raw_log: ""
 timestamp: ""
 tx: null
-txhash: 64DAFDD500AC40B885D0047B1E686A6E040B159F7E0C1007F9776B6246250768
+txhash: 577F36720EE6E3CA6EFB9516B94BF6098C4968461A450650AAC39088F0A71F76
 
-pchaind query tx 64DAFDD500AC40B885D0047B1E686A6E040B159F7E0C1007F9776B6246250768 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
+pchaind query tx 577F36720EE6E3CA6EFB9516B94BF6098C4968461A450650AAC39088F0A71F76 --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'
 
-pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="donut-node1")'
+pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="donut-node2")'
 
-sed -i 's/^enable = false/enable = true/' /home/shoaibmohammed/.pchain/config/app.toml && grep -A2 "\[json-rpc\]" /home/shoaibmohammed/.pchain/config/app.toml)
+sed -i 's/^enable = false/enable = true/' /home/shoaibmohammed/.pchain/config/app.toml && grep -A2 "\[json-rpc\]" /home/shoaibmohammed/.pchain/config/app.toml

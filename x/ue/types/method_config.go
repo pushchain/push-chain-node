@@ -21,9 +21,9 @@ func (p MethodConfig) String() string {
 
 // Validate does the sanity check on the params.
 func (p MethodConfig) ValidateBasic() error {
-	// Name must not be empty
-	if strings.TrimSpace(p.Name) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method name cannot be empty")
+	// MethodType must be valid
+	if p.MethodType != GatewayMethodType_ADD_FUNDS {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method type must be valid")
 	}
 
 	//Identifier must not be empty and must be valid hex

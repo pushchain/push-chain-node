@@ -17,7 +17,7 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "valid - EVM style",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "addFunds",
 				Identifier:      "0xf9bfe8a7",
 				EventIdentifier: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
 			},
@@ -26,16 +26,26 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "valid - Solana style",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "add_funds",
 				Identifier:      "84ed4c39500ab38a",
 				EventIdentifier: "7f1f6cffbb134644",
 			},
 			expectErr: false,
 		},
 		{
+			name: "invalid - empty name",
+			config: types.MethodConfig{
+				Name:            "",
+				Identifier:      "a9059cbb",
+				EventIdentifier: "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a5f8d0b2f29",
+			},
+			expectErr: true,
+			errMsg:    "method name cannot be empty",
+		},
+		{
 			name: "invalid - empty identifier",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "transfer",
 				Identifier:      "",
 				EventIdentifier: "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a5f8d0b2f29",
 			},
@@ -45,7 +55,7 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid - malformed identifier",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "transfer",
 				Identifier:      "0xzzzzzz",
 				EventIdentifier: "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a5f8d0b2f29",
 			},
@@ -55,7 +65,7 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid - empty event_identifier",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "transfer",
 				Identifier:      "a9059cbb",
 				EventIdentifier: "",
 			},
@@ -65,7 +75,7 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid - malformed event_identifier",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "transfer",
 				Identifier:      "a9059cbb",
 				EventIdentifier: "not_hex_topic!",
 			},
@@ -75,7 +85,7 @@ func TestMethodConfig_ValidateBasic(t *testing.T) {
 		{
 			name: "valid - with 0x prefix",
 			config: types.MethodConfig{
-				MethodType:      types.GatewayMethodType_ADD_FUNDS,
+				Name:            "mint",
 				Identifier:      "0xa0712d68",
 				EventIdentifier: "0x3c4e6c56cc5f2c26c92b91ee2f8bdc4e844b407bd1402b34ac1ef1f875d3c4b5",
 			},

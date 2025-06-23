@@ -6,7 +6,7 @@
   "block_confirmation": 1,
   "gateway_methods": [
     {
-      "method_type": 0,
+      "name": "add_funds",
       "identifier": "84ed4c39500ab38a",
       "event_identifier": "7f1f6cffbb134644"
     }

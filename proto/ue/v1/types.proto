@@ -35,12 +35,6 @@ enum SignatureType {
   universalTxVerification = 1; // Universal transaction verification
 }
 
-// GatewayMethodType defines the types of gateway methods supported
-enum GatewayMethodType {
-  ADD_FUNDS = 0; // Add funds to the gateway (e.g., "add_funds", "addFunds")
-  // Add more method types here as needed
-}
-
 // UniversalPayload mirrors the Solidity struct
 message UniversalPayload {
   option (amino.name) = "ue/universal_payload";
@@ -75,9 +69,8 @@ message MethodConfig {
   option (gogoproto.goproto_stringer) = false;
 
   string name = 1;                // Human-readable method name (e.g. "add_funds")
-  GatewayMethodType method_type = 2; // Type of the method (enum)
-  string identifier = 3;          // Hex-encoded selector or discriminator for the method
-  string event_identifier = 4;    // Hex-encoded topic or identifier for emitted event
+  string identifier = 2;          // Hex-encoded selector or discriminator for the method
+  string event_identifier = 3;    // Hex-encoded topic or identifier for emitted event
 }
 
 // ChainConfig defines the configuration for a supported source or destination chain

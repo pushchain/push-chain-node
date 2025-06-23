@@ -113,7 +113,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// Step 3: Extract amount from logs
 	eventTopic := ""
 	for _, method := range chainConfig.GatewayMethods {
-		if method.MethodType == types.GatewayMethodType_ADD_FUNDS {
+		if method.Name == "addFunds" {
 			eventTopic = method.EventIdentifier
 			break
 		}
@@ -136,7 +136,7 @@ func didSendToGateway(toAddress string, gatewayAddress string) bool {
 
 func isCallingAddFunds(txInput string, chainConfig types.ChainConfig) (bool, string) {
 	for _, method := range chainConfig.GatewayMethods {
-		if method.MethodType == types.GatewayMethodType_ADD_FUNDS {
+		if method.Name == "addFunds" {
 			selector := method.Identifier
 			if strings.HasPrefix(txInput, selector) {
 				return true, selector

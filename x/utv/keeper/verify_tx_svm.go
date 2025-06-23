@@ -17,6 +17,7 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
+
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
 func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
 	rpcCfg := rpc.RpcCallConfig{
@@ -102,7 +103,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			// Get the expected discriminator from chain config
 			var expectedDiscriminator []byte
 			for _, method := range chainConfig.GatewayMethods {
-				if method.MethodType == types.GatewayMethodType_ADD_FUNDS {
+				if method.Name == "add_funds" {
 					// Convert hex string to bytes
 					expectedDiscriminator, err = hex.DecodeString(method.Identifier)
 					if err != nil {
@@ -212,7 +213,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// Get the event discriminator from chain config
 	var eventDiscriminator []byte
 	for _, method := range chainConfig.GatewayMethods {
-		if method.MethodType == types.GatewayMethodType_ADD_FUNDS {
+		if method.Name == "add_funds" {
 			// Convert hex string to bytes
 			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
 			if err != nil {

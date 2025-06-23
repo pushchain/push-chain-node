@@ -134,7 +134,7 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 				BlockConfirmation: 1,
 				GatewayMethods: []*types.MethodConfig{
 					{
-						MethodType:      types.GatewayMethodType_ADD_FUNDS,
+						Name:            "bad_method",
 						Identifier:      "zzznothex", // invalid
 						EventIdentifier: "7f1f6cffbb134644",
 					},

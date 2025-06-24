@@ -10,10 +10,10 @@ import (
 func TestMsgExecutePayload_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "invalid_bech32"
-
 	validUA := &types.UniversalAccount{
-		Chain: "eip155:11155111",
-		Owner: "0x000000000000000000000000000000000000dead",
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
 
 	validPayload := &types.UniversalPayload{

@@ -11,14 +11,15 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "not_bech32"
 
-	validUA := &types.UniversalAccount{
-		Chain: "eip155:11155111",
-		Owner: "0x000000000000000000000000000000000000dead",
+	validUAcc := &types.UniversalAccount{
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
-
-	invalidUA := &types.UniversalAccount{
-		Chain: "solana", // invalid CAIP-2 format
-		Owner: "0xabc",
+	invalidUAcc := &types.UniversalAccount{
+		ChainNamespace: "",
+		ChainId:        "11155111",
+		Owner:          "0xzzzzzzzz",
 	}
 
 	tests := []struct {
@@ -30,7 +31,7 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 			name: "valid message",
 			msg: &types.MsgMintPC{
 				Signer:           validSigner,
-				UniversalAccount: validUA,
+				UniversalAccount: validUAcc,
 				TxHash:           "0x123abc",
 			},
 			expectErr: false,
@@ -39,7 +40,7 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 			name: "invalid signer address",
 			msg: &types.MsgMintPC{
 				Signer:           invalidSigner,
-				UniversalAccount: validUA,
+				UniversalAccount: validUAcc,
 				TxHash:           "0x123abc",
 			},
 			expectErr: true,
@@ -57,7 +58,7 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 			name: "invalid universal account",
 			msg: &types.MsgMintPC{
 				Signer:           validSigner,
-				UniversalAccount: invalidUA,
+				UniversalAccount: invalidUAcc,
 				TxHash:           "0x123abc",
 			},
 			expectErr: true,
@@ -66,7 +67,7 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 			name: "empty tx hash",
 			msg: &types.MsgMintPC{
 				Signer:           validSigner,
-				UniversalAccount: validUA,
+				UniversalAccount: validUAcc,
 				TxHash:           "",
 			},
 			expectErr: true,

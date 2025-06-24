@@ -12,39 +12,49 @@ import (
 // FactoryV1ABI contains the ABI for the factory contract
 const FactoryV1ABI = `[
 	{
-      "type": "function",
-      "name": "deployUEA",
-      "inputs": [
-        {
-          "name": "_id",
-          "type": "tuple",
-          "internalType": "struct UniversalAccount",
-          "components": [
-            { "name": "chain", "type": "string", "internalType": "string" },
-            { "name": "owner", "type": "bytes", "internalType": "bytes" }
-          ]
-        }
-      ],
-      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
-      "stateMutability": "nonpayable"
-    },
-	{
-      "type": "function",
-      "name": "computeUEA",
-      "inputs": [
-        {
-          "name": "_id",
-          "type": "tuple",
-          "internalType": "struct UniversalAccount",
-          "components": [
-            { "name": "chain", "type": "string", "internalType": "string" },
-            { "name": "owner", "type": "bytes", "internalType": "bytes" }
-          ]
-        }
-      ],
-      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
-      "stateMutability": "view"
-    }
+    "type": "function",
+    "name": "deployUEA",
+    "inputs": [
+      {
+        "name": "_id",
+        "type": "tuple",
+        "internalType": "struct UniversalAccountId",
+        "components": [
+          {
+            "name": "chainNamespace",
+            "type": "string",
+            "internalType": "string"
+          },
+          { "name": "chainId", "type": "uint256", "internalType": "uint256" },
+          { "name": "owner", "type": "bytes", "internalType": "bytes" }
+        ]
+      }
+    ],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "computeUEA",
+    "inputs": [
+      {
+        "name": "_id",
+        "type": "tuple",
+        "internalType": "struct UniversalAccountId",
+        "components": [
+          {
+            "name": "chainNamespace",
+            "type": "string",
+            "internalType": "string"
+          },
+          { "name": "chainId", "type": "uint256", "internalType": "uint256" },
+          { "name": "owner", "type": "bytes", "internalType": "bytes" }
+        ]
+      }
+    ],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "stateMutability": "view"
+  }
 ]`
 
 // UeaV1ABI contains the ABI for the UEA contract
@@ -83,9 +93,9 @@ const UeaV1ABI = `[
               "internalType": "uint256"
             },
             {
-              "name": "sigType",
+              "name": "vType",
               "type": "uint8",
-              "internalType": "enum SignatureType"
+              "internalType": "enum VerificationType"
             }
           ]
         },
@@ -113,7 +123,7 @@ type AbiUniversalPayload struct {
 	MaxPriorityFeePerGas *big.Int
 	Nonce                *big.Int
 	Deadline             *big.Int
-	SigType              uint8
+	VType                uint8
 }
 
 func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error) {
@@ -130,13 +140,14 @@ func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error
 		MaxPriorityFeePerGas: utils.StringToBigInt(proto.MaxPriorityFeePerGas),
 		Nonce:                utils.StringToBigInt(proto.Nonce),
 		Deadline:             utils.StringToBigInt(proto.Deadline),
-		SigType:              uint8(proto.SigType),
+		VType:                uint8(proto.VType),
 	}, nil
 }
 
 type AbiUniversalAccount struct {
-	Chain string
-	Owner []byte
+	ChainNamespace string
+	ChainId        string
+	Owner          []byte
 }
 
 func NewAbiUniversalAccount(proto *UniversalAccount) (AbiUniversalAccount, error) {
@@ -146,7 +157,8 @@ func NewAbiUniversalAccount(proto *UniversalAccount) (AbiUniversalAccount, error
 	}
 
 	return AbiUniversalAccount{
-		Chain: proto.Chain,
-		Owner: owner,
+		ChainNamespace: proto.ChainNamespace,
+		ChainId:        proto.ChainId,
+		Owner:          owner,
 	}, nil
 }

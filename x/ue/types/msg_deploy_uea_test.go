@@ -13,12 +13,14 @@ func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "invalid_bech32"
 	validUAcc := &types.UniversalAccount{
-		Chain: "eip155:1",
-		Owner: "0x000000000000000000000000000000000000dead",
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
 	invalidUAcc := &types.UniversalAccount{
-		Chain: "invalid-chain-format",
-		Owner: "0xzzzzzzzz",
+		ChainNamespace: "",
+		ChainId:        "11155111",
+		Owner:          "0xzzzzzzzz",
 	}
 
 	tests := []struct {
@@ -74,7 +76,7 @@ func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 				TxHash:           "0xabc123",
 			},
 			expectError: true,
-			errContains: "chain must be in CAIP-2 format", // delegated to UniversalAccount.ValidateBasic()
+			errContains: "chain namespace cannot be empty", // updated to reflect new validation
 		},
 	}
 

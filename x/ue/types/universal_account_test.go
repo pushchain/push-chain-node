@@ -18,41 +18,56 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		{
 			name: "valid - Ethereum address (20 bytes)",
 			account: types.UniversalAccount{
-				Chain: "eip155:11155111",
-				Owner: "0x000000000000000000000000000000000000dead",
+				ChainNamespace: "eip155",
+				ChainId:        "11155111",
+				Owner:          "0x000000000000000000000000000000000000dead",
 			},
 			expectErr: false,
 		},
 		{
 			name: "valid - Solana public key (32 bytes)",
 			account: types.UniversalAccount{
-				Chain: "solana:3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
-				Owner: "0x" + strings.Repeat("ab", 32), // 32 bytes
+				ChainNamespace: "solana",
+				ChainId:        "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
+				Owner:          "0x" + strings.Repeat("ab", 32), // 32 bytes
 			},
 			expectErr: false,
 		},
 		{
 			name: "valid - Cosmos pubkey (33 bytes)",
 			account: types.UniversalAccount{
-				Chain: "cosmos:cosmoshub-4",
-				Owner: "0x" + strings.Repeat("11", 33), // 33 bytes
+				ChainNamespace: "cosmos",
+				ChainId:        "cosmoshub-4",
+				Owner:          "0x" + strings.Repeat("11", 33), // 33 bytes
 			},
 			expectErr: false,
 		},
 		{
-			name: "invalid - malformed CAIP-2 chain",
+			name: "invalid - empty ChainNamespace",
 			account: types.UniversalAccount{
-				Chain: "solana", // missing ':'
-				Owner: "0x" + strings.Repeat("ab", 32),
+				ChainNamespace: "",
+				ChainId:        "solana",
+				Owner:          "0x" + strings.Repeat("ab", 32),
 			},
 			expectErr: true,
-			errType:   "chain must be in CAIP-2 format <namespace>:<reference>",
+			errType:   "chain namespace cannot be empty",
+		},
+		{
+			name: "invalid - empty ChainId",
+			account: types.UniversalAccount{
+				ChainNamespace: "solana",
+				ChainId:        "",
+				Owner:          "0x" + strings.Repeat("ab", 32),
+			},
+			expectErr: true,
+			errType:   "chain ID cannot be empty",
 		},
 		{
 			name: "invalid - empty owner",
 			account: types.UniversalAccount{
-				Chain: "eip155:1",
-				Owner: "",
+				ChainNamespace: "eip155",
+				ChainId:        "1",
+				Owner:          "",
 			},
 			expectErr: true,
 			errType:   "owner cannot be empty",
@@ -60,8 +75,9 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid - non-hex owner",
 			account: types.UniversalAccount{
-				Chain: "eip155:1",
-				Owner: "0xzzzzzzzz",
+				ChainNamespace: "eip155",
+				ChainId:        "1",
+				Owner:          "0xzzzzzzzz",
 			},
 			expectErr: true,
 			errType:   "owner must be valid hex string",

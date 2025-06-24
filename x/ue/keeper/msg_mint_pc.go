@@ -21,7 +21,7 @@ func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAcc
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
+	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.GetCAIP2())
 	if err != nil {
 		return errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}

@@ -17,13 +17,16 @@ import (
 func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, universalPayload *types.UniversalPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	chainConfig, err := k.GetChainConfig(sdkCtx, universalAccount.Chain)
+	// Get Caip2Identifier for the universal account
+	caip2Identifier := universalAccount.GetCAIP2()
+
+	chainConfig, err := k.GetChainConfig(sdkCtx, caip2Identifier)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get chain config for chain %s", universalAccount.Chain)
+		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
 	}
 
 	if !chainConfig.Enabled {
-		return fmt.Errorf("chain %s is not enabled", universalAccount.Chain)
+		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
 	}
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)

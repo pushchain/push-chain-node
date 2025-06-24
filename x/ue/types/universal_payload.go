@@ -57,8 +57,8 @@ func (p UniversalPayload) ValidateBasic() error {
 		}
 	}
 
-	if _, ok := SignatureType_name[int32(p.SigType)]; !ok {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid signature type: %v", p.SigType)
+	if _, ok := VerificationType_name[int32(p.VType)]; !ok {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid signature type: %v", p.VType)
 	}
 
 	return nil

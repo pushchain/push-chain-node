@@ -36,7 +36,7 @@ import (
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/ue"
 	"github.com/rollchains/pchain/x/ue/keeper"
-	"github.com/rollchains/pchain/x/ue/keeper/mocks"
+	"github.com/rollchains/pchain/x/ue/mocks"
 	"github.com/rollchains/pchain/x/ue/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"

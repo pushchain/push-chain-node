@@ -12,14 +12,14 @@ import (
 func (k Keeper) CallFactoryToComputeUEAAddress(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	universalAccount *types.UniversalAccount,
+	universalAccountId *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	abiUniversalAccount, err := types.NewAbiUniversalAccount(universalAccount)
+	abiUniversalAccountId, err := types.NewAbiUniversalAccountId(universalAccountId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
@@ -31,7 +31,7 @@ func (k Keeper) CallFactoryToComputeUEAAddress(
 		factoryAddr,
 		false, // commit
 		"computeUEA",
-		abiUniversalAccount,
+		abiUniversalAccountId,
 	)
 }
 
@@ -40,14 +40,14 @@ func (k Keeper) CallFactoryToComputeUEAAddress(
 func (k Keeper) CallFactoryToDeployUEA(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	universalAccount *types.UniversalAccount,
+	universalAccountId *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	abiUniversalAccount, err := types.NewAbiUniversalAccount(universalAccount)
+	abiUniversalAccountId, err := types.NewAbiUniversalAccountId(universalAccountId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
@@ -59,7 +59,7 @@ func (k Keeper) CallFactoryToDeployUEA(
 		factoryAddr, // destination: FactoryV1 contract
 		true,        // commit = true (real tx, not simulation)
 		"deployUEA",
-		abiUniversalAccount,
+		abiUniversalAccountId,
 	)
 }
 

@@ -73,8 +73,9 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 	validSigner := f.addrs[0]
 	validUA := &types.UniversalAccount{
-		Owner: "0x1234567890abcdef1234567890abcdef12345678",
-		Chain: "ethereum",
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
 	validTxHash := "0xabc123"
 
@@ -97,7 +98,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			TxHash:           "invalid_tx",
 		}
 		f.mockUTVKeeper.
-			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.Chain).
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.GetCAIP2()).
 			Return(errors.New("Gateway interaction failed"))
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -117,7 +118,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Ret: padded,
 		}
 		f.mockUTVKeeper.
-			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -142,7 +143,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Ret: padded,
 		}
 		f.mockUTVKeeper.
-			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -159,8 +160,9 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 	validSigner := f.addrs[0]
 	validUA := &types.UniversalAccount{
-		Owner: "0x1234567890abcdef1234567890abcdef12345678",
-		Chain: "ethereum",
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
 	validTxHash := "0xabc123"
 
@@ -172,7 +174,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 		}
 
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*big.NewInt(0), uint32(0), errors.New("some error"))
 
 		_, err := f.msgServer.MintPC(f.ctx, msg)
@@ -192,7 +194,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 		}
 
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*usdAmount, decimals, nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -219,7 +221,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 		}
 
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*usdAmount, decimals, nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -255,7 +257,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		// Mock VerifyAndGetLockedFunds
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*big.NewInt(1_000_000), uint32(6), nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -293,7 +295,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		// Mock VerifyAndGetLockedFunds
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*big.NewInt(1_000_000), uint32(6), nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -339,7 +341,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		// Mock VerifyAndGetLockedFunds
 		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.Chain).
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
 			Return(*big.NewInt(1_000_000), uint32(6), nil)
 
 		f.mockEVMKeeper.EXPECT().
@@ -370,8 +372,9 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 
 	validSigner := f.addrs[0]
 	validUA := &types.UniversalAccount{
-		Owner: "0x1234567890abcdef1234567890abcdef12345678",
-		Chain: "ethereum",
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
 	validUP := &types.UniversalPayload{
 		To:                   "0x1234567890abcdef1234567890abcdef12345670",
@@ -478,7 +481,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			MaxPriorityFeePerGas: "2000000000",                                 // 2 gwei
 			Nonce:                "0",
 			Deadline:             "0",
-			SigType:              ue.SignatureType_signedVerification,
+			VType:                ue.VerificationType_signedVerification,
 		}
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{

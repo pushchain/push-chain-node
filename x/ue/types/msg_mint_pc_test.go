@@ -11,12 +11,12 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "not_bech32"
 
-	validUAcc := &types.UniversalAccount{
+	validUAcc := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
 	}
-	invalidUAcc := &types.UniversalAccount{
+	invalidUAcc := &types.UniversalAccountId{
 		ChainNamespace: "",
 		ChainId:        "11155111",
 		Owner:          "0xzzzzzzzz",
@@ -30,45 +30,45 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 		{
 			name: "valid message",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: validUAcc,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: false,
 		},
 		{
 			name: "invalid signer address",
 			msg: &types.MsgMintPC{
-				Signer:           invalidSigner,
-				UniversalAccount: validUAcc,
-				TxHash:           "0x123abc",
+				Signer:             invalidSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "nil universal account",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: nil,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: nil,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid universal account",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: invalidUAcc,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: invalidUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "empty tx hash",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: validUAcc,
-				TxHash:           "",
+				Signer:             validSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "",
 			},
 			expectErr: true,
 		},

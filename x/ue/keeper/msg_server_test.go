@@ -72,7 +72,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 	require := require.New(t)
 
 	validSigner := f.addrs[0]
-	validUA := &types.UniversalAccount{
+	validUA := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
@@ -81,9 +81,9 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 	t.Run("fail; invalid signer address", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
-			Signer:           "invalid_address",
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             "invalid_address",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -93,9 +93,9 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 	t.Run("fail; gateway interaction tx not verified", func(t *testing.T) {
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgDeployUEA{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           "invalid_tx",
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             "invalid_tx",
 		}
 		f.mockUTVKeeper.
 			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.GetCAIP2()).
@@ -107,9 +107,9 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 	t.Run("fail: CallFactoryToDeployUEA Fails", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
@@ -131,9 +131,9 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 	t.Run("success; valid input returns UEA", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -159,7 +159,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 	f := SetupTest(t)
 
 	validSigner := f.addrs[0]
-	validUA := &types.UniversalAccount{
+	validUA := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
@@ -168,9 +168,9 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 	t.Run("fail: VerifyAndGetLockedFunds fails", func(t *testing.T) {
 		msg := &types.MsgMintPC{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		f.mockUTVKeeper.EXPECT().
@@ -202,7 +202,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 			Return(receipt, errors.New("call-factory fails"))
 
 		msg := &types.MsgMintPC{
-			Signer: validSigner.String(), UniversalAccount: validUA, TxHash: validTxHash,
+			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
 		require.ErrorContains(t, err, "call-factory fails")
@@ -229,7 +229,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 			Return(receipt, nil)
 
 		msg := &types.MsgMintPC{
-			Signer: validSigner.String(), UniversalAccount: validUA, TxHash: validTxHash,
+			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to convert EVM address")
@@ -237,9 +237,9 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 	t.Run("fail: Mint Fails", func(t *testing.T) {
 		msg := &types.MsgMintPC{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -275,9 +275,9 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		msg := &types.MsgMintPC{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -321,9 +321,9 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		msg := &types.MsgMintPC{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			TxHash:           validTxHash,
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
 		}
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -371,7 +371,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	f := SetupTest(t)
 
 	validSigner := f.addrs[0]
-	validUA := &types.UniversalAccount{
+	validUA := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
@@ -389,10 +389,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 
 	t.Run("fail; invalid signer address", func(t *testing.T) {
 		msg := &types.MsgExecutePayload{
-			Signer:           "invalid_address",
-			UniversalAccount: validUA,
-			UniversalPayload: validUP,
-			Signature:        "test-signature",
+			Signer:             "invalid_address",
+			UniversalAccountId: validUA,
+			UniversalPayload:   validUP,
+			Signature:          "test-signature",
 		}
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
@@ -402,10 +402,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	t.Run("Fail : ChainConfig for Universal Accout not set", func(t *testing.T) {
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			UniversalPayload: validUP,
-			Signature:        "test-signature",
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   validUP,
+			Signature:          "test-signature",
 		}
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
@@ -414,10 +414,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			UniversalPayload: validUP,
-			Signature:        "test-signature",
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   validUP,
+			Signature:          "test-signature",
 		}
 
 		chainConfigTest := types.ChainConfig{
@@ -441,10 +441,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	t.Run("Fail : Invalid UniversalPayload", func(t *testing.T) {
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			UniversalPayload: validUP,
-			Signature:        "test-signature",
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   validUP,
+			Signature:          "test-signature",
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
@@ -485,10 +485,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{
-			Signer:           validSigner.String(),
-			UniversalAccount: validUA,
-			UniversalPayload: avalidUP,
-			Signature:        "test-signature",
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   avalidUP,
+			Signature:          "test-signature",
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 

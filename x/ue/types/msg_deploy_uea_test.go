@@ -12,12 +12,12 @@ import (
 func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "invalid_bech32"
-	validUAcc := &types.UniversalAccount{
+	validUAcc := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
 	}
-	invalidUAcc := &types.UniversalAccount{
+	invalidUAcc := &types.UniversalAccountId{
 		ChainNamespace: "",
 		ChainId:        "11155111",
 		Owner:          "0xzzzzzzzz",
@@ -41,9 +41,9 @@ func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid signer format",
 			msg: &types.MsgDeployUEA{
-				Signer:           invalidSigner,
-				UniversalAccount: validUAcc,
-				TxHash:           "0xabc123",
+				Signer:             invalidSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "0xabc123",
 			},
 			expectError: true,
 			errContains: "invalid signer address",
@@ -51,19 +51,19 @@ func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 		{
 			name: "nil universal account",
 			msg: &types.MsgDeployUEA{
-				Signer:           validSigner,
-				UniversalAccount: nil,
-				TxHash:           "0xabc123",
+				Signer:             validSigner,
+				UniversalAccountId: nil,
+				TxHash:             "0xabc123",
 			},
 			expectError: true,
-			errContains: "universalAccount cannot be nil",
+			errContains: "universalAccountId cannot be nil",
 		},
 		{
 			name: "empty txHash",
 			msg: &types.MsgDeployUEA{
-				Signer:           validSigner,
-				UniversalAccount: validUAcc,
-				TxHash:           "",
+				Signer:             validSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "",
 			},
 			expectError: true,
 			errContains: "txHash cannot be empty",
@@ -71,9 +71,9 @@ func TestMsgDeployUEA_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid universal account",
 			msg: &types.MsgDeployUEA{
-				Signer:           validSigner,
-				UniversalAccount: invalidUAcc,
-				TxHash:           "0xabc123",
+				Signer:             validSigner,
+				UniversalAccountId: invalidUAcc,
+				TxHash:             "0xabc123",
 			},
 			expectError: true,
 			errContains: "chain namespace cannot be empty", // updated to reflect new validation

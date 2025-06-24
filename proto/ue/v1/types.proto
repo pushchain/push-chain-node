@@ -52,8 +52,8 @@ message UniversalPayload {
   VerificationType v_type = 9; // Type of verification to use before execution
 }
 
-// UniversalAccount is the identifier of a owner account
-message UniversalAccount {
+// UniversalAccountId is the identifier of a owner account
+message UniversalAccountId {
   option (amino.name) = "ue/universal_account";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;

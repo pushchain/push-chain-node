@@ -10,7 +10,7 @@ import (
 func TestMsgExecutePayload_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "invalid_bech32"
-	validUA := &types.UniversalAccount{
+	validUA := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
 		Owner:          "0x000000000000000000000000000000000000dead",
@@ -37,70 +37,70 @@ func TestMsgExecutePayload_ValidateBasic(t *testing.T) {
 		{
 			name: "valid msg",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: validPayload,
-				Signature:        validSig,
+				Signer:             validSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   validPayload,
+				Signature:          validSig,
 			},
 			expectErr: false,
 		},
 		{
 			name: "invalid signer",
 			msg: &types.MsgExecutePayload{
-				Signer:           invalidSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: validPayload,
-				Signature:        validSig,
+				Signer:             invalidSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   validPayload,
+				Signature:          validSig,
 			},
 			expectErr: true,
 		},
 		{
 			name: "nil universal account",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: nil,
-				UniversalPayload: validPayload,
-				Signature:        validSig,
+				Signer:             validSigner,
+				UniversalAccountId: nil,
+				UniversalPayload:   validPayload,
+				Signature:          validSig,
 			},
 			expectErr: true,
 		},
 		{
 			name: "nil universal payload",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: nil,
-				Signature:        validSig,
+				Signer:             validSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   nil,
+				Signature:          validSig,
 			},
 			expectErr: true,
 		},
 		{
 			name: "empty signature",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: validPayload,
-				Signature:        "",
+				Signer:             validSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   validPayload,
+				Signature:          "",
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid signature hex",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: validPayload,
-				Signature:        invalidSig,
+				Signer:             validSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   validPayload,
+				Signature:          invalidSig,
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid universal payload data",
 			msg: &types.MsgExecutePayload{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				UniversalPayload: invalidPayload,
-				Signature:        validSig,
+				Signer:             validSigner,
+				UniversalAccountId: validUA,
+				UniversalPayload:   invalidPayload,
+				Signature:          validSig,
 			},
 			expectErr: true,
 		},

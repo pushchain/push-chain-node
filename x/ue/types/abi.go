@@ -144,19 +144,19 @@ func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error
 	}, nil
 }
 
-type AbiUniversalAccount struct {
+type AbiUniversalAccountId struct {
 	ChainNamespace string
 	ChainId        string
 	Owner          []byte
 }
 
-func NewAbiUniversalAccount(proto *UniversalAccount) (AbiUniversalAccount, error) {
+func NewAbiUniversalAccountId(proto *UniversalAccountId) (AbiUniversalAccountId, error) {
 	owner, err := utils.HexToBytes(proto.Owner)
 	if err != nil {
-		return AbiUniversalAccount{}, err
+		return AbiUniversalAccountId{}, err
 	}
 
-	return AbiUniversalAccount{
+	return AbiUniversalAccountId{
 		ChainNamespace: proto.ChainNamespace,
 		ChainId:        proto.ChainId,
 		Owner:          owner,

@@ -8,16 +8,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUniversalAccount_ValidateBasic(t *testing.T) {
+func TestUniversalAccountId_ValidateBasic(t *testing.T) {
 	tests := []struct {
 		name      string
-		account   types.UniversalAccount
+		account   types.UniversalAccountId
 		expectErr bool
 		errType   string
 	}{
 		{
 			name: "valid - Ethereum address (20 bytes)",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "eip155",
 				ChainId:        "11155111",
 				Owner:          "0x000000000000000000000000000000000000dead",
@@ -26,7 +26,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "valid - Solana public key (32 bytes)",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "solana",
 				ChainId:        "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
 				Owner:          "0x" + strings.Repeat("ab", 32), // 32 bytes
@@ -35,7 +35,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "valid - Cosmos pubkey (33 bytes)",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "cosmos",
 				ChainId:        "cosmoshub-4",
 				Owner:          "0x" + strings.Repeat("11", 33), // 33 bytes
@@ -44,7 +44,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid - empty ChainNamespace",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "",
 				ChainId:        "solana",
 				Owner:          "0x" + strings.Repeat("ab", 32),
@@ -54,7 +54,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid - empty ChainId",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "solana",
 				ChainId:        "",
 				Owner:          "0x" + strings.Repeat("ab", 32),
@@ -64,7 +64,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid - empty owner",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "eip155",
 				ChainId:        "1",
 				Owner:          "",
@@ -74,7 +74,7 @@ func TestUniversalAccount_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid - non-hex owner",
-			account: types.UniversalAccount{
+			account: types.UniversalAccountId{
 				ChainNamespace: "eip155",
 				ChainId:        "1",
 				Owner:          "0xzzzzzzzz",

@@ -15,20 +15,20 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) error {
+func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, txHash string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccount.Owner, txHash, universalAccount.GetCAIP2())
+	amountOfUsdLocked, usdDecimals, err := k.utvKeeper.VerifyAndGetLockedFunds(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
 	if err != nil {
 		return errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}
 	amountToMint := ConvertUsdToPCTokens(&amountOfUsdLocked, usdDecimals)
 
 	// Calling factory contract to compute the UEA address
-	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)
+	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
 	}

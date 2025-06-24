@@ -11,7 +11,7 @@ import (
 )
 
 // Stringer method for Params.
-func (p UniversalAccount) String() string {
+func (p UniversalAccountId) String() string {
 	bz, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -20,13 +20,13 @@ func (p UniversalAccount) String() string {
 	return string(bz)
 }
 
-// GetCAIP2 returns the CAIP-2 identifier for the UniversalAccount.
-func (p UniversalAccount) GetCAIP2() string {
+// GetCAIP2 returns the CAIP-2 identifier for the UniversalAccountId.
+func (p UniversalAccountId) GetCAIP2() string {
 	return fmt.Sprintf("%s:%s", p.ChainNamespace, p.ChainId)
 }
 
 // Validate does the sanity check on the params.
-func (p UniversalAccount) ValidateBasic() error {
+func (p UniversalAccountId) ValidateBasic() error {
 	p.ChainNamespace = strings.TrimSpace(p.ChainNamespace)
 	p.ChainId = strings.TrimSpace(p.ChainId)
 	p.Owner = strings.TrimSpace(p.Owner)

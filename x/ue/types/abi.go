@@ -25,7 +25,7 @@ const FactoryV1ABI = `[
             "type": "string",
             "internalType": "string"
           },
-          { "name": "chainId", "type": "uint256", "internalType": "uint256" },
+          { "name": "chainId", "type": "string", "internalType": "string" },
           { "name": "owner", "type": "bytes", "internalType": "bytes" }
         ]
       }
@@ -47,7 +47,7 @@ const FactoryV1ABI = `[
             "type": "string",
             "internalType": "string"
           },
-          { "name": "chainId", "type": "uint256", "internalType": "uint256" },
+          { "name": "chainId", "type": "string", "internalType": "string" },
           { "name": "owner", "type": "bytes", "internalType": "bytes" }
         ]
       }

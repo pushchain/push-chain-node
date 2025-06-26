@@ -1,0 +1,256 @@
+#!/bin/bash
+# Push Chain Validator Control Script
+
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+# Load environment
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
+# Docker compose command (support both old and new versions)
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    DOCKER_COMPOSE="docker-compose"
+fi
+
+# Helper functions
+print_status() {
+    echo -e "${BLUE}$1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}$1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}$1${NC}"
+}
+
+# Main commands
+case "$1" in
+    start)
+        print_status "🚀 Starting Push Chain Validator..."
+        
+        # Check if already running
+        if $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
+            print_warning "⚠️  Validator is already running!"
+            exit 0
+        fi
+        
+        # Build image if needed
+        if ! docker images | grep -q "push-validator.*local"; then
+            print_status "🔨 Building validator image..."
+            $DOCKER_COMPOSE build
+        fi
+        
+        # Start services
+        $DOCKER_COMPOSE up -d
+        
+        print_success "✅ Validator started!"
+        echo ""
+        echo "Check status with: ./push-validator status"
+        echo "View logs with: ./push-validator logs"
+        ;;
+        
+    stop)
+        print_status "🛑 Stopping validator..."
+        $DOCKER_COMPOSE down
+        print_success "✅ Validator stopped"
+        ;;
+        
+    restart)
+        print_status "🔄 Restarting validator..."
+        $DOCKER_COMPOSE restart
+        print_success "✅ Validator restarted"
+        ;;
+        
+    status)
+        print_status "📊 Validator Status"
+        echo "=================="
+        
+        # Check if container is running
+        if ! $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
+            print_error "❌ Validator not running"
+            echo "Start with: ./push-validator start"
+            exit 1
+        fi
+        
+        # Get node status
+        $DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null | jq -r '
+            "Node ID: \(.node_info.id)
+Network: \(.node_info.network)
+Moniker: \(.node_info.moniker)
+Version: \(.node_info.version)
+
+Sync Status:
+  Latest Block Height: \(.sync_info.latest_block_height)
+  Latest Block Time: \(.sync_info.latest_block_time)
+  Catching Up: \(.sync_info.catching_up)
+
+Validator Info:
+  Voting Power: \(.validator_info.voting_power)"
+        ' || print_error "Failed to get node status. Node may still be initializing..."
+        ;;
+        
+    logs)
+        # Optional: filter by service
+        SERVICE="${2:-validator}"
+        TAIL="${3:-100}"
+        
+        print_status "📜 Showing logs for $SERVICE (last $TAIL lines)..."
+        $DOCKER_COMPOSE logs -f --tail=$TAIL $SERVICE
+        ;;
+        
+    backup)
+        print_status "💾 Backing up validator keys..."
+        
+        # Create backup directory with timestamp
+        BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$BACKUP_DIR"
+        
+        # Check if validator is initialized
+        if ! $DOCKER_COMPOSE exec -T validator test -f /root/.pchain/config/priv_validator_key.json 2>/dev/null; then
+            print_error "❌ No keys found. Is the validator initialized?"
+            exit 1
+        fi
+        
+        # Backup keys
+        print_status "Backing up validator keys..."
+        $DOCKER_COMPOSE exec -T validator tar -czf - \
+            /root/.pchain/config/priv_validator_key.json \
+            /root/.pchain/config/node_key.json \
+            /root/.pchain/data/priv_validator_state.json 2>/dev/null \
+            > "$BACKUP_DIR/validator-keys.tar.gz"
+        
+        # Backup config
+        print_status "Backing up configuration..."
+        cp .env "$BACKUP_DIR/" 2>/dev/null || true
+        
+        print_success "✅ Backup complete!"
+        echo "📁 Backup location: $BACKUP_DIR"
+        print_warning "⚠️  Keep these files safe and secure!"
+        ;;
+        
+    shell)
+        print_status "🐚 Opening shell in validator container..."
+        $DOCKER_COMPOSE exec validator /bin/sh
+        ;;
+        
+    reset)
+        print_warning "⚠️  This will delete all blockchain data!"
+        read -p "Are you sure? (yes/no): " -r
+        if [[ $REPLY == "yes" ]]; then
+            print_status "🔄 Resetting blockchain data..."
+            $DOCKER_COMPOSE exec -T validator pchaind tendermint unsafe-reset-all
+            print_success "✅ Blockchain data reset"
+        else
+            echo "Reset cancelled"
+        fi
+        ;;
+        
+    keys)
+        # Key management subcommands
+        case "$2" in
+            list)
+                $DOCKER_COMPOSE exec -T validator pchaind keys list --keyring-backend test --home /root/.pchain
+                ;;
+            add)
+                KEY_NAME="${3:-validator}"
+                print_status "🔑 Creating new key: $KEY_NAME"
+                $DOCKER_COMPOSE exec validator pchaind keys add $KEY_NAME --keyring-backend test --home /root/.pchain
+                ;;
+            show)
+                KEY_NAME="${3:-validator}"
+                $DOCKER_COMPOSE exec -T validator pchaind keys show $KEY_NAME --keyring-backend test --home /root/.pchain
+                ;;
+            *)
+                echo "Usage: ./push-validator keys {list|add|show} [key-name]"
+                ;;
+        esac
+        ;;
+        
+    update)
+        print_status "🔄 Updating validator..."
+        git pull
+        $DOCKER_COMPOSE pull
+        print_success "✅ Update complete. Restart validator to apply changes."
+        ;;
+        
+    monitor)
+        # Simple monitoring view
+        print_status "📊 Monitoring validator (Ctrl+C to exit)..."
+        while true; do
+            clear
+            echo -e "${BLUE}Push Chain Validator Monitor${NC}"
+            echo "============================="
+            echo "Time: $(date)"
+            echo ""
+            
+            # Get basic status
+            if $DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null | jq -r '
+                "Height: \(.sync_info.latest_block_height)
+Catching Up: \(.sync_info.catching_up)
+Connected: true"
+            '; then
+                echo ""
+            else
+                print_error "Node not responding..."
+            fi
+            
+            sleep 5
+        done
+        ;;
+        
+    help|--help|-h)
+        cat << EOF
+Push Chain Validator Manager
+
+Usage: ./push-validator [command] [options]
+
+Commands:
+  start         Start the validator
+  stop          Stop the validator
+  restart       Restart the validator
+  status        Show validator status
+  logs          Show validator logs
+  backup        Backup validator keys
+  shell         Open shell in validator container
+  reset         Reset blockchain data (careful!)
+  keys          Key management (list|add|show)
+  update        Update validator software
+  monitor       Simple monitoring view
+  help          Show this help message
+
+Examples:
+  ./push-validator start               # Start validator
+  ./push-validator logs                # Show validator logs
+  ./push-validator logs validator 50   # Show last 50 lines
+  ./push-validator keys add mykey      # Create new key
+  ./push-validator backup              # Backup keys
+
+For more help, visit: https://docs.push.org/validators
+EOF
+        ;;
+        
+    *)
+        print_error "Unknown command: $1"
+        echo "Run './push-validator help' for usage information"
+        exit 1
+        ;;
+esac

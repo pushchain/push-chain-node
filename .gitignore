@@ -6,3 +6,5 @@ dist/
 web/
 
 .env
+validator/TODO.md
+/build

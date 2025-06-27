@@ -82,11 +82,11 @@ echo
 # 2. Container checks
 print_info "Checking validator container..."
 
-if run_test "Validator container exists" "docker ps -a --format '{{.Names}}' | grep -q 'push-validator'"; then
-    run_test "Validator container is running" "docker ps --format '{{.Names}}' | grep -q 'push-validator'"
+if run_test "Validator container exists" "docker ps -a --format '{{.Names}}' | grep -q 'push-node-manager'"; then
+    run_test "Validator container is running" "docker ps --format '{{.Names}}' | grep -q 'push-node-manager'"
     
     # Check container health
-    if docker ps --format '{{.Names}}' | grep -q 'push-validator'; then
+    if docker ps --format '{{.Names}}' | grep -q 'push-node-manager'; then
         # Get container stats
         CONTAINER_STATS=$($DOCKER_COMPOSE ps --format json 2>/dev/null || echo "{}")
         if [ -n "$CONTAINER_STATS" ] && [ "$CONTAINER_STATS" != "{}" ]; then
@@ -98,14 +98,14 @@ if run_test "Validator container exists" "docker ps -a --format '{{.Names}}' | g
         fi
     fi
 else
-    print_warn "No validator container found. Run './push-validator start' first"
+    print_warn "No validator container found. Run './push-node-manager start' first"
     ((WARNINGS++))
 fi
 
 echo
 
 # 3. Node checks (if container is running)
-if docker ps --format '{{.Names}}' | grep -q 'push-validator'; then
+if docker ps --format '{{.Names}}' | grep -q 'push-node-manager'; then
     print_info "Checking node status..."
     
     # Check if node is responsive
@@ -171,7 +171,7 @@ if docker ps --format '{{.Names}}' | grep -q 'push-validator'; then
     print_info "Checking network ports..."
     
     # Check if ports are exposed
-    EXPOSED_PORTS=$(docker port push-validator 2>/dev/null || echo "")
+    EXPOSED_PORTS=$(docker port push-node-manager 2>/dev/null || echo "")
     
     if [ -n "$EXPOSED_PORTS" ]; then
         # Check RPC port
@@ -227,10 +227,10 @@ if docker ps --format '{{.Names}}' | grep -q 'push-validator'; then
             print_pass "Found $WALLET_COUNT wallet(s)"
             ((TESTS_PASSED++))
         else
-            print_info "No wallets found (run './push-validator setup' to create)"
+            print_info "No wallets found (run './push-node-manager setup' to create)"
         fi
     else
-        print_info "No wallets found (run './push-validator setup' to create)"
+        print_info "No wallets found (run './push-node-manager setup' to create)"
     fi
 fi
 
@@ -242,7 +242,7 @@ print_info "Checking file system..."
 run_test "Docker compose file exists" "[ -f docker-compose.yml ]"
 run_test "Dockerfile exists" "[ -f Dockerfile ]"
 run_test "Scripts directory exists" "[ -d scripts ]"
-run_test "Main control script is executable" "[ -x push-validator ]"
+run_test "Main control script is executable" "[ -x push-node-manager ]"
 
 # Check for data directory
 if [ -d "data" ]; then
@@ -307,9 +307,9 @@ else
     echo -e "${BOLD}${RED}❌ Some tests failed!${NC}"
     echo
     echo "Troubleshooting tips:"
-    echo "1. Check logs: ./push-validator logs"
+    echo "1. Check logs: ./push-node-manager logs"
     echo "2. Ensure Docker is running"
-    echo "3. Try restarting: ./push-validator restart"
-    echo "4. For sync issues: ./push-validator reset-data"
+    echo "3. Try restarting: ./push-node-manager restart"
+    echo "4. For sync issues: ./push-node-manager reset-data"
     exit 1
 fi

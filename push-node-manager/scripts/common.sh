@@ -133,7 +133,7 @@ validate_config() {
 check_container() {
     if [ ! -f /.dockerenv ]; then
         log_error "This script should be run inside the validator container"
-        echo "Use: ./push-validator shell"
+        echo "Use: ./push-node-manager shell"
         echo "Then run: $1"
         exit 1
     fi

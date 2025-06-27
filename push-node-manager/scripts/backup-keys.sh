@@ -15,7 +15,7 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Create secure backup
 create_backup() {
-    local backup_name="validator-keys-${TIMESTAMP}"
+    local backup_name="node-keys-${TIMESTAMP}"
     local temp_dir="/tmp/${backup_name}"
     
     log_info "Creating secure backup of validator keys..."
@@ -141,7 +141,7 @@ restore_backup() {
     fi
     
     # Find extracted directory
-    local backup_dir=$(find . -maxdepth 1 -type d -name "validator-keys-*" | head -1)
+    local backup_dir=$(find . -maxdepth 1 -type d -name "node-keys-*" | head -1)
     
     if [ -z "$backup_dir" ]; then
         log_error "Invalid backup file format"

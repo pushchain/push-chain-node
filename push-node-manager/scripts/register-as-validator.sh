@@ -17,7 +17,7 @@ load_network_config "$NETWORK" || exit 1
 ONE_PUSH="000000000000000000${DENOM}"
 
 # Check if running inside container
-check_container "/scripts/register-validator.sh"
+check_container "/scripts/register-as-validator.sh"
 
 # Main registration process
 main() {
@@ -158,7 +158,7 @@ EOF
         if [ -n "$EXPLORER" ]; then
             echo "- Explorer: $EXPLORER"
         fi
-        echo "- Status: ./push-validator status"
+        echo "- Status: ./push-node-manager status"
         echo ""
     else
         log_error "Transaction failed!"

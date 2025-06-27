@@ -19,7 +19,7 @@ FILES=(
     ".env"
     "docker-compose.yml"
     "Dockerfile"
-    "push-validator"
+    "push-node-manager"
     "scripts/entrypoint.sh"
     "scripts/health-check.sh"
     "configs/networks.json"
@@ -66,7 +66,7 @@ fi
 # Check if image is built
 echo ""
 echo -e "${BLUE}5. Checking Docker image...${NC}"
-if docker images | grep -q "push-validator.*local"; then
+if docker images | grep -q "push-node-manager.*local"; then
     echo -e "${GREEN}✓${NC} Docker image is built"
 else
     echo -e "${YELLOW}⚠${NC} Docker image not built yet"
@@ -77,4 +77,4 @@ echo -e "${GREEN}✅ Setup verification complete!${NC}"
 echo ""
 echo "Next steps:"
 echo "1. Build image: docker compose build"
-echo "2. Start validator: ./push-validator start"
+echo "2. Start validator: ./push-node-manager start"

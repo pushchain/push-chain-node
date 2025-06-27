@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to reset validator for testing from scratch
 
-# Check if called from push-validator script
+# Check if called from push-node-manager script
 if [ "$1" != "--skip-confirm" ]; then
     echo "This will completely reset your validator node!"
     echo "WARNING: This will delete:"
@@ -21,15 +21,15 @@ echo "Stopping validator..."
 docker compose down
 
 echo "Removing validator data volume..."
-docker volume rm validator_validator-data 2>/dev/null || true
+docker volume rm validator_node-manager-data 2>/dev/null || true
 
 echo "Removing validator container and image..."
-docker rm push-validator 2>/dev/null || true
-docker rmi push-chain-validator:latest 2>/dev/null || true
+docker rm push-node-manager 2>/dev/null || true
+docker rmi push-node-manager:latest 2>/dev/null || true
 
 echo "Cleaning up any remaining data..."
 rm -rf data/ 2>/dev/null || true
 
 echo
 echo "Reset complete! You can now start fresh with:"
-echo "./push-validator setup"
+echo "./push-node-manager setup"

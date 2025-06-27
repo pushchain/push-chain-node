@@ -46,7 +46,7 @@ DEFAULT_FEE_AMOUNT="100000000000000000"  # 0.1 PUSH in upc (without denom suffix
 MIN_STAKE="1"  # Minimum 1 PUSH stake
 
 # Check if running inside container
-check_container "/scripts/setup-validator.sh"
+check_container "/scripts/setup-node-registration.sh"
 
 # Cool banner
 print_banner() {
@@ -80,12 +80,55 @@ create_wallet() {
     
     # Create wallet and capture output
     local wallet_output=$(pchaind keys add "$wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>&1)
-    echo "$wallet_output"
     
-    # Add warning message after mnemonic
-    echo
-    echo -e "${BOLD}${RED}**Important** Write this mnemonic phrase in a safe place.${NC}"
-    echo -e "${RED}It is the only way to recover your account if you ever forget your password.${NC}"
+    # Extract the mnemonic from output (the 24 words after the last blank line)
+    local mnemonic=$(echo "$wallet_output" | awk '/^$/{mnemonic=""} {if(mnemonic!="" || $0!="") mnemonic=mnemonic" "$0} END{print mnemonic}' | xargs)
+    
+    # Check if we got 24 words
+    local word_count=$(echo "$mnemonic" | wc -w)
+    
+    if [ "$word_count" -eq 24 ]; then
+        # Display wallet info first
+        echo "$wallet_output" | head -n 5
+        echo
+        
+        # Format mnemonic clearly
+        echo
+        echo -e "${BOLD}${YELLOW}🔐 YOUR SECRET RECOVERY PHRASE 🔐${NC}"
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════════${NC}"
+        echo
+        
+        # Split mnemonic into array
+        read -ra WORDS <<< "$mnemonic"
+        
+        # Print 6 words per row, 4 rows total
+        for i in $(seq 0 6 18); do
+            # Build line with 6 words
+            LINE=""
+            for j in $(seq 0 5); do
+                idx=$((i + j))
+                if [ $idx -lt 24 ]; then
+                    WORD="${WORDS[$idx]}"
+                    # Pad each word to 12 characters for alignment
+                    LINE="$LINE$(printf "%-12s" "$WORD")"
+                fi
+            done
+            # Print centered line
+            echo -e "        ${BOLD}${CYAN}$LINE${NC}"
+            echo
+        done
+        
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════════${NC}"
+        echo -e "${BOLD}${RED}⚠️  CRITICAL: Write these 24 words in order on paper NOW! ⚠️${NC}"
+        echo -e "${RED}This is the ONLY way to recover your wallet if lost!${NC}"
+        echo
+    else
+        # Fallback to original display
+        echo "$wallet_output"
+        echo
+        echo -e "${BOLD}${RED}**Important** Write this mnemonic phrase in a safe place.${NC}"
+        echo -e "${RED}It is the only way to recover your account if you ever forget your password.${NC}"
+    fi
     echo
     
     # Get address directly from keys show command (more reliable)
@@ -217,6 +260,38 @@ format_balance() {
     fi
 }
 
+# Compare large numbers (for amounts in upc)
+compare_amounts() {
+    local amount1="$1"
+    local amount2="$2"
+    local operator="$3"  # -ge, -gt, -le, -lt, -eq
+    
+    # Use awk for comparison to handle large numbers
+    case "$operator" in
+        "-ge")
+            echo "$amount1 $amount2" | awk '{if ($1 >= $2) exit 0; else exit 1}'
+            ;;
+        "-gt")
+            echo "$amount1 $amount2" | awk '{if ($1 > $2) exit 0; else exit 1}'
+            ;;
+        "-le")
+            echo "$amount1 $amount2" | awk '{if ($1 <= $2) exit 0; else exit 1}'
+            ;;
+        "-lt")
+            echo "$amount1 $amount2" | awk '{if ($1 < $2) exit 0; else exit 1}'
+            ;;
+        "-eq")
+            echo "$amount1 $amount2" | awk '{if ($1 == $2) exit 0; else exit 1}'
+            ;;
+        "-gt")
+            echo "$amount1 $amount2" | awk '{if ($1 > $2) exit 0; else exit 1}'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Convert push address to EVM format
 push_to_evm_address() {
     local push_addr="$1"
@@ -294,7 +369,7 @@ pre_flight_checks() {
     local required_upc=$(echo "$required_amount" | awk '{printf "%.0f", $1 * 1000000000000000000}')
     
     echo -n "✓ Balance check: "
-    if [ "$balance" -ge "$required_upc" ]; then
+    if compare_amounts "$balance" "$required_upc" "-ge"; then
         echo -e "${GREEN}PASS${NC} ($balance_push PUSH)"
     else
         echo -e "${RED}FAIL${NC} (Have: $balance_push PUSH, Need: $required_amount PUSH)"
@@ -613,7 +688,7 @@ EOF
             esac
         else
             echo -e "${YELLOW}⚠ Validator not found in active set yet. This is normal - it may take a few minutes.${NC}"
-            echo "You can check status later with: ./push-validator status"
+            echo "You can check status later with: ./push-node-manager status"
         fi
         
         # Always show validator list even if not found yet
@@ -628,55 +703,71 @@ EOF
         echo "- Transaction Hash: $tx_hash"
         echo
         echo -e "${BLUE}Next steps:${NC}"
-        echo "1. Monitor your validator: ./push-validator status"
-        echo "2. Check balance: ./push-validator balance"
-        echo "3. View logs: ./push-validator logs"
+        echo "1. Monitor your validator: ./push-node-manager status"
+        echo "2. Check balance: ./push-node-manager balance"
+        echo "3. View logs: ./push-node-manager logs"
         echo
         
         # List all validators
         echo -e "${BOLD}${CYAN}📋 All Active Validators:${NC}"
         echo "════════════════════════════════════════════════"
         
+        # Temporarily disable exit on error for validator listing
         set +e
         local all_validators=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null)
-        set -e
+        local query_result=$?
         
-        if [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
+        if [ $query_result -eq 0 ] && [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
             # Parse validators directly without base64 encoding
-            local validator_count=$(echo "$all_validators" | jq '.validators | length')
+            local validator_count=$(echo "$all_validators" | jq '.validators | length' 2>/dev/null || echo "0")
             
-            for i in $(seq 0 $((validator_count - 1))); do
-                local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"")
-                local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"")
-                local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"")
-                local tokens_push=$(format_balance "$tokens")
-                
-                # Format status nicely
-                local status_display=""
-                case "$status" in
-                    "BOND_STATUS_BONDED")
-                        status_display="${GREEN}BONDED${NC}"
-                        ;;
-                    "BOND_STATUS_UNBONDING")
-                        status_display="${YELLOW}UNBONDING${NC}"
-                        ;;
-                    "BOND_STATUS_UNBONDED")
-                        status_display="${RED}UNBONDED${NC}"
-                        ;;
-                    *)
-                        status_display="$status"
-                        ;;
-                esac
-                
-                if [ "$moniker" = "$validator_name" ]; then
-                    echo -e "${GREEN}➤ $moniker - Status: $status_display - Stake: $tokens_push PUSH ${BOLD}(YOUR VALIDATOR)${NC}"
-                else
-                    echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
-                fi
-            done
+            if [ "$validator_count" -gt 0 ]; then
+                for i in $(seq 0 $((validator_count - 1))); do
+                    # Use safer parsing with error handling
+                    local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"" 2>/dev/null || echo "Unknown")
+                    local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"" 2>/dev/null || echo "UNKNOWN")
+                    local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"" 2>/dev/null || echo "0")
+                    
+                    # Handle format_balance errors
+                    local tokens_push="0"
+                    if command -v format_balance >/dev/null 2>&1; then
+                        tokens_push=$(format_balance "$tokens" 2>/dev/null || echo "0")
+                    else
+                        # Fallback if format_balance is not available
+                        tokens_push=$(echo "scale=6; $tokens / 1000000000000000000" | bc 2>/dev/null || echo "0")
+                    fi
+                    
+                    # Format status nicely
+                    local status_display=""
+                    case "$status" in
+                        "BOND_STATUS_BONDED")
+                            status_display="${GREEN}BONDED${NC}"
+                            ;;
+                        "BOND_STATUS_UNBONDING")
+                            status_display="${YELLOW}UNBONDING${NC}"
+                            ;;
+                        "BOND_STATUS_UNBONDED")
+                            status_display="${RED}UNBONDED${NC}"
+                            ;;
+                        *)
+                            status_display="$status"
+                            ;;
+                    esac
+                    
+                    if [ "$moniker" = "$validator_name" ]; then
+                        echo -e "${GREEN}➤ $moniker - Status: $status_display - Stake: $tokens_push PUSH ${BOLD}(YOUR VALIDATOR)${NC}"
+                    else
+                        echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
+                    fi
+                done
+            else
+                echo "No validators found in the list"
+            fi
         else
-            echo "Unable to fetch validator list"
+            echo "Unable to fetch validator list (this is normal if the network is still syncing)"
         fi
+        # Re-enable exit on error
+        set -e
         echo
         
         # Show remaining balance
@@ -719,39 +810,57 @@ EOF
             echo -e "${BOLD}${CYAN}📋 Current Validators:${NC}"
             echo "════════════════════════════════════════════════"
             
+            # Temporarily disable exit on error for validator listing
             set +e
             local all_validators=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null)
-            set -e
+            local query_result=$?
             
-            if [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
-                local validator_count=$(echo "$all_validators" | jq '.validators | length')
+            if [ $query_result -eq 0 ] && [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
+                local validator_count=$(echo "$all_validators" | jq '.validators | length' 2>/dev/null || echo "0")
                 
-                for i in $(seq 0 $((validator_count - 1))); do
-                    local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"")
-                    local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"")
-                    local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"")
-                    local tokens_push=$(format_balance "$tokens")
-                    
-                    # Format status nicely
-                    local status_display=""
-                    case "$status" in
-                        "BOND_STATUS_BONDED")
-                            status_display="${GREEN}BONDED${NC}"
-                            ;;
-                        "BOND_STATUS_UNBONDING")
-                            status_display="${YELLOW}UNBONDING${NC}"
-                            ;;
-                        "BOND_STATUS_UNBONDED")
-                            status_display="${RED}UNBONDED${NC}"
-                            ;;
-                        *)
-                            status_display="$status"
-                            ;;
-                    esac
+                if [ "$validator_count" -gt 0 ]; then
+                    for i in $(seq 0 $((validator_count - 1))); do
+                        # Use safer parsing with error handling
+                        local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"" 2>/dev/null || echo "Unknown")
+                        local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"" 2>/dev/null || echo "UNKNOWN")
+                        local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"" 2>/dev/null || echo "0")
+                        
+                        # Handle format_balance errors
+                        local tokens_push="0"
+                        if command -v format_balance >/dev/null 2>&1; then
+                            tokens_push=$(format_balance "$tokens" 2>/dev/null || echo "0")
+                        else
+                            # Fallback if format_balance is not available
+                            tokens_push=$(echo "scale=6; $tokens / 1000000000000000000" | bc 2>/dev/null || echo "0")
+                        fi
+                        
+                        # Format status nicely
+                        local status_display=""
+                        case "$status" in
+                            "BOND_STATUS_BONDED")
+                                status_display="${GREEN}BONDED${NC}"
+                                ;;
+                            "BOND_STATUS_UNBONDING")
+                                status_display="${YELLOW}UNBONDING${NC}"
+                                ;;
+                            "BOND_STATUS_UNBONDED")
+                                status_display="${RED}UNBONDED${NC}"
+                                ;;
+                            *)
+                                status_display="$status"
+                                ;;
+                        esac
                     
                     echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
                 done
+            else
+                echo "No validators found in the list"
             fi
+        else
+            echo "Unable to fetch validator list"
+        fi
+        # Re-enable exit on error
+        set -e
         fi
         
         return 1
@@ -761,6 +870,88 @@ EOF
 # Main setup flow
 main() {
     print_banner
+    
+    # First, check if node already has validator keys registered
+    local node_pubkey=$(pchaind tendermint show-validator --home "$PCHAIN_HOME" 2>/dev/null | jq -r '.key' 2>/dev/null || echo "")
+    local existing_validator_by_pubkey=""
+    local using_existing_validator=false
+    local force_wallet_import=false
+    
+    if [ -n "$node_pubkey" ]; then
+        set +e
+        existing_validator_by_pubkey=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
+            jq ".validators[] | select(.consensus_pubkey.value==\"$node_pubkey\")" 2>/dev/null || echo "")
+        set -e
+        
+        if [ -n "$existing_validator_by_pubkey" ] && [ "$existing_validator_by_pubkey" != "null" ]; then
+            # This node's validator key is already registered
+            local pubkey_val_moniker=$(echo "$existing_validator_by_pubkey" | jq -r '.description.moniker // "Unknown"')
+            local pubkey_val_operator=$(echo "$existing_validator_by_pubkey" | jq -r '.operator_address // "Unknown"')
+            local pubkey_val_status=$(echo "$existing_validator_by_pubkey" | jq -r '.status // "UNKNOWN"')
+            
+            echo
+            echo -e "${YELLOW}⚠️  This node's validator key is already registered!${NC}"
+            echo
+            echo -e "${BOLD}${CYAN}Existing Validator Details:${NC}"
+            echo "- Name: $pubkey_val_moniker"
+            echo "- Operator: $pubkey_val_operator"
+            echo "- Status: $pubkey_val_status"
+            echo
+            echo "What would you like to do?"
+            echo "1) Use the existing validator (need to import controlling wallet)"
+            echo "2) Create a NEW validator (will reset node keys)"
+            echo "3) Exit"
+            echo
+            read -p "Choose option (1-3): " validator_choice
+            
+            case "$validator_choice" in
+                1)
+                    echo
+                    echo -e "${CYAN}To use the existing validator '$pubkey_val_moniker':${NC}"
+                    echo "You MUST import the wallet that originally created this validator."
+                    echo
+                    echo "The validator operator address is: $pubkey_val_operator"
+                    echo
+                    read -p "Press Enter to continue..."
+                    using_existing_validator=true
+                    force_wallet_import=true
+                    ;;
+                2)
+                    echo
+                    echo -e "${YELLOW}⚠️  This will reset your validator keys and create a NEW validator!${NC}"
+                    echo "Your current validator '$pubkey_val_moniker' will remain but won't be controlled by this node."
+                    echo
+                    read -p "Are you sure you want to create a new validator? (yes/no): " confirm_reset
+                    
+                    if [[ "$confirm_reset" =~ ^[Yy][Ee][Ss]$ ]]; then
+                        echo
+                        echo -e "${CYAN}Resetting validator keys...${NC}"
+                        
+                        # Remove the old validator key
+                        rm -f "$CONFIG_DIR/priv_validator_key.json"
+                        
+                        # Generate new validator key
+                        echo -e "${YELLOW}Please restart your node to generate new keys:${NC}"
+                        echo -e "  ${CYAN}./push-node-manager restart${NC}"
+                        echo
+                        echo "After restart, run this command again to register as a new validator."
+                        exit 0
+                    else
+                        echo "Reset cancelled. Exiting..."
+                        exit 0
+                    fi
+                    ;;
+                3)
+                    echo "Exiting..."
+                    exit 0
+                    ;;
+                *)
+                    echo -e "${RED}Invalid choice. Exiting...${NC}"
+                    exit 1
+                    ;;
+            esac
+        fi
+    fi
     
     # Step 1: Wallet Setup
     echo -e "${BOLD}${BLUE}Step 1: Wallet Setup${NC}"
@@ -792,10 +983,17 @@ main() {
             
             echo
             echo "What would you like to do?"
-            echo "1) Use existing wallet"
-            echo "2) Create new wallet"
-            echo "3) Import wallet from seed phrase"
-            read -p "Choose option (1-3): " main_option
+            if [ "$force_wallet_import" = true ]; then
+                echo "3) Import wallet from seed phrase"
+                echo
+                echo -e "${YELLOW}Note: You must import the wallet to use the existing validator${NC}"
+                main_option=3
+            else
+                echo "1) Use existing wallet"
+                echo "2) Create new wallet"
+                echo "3) Import wallet from seed phrase"
+                read -p "Choose option (1-3): " main_option
+            fi
             
             case "$main_option" in
                 1)
@@ -945,24 +1143,26 @@ main() {
     # Get wallet address
     local wallet_address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
     
-    # Check if already a validator
-    echo
-    echo -e "${BOLD}${BLUE}Step 2: Checking Validator Status${NC}"
-    echo "════════════════════════════════════════════════"
-    echo
+    # Check if wallet is already a validator (skip if we already handled validator setup)
+    if [ "$using_existing_validator" != true ]; then
+        echo
+        echo -e "${BOLD}${BLUE}Step 2: Checking Wallet Validator Status${NC}"
+        echo "════════════════════════════════════════════════"
+        echo
+        
+        log_info "Checking if wallet is already a validator..."
+        
+        # Get validator address
+        local val_addr=$(pchaind keys show "$wallet_name" --bech val -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null || echo "")
+        
+        # Check if validator exists by searching all validators
+        set +e
+        local existing_validator=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
+            jq ".validators[] | select(.operator_address==\"$val_addr\")" 2>/dev/null)
+        set -e
+    fi
     
-    log_info "Checking if wallet is already a validator..."
-    
-    # Get validator address
-    local val_addr=$(pchaind keys show "$wallet_name" --bech val -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null || echo "")
-    
-    # Check if validator exists by searching all validators
-    set +e
-    local existing_validator=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
-        jq ".validators[] | select(.operator_address==\"$val_addr\")" 2>/dev/null)
-    set -e
-    
-    if [ -n "$existing_validator" ] && [ "$existing_validator" != "null" ]; then
+    if [ "$using_existing_validator" != true ] && [ -n "$existing_validator" ] && [ "$existing_validator" != "null" ]; then
         # Validator already exists
         local val_moniker=$(echo "$existing_validator" | jq -r '.description.moniker // "Unknown"')
         local val_status=$(echo "$existing_validator" | jq -r '.status // "UNKNOWN"')
@@ -1021,16 +1221,22 @@ main() {
         
         echo
         echo -e "${BLUE}Validator management commands:${NC}"
-        echo "- Monitor status: ./push-validator status"
-        echo "- Check balance: ./push-validator balance"
-        echo "- View logs: ./push-validator logs"
+        echo "- Monitor status: ./push-node-manager status"
+        echo "- Check balance: ./push-node-manager balance"
+        echo "- View logs: ./push-node-manager logs"
         
         exit 0
     fi
     
-    # Step 3: Check Balance with smart detection
+    # This check was already done at the beginning of main() if using_existing_validator is true
+    
+    # Check Balance with smart detection
     echo
-    echo -e "${BOLD}${BLUE}Step 3: Checking Wallet Balance${NC}"
+    if [ "$using_existing_validator" = true ]; then
+        echo -e "${BOLD}${BLUE}Step 2: Checking Wallet Balance${NC}"
+    else
+        echo -e "${BOLD}${BLUE}Step 3: Checking Wallet Balance${NC}"
+    fi
     echo "════════════════════════════════════════════════"
     echo
     
@@ -1044,7 +1250,7 @@ main() {
     local min_required_upc=$(echo "$min_required_push" | awk '{printf "%.0f", $1 * 1000000000000000000}')
     
     # Keep checking balance until funded
-    while [ "$balance" -lt "$min_required_upc" ]; do
+    while ! compare_amounts "$balance" "$min_required_upc" "-ge"; do
         echo
         log_warning "Insufficient balance - need $min_required_push PUSH to register"
         echo
@@ -1080,7 +1286,7 @@ main() {
                 balance=$(check_balance_smart "$wallet_address")
                 balance_push=$(format_balance "$balance")
                 
-                if [ "$balance" -ge "$min_required_upc" ]; then
+                if compare_amounts "$balance" "$min_required_upc" "-ge"; then
                     echo -e "${BOLD}${GREEN}✓ Wallet funded! Balance: $balance_push PUSH${NC}"
                     sleep 2
                 else
@@ -1100,11 +1306,60 @@ main() {
     
     # If we get here, wallet is funded
     log_success "✅ Wallet has sufficient balance!"
+    
+    # Check if we're using an existing validator
+    if [ "$using_existing_validator" = true ]; then
+        # Check if the imported wallet controls the existing validator
+        local val_addr=$(pchaind keys show "$wallet_name" --bech val -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null || echo "")
+        local node_pubkey=$(pchaind tendermint show-validator --home "$PCHAIN_HOME" 2>/dev/null | jq -r '.key' 2>/dev/null || echo "")
+        
+        set +e
+        local controlled_validator=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
+            jq ".validators[] | select(.operator_address==\"$val_addr\" and .consensus_pubkey.value==\"$node_pubkey\")" 2>/dev/null)
+        set -e
+        
+        if [ -n "$controlled_validator" ] && [ "$controlled_validator" != "null" ]; then
+            echo
+            echo -e "${BOLD}${GREEN}✅ Successfully connected to existing validator!${NC}"
+            echo
+            local val_moniker=$(echo "$controlled_validator" | jq -r '.description.moniker // "Unknown"')
+            local val_status=$(echo "$controlled_validator" | jq -r '.status // "UNKNOWN"')
+            local val_tokens=$(echo "$controlled_validator" | jq -r '.tokens // "0"')
+            local val_tokens_push=$(format_balance "$val_tokens")
+            
+            echo -e "${BOLD}${CYAN}Your Validator:${NC}"
+            echo "- Name: $val_moniker"
+            echo "- Operator: $val_addr"
+            echo "- Status: $val_status"
+            echo "- Staked: $val_tokens_push PUSH"
+            echo
+            echo -e "${GREEN}No additional registration needed - you are controlling the existing validator!${NC}"
+            echo
+            echo "You can manage your validator with these commands:"
+            echo "- Check status: ./push-node-manager status"
+            echo "- View logs: ./push-node-manager logs"
+            echo "- List validators: ./push-node-manager validators"
+            echo
+            exit 0
+        else
+            echo
+            log_warning "The imported wallet does not control the validator with this node's keys!"
+            echo "The validator might be controlled by a different wallet."
+            echo "Proceeding to create a new validator..."
+            echo
+            using_existing_validator=false
+        fi
+    fi
+    
     echo -e "${GREEN}Ready to proceed with validator registration${NC}"
     
-    # Step 4: Validator Registration
+    # Validator Registration
     echo
-    echo -e "${BOLD}${BLUE}Step 4: Validator Registration${NC}"
+    if [ "$using_existing_validator" = true ]; then
+        echo -e "${BOLD}${BLUE}Step 3: Validator Registration${NC}"
+    else
+        echo -e "${BOLD}${BLUE}Step 4: Validator Registration${NC}"
+    fi
     echo "════════════════════════════════════════════════"
     echo
     
@@ -1119,12 +1374,12 @@ main() {
         if [ $reg_result -ne 0 ]; then
             echo
             log_warning "Validator registration encountered an issue"
-            echo "You can try again later with: ./push-validator setup"
+            echo "You can try again later with: ./push-node-manager setup"
         fi
     else
         echo
         log_info "You can complete registration later by running:"
-        echo -e "${CYAN}./push-validator setup${NC}"
+        echo -e "${CYAN}./push-node-manager setup${NC}"
         echo
         echo "Current status:"
         echo "- Wallet: $wallet_name"
@@ -1152,12 +1407,12 @@ wait_for_funding() {
         local balance_push=$(format_balance "$balance")
         
         # Check if balance increased
-        if [ "$balance" -gt "$last_balance" ] && [ "$last_balance" != "0" ]; then
+        if compare_amounts "$balance" "$last_balance" "-gt" && [ "$last_balance" != "0" ]; then
             echo -e "\n${GREEN}💰 Received $(format_balance $balance) PUSH!${NC}"
         fi
         last_balance="$balance"
         
-        if [ "$balance" -ge "$required_amount" ]; then
+        if compare_amounts "$balance" "$required_amount" "-ge"; then
             echo -e "\n${BOLD}${GREEN}✓ Wallet funded! Balance: $balance_push PUSH${NC}"
             sleep 2
             return 0

@@ -76,8 +76,8 @@
     "pchain": "/usr/local/bin/pchain"
   },
   "docker": {
-    "image_name": "push-validator",
-    "container_name": "push-validator",
-    "network_name": "push-validator-network"
+    "image_name": "push-node-manager",
+    "container_name": "push-node-manager",
+    "network_name": "push-node-manager-network"
   }
 }

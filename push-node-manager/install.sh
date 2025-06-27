@@ -40,15 +40,15 @@ BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/validator"
 
 # Create directory
 echo -e "\n${BLUE}Creating validator directory...${NC}"
-mkdir -p push-validator
-cd push-validator
+mkdir -p push-node-manager
+cd push-node-manager
 
 # Download required files
 echo -e "\n${BLUE}Downloading validator files...${NC}"
 
 # Download main files
-echo "Downloading push-validator script..."
-curl -sSL "${BASE_URL}/push-validator" -o push-validator || { echo -e "${RED}Failed to download push-validator${NC}"; exit 1; }
+echo "Downloading push-node-manager script..."
+curl -sSL "${BASE_URL}/push-node-manager" -o push-node-manager || { echo -e "${RED}Failed to download push-node-manager${NC}"; exit 1; }
 
 echo "Downloading docker-compose.yml..."
 curl -sSL "${BASE_URL}/docker-compose.yml" -o docker-compose.yml || { echo -e "${RED}Failed to download docker-compose.yml${NC}"; exit 1; }
@@ -64,7 +64,7 @@ mkdir -p scripts
 cd scripts
 
 # Download all script files
-for script in common.sh entrypoint.sh setup-validator.sh import-wallet.sh; do
+for script in common.sh entrypoint.sh setup-node-registration.sh import-wallet.sh; do
     echo "Downloading $script..."
     curl -sSL "${BASE_URL}/scripts/$script" -o $script || { echo -e "${RED}Failed to download $script${NC}"; exit 1; }
 done
@@ -77,7 +77,7 @@ echo "Downloading networks.json..."
 curl -sSL "${BASE_URL}/configs/networks.json" -o configs/networks.json || { echo -e "${RED}Failed to download networks.json${NC}"; exit 1; }
 
 # Make scripts executable
-chmod +x push-validator
+chmod +x push-node-manager
 chmod +x scripts/*.sh
 
 echo -e "\n${GREEN}✓ Downloaded all files successfully!${NC}"
@@ -95,7 +95,7 @@ echo
 echo -e "${BOLD}${BLUE}🎉 Ready to start!${NC}"
 echo
 echo "Run the setup wizard:"
-echo -e "  ${BOLD}./push-validator setup${NC}"
+echo -e "  ${BOLD}./push-node-manager setup${NC}"
 echo
 echo "This will guide you through:"
 echo "  1. Creating a wallet"
@@ -106,5 +106,5 @@ echo -e "${YELLOW}Note: The setup process takes about 2-3 minutes${NC}"
 echo
 read -p "Start the setup wizard now? (yes/no): " start_now
 if [[ "$start_now" =~ ^[Yy][Ee][Ss]$ ]]; then
-    ./push-validator setup
+    ./push-node-manager setup
 fi

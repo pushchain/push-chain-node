@@ -1,4 +1,4 @@
-# Push Chain Validator 🚀
+# Push Node Manager 🚀
 
 Run a Push Chain validator node in minutes with our simple one-line installer.
 
@@ -16,14 +16,14 @@ curl -sSL https://raw.githubusercontent.com/pushchain/push-chain-node/feature/va
 
 ### Step 2: Start Your Node
 ```bash
-cd push-validator
-./push-validator start
+cd push-node-manager
+./push-node-manager start
 ```
 Your node will start syncing with the network. This is normal and takes 1-2 hours.
 
 ### Step 3: Check Status
 ```bash
-./push-validator status
+./push-node-manager status
 ```
 Look for:
 - ✅ **Catching Up: false** = Fully synced
@@ -32,7 +32,7 @@ Look for:
 
 ### Step 4: Become a Validator
 ```bash
-./push-validator setup
+./push-node-manager setup
 ```
 
 The wizard will guide you through:
@@ -44,7 +44,7 @@ The wizard will guide you through:
 After registration completes:
 - ✅ You'll see your validator in the list with status "BONDED"
 - ✅ Your validator name will be highlighted
-- ✅ Check anytime with: `./push-validator status`
+- ✅ Check anytime with: `./push-node-manager status`
 
 **That's it! You're now running a Push Chain validator! 🎉**
 
@@ -62,7 +62,7 @@ After registration completes:
 - The faucet gives you 2 PUSH
 
 **"Is my validator working?"**
-- Run `./push-validator status` to check
+- Run `./push-node-manager status` to check
 - Your voting power should be > 0
 - You should see your validator in the active list
 
@@ -74,7 +74,7 @@ After registration completes:
 <summary><b>🔧 All Commands</b></summary>
 
 ```bash
-./push-validator help
+./push-node-manager help
 ```
 
 | Command | Description |
@@ -82,9 +82,10 @@ After registration completes:
 | `start` | Start your validator node |
 | `stop` | Stop your validator node |
 | `restart` | Restart your validator node |
-| `status` | Show sync status, validator info, and sync progress |
+| `status` | Show sync status, validator info, and sync progress with ETA |
 | `setup` | Interactive wallet setup & validator registration wizard |
 | `balance` | Check wallet balance and show faucet info |
+| `validators` | List all active validators with voting power and status |
 | `logs` | View live logs (with optional filtering) |
 | `monitor` | Real-time monitoring dashboard |
 | `backup` | Backup validator keys to ./backup/ directory |
@@ -126,14 +127,14 @@ After registration completes:
 
 **Validator not starting?**
 ```bash
-./push-validator logs          # Check for errors
-./push-validator test          # Run diagnostics
+./push-node-manager logs          # Check for errors
+./push-node-manager test          # Run diagnostics
 docker ps                      # Ensure container is running
 ```
 
 **Balance showing 0?**
 - Node might be syncing - balance queries work better after sync
-- Try: `./push-validator balance` (uses remote node)
+- Try: `./push-node-manager balance` (uses remote node)
 - Or wait for `Catching Up: false` in status
 
 **Already registered validator?**
@@ -142,14 +143,14 @@ docker ps                      # Ensure container is running
 
 **Sync issues or corrupted data?**
 ```bash
-./push-validator reset-data    # Interactive reset options
+./push-node-manager reset-data    # Interactive reset options
 # Option 1: Quick reset (node stays running)
 # Option 2: Clean reset (stops node, removes volumes)
 ```
 
 **Want to start completely fresh?**
 ```bash
-./push-validator reset-all     # WARNING: Deletes everything including wallets!
+./push-node-manager reset-all     # WARNING: Deletes everything including wallets!
 ```
 
 </details>
@@ -161,7 +162,7 @@ docker ps                      # Ensure container is running
 
 ```bash
 # Backup validator keys
-./push-validator backup
+./push-node-manager backup
 
 # Keys are saved to ./backup/ directory
 ```
@@ -174,7 +175,7 @@ docker ps                      # Ensure container is running
 
 **Import existing validator:**
 ```bash
-./push-validator setup
+./push-node-manager setup
 # Choose option 2: Import wallet
 ```
 
@@ -209,8 +210,8 @@ Edit `docker-compose.yml` for:
 
 **Monitor your validator:**
 ```bash
-./push-validator monitor       # Live dashboard
-./push-validator logs -f       # Follow logs
+./push-node-manager monitor       # Live dashboard
+./push-node-manager logs -f       # Follow logs
 ```
 
 **Key metrics to watch:**
@@ -220,8 +221,8 @@ Edit `docker-compose.yml` for:
 - Peer connections (should be > 0)
 
 **Maintenance tasks:**
-- Regular backups: `./push-validator backup`
-- Update software: `./push-validator update`
+- Regular backups: `./push-node-manager backup`
+- Update software: `./push-node-manager update`
 - Check disk space: `df -h`
 - Monitor logs for errors
 
@@ -232,7 +233,7 @@ Edit `docker-compose.yml` for:
 
 **When to use each reset option:**
 
-### `./push-validator reset-data`
+### `./push-node-manager reset-data`
 Resets blockchain data while keeping your wallets and validator keys safe.
 
 **Option 1: Quick Reset**
@@ -247,7 +248,7 @@ Resets blockchain data while keeping your wallets and validator keys safe.
 - More thorough cleanup
 - Use when: AppHash errors, corrupted data, or option 1 didn't work
 
-### `./push-validator reset-all`
+### `./push-node-manager reset-all`
 ⚠️ **DANGER**: Complete nuclear reset!
 - Deletes ALL blockchain data
 - Deletes ALL wallets and keys
@@ -272,8 +273,8 @@ Resets blockchain data while keeping your wallets and validator keys safe.
 - 📧 Email: Coming soon
 
 **Before asking for help:**
-1. Run `./push-validator test`
-2. Check `./push-validator logs`
+1. Run `./push-node-manager test`
+2. Check `./push-node-manager logs`
 3. Verify Docker is running
 4. Check you have enough disk space
 

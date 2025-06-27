@@ -49,7 +49,7 @@ if [ -f "/configs/genesis-testnet.json" ]; then
             cp /tmp/genesis-network.json /configs/genesis-testnet.json
             echo "✅ Genesis file updated!"
             echo ""
-            echo "Now run: ./push-validator start --clean"
+            echo "Now run: ./push-node-manager start --clean"
         fi
     fi
 else

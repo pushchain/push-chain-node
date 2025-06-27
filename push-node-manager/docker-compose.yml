@@ -6,8 +6,8 @@ services:
       args:
         - BINARY_VERSION=${BINARY_VERSION:-latest}
         - BINARY_CHECKSUM=${BINARY_CHECKSUM:-}
-    image: push-validator:${BINARY_VERSION:-latest}
-    container_name: push-validator
+    image: push-node-manager:${BINARY_VERSION:-latest}
+    container_name: push-node-manager
     restart: unless-stopped
     ports:
       - "26656:26656"  # P2P port
@@ -56,7 +56,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        labels: "service=push-validator"
+        labels: "service=push-node-manager"
     ulimits:
       nofile:
         soft: 65536
@@ -74,4 +74,4 @@ services:
 
 networks:
   default:
-    name: push-validator-network
+    name: push-node-manager-network

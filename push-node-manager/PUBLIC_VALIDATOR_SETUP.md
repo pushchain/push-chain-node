@@ -33,7 +33,7 @@ sudo ufw status
 
 ## Nginx Configuration
 
-Create `/etc/nginx/sites-available/push-validator` with all services:
+Create `/etc/nginx/sites-available/push-node-manager` with all services:
 
 ```nginx
 # Cosmos RPC
@@ -147,7 +147,7 @@ server {
 
 ```bash
 # Enable the configuration
-sudo ln -s /etc/nginx/sites-available/push-validator /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/push-node-manager /etc/nginx/sites-enabled/
 
 # Test configuration
 sudo nginx -t
@@ -243,7 +243,7 @@ sudo apt update
 sudo apt install -y nginx certbot python3-certbot-nginx
 
 # Create nginx config
-cat > /tmp/push-validator-nginx << EOF
+cat > /tmp/push-node-manager-nginx << EOF
 server {
     listen 80;
     server_name rpc.$DOMAIN;
@@ -312,8 +312,8 @@ server {
 EOF
 
 # Copy config
-sudo cp /tmp/push-validator-nginx /etc/nginx/sites-available/push-validator
-sudo ln -s /etc/nginx/sites-available/push-validator /etc/nginx/sites-enabled/
+sudo cp /tmp/push-node-manager-nginx /etc/nginx/sites-available/push-node-manager
+sudo ln -s /etc/nginx/sites-available/push-node-manager /etc/nginx/sites-enabled/
 
 # Test and reload
 sudo nginx -t && sudo systemctl reload nginx
@@ -330,7 +330,7 @@ echo "  EVM RPC: https://evm.$DOMAIN"
 
 1. **502 Bad Gateway**: Validator not running or wrong port
    ```bash
-   ./push-validator status
+   ./push-node-manager status
    docker ps
    ```
 

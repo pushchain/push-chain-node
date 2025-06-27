@@ -68,7 +68,7 @@ fi
 
 # Show banner for interactive commands (not for status checks)
 case "$1" in
-    start|stop|restart|register-validator|setup|monitor|sync|validators|help|"")
+    start|stop|restart|register-validator|setup|monitor|sync|validators|public-setup|help|"")
         show_banner
         ;;
 esac
@@ -952,6 +952,87 @@ EOF
         fi
         ;;
         
+    public-setup)
+        # Setup public HTTPS endpoints
+        print_status "🌐 Setting up public HTTPS access for your validator..."
+        echo
+        
+        # Check if running on macOS
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            print_error "Public setup requires Ubuntu/Debian Linux"
+            echo "This setup configures nginx on the host machine."
+            echo "For local development, your validator is already accessible at:"
+            echo "  - RPC: http://localhost:26657"
+            echo "  - EVM: http://localhost:8545"
+            echo "  - API: http://localhost:1317"
+            echo
+            print_warning "For testing purposes, you can use the local test script:"
+            echo -e "${CYAN}./push-node-manager test-public-setup${NC}"
+            exit 1
+        fi
+        
+        # Check if validator is running
+        if ! $DOCKER_COMPOSE ps | grep -q "Up"; then
+            print_error "Please start your validator first: ./push-node-manager start"
+            exit 1
+        fi
+        
+        # Check if validator is registered
+        print_status "Checking validator status..."
+        VALIDATOR_INFO=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --output json 2>/dev/null | jq '.validators[] | select(.description.moniker != null)' 2>/dev/null || echo "")
+        
+        if [ -z "$VALIDATOR_INFO" ]; then
+            print_warning "No validator found. It's recommended to register as a validator first."
+            echo "Run: ./push-node-manager setup"
+            echo
+            read -p "Continue anyway? (yes/no): " continue_anyway
+            if [[ ! "$continue_anyway" =~ ^[Yy][Ee][Ss]$ ]]; then
+                exit 0
+            fi
+        fi
+        
+        # Run the public setup script
+        if [ -f "$SCRIPT_DIR/scripts/setup-public-validator.sh" ]; then
+            bash "$SCRIPT_DIR/scripts/setup-public-validator.sh"
+        else
+            print_error "Public setup script not found!"
+            echo "Expected at: $SCRIPT_DIR/scripts/setup-public-validator.sh"
+            exit 1
+        fi
+        ;;
+        
+    test-public-setup)
+        # Test public setup locally
+        print_status "🧪 Testing public validator setup locally..."
+        echo
+        echo "This will:"
+        echo "  • Add test domains to /etc/hosts (requires sudo)"
+        echo "  • Create self-signed certificates"
+        echo "  • Set up nginx with test configuration"
+        echo "  • Test the endpoints locally"
+        echo
+        read -p "Continue with test setup? (yes/no): " confirm
+        if [[ ! "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+            exit 0
+        fi
+        
+        # Check if validator is running
+        if ! $DOCKER_COMPOSE ps | grep -q "Up"; then
+            print_warning "Validator is not running. Some tests may fail."
+            echo "Start it with: ./push-node-manager start"
+            echo
+        fi
+        
+        # Run the test script
+        if [ -f "$SCRIPT_DIR/scripts/test-public-setup-local.sh" ]; then
+            bash "$SCRIPT_DIR/scripts/test-public-setup-local.sh" "$@"
+        else
+            print_error "Test script not found!"
+            echo "Expected at: $SCRIPT_DIR/scripts/test-public-setup-local.sh"
+            exit 1
+        fi
+        ;;
+        
     help|--help|-h)
         cat << EOF
 ${GREEN}═══════════════════════════════════════════════════════${NC}
@@ -990,6 +1071,7 @@ $(echo -e "${BOLD}${GREEN}Maintenance:${NC}")
   reset-data         Reset blockchain data (keeps wallets)
   reset-all          $(echo -e "${RED}DANGER:${NC}") Complete reset - deletes EVERYTHING!
   update             Update node software to latest version
+  public-setup       Setup HTTPS endpoints for public access (Linux only)
   help               Show this help message
 
 $(echo -e "${BOLD}Examples:${NC}")
@@ -1018,6 +1100,9 @@ $(echo -e "${BOLD}Troubleshooting:${NC}")
   ./push-node-manager reset-data          # Reset blockchain data
   ./push-node-manager logs -f             # Follow logs continuously
   ./push-node-manager shell               # Access container shell
+
+$(echo -e "${BOLD}Public Access:${NC}")
+  ./push-node-manager public-setup        # Setup HTTPS endpoints (requires domain)
 
 $(echo -e "${BOLD}Network Information:${NC}")
   Chain ID:     push_42101-1

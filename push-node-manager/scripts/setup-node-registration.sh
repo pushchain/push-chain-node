@@ -775,6 +775,27 @@ EOF
         local new_balance_push=$(format_balance "$new_balance")
         echo -e "${GREEN}Remaining balance: $new_balance_push PUSH${NC}"
         
+        # Ask about public setup (only on Linux)
+        echo
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            echo -e "${BOLD}${CYAN}📡 Optional: Make Your Validator Publicly Accessible${NC}"
+            echo "════════════════════════════════════════════════"
+            echo "You can set up HTTPS endpoints to make your validator accessible from the internet."
+            echo "This is optional - your validator works perfectly fine on localhost."
+            echo
+            read -p "Would you like to set up public HTTPS access? (yes/no): " setup_public
+            
+            if [[ "$setup_public" =~ ^[Yy][Ee][Ss]$ ]]; then
+                echo
+                echo -e "${CYAN}To set up public access, run:${NC}"
+                echo -e "${BOLD}./push-node-manager public-setup${NC}"
+                echo
+                echo "You'll need:"
+                echo "- A domain name pointing to this server"
+                echo "- Ports 80 and 443 open in your firewall"
+            fi
+        fi
+        
         return 0
     else
         if [ "$tx_confirmed" = true ]; then

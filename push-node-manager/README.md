@@ -98,6 +98,7 @@ After registration completes:
 | `keys` | Key management (list, add, show, delete) |
 | `update` | Update validator software to latest version |
 | `auto-register [wallet]` | Automatic registration (auto-detects or specify wallet name) |
+| `public-setup` | Setup HTTPS endpoints for public access (Linux only) |
 | `help` | Show detailed help with examples |
 
 </details>
@@ -212,6 +213,122 @@ Edit `docker-compose.yml` for:
 - Setup monitoring with Prometheus/Grafana
 - Configure firewall rules
 - Enable automated backups
+
+</details>
+
+<details>
+<summary><b>🌐 Public Validator Setup (Optional)</b></summary>
+
+## Making Your Validator Publicly Accessible
+
+By default, your validator runs on localhost. If you want to make it publicly accessible with HTTPS endpoints, follow this guide.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────┐
+│         HOST MACHINE            │
+│                                 │
+│  ┌─────────────────────────┐   │
+│  │   Nginx (Port 80/443)   │   │ ← Public Setup HERE
+│  │   - SSL Certificates    │   │
+│  │   - Reverse Proxy       │   │
+│  └──────────┬──────────────┘   │
+│             │                   │
+│             ▼                   │
+│  ┌─────────────────────────┐   │
+│  │   Docker Container      │   │
+│  │   - Push Node           │   │
+│  │   - Ports:              │   │
+│  │     • 26656 (P2P)       │   │
+│  │     • 26657 (RPC)       │   │
+│  │     • 8545 (EVM HTTP)   │   │
+│  │     • 8546 (EVM WS)     │   │
+│  │     • 1317 (REST)       │   │
+│  │     • 9090 (gRPC)       │   │
+│  └─────────────────────────┘   │
+└─────────────────────────────────┘
+```
+
+### Prerequisites
+
+- Ubuntu/Debian server with public IP
+- Domain name pointing to your server
+- Ports 80 and 443 open in firewall
+- Validator already running (`./push-node-manager status`)
+
+### Quick Setup
+
+```bash
+# Automated setup (Linux only)
+./push-node-manager public-setup
+
+# Or follow the manual guide:
+cat PUBLIC_VALIDATOR_SETUP.md
+```
+
+### What This Sets Up
+
+1. **HTTPS Endpoints:**
+   - `https://rpc.your-domain.com` - Cosmos RPC
+   - `https://evm.your-domain.com` - EVM RPC (HTTP & WebSocket)
+
+2. **Security Features:**
+   - SSL/TLS encryption with Let's Encrypt
+   - Rate limiting
+   - DDoS protection
+   - Optional IP whitelisting
+
+3. **High Availability:**
+   - Nginx reverse proxy
+   - WebSocket support
+   - Connection pooling
+   - Health checks
+
+### Manual Setup Steps
+
+1. **Install Nginx & Certbot:**
+   ```bash
+   sudo apt update
+   sudo apt install -y nginx certbot python3-certbot-nginx
+   ```
+
+2. **Configure Nginx:**
+   - See `PUBLIC_VALIDATOR_SETUP.md` for full configuration
+   - Replace `your-domain.com` with your actual domain
+
+3. **Setup SSL:**
+   ```bash
+   sudo certbot --nginx -d rpc.your-domain.com -d evm.your-domain.com
+   ```
+
+4. **Test Your Endpoints:**
+   ```bash
+   # Test Cosmos RPC
+   curl https://rpc.your-domain.com/status
+   
+   # Test EVM RPC
+   curl -X POST https://evm.your-domain.com \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+   ```
+
+### Security Best Practices
+
+- Keep your validator signing key secure (never expose it)
+- Use firewall to restrict access to essential ports only
+- Enable rate limiting in nginx configuration
+- Monitor access logs regularly
+- Consider using a CDN for additional protection
+
+### Notes
+
+- This setup is **completely optional** - validators work fine on localhost
+- Public endpoints allow others to use your node as an RPC provider
+- Ensure you have sufficient bandwidth if making endpoints public
+- Consider the security implications before exposing endpoints
+
+For detailed instructions, see [PUBLIC_VALIDATOR_SETUP.md](PUBLIC_VALIDATOR_SETUP.md)
 
 </details>
 

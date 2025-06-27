@@ -84,68 +84,80 @@ jobs:
   build-binaries:
     needs: check-version
     if: needs.check-version.outputs.should_release == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: linux-amd64
+            runs-on: ubuntu-latest
+            build-type: docker
+          - platform: darwin-amd64
+            runs-on: ubuntu-latest
+            build-type: instructions
+          - platform: darwin-arm64
+            runs-on: ubuntu-latest
+            build-type: instructions
+    
+    runs-on: ${{ matrix.runs-on }}
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Build Linux binary using Docker
+      - name: Build ${{ matrix.platform }}
         run: |
           mkdir -p release
           
-          # Build using the existing Dockerfile
-          docker build -t pchaind-builder .
+          if [ "${{ matrix.build-type }}" = "docker" ]; then
+            # Build Linux binary using Docker
+            echo "Building Linux AMD64 binary..."
+            docker build -t pchaind-builder .
+            
+            # Extract the binary
+            docker create --name extract pchaind-builder
+            docker cp extract:/usr/bin/pchaind ./pchaind
+            docker rm extract
+            
+            # Create archive
+            tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
+            rm pchaind
+          else
+            # Create build instructions for macOS
+            cat > build-instructions.md << 'EOF'
+          # macOS Build Instructions for ${{ matrix.platform }}
           
-          # Extract the binary
-          docker create --name extract pchaind-builder
-          docker cp extract:/usr/bin/pchaind ./pchaind
-          docker rm extract
+          Cross-compilation from Linux to macOS is not supported due to CGO dependencies.
+          Please build locally on macOS:
           
-          # Create Linux archive
-          tar -czf release/pchaind-linux-amd64.tar.gz pchaind
-          rm pchaind
-          
-          # For macOS, we'll need to build locally due to cross-compilation issues
-          # Create build instructions for macOS users
-          cat > release/macos-build-instructions.md << 'EOF'
-          # macOS Build Instructions
-          
-          Since cross-compilation from Linux to macOS has dependency issues,
-          please build the binary locally on macOS:
-          
-          1. Clone and checkout this release:
+          ## Option 1: Build from source
           ```bash
           git clone https://github.com/pushchain/push-chain-node.git
           cd push-chain-node
           git checkout ${{ needs.check-version.outputs.version }}
-          ```
-          
-          2. Build the binary:
-          ```bash
           make build
           ```
           
-          The binary will be at `build/pchaind`
+          ## Option 2: Use Docker
+          ```bash
+          docker pull pushchain/validator:${{ needs.check-version.outputs.version }}
+          ```
           
-          Alternatively, use the Linux binary with Docker on macOS.
+          ## Option 3: Use Linux binary with Docker Desktop
+          Download the Linux binary and run it using Docker Desktop on macOS.
           EOF
+            
+            # Create archive with instructions
+            echo "Build locally on macOS - see build-instructions.md" > README.txt
+            tar -czf release/pchaind-${{ matrix.platform }}.tar.gz build-instructions.md README.txt
+            rm build-instructions.md README.txt
+          fi
           
-          # Create placeholder archives for macOS with instructions
-          echo "See macos-build-instructions.md" > pchaind-macos-note.txt
-          tar -czf release/pchaind-darwin-amd64.tar.gz macos-build-instructions.md pchaind-macos-note.txt
-          tar -czf release/pchaind-darwin-arm64.tar.gz macos-build-instructions.md pchaind-macos-note.txt
-          rm pchaind-macos-note.txt macos-build-instructions.md
-          
-          # Generate checksums
+          # Generate checksum
           cd release
-          for f in *.tar.gz; do
-            sha256sum "$f" > "$f.sha256"
-          done
+          sha256sum pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-binaries
+          name: pchaind-${{ matrix.platform }}
           path: release/*
 
   create-release:
@@ -160,7 +172,6 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-binaries
           path: ./artifacts
       
       - name: Generate Changelog
@@ -223,8 +234,8 @@ jobs:
             
             Verify the integrity of downloaded files using the provided SHA256 checksums.
           files: |
-            artifacts/*.tar.gz
-            artifacts/*.sha256
+            artifacts/**/*.tar.gz
+            artifacts/**/*.sha256
           draft: false
           prerelease: false
 

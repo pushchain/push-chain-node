@@ -2,6 +2,7 @@
 
 Run a Push Chain validator node in minutes with our simple one-line installer.
 
+
 ## 🎯 Quick Start Guide
 
 ### Prerequisites
@@ -27,6 +28,7 @@ Your node will start syncing with the network. This is normal and takes 1-2 hour
 Look for:
 - ✅ **Catching Up: false** = Fully synced
 - ⏳ **Catching Up: true** = Still syncing (this is okay for setup)
+- 📊 **Sync Progress** = Shows percentage and blocks behind
 
 ### Step 4: Become a Validator
 ```bash
@@ -80,13 +82,20 @@ After registration completes:
 | `start` | Start your validator node |
 | `stop` | Stop your validator node |
 | `restart` | Restart your validator node |
-| `status` | Show sync status and validator info |
-| `setup` | Interactive validator registration wizard |
-| `balance` | Check wallet balance |
-| `logs` | View live logs |
+| `status` | Show sync status, validator info, and sync progress |
+| `setup` | Interactive wallet setup & validator registration wizard |
+| `balance` | Check wallet balance and show faucet info |
+| `logs` | View live logs (with optional filtering) |
 | `monitor` | Real-time monitoring dashboard |
-| `backup` | Backup your validator keys |
-| `test` | Run health checks |
+| `backup` | Backup validator keys to ./backup/ directory |
+| `test` | Run comprehensive health checks |
+| `shell` | Open shell in validator container for debugging |
+| `reset-data` | Reset blockchain data (keeps wallets) - interactive options |
+| `reset-all` | **DANGER:** Complete reset - deletes EVERYTHING! |
+| `keys` | Key management (list, add, show, delete) |
+| `update` | Update validator software to latest version |
+| `auto-register` | Automatic registration (requires existing funded wallet) |
+| `help` | Show detailed help with examples |
 
 </details>
 
@@ -131,16 +140,17 @@ docker ps                      # Ensure container is running
 - The setup wizard will detect this and show your validator info
 - No need to register again
 
-**Want to start fresh?**
+**Sync issues or corrupted data?**
 ```bash
-./push-validator reset                    # Reset chain data only
-docker volume rm validator_validator-data # Complete reset (removes wallets too)
+./push-validator reset-data    # Interactive reset options
+# Option 1: Quick reset (node stays running)
+# Option 2: Clean reset (stops node, removes volumes)
 ```
 
-**Common issues:**
-- "AppHash mismatch" = Normal during sync, ignore it
-- "Validator not in list" = Wait 1-2 minutes after registration
-- "Port already in use" = Another service using ports, check `docker-compose.yml`
+**Want to start completely fresh?**
+```bash
+./push-validator reset-all     # WARNING: Deletes everything including wallets!
+```
 
 </details>
 
@@ -218,12 +228,48 @@ Edit `docker-compose.yml` for:
 </details>
 
 <details>
+<summary><b>🔄 Reset Options Explained</b></summary>
+
+**When to use each reset option:**
+
+### `./push-validator reset-data`
+Resets blockchain data while keeping your wallets and validator keys safe.
+
+**Option 1: Quick Reset**
+- Node stays running
+- Uses `pchaind tendermint unsafe-reset-all`
+- Fastest option
+- Use when: Quick fix needed for sync issues
+
+**Option 2: Clean Reset**
+- Stops the node
+- Removes Docker volumes and data directory
+- More thorough cleanup
+- Use when: AppHash errors, corrupted data, or option 1 didn't work
+
+### `./push-validator reset-all`
+⚠️ **DANGER**: Complete nuclear reset!
+- Deletes ALL blockchain data
+- Deletes ALL wallets and keys
+- Removes Docker volumes and images
+- You'll need to start from scratch (new wallet, new tokens, re-register)
+- Use when: Testing from scratch or unrecoverable issues
+
+**Quick decision guide:**
+- Sync stuck? → Use `reset-data` (option 2)
+- AppHash error? → Use `reset-data` (option 2)
+- Testing fresh install? → Use `reset-all`
+- Just need to clear data? → Use `reset-data` (option 1)
+
+</details>
+
+<details>
 <summary><b>🆘 Get Help</b></summary>
 
 - 📖 Docs: Coming soon
-- 💬 Discord: https://discord.gg/pushprotocol
-- 🐛 Issues: https://github.com/push-protocol/push-chain/issues
-- 📧 Email: support@push.org
+- 💬 Discord: Coming soon
+- 🐛 Issues: Coming soon
+- 📧 Email: Coming soon
 
 **Before asking for help:**
 1. Run `./push-validator test`

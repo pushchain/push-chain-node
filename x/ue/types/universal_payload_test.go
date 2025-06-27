@@ -37,7 +37,7 @@ func TestUniversalPayload_ValidateBasic(t *testing.T) {
 				MaxPriorityFeePerGas: "2000000000",
 				Nonce:                "42",
 				Deadline:             "9999999999",
-				SigType:              types.SignatureType_universalTxVerification,
+				VType:                types.VerificationType_universalTxVerification,
 			},
 			expectErr: false,
 		},
@@ -123,8 +123,8 @@ func TestUniversalPayload_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid - sig type out of enum range",
 			payload: types.UniversalPayload{
-				To:      mockHexAddress(),
-				SigType: 99,
+				To:    mockHexAddress(),
+				VType: 99,
 			},
 			expectErr: true,
 			errType:   "invalid signature type",

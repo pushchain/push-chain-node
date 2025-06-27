@@ -11,14 +11,14 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, txHash string) ([]byte, error) {
+func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, txHash string) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// EVM Call arguments
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to verify the gateway interaction tx on source chain
-	err := k.utvKeeper.VerifyGatewayInteractionTx(ctx, universalAccount.Owner, txHash, universalAccount.Chain)
+	err := k.utvKeeper.VerifyGatewayInteractionTx(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}
@@ -28,7 +28,7 @@ func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universal
 		sdkCtx,
 		evmFrom,
 		factoryAddress,
-		universalAccount,
+		universalAccountId,
 	)
 	if err != nil {
 		return nil, err

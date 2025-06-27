@@ -67,7 +67,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 
 		programID := tx.Transaction.Message.AccountKeys[instruction.ProgramIDIndex]
 
-		if strings.EqualFold(programID, chainConfig.GatewayAddress) {
+		if compareSolanaAddresses(programID, chainConfig.GatewayAddress) {
 			foundGatewayCall = true
 
 			// Verify the instruction has the required accounts
@@ -102,8 +102,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 			// Get the expected discriminator from chain config
 			var expectedDiscriminator []byte
 			for _, method := range chainConfig.GatewayMethods {
-				if method.Name == "add_funds" {
-					// Convert hex string to bytes
+				if method.Name == types.METHOD.SVM.AddFunds { // Convert hex string to bytes
 					expectedDiscriminator, err = hex.DecodeString(method.Identifier)
 					if err != nil {
 						return fmt.Errorf("invalid discriminator in chain config: %w", err)
@@ -171,10 +170,25 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	if len(tx.Transaction.Message.Instructions) == 0 {
 		return *big.NewInt(0), 0, fmt.Errorf("no instructions found in transaction")
 	}
-	programID := tx.Transaction.Message.AccountKeys[tx.Transaction.Message.Instructions[0].ProgramIDIndex]
 
-	if !strings.EqualFold(programID, chainConfig.GatewayAddress) {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction program ID %s does not match gateway contract %s", programID, chainConfig.GatewayAddress)
+	// Check if any instruction calls the gateway contract
+	foundGatewayCall := false
+	for _, instruction := range tx.Transaction.Message.Instructions {
+		// Verify program ID index is valid
+		if instruction.ProgramIDIndex < 0 || instruction.ProgramIDIndex >= len(tx.Transaction.Message.AccountKeys) {
+			return *big.NewInt(0), 0, fmt.Errorf("invalid program ID index: %d", instruction.ProgramIDIndex)
+		}
+
+		programID := tx.Transaction.Message.AccountKeys[instruction.ProgramIDIndex]
+
+		if compareSolanaAddresses(programID, chainConfig.GatewayAddress) {
+			foundGatewayCall = true
+			break
+		}
+	}
+
+	if !foundGatewayCall {
+		return *big.NewInt(0), 0, fmt.Errorf("no instruction found calling the gateway contract %s", chainConfig.GatewayAddress)
 	}
 
 	// Step 2: Verify confirmations
@@ -197,8 +211,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// Get the event discriminator from chain config
 	var eventDiscriminator []byte
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == "add_funds" {
-			// Convert hex string to bytes
+		if method.Name == types.METHOD.SVM.AddFunds {
 			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
 			if err != nil {
 				return *big.NewInt(0), 0, fmt.Errorf("invalid event discriminator in chain config: %w", err)
@@ -259,6 +272,13 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	return *usdAmount, decimals, nil
+}
+
+// compareSolanaAddresses compares two Solana addresses by decoding them to raw bytes
+func compareSolanaAddresses(addr1, addr2 string) bool {
+	bytes1 := base58.Decode(addr1)
+	bytes2 := base58.Decode(addr2)
+	return bytes1 != nil && bytes2 != nil && bytes.Equal(bytes1, bytes2)
 }
 
 // readI128LE decodes a little-endian i128 value from Anchor logs

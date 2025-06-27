@@ -1576,4 +1576,3 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 
 	return paramsKeeper
 }
-# Testing release workflow trigger

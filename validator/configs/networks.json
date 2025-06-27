@@ -5,7 +5,6 @@
       "name": "Push Chain Testnet (Donut)",
       "enabled": true,
       "chain_id": "push_42101-1",
-      "genesis_url": "file:///configs/genesis-testnet.json",
       "genesis_hash": "",
       "binary_url": "https://github.com/push-protocol/push-chain/releases/latest/download/pchaind-linux-amd64",
       "genesis_node": {
@@ -36,7 +35,6 @@
       "name": "Push Chain Mainnet",
       "enabled": false,
       "chain_id": "",
-      "genesis_url": "file:///configs/genesis-mainnet.json",
       "genesis_hash": "",
       "binary_url": "",
       "genesis_node": {
@@ -65,7 +63,8 @@
     "grpc": 9090,
     "grpc_web": 9091,
     "metrics": 6060,
-    "evm_rpc": 8545
+    "evm_rpc": 8545,
+    "evm_ws": 8546
   },
   "directories": {
     "home": "/root/.pchain",

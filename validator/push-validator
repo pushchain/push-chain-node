@@ -6,12 +6,34 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# Source common functions if available (we're outside container)
+if [ -f "$SCRIPT_DIR/scripts/common.sh" ]; then
+    source "$SCRIPT_DIR/scripts/common.sh"
+else
+    # Define colors locally if common.sh not available
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    RED='\033[0;31m'
+    YELLOW='\033[0;33m'
+    NC='\033[0m'
+    
+    # Define local versions of print functions
+    print_status() {
+        echo -e "${BLUE}$1${NC}"
+    }
+    
+    print_success() {
+        echo -e "${GREEN}$1${NC}"
+    }
+    
+    print_error() {
+        echo -e "${RED}$1${NC}"
+    }
+    
+    print_warning() {
+        echo -e "${YELLOW}$1${NC}"
+    }
+fi
 
 # Load environment
 if [ -f .env ]; then
@@ -25,32 +47,29 @@ else
     DOCKER_COMPOSE="docker-compose"
 fi
 
-# Helper functions
-print_status() {
-    echo -e "${BLUE}$1${NC}"
-}
-
-print_success() {
-    echo -e "${GREEN}$1${NC}"
-}
-
-print_error() {
-    echo -e "${RED}$1${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}$1${NC}"
-}
 
 # Main commands
 case "$1" in
     start)
         print_status "🚀 Starting Push Chain Validator..."
         
-        # Check if already running
-        if $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
-            print_warning "⚠️  Validator is already running!"
-            exit 0
+        # Check for --clean flag first
+        if [[ "$2" == "--clean" ]]; then
+            print_warning "🧹 Clean start requested - removing all blockchain data..."
+            # Stop if running
+            if $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
+                print_status "🛑 Stopping running validator..."
+                $DOCKER_COMPOSE down -v
+            else
+                $DOCKER_COMPOSE down -v
+            fi
+            print_success "✅ Volumes cleaned"
+        else
+            # Check if already running (only for normal start)
+            if $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
+                print_warning "⚠️  Validator is already running!"
+                exit 0
+            fi
         fi
         
         # Build image if needed
@@ -62,7 +81,32 @@ case "$1" in
         # Start services
         $DOCKER_COMPOSE up -d
         
-        print_success "✅ Validator started!"
+        # Check for AppHash errors in first 10 seconds
+        print_status "🔍 Checking for sync issues..."
+        sleep 5
+        
+        if $DOCKER_COMPOSE logs --tail=50 2>&1 | grep -q "wrong Block.Header.AppHash"; then
+            print_error "❌ AppHash mismatch detected - blockchain data incompatible with genesis"
+            echo ""
+            echo "This usually happens when:"
+            echo "1. Genesis file was updated"
+            echo "2. Switching between networks"
+            echo "3. Blockchain data is corrupted"
+            echo ""
+            read -p "Would you like to clean data and restart? (yes/no): " -r
+            if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
+                print_status "🧹 Cleaning blockchain data..."
+                $DOCKER_COMPOSE down -v
+                print_status "🚀 Starting fresh..."
+                $DOCKER_COMPOSE up -d
+                print_success "✅ Validator restarted with clean data!"
+            else
+                print_warning "⚠️  Validator may not sync properly without cleaning data"
+            fi
+        else
+            print_success "✅ Validator started successfully!"
+        fi
+        
         echo ""
         echo "Check status with: ./push-validator status"
         echo "View logs with: ./push-validator logs"
@@ -118,33 +162,29 @@ Validator Info:
         ;;
         
     backup)
-        print_status "💾 Backing up validator keys..."
+        print_status "💾 Creating secure backup..."
         
-        # Create backup directory with timestamp
-        BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
+        # Create backup directory
+        BACKUP_DIR="backups"
         mkdir -p "$BACKUP_DIR"
         
-        # Check if validator is initialized
-        if ! $DOCKER_COMPOSE exec -T validator test -f /root/.pchain/config/priv_validator_key.json 2>/dev/null; then
-            print_error "❌ No keys found. Is the validator initialized?"
-            exit 1
+        # Run secure backup script inside container
+        $DOCKER_COMPOSE exec -T validator /scripts/backup-keys.sh backup || {
+            # Fallback to simple backup if new script not available
+            print_warning "Using simple backup method..."
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            $DOCKER_COMPOSE exec -T validator tar -czf - \
+                /root/.pchain/config/priv_validator_key.json \
+                /root/.pchain/config/node_key.json \
+                /root/.pchain/data/priv_validator_state.json 2>/dev/null \
+                > "$BACKUP_DIR/validator-keys-${TIMESTAMP}.tar.gz"
+            print_success "✅ Backup complete: $BACKUP_DIR/validator-keys-${TIMESTAMP}.tar.gz"
+        }
+        
+        # Also backup local config
+        if [ -f .env ]; then
+            cp .env "$BACKUP_DIR/.env.backup"
         fi
-        
-        # Backup keys
-        print_status "Backing up validator keys..."
-        $DOCKER_COMPOSE exec -T validator tar -czf - \
-            /root/.pchain/config/priv_validator_key.json \
-            /root/.pchain/config/node_key.json \
-            /root/.pchain/data/priv_validator_state.json 2>/dev/null \
-            > "$BACKUP_DIR/validator-keys.tar.gz"
-        
-        # Backup config
-        print_status "Backing up configuration..."
-        cp .env "$BACKUP_DIR/" 2>/dev/null || true
-        
-        print_success "✅ Backup complete!"
-        echo "📁 Backup location: $BACKUP_DIR"
-        print_warning "⚠️  Keep these files safe and secure!"
         ;;
         
     shell)
@@ -217,6 +257,105 @@ Connected: true"
         done
         ;;
         
+    test|health|check)
+        # Run comprehensive health check tests
+        if [ -f "$SCRIPT_DIR/test-validator.sh" ]; then
+            print_status "🚀 Running comprehensive health checks..."
+            bash "$SCRIPT_DIR/test-validator.sh"
+        else
+            print_error "Test script not found!"
+            exit 1
+        fi
+        ;;
+        
+    setup)
+        # Interactive wallet setup and validator registration
+        print_status "🚀 Starting interactive validator setup wizard..."
+        $DOCKER_COMPOSE exec -it validator /scripts/setup-validator.sh
+        ;;
+        
+    auto-register|register)
+        # Automatic registration for CI/CD deployments
+        print_status "⚡ Starting automatic validator registration..."
+        
+        # This command is designed for automated deployments where:
+        # 1. Wallet is already created and funded
+        # 2. You want minimal interaction
+        
+        # Check if validator wallet exists
+        if ! $DOCKER_COMPOSE exec -T validator pchaind keys show validator --keyring-backend test --home /root/.pchain >/dev/null 2>&1; then
+            print_error "❌ No 'validator' wallet found!"
+            echo ""
+            echo "For automated registration, you need to:"
+            echo "1. First run: ./push-validator setup (to create/import wallet)"
+            echo "2. Fund the wallet with at least 1.3 PUSH"
+            echo "3. Then run: ./push-validator auto-register"
+            echo ""
+            echo "For interactive setup, use: ./push-validator setup"
+            exit 1
+        fi
+        
+        # Get current balance
+        ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind keys show validator -a --keyring-backend test --home /root/.pchain 2>/dev/null | tr -d '\r')
+        print_status "Using wallet: $ADDRESS"
+        
+        # Run auto-registration with defaults
+        cat << 'EOF' | $DOCKER_COMPOSE exec -T validator /scripts/setup-validator.sh
+yes
+yes
+Push-Validator
+https://validator.push.org
+
+
+1
+0.1
+0.2
+0.01
+yes
+EOF
+        ;;
+        
+    balance|wallet)
+        # Check wallet balance
+        WALLET_NAME="${2:-validator}"
+        print_status "💰 Checking wallet balance..."
+        
+        # Get address
+        ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind keys show $WALLET_NAME -a --keyring-backend test --home /root/.pchain 2>/dev/null | tr -d '\r')
+        
+        if [ -n "$ADDRESS" ]; then
+            echo "Wallet: $WALLET_NAME"
+            echo "Address: $ADDRESS"
+            
+            # Get balance from RPC
+            BALANCE=$($DOCKER_COMPOSE exec -T validator pchaind query bank balances $ADDRESS --node tcp://localhost:26657 -o json 2>/dev/null | \
+                jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' || echo "0")
+            
+            if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
+                # Convert to PUSH (divide by 10^18) using awk instead of bc
+                PUSH_AMOUNT=$(awk -v bal="$BALANCE" 'BEGIN {printf "%.6f", bal/1000000000000000000}')
+                print_success "Balance: $PUSH_AMOUNT PUSH"
+            else
+                print_warning "Balance: 0 PUSH"
+                
+                # Convert to EVM address for faucet
+                EVM_ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind debug addr $ADDRESS 2>/dev/null | grep "hex" | awk '{print "0x"$3}')
+                
+                if [ -n "$EVM_ADDRESS" ]; then
+                    echo
+                    echo "To get test tokens:"
+                    echo -e "${GREEN}1. Visit: https://faucet.push.org${NC}"
+                    echo -e "${GREEN}2. Use this address: ${BOLD}$EVM_ADDRESS${NC}"
+                else
+                    echo "Get test tokens at: https://faucet.push.org"
+                fi
+            fi
+        else
+            print_error "Wallet '$WALLET_NAME' not found"
+            echo "Run './push-validator setup' to create a wallet"
+        fi
+        ;;
+        
     help|--help|-h)
         cat << EOF
 Push Chain Validator Manager
@@ -229,6 +368,10 @@ Commands:
   restart       Restart the validator
   status        Show validator status
   logs          Show validator logs
+  test          Run comprehensive health checks
+  setup         Interactive wallet setup & validator registration
+  auto-register Automatic registration (requires existing funded wallet)
+  balance       Check wallet balance
   backup        Backup validator keys
   shell         Open shell in validator container
   reset         Reset blockchain data (careful!)
@@ -239,8 +382,13 @@ Commands:
 
 Examples:
   ./push-validator start               # Start validator
+  ./push-validator start --clean       # Start with fresh blockchain data
   ./push-validator logs                # Show validator logs
   ./push-validator logs validator 50   # Show last 50 lines
+  ./push-validator test                # Run health checks
+  ./push-validator setup               # Interactive setup (new wallet)
+  ./push-validator auto-register       # Auto setup (existing wallet)
+  ./push-validator balance             # Check wallet balance
   ./push-validator keys add mykey      # Create new key
   ./push-validator backup              # Backup keys
 

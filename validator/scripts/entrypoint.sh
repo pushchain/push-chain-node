@@ -1,45 +1,16 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# Source common functions
+source /scripts/common.sh
 
-# Configuration - loaded from networks.json
-NETWORKS_CONFIG="/configs/networks.json"
-
-# Load configuration
+# Load configuration from networks.json
 if [ -f "$NETWORKS_CONFIG" ]; then
     # Extract directories
-    PCHAIN_HOME=$(jq -r '.directories.home' "$NETWORKS_CONFIG")
-    CONFIG_DIR=$(jq -r '.directories.config' "$NETWORKS_CONFIG")
-    DATA_DIR=$(jq -r '.directories.data' "$NETWORKS_CONFIG")
-else
-    # Fallback defaults
-    PCHAIN_HOME="${PCHAIN_HOME:-/root/.pchain}"
-    CONFIG_DIR="$PCHAIN_HOME/config"
-    DATA_DIR="$PCHAIN_HOME/data"
+    PCHAIN_HOME=$(safe_jq "$NETWORKS_CONFIG" '.directories.home' "/root/.pchain")
+    CONFIG_DIR=$(safe_jq "$NETWORKS_CONFIG" '.directories.config' "$PCHAIN_HOME/config")
+    DATA_DIR=$(safe_jq "$NETWORKS_CONFIG" '.directories.data' "$PCHAIN_HOME/data")
 fi
-
-# Helper functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
 
 # Initialize node if needed
 initialize_node() {
@@ -57,107 +28,90 @@ initialize_node() {
     # Run resetConfigs.sh equivalent
     log_info "Initializing node configuration..."
     
-    # Get chain ID from network config
-    local chain_id="${CHAIN_ID:-$(jq -r ".networks.$NETWORK.chain_id // empty" "$NETWORKS_CONFIG")}"
-    
-    if [ -z "$chain_id" ]; then
+    # Get chain ID from network config (already loaded)
+    if [ -z "$CHAIN_ID" ]; then
         log_error "No chain ID configured for network: $NETWORK"
         return 1
     fi
     
     # Initialize with moniker and chain ID
-    pchaind init "$MONIKER" --chain-id "$chain_id" --home "$PCHAIN_HOME"
+    pchaind init "$MONIKER" --chain-id "$CHAIN_ID" --home "$PCHAIN_HOME"
     
     log_success "Node initialized with moniker: $MONIKER"
 }
 
-# Download and verify genesis file
+# Download genesis file from network
 download_genesis() {
-    if [ -z "$GENESIS_URL" ]; then
-        log_error "No genesis URL configured for network: $NETWORK"
-        return 1
-    fi
-    
-    log_info "Downloading genesis file from $GENESIS_URL..."
+    log_info "Downloading genesis file for network: $NETWORK"
     
     # Backup existing genesis if any
     if [ -f "$CONFIG_DIR/genesis.json" ]; then
         cp "$CONFIG_DIR/genesis.json" "$CONFIG_DIR/genesis.json.backup"
     fi
     
-    # Handle different genesis URL types
-    if [[ "$GENESIS_URL" == file://* ]]; then
-        # Local file copy
-        local source_file="${GENESIS_URL#file://}"
-        if [ -f "$source_file" ]; then
-            cp "$source_file" "$CONFIG_DIR/genesis.json"
-            log_success "Genesis file copied from local source"
-        else
-            log_error "Genesis file not found at $source_file"
-            return 1
-        fi
-    else
-        # Download from URL
-        if curl -sSL "$GENESIS_URL" -o "$CONFIG_DIR/genesis.json"; then
-            log_success "Genesis file downloaded successfully"
-        else
-            log_error "Failed to download genesis file"
-            return 1
-        fi
-    fi
+    # Get genesis node RPC from config - ensure it uses http
+    local genesis_rpc="${GENESIS_NODE_RPC:-http://34.57.209.0:26657}"
+    # Fix protocol if it's tcp://
+    genesis_rpc="${genesis_rpc/tcp:\/\//http://}"
+    log_info "Downloading from: $genesis_rpc/genesis"
     
-    # Verify genesis file
-    if jq -e . "$CONFIG_DIR/genesis.json" >/dev/null 2>&1; then
-        log_success "Genesis file is valid JSON"
-    else
-        log_error "Downloaded genesis file is not valid JSON"
-        return 1
-    fi
+    # Download genesis with timeout and retries
+    local max_attempts=3
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        log_info "Download attempt $attempt of $max_attempts..."
+        
+        # Download full response
+        if curl -s --connect-timeout 30 --max-time 120 "$genesis_rpc/genesis" > /tmp/genesis-response.json 2>&1; then
+            # Extract genesis part
+            if jq -r '.result.genesis' /tmp/genesis-response.json > "$CONFIG_DIR/genesis.json" 2>&1; then
+                # Verify it's valid JSON
+                if jq -e . "$CONFIG_DIR/genesis.json" >/dev/null 2>&1; then
+                    log_success "Genesis file downloaded successfully"
+                    
+                    # Show genesis info
+                    local chain_id=$(jq -r '.chain_id' "$CONFIG_DIR/genesis.json")
+                    local app_hash=$(jq -r '.app_hash // "empty"' "$CONFIG_DIR/genesis.json")
+                    log_info "Chain ID: $chain_id"
+                    log_info "App Hash: $app_hash"
+                    
+                    # If app_hash is empty, we might need to use state sync
+                    if [ "$app_hash" = "" ] || [ "$app_hash" = "empty" ]; then
+                        log_warning "Genesis has empty app_hash - this is normal for fresh chains"
+                        log_info "If sync fails, state sync might be needed for existing chains"
+                    fi
+                    
+                    rm -f /tmp/genesis-response.json
+                    return 0
+                else
+                    log_error "Downloaded genesis is not valid JSON"
+                fi
+            else
+                log_error "Failed to extract genesis from response"
+            fi
+        else
+            log_error "Failed to download genesis from $genesis_rpc"
+        fi
+        
+        ((attempt++))
+        if [ $attempt -le $max_attempts ]; then
+            log_info "Retrying in 5 seconds..."
+            sleep 5
+        fi
+    done
+    
+    log_error "Failed to download genesis after $max_attempts attempts"
+    return 1
 }
 
-# Load network configuration from networks.json
-load_network_config() {
-    if [ ! -f "$NETWORKS_CONFIG" ]; then
-        log_error "Network configuration file not found: $NETWORKS_CONFIG"
-        return 1
-    fi
-    
-    # Check if network is enabled
-    local network_enabled=$(jq -r ".networks.$NETWORK.enabled // false" "$NETWORKS_CONFIG")
-    if [ "$network_enabled" != "true" ]; then
-        log_error "Network '$NETWORK' is not enabled yet"
-        return 1
-    fi
-    
-    # Load all network-specific values
-    CHAIN_ID=$(jq -r ".networks.$NETWORK.chain_id // empty" "$NETWORKS_CONFIG")
-    GENESIS_URL=$(jq -r ".networks.$NETWORK.genesis_url // empty" "$NETWORKS_CONFIG")
-    MINIMUM_GAS_PRICES=$(jq -r ".networks.$NETWORK.minimum_gas_prices // empty" "$NETWORKS_CONFIG")
-    
-    # Load genesis node info
-    local genesis_node_id=$(jq -r ".networks.$NETWORK.genesis_node.id // empty" "$NETWORKS_CONFIG")
-    local genesis_node_ip=$(jq -r ".networks.$NETWORK.genesis_node.ip // empty" "$NETWORKS_CONFIG")
-    local genesis_node_p2p=$(jq -r ".networks.$NETWORK.genesis_node.p2p_port // empty" "$NETWORKS_CONFIG")
-    
-    if [ -n "$genesis_node_id" ] && [ -n "$genesis_node_ip" ]; then
-        GENESIS_NODE_URL="${genesis_node_id}@${genesis_node_ip}:${genesis_node_p2p}"
-    fi
-    
-    # Load persistent peers
-    PERSISTENT_PEERS=$(jq -r ".networks.$NETWORK.persistent_peers[]? // empty" "$NETWORKS_CONFIG" | tr '\n' ',' | sed 's/,$//')
-    
-    # Load seeds
-    SEEDS=$(jq -r ".networks.$NETWORK.seeds[]? // empty" "$NETWORKS_CONFIG" | tr '\n' ',' | sed 's/,$//')
-    
-    log_info "Loaded configuration for network: $NETWORK"
-}
 
 # Configure node settings
 configure_node() {
     log_info "Configuring node settings..."
     
-    # Load network configuration
-    load_network_config
+    # Load network configuration from common.sh
+    load_network_config "$NETWORK" || return 1
     
     # Update config.toml
     local config_file="$CONFIG_DIR/config.toml"
@@ -286,12 +240,16 @@ main() {
     log_info "Push Chain Validator Node Starting..."
     
     # Load network configuration first
-    load_network_config || exit 1
+    load_network_config "$NETWORK" || exit 1
     
-    local network_name=$(jq -r ".networks.$NETWORK.name // '$NETWORK'" "$NETWORKS_CONFIG")
+    # Validate configuration
+    validate_config || exit 1
+    
+    local network_name=$(safe_jq "$NETWORKS_CONFIG" ".networks.$NETWORK.name" "$NETWORK")
     log_info "Network: $network_name"
     log_info "Moniker: $MONIKER"
     log_info "Chain ID: $CHAIN_ID"
+    log_info "Gas Prices: $MINIMUM_GAS_PRICES"
     
     # Auto-initialization if enabled
     if [ "$AUTO_INIT" = "true" ]; then

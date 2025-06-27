@@ -60,26 +60,25 @@ download_validator() {
     fi
     
     mkdir -p "$INSTALL_DIR"
-    
-    # Clone validator files from repo
-    echo -e "${BLUE}📥 Downloading validator setup files...${NC}"
-    git clone --depth 1 --sparse "$REPO_URL" "$INSTALL_DIR" 2>/dev/null || {
-        # If git sparse checkout fails, try direct download
-        echo -e "${YELLOW}Using fallback download method...${NC}"
-        mkdir -p "$INSTALL_DIR"
-        cd "$INSTALL_DIR"
-        curl -sSL "$REPO_URL/archive/refs/heads/main.tar.gz" | tar xz --strip-components=2 "push-chain-main/validator"
-    }
-    
     cd "$INSTALL_DIR"
     
-    # For sparse checkout (if git method worked)
-    if [ -d .git ]; then
-        git sparse-checkout init --cone
-        git sparse-checkout set validator
-        mv validator/* . 2>/dev/null || true
-        rm -rf .git validator
-    fi
+    # Simple download method
+    echo -e "${BLUE}📥 Downloading validator setup files...${NC}"
+    curl -sSL "$REPO_URL/archive/refs/heads/main.tar.gz" -o validator.tar.gz || {
+        echo -e "${RED}❌ Failed to download validator package${NC}"
+        exit 1
+    }
+    
+    # Extract files
+    tar xzf validator.tar.gz --strip-components=2 "push-chain-main/validator" || {
+        echo -e "${RED}❌ Failed to extract validator package${NC}"
+        exit 1
+    }
+    
+    # Clean up
+    rm -f validator.tar.gz
+    
+    echo -e "${GREEN}✓ Validator package downloaded${NC}"
 }
 
 # Interactive setup
@@ -159,7 +158,7 @@ main() {
     echo "Next step:"
     echo -e "${BLUE}cd $INSTALL_DIR && ./push-validator start${NC}"
     echo ""
-    echo "Need help? Join our Discord: https://discord.gg/pushprotocol"
+    echo "Need help? Visit: https://docs.push.org"
 }
 
 # Run main function

@@ -4,8 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - BINARY_PATH=/pchaind  # Will be mounted from host
-    image: push-validator:local
+        - BINARY_VERSION=${BINARY_VERSION:-latest}
+        - BINARY_CHECKSUM=${BINARY_CHECKSUM:-}
+    image: push-validator:${BINARY_VERSION:-latest}
     container_name: push-validator
     restart: unless-stopped
     ports:
@@ -18,7 +19,7 @@ services:
       - "8545:8545"    # EVM JSON-RPC
       - "8546:8546"    # EVM JSON-RPC WebSocket
     volumes:
-      # Mount local binary for development
+      # Mount local binary for development (until GitHub releases are available)
       - ../build/pchaind:/usr/local/bin/pchaind:ro
       # Data directory
       - ./data:/root/.pchain
@@ -37,9 +38,8 @@ services:
       - PRUNING=${PRUNING:-nothing}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       
-      # Auto-configured (users don't need to change these)
-      - CHAIN_ID=${CHAIN_ID:-}
-      - MINIMUM_GAS_PRICES=${MINIMUM_GAS_PRICES:-}
+      # Auto-configured from networks.json
+      # (CHAIN_ID and MINIMUM_GAS_PRICES are loaded from networks.json)
       - AUTO_INIT=${AUTO_INIT:-true}
       - AUTO_START=${AUTO_START:-true}
       - VALIDATOR_MODE=${VALIDATOR_MODE:-true}

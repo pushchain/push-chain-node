@@ -3,6 +3,9 @@
 
 set -e
 
+# Source common functions
+source /scripts/common.sh
+
 # Check if pchaind process is running
 if ! pgrep pchaind > /dev/null; then
     echo "pchaind process not running"

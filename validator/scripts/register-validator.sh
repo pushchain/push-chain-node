@@ -3,70 +3,21 @@
 
 set -e
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# Source common functions
+source /scripts/common.sh
 
 # Configuration
-NETWORKS_CONFIG="/configs/networks.json"
 KEYRING="${KEYRING:-test}"
 NETWORK="${NETWORK:-testnet}"
 
-# Load network config
-load_network_config() {
-    if [ -f "$NETWORKS_CONFIG" ]; then
-        CHAIN_ID=$(jq -r ".networks.$NETWORK.chain_id // empty" "$NETWORKS_CONFIG")
-        DENOM=$(jq -r ".networks.$NETWORK.denom // 'upc'" "$NETWORKS_CONFIG")
-        EXPLORER=$(jq -r ".networks.$NETWORK.explorer // empty" "$NETWORKS_CONFIG")
-        FAUCET=$(jq -r ".networks.$NETWORK.faucet // empty" "$NETWORKS_CONFIG")
-        
-        # Get RPC endpoint
-        local rpc=$(jq -r ".networks.$NETWORK.rpc_endpoints[0] // empty" "$NETWORKS_CONFIG" 2>/dev/null)
-        if [ -n "$rpc" ]; then
-            GENESIS_NODE_RPC="$rpc"
-        fi
-        
-        # Calculate denomination (18 zeros for 1 PUSH)
-        ONE_PUSH="000000000000000000${DENOM}"
-    else
-        # Fallback values
-        CHAIN_ID="push_42101-1"
-        DENOM="upc"
-        ONE_PUSH="000000000000000000upc"
-        GENESIS_NODE_RPC="tcp://localhost:26657"
-    fi
-}
+# Load network configuration
+load_network_config "$NETWORK" || exit 1
 
-# Load config
-load_network_config
-
-# Helper functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# Calculate denomination (18 zeros for 1 PUSH)
+ONE_PUSH="000000000000000000${DENOM}"
 
 # Check if running inside container
-if [ ! -f /.dockerenv ]; then
-    log_error "This script should be run inside the validator container"
-    echo "Use: ./push-validator shell"
-    echo "Then run: /scripts/register-validator.sh"
-    exit 1
-fi
+check_container "/scripts/register-validator.sh"
 
 # Main registration process
 main() {
@@ -124,7 +75,7 @@ main() {
     read -p "Enter amount to stake (in PUSH, minimum 1): " STAKE_AMOUNT
     
     # Validate amount
-    if ! [[ "$STAKE_AMOUNT" =~ ^[0-9]+$ ]] || [ "$STAKE_AMOUNT" -lt 1 ]; then
+    if ! validate_input "$STAKE_AMOUNT" "number" 1; then
         log_error "Invalid stake amount. Must be at least 1 PUSH"
         exit 1
     fi

@@ -21,20 +21,24 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 RUN pip3 install tomlkit
 
-# Create validator user
-RUN useradd -m -s /bin/bash -d /root validator
+# Binary configuration
+ARG BINARY_VERSION=latest
+ARG BINARY_URL=https://github.com/push-protocol/push-chain/releases/download
+ARG BINARY_CHECKSUM=""
 
-# Binary download URL (can be overridden during build)
-ARG BINARY_URL=https://github.com/push-protocol/push-chain/releases/latest/download/pchaind-linux-amd64
-ARG BINARY_PATH=""
-
-# Copy binary - either from local mount or download
-RUN if [ -n "$BINARY_PATH" ]; then \
-        echo "Using local binary from $BINARY_PATH"; \
+# Download and verify binary
+RUN if [ "$BINARY_VERSION" = "latest" ]; then \
+        DOWNLOAD_URL="${BINARY_URL}/latest/download/pchaind-linux-amd64"; \
     else \
-        echo "Downloading binary from $BINARY_URL" && \
-        curl -sSL "$BINARY_URL" -o /usr/local/bin/pchaind && \
-        chmod +x /usr/local/bin/pchaind; \
+        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-linux-amd64"; \
+    fi && \
+    echo "Downloading binary from $DOWNLOAD_URL" && \
+    curl -sSL "$DOWNLOAD_URL" -o /usr/local/bin/pchaind && \
+    chmod +x /usr/local/bin/pchaind && \
+    # Verify checksum if provided
+    if [ -n "$BINARY_CHECKSUM" ]; then \
+        echo "$BINARY_CHECKSUM  /usr/local/bin/pchaind" | sha256sum -c || \
+        (echo "Checksum verification failed!" && exit 1); \
     fi
 
 # Create symlink for pchain (matching manual setup)
@@ -45,11 +49,9 @@ COPY scripts/* /scripts/
 RUN chmod +x /scripts/*
 
 # Create necessary directories
-RUN mkdir -p /root/.pchain/config /root/.pchain/data && \
-    chown -R validator:validator /root
+RUN mkdir -p /root/.pchain/config /root/.pchain/data
 
-# Switch to validator user
-USER validator
+# Keep running as root for consistency
 WORKDIR /root
 
 # Expose ports

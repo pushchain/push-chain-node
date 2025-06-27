@@ -1,0 +1,221 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cmd/pchaind/**'
+      - 'x/ue/**'
+      - 'x/utv/**'
+      - 'app/**'
+      - 'proto/**'
+      - 'go.mod'
+      - 'go.sum'
+  
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Additional release notes (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if version changed
+        id: version_check
+        run: |
+          # Check if this is a manual trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Use manual version
+            VERSION="${{ github.event.inputs.version }}"
+            # Ensure version starts with 'v'
+            if [[ ! "$VERSION" =~ ^v ]]; then
+              VERSION="v$VERSION"
+            fi
+            echo "Manual release version: $VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For automatic triggers, check commit messages
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Generate new version based on commit messages
+          if git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^(feat|fix)!:"; then
+            # Breaking change - major version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print "v"$1+1".0.0"}' | sed 's/vv/v/')
+          elif git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^feat:"; then
+            # New feature - minor version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print $1"."$2+1".0"}')
+          elif git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^fix:"; then
+            # Bug fix - patch version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print $1"."$2"."$3+1}')
+          else
+            echo "No release needed"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "New version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "should_release=true" >> $GITHUB_OUTPUT
+
+  build-binaries:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            binary_name: pchaind
+            asset_name: pchaind-linux-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            binary_name: pchaind
+            asset_name: pchaind-darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            binary_name: pchaind
+            asset_name: pchaind-darwin-arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Build the binary
+          make build
+          
+          # Create archive
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip -j ${{ matrix.asset_name }}.zip build/${{ matrix.binary_name }}
+          else
+            tar -czf ${{ matrix.asset_name }}.tar.gz -C build ${{ matrix.binary_name }}
+          fi
+          
+          # Generate checksum
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            sha256sum ${{ matrix.asset_name }}.zip > ${{ matrix.asset_name }}.zip.sha256
+          else
+            sha256sum ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: |
+            ${{ matrix.asset_name }}.*
+
+  create-release:
+    needs: [check-version, build-binaries]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+          
+          # Format changelog
+          echo "# Changelog" > changelog.md
+          echo "" >> changelog.md
+          
+          # Group by type
+          echo "## Features" >> changelog.md
+          echo "$CHANGELOG" | grep -E "^- feat:" | sed 's/^- feat: /- /' >> changelog.md || echo "None" >> changelog.md
+          
+          echo "" >> changelog.md
+          echo "## Bug Fixes" >> changelog.md
+          echo "$CHANGELOG" | grep -E "^- fix:" | sed 's/^- fix: /- /' >> changelog.md || echo "None" >> changelog.md
+          
+          echo "" >> changelog.md
+          echo "## Other Changes" >> changelog.md
+          echo "$CHANGELOG" | grep -vE "^- (feat|fix):" >> changelog.md || echo "None" >> changelog.md
+          
+          # Save for release body
+          echo 'changelog<<EOF' >> $GITHUB_OUTPUT
+          cat changelog.md >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: Release ${{ needs.check-version.outputs.version }}
+          body: |
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes || '' }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform and extract it:
+            
+            ```bash
+            # Linux
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-amd64.tar.gz | tar xz
+            
+            # macOS (Intel)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-amd64.tar.gz | tar xz
+            
+            # macOS (Apple Silicon)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-arm64.tar.gz | tar xz
+            ```
+            
+            ## Checksums
+            
+            Verify the integrity of downloaded files using the provided SHA256 checksums.
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.sha256
+          draft: false
+          prerelease: false

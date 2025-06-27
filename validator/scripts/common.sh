@@ -6,6 +6,10 @@ export GREEN='\033[0;32m'
 export BLUE='\033[0;34m'
 export RED='\033[0;31m'
 export YELLOW='\033[0;33m'
+export PURPLE='\033[0;35m'
+export CYAN='\033[0;36m'
+export LIGHT_BLUE='\033[1;36m'
+export BOLD='\033[1m'
 export NC='\033[0m'
 
 # Configuration paths

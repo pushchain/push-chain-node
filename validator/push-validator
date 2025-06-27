@@ -63,7 +63,14 @@ case "$1" in
             else
                 $DOCKER_COMPOSE down -v
             fi
-            print_success "✅ Volumes cleaned"
+            
+            # Also remove host data directory
+            if [ -d "./data" ]; then
+                print_status "🗑️  Removing host data directory..."
+                rm -rf ./data
+            fi
+            
+            print_success "✅ All data cleaned"
         else
             # Check if already running (only for normal start)
             if $DOCKER_COMPOSE ps | grep -q "push-validator.*Up"; then
@@ -358,41 +365,76 @@ EOF
         
     help|--help|-h)
         cat << EOF
-Push Chain Validator Manager
+$(echo -e "${BOLD}Push Chain Validator Manager${NC}")
+$(echo -e "${BLUE}Version: 1.0.0${NC}")
 
 Usage: ./push-validator [command] [options]
 
-Commands:
-  start         Start the validator
-  stop          Stop the validator
-  restart       Restart the validator
-  status        Show validator status
-  logs          Show validator logs
+$(echo -e "${BOLD}Commands:${NC}")
+  start         Start the validator node
+  stop          Stop the validator node  
+  restart       Restart the validator node
+  status        Show validator status and sync info
+  logs          Show validator logs (live tail)
   test          Run comprehensive health checks
-  setup         Interactive wallet setup & validator registration
+  setup         Interactive wallet setup & validator registration wizard
   auto-register Automatic registration (requires existing funded wallet)
-  balance       Check wallet balance
-  backup        Backup validator keys
-  shell         Open shell in validator container
-  reset         Reset blockchain data (careful!)
-  keys          Key management (list|add|show)
-  update        Update validator software
-  monitor       Simple monitoring view
+  balance       Check wallet balance and show faucet info
+  backup        Backup validator keys to ./backup/ directory
+  shell         Open shell in validator container for debugging
+  reset         Reset blockchain data only (keeps wallets/keys)
+  keys          Key management subcommands:
+                  list              - List all wallets
+                  add <name>        - Create new wallet
+                  show <name>       - Show wallet address
+                  delete <name>     - Delete wallet (careful!)
+  update        Update validator software to latest version
+  monitor       Simple monitoring view (Ctrl+C to exit)
   help          Show this help message
 
-Examples:
+$(echo -e "${BOLD}Examples:${NC}")
   ./push-validator start               # Start validator
   ./push-validator start --clean       # Start with fresh blockchain data
-  ./push-validator logs                # Show validator logs
+  ./push-validator logs                # Show live validator logs
+  ./push-validator logs -f             # Follow logs (same as above)
   ./push-validator logs validator 50   # Show last 50 lines
   ./push-validator test                # Run health checks
-  ./push-validator setup               # Interactive setup (new wallet)
-  ./push-validator auto-register       # Auto setup (existing wallet)
-  ./push-validator balance             # Check wallet balance
-  ./push-validator keys add mykey      # Create new key
-  ./push-validator backup              # Backup keys
+  ./push-validator setup               # Interactive setup wizard (recommended)
+  ./push-validator auto-register       # Auto setup with existing wallet
+  ./push-validator balance             # Check default wallet balance
+  ./push-validator balance wallet2     # Check specific wallet balance
+  ./push-validator keys list           # List all wallets
+  ./push-validator keys add mykey      # Create new wallet named 'mykey'
+  ./push-validator keys show mykey     # Show address for 'mykey'
+  ./push-validator backup              # Backup validator keys
+  ./push-validator reset               # Reset chain data (keeps wallets)
+  ./push-validator monitor             # Watch validator status
 
-For more help, visit: https://docs.push.org/validators
+$(echo -e "${BOLD}Network Information:${NC}")
+  Chain ID:     push_42101-1
+  Network:      Testnet
+  RPC:          http://localhost:26657
+  API:          http://localhost:1317
+  Faucet:       https://faucet.push.org
+  Min Stake:    1 PUSH
+  
+$(echo -e "${BOLD}Important Notes:${NC}")
+  • Validator registration requires minimum 1 PUSH + gas fees (~0.1 PUSH)
+  • The 'reset' command only clears blockchain data, wallets are preserved
+  • For complete reset including wallets, use:
+      docker volume rm validator_validator-data
+  • Default wallet name is 'validator'
+  • All keys are stored in the Docker volume for persistence
+  • Backup your keys regularly using the 'backup' command
+
+$(echo -e "${BOLD}Troubleshooting:${NC}")
+  • If validator won't start: ./push-validator logs
+  • If sync is stuck: ./push-validator restart
+  • If balance shows 0: Check with genesis node (network might be syncing)
+  • For detailed debugging: ./push-validator shell
+
+For documentation: https://docs.push.org/validators
+For support: https://discord.gg/pushprotocol
 EOF
         ;;
         

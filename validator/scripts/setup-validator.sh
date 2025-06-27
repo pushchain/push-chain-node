@@ -4,6 +4,22 @@
 
 set -e
 
+# Error handler
+error_handler() {
+    local line_no=$1
+    local exit_code=$?
+    echo -e "${RED}Error occurred in script at line: $line_no${NC}"
+    echo -e "${RED}Exit code: $exit_code${NC}"
+    
+    # Don't exit if we're in the validator creation section
+    if [ $line_no -ge 400 ] && [ $line_no -le 540 ]; then
+        echo -e "${YELLOW}Note: This error occurred during validator creation which has retry logic${NC}"
+        return 0
+    fi
+}
+
+trap 'error_handler ${LINENO}' ERR
+
 # Source common functions
 source /scripts/common.sh
 
@@ -26,7 +42,7 @@ export CHAIN_ID
 
 # Fee configuration
 DEFAULT_GAS="300000"
-DEFAULT_FEE_AMOUNT="0.1"  # 0.1 PUSH default fee
+DEFAULT_FEE_AMOUNT="100000000000000000"  # 0.1 PUSH in upc (without denom suffix)
 MIN_STAKE="1"  # Minimum 1 PUSH stake
 
 # Check if running inside container
@@ -66,15 +82,27 @@ create_wallet() {
     local wallet_output=$(pchaind keys add "$wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>&1)
     echo "$wallet_output"
     
-    # Extract address
-    local address=$(echo "$wallet_output" | grep -A1 "address:" | tail -1 | awk '{print $1}')
-    if [ -z "$address" ]; then
-        address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
+    # Add warning message after mnemonic
+    echo
+    echo -e "${BOLD}${RED}**Important** Write this mnemonic phrase in a safe place.${NC}"
+    echo -e "${RED}It is the only way to recover your account if you ever forget your password.${NC}"
+    echo
+    
+    # Get address directly from keys show command (more reliable)
+    local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null)
+    
+    if [ -z "$address" ] || [ "$address" = "" ]; then
+        log_error "Failed to get wallet address"
+        return 1
     fi
+    
+    # Get EVM address
+    local evm_address=$(push_to_evm_address "$address")
     
     echo
     echo -e "${BOLD}${GREEN}✓ Wallet created successfully!${NC}"
-    echo -e "${BLUE}Address: ${address}${NC}"
+    echo -e "${BLUE}Cosmos Address: $address${NC}"
+    echo -e "${BLUE}ETH Address: ${BOLD}$evm_address${NC}"
     echo
     
     # Force user to confirm they saved mnemonic
@@ -92,44 +120,77 @@ create_wallet() {
 # Import existing wallet
 import_wallet() {
     local wallet_name="$1"
-    log_info "Importing existing wallet: $wallet_name"
-    echo
-    echo -e "${YELLOW}Enter your mnemonic phrase (will be hidden):${NC}"
     
-    # Read mnemonic securely
-    read -s -r mnemonic
-    echo
-    
-    # Import wallet
-    echo "$mnemonic" | pchaind keys add "$wallet_name" --recover --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>&1
-    
-    # Get address
-    local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
-    
-    echo
-    echo -e "${BOLD}${GREEN}✓ Wallet imported successfully!${NC}"
-    echo -e "${BLUE}Address: ${address}${NC}"
-    echo
-    
-    return 0
+    while true; do
+        log_info "Importing existing wallet: $wallet_name"
+        echo
+        echo -e "${YELLOW}Enter your mnemonic phrase (will be hidden):${NC}"
+        
+        # Read mnemonic securely
+        read -s -r mnemonic
+        echo
+        
+        # Validate mnemonic is not empty
+        if [ -z "$mnemonic" ]; then
+            log_error "Mnemonic phrase cannot be empty"
+            echo
+            read -p "Try again? (yes/no): " try_again
+            if [[ ! "$try_again" =~ ^[Yy][Ee][Ss]$ ]]; then
+                return 1
+            fi
+            echo
+            continue
+        fi
+        
+        # Try to import wallet
+        set +e
+        local import_result=$(echo "$mnemonic" | pchaind keys add "$wallet_name" --recover --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>&1)
+        local import_exit_code=$?
+        set -e
+        
+        if [ $import_exit_code -eq 0 ]; then
+            # Get address
+            local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
+            local evm_address=$(push_to_evm_address "$address")
+            
+            echo
+            echo -e "${BOLD}${GREEN}✓ Wallet imported successfully!${NC}"
+            echo -e "${BLUE}ETH Address: ${evm_address}${NC}"
+            echo
+            return 0
+        else
+            log_error "Failed to import wallet"
+            
+            # Check specific error types
+            if echo "$import_result" | grep -q "invalid mnemonic"; then
+                echo "Error: Invalid mnemonic phrase. Please check and try again."
+            elif echo "$import_result" | grep -q "already exists"; then
+                echo "Error: A wallet with name '$wallet_name' already exists."
+                echo "Please choose a different name or use the existing wallet."
+                return 1
+            else
+                echo "Error details:"
+                echo "$import_result" | head -5
+            fi
+            
+            echo
+            read -p "Try again? (yes/no): " try_again
+            if [[ ! "$try_again" =~ ^[Yy][Ee][Ss]$ ]]; then
+                return 1
+            fi
+            echo
+        fi
+    done
 }
 
-# Smart balance check - use genesis node if local is syncing
+# Smart balance check - always use genesis node during setup
 check_balance_smart() {
     local address="$1"
     local balance="0"
     
-    # First try local node
-    local sync_status=$(pchaind status --home "$PCHAIN_HOME" 2>/dev/null | jq -r '.sync_info.catching_up // true')
-    
-    if [ "$sync_status" = "false" ]; then
-        # Local node is synced, use it
-        balance=$(pchaind query bank balances "$address" --node tcp://localhost:26657 -o json 2>/dev/null | jq -r '.balances[] | select(.denom=="'$DENOM'") | .amount // "0"')
-    else
-        # Local node syncing, use genesis node
-        log_info "Local node still syncing, checking balance via genesis node..."
-        balance=$(pchaind query bank balances "$address" --node "$GENESIS_NODE_RPC" -o json 2>/dev/null | jq -r '.balances[] | select(.denom=="'$DENOM'") | .amount // "0"')
-    fi
+    # Always use genesis node for balance checks during setup
+    # Local node might be syncing and not reliable for queries
+    balance=$(pchaind query bank balances "$address" --node "$GENESIS_NODE_RPC" -o json 2>/dev/null | jq -r '.balances[] | select(.denom=="'$DENOM'") | .amount // "0"')
     
     if [ -z "$balance" ] || [ "$balance" = "null" ]; then
         balance="0"
@@ -141,11 +202,18 @@ check_balance_smart() {
 # Convert upc to PUSH
 format_balance() {
     local upc_amount="$1"
-    if [ "$upc_amount" = "0" ]; then
+    if [ "$upc_amount" = "0" ] || [ -z "$upc_amount" ]; then
         echo "0"
     else
         # Convert from upc to PUSH (divide by 10^18)
-        echo "scale=6; $upc_amount / 1000000000000000000" | bc
+        # Using awk instead of bc for better portability
+        echo "$upc_amount" | awk '{
+            val = $1/1000000000000000000;
+            if (val < 0.000001) 
+                printf "0.000000"; 
+            else 
+                printf "%.6f", val
+        }'
     fi
 }
 
@@ -153,30 +221,34 @@ format_balance() {
 push_to_evm_address() {
     local push_addr="$1"
     # Use pchaind to convert address
-    local evm_addr=$(pchaind debug addr "$push_addr" 2>/dev/null | grep "hex" | awk '{print "0x"$2}')
+    local evm_addr=$(pchaind debug addr "$push_addr" 2>/dev/null | grep "Address (hex):" | awk '{print "0x"$3}')
     echo "$evm_addr"
 }
 
 # Calculate required funds (stake + fees + buffer)
 calculate_required_funds() {
     local stake_amount="$1"
-    local fee_amount="${2:-$DEFAULT_FEE_AMOUNT}"
+    local fee_amount_upc="${2:-$DEFAULT_FEE_AMOUNT}"
+    
+    # Convert fee from upc to PUSH
+    local fee_amount_push=$(echo "$fee_amount_upc" | awk '{printf "%.6f", $1/1000000000000000000}')
     
     # Add 10% buffer for safety
-    local total=$(echo "scale=6; $stake_amount + $fee_amount + 0.1" | bc)
+    local total=$(echo "$stake_amount $fee_amount_push" | awk '{printf "%.6f", $1 + $2 + 0.1}')
     echo "$total"
 }
 
 # Show funding requirements clearly
 show_funding_requirements() {
     local stake_amount="$1"
-    local fee_amount="${2:-$DEFAULT_FEE_AMOUNT}"
-    local total_required=$(calculate_required_funds "$stake_amount" "$fee_amount")
+    local fee_amount_upc="${2:-$DEFAULT_FEE_AMOUNT}"
+    local fee_amount_push=$(echo "$fee_amount_upc" | awk '{printf "%.6f", $1/1000000000000000000}')
+    local total_required=$(calculate_required_funds "$stake_amount" "$fee_amount_upc")
     
     echo -e "${BOLD}${BLUE}💰 Funding Requirements${NC}"
     echo "════════════════════════════════════════════════"
     echo -e "Stake amount:    ${GREEN}$stake_amount PUSH${NC}"
-    echo -e "Transaction fee: ${YELLOW}~$fee_amount PUSH${NC}"
+    echo -e "Transaction fee: ${YELLOW}~$fee_amount_push PUSH${NC}"
     echo -e "Safety buffer:   ${YELLOW}~0.1 PUSH${NC}"
     echo -e "${BOLD}Total needed:    ${CYAN}$total_required PUSH${NC}"
     echo
@@ -219,7 +291,7 @@ pre_flight_checks() {
     local balance=$(check_balance_smart "$wallet_address")
     local balance_push=$(format_balance "$balance")
     local required_amount=$(calculate_required_funds "$stake_amount")
-    local required_upc=$(echo "$required_amount * 1000000000000000000" | bc | cut -d'.' -f1)
+    local required_upc=$(echo "$required_amount" | awk '{printf "%.0f", $1 * 1000000000000000000}')
     
     echo -n "✓ Balance check: "
     if [ "$balance" -ge "$required_upc" ]; then
@@ -250,11 +322,13 @@ pre_flight_checks() {
     
     # Check 4: Network connectivity
     echo -n "✓ Network connection: "
-    if curl -s --connect-timeout 5 "$GENESIS_NODE_RPC/status" >/dev/null 2>&1; then
+    # Convert tcp:// to http:// for curl
+    local test_url="${GENESIS_NODE_RPC/tcp:\/\//http://}/status"
+    if curl -s --connect-timeout 5 "$test_url" >/dev/null 2>&1; then
         echo -e "${GREEN}Connected${NC}"
     else
-        echo -e "${RED}Cannot reach network${NC}"
-        all_good=false
+        echo -e "${YELLOW}Cannot reach genesis node (will use local submission)${NC}"
+        # Don't fail the check - we can still submit locally
     fi
     
     echo
@@ -302,7 +376,7 @@ register_validator() {
     
     # Get stake amount with validation
     echo
-    local max_stake=$(echo "$balance_push - 0.2" | bc)  # Reserve 0.2 PUSH for fees
+    local max_stake=$(echo "$balance_push" | awk '{printf "%.6f", $1 - 0.2}')  # Reserve 0.2 PUSH for fees
     echo -e "${YELLOW}Maximum stakeable: $max_stake PUSH (keeping 0.2 PUSH for fees)${NC}"
     echo -e "${YELLOW}Minimum stake: $MIN_STAKE PUSH${NC}"
     echo
@@ -317,12 +391,12 @@ register_validator() {
             continue
         fi
         
-        if (( $(echo "$stake_amount < $MIN_STAKE" | bc -l) )); then
+        if [ "$(echo "$stake_amount $MIN_STAKE" | awk '{print ($1 < $2)}')" = "1" ]; then
             echo -e "${RED}Stake must be at least $MIN_STAKE PUSH${NC}"
             continue
         fi
         
-        if (( $(echo "$stake_amount > $max_stake" | bc -l) )); then
+        if [ "$(echo "$stake_amount $max_stake" | awk '{print ($1 > $2)}')" = "1" ]; then
             echo -e "${RED}Insufficient balance. Maximum stakeable is $max_stake PUSH${NC}"
             continue
         fi
@@ -344,17 +418,10 @@ register_validator() {
     # Convert to upc
     local stake_upc="${stake_amount}${ONE_PUSH}"
     
-    # Commission rates with better defaults
-    echo
-    echo -e "${BLUE}Commission Settings:${NC}"
-    read -p "Commission rate (default 10%): " commission_rate
-    commission_rate="${commission_rate:-0.1}"
-    
-    read -p "Max commission rate (default 20%): " commission_max_rate
-    commission_max_rate="${commission_max_rate:-0.2}"
-    
-    read -p "Max commission change rate (default 1%): " commission_max_change_rate
-    commission_max_change_rate="${commission_max_change_rate:-0.01}"
+    # Use default commission rates (hidden for now)
+    local commission_rate="0.1"
+    local commission_max_rate="0.2"
+    local commission_max_change_rate="0.01"
     
     # Create validator config file
     cat <<EOF > /tmp/register-validator.json
@@ -387,7 +454,7 @@ EOF
     fi
     
     # Calculate optimal fee
-    local fee_amount="${DEFAULT_FEE_AMOUNT}${ONE_PUSH}"
+    local fee_amount="${DEFAULT_FEE_AMOUNT}${DENOM}"  # e.g., 100000000000000000upc
     
     # Create validator with retry logic
     log_info "Creating validator transaction..."
@@ -397,85 +464,219 @@ EOF
     local tx_hash=""
     
     while [ $attempt -le $max_attempts ]; do
-        echo -e "${BLUE}Attempt $attempt of $max_attempts...${NC}"
+        echo -e "${LIGHT_BLUE}Attempt $attempt of $max_attempts...${NC}"
         
+        # Try genesis node first, fallback to local
+        local node_url="$GENESIS_NODE_RPC"
+        if ! curl -s --connect-timeout 2 "${GENESIS_NODE_RPC/tcp:\/\//http://}/status" >/dev/null 2>&1; then
+            log_info "Using local node for transaction submission"
+            node_url="tcp://localhost:26657"
+        fi
+        
+        # Debug: Show what we're about to execute
+        echo -e "${YELLOW}Debug: Executing validator creation...${NC}"
+        echo "Node URL: $node_url"
+        echo "Chain ID: $CHAIN_ID"
+        echo "Wallet: $wallet_name"
+        echo "Fee: $fee_amount"
+        
+        # Temporarily disable exit on error for this command
+        set +e
         local tx_result=$(pchaind tx staking create-validator /tmp/register-validator.json \
             --chain-id "$CHAIN_ID" \
             --fees "$fee_amount" \
             --gas "$DEFAULT_GAS" \
             --from "$wallet_name" \
-            --node="$GENESIS_NODE_RPC" \
+            --node="$node_url" \
             --keyring-backend "$KEYRING" \
+            --home "$PCHAIN_HOME" \
             --yes \
             --output json 2>&1)
+        local exit_code=$?
+        set -e
         
-        tx_hash=$(echo "$tx_result" | jq -r '.txhash // empty' 2>/dev/null)
+        echo -e "${YELLOW}Debug: Command exit code: $exit_code${NC}"
         
-        if [ -n "$tx_hash" ]; then
+        # Try to extract tx hash
+        tx_hash=$(echo "$tx_result" | jq -r '.txhash // empty' 2>/dev/null || echo "")
+        
+        if [ -n "$tx_hash" ] && [ "$tx_hash" != "null" ]; then
             log_success "Transaction submitted! Hash: $tx_hash"
+            echo -e "${LIGHT_BLUE}Transaction hash: ${BOLD}$tx_hash${NC}"
             break
         else
             log_warning "Transaction failed on attempt $attempt"
+            echo -e "${YELLOW}Error details:${NC}"
+            echo "$tx_result" | jq . 2>/dev/null || echo "$tx_result"
             
-            # If insufficient fee error, reduce fee and retry
+            # Check for specific error types
             if echo "$tx_result" | grep -q "insufficient fee"; then
-                fee_amount=$(echo "$fee_amount * 0.5" | bc)  # Halve the fee
-                log_info "Retrying with lower fee..."
+                # Extract numeric part and increase by 50%
+                local fee_numeric=$(echo "$fee_amount" | sed "s/$DENOM//")
+                fee_numeric=$(echo "$fee_numeric" | awk '{printf "%.0f", $1 * 1.5}')
+                fee_amount="${fee_numeric}${DENOM}"
+                log_info "Retrying with higher fee: $fee_amount"
+            elif echo "$tx_result" | grep -q "account sequence mismatch"; then
+                log_info "Sequence mismatch, retrying..."
+                sleep 3
+            elif echo "$tx_result" | grep -q "validator already exist"; then
+                log_error "Validator already exists with this address!"
+                return 1
             fi
             
             ((attempt++))
-            sleep 2
+            
+            if [ $attempt -le $max_attempts ]; then
+                sleep 2
+            fi
         fi
     done
     
-    if [ -z "$tx_hash" ]; then
+    if [ -z "$tx_hash" ] || [ "$tx_hash" = "" ]; then
         log_error "Failed to create validator after $max_attempts attempts"
         echo "$tx_result"
         return 1
     fi
     
-    # Wait for confirmation
-    echo -e "${BLUE}Waiting for confirmation...${NC}"
-    sleep 10
+    # Wait for transaction confirmation
+    echo -e "${LIGHT_BLUE}Waiting for transaction confirmation...${NC}"
     
-    # Check transaction with detailed error info
-    local tx_query=$(pchaind query tx "$tx_hash" --chain-id "$CHAIN_ID" --node="$GENESIS_NODE_RPC" --output json 2>/dev/null || echo "{}")
-    local tx_code=$(echo "$tx_query" | jq -r '.code // "-1"')
+    local confirmation_attempts=0
+    local max_confirmation_attempts=30  # 30 attempts * 2 seconds = 60 seconds max wait
+    local tx_confirmed=false
+    local tx_code="-1"
     
-    if [ "$tx_code" = "0" ]; then
+    while [ $confirmation_attempts -lt $max_confirmation_attempts ]; do
+        # Try to query the transaction
+        set +e
+        local tx_query=$(pchaind query tx "$tx_hash" --chain-id "$CHAIN_ID" --node="$node_url" --output json 2>/dev/null)
+        local query_exit_code=$?
+        set -e
+        
+        if [ $query_exit_code -eq 0 ] && [ -n "$tx_query" ]; then
+            tx_code=$(echo "$tx_query" | jq -r '.code // "-1"' 2>/dev/null || echo "-1")
+            
+            if [ "$tx_code" != "-1" ]; then
+                tx_confirmed=true
+                break
+            fi
+        fi
+        
+        # Show progress with proper carriage return and clear line
+        echo -ne "\r\033[K${LIGHT_BLUE}Waiting for transaction to be included in a block... $((confirmation_attempts * 2))/$((max_confirmation_attempts * 2)) seconds${NC}"
+        
+        ((confirmation_attempts++))
+        sleep 2
+    done
+    
+    echo  # New line after progress
+    
+    if [ "$tx_confirmed" = true ] && [ "$tx_code" = "0" ]; then
         echo
-        echo -e "${BOLD}${GREEN}🎉 Congratulations! Your validator is now active!${NC}"
+        echo -e "${BOLD}${GREEN}🎉 Congratulations! Your validator has been created!${NC}"
         echo
         
         # Get validator operator address
-        local val_addr=$(pchaind keys show $wallet_name --bech val -a --keyring-backend $KEYRING --home $PCHAIN_HOME)
+        local val_addr=$(pchaind keys show $wallet_name --bech val -a --keyring-backend $KEYRING --home $PCHAIN_HOME 2>/dev/null || echo "")
         
-        echo -e "${BLUE}Verifying validator status...${NC}"
+        echo -e "${LIGHT_BLUE}Verifying validator status...${NC}"
+        
+        # Wait a bit for validator to be indexed
         sleep 5
         
-        # Query validator
-        local validator_info=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | jq ".validators[] | select(.description.moniker==\"$validator_name\")" || echo "{}")
+        # Query validator using the moniker
+        set +e
+        local validator_info=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
+            jq ".validators[] | select(.description.moniker==\"$validator_name\")" 2>/dev/null || echo "")
+        set -e
         
         if [ -n "$validator_info" ] && [ "$validator_info" != "{}" ]; then
-            local val_status=$(echo "$validator_info" | jq -r '.status // "UNKNOWN"')
-            local tokens=$(echo "$validator_info" | jq -r '.tokens // "0"')
+            local val_status=$(echo "$validator_info" | jq -r '.status // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+            local tokens=$(echo "$validator_info" | jq -r '.tokens // "0"' 2>/dev/null || echo "0")
             local tokens_push=$(format_balance "$tokens")
             
             echo -e "${GREEN}✓ Validator found in active set!${NC}"
             echo -e "Status: $val_status"
             echo -e "Staked: $tokens_push PUSH"
+            
+            # Show validator status interpretation
+            case "$val_status" in
+                "BOND_STATUS_BONDED")
+                    echo -e "${GREEN}✓ Your validator is active and producing blocks!${NC}"
+                    ;;
+                "BOND_STATUS_UNBONDING")
+                    echo -e "${YELLOW}⚠ Your validator is unbonding${NC}"
+                    ;;
+                "BOND_STATUS_UNBONDED")
+                    echo -e "${YELLOW}⚠ Your validator is not yet bonded${NC}"
+                    ;;
+            esac
+        else
+            echo -e "${YELLOW}⚠ Validator not found in active set yet. This is normal - it may take a few minutes.${NC}"
+            echo "You can check status later with: ./push-validator status"
         fi
+        
+        # Always show validator list even if not found yet
+        echo
         
         echo
         echo -e "${BOLD}${BLUE}📊 Validator Details:${NC}"
         echo "- Name: $validator_name"
-        echo "- Operator Address: $val_addr"
-        echo "- Explorer: ${EXPLORER}validators/${val_addr}"
+        if [ -n "$val_addr" ]; then
+            echo "- Operator Address: $val_addr"
+        fi
+        echo "- Transaction Hash: $tx_hash"
         echo
         echo -e "${BLUE}Next steps:${NC}"
         echo "1. Monitor your validator: ./push-validator status"
         echo "2. Check balance: ./push-validator balance"
         echo "3. View logs: ./push-validator logs"
+        echo
+        
+        # List all validators
+        echo -e "${BOLD}${CYAN}📋 All Active Validators:${NC}"
+        echo "════════════════════════════════════════════════"
+        
+        set +e
+        local all_validators=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null)
+        set -e
+        
+        if [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
+            # Parse validators directly without base64 encoding
+            local validator_count=$(echo "$all_validators" | jq '.validators | length')
+            
+            for i in $(seq 0 $((validator_count - 1))); do
+                local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // 'Unknown'")
+                local status=$(echo "$all_validators" | jq -r ".validators[$i].status // 'UNKNOWN'")
+                local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // '0'")
+                local tokens_push=$(format_balance "$tokens")
+                
+                # Format status nicely
+                local status_display=""
+                case "$status" in
+                    "BOND_STATUS_BONDED")
+                        status_display="${GREEN}BONDED${NC}"
+                        ;;
+                    "BOND_STATUS_UNBONDING")
+                        status_display="${YELLOW}UNBONDING${NC}"
+                        ;;
+                    "BOND_STATUS_UNBONDED")
+                        status_display="${RED}UNBONDED${NC}"
+                        ;;
+                    *)
+                        status_display="$status"
+                        ;;
+                esac
+                
+                if [ "$moniker" = "$validator_name" ]; then
+                    echo -e "${GREEN}➤ $moniker - Status: $status_display - Stake: $tokens_push PUSH ${BOLD}(YOUR VALIDATOR)${NC}"
+                else
+                    echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
+                fi
+            done
+        else
+            echo "Unable to fetch validator list"
+        fi
         echo
         
         # Show remaining balance
@@ -485,19 +686,72 @@ EOF
         
         return 0
     else
-        log_error "Transaction failed! Code: $tx_code"
-        
-        # Extract and display user-friendly error
-        local raw_log=$(echo "$tx_query" | jq -r '.raw_log // "Unknown error"')
-        
-        if echo "$raw_log" | grep -q "insufficient funds"; then
-            echo -e "${RED}Error: Insufficient funds for staking + fees${NC}"
-            echo "Please ensure you have enough PUSH to cover:"
-            echo "- Stake amount: $stake_amount PUSH"
-            echo "- Transaction fees: ~$DEFAULT_FEE_AMOUNT PUSH"
+        if [ "$tx_confirmed" = true ]; then
+            log_error "Transaction failed! Code: $tx_code"
+            
+            # Extract and display user-friendly error
+            set +e
+            local raw_log=$(echo "$tx_query" | jq -r '.raw_log // "Unknown error"' 2>/dev/null || echo "Unknown error")
+            set -e
+            
+            if echo "$raw_log" | grep -q "insufficient funds"; then
+                echo -e "${RED}Error: Insufficient funds for staking + fees${NC}"
+                echo "Please ensure you have enough PUSH to cover:"
+                echo "- Stake amount: $stake_amount PUSH"
+                echo "- Transaction fees: ~0.1 PUSH"
+            else
+                echo -e "${RED}Error details:${NC}"
+                echo "$raw_log" | head -5
+            fi
         else
-            echo -e "${RED}Error details:${NC}"
-            echo "$raw_log" | head -5
+            log_error "Transaction was not confirmed within timeout period"
+            echo -e "${YELLOW}Transaction hash: $tx_hash${NC}"
+            echo
+            echo "You can verify the transaction manually with:"
+            echo -e "${CYAN}export TX_ID=$tx_hash${NC}"
+            echo -e "${CYAN}pchaind query tx \$TX_ID --chain-id $CHAIN_ID --output json | jq '{code, raw_log}'${NC}"
+            echo
+            echo "To check if your validator is in the active set:"
+            echo -e "${CYAN}pchaind query staking validators --output json | jq '.validators[] | select(.description.moniker=="$validator_name")'${NC}"
+            echo
+            
+            # Still show the validator list even if timeout
+            echo -e "${BOLD}${CYAN}📋 Current Validators:${NC}"
+            echo "════════════════════════════════════════════════"
+            
+            set +e
+            local all_validators=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null)
+            set -e
+            
+            if [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
+                local validator_count=$(echo "$all_validators" | jq '.validators | length')
+                
+                for i in $(seq 0 $((validator_count - 1))); do
+                    local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // 'Unknown'")
+                    local status=$(echo "$all_validators" | jq -r ".validators[$i].status // 'UNKNOWN'")
+                    local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // '0'")
+                    local tokens_push=$(format_balance "$tokens")
+                    
+                    # Format status nicely
+                    local status_display=""
+                    case "$status" in
+                        "BOND_STATUS_BONDED")
+                            status_display="${GREEN}BONDED${NC}"
+                            ;;
+                        "BOND_STATUS_UNBONDING")
+                            status_display="${YELLOW}UNBONDING${NC}"
+                            ;;
+                        "BOND_STATUS_UNBONDED")
+                            status_display="${RED}UNBONDED${NC}"
+                            ;;
+                        *)
+                            status_display="$status"
+                            ;;
+                    esac
+                    
+                    echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
+                done
+            fi
         fi
         
         return 1
@@ -514,16 +768,101 @@ main() {
     echo
     
     local wallet_name="validator"
+    local wallet_setup_complete=false
     
-    # Check for existing wallet
-    if check_wallet "$wallet_name"; then
-        local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
-        log_info "Found existing wallet: $wallet_name"
-        echo -e "${BLUE}Address: $address${NC}"
-        echo
-        
-        read -p "Use existing wallet? (yes/no): " use_existing
-        if [[ ! "$use_existing" =~ ^[Yy][Ee][Ss]$ ]]; then
+    # Loop until wallet setup is complete
+    while [ "$wallet_setup_complete" = false ]; do
+        # Check for existing wallet
+        if check_wallet "$wallet_name"; then
+            local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
+            local evm_address=$(push_to_evm_address "$address")
+            local balance=$(check_balance_smart "$address")
+            local balance_push=$(format_balance "$balance")
+            
+            log_info "Found existing wallet: $wallet_name"
+            echo -e "${BLUE}ETH Address: $evm_address${NC}"
+            echo -e "${GREEN}Balance:     $balance_push PUSH${NC}"
+            echo
+            
+            read -p "Use existing wallet? (yes/no): " use_existing
+            if [[ "$use_existing" =~ ^[Yy][Ee][Ss]$ ]]; then
+                wallet_setup_complete=true
+            else
+                echo
+                echo "1) Create new wallet"
+                echo "2) Import existing wallet"
+                read -p "Choose option (1/2): " wallet_option
+                
+                case "$wallet_option" in
+                    1)
+                        while true; do
+                            read -p "Enter new wallet name: " new_wallet_name
+                            if [ -z "$new_wallet_name" ]; then
+                                log_error "Wallet name cannot be empty"
+                                echo
+                                continue
+                            fi
+                            
+                            # Check if wallet already exists
+                            set +e
+                            pchaind keys show "$new_wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1
+                            local exists=$?
+                            set -e
+                            
+                            if [ $exists -eq 0 ]; then
+                                log_error "Wallet '$new_wallet_name' already exists"
+                                echo
+                                continue
+                            fi
+                            
+                            wallet_name="$new_wallet_name"
+                            if create_wallet "$wallet_name"; then
+                                wallet_setup_complete=true
+                                break
+                            fi
+                        done
+                        ;;
+                    2)
+                        while true; do
+                            read -p "Enter wallet name to import: " import_wallet_name
+                            if [ -z "$import_wallet_name" ]; then
+                                log_error "Wallet name cannot be empty"
+                                echo
+                                continue
+                            fi
+                            
+                            # Check if wallet already exists
+                            set +e
+                            pchaind keys show "$import_wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1
+                            local exists=$?
+                            set -e
+                            
+                            if [ $exists -eq 0 ]; then
+                                log_error "Wallet '$import_wallet_name' already exists"
+                                echo "Please choose a different name or use the existing wallet."
+                                echo
+                                continue
+                            fi
+                            
+                            wallet_name="$import_wallet_name"
+                            if import_wallet "$wallet_name"; then
+                                wallet_setup_complete=true
+                                break
+                            else
+                                # Import failed, go back to wallet options
+                                echo
+                                break
+                            fi
+                        done
+                        ;;
+                    *)
+                        log_error "Invalid option. Please choose 1 or 2."
+                        echo
+                        ;;
+                esac
+            fi
+        else
+            echo "No existing wallet found."
             echo
             echo "1) Create new wallet"
             echo "2) Import existing wallet"
@@ -531,48 +870,127 @@ main() {
             
             case "$wallet_option" in
                 1)
-                    read -p "Enter new wallet name: " new_wallet_name
-                    wallet_name="${new_wallet_name:-validator-new}"
-                    create_wallet "$wallet_name"
+                    if create_wallet "$wallet_name"; then
+                        wallet_setup_complete=true
+                    fi
                     ;;
                 2)
-                    read -p "Enter wallet name to import: " import_wallet_name
-                    wallet_name="${import_wallet_name:-validator-imported}"
-                    import_wallet "$wallet_name"
+                    while true; do
+                        read -p "Enter wallet name to import: " import_wallet_name
+                        if [ -z "$import_wallet_name" ]; then
+                            log_error "Wallet name cannot be empty"
+                            echo
+                            continue
+                        fi
+                        
+                        wallet_name="$import_wallet_name"
+                        if import_wallet "$wallet_name"; then
+                            wallet_setup_complete=true
+                            break
+                        else
+                            # Import failed, go back to wallet options
+                            echo
+                            break
+                        fi
+                    done
                     ;;
                 *)
-                    log_error "Invalid option"
-                    exit 1
+                    log_error "Invalid option. Please choose 1 or 2."
+                    echo
                     ;;
             esac
         fi
-    else
-        echo "No existing wallet found."
-        echo
-        echo "1) Create new wallet"
-        echo "2) Import existing wallet"
-        read -p "Choose option (1/2): " wallet_option
-        
-        case "$wallet_option" in
-            1)
-                create_wallet "$wallet_name"
-                ;;
-            2)
-                import_wallet "$wallet_name"
-                ;;
-            *)
-                log_error "Invalid option"
-                exit 1
-                ;;
-        esac
-    fi
+    done
     
     # Get wallet address
     local wallet_address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
     
-    # Step 2: Check Balance with smart detection
+    # Check if already a validator
     echo
-    echo -e "${BOLD}${BLUE}Step 2: Checking Wallet Balance${NC}"
+    echo -e "${BOLD}${BLUE}Step 2: Checking Validator Status${NC}"
+    echo "════════════════════════════════════════════════"
+    echo
+    
+    log_info "Checking if wallet is already a validator..."
+    
+    # Get validator address
+    local val_addr=$(pchaind keys show "$wallet_name" --bech val -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null || echo "")
+    
+    # Check if validator exists by searching all validators
+    set +e
+    local existing_validator=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null | \
+        jq ".validators[] | select(.operator_address==\"$val_addr\")" 2>/dev/null)
+    set -e
+    
+    if [ -n "$existing_validator" ] && [ "$existing_validator" != "null" ]; then
+        # Validator already exists
+        local val_moniker=$(echo "$existing_validator" | jq -r '.description.moniker // "Unknown"')
+        local val_status=$(echo "$existing_validator" | jq -r '.status // "UNKNOWN"')
+        local val_tokens=$(echo "$existing_validator" | jq -r '.tokens // "0"')
+        local val_tokens_push=$(format_balance "$val_tokens")
+        
+        echo -e "${GREEN}✓ This wallet is already a validator!${NC}"
+        echo
+        echo -e "${BOLD}${CYAN}Validator Details:${NC}"
+        echo "- Name: $val_moniker"
+        echo "- Operator Address: $val_addr"
+        echo "- Status: $val_status"
+        echo "- Staked: $val_tokens_push PUSH"
+        echo
+        
+        # Show all validators list
+        echo -e "${BOLD}${CYAN}📋 All Active Validators:${NC}"
+        echo "════════════════════════════════════════════════"
+        
+        set +e
+        local all_validators=$(pchaind query staking validators --node="$GENESIS_NODE_RPC" --output json 2>/dev/null)
+        set -e
+        
+        if [ -n "$all_validators" ] && [ "$all_validators" != "null" ]; then
+            echo "$all_validators" | jq -r '.validators[] | @base64' | while IFS= read -r validator_b64; do
+                local validator_json=$(echo "$validator_b64" | base64 -d)
+                local moniker=$(echo "$validator_json" | jq -r '.description.moniker')
+                local status=$(echo "$validator_json" | jq -r '.status')
+                local tokens=$(echo "$validator_json" | jq -r '.tokens')
+                local tokens_push=$(format_balance "$tokens")
+                
+                # Format status nicely
+                local status_display=""
+                case "$status" in
+                    "BOND_STATUS_BONDED")
+                        status_display="${GREEN}BONDED${NC}"
+                        ;;
+                    "BOND_STATUS_UNBONDING")
+                        status_display="${YELLOW}UNBONDING${NC}"
+                        ;;
+                    "BOND_STATUS_UNBONDED")
+                        status_display="${RED}UNBONDED${NC}"
+                        ;;
+                    *)
+                        status_display="$status"
+                        ;;
+                esac
+                
+                if [ "$moniker" = "$val_moniker" ]; then
+                    echo -e "${GREEN}➤ $moniker - Status: $status_display - Stake: $tokens_push PUSH ${BOLD}(YOUR VALIDATOR)${NC}"
+                else
+                    echo -e "  $moniker - Status: $status_display - Stake: $tokens_push PUSH"
+                fi
+            done
+        fi
+        
+        echo
+        echo -e "${BLUE}Validator management commands:${NC}"
+        echo "- Monitor status: ./push-validator status"
+        echo "- Check balance: ./push-validator balance"
+        echo "- View logs: ./push-validator logs"
+        
+        exit 0
+    fi
+    
+    # Step 3: Check Balance with smart detection
+    echo
+    echo -e "${BOLD}${BLUE}Step 3: Checking Wallet Balance${NC}"
     echo "════════════════════════════════════════════════"
     echo
     
@@ -583,44 +1001,51 @@ main() {
     
     # Calculate minimum required (1 PUSH stake + 0.3 PUSH for fees/buffer)
     local min_required_push="1.3"
-    local min_required_upc=$(echo "$min_required_push * 1000000000000000000" | bc | cut -d'.' -f1)
+    local min_required_upc=$(echo "$min_required_push" | awk '{printf "%.0f", $1 * 1000000000000000000}')
     
-    if [ "$balance" -lt "$min_required_upc" ]; then
+    # Keep checking balance until funded
+    while [ "$balance" -lt "$min_required_upc" ]; do
         echo
-        log_warning "Insufficient balance for validator registration"
-        
-        # Show clear requirements
-        show_funding_requirements "$MIN_STAKE"
+        log_warning "Insufficient balance - need $min_required_push PUSH to register"
+        echo
         
         # Convert to EVM address for faucet
         local evm_address=$(push_to_evm_address "$wallet_address")
         
-        # Show faucet instructions
-        show_faucet_instructions "$wallet_address" "$evm_address" "$min_required_push"
-        
-        echo -e "${BOLD}${BLUE}Funding Options:${NC}"
-        echo "1) Open web browser to request tokens"
-        echo "2) I've already requested tokens, start monitoring"
-        echo "3) Skip funding (exit)"
+        # Show simplified funding info
+        echo -e "${BOLD}${YELLOW}📧 Get Test Tokens${NC}"
+        echo "════════════════════════════════════════════════"
+        echo
+        echo -e "1) Go to ${CYAN}$FAUCET${NC} and paste:"
+        echo -e "   ${BOLD}${CYAN}$evm_address${NC}"
+        echo
+        echo "2) Check balance (if already requested)"
+        echo "3) Exit"
         echo
         read -p "Choose option (1-3): " funding_option
         
         case "$funding_option" in
             1)
-                # Try to open browser
-                if command -v open >/dev/null 2>&1; then
-                    open "$FAUCET"
-                elif command -v xdg-open >/dev/null 2>&1; then
-                    xdg-open "$FAUCET"
-                else
-                    echo -e "${YELLOW}Please open your browser and visit: $FAUCET${NC}"
-                fi
                 echo
-                read -p "Press Enter after requesting tokens to start monitoring..."
+                echo -e "${YELLOW}Faucet gives 100 PUSH (once per 24 hours)${NC}"
+                echo
                 wait_for_funding "$wallet_address" "$min_required_upc"
+                # After funding completes, recheck balance
+                balance=$(check_balance_smart "$wallet_address")
+                balance_push=$(format_balance "$balance")
                 ;;
             2)
-                wait_for_funding "$wallet_address" "$min_required_upc"
+                echo
+                echo -e "${BLUE}Checking balance...${NC}"
+                balance=$(check_balance_smart "$wallet_address")
+                balance_push=$(format_balance "$balance")
+                
+                if [ "$balance" -ge "$min_required_upc" ]; then
+                    echo -e "${BOLD}${GREEN}✓ Wallet funded! Balance: $balance_push PUSH${NC}"
+                    sleep 2
+                else
+                    echo -e "${YELLOW}Balance: $balance_push PUSH (need $min_required_push PUSH)${NC}"
+                fi
                 ;;
             3)
                 log_warning "Skipping funding. You'll need tokens to register as a validator."
@@ -631,20 +1056,31 @@ main() {
                 exit 1
                 ;;
         esac
-    else
-        log_success "✅ Wallet has sufficient balance!"
-        echo -e "${GREEN}Ready to proceed with validator registration${NC}"
-    fi
+    done
     
-    # Step 3: Validator Registration
+    # If we get here, wallet is funded
+    log_success "✅ Wallet has sufficient balance!"
+    echo -e "${GREEN}Ready to proceed with validator registration${NC}"
+    
+    # Step 4: Validator Registration
     echo
-    echo -e "${BOLD}${BLUE}Step 3: Validator Registration${NC}"
+    echo -e "${BOLD}${BLUE}Step 4: Validator Registration${NC}"
     echo "════════════════════════════════════════════════"
     echo
     
     read -p "Ready to register as a validator? (yes/no): " register_now
     if [[ "$register_now" =~ ^[Yy][Ee][Ss]$ ]]; then
+        # Call register_validator and catch any errors
+        set +e
         register_validator "$wallet_name" "$wallet_address"
+        local reg_result=$?
+        set -e
+        
+        if [ $reg_result -ne 0 ]; then
+            echo
+            log_warning "Validator registration encountered an issue"
+            echo "You can try again later with: ./push-validator setup"
+        fi
     else
         echo
         log_info "You can complete registration later by running:"
@@ -655,48 +1091,40 @@ main() {
         echo "- Address: $wallet_address"
         echo "- Balance: $balance_push PUSH"
     fi
+    
+    # Ensure we exit gracefully
+    exit 0
 }
 
-# Enhanced wait for funding with better UX
+# Simplified wait for funding
 wait_for_funding() {
     local address="$1"
     local required_amount="$2"
     
-    log_info "Monitoring wallet for incoming tokens..."
-    echo -e "${BLUE}Required: $(format_balance $required_amount) PUSH${NC}"
-    echo
+    echo -e "${BLUE}Monitoring wallet... (Press Ctrl+C to cancel)${NC}"
     
     local spinner=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
     local count=0
-    local check_count=0
     local last_balance="0"
-    
-    echo -e "${CYAN}Press Ctrl+C to cancel monitoring${NC}"
-    echo
     
     while true; do
         local balance=$(check_balance_smart "$address")
+        local balance_push=$(format_balance "$balance")
         
         # Check if balance increased
         if [ "$balance" -gt "$last_balance" ] && [ "$last_balance" != "0" ]; then
-            echo -e "\n${GREEN}💰 Tokens received! $(format_balance $balance) PUSH${NC}"
+            echo -e "\n${GREEN}💰 Received $(format_balance $balance) PUSH!${NC}"
         fi
         last_balance="$balance"
         
         if [ "$balance" -ge "$required_amount" ]; then
-            echo -e "\n${BOLD}${GREEN}✓ Wallet successfully funded!${NC}"
-            echo -e "${GREEN}Balance: $(format_balance $balance) PUSH${NC}"
+            echo -e "\n${BOLD}${GREEN}✓ Wallet funded! Balance: $balance_push PUSH${NC}"
+            sleep 2
             return 0
         fi
         
-        # Show status every 10 checks (~50 seconds)
-        if [ $((check_count % 10)) -eq 0 ] && [ $check_count -gt 0 ]; then
-            echo -e "\n${BLUE}Still waiting... Current balance: $(format_balance $balance) PUSH${NC}"
-        fi
-        
-        printf "\r${BLUE}Checking balance... ${spinner[$count]} ${NC}"
+        printf "\r${BLUE}Balance: $balance_push PUSH ${spinner[$count]} ${NC}"
         count=$(( (count + 1) % 8 ))
-        check_count=$((check_count + 1))
         
         sleep 5
     done

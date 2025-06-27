@@ -1,195 +1,240 @@
-# Push Chain Validator - 5 Minute Setup 🚀
+# Push Chain Validator 🚀
 
-Run your own Push Chain validator in minutes, not hours!
+Run a Push Chain validator node in minutes with our simple one-line installer.
 
-## Prerequisites
+## 🎯 Quick Start Guide
 
-- **Docker** installed ([Get Docker](https://docs.docker.com/get-docker/))
-- **4GB RAM** minimum
-- **100GB SSD** storage
+### Prerequisites
+- Docker installed ([Get Docker](https://docs.docker.com/get-docker/))
+- That's it!
 
-## Quick Start
-
-### 1. Install (30 seconds)
-
+### Step 1: Install (30 seconds)
 ```bash
-curl -sSL https://get.push.org/validator | bash
-cd push-validator
+curl -sSL https://raw.githubusercontent.com/pushchain/push-chain-node/feature/validator-node-setup/validator/install.sh | bash
 ```
 
-### 2. Start Validator (2 minutes)
-
+### Step 2: Start Your Node
 ```bash
+cd push-validator
 ./push-validator start
 ```
+Your node will start syncing with the network. This is normal and takes 1-2 hours.
 
-The installer will ask you to enter your validator name.
-
-That's it! Your validator will automatically:
-✅ Download the correct genesis file
-✅ Connect to the network
-✅ Start syncing blocks
-
-### 3. Check Status
-
+### Step 3: Check Status
 ```bash
 ./push-validator status
 ```
+Look for:
+- ✅ **Catching Up: false** = Fully synced
+- ⏳ **Catching Up: true** = Still syncing (this is okay for setup)
 
-Wait for `Catching Up: false` - this means you're fully synced!
-
-## Becoming an Active Validator
-
-Two flows based on your starting point:
-
-### Flow 1: Create Wallet → Fund → Register 🆕
-
-For new validators starting from scratch:
-
+### Step 4: Become a Validator
 ```bash
-# Start the validator first
-./push-validator start
-
-# Then run setup wizard
 ./push-validator setup
 ```
 
-This interactive wizard will:
-1. **Create new wallet** - Generate secure mnemonic (SAVE IT!)
-2. **Show EVM address** - For faucet funding
-3. **Guide to faucet** - https://faucet.push.org (need 1.3 PUSH minimum)
-4. **Monitor funding** - Auto-detect incoming tokens
-5. **Register validator** - With pre-flight checks
-6. **Verify status** - Confirm registration success
+The wizard will guide you through:
+1. **Creating a wallet** (save your seed phrase!)
+2. **Getting test tokens** from https://faucet.push.org
+3. **Registering as validator** (automatic)
 
-### Flow 2: Import Funded Wallet → Register 📥
+### Step 5: Verify You're a Validator
+After registration completes:
+- ✅ You'll see your validator in the list with status "BONDED"
+- ✅ Your validator name will be highlighted
+- ✅ Check anytime with: `./push-validator status`
 
-For validators with existing funded wallets:
-
-**Interactive Method:**
-```bash
-# Ensure validator is running
-./push-validator start
-
-# Run setup and choose import option
-./push-validator setup
-# Choose option 2 to import wallet with mnemonic
-# Skip faucet, proceed directly to registration
-```
-
-**Automated Method (CI/CD):**
-```bash
-# Ensure validator is running
-./push-validator start
-
-# Import wallet
-docker compose exec -e MNEMONIC="your twelve word mnemonic phrase here" validator /scripts/import-wallet.sh
-
-# Auto-register
-./push-validator auto-register
-```
-
-**Prerequisites for Flow 2**:
-- Existing wallet with 1.3+ PUSH
-- Mnemonic phrase ready
-- Node should be synced
-
-### Important Notes
-
-**Funding Requirements**: 1.3 PUSH minimum (1 PUSH stake + 0.3 PUSH fees/buffer)
-
-**Backup Keys**: Always backup after setup
-```bash
-./push-validator backup
-```
-
-
-## Access Points
-
-Once running, your validator exposes:
-- **RPC**: `http://localhost:26657`
-- **API**: `http://localhost:1317`
-- **gRPC**: `localhost:9090`
-- **EVM RPC**: `http://localhost:8545`
-- **EVM WebSocket**: `ws://localhost:8546`
-- **Metrics**: `http://localhost:6060`
-
-## Health Monitoring
-
-### Comprehensive Test Suite
-
-Run the included test suite to verify your validator is working correctly:
-
-```bash
-./push-validator test
-```
-
-## Troubleshooting
-
-**Not syncing?**
-```bash
-./push-validator logs
-```
-
-**Health check failed?**
-```bash
-./push-validator test    # Run comprehensive diagnostics
-./push-validator status  # Check basic status
-```
-
-**Need help?**
-- Docs: https://docs.push.org
-
-## FAQ
-
-**How long does sync take?**
-- Testnet: 1-2 hours
-
-**How much PUSH do I need?**
-- Testnet: Minimum 1.3 PUSH (1 PUSH stake + 0.3 PUSH for fees/buffer)
-- Mainnet: 10,000 PUSH + fees
-
-**Is my validator working?**
-- Run health checks: `./push-validator test`
-- Check explorer: https://donut.push.network
-- Monitor status: `./push-validator status`
-
-**Need the EVM RPC endpoint?**
-- Testnet: https://evm.rpc-testnet-donut-node1.push.org
-
-**Want to make your validator public?**
-- See [PUBLIC_VALIDATOR_SETUP.md](PUBLIC_VALIDATOR_SETUP.md) for nginx/HTTPS setup (optional)
-
-## Command Reference
-
-### Basic Operations
-| Command | Description |
-|---------|-------------|
-| `./push-validator start` | Start validator |
-| `./push-validator stop` | Stop validator |
-| `./push-validator restart` | Restart validator |
-| `./push-validator status` | Check sync status |
-| `./push-validator logs` | View logs |
-| `./push-validator monitor` | Live monitoring view |
-
-### Validator Management
-| Command | Description |
-|---------|-------------|
-| `./push-validator setup` | Interactive wallet setup & registration |
-| `./push-validator auto-register` | Automatic registration (existing wallet) |
-| `./push-validator balance` | Check wallet balance |
-| `./push-validator test` | Run health checks |
-| `./push-validator backup` | Backup validator keys |
-
-### Advanced Commands
-| Command | Description |
-|---------|-------------|
-| `./push-validator shell` | Open container shell |
-| `./push-validator keys list` | List all keys |
-| `./push-validator keys add [name]` | Create new key |
-| `./push-validator reset` | Reset blockchain data |
-| `./push-validator update` | Update validator software |
+**That's it! You're now running a Push Chain validator! 🎉**
 
 ---
+
+## 💡 Common Questions
+
+**"How long does it take?"**
+- Installation: 30 seconds
+- Becoming a validator: 2-3 minutes
+- Full sync: 1-2 hours (but you can register while syncing)
+
+**"How much PUSH do I need?"**
+- Minimum: 1.3 PUSH (1 for staking + 0.3 for fees)
+- The faucet gives you 2 PUSH
+
+**"Is my validator working?"**
+- Run `./push-validator status` to check
+- Your voting power should be > 0
+- You should see your validator in the active list
+
+---
+
+## 📚 Additional Commands & Features
+
+<details>
+<summary><b>🔧 All Commands</b></summary>
+
+```bash
+./push-validator help
+```
+
+| Command | Description |
+|---------|-------------|
+| `start` | Start your validator node |
+| `stop` | Stop your validator node |
+| `restart` | Restart your validator node |
+| `status` | Show sync status and validator info |
+| `setup` | Interactive validator registration wizard |
+| `balance` | Check wallet balance |
+| `logs` | View live logs |
+| `monitor` | Real-time monitoring dashboard |
+| `backup` | Backup your validator keys |
+| `test` | Run health checks |
+
+</details>
+
+<details>
+<summary><b>💾 System Requirements</b></summary>
+
+**Minimum:**
+- 2 CPU cores
+- 4 GB RAM
+- 20 GB disk space
+- Stable internet connection
+
+**Recommended:**
+- 4 CPU cores
+- 8 GB RAM
+- 100 GB SSD
+- 100 Mbps connection
+
+**Network Info:**
+- Chain: `push_42101-1` (Testnet)
+- Min stake: 1 PUSH
+- Gas: ~0.2 PUSH per transaction
+
+</details>
+
+<details>
+<summary><b>🚨 Troubleshooting</b></summary>
+
+**Validator not starting?**
+```bash
+./push-validator logs          # Check for errors
+./push-validator test          # Run diagnostics
+docker ps                      # Ensure container is running
+```
+
+**Balance showing 0?**
+- Node might be syncing - balance queries work better after sync
+- Try: `./push-validator balance` (uses remote node)
+- Or wait for `Catching Up: false` in status
+
+**Already registered validator?**
+- The setup wizard will detect this and show your validator info
+- No need to register again
+
+**Want to start fresh?**
+```bash
+./push-validator reset                    # Reset chain data only
+docker volume rm validator_validator-data # Complete reset (removes wallets too)
+```
+
+**Common issues:**
+- "AppHash mismatch" = Normal during sync, ignore it
+- "Validator not in list" = Wait 1-2 minutes after registration
+- "Port already in use" = Another service using ports, check `docker-compose.yml`
+
+</details>
+
+<details>
+<summary><b>🔐 Security & Backup</b></summary>
+
+**Critical: Always backup your keys!**
+
+```bash
+# Backup validator keys
+./push-validator backup
+
+# Keys are saved to ./backup/ directory
+```
+
+**Security tips:**
+- Never share your seed phrase
+- Backup keys before going to mainnet
+- Use a firewall in production
+- Monitor your validator uptime
+
+**Import existing validator:**
+```bash
+./push-validator setup
+# Choose option 2: Import wallet
+```
+
+</details>
+
+<details>
+<summary><b>🌐 Advanced Configuration</b></summary>
+
+**Default Ports:**
+- P2P: 26656
+- RPC: http://localhost:26657
+- API: http://localhost:1317
+- gRPC: localhost:9090
+- Prometheus: http://localhost:26660
+
+**Custom Configuration:**
+Edit `docker-compose.yml` for:
+- Custom ports
+- Resource limits
+- Network settings
+
+**Production Setup:**
+- Use `PUBLIC_VALIDATOR_SETUP.md` for public endpoints
+- Setup monitoring with Prometheus/Grafana
+- Configure firewall rules
+- Enable automated backups
+
+</details>
+
+<details>
+<summary><b>🔍 Monitoring & Maintenance</b></summary>
+
+**Monitor your validator:**
+```bash
+./push-validator monitor       # Live dashboard
+./push-validator logs -f       # Follow logs
+```
+
+**Key metrics to watch:**
+- Block height (should increase)
+- Voting power (should be > 0)
+- Missed blocks (should be low)
+- Peer connections (should be > 0)
+
+**Maintenance tasks:**
+- Regular backups: `./push-validator backup`
+- Update software: `./push-validator update`
+- Check disk space: `df -h`
+- Monitor logs for errors
+
+</details>
+
+<details>
+<summary><b>🆘 Get Help</b></summary>
+
+- 📖 Docs: https://docs.push.org/validators
+- 💬 Discord: https://discord.gg/pushprotocol
+- 🐛 Issues: https://github.com/push-protocol/push-chain/issues
+- 📧 Email: support@push.org
+
+**Before asking for help:**
+1. Run `./push-validator test`
+2. Check `./push-validator logs`
+3. Verify Docker is running
+4. Check you have enough disk space
+
+</details>
+
+---
+
+**Remember:** The `setup` wizard handles everything automatically. Just follow the prompts! 🚀
 
 Made with ❤️ by Push Protocol

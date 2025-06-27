@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     netcat \
     ca-certificates \
     tini \
+    bc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

@@ -1,6 +1,6 @@
 # Push Node Manager 🚀
 
-Run a Push Chain validator node in minutes with our simple one-line installer.
+Run a Push Chain node in minutes with our simple one-line installer. Whether you want to run a validator or just a full node, we've got you covered!
 
 
 ## 🎯 Quick Start Guide
@@ -11,7 +11,7 @@ Run a Push Chain validator node in minutes with our simple one-line installer.
 
 ### Step 1: Install (30 seconds)
 ```bash
-curl -sSL https://raw.githubusercontent.com/pushchain/push-chain-node/feature/validator-node-setup/validator/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/pushchain/push-chain-node/feature/validator-node-setup/push-node-manager/install.sh | bash
 ```
 
 ### Step 2: Start Your Node
@@ -29,6 +29,7 @@ Look for:
 - ✅ **Catching Up: false** = Fully synced
 - ⏳ **Catching Up: true** = Still syncing (this is okay for setup)
 - 📊 **Sync Progress** = Shows percentage and blocks behind
+- 🔍 **Node Type** = Shows if you're running as validator or full node
 
 ### Step 4: Become a Validator
 ```bash
@@ -59,7 +60,7 @@ After registration completes:
 
 **"How much PUSH do I need?"**
 - Minimum: 1.3 PUSH (1 for staking + 0.3 for fees)
-- The faucet gives you 2 PUSH
+- The faucet gives you 100 PUSH (testnet)
 
 **"Is my validator working?"**
 - Run `./push-node-manager status` to check
@@ -85,9 +86,10 @@ After registration completes:
 | `status` | Show sync status, validator info, and sync progress with ETA |
 | `setup` | Interactive wallet setup & validator registration wizard |
 | `balance` | Check wallet balance and show faucet info |
-| `validators` | List all active validators with voting power and status |
+| `validators` | List all active validators with FULL names and addresses |
 | `logs` | View live logs (with optional filtering) |
 | `monitor` | Real-time monitoring dashboard |
+| `sync` | Monitor sync progress in real-time with live updates |
 | `backup` | Backup validator keys to ./backup/ directory |
 | `test` | Run comprehensive health checks |
 | `shell` | Open shell in validator container for debugging |
@@ -95,7 +97,7 @@ After registration completes:
 | `reset-all` | **DANGER:** Complete reset - deletes EVERYTHING! |
 | `keys` | Key management (list, add, show, delete) |
 | `update` | Update validator software to latest version |
-| `auto-register` | Automatic registration (requires existing funded wallet) |
+| `auto-register [wallet]` | Automatic registration (auto-detects or specify wallet name) |
 | `help` | Show detailed help with examples |
 
 </details>
@@ -138,8 +140,9 @@ docker ps                      # Ensure container is running
 - Or wait for `Catching Up: false` in status
 
 **Already registered validator?**
-- The setup wizard will detect this and show your validator info
-- No need to register again
+- The setup wizard will detect this automatically
+- Offers options to: use existing validator (import wallet) or create new one
+- Handles validator key conflicts intelligently
 
 **Sync issues or corrupted data?**
 ```bash
@@ -161,10 +164,11 @@ docker ps                      # Ensure container is running
 **Critical: Always backup your keys!**
 
 ```bash
-# Backup validator keys
+# Backup node keys
 ./push-node-manager backup
 
-# Keys are saved to ./backup/ directory
+# Keys are saved to ./backup/ directory with timestamp
+# Includes: node keys, validator keys, and node ID
 ```
 
 **Security tips:**
@@ -176,8 +180,14 @@ docker ps                      # Ensure container is running
 **Import existing validator:**
 ```bash
 ./push-node-manager setup
-# Choose option 2: Import wallet
+# If validator exists, it will prompt you
+# Choose option 3: Import wallet from seed phrase
 ```
+
+**Wallet management during setup:**
+- Lists all existing wallets with addresses
+- Option to use existing, create new, or import
+- Smart detection of validator conflicts
 
 </details>
 
@@ -281,6 +291,7 @@ Resets blockchain data while keeping your wallets and validator keys safe.
 </details>
 
 ---
+
 
 **Remember:** The `setup` wizard handles everything automatically. Just follow the prompts! 🚀
 

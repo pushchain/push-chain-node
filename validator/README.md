@@ -220,7 +220,7 @@ Edit `docker-compose.yml` for:
 <details>
 <summary><b>🆘 Get Help</b></summary>
 
-- 📖 Docs: https://docs.push.org/validators
+- 📖 Docs: Coming soon
 - 💬 Discord: https://discord.gg/pushprotocol
 - 🐛 Issues: https://github.com/push-protocol/push-chain/issues
 - 📧 Email: support@push.org

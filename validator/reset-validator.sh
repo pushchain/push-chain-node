@@ -1,17 +1,20 @@
 #!/bin/bash
 # Script to reset validator for testing from scratch
 
-echo "This will completely reset your validator node!"
-echo "WARNING: This will delete:"
-echo "- All blockchain data"
-echo "- All wallets and keys"
-echo "- Node configuration"
-echo
-read -p "Are you sure you want to continue? (yes/no): " confirm
+# Check if called from push-validator script
+if [ "$1" != "--skip-confirm" ]; then
+    echo "This will completely reset your validator node!"
+    echo "WARNING: This will delete:"
+    echo "- All blockchain data"
+    echo "- All wallets and keys"
+    echo "- Node configuration"
+    echo
+    read -p "Are you sure you want to continue? (yes/no): " confirm
 
-if [[ "$confirm" != "yes" ]]; then
-    echo "Reset cancelled."
-    exit 0
+    if [[ "$confirm" != "yes" ]]; then
+        echo "Reset cancelled."
+        exit 0
+    fi
 fi
 
 echo "Stopping validator..."

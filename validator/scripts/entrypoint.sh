@@ -187,28 +187,29 @@ configure_node() {
     log_success "Node configuration complete"
 }
 
-# Create or import validator key
-setup_keys() {
-    log_info "Setting up validator keys..."
-    
-    # Check if keys already exist
-    if pchaind keys show validator --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1; then
-        log_info "Validator key already exists"
-        return 0
-    fi
-    
-    # Check if we should import a key
-    if [ -n "$VALIDATOR_KEY_MNEMONIC" ]; then
-        log_info "Importing validator key from mnemonic..."
-        echo "$VALIDATOR_KEY_MNEMONIC" | pchaind keys add validator --recover --keyring-backend "$KEYRING" --home "$PCHAIN_HOME"
-    else
-        log_info "Creating new validator key..."
-        pchaind keys add validator --keyring-backend "$KEYRING" --home "$PCHAIN_HOME"
-        log_warning "⚠️  IMPORTANT: Save the mnemonic phrase shown above!"
-    fi
-    
-    log_success "Validator key setup complete"
-}
+# Create or import validator key - DEPRECATED
+# Now handled by the setup wizard to ensure users see the mnemonic
+# setup_keys() {
+#     log_info "Setting up validator keys..."
+#     
+#     # Check if keys already exist
+#     if pchaind keys show validator --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1; then
+#         log_info "Validator key already exists"
+#         return 0
+#     fi
+#     
+#     # Check if we should import a key
+#     if [ -n "$VALIDATOR_KEY_MNEMONIC" ]; then
+#         log_info "Importing validator key from mnemonic..."
+#         echo "$VALIDATOR_KEY_MNEMONIC" | pchaind keys add validator --recover --keyring-backend "$KEYRING" --home "$PCHAIN_HOME"
+#     else
+#         log_info "Creating new validator key..."
+#         pchaind keys add validator --keyring-backend "$KEYRING" --home "$PCHAIN_HOME"
+#         log_warning "⚠️  IMPORTANT: Save the mnemonic phrase shown above!"
+#     fi
+#     
+#     log_success "Validator key setup complete"
+# }
 
 # Start the node
 start_node() {
@@ -257,10 +258,11 @@ main() {
         download_genesis
         configure_node
         
-        # Setup keys if in validator mode
-        if [ "$VALIDATOR_MODE" = "true" ]; then
-            setup_keys
-        fi
+        # Don't auto-create keys - let the setup wizard handle it
+        # This ensures users see and can save the mnemonic phrase
+        # if [ "$VALIDATOR_MODE" = "true" ]; then
+        #     setup_keys
+        # fi
         
         # Initialize validator state file (matching manual setup)
         if [ ! -f "$DATA_DIR/priv_validator_state.json" ]; then

@@ -646,9 +646,9 @@ EOF
             local validator_count=$(echo "$all_validators" | jq '.validators | length')
             
             for i in $(seq 0 $((validator_count - 1))); do
-                local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // 'Unknown'")
-                local status=$(echo "$all_validators" | jq -r ".validators[$i].status // 'UNKNOWN'")
-                local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // '0'")
+                local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"")
+                local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"")
+                local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"")
                 local tokens_push=$(format_balance "$tokens")
                 
                 # Format status nicely
@@ -727,9 +727,9 @@ EOF
                 local validator_count=$(echo "$all_validators" | jq '.validators | length')
                 
                 for i in $(seq 0 $((validator_count - 1))); do
-                    local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // 'Unknown'")
-                    local status=$(echo "$all_validators" | jq -r ".validators[$i].status // 'UNKNOWN'")
-                    local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // '0'")
+                    local moniker=$(echo "$all_validators" | jq -r ".validators[$i].description.moniker // \"Unknown\"")
+                    local status=$(echo "$all_validators" | jq -r ".validators[$i].status // \"UNKNOWN\"")
+                    local tokens=$(echo "$all_validators" | jq -r ".validators[$i].tokens // \"0\"")
                     local tokens_push=$(format_balance "$tokens")
                     
                     # Format status nicely
@@ -767,118 +767,110 @@ main() {
     echo "════════════════════════════════════════════════"
     echo
     
-    local wallet_name="validator"
+    local wallet_name=""
     local wallet_setup_complete=false
     
     # Loop until wallet setup is complete
     while [ "$wallet_setup_complete" = false ]; do
-        # Check for existing wallet
-        if check_wallet "$wallet_name"; then
-            local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
-            local evm_address=$(push_to_evm_address "$address")
-            local balance=$(check_balance_smart "$address")
-            local balance_push=$(format_balance "$balance")
+        # First, check if there are any existing wallets
+        local existing_wallets=$(pchaind keys list --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null | grep -E "^  name:" | awk '{print $2}' || echo "")
+        
+        if [ -n "$existing_wallets" ]; then
+            echo -e "${GREEN}Found existing wallet(s):${NC}"
+            echo "$existing_wallets" | while read -r wallet; do
+                if [ -n "$wallet" ]; then
+                    # Get wallet address
+                    local wallet_addr=$(pchaind keys show "$wallet" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" 2>/dev/null || echo "")
+                    local wallet_evm=$(push_to_evm_address "$wallet_addr" 2>/dev/null || echo "")
+                    if [ -n "$wallet_evm" ]; then
+                        printf "  • %-20s %s\n" "$wallet" "($wallet_evm)"
+                    else
+                        echo "  • $wallet"
+                    fi
+                fi
+            done
             
-            log_info "Found existing wallet: $wallet_name"
-            echo -e "${BLUE}ETH Address: $evm_address${NC}"
-            echo -e "${GREEN}Balance:     $balance_push PUSH${NC}"
             echo
+            echo "What would you like to do?"
+            echo "1) Use existing wallet"
+            echo "2) Create new wallet"
+            echo "3) Import wallet from seed phrase"
+            read -p "Choose option (1-3): " main_option
             
-            read -p "Use existing wallet? (yes/no): " use_existing
-            if [[ "$use_existing" =~ ^[Yy][Ee][Ss]$ ]]; then
-                wallet_setup_complete=true
-            else
-                echo
-                echo "1) Create new wallet"
-                echo "2) Import existing wallet"
-                read -p "Choose option (1/2): " wallet_option
-                
-                case "$wallet_option" in
-                    1)
-                        while true; do
-                            read -p "Enter new wallet name: " new_wallet_name
-                            if [ -z "$new_wallet_name" ]; then
-                                log_error "Wallet name cannot be empty"
-                                echo
-                                continue
-                            fi
-                            
-                            # Check if wallet already exists
-                            set +e
-                            pchaind keys show "$new_wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1
-                            local exists=$?
-                            set -e
-                            
-                            if [ $exists -eq 0 ]; then
-                                log_error "Wallet '$new_wallet_name' already exists"
-                                echo
-                                continue
-                            fi
-                            
-                            wallet_name="$new_wallet_name"
-                            if create_wallet "$wallet_name"; then
-                                wallet_setup_complete=true
-                                break
-                            fi
-                        done
-                        ;;
-                    2)
-                        while true; do
-                            read -p "Enter wallet name to import: " import_wallet_name
-                            if [ -z "$import_wallet_name" ]; then
-                                log_error "Wallet name cannot be empty"
-                                echo
-                                continue
-                            fi
-                            
-                            # Check if wallet already exists
-                            set +e
-                            pchaind keys show "$import_wallet_name" --keyring-backend "$KEYRING" --home "$PCHAIN_HOME" >/dev/null 2>&1
-                            local exists=$?
-                            set -e
-                            
-                            if [ $exists -eq 0 ]; then
-                                log_error "Wallet '$import_wallet_name' already exists"
-                                echo "Please choose a different name or use the existing wallet."
-                                echo
-                                continue
-                            fi
-                            
-                            wallet_name="$import_wallet_name"
-                            if import_wallet "$wallet_name"; then
-                                wallet_setup_complete=true
-                                break
-                            else
-                                # Import failed, go back to wallet options
-                                echo
-                                break
-                            fi
-                        done
-                        ;;
-                    *)
-                        log_error "Invalid option. Please choose 1 or 2."
-                        echo
-                        ;;
-                esac
-            fi
-        else
-            echo "No existing wallet found."
-            echo
-            echo "1) Create new wallet"
-            echo "2) Import existing wallet"
-            read -p "Choose option (1/2): " wallet_option
-            
-            case "$wallet_option" in
+            case "$main_option" in
                 1)
-                    if create_wallet "$wallet_name"; then
+                    # If only one wallet, use it. Otherwise ask which one
+                    local wallet_count=$(echo "$existing_wallets" | wc -l | tr -d ' ')
+                    if [ "$wallet_count" -eq 1 ]; then
+                        wallet_name=$(echo "$existing_wallets" | head -1)
+                    else
+                        echo
+                        read -p "Enter wallet name to use: " wallet_name
+                        # Verify wallet exists
+                        if ! echo "$existing_wallets" | grep -q "^$wallet_name$"; then
+                            log_error "Wallet '$wallet_name' not found"
+                            echo
+                            continue
+                        fi
+                    fi
+                    
+                    # Show wallet details
+                    local address=$(pchaind keys show "$wallet_name" -a --keyring-backend "$KEYRING" --home "$PCHAIN_HOME")
+                    local evm_address=$(push_to_evm_address "$address")
+                    local balance=$(check_balance_smart "$address")
+                    local balance_push=$(format_balance "$balance")
+                    
+                    echo
+                    log_info "Using wallet: $wallet_name"
+                    echo -e "${BLUE}ETH Address: $evm_address${NC}"
+                    echo -e "${GREEN}Balance:     $balance_push PUSH${NC}"
+                    echo
+                    
+                    read -p "Continue with this wallet? (yes/no): " confirm
+                    if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
                         wallet_setup_complete=true
+                    else
+                        echo
+                        continue
                     fi
                     ;;
                 2)
+                    # Create new wallet
                     while true; do
-                        read -p "Enter wallet name to import: " import_wallet_name
+                        read -p "Enter name for new wallet: " new_wallet_name
+                        if [ -z "$new_wallet_name" ]; then
+                            log_error "Wallet name cannot be empty"
+                            echo
+                            continue
+                        fi
+                        
+                        # Check if wallet already exists
+                        if echo "$existing_wallets" | grep -q "^$new_wallet_name$"; then
+                            log_error "Wallet '$new_wallet_name' already exists"
+                            echo
+                            continue
+                        fi
+                        
+                        wallet_name="$new_wallet_name"
+                        if create_wallet "$wallet_name"; then
+                            wallet_setup_complete=true
+                            break
+                        fi
+                    done
+                    ;;
+                3)
+                    # Import wallet
+                    while true; do
+                        read -p "Enter name for imported wallet: " import_wallet_name
                         if [ -z "$import_wallet_name" ]; then
                             log_error "Wallet name cannot be empty"
+                            echo
+                            continue
+                        fi
+                        
+                        # Check if wallet already exists
+                        if echo "$existing_wallets" | grep -q "^$import_wallet_name$"; then
+                            log_error "Wallet '$import_wallet_name' already exists"
                             echo
                             continue
                         fi
@@ -888,11 +880,59 @@ main() {
                             wallet_setup_complete=true
                             break
                         else
-                            # Import failed, go back to wallet options
+                            # Import failed, go back to main menu
                             echo
                             break
                         fi
                     done
+                    ;;
+                
+                *)
+                    log_error "Invalid option. Please choose 1, 2, or 3."
+                    echo
+                    ;;
+            esac
+        else
+            # No existing wallets
+            echo -e "${YELLOW}No wallets found. Let's create one!${NC}"
+            echo
+            echo -e "${CYAN}A wallet is required to:${NC}"
+            echo "  • Receive test tokens from the faucet"
+            echo "  • Register as a validator"
+            echo "  • Receive staking rewards"
+            echo
+            echo "What would you like to do?"
+            echo "1) Create new wallet (recommended)"
+            echo "2) Import existing wallet from seed phrase"
+            read -p "Choose option (1-2): " wallet_option
+            
+            case "$wallet_option" in
+                1)
+                    read -p "Enter name for new wallet (default: validator): " new_wallet_name
+                    if [ -z "$new_wallet_name" ]; then
+                        new_wallet_name="validator"
+                    fi
+                    
+                    wallet_name="$new_wallet_name"
+                    if create_wallet "$wallet_name"; then
+                        wallet_setup_complete=true
+                    fi
+                    ;;
+                2)
+                    read -p "Enter name for imported wallet: " import_wallet_name
+                    if [ -z "$import_wallet_name" ]; then
+                        log_error "Wallet name cannot be empty"
+                        echo
+                        continue
+                    fi
+                    
+                    wallet_name="$import_wallet_name"
+                    if import_wallet "$wallet_name"; then
+                        wallet_setup_complete=true
+                    else
+                        # Import failed, try again
+                        echo
+                    fi
                     ;;
                 *)
                     log_error "Invalid option. Please choose 1 or 2."

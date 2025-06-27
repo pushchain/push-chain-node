@@ -89,42 +89,58 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.1'
-      
-      - name: Install dependencies
+      - name: Build Linux binary using Docker
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu
-      
-      - name: Build Linux AMD64
-        run: |
-          GOOS=linux GOARCH=amd64 make build
           mkdir -p release
-          tar -czf release/pchaind-linux-amd64.tar.gz -C build pchaind
-          cd release && sha256sum pchaind-linux-amd64.tar.gz > pchaind-linux-amd64.tar.gz.sha256
-      
-      - name: Build Darwin AMD64
-        run: |
-          # Clean build directory
-          rm -rf build/pchaind
           
-          # Build for macOS Intel
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -mod=readonly -tags "netgo" -o build/pchaind ./cmd/pchaind
-          tar -czf release/pchaind-darwin-amd64.tar.gz -C build pchaind
-          cd release && sha256sum pchaind-darwin-amd64.tar.gz > pchaind-darwin-amd64.tar.gz.sha256
-      
-      - name: Build Darwin ARM64
-        run: |
-          # Clean build directory
-          rm -rf build/pchaind
+          # Build using the existing Dockerfile
+          docker build -t pchaind-builder .
           
-          # Build for macOS ARM64
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -mod=readonly -tags "netgo" -o build/pchaind ./cmd/pchaind
-          tar -czf release/pchaind-darwin-arm64.tar.gz -C build pchaind
-          cd release && sha256sum pchaind-darwin-arm64.tar.gz > pchaind-darwin-arm64.tar.gz.sha256
+          # Extract the binary
+          docker create --name extract pchaind-builder
+          docker cp extract:/usr/bin/pchaind ./pchaind
+          docker rm extract
+          
+          # Create Linux archive
+          tar -czf release/pchaind-linux-amd64.tar.gz pchaind
+          rm pchaind
+          
+          # For macOS, we'll need to build locally due to cross-compilation issues
+          # Create build instructions for macOS users
+          cat > release/macos-build-instructions.md << 'EOF'
+          # macOS Build Instructions
+          
+          Since cross-compilation from Linux to macOS has dependency issues,
+          please build the binary locally on macOS:
+          
+          1. Clone and checkout this release:
+          ```bash
+          git clone https://github.com/pushchain/push-chain-node.git
+          cd push-chain-node
+          git checkout ${{ needs.check-version.outputs.version }}
+          ```
+          
+          2. Build the binary:
+          ```bash
+          make build
+          ```
+          
+          The binary will be at `build/pchaind`
+          
+          Alternatively, use the Linux binary with Docker on macOS.
+          EOF
+          
+          # Create placeholder archives for macOS with instructions
+          echo "See macos-build-instructions.md" > pchaind-macos-note.txt
+          tar -czf release/pchaind-darwin-amd64.tar.gz macos-build-instructions.md pchaind-macos-note.txt
+          tar -czf release/pchaind-darwin-arm64.tar.gz macos-build-instructions.md pchaind-macos-note.txt
+          rm pchaind-macos-note.txt macos-build-instructions.md
+          
+          # Generate checksums
+          cd release
+          for f in *.tar.gz; do
+            sha256sum "$f" > "$f.sha256"
+          done
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

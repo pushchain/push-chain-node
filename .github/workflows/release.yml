@@ -88,31 +88,42 @@ jobs:
       matrix:
         include:
           - platform: linux-amd64
-            runs-on: ubuntu-latest
-            build-type: docker
+            docker-platform: linux/amd64
+            goos: linux
+            goarch: amd64
           - platform: darwin-amd64
-            runs-on: ubuntu-latest
-            build-type: instructions
+            docker-platform: linux/amd64
+            goos: darwin
+            goarch: amd64
           - platform: darwin-arm64
-            runs-on: ubuntu-latest
-            build-type: instructions
+            docker-platform: linux/arm64
+            goos: darwin
+            goarch: arm64
     
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
       
       - name: Build ${{ matrix.platform }}
         run: |
           mkdir -p release
           
-          if [ "${{ matrix.build-type }}" = "docker" ]; then
-            # Build Linux binary using Docker
-            echo "Building Linux AMD64 binary..."
-            docker build -t pchaind-builder .
+          if [ "${{ matrix.goos }}" = "linux" ]; then
+            # Build Linux using Docker
+            echo "Building Linux binary using Docker..."
+            docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
             
             # Extract the binary
-            docker create --name extract pchaind-builder
+            docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
             docker cp extract:/usr/bin/pchaind ./pchaind
             docker rm extract
             
@@ -120,34 +131,43 @@ jobs:
             tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
             rm pchaind
           else
-            # Create build instructions for macOS
-            cat > build-instructions.md << 'EOF'
-          # macOS Build Instructions for ${{ matrix.platform }}
+            # Build macOS binaries with Go directly, without CGO
+            echo "Building ${{ matrix.platform }} binary..."
+            
+            # Download dependencies
+            go mod download
+            
+            # Build with minimal dependencies
+            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+              go build -mod=readonly -tags "netgo" \
+              -ldflags '-s -w -extldflags "-static"' \
+              -o pchaind ./cmd/pchaind || {
+                echo "Direct build failed, creating build instructions instead"
+                
+                # If build fails, provide instructions
+                cat > build-instructions.md << 'EOF'
+          # Build Instructions for ${{ matrix.platform }}
           
-          Cross-compilation from Linux to macOS is not supported due to CGO dependencies.
-          Please build locally on macOS:
+          Due to dependency constraints, please build locally:
           
-          ## Option 1: Build from source
           ```bash
           git clone https://github.com/pushchain/push-chain-node.git
           cd push-chain-node
           git checkout ${{ needs.check-version.outputs.version }}
-          make build
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make build
           ```
-          
-          ## Option 2: Use Docker
-          ```bash
-          docker pull pushchain/validator:${{ needs.check-version.outputs.version }}
-          ```
-          
-          ## Option 3: Use Linux binary with Docker Desktop
-          Download the Linux binary and run it using Docker Desktop on macOS.
           EOF
+                
+                echo "Build locally - see build-instructions.md" > README.txt
+                tar -czf release/pchaind-${{ matrix.platform }}.tar.gz build-instructions.md README.txt
+                rm -f build-instructions.md README.txt
+              }
             
-            # Create archive with instructions
-            echo "Build locally on macOS - see build-instructions.md" > README.txt
-            tar -czf release/pchaind-${{ matrix.platform }}.tar.gz build-instructions.md README.txt
-            rm build-instructions.md README.txt
+            # If build succeeded, create archive
+            if [ -f pchaind ]; then
+              tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
+              rm pchaind
+            fi
           fi
           
           # Generate checksum

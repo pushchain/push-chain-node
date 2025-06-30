@@ -159,6 +159,7 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
+	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	ue "github.com/rollchains/pchain/x/ue"
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
@@ -1210,6 +1211,8 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
+
+	app.UpgradeKeeper.SetUpgradeHandler("uaid-refactor", uaidrefactor.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

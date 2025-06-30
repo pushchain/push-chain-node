@@ -11,14 +11,15 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "not_bech32"
 
-	validUA := &types.UniversalAccount{
-		Chain: "eip155:11155111",
-		Owner: "0x000000000000000000000000000000000000dead",
+	validUAcc := &types.UniversalAccountId{
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
 	}
-
-	invalidUA := &types.UniversalAccount{
-		Chain: "solana", // invalid CAIP-2 format
-		Owner: "0xabc",
+	invalidUAcc := &types.UniversalAccountId{
+		ChainNamespace: "",
+		ChainId:        "11155111",
+		Owner:          "0xzzzzzzzz",
 	}
 
 	tests := []struct {
@@ -29,45 +30,45 @@ func TestMsgMintPC_ValidateBasic(t *testing.T) {
 		{
 			name: "valid message",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: false,
 		},
 		{
 			name: "invalid signer address",
 			msg: &types.MsgMintPC{
-				Signer:           invalidSigner,
-				UniversalAccount: validUA,
-				TxHash:           "0x123abc",
+				Signer:             invalidSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "nil universal account",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: nil,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: nil,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid universal account",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: invalidUA,
-				TxHash:           "0x123abc",
+				Signer:             validSigner,
+				UniversalAccountId: invalidUAcc,
+				TxHash:             "0x123abc",
 			},
 			expectErr: true,
 		},
 		{
 			name: "empty tx hash",
 			msg: &types.MsgMintPC{
-				Signer:           validSigner,
-				UniversalAccount: validUA,
-				TxHash:           "",
+				Signer:             validSigner,
+				UniversalAccountId: validUAcc,
+				TxHash:             "",
 			},
 			expectErr: true,
 		},

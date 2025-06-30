@@ -14,22 +14,25 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccount *types.UniversalAccount, universalPayload *types.UniversalPayload, signature string) error {
+func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, universalPayload *types.UniversalPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	chainConfig, err := k.GetChainConfig(sdkCtx, universalAccount.Chain)
+	// Get Caip2Identifier for the universal account
+	caip2Identifier := universalAccountId.GetCAIP2()
+
+	chainConfig, err := k.GetChainConfig(sdkCtx, caip2Identifier)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get chain config for chain %s", universalAccount.Chain)
+		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
 	}
 
 	if !chainConfig.Enabled {
-		return fmt.Errorf("chain %s is not enabled", universalAccount.Chain)
+		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
 	}
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// Step 1: Compute smart account address
-	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccount)
+	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
 	}

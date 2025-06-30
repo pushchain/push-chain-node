@@ -1,4 +1,4 @@
-package noop
+package uaidrefactor
 
 import (
 	"context"
@@ -29,6 +29,7 @@ func CreateUpgradeHandler(
 	ak *upgrades.AppKeepers,
 ) upgradetypes.UpgradeHandler {
 	return func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+
 		return mm.RunMigrations(ctx, configurator, fromVM)
 	}
 }

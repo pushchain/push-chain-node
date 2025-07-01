@@ -396,12 +396,14 @@ github.com/cosmos/cosmos-db v1.1.1 h1:FezFSU37AlBC8S98NlSagL76oqBRWq/prTPvFcEJNC
 github.com/cosmos/cosmos-db v1.1.1/go.mod h1:AghjcIPqdhSLP/2Z0yha5xPH3nLnskz81pBx3tcVSAw=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5 h1:eNcayDLpip+zVLRLYafhzLvQlSmyab+RC5W7ZfmxJLA=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5/go.mod h1:hQGLpiIUloJBMdQMMWb/4wRApmI9hjHH05nefC0Ojec=
-github.com/cosmos/cosmos-sdk v0.50.13 h1:xQ32hhzVy7agEe7behMdZN0ezWhPss3KoLZsF9KoBnw=
-github.com/cosmos/cosmos-sdk v0.50.13/go.mod h1:hrWEFMU1eoXqLJeE6VVESpJDQH67FS1nnMrQIjO2daw=
+github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7 h1:zoOAawQLQXLg+HuSOfmuwtTMC4Qovc23a60+xfoHKUw=
+github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7/go.mod h1:hrWEFMU1eoXqLJeE6VVESpJDQH67FS1nnMrQIjO2daw=
 github.com/cosmos/evm/example_chain v0.0.0-20250318095025-e69e57ff2698 h1:o3ZyXWlhFzIW0EvuRY0PeHkiprlqa26USiVX/lTwvfE=
 github.com/cosmos/evm/example_chain v0.0.0-20250318095025-e69e57ff2698/go.mod h1:YV7+LvR7SJpUgCKdMAJ7o9GxGeCEPlr+eyLhCFhbhQA=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
+github.com/cosmos/go-ethereum v1.10.26-evmos-rc4 h1:joJGMIsh3buk1zrSpB13W1/hsAEG8DIafCeimWypj88=
+github.com/cosmos/go-ethereum v1.10.26-evmos-rc4/go.mod h1:/6CsT5Ceen2WPLI/oCA3xMcZ5sWMF/D46SjM/ayY0Oo=
 github.com/cosmos/gogogateway v1.2.0 h1:Ae/OivNhp8DqBi/sh2A8a1D0y638GpL3tkmLQAiKxTE=
 github.com/cosmos/gogogateway v1.2.0/go.mod h1:iQpLkGWxYcnCdz5iAdLcRBSw3h7NXeOkZ4GUkT+tbFI=
 github.com/cosmos/gogoproto v1.4.2/go.mod h1:cLxOsn1ljAHSV527CHOtaIP91kK6cCrZETRBrkzItWU=
@@ -504,8 +506,6 @@ github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1/go.
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe h1:CKvjP3CcWckOiwffAARb9qe+t0+VWoVDiicYkQMvZfQ=
 github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe/go.mod h1:Bm6h8ZkYgVTytHK5vhHOMKw9OHyiumm3b1UbkYIJ/Ug=
-github.com/evmos/go-ethereum v1.10.26-evmos-rc4 h1:vwDVMScuB2KSu8ze5oWUuxm6v3bMUp6dL3PWvJNJY+I=
-github.com/evmos/go-ethereum v1.10.26-evmos-rc4/go.mod h1:/6CsT5Ceen2WPLI/oCA3xMcZ5sWMF/D46SjM/ayY0Oo=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/fatih/color v1.17.0 h1:GlRw1BRJxkpqUCBKzKOw098ed57fEsKeNjpTe3cSjK4=
@@ -1044,8 +1044,8 @@ github.com/prometheus/procfs v0.15.1 h1:YagwOFzUgYfKKHX6Dr+sHT7km/hxC76UB0leargg
 github.com/prometheus/procfs v0.15.1/go.mod h1:fB45yRUv8NstnjriLhBQLuOUt+WW4BsoGhij/e3PBqk=
 github.com/prometheus/tsdb v0.10.0 h1:If5rVCMTp6W2SiRAQFlbpJNgVlgMEd+U2GZckwK38ic=
 github.com/prometheus/tsdb v0.10.0/go.mod h1:oi49uRhEe9dPUTlS3JRZOwJuVi6tmh10QSgwXEyGCt4=
-github.com/pushchain/evm v0.0.0-20250321154638-d781e119de10 h1:w6JMEZlSWQa40yzglex0rsBEUh8EhuBxskX5XrYeDOw=
-github.com/pushchain/evm v0.0.0-20250321154638-d781e119de10/go.mod h1:eN3d6tB/F6P6xj96fKaEXO4YezsBal2epBKGPsPQTuw=
+github.com/pushchain/evm v0.0.0-20250701182310-ac867fcd2e4e h1:UHebJ4USQnR0B/ffx0MMOkkTnurSDQ/lh3oaESZ1OoA=
+github.com/pushchain/evm v0.0.0-20250701182310-ac867fcd2e4e/go.mod h1:eN3d6tB/F6P6xj96fKaEXO4YezsBal2epBKGPsPQTuw=
 github.com/rakyll/statik v0.1.7 h1:OF3QCZUuyPxuGEP7B4ypUa7sB/iHtqOTDYZXGM8KOdQ=
 github.com/rakyll/statik v0.1.7/go.mod h1:AlZONWzMtEnMs7W4e/1LURLiI49pIMmp6V9Unghqrcc=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=

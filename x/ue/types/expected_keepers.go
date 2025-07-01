@@ -33,24 +33,15 @@ type EVMKeeper interface {
 	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	SetCode(ctx sdk.Context, codeHash, code []byte)
-	// CallEVMInternalTx(
-	// 	ctx sdk.Context,
-	// 	abi abi.ABI,
-	// 	from, contract common.Address,
-	// 	value, gasLimit *big.Int,
-	// 	commit bool,
-	// 	method string,
-	// 	args ...interface{},
-	// ) (*types.MsgEthereumTxResponse, error)
-	// CallEVMWithDataInternalTx(
-	// 	ctx sdk.Context,
-	// 	from common.Address,
-	// 	contract *common.Address,
-	// 	data []byte,
-	// 	commit bool,
-	// 	value *big.Int,
-	// 	gasLimit *big.Int,
-	// ) (*types.MsgEthereumTxResponse, error)
+	DerivedEVMCall(
+		ctx sdk.Context,
+		abi abi.ABI,
+		from, contract common.Address,
+		value, gasLimit *big.Int,
+		commit, gasless bool,
+		method string,
+		args ...interface{},
+	) (*types.MsgEthereumTxResponse, error)
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.

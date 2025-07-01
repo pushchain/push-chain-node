@@ -57,12 +57,15 @@ func (k Keeper) CallFactoryToDeployUEA(
 
 	fmt.Println("FROM: ", from)
 
-	return k.evmKeeper.CallEVM(
+	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
 		from,        // who is sending the transaction
 		factoryAddr, // destination: FactoryV1 contract
-		true,        // commit = true (real tx, not simulation)
+		big.NewInt(0),
+		big.NewInt(1000000),
+		true,
+		true, // commit = true (real tx, not simulation)
 		"deployUEA",
 		abiUniversalAccount,
 	)
@@ -91,11 +94,14 @@ func (k Keeper) CallUEAExecutePayload(
 		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
 	}
 
-	return k.evmKeeper.CallEVM(
+	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
 		from,
 		ueaAddr,
+		big.NewInt(0),
+		gasLimit,
+		true,
 		true, // commit
 		"executePayload",
 		abiUniversalPayload,

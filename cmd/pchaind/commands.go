@@ -32,16 +32,16 @@ import (
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
-	evmosserverconfig "github.com/evmos/os/server/config"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmcli "github.com/CosmWasm/wasmd/x/wasm/client/cli"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	evmoscmd "github.com/evmos/os/client"
-	evmosserver "github.com/evmos/os/server"
-	srvflags "github.com/evmos/os/server/flags"
+	cosmosevmcmd "github.com/cosmos/evm/client"
+	cosmosevmserver "github.com/cosmos/evm/server"
+	srvflags "github.com/cosmos/evm/server/flags"
 )
 
 // initCometBFTConfig helps to override default CometBFT Config values.
@@ -60,9 +60,9 @@ type CustomAppConfig struct {
 	serverconfig.Config
 
 	Wasm    wasmtypes.WasmConfig `mapstructure:"wasm"`
-	EVM     evmosserverconfig.EVMConfig
-	JSONRPC evmosserverconfig.JSONRPCConfig
-	TLS     evmosserverconfig.TLSConfig
+	EVM     cosmosevmserverconfig.EVMConfig
+	JSONRPC cosmosevmserverconfig.JSONRPCConfig
+	TLS     cosmosevmserverconfig.TLSConfig
 }
 
 // initAppConfig helps to override default appConfig template and configs.
@@ -91,16 +91,16 @@ func initAppConfig() (string, interface{}) {
 	customAppConfig := CustomAppConfig{
 		Config:  *srvCfg,
 		Wasm:    wasmtypes.DefaultWasmConfig(),
-		EVM:     *evmosserverconfig.DefaultEVMConfig(),
-		JSONRPC: *evmosserverconfig.DefaultJSONRPCConfig(),
-		TLS:     *evmosserverconfig.DefaultTLSConfig(),
+		EVM:     *cosmosevmserverconfig.DefaultEVMConfig(),
+		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
 	customAppTemplate := serverconfig.DefaultConfigTemplate
 
 	customAppTemplate += wasmtypes.DefaultConfigTemplate()
 
-	customAppTemplate += evmosserverconfig.DefaultEVMConfigTemplate
+	customAppTemplate += cosmosevmserverconfig.DefaultEVMConfigTemplate
 
 	return customAppTemplate, customAppConfig
 }
@@ -125,16 +125,16 @@ func initRootCmd(
 	wasmcli.ExtendUnsafeResetAllCmd(rootCmd)
 
 	// add EVM' flavored TM commands to start server, etc.
-	evmosserver.AddCommands(
+	cosmosevmserver.AddCommands(
 		rootCmd,
-		evmosserver.NewDefaultStartOptions(newApp, app.DefaultNodeHome),
+		cosmosevmserver.NewDefaultStartOptions(newApp, app.DefaultNodeHome),
 		appExport,
 		addModuleInitFlags,
 	)
 
 	// add EVM key commands
 	rootCmd.AddCommand(
-		evmoscmd.KeyCommands(app.DefaultNodeHome, true),
+		cosmosevmcmd.KeyCommands(app.DefaultNodeHome, true),
 	)
 
 	// add keybase, auxiliary RPC, query, genesis, and tx child commands

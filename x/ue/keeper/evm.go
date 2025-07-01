@@ -1,10 +1,13 @@
 package keeper
 
 import (
+	"fmt"
+	"math/big"
+
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
-	evmtypes "github.com/evmos/os/x/evm/types"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
@@ -12,14 +15,14 @@ import (
 func (k Keeper) CallFactoryToComputeUEAAddress(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	universalAccountId *types.UniversalAccountId,
+	universalAccount *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	abiUniversalAccountId, err := types.NewAbiUniversalAccountId(universalAccountId)
+	abiUniversalAccount, err := types.NewAbiUniversalAccountId(universalAccount)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
@@ -31,7 +34,7 @@ func (k Keeper) CallFactoryToComputeUEAAddress(
 		factoryAddr,
 		false, // commit
 		"computeUEA",
-		abiUniversalAccountId,
+		abiUniversalAccount,
 	)
 }
 
@@ -40,17 +43,19 @@ func (k Keeper) CallFactoryToComputeUEAAddress(
 func (k Keeper) CallFactoryToDeployUEA(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
-	universalAccountId *types.UniversalAccountId,
+	universalAccount *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
-	abiUniversalAccountId, err := types.NewAbiUniversalAccountId(universalAccountId)
+	abiUniversalAccount, err := types.NewAbiUniversalAccountId(universalAccount)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
+
+	fmt.Println("FROM: ", from)
 
 	return k.evmKeeper.CallEVM(
 		ctx,
@@ -59,7 +64,7 @@ func (k Keeper) CallFactoryToDeployUEA(
 		factoryAddr, // destination: FactoryV1 contract
 		true,        // commit = true (real tx, not simulation)
 		"deployUEA",
-		abiUniversalAccountId,
+		abiUniversalAccount,
 	)
 }
 
@@ -78,6 +83,12 @@ func (k Keeper) CallUEAExecutePayload(
 	abiUniversalPayload, err := types.NewAbiUniversalPayload(universal_payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal payload")
+	}
+
+	gasLimit := new(big.Int)
+	gasLimit, ok := gasLimit.SetString(universal_payload.GasLimit, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
 	}
 
 	return k.evmKeeper.CallEVM(

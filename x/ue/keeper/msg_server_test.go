@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	evmtypes "github.com/evmos/os/x/evm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/require"

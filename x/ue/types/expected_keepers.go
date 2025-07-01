@@ -7,10 +7,10 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/os/x/evm/statedb"
-	"github.com/evmos/os/x/evm/types"
 )
 
 // EVMKeeper defines the expected interface for the EVM module.
@@ -33,6 +33,24 @@ type EVMKeeper interface {
 	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	SetCode(ctx sdk.Context, codeHash, code []byte)
+	// CallEVMInternalTx(
+	// 	ctx sdk.Context,
+	// 	abi abi.ABI,
+	// 	from, contract common.Address,
+	// 	value, gasLimit *big.Int,
+	// 	commit bool,
+	// 	method string,
+	// 	args ...interface{},
+	// ) (*types.MsgEthereumTxResponse, error)
+	// CallEVMWithDataInternalTx(
+	// 	ctx sdk.Context,
+	// 	from common.Address,
+	// 	contract *common.Address,
+	// 	data []byte,
+	// 	commit bool,
+	// 	value *big.Int,
+	// 	gasLimit *big.Int,
+	// ) (*types.MsgEthereumTxResponse, error)
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.

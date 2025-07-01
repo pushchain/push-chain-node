@@ -10,8 +10,8 @@ import (
 	types "github.com/cosmos/cosmos-sdk/types"
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 	common "github.com/ethereum/go-ethereum/common"
-	statedb "github.com/evmos/os/x/evm/statedb"
-	types0 "github.com/evmos/os/x/evm/types"
+	statedb "github.com/cosmos/evm/x/vm/statedb"
+	types0 "github.com/cosmos/evm/x/vm/types"
 	gomock "github.com/golang/mock/gomock"
 )
 

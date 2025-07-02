@@ -15,13 +15,6 @@ import (
 
 // EVMKeeper defines the expected interface for the EVM module.
 type EVMKeeper interface {
-	CallEVMWithData(
-		ctx sdk.Context,
-		from common.Address,
-		contract *common.Address,
-		data []byte,
-		commit bool,
-	) (*types.MsgEthereumTxResponse, error)
 	CallEVM(
 		ctx sdk.Context,
 		abi abi.ABI,
@@ -76,6 +69,11 @@ type BankKeeper interface {
 		moduleName string,
 		amt sdk.Coins,
 	) error
+}
+
+// AccountKeeper defines the expected interface for the auth module
+type AccountKeeper interface {
+	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
 }
 
 // UtvKeeper defines the expected interface for the UTV module.

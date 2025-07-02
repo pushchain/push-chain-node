@@ -58,21 +58,6 @@ func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, m
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallEVM", reflect.TypeOf((*MockEVMKeeper)(nil).CallEVM), varargs...)
 }
 
-// CallEVMWithData mocks base method.
-func (m *MockEVMKeeper) CallEVMWithData(ctx types.Context, from common.Address, contract *common.Address, data []byte, commit bool) (*types0.MsgEthereumTxResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CallEVMWithData", ctx, from, contract, data, commit)
-	ret0, _ := ret[0].(*types0.MsgEthereumTxResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CallEVMWithData indicates an expected call of CallEVMWithData.
-func (mr *MockEVMKeeperMockRecorder) CallEVMWithData(ctx, from, contract, data, commit interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallEVMWithData", reflect.TypeOf((*MockEVMKeeper)(nil).CallEVMWithData), ctx, from, contract, data, commit)
-}
-
 // SetAccount mocks base method.
 func (m *MockEVMKeeper) SetAccount(ctx types.Context, addr common.Address, account statedb.Account) error {
 	m.ctrl.T.Helper()

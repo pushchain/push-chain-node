@@ -117,10 +117,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 
 	return f
 }
@@ -192,17 +192,6 @@ func (m MockEVMKeeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
 
 func (m MockEVMKeeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
 	// no-op mock
-}
-
-func (m MockEVMKeeper) CallEVMWithData(
-	ctx sdk.Context,
-	from common.Address,
-	contract *common.Address,
-	data []byte,
-	commit bool,
-) (*evmtypes.MsgEthereumTxResponse, error) {
-	// no-op mock
-	return nil, nil
 }
 
 func (m MockEVMKeeper) CallEVM(

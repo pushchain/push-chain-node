@@ -723,6 +723,7 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
+		app.AccountKeeper,
 		&app.UtvKeeper,
 	)
 
@@ -1011,7 +1012,7 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.UtvKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
 	)
 

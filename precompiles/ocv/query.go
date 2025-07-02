@@ -18,7 +18,7 @@ func (p Precompile) VerifyTxHash(
 		return nil, fmt.Errorf("expected 3 args, got %d", len(args))
 	}
 
-	// Parse UniversalAccountId from EVM
+	// Parse UniversalAccountId from EVM (tuple)
 	universalAccountIdRaw, ok := args[0].(struct {
 		ChainNamespace string `json:"chainNamespace"`
 		ChainId        string `json:"chainId"`
@@ -28,20 +28,20 @@ func (p Precompile) VerifyTxHash(
 		return nil, fmt.Errorf("invalid UniversalAccountId type: expected struct, got %T", args[0])
 	}
 
-	// Parse payloadHash
-	payloadHashBytes, ok := args[1].([]byte)
+	// Parse payloadHash as bytes32 (will be [32]byte)
+	payloadHashBytes32, ok := args[1].([32]byte)
 	if !ok {
-		return nil, fmt.Errorf("invalid payloadHash type")
+		return nil, fmt.Errorf("invalid payloadHash type: expected [32]byte, got %T", args[1])
 	}
 
-	// Parse txHash as string (standardized for both EVM and Solana)
+	// Parse txHash as string
 	txHash, ok := args[2].(string)
 	if !ok {
-		return nil, fmt.Errorf("invalid txHash type")
+		return nil, fmt.Errorf("invalid txHash type: expected string, got %T", args[2])
 	}
 
-	// Convert payloadHash bytes to hex string
-	payloadHash := fmt.Sprintf("0x%x", payloadHashBytes)
+	// Convert bytes32 to hex string
+	payloadHash := fmt.Sprintf("0x%x", payloadHashBytes32[:])
 	ownerHex := fmt.Sprintf("0x%x", universalAccountIdRaw.Owner)
 
 	fmt.Printf("[OCV] VerifyTxHash called with UniversalAccountId: chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",

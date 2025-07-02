@@ -32,9 +32,9 @@
                     "type": "tuple"
                 },
                 {
-                    "internalType": "bytes",
+                    "internalType": "bytes32",
                     "name": "payloadHash",
-                    "type": "bytes"
+                    "type": "bytes32"
                 },
                 {
                     "internalType": "string",

@@ -159,6 +159,7 @@ import (
 	transfer "github.com/evmos/os/x/ibc/transfer"
 	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
 	chainante "github.com/rollchains/pchain/app/ante"
+	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	pushtypes "github.com/rollchains/pchain/types"
 	ue "github.com/rollchains/pchain/x/ue"
@@ -745,12 +746,19 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usv precompile
+	// Add the usv precompile for Ed25519 verification
 	usvPrecompile, err := usvprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate usv precompile: %w", err))
 	}
 	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
+
+	// Add the ocv precompile for Payload verification
+	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtvKeeper)
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate ocv precompile: %w", err))
+	}
+	corePrecompiles[ocvPrecompile.Address()] = ocvPrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,

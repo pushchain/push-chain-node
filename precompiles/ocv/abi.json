@@ -1,0 +1,57 @@
+{
+    "_format": "hh-sol-artifact-1",
+    "contractName": "OCV",
+    "sourceName": "precompiles/OCV.sol",
+    "bytecode": "0x",
+    "deployedBytecode": "0x",
+    "linkReferences": {},
+    "deployedLinkReferences": {},
+    "abi": [
+        {
+            "inputs": [
+                {
+                    "components": [
+                        {
+                            "internalType": "string",
+                            "name": "chainNamespace",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "chainId",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "bytes",
+                            "name": "owner",
+                            "type": "bytes"
+                        }
+                    ],
+                    "internalType": "struct UniversalAccountId",
+                    "name": "universalAccountId",
+                    "type": "tuple"
+                },
+                {
+                    "internalType": "bytes",
+                    "name": "payloadHash",
+                    "type": "bytes"
+                },
+                {
+                    "internalType": "string",
+                    "name": "txHash",
+                    "type": "string"
+                }
+            ],
+            "name": "verifyTxHash",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }
+    ]
+}

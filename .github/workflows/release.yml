@@ -91,13 +91,9 @@ jobs:
             docker-platform: linux/amd64
             goos: linux
             goarch: amd64
-          - platform: darwin-amd64
-            docker-platform: linux/amd64
-            goos: darwin
-            goarch: amd64
-          - platform: darwin-arm64
+          - platform: linux-arm64
             docker-platform: linux/arm64
-            goos: darwin
+            goos: linux
             goarch: arm64
     
     runs-on: ubuntu-latest
@@ -117,58 +113,18 @@ jobs:
         run: |
           mkdir -p release
           
-          if [ "${{ matrix.goos }}" = "linux" ]; then
-            # Build Linux using Docker
-            echo "Building Linux binary using Docker..."
-            docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
-            
-            # Extract the binary
-            docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
-            docker cp extract:/usr/bin/pchaind ./pchaind
-            docker rm extract
-            
-            # Create archive
-            tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
-            rm pchaind
-          else
-            # Build macOS binaries with Go directly, without CGO
-            echo "Building ${{ matrix.platform }} binary..."
-            
-            # Download dependencies
-            go mod download
-            
-            # Build with minimal dependencies
-            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-              go build -mod=readonly -tags "netgo" \
-              -ldflags '-s -w -extldflags "-static"' \
-              -o pchaind ./cmd/pchaind || {
-                echo "Direct build failed, creating build instructions instead"
-                
-                # If build fails, provide instructions
-                cat > build-instructions.md << 'EOF'
-          # Build Instructions for ${{ matrix.platform }}
+          # Build all platforms using Docker
+          echo "Building ${{ matrix.platform }} binary using Docker..."
+          docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
           
-          Due to dependency constraints, please build locally:
+          # Extract the binary
+          docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
+          docker cp extract:/usr/bin/pchaind ./pchaind
+          docker rm extract
           
-          ```bash
-          git clone https://github.com/pushchain/push-chain-node.git
-          cd push-chain-node
-          git checkout ${{ needs.check-version.outputs.version }}
-          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make build
-          ```
-          EOF
-                
-                echo "Build locally - see build-instructions.md" > README.txt
-                tar -czf release/pchaind-${{ matrix.platform }}.tar.gz build-instructions.md README.txt
-                rm -f build-instructions.md README.txt
-              }
-            
-            # If build succeeded, create archive
-            if [ -f pchaind ]; then
-              tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
-              rm pchaind
-            fi
-          fi
+          # Create archive
+          tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
+          rm pchaind
           
           # Generate checksum
           cd release
@@ -240,15 +196,14 @@ jobs:
             Download the appropriate binary for your platform and extract it:
             
             ```bash
-            # Linux
+            # Linux (AMD64)
             curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-amd64.tar.gz | tar xz
             
-            # macOS (Intel)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-amd64.tar.gz | tar xz
-            
-            # macOS (Apple Silicon)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-arm64.tar.gz | tar xz
+            # Linux (ARM64)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-arm64.tar.gz | tar xz
             ```
+            
+            **Note:** macOS binaries must be built locally due to CGO dependencies. See the build instructions in the repository.
             
             ## Checksums
             

@@ -128,6 +128,10 @@ func (k Keeper) DerivedMintPCEvmTx(ctx context.Context, toAddr common.Address, a
 			attrs...,
 		),
 		sdk.NewEvent(
+			vmtypes.EventTypeTxLog,
+			sdk.NewAttribute(vmtypes.AttributeKeyTxLog, ""),
+		),
+		sdk.NewEvent(
 			sdk.EventTypeMessage,
 			sdk.NewAttribute(sdk.AttributeKeyModule, vmtypes.ModuleName),
 			sdk.NewAttribute(sdk.AttributeKeySender, ethSenderAddr.Hex()),

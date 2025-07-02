@@ -10,26 +10,19 @@
         {
             "inputs": [
                 {
-                    "components": [
-                        {
-                            "internalType": "string",
-                            "name": "chainNamespace",
-                            "type": "string"
-                        },
-                        {
-                            "internalType": "string",
-                            "name": "chainId",
-                            "type": "string"
-                        },
-                        {
-                            "internalType": "bytes",
-                            "name": "owner",
-                            "type": "bytes"
-                        }
-                    ],
-                    "internalType": "struct UniversalAccountId",
-                    "name": "universalAccountId",
-                    "type": "tuple"
+                    "internalType": "string",
+                    "name": "chainNamespace",
+                    "type": "string"
+                },
+                {
+                    "internalType": "string",
+                    "name": "chainId",
+                    "type": "string"
+                },
+                {
+                    "internalType": "bytes",
+                    "name": "owner",
+                    "type": "bytes"
                 },
                 {
                     "internalType": "bytes32",
@@ -37,9 +30,9 @@
                     "type": "bytes32"
                 },
                 {
-                    "internalType": "string",
+                    "internalType": "bytes",
                     "name": "txHash",
-                    "type": "string"
+                    "type": "bytes"
                 }
             ],
             "name": "verifyTxHash",

@@ -16,20 +16,21 @@ Verifies that a transaction contains a `FundsAdded` event with the specified pay
 
 ```solidity
 function verifyTxHash(
-    (string chainNamespace, string chainId, bytes owner) universalAccountId,
-    bytes payloadHash,
-    string txHash
+    string chainNamespace,
+    string chainId,
+    bytes owner,
+    bytes32 payloadHash,
+    bytes txHash
 ) external returns (bool);
 ```
 
 #### Parameters
 
-- `universalAccountId`: A tuple containing:
-  - `chainNamespace`: The chain namespace ("eip155" for Ethereum, "solana" for Solana)
-  - `chainId`: The specific chain ID ("11155111" for Sepolia, "devnet" for Solana devnet)
-  - `owner`: The owner's address/key as bytes
-- `payloadHash`: The expected payload hash as bytes
-- `txHash`: The transaction hash as a string (native format for each chain)
+- `chainNamespace`: The chain namespace ("eip155" for Ethereum, "solana" for Solana)
+- `chainId`: The specific chain ID ("11155111" for Sepolia, "devnet" for Solana devnet)
+- `owner`: The owner's address/key as bytes
+- `payloadHash`: The expected payload hash as bytes32
+- `txHash`: The transaction hash as bytes (supports both Ethereum hex and Solana base58 formats)
 
 #### Returns
 
@@ -41,10 +42,11 @@ function verifyTxHash(
 
 The OCV precompile delegates verification to the UTV (Universal Transaction Verification) module for gas efficiency. The verification process involves:
 
-1. **Chain Detection**: Extracts chain information from Universal Account ID
+1. **Chain Detection**: Extracts chain information from chainNamespace parameter
 2. **Owner Verification**: Ensures the transaction sender matches the provided owner
 3. **Event Parsing**: Extracts payload hash from blockchain events
 4. **Hash Comparison**: Compares provided hash with emitted hash
+5. **Transaction Hash Processing**: Converts bytes to appropriate string format based on chain type
 
 ### Chain-Specific Implementation
 
@@ -53,12 +55,14 @@ The OCV precompile delegates verification to the UTV (Universal Transaction Veri
 - **Gateway Contract**: `0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe`
 - **Event Parsing**: Uses `FundsAdded(address,bytes32,(uint256,uint8))` event signature
 - **Hash Extraction**: Retrieves transaction hash from event topics[2]
+- **txHash Format**: Bytes are converted to hex string format
 
 #### Solana 
 - **RPC Endpoint**: `https://api.devnet.solana.com`
 - **Gateway Contract**: `3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke`
 - **Event Parsing**: Decodes base64 "Program data:" logs using binary structure
 - **Hash Extraction**: Parses FundsAddedEvent struct at specific byte offsets
+- **txHash Format**: Bytes are converted to base58 string format
 
 ### Solana Event Structure
 
@@ -82,8 +86,10 @@ The precompile extracts the `transaction_hash` field from bytes 68-100 of the de
 ### Ethereum Verification
 ```bash
 cast call 0x0000000000000000000000000000000000000901 \
-  "verifyTxHash((string,string,bytes),bytes,string)" \
-  "("eip155","11155111","0x498ad773E5dAd9388268c1477A7df26Bf03114A0")" \
+  "verifyTxHash(string,string,bytes,bytes32,bytes)" \
+  "eip155" \
+  "11155111" \
+  "0x498ad773E5dAd9388268c1477A7df26Bf03114A0" \
   "0xfdb80105de4e3eafa1f1d2c3b7a513752acb21e1ccd19d87ba8e413d670e1e27" \
   "0xc6e1abcfc0898fd9426904336a2a565908ab934b979ddd85a19044ab813a84d4"
 ```
@@ -91,39 +97,87 @@ cast call 0x0000000000000000000000000000000000000901 \
 ### Solana Verification
 ```bash
 cast call 0x0000000000000000000000000000000000000901 \
-  "verifyTxHash((string,string,bytes),bytes,string)" \
-  "("solana","EtWTRABZaYq6iMfeYKouRu166VU2xqa1","0x123f8bdd2850b76cd7d612ba9f5b4a1d05a66e39805048ccd12b7fbef3f69bbc")" \
-  "fdb80105de4e3eafa1f1d2c3b7a513752acb21e1ccd19d87ba8e413d670e1e27" \
-  "61vNSsAFmLAifCKauxUM8bhCJHLkesxszkQNjL9iqRbZ3E9SWVA8r3biz3BjEgZHvykfMivAV5uu83po5Metxg8J"
+  "verifyTxHash(string,string,bytes,bytes32,bytes)" \
+  "solana" \
+  "EtWTRABZaYq6iMfeYKouRu166VU2xqa1" \
+  "0x123f8bdd2850b76cd7d612ba9f5b4a1d05a66e39805048ccd12b7fbef3f69bbc" \
+  "0xfdb80105de4e3eafa1f1d2c3b7a513752acb21e1ccd19d87ba8e413d670e1e27" \
+  "0xfae0e6094f6af71e3816187c6d137cdee22bb0ae81921a2890c2c9ef466f4b56b99b1cd022d8f9631de1acb463ec8a67b8b2ac5cca717fba57c4e0245093160b"
 ```
 
 ## Key Implementation Features
 
-### 1. Universal Account ID Structure
-- **Standardized Format**: Uses tuple `(chainNamespace, chainId, owner)` for cross-chain compatibility
-- **Chain Detection**: Automatically determines verification method from namespace
-- **Address Formats**: Supports both Ethereum hex addresses and Solana public keys
+### 1. Flattened Parameter Structure
+- **Direct Parameters**: Uses individual parameters instead of tuple structure
+- **Type Safety**: Proper type matching for Solidity contract integration
+- **Simplified Encoding**: No complex struct creation required
 
-### 2. Efficient Architecture
+### 2. Multi-Format Transaction Hash Support
+- **Ethereum**: Expects transaction hash as hex-encoded bytes
+- **Solana**: Expects transaction hash as base58-decoded bytes
+- **Automatic Conversion**: Precompile converts bytes to appropriate string format based on chain
+
+### 3. Efficient Architecture
 - **Single RPC Call**: Fetches transaction data once and performs all verifications
 - **Gas Optimization**: Delegates to UTV module to avoid expensive precompile operations
 - **Error Handling**: Comprehensive error messages for debugging
 
-### 3. Robust Event Parsing
+### 4. Robust Event Parsing
 - **Ethereum**: Uses event signature matching and topic extraction
 - **Solana**: Binary parsing of base64-encoded event data with proper struct layout
 - **Type Safety**: Validates data lengths and formats before parsing
 
-### 4. Transaction Hash Formats
-- **Ethereum**: Standard hex format with 0x prefix
-- **Solana**: Base58 encoded transaction signatures
-- **Standardization**: Both chains use string format for consistency
+## Transaction Hash Format Handling
+
+### Ethereum
+Your contract should convert hex string to bytes:
+```solidity
+string memory ethTxHash = "0xc6e1abcfc0898fd9426904336a2a565908ab934b979ddd85a19044ab813a84d4";
+bytes memory txHashBytes = hex"c6e1abcfc0898fd9426904336a2a565908ab934b979ddd85a19044ab813a84d4";
+```
+
+### Solana
+Your contract should convert base58 string to bytes (requires base58 library):
+```solidity
+string memory solanaTxHash = "61vNSsAFmLAifCKauxUM8bhCJHLkesxszkQNjL9iqRbZ3E9SWVA8r3biz3BjEgZHvykfMivAV5uu83po5Metxg8J";
+bytes memory txHashBytes = base58.decode(solanaTxHash);
+```
+
+## Contract Integration
+
+```solidity
+struct UniversalAccountId {
+    string chainNamespace;
+    string chainId;
+    bytes owner;
+}
+
+function verifyTransaction(
+    UniversalAccountId memory id,
+    bytes32 payloadHash,
+    bytes memory txHashBytes
+) external returns (bool) {
+    (bool success, bytes memory result) = OCV_PRECOMPILE.staticcall(
+        abi.encodeWithSignature(
+            "verifyTxHash(string,string,bytes,bytes32,bytes)",
+            id.chainNamespace,
+            id.chainId,
+            id.owner,
+            payloadHash,
+            txHashBytes
+        )
+    );
+    
+    require(success, "Precompile call failed");
+    return abi.decode(result, (bool));
+}
+```
 
 ## Error Handling
 
 The precompile returns `false` and logs detailed error information for:
 
-- **Invalid Universal Account ID**: Malformed chain namespace, ID, or owner format
+- **Invalid Parameters**: Malformed chainNamespace, chainId, or owner format
 - **Chain Configuration**: Unsupported chains or missing RPC endpoints
 - **Transaction Verification**: Invalid transaction hashes or network errors
 - **Owner Mismatch**: Transaction sender doesn't match provided owner
@@ -153,6 +207,7 @@ The precompile returns `false` and logs detailed error information for:
 - **EVM RPC**: Ethereum transaction and receipt fetching
 - **SVM RPC**: Solana transaction and log parsing
 - **Context Support**: Proper timeout and cancellation handling
+- **Base58 Encoding**: For Solana transaction hash conversion
 
 ### Code Structure
 ```
@@ -165,7 +220,7 @@ precompiles/ocv/
 ```
 
 ### Key Functions
-- `VerifyTxHash`: Main verification entry point
+- `VerifyTxHash`: Main verification entry point with flattened parameters
 - `NewPrecompileWithUtv`: Factory with UTV keeper injection
 - `RequiredGas`: Gas cost calculation (4000 gas units)
 

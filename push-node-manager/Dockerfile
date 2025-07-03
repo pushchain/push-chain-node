@@ -24,18 +24,28 @@ RUN pip3 install tomlkit
 
 # Binary configuration
 ARG BINARY_VERSION=latest
-ARG BINARY_URL=https://github.com/push-protocol/push-chain/releases/download
+ARG BINARY_URL=https://github.com/pushchain/push-chain-node/releases/download
 ARG BINARY_CHECKSUM=""
+ARG TARGETARCH=amd64
 
 # Download and verify binary
 RUN if [ "$BINARY_VERSION" = "latest" ]; then \
-        DOWNLOAD_URL="${BINARY_URL}/latest/download/pchaind-linux-amd64"; \
+        # Get latest release version
+        LATEST_VERSION=$(curl -s https://api.github.com/repos/pushchain/push-chain-node/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
+        if [ -z "$LATEST_VERSION" ]; then \
+            echo "Failed to get latest version, using fallback" && \
+            LATEST_VERSION="v1.0.5"; \
+        fi && \
+        DOWNLOAD_URL="${BINARY_URL}/${LATEST_VERSION}/pchaind-${LATEST_VERSION}-linux-${TARGETARCH}.tar.gz"; \
     else \
-        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-linux-amd64"; \
+        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-${BINARY_VERSION}-linux-${TARGETARCH}.tar.gz"; \
     fi && \
     echo "Downloading binary from $DOWNLOAD_URL" && \
-    curl -sSL "$DOWNLOAD_URL" -o /usr/local/bin/pchaind && \
+    curl -sSL "$DOWNLOAD_URL" -o /tmp/pchaind.tar.gz && \
+    tar -xzf /tmp/pchaind.tar.gz -C /tmp && \
+    mv /tmp/pchaind /usr/local/bin/pchaind && \
     chmod +x /usr/local/bin/pchaind && \
+    rm -f /tmp/pchaind.tar.gz && \
     # Verify checksum if provided
     if [ -n "$BINARY_CHECKSUM" ]; then \
         echo "$BINARY_CHECKSUM  /usr/local/bin/pchaind" | sha256sum -c || \

@@ -6,6 +6,7 @@ services:
       args:
         - BINARY_VERSION=${BINARY_VERSION:-latest}
         - BINARY_CHECKSUM=${BINARY_CHECKSUM:-}
+        - TARGETARCH=${TARGETARCH:-amd64}
     image: push-node-manager:${BINARY_VERSION:-latest}
     container_name: push-node-manager
     restart: unless-stopped
@@ -19,8 +20,6 @@ services:
       - "8545:8545"    # EVM JSON-RPC
       - "8546:8546"    # EVM JSON-RPC WebSocket
     volumes:
-      # Mount local binary for development (until GitHub releases are available)
-      - ../build/pchaind:/usr/local/bin/pchaind:ro
       # Data directory
       - ./data:/root/.pchain
       # Scripts

@@ -48,7 +48,7 @@ show_banner() {
     echo " / ____/ /_/ (__  ) / / /  / /___/ / / / /_/ / / / / / "
     echo "/_/    \\__,_/____/_/ /_/   \\____/_/ /_/\\__,_/_/_/ /_/  "
     echo -e "${NC}"
-    echo -e "${BOLD}${YELLOW}          Push Node Manager v1.0.0${NC}"
+    echo -e "${BOLD}${YELLOW}          Push Node Manager v2.0.0${NC}"
     echo -e "${GREEN}        ═══════════════════════════════${NC}"
     echo
 }
@@ -65,6 +65,134 @@ else
     DOCKER_COMPOSE="docker-compose"
 fi
 
+# Update detection functions
+check_for_updates() {
+    # Cache file for GitHub API responses (to avoid rate limiting)
+    local CACHE_FILE="/tmp/push_node_manager_update_check"
+    local CACHE_DURATION=3600  # 1 hour
+    local CURRENT_TIME=$(date +%s)
+    
+    # Check if cache is still valid
+    if [ -f "$CACHE_FILE" ]; then
+        local CACHE_TIME=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null || echo "0")
+        local CACHE_AGE=$((CURRENT_TIME - CACHE_TIME))
+        
+        if [ $CACHE_AGE -lt $CACHE_DURATION ]; then
+            # Use cached result
+            cat "$CACHE_FILE" 2>/dev/null || echo ""
+            return 0
+        fi
+    fi
+    
+    # Fetch latest release from GitHub API
+    local LATEST_RELEASE=$(curl -s --connect-timeout 10 \
+        "https://api.github.com/repos/pushchain/push-chain-node/releases/latest" 2>/dev/null)
+    
+    if [ -n "$LATEST_RELEASE" ] && echo "$LATEST_RELEASE" | grep -q '"tag_name"'; then
+        echo "$LATEST_RELEASE" > "$CACHE_FILE"
+        echo "$LATEST_RELEASE"
+    else
+        # Return empty if failed
+        echo ""
+    fi
+}
+
+get_latest_version() {
+    local RELEASE_DATA=$(check_for_updates)
+    if [ -n "$RELEASE_DATA" ]; then
+        echo "$RELEASE_DATA" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo ""
+    else
+        echo ""
+    fi
+}
+
+get_current_binary_version() {
+    # Try to get version from the binary if it's running
+    if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
+        local VERSION=$($DOCKER_COMPOSE exec -T validator pchaind version --long 2>/dev/null | \
+            grep "version:" | awk '{print $2}' 2>/dev/null || echo "")
+        
+        if [ -n "$VERSION" ] && [ "$VERSION" != "null" ]; then
+            echo "$VERSION"
+        else
+            echo "unknown"
+        fi
+    else
+        echo "unknown"
+    fi
+}
+
+compare_versions() {
+    local CURRENT="$1"
+    local LATEST="$2"
+    
+    # If we can't determine versions, assume update needed
+    if [ -z "$CURRENT" ] || [ "$CURRENT" = "unknown" ] || [ -z "$LATEST" ]; then
+        return 1  # Update available (unknown state)
+    fi
+    
+    # Simple string comparison for now (works for semantic versions)
+    if [ "$CURRENT" != "$LATEST" ]; then
+        return 0  # Update available
+    else
+        return 1  # No update needed
+    fi
+}
+
+check_and_notify_updates() {
+    local LATEST_VERSION=$(get_latest_version)
+    local CURRENT_VERSION=$(get_current_binary_version)
+    
+    if [ -n "$LATEST_VERSION" ] && compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
+        echo
+        print_warning "📦 Update Available!"
+        echo -e "  Current: ${YELLOW}$CURRENT_VERSION${NC}"
+        echo -e "  Latest:  ${GREEN}$LATEST_VERSION${NC}"
+        echo
+        echo -e "  Run ${BOLD}${GREEN}'./push-node-manager update'${NC} to update"
+        if [ "${AUTO_UPDATE:-false}" != "true" ]; then
+            echo -e "  Or set ${BOLD}AUTO_UPDATE=true${NC} in .env for automatic updates"
+        fi
+        echo
+        return 0  # Update available
+    fi
+    return 1  # No update available
+}
+
+perform_auto_update() {
+    local LATEST_VERSION=$(get_latest_version)
+    local CURRENT_VERSION=$(get_current_binary_version)
+    
+    if [ -n "$LATEST_VERSION" ] && compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
+        print_status "🔄 Auto-updating to $LATEST_VERSION..."
+        
+        # Check if validator is actively validating (has voting power)
+        if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
+            local VOTING_POWER=$($DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null | \
+                jq -r '.validator_info.voting_power // "0"' 2>/dev/null || echo "0")
+            
+            if [ "$VOTING_POWER" != "0" ] && [ "$VOTING_POWER" != "null" ]; then
+                print_warning "⚠️  Validator is actively validating (voting power: $VOTING_POWER)"
+                echo "Skipping auto-update to avoid disruption."
+                echo "Run './push-node-manager update' manually when ready."
+                return 1
+            fi
+        fi
+        
+        # Perform the update
+        print_status "🔨 Rebuilding image with latest binary..."
+        $DOCKER_COMPOSE build --no-cache --quiet || {
+            print_error "❌ Auto-update failed!"
+            echo "Try running './push-node-manager update' manually."
+            return 1
+        }
+        
+        print_success "✅ Auto-update complete!"
+        echo "Using binary version: $LATEST_VERSION"
+        return 0
+    fi
+    return 1  # No update needed
+}
 
 # Show banner for interactive commands (not for status checks)
 case "$1" in
@@ -85,8 +213,16 @@ case "$1" in
             exit 0
         fi
         
+        # Check for auto-update if enabled
+        if [ "${AUTO_UPDATE:-false}" = "true" ]; then
+            print_status "🔍 Checking for updates (AUTO_UPDATE=true)..."
+            if perform_auto_update; then
+                print_status "Continuing with startup using updated binary..."
+            fi
+        fi
+        
         # Build image if needed
-        if ! docker images | grep -q "push-node-manager.*local"; then
+        if ! docker images | grep -q "push-node-manager"; then
             print_status "🔨 Building validator image..."
             $DOCKER_COMPOSE build
         fi
@@ -355,6 +491,9 @@ case "$1" in
             echo -e "     ${GREEN}•${NC} Getting tokens from the faucet"
             echo -e "     ${GREEN}•${NC} Registering as a validator"
         fi
+        
+        # Check for available updates
+        check_and_notify_updates
         ;;
         
     logs)
@@ -498,9 +637,31 @@ case "$1" in
         
     update)
         print_status "🔄 Updating validator..."
+        echo "This will:"
+        echo "  • Pull latest scripts and configuration"
+        echo "  • Download latest pchaind binary from GitHub releases"
+        echo "  • Rebuild the validator image"
+        echo
+        
+        read -p "Continue with update? (yes/no): " confirm
+        if [[ ! "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+            echo "Update cancelled"
+            exit 0
+        fi
+        
+        # Pull latest repository changes
+        print_status "📥 Updating repository..."
         git pull
-        $DOCKER_COMPOSE pull
-        print_success "✅ Update complete. Restart validator to apply changes."
+        
+        # Rebuild image with latest binary
+        print_status "🔨 Rebuilding image with latest binary..."
+        $DOCKER_COMPOSE build --no-cache
+        
+        print_success "✅ Update complete!"
+        echo
+        echo "Next steps:"
+        echo "  • Restart validator: ./push-node-manager restart"
+        echo "  • Check status: ./push-node-manager status"
         ;;
         
     validators|list-validators)
@@ -1070,7 +1231,7 @@ $(echo -e "${BOLD}${GREEN}Wallet & Keys:${NC}")
 $(echo -e "${BOLD}${GREEN}Maintenance:${NC}")
   reset-data         Reset blockchain data (keeps wallets)
   reset-all          $(echo -e "${RED}DANGER:${NC}") Complete reset - deletes EVERYTHING!
-  update             Update node software to latest version
+  update             Update node software to latest version (or set AUTO_UPDATE=true)
   public-setup       Setup HTTPS endpoints for public access (Linux only)
   help               Show this help message
 
@@ -1094,6 +1255,11 @@ $(echo -e "${BOLD}Wallet Management:${NC}")
   ./push-node-manager keys add mykey      # Create wallet named 'mykey'
   ./push-node-manager keys show mykey     # Show address for 'mykey'
   ./push-node-manager backup              # Backup your keys
+
+$(echo -e "${BOLD}Updates:${NC}")
+  ./push-node-manager update              # Manual update (default)
+  echo "AUTO_UPDATE=true" >> .env         # Enable automatic updates
+  ./push-node-manager start               # Auto-updates if enabled
 
 $(echo -e "${BOLD}Troubleshooting:${NC}")
   ./push-node-manager test                # Run health checks

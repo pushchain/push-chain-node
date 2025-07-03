@@ -104,6 +104,47 @@ After registration completes:
 </details>
 
 <details>
+<summary><b>🔄 Keeping Your Node Updated</b></summary>
+
+**Automatic Binary Updates:**
+The node manager automatically downloads the latest `pchaind` binary from GitHub releases. No manual binary management needed!
+
+**Manual Updates (Default - Safe):**
+```bash
+./push-node-manager update     # Download latest binary and rebuild
+./push-node-manager restart    # Apply changes
+./push-node-manager status     # Verify everything works
+```
+
+**Automatic Updates (Optional):**
+```bash
+# Enable auto-updates in .env file
+echo "AUTO_UPDATE=true" >> .env
+
+# Now updates happen automatically when starting
+./push-node-manager start      # Checks for updates first
+```
+
+**Update Process:**
+- Pull latest scripts and configuration
+- Download latest `pchaind` binary from GitHub releases
+- Rebuild the validator image with the new binary
+- Preserve all your wallets and configuration
+- Skip auto-update if validator is actively validating (for safety)
+
+**Update Notifications:**
+- `./push-node-manager status` always shows if updates are available
+- Provides current vs latest version information
+- Shows instructions for updating
+
+**Version Information:**
+- Node Manager: v2.0.0 (now uses GitHub release binaries)
+- Binary: Latest from [pushchain/push-chain-node releases](https://github.com/pushchain/push-chain-node/releases)
+- Auto-detects your system architecture (amd64/arm64)
+
+</details>
+
+<details>
 <summary><b>💾 System Requirements</b></summary>
 
 **Minimum:**

@@ -22,20 +22,20 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 RUN pip3 install tomlkit
 
-# Binary configuration
-ARG BINARY_VERSION=latest
+# Binary configuration - default to known working version
+ARG BINARY_VERSION=v1.1.0
 ARG BINARY_URL=https://github.com/pushchain/push-chain-node/releases/download
 ARG BINARY_CHECKSUM=""
 ARG TARGETARCH=amd64
 
-# Download and verify binary
+# Download and verify binary with fallback
 RUN if [ "$BINARY_VERSION" = "latest" ]; then \
         echo "🔍 Fetching latest release information..." && \
         # Get latest release version
         LATEST_VERSION=$(curl -s https://api.github.com/repos/pushchain/push-chain-node/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
         if [ -z "$LATEST_VERSION" ]; then \
             echo "⚠️  Failed to get latest version, using fallback" && \
-            LATEST_VERSION="v1.0.5"; \
+            LATEST_VERSION="v1.1.0"; \
         fi && \
         echo "📦 Latest release version: $LATEST_VERSION" && \
         DOWNLOAD_URL="${BINARY_URL}/${LATEST_VERSION}/pchaind-${LATEST_VERSION}-linux-${TARGETARCH}.tar.gz"; \
@@ -44,7 +44,12 @@ RUN if [ "$BINARY_VERSION" = "latest" ]; then \
         DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-${BINARY_VERSION}-linux-${TARGETARCH}.tar.gz"; \
     fi && \
     echo "📥 Downloading binary from: $DOWNLOAD_URL" && \
-    curl -sSL "$DOWNLOAD_URL" -o /tmp/pchaind.tar.gz && \
+    # Try to download, with fallback to v1.1.0 if download fails or file is invalid
+    if ! curl -sSL "$DOWNLOAD_URL" -o /tmp/pchaind.tar.gz 2>/dev/null || ! file /tmp/pchaind.tar.gz | grep -q "gzip compressed"; then \
+        echo "⚠️  Download failed or invalid file, trying fallback version v1.1.0..." && \
+        FALLBACK_URL="${BINARY_URL}/v1.1.0/pchaind-v1.1.0-linux-${TARGETARCH}.tar.gz" && \
+        curl -sSL "$FALLBACK_URL" -o /tmp/pchaind.tar.gz; \
+    fi && \
     echo "📦 Extracting binary..." && \
     tar -xzf /tmp/pchaind.tar.gz -C /tmp && \
     mv /tmp/pchaind /usr/local/bin/pchaind && \

@@ -9,18 +9,20 @@
       "binary_url": "https://github.com/push-protocol/push-chain/releases/latest/download/pchaind-linux-amd64",
       "genesis_node": {
         "id": "dc323e3c930d12369723373516267a213d74ea37",
-        "ip": "34.57.209.0",
+        "ip": "rpc-testnet-donut-node1.push.org",
         "p2p_port": "26656",
         "rpc_port": "26657"
       },
       "rpc_endpoints": [
-        "tcp://34.57.209.0:26657"
+        "http://rpc-testnet-donut-node1.push.org:26657",
+        "http://rpc-testnet-donut-node2.push.org:26657"
       ],
       "evm_rpc_endpoints": [
-        "https://evm.rpc-testnet-donut-node1.push.org"
+        "https://evm.rpc-testnet-donut-node1.push.org",
+        "https://evm.rpc-testnet-donut-node2.push.org"
       ],
       "persistent_peers": [
-        "dc323e3c930d12369723373516267a213d74ea37@34.57.209.0:26656"
+        "dc323e3c930d12369723373516267a213d74ea37@rpc-testnet-donut-node1.push.org:26656"
       ],
       "seeds": [],
       "explorer": "https://donut.push.network/",

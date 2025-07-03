@@ -3,16 +3,24 @@
 
 set -e
 
-# Network node
-GENESIS_NODE="http://34.57.209.0:26657"
+# Network node (with fallback)
+GENESIS_NODE="http://rpc-testnet-donut-node1.push.org:26657"
+GENESIS_NODE_FALLBACK="http://rpc-testnet-donut-node2.push.org:26657"
 
 echo "🔍 Downloading genesis from network node..."
 
-# Download genesis
-curl -s "$GENESIS_NODE/genesis" | jq -r '.result.genesis' > /tmp/genesis-network.json
+# Download genesis with fallback
+if curl -s --connect-timeout 10 "$GENESIS_NODE/genesis" | jq -r '.result.genesis' > /tmp/genesis-network.json 2>/dev/null; then
+    echo "✅ Downloaded from primary node: $GENESIS_NODE"
+elif curl -s --connect-timeout 10 "$GENESIS_NODE_FALLBACK/genesis" | jq -r '.result.genesis' > /tmp/genesis-network.json 2>/dev/null; then
+    echo "✅ Downloaded from fallback node: $GENESIS_NODE_FALLBACK"
+else
+    echo "❌ Failed to download genesis from both nodes"
+    exit 1
+fi
 
-if [ ! -f "/tmp/genesis-network.json" ]; then
-    echo "❌ Failed to download genesis"
+if [ ! -f "/tmp/genesis-network.json" ] || [ ! -s "/tmp/genesis-network.json" ]; then
+    echo "❌ Genesis file is empty or missing"
     exit 1
 fi
 

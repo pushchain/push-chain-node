@@ -192,6 +192,27 @@ perform_auto_update() {
     return 1  # No update needed
 }
 
+# Helper function for RPC calls with fallback
+rpc_call() {
+    local endpoint="$1"
+    local primary_url="http://rpc-testnet-donut-node1.push.org:26657$endpoint"
+    local fallback_url="http://rpc-testnet-donut-node2.push.org:26657$endpoint"
+    
+    # Try primary endpoint first
+    if result=$(curl -s --connect-timeout 5 "$primary_url" 2>/dev/null) && [ -n "$result" ]; then
+        echo "$result"
+        return 0
+    fi
+    
+    # Try fallback endpoint
+    if result=$(curl -s --connect-timeout 5 "$fallback_url" 2>/dev/null) && [ -n "$result" ]; then
+        echo "$result"
+        return 0
+    fi
+    
+    return 1
+}
+
 # Show banner for interactive commands (not for status checks)
 case "$1" in
     start|stop|restart|register-validator|setup|monitor|sync|validators|public-setup|help|"")
@@ -361,8 +382,8 @@ case "$1" in
         fi
         
         # Get remote node status to show sync progress
-        # Try to get from genesis node using curl
-        REMOTE_STATUS=$(curl -s --connect-timeout 5 http://34.57.209.0:26657/status 2>/dev/null || echo "")
+        # Try to get from genesis node using curl with fallback
+        REMOTE_STATUS=$(rpc_call "/status" || echo "")
         
         if [ -n "$REMOTE_STATUS" ]; then
             REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "unknown"' 2>/dev/null || echo "unknown")
@@ -697,11 +718,12 @@ case "$1" in
         # Get validators from genesis node
         print_status "Fetching validator list..."
         
-        VALIDATORS_JSON=$(curl -s --connect-timeout 10 http://34.57.209.0:26657/validators 2>/dev/null || echo "")
+        VALIDATORS_JSON=$(rpc_call "/validators" || echo "")
         
         if [ -n "$VALIDATORS_JSON" ] && [ "$VALIDATORS_JSON" != "" ]; then
             # Try staking validators for more detailed info
-            STAKING_VALIDATORS=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --node tcp://34.57.209.0:26657 --output json 2>/dev/null || echo "")
+            STAKING_VALIDATORS=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --node http://rpc-testnet-donut-node1.push.org:26657 --output json 2>/dev/null || \
+                                 $DOCKER_COMPOSE exec -T validator pchaind query staking validators --node http://rpc-testnet-donut-node2.push.org:26657 --output json 2>/dev/null || echo "")
             
             if [ -n "$STAKING_VALIDATORS" ] && [ "$STAKING_VALIDATORS" != "null" ]; then
                 # Get total count
@@ -824,7 +846,7 @@ case "$1" in
                 echo ""
                 
                 # Get remote status
-                REMOTE_STATUS=$(curl -s --connect-timeout 5 http://34.57.209.0:26657/status 2>/dev/null || echo "")
+                REMOTE_STATUS=$(rpc_call "/status" || echo "")
                 
                 if [ -n "$REMOTE_STATUS" ]; then
                     REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "unknown"' 2>/dev/null || echo "unknown")

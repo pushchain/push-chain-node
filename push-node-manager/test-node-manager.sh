@@ -268,7 +268,8 @@ echo
 print_info "Checking network connectivity..."
 
 # Check genesis node
-if curl -s --connect-timeout 5 http://34.57.209.0:26657/status >/dev/null 2>&1; then
+if curl -s --connect-timeout 5 http://rpc-testnet-donut-node1.push.org:26657/status >/dev/null 2>&1 || \
+   curl -s --connect-timeout 5 http://rpc-testnet-donut-node2.push.org:26657/status >/dev/null 2>&1; then
     print_pass "Can reach genesis node"
     ((TESTS_PASSED++))
 else

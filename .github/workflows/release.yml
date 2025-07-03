@@ -124,14 +124,15 @@ jobs:
         with:
           go-version: '1.23.1'
       
-      - name: Install wasmvm (macOS)
+      - name: Setup macOS build environment
         if: matrix.goos == 'darwin'
         run: |
-          # The wasmvm Go module already includes the necessary libraries
-          # We just need to ensure CGO can find them
-          echo "Setting up CGO environment for macOS..."
+          # Clear any existing CGO flags that might interfere
+          echo "CGO_LDFLAGS=" >> $GITHUB_ENV
+          echo "CGO_CFLAGS=" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=" >> $GITHUB_ENV
           
-          # Enable CGO
+          # Enable CGO for macOS builds
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
       
       - name: Build ${{ matrix.platform }}

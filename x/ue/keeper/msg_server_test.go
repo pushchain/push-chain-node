@@ -392,7 +392,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             "invalid_address",
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			Signature:          "test-signature",
+			PayloadVerifier:    "test-signature",
 		}
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
@@ -405,7 +405,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			Signature:          "test-signature",
+			PayloadVerifier:    "test-signature",
 		}
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
@@ -417,7 +417,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			Signature:          "test-signature",
+			PayloadVerifier:    "test-signature",
 		}
 
 		chainConfigTest := types.ChainConfig{
@@ -444,7 +444,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			Signature:          "test-signature",
+			PayloadVerifier:    "test-signature",
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
@@ -488,7 +488,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   avalidUP,
-			Signature:          "test-signature",
+			PayloadVerifier:    "test-signature",
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 

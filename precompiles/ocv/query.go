@@ -75,8 +75,9 @@ func (p Precompile) VerifyTxHash(
 	ctx := context.Background()
 
 	// Convert to UE module format
-	universalAccountId := uetypes.UniversalAccount{
-		Chain: fmt.Sprintf("%s:%s", chainNamespace, chainId),
+	universalAccountId := uetypes.UniversalAccountId{
+		ChainNamespace: chainNamespace,
+		ChainId:        chainId,
 		Owner: ownerHex,
 	}
 

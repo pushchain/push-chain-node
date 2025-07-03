@@ -16,7 +16,7 @@ import (
 )
 
 // VerifyTxHashWithPayload verifies a transaction hash against a provided payload hash using Universal Account ID
-func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId uetypes.UniversalAccount, payloadHash, txHash string) (bool, error) {
+func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId uetypes.UniversalAccountId, payloadHash, txHash string) (bool, error) {
 	fmt.Printf("[UTV] 🔍 Starting verification process\n")
 	fmt.Printf("[UTV] Universal Account ID: %+v\n", universalAccountId)
 	fmt.Printf("[UTV] Payload hash: %s\n", payloadHash)
@@ -24,7 +24,7 @@ func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId 
 
 	// Extract owner and chain from Universal Account ID
 	ownerKey := universalAccountId.Owner
-	chain := universalAccountId.Chain
+	chain := fmt.Sprintf("%s:%s", universalAccountId.ChainNamespace, universalAccountId.ChainId)
 
 	// Get chain configuration
 	chainConfig, err := k.getChainConfig(chain)

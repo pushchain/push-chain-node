@@ -42,7 +42,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		}
 
 		// tx is verified, now store it
-		if err := k.storeVerifiedTx(ctx, chain, txHashNormalized); err != nil {
+		if err := k.storeVerifiedTx(ctx, chain, txHash); err != nil {
 			return amount, decimals, fmt.Errorf("failed to store verified tx: %w", err)
 		}
 		return amount, decimals, nil
@@ -53,7 +53,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		}
 
 		// tx is verified, now store it
-		if err := k.storeVerifiedTx(ctx, chain, txHashNormalized); err != nil {
+		if err := k.storeVerifiedTx(ctx, chain, txHash); err != nil {
 			return amount, decimals, fmt.Errorf("failed to store verified tx: %w", err)
 		}
 		return amount, decimals, nil

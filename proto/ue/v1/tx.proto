@@ -110,8 +110,8 @@ message MsgExecutePayload {
   // payload is the universal payload to be executed
   UniversalPayload universal_payload = 3;
 
-  // signature is the signature of the payload by user
-  string signature = 4;
+  // payload_verifier is the bytes passed as verifier data for the given payload.
+  string payload_verifier = 4;
 }
 
 // MsgExecutePayloadResponse defines the response for MsgExecutePayload.

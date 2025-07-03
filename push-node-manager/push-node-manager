@@ -66,41 +66,13 @@ else
 fi
 
 # Update detection functions
-check_for_updates() {
-    # Cache file for GitHub API responses (to avoid rate limiting)
-    local CACHE_FILE="/tmp/push_node_manager_update_check"
-    local CACHE_DURATION=3600  # 1 hour
-    local CURRENT_TIME=$(date +%s)
-    
-    # Check if cache is still valid
-    if [ -f "$CACHE_FILE" ]; then
-        local CACHE_TIME=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null || echo "0")
-        local CACHE_AGE=$((CURRENT_TIME - CACHE_TIME))
-        
-        if [ $CACHE_AGE -lt $CACHE_DURATION ]; then
-            # Use cached result
-            cat "$CACHE_FILE" 2>/dev/null || echo ""
-            return 0
-        fi
-    fi
-    
-    # Fetch latest release from GitHub API
+get_latest_version() {
+    # Fetch latest release from GitHub API directly
     local LATEST_RELEASE=$(curl -s --connect-timeout 10 \
         "https://api.github.com/repos/pushchain/push-chain-node/releases/latest" 2>/dev/null)
     
     if [ -n "$LATEST_RELEASE" ] && echo "$LATEST_RELEASE" | grep -q '"tag_name"'; then
-        echo "$LATEST_RELEASE" > "$CACHE_FILE"
-        echo "$LATEST_RELEASE"
-    else
-        # Return empty if failed
-        echo ""
-    fi
-}
-
-get_latest_version() {
-    local RELEASE_DATA=$(check_for_updates)
-    if [ -n "$RELEASE_DATA" ]; then
-        echo "$RELEASE_DATA" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo ""
+        echo "$LATEST_RELEASE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo ""
     else
         echo ""
     fi
@@ -109,11 +81,16 @@ get_latest_version() {
 get_current_binary_version() {
     # Try to get version from the binary if it's running
     if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
-        local VERSION=$($DOCKER_COMPOSE exec -T validator pchaind version --long 2>/dev/null | \
-            grep "version:" | awk '{print $2}' 2>/dev/null || echo "")
+        # Get the short version which should match release tags
+        local VERSION=$($DOCKER_COMPOSE exec -T validator pchaind version 2>/dev/null | tr -d '\r' || echo "")
         
-        if [ -n "$VERSION" ] && [ "$VERSION" != "null" ]; then
-            echo "$VERSION"
+        if [ -n "$VERSION" ] && [ "$VERSION" != "null" ] && [ "$VERSION" != "unknown" ]; then
+            # If it doesn't start with 'v', add it to match GitHub release format
+            if [[ ! "$VERSION" =~ ^v ]]; then
+                echo "v$VERSION"
+            else
+                echo "$VERSION"
+            fi
         else
             echo "unknown"
         fi
@@ -126,10 +103,31 @@ compare_versions() {
     local CURRENT="$1"
     local LATEST="$2"
     
-    # If we can't determine versions, assume update needed
-    if [ -z "$CURRENT" ] || [ "$CURRENT" = "unknown" ] || [ -z "$LATEST" ]; then
-        return 1  # Update available (unknown state)
+    # If we can't determine versions, skip update check
+    if [ -z "$LATEST" ] || [ "$LATEST" = "unknown" ]; then
+        return 1  # No update check possible
     fi
+    
+    # If current version is unknown, assume update needed
+    if [ -z "$CURRENT" ] || [ "$CURRENT" = "unknown" ]; then
+        return 0  # Update needed
+    fi
+    
+    # Special case: If current version is commit hash 2301f7e (known to be v1.1.0)
+    if [ "$CURRENT" = "v2301f7e" ] || [ "$CURRENT" = "2301f7e" ]; then
+        if [ "$LATEST" = "v1.1.0" ] || [ "$LATEST" = "1.1.0" ]; then
+            return 1  # This commit hash corresponds to v1.1.0, no update needed
+        fi
+    fi
+    
+    # If current version is a commit hash (no dots, just hex), assume update needed
+    if [[ "$CURRENT" =~ ^v?[a-f0-9]+$ ]] && [ ${#CURRENT} -ge 7 ] && [ ${#CURRENT} -le 41 ]; then
+        return 0  # Commit hash detected, update to release version
+    fi
+    
+    # Remove 'v' prefix for comparison
+    CURRENT=$(echo "$CURRENT" | sed 's/^v//')
+    LATEST=$(echo "$LATEST" | sed 's/^v//')
     
     # Simple string comparison for now (works for semantic versions)
     if [ "$CURRENT" != "$LATEST" ]; then
@@ -653,9 +651,37 @@ case "$1" in
         print_status "📥 Updating repository..."
         git pull
         
+        # Check which version will be downloaded
+        print_status "🔍 Checking latest release version..."
+        LATEST_VERSION=$(get_latest_version)
+        
+        # Detect architecture
+        ARCH=$(uname -m)
+        case $ARCH in
+            x86_64)
+                TARGETARCH="amd64"
+                ;;
+            arm64|aarch64)
+                TARGETARCH="arm64"
+                ;;
+            *)
+                TARGETARCH="amd64"  # Default fallback
+                print_warning "⚠️  Unknown architecture $ARCH, defaulting to amd64"
+                ;;
+        esac
+        
+        if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "unknown" ]; then
+            BINARY_FILENAME="pchaind-${LATEST_VERSION}-linux-${TARGETARCH}.tar.gz"
+            print_status "📦 Will download binary version: ${GREEN}${LATEST_VERSION}${NC}"
+            print_status "🏗️  Architecture: ${CYAN}${TARGETARCH}${NC} (detected from $(uname -m))"
+            print_status "📁 Binary filename: ${YELLOW}${BINARY_FILENAME}${NC}"
+        else
+            print_warning "⚠️  Could not determine latest version, using fallback"
+        fi
+        
         # Rebuild image with latest binary
         print_status "🔨 Rebuilding image with latest binary..."
-        $DOCKER_COMPOSE build --no-cache
+        TARGETARCH=$TARGETARCH $DOCKER_COMPOSE build --no-cache
         
         print_success "✅ Update complete!"
         echo

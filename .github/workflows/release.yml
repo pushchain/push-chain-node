@@ -145,7 +145,7 @@ jobs:
             echo "Building ${{ matrix.platform }} binary using Docker with version $VERSION..."
             
             # Create a custom Dockerfile that uses the existing Makefile
-            cat > Dockerfile.build << EOF
+            cat > Dockerfile.build << 'EOF'
           FROM golang:1.23-alpine AS builder
           
           # Install build dependencies
@@ -155,7 +155,9 @@ jobs:
           COPY . .
           
           # Build using Makefile with version injection
-          RUN VERSION=$VERSION CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.goarch }} make build
+          ARG VERSION
+          ARG GOARCH
+          RUN VERSION=${VERSION} CGO_ENABLED=1 GOOS=linux GOARCH=${GOARCH} make build
           
           FROM alpine:latest
           RUN apk --no-cache add ca-certificates
@@ -163,7 +165,10 @@ jobs:
           COPY --from=builder /app/build/pchaind /usr/bin/pchaind
           EOF
             
-            docker buildx build --platform ${{ matrix.docker-platform }} -f Dockerfile.build -t pchaind-builder-${{ matrix.platform }} --load .
+            docker buildx build --platform ${{ matrix.docker-platform }} -f Dockerfile.build \
+              --build-arg VERSION=$VERSION \
+              --build-arg GOARCH=${{ matrix.goarch }} \
+              -t pchaind-builder-${{ matrix.platform }} --load .
             
             # Extract the binary
             docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}

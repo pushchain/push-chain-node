@@ -155,10 +155,16 @@ jobs:
           WORKDIR /app
           COPY . .
           
-          # Build using Makefile with version injection
+          # Build using go build directly with version injection
           ARG VERSION
           ARG GOARCH
-          RUN VERSION=${VERSION} CGO_ENABLED=1 GOOS=linux GOARCH=${GOARCH} make build
+          RUN mkdir -p build && \
+              CGO_ENABLED=1 GOOS=linux GOARCH=${GOARCH} go build \
+              -mod=readonly \
+              -tags "netgo,ledger" \
+              -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=$(git log -1 --format='%H') -X \"github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger\" -s -w" \
+              -trimpath \
+              -o build/pchaind ./cmd/pchaind
           
           FROM alpine:latest
           RUN apk --no-cache add ca-certificates

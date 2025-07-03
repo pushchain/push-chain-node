@@ -91,17 +91,32 @@ jobs:
             docker-platform: linux/amd64
             goos: linux
             goarch: amd64
+            runs-on: ubuntu-latest
+            use-docker: true
           - platform: linux-arm64
             docker-platform: linux/arm64
             goos: linux
             goarch: arm64
+            runs-on: ubuntu-latest
+            use-docker: true
+          - platform: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            runs-on: macos-latest
+            use-docker: false
+          - platform: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            runs-on: macos-latest
+            use-docker: false
     
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     
     steps:
       - uses: actions/checkout@v4
       
       - name: Set up Docker Buildx
+        if: matrix.use-docker
         uses: docker/setup-buildx-action@v3
       
       - name: Setup Go
@@ -109,18 +124,57 @@ jobs:
         with:
           go-version: '1.23.1'
       
+      - name: Install wasmvm (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          # Download wasmvm for macOS
+          WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm | awk '{print $2}')
+          
+          # Download the static library for the specific architecture
+          if [ "${{ matrix.goarch }}" = "amd64" ]; then
+            WASMVM_ARCH="x86_64"
+          else
+            WASMVM_ARCH="aarch64"
+          fi
+          
+          echo "Downloading wasmvm ${WASMVM_VERSION} for Darwin ${WASMVM_ARCH}..."
+          curl -L "https://github.com/CosmWasm/wasmvm/releases/download/${WASMVM_VERSION}/libwasmvmstatic_darwin.${WASMVM_ARCH}.a" -o /tmp/libwasmvm.a
+          
+          # Create a directory structure that Go expects
+          mkdir -p /tmp/lib
+          mv /tmp/libwasmvm.a /tmp/lib/libwasmvm.a
+          
+          # Set up environment for CGO
+          echo "CGO_LDFLAGS=-L/tmp/lib -lwasmvm -lm" >> $GITHUB_ENV
+          echo "CGO_ENABLED=1" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=/tmp/lib" >> $GITHUB_ENV
+      
       - name: Build ${{ matrix.platform }}
         run: |
           mkdir -p release
           
-          # Build all platforms using Docker
-          echo "Building ${{ matrix.platform }} binary using Docker..."
-          docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
-          
-          # Extract the binary
-          docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
-          docker cp extract:/usr/bin/pchaind ./pchaind
-          docker rm extract
+          if [ "${{ matrix.use-docker }}" = "true" ]; then
+            # Build using Docker for Linux
+            echo "Building ${{ matrix.platform }} binary using Docker..."
+            docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
+            
+            # Extract the binary
+            docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
+            docker cp extract:/usr/bin/pchaind ./pchaind
+            docker rm extract
+          else
+            # Build natively for macOS
+            echo "Building ${{ matrix.platform }} binary natively..."
+            
+            # Install dependencies
+            go mod download
+            
+            # Build with wasmvm support
+            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+              go build -mod=readonly -tags "netgo ledger" \
+              -ldflags '-s -w' \
+              -o pchaind ./cmd/pchaind
+          fi
           
           # Create archive
           tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
@@ -128,7 +182,11 @@ jobs:
           
           # Generate checksum
           cd release
-          sha256sum pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
+          if [ "${{ matrix.goos }}" = "darwin" ]; then
+            shasum -a 256 pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
+          else
+            sha256sum pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
+          fi
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -201,9 +259,13 @@ jobs:
             
             # Linux (ARM64)
             curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-arm64.tar.gz | tar xz
-            ```
             
-            **Note:** macOS binaries must be built locally due to CGO dependencies. See the build instructions in the repository.
+            # macOS (Intel)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-amd64.tar.gz | tar xz
+            
+            # macOS (Apple Silicon)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-arm64.tar.gz | tar xz
+            ```
             
             ## Checksums
             

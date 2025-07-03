@@ -113,16 +113,11 @@ compare_versions() {
         return 0  # Update needed
     fi
     
-    # Special case: If current version is commit hash 2301f7e (known to be v1.1.0)
-    if [ "$CURRENT" = "v2301f7e" ] || [ "$CURRENT" = "2301f7e" ]; then
-        if [ "$LATEST" = "v1.1.0" ] || [ "$LATEST" = "1.1.0" ]; then
-            return 1  # This commit hash corresponds to v1.1.0, no update needed
-        fi
-    fi
-    
-    # If current version is a commit hash (no dots, just hex), assume update needed
+    # If current version is a commit hash (no dots, just hex), check if it's up to date
     if [[ "$CURRENT" =~ ^v?[a-f0-9]+$ ]] && [ ${#CURRENT} -ge 7 ] && [ ${#CURRENT} -le 41 ]; then
-        return 0  # Commit hash detected, update to release version
+        # For git hashes, assume they're development versions and don't need updates
+        # unless the user specifically wants to update to a release version
+        return 1  # Don't show update for git hash versions
     fi
     
     # Remove 'v' prefix for comparison

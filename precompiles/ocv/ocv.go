@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 )
@@ -88,34 +88,31 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	if len(contract.Input) < 4 {
-		return nil, vm.ErrExecutionReverted
-	}
-
-	methodID := contract.Input[:4]
-	// NOTE: this function iterates over the method map and returns
-	// the method with the given ID
-	method, err := p.MethodById(methodID)
+	ctx, _, _, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	argsBz := contract.Input[4:]
-	args, err := method.Inputs.Unpack(argsBz)
-	if err != nil {
-		return nil, err
-	}
+	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
+	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
 	switch method.Name {
 	case VerifyTxHashMethod:
 		fmt.Println("VerifyTxHashMethod called")
-		bz, err = p.VerifyTxHash(method, args)
+		bz, err = p.VerifyTxHash(ctx, method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
 
 	if err != nil {
 		return nil, err
+	}
+
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+
+	if !contract.UseGas(cost) {
+		return nil, vm.ErrOutOfGas
 	}
 
 	return bz, nil

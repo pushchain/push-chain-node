@@ -1,9 +1,9 @@
 package ocv
 
 import (
-	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/decred/base58"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
@@ -12,6 +12,7 @@ import (
 const VerifyTxHashMethod = "verifyTxHash"
 
 func (p Precompile) VerifyTxHash(
+	ctx sdk.Context,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
@@ -71,14 +72,11 @@ func (p Precompile) VerifyTxHash(
 
 	fmt.Printf("[OCV] Delegating verification to UTV module for gas efficiency\n")
 
-	// Use background context since precompiles can't easily access current context
-	ctx := context.Background()
-
 	// Convert to UE module format
 	universalAccountId := uetypes.UniversalAccountId{
 		ChainNamespace: chainNamespace,
 		ChainId:        chainId,
-		Owner: ownerHex,
+		Owner:          ownerHex,
 	}
 
 	// Delegate all verification to UTV module (much more gas efficient)

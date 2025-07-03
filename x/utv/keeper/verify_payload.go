@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/decred/base58"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rollchains/pchain/utils"
 	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
 	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
@@ -16,7 +19,7 @@ import (
 )
 
 // VerifyTxHashWithPayload verifies a transaction hash against a provided payload hash using Universal Account ID
-func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId uetypes.UniversalAccountId, payloadHash, txHash string) (bool, error) {
+func (k Keeper) VerifyTxHashWithPayload(ctx sdk.Context, universalAccountId uetypes.UniversalAccountId, payloadHash, txHash string) (bool, error) {
 	fmt.Printf("[UTV] 🔍 Starting verification process\n")
 	fmt.Printf("[UTV] Universal Account ID: %+v\n", universalAccountId)
 	fmt.Printf("[UTV] Payload hash: %s\n", payloadHash)
@@ -26,31 +29,44 @@ func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId 
 	ownerKey := universalAccountId.Owner
 	chain := fmt.Sprintf("%s:%s", universalAccountId.ChainNamespace, universalAccountId.ChainId)
 
-	// Get chain configuration
-	chainConfig, err := k.getChainConfig(chain)
+	// Get chain configuration from UE keeper (now using real SDK context!)
+	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
-		return false, fmt.Errorf("failed to get chain config: %v", err)
+		return false, fmt.Errorf("failed to get chain config from UE keeper: %v", err)
 	}
 
-	// Verify owner and extract execution hash from transaction
+	fmt.Printf("[UTV] ✅ Successfully retrieved chain config from UE keeper: RPC=%s, Gateway=%s\n",
+		chainConfig.PublicRpcUrl, chainConfig.GatewayAddress)
+
+	// Check if chain is enabled (matching existing pattern)
+	if !chainConfig.Enabled {
+		return false, fmt.Errorf("chain %s is not enabled", chain)
+	}
+
+	// Convert SDK context to regular context for RPC calls (matching existing pattern)
+	ctxBackground := context.Background()
+
+	// Verify owner and extract execution hash from transaction (using VM type like existing code)
 	var executionHash string
 	var isOwnerVerified bool
-	if strings.Contains(chain, "solana") {
-		verified, hash, err := k.verifySolanaTransaction(ctx, ownerKey, txHash, chainConfig)
+
+	switch chainConfig.VmType {
+	case uetypes.VM_TYPE_SVM:
+		verified, hash, err := k.verifySolanaTransaction(ctxBackground, ownerKey, txHash, chainConfig)
 		if err != nil {
-			return false, fmt.Errorf("solana verification failed: %v", err)
+			return false, fmt.Errorf("svm verification failed: %v", err)
 		}
 		isOwnerVerified = verified
 		executionHash = hash
-	} else if strings.Contains(chain, "eip155") {
-		verified, hash, err := k.verifyEVMTransaction(ctx, ownerKey, txHash, chainConfig)
+	case uetypes.VM_TYPE_EVM:
+		verified, hash, err := k.verifyEVMTransaction(ctxBackground, ownerKey, txHash, chainConfig)
 		if err != nil {
-			return false, fmt.Errorf("ethereum verification failed: %v", err)
+			return false, fmt.Errorf("evm verification failed: %v", err)
 		}
 		isOwnerVerified = verified
 		executionHash = hash
-	} else {
-		return false, fmt.Errorf("unsupported chain: %s", chain)
+	default:
+		return false, fmt.Errorf("unsupported VM type %s for chain %s", chainConfig.VmType.String(), chain)
 	}
 
 	if !isOwnerVerified {
@@ -73,18 +89,26 @@ func (k Keeper) VerifyTxHashWithPayload(ctx context.Context, universalAccountId 
 }
 
 // verifySolanaTransaction fetches Solana transaction once and verifies both owner and extracts payload hash
-func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash string, chainConfig *ChainConfig) (bool, string, error) {
-	// Create RPC config from chain config
-	rpcConfig := makeRpcConfig(chainConfig)
+func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (bool, string, error) {
+	// Create RPC config using the same pattern as existing verification
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
 	// Get transaction data (ONCE)
-	transaction, err := svmrpc.SVMGetTransactionBySig(ctx, rpcConfig, txHash)
+	transaction, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHash)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to get transaction: %w", err)
 	}
 
+	// Verify transaction status
+	if transaction.Meta.Err != nil {
+		return false, "", fmt.Errorf("transaction failed with error: %v", transaction.Meta.Err)
+	}
+
 	// Check 1: Verify transaction target (gateway contract)
-	gatewayContract := chainConfig.GatewayContract
+	gatewayContract := chainConfig.GatewayAddress
 
 	// Check if any instruction calls the gateway contract
 	foundGatewayCall := false
@@ -96,7 +120,7 @@ func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash st
 
 		programID := transaction.Transaction.Message.AccountKeys[instruction.ProgramIDIndex]
 
-		if strings.EqualFold(programID, gatewayContract) {
+		if compareSolanaAddresses(programID, gatewayContract) {
 			foundGatewayCall = true
 			break
 		}
@@ -132,6 +156,21 @@ func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash st
 	foundEvent := false
 	var payloadHash string
 
+	// Get the event discriminator from chain config (same as verify_tx_svm.go)
+	var eventDiscriminator []byte
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == uetypes.METHOD.SVM.AddFunds {
+			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
+			if err != nil {
+				return false, "", fmt.Errorf("invalid event discriminator in chain config: %w", err)
+			}
+			break
+		}
+	}
+	if eventDiscriminator == nil {
+		return false, "", fmt.Errorf("add_funds method not found in chain config")
+	}
+
 	for _, log := range transaction.Meta.LogMessages {
 		// Look for "Program data:" logs - this is where Solana events are emitted
 		if strings.HasPrefix(log, "Program data: ") {
@@ -143,9 +182,16 @@ func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash st
 				continue // Skip invalid base64
 			}
 
-			// Need at least 8 bytes for event discriminator
-			if len(raw) < 8 {
+			// Need at least 100 bytes for complete event
+			if len(raw) < 100 {
 				continue
+			}
+
+			// ✅ PROPER: Check event discriminator (same as verify_tx_svm.go)
+			fmt.Printf("[SVM] Event actual discriminator: %x\n", raw[:8])
+			fmt.Printf("[SVM] Event expected discriminator: %x\n", eventDiscriminator)
+			if !bytes.Equal(raw[:8], eventDiscriminator) {
+				continue // Skip events that don't match our discriminator
 			}
 
 			// Parse the event structure based on actual Solana contract FundsAddedEvent:
@@ -156,16 +202,13 @@ func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash st
 			// [64:68]  - usd_exponent: i32 (4 bytes)
 			// [68:100] - transaction_hash: [u8; 32] (32 bytes) <- This is what we want
 
-			// Ensure we have enough data for the complete event (8 + 32 + 8 + 16 + 4 + 32 = 100 bytes)
-			if len(raw) >= 100 {
-				// Extract transaction hash from bytes 68-100 (32 bytes)
-				hashBytes := raw[68:100]
-				payloadHash = fmt.Sprintf("0x%x", hashBytes)
+			// Extract transaction hash from bytes 68-100 (32 bytes)
+			hashBytes := raw[68:100]
+			payloadHash = fmt.Sprintf("0x%x", hashBytes)
 
-				fmt.Printf("[SVM] Found FundsAddedEvent, extracted transaction_hash: %s\n", payloadHash)
-				foundEvent = true
-				break
-			}
+			fmt.Printf("[SVM] Found FundsAddedEvent, extracted transaction_hash: %s\n", payloadHash)
+			foundEvent = true
+			break
 		}
 	}
 
@@ -177,37 +220,45 @@ func (k Keeper) verifySolanaTransaction(ctx context.Context, ownerKey, txHash st
 }
 
 // verifyEVMTransaction fetches EVM transaction once and verifies both owner and extracts payload hash
-func (k Keeper) verifyEVMTransaction(ctx context.Context, ownerKey, txHash string, chainConfig *ChainConfig) (bool, string, error) {
-	// Create RPC config from chain config
-	rpcConfig := makeRpcConfig(chainConfig)
+func (k Keeper) verifyEVMTransaction(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (bool, string, error) {
+	// Create RPC config using the same pattern as existing verification
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
 
 	// Get transaction receipt to access logs/events (ONCE)
-	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcConfig, txHash)
+	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
 
-	// Check 1: Verify transaction target (gateway contract)
-	gatewayContract := chainConfig.GatewayContract
+	// Also get transaction details for method validation (same as verify_tx_evm.go)
+	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to fetch transaction: %w", err)
+	}
+
+	// Check 1: Verify transaction target (gateway contract) - using proper normalization
+	gatewayContract := chainConfig.GatewayAddress
 
 	if receipt.To == "" {
 		return false, "", fmt.Errorf("no recipient found in EVM transaction")
 	}
 
-	// Use proper address normalization
+	// Use proper address normalization (same as verify_tx_evm.go)
 	normalizedTo := NormalizeAddress(receipt.To)
 	normalizedGateway := NormalizeAddress(gatewayContract)
 
-	if normalizedTo != normalizedGateway {
+	if !didSendToGateway(normalizedTo, normalizedGateway) {
 		return false, "", fmt.Errorf("transaction is not directed to gateway contract %s, got %s", gatewayContract, receipt.To)
 	}
 
-	// Check 2: Verify owner (transaction sender)
+	// Check 2: Verify owner (transaction sender) - using proper normalization
 	if receipt.From == "" {
 		return false, "", fmt.Errorf("no sender found in EVM transaction")
 	}
 
-	// Use proper address normalization
 	normalizedFrom := NormalizeAddress(receipt.From)
 	normalizedOwnerKey := NormalizeAddress(ownerKey)
 
@@ -215,13 +266,31 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, ownerKey, txHash strin
 		return false, "", fmt.Errorf("transaction sender %s does not match ownerKey %s", receipt.From, ownerKey)
 	}
 
+	// ✅ PROPER: Check if transaction is calling addFunds method (same as verify_tx_evm.go)
+	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return false, "", fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
+	}
+
 	// Check 3: Extract execution hash from transaction logs
 	if len(receipt.Logs) == 0 {
 		return false, "", fmt.Errorf("no logs found in transaction")
 	}
 
-	// Look for the FundsAdded event in the logs
-	fundsAddedEventSignature := crypto.Keccak256Hash([]byte("FundsAdded(address,bytes32,(uint256,uint8))")).Hex()
+	// ✅ PROPER: Get event topic from chain config (same as verify_tx_evm.go)
+	eventTopic := ""
+	for _, method := range chainConfig.GatewayMethods {
+		if method.Name == uetypes.METHOD.EVM.AddFunds {
+			eventTopic = method.EventIdentifier
+			break
+		}
+	}
+	if eventTopic == "" {
+		return false, "", fmt.Errorf("addFunds method not found in gateway methods")
+	}
+
+	// Look for the FundsAdded event in the logs using chain config event topic
+	eventTopic = strings.ToLower(eventTopic)
 
 	for _, log := range receipt.Logs {
 		logMap, ok := log.(map[string]interface{})
@@ -232,13 +301,14 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, ownerKey, txHash strin
 		// Check if this log has the FundsAdded event signature as the first topic
 		if topics, exists := logMap["topics"].([]interface{}); exists && len(topics) >= 3 {
 			if firstTopic, ok := topics[0].(string); ok {
-				if firstTopic == fundsAddedEventSignature {
+				if strings.ToLower(firstTopic) == eventTopic {
 					// Found the FundsAdded event
 					// The third topic (index 2) contains the transactionHash (execution hash)
 					if transactionHashTopic, ok := topics[2].(string); ok {
 						// Remove 0x prefix and return the execution hash
 						transactionHashTopic = strings.TrimPrefix(transactionHashTopic, "0x")
 						if len(transactionHashTopic) == 64 { // 32 bytes = 64 hex chars
+							fmt.Printf("[EVM] Found FundsAddedEvent, extracted transaction_hash: 0x%s\n", transactionHashTopic)
 							return true, "0x" + transactionHashTopic, nil
 						}
 					}
@@ -248,34 +318,4 @@ func (k Keeper) verifyEVMTransaction(ctx context.Context, ownerKey, txHash strin
 	}
 
 	return false, "", fmt.Errorf("FundsAdded event not found in transaction logs")
-}
-
-// ChainConfig holds configuration for a specific chain
-type ChainConfig struct {
-	RpcEndpoint     string
-	GatewayContract string
-}
-
-// getChainConfig returns the chain configuration for the given chain
-func (k Keeper) getChainConfig(chain string) (*ChainConfig, error) {
-	if strings.Contains(chain, "solana") {
-		return &ChainConfig{
-			RpcEndpoint:     "https://api.devnet.solana.com",
-			GatewayContract: "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
-		}, nil
-	} else if strings.Contains(chain, "eip155") {
-		return &ChainConfig{
-			RpcEndpoint:     "https://eth-sepolia.public.blastapi.io",
-			GatewayContract: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
-		}, nil
-	} else {
-		return nil, fmt.Errorf("unsupported chain: %s", chain)
-	}
-}
-
-// makeRpcConfig creates an RPC config from chain config
-func makeRpcConfig(chainConfig *ChainConfig) rpc.RpcCallConfig {
-	return rpc.RpcCallConfig{
-		PublicRPC: chainConfig.RpcEndpoint,
-	}
 }

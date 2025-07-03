@@ -238,7 +238,19 @@ case "$1" in
         # Build image if needed
         if ! docker images | grep -q "push-node-manager"; then
             print_status "🔨 Building validator image..."
-            $DOCKER_COMPOSE build
+            
+            # Check if we should use multi-arch build for Mac
+            if [[ "$OSTYPE" == "darwin"* ]] && command -v docker buildx >/dev/null 2>&1; then
+                print_status "🍎 Detected Mac - using optimized build"
+                if [ -f "./build-docker.sh" ]; then
+                    ./build-docker.sh local
+                else
+                    print_warning "build-docker.sh not found, using standard build"
+                    $DOCKER_COMPOSE build
+                fi
+            else
+                $DOCKER_COMPOSE build
+            fi
         fi
         
         # Start services

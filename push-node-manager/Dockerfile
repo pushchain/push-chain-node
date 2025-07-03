@@ -1,7 +1,14 @@
-FROM ubuntu:22.04
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM ubuntu:22.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Build arguments for multi-arch support
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 
 # Install all required dependencies matching manual setup
 RUN apt-get update && apt-get install -y \
@@ -26,38 +33,46 @@ RUN pip3 install tomlkit
 ARG BINARY_VERSION=v1.1.0
 ARG BINARY_URL=https://github.com/pushchain/push-chain-node/releases/download
 ARG BINARY_CHECKSUM=""
-ARG TARGETARCH=amd64
-ARG TARGETOS=linux
 
-# Download and verify binary with fallback
-RUN if [ "$TARGETOS" = "linux" ]; then \
-        PLATFORM="linux"; \
-    elif [ "$TARGETOS" = "darwin" ]; then \
-        PLATFORM="darwin"; \
-    else \
-        echo "⚠️  Unsupported platform: $TARGETOS, defaulting to linux" && \
-        PLATFORM="linux"; \
-    fi && \
-    echo "🔍 Detected platform: $PLATFORM-$TARGETARCH" && \
+# Multi-architecture binary download with proper platform mapping
+RUN echo "🔍 Build Info:" && \
+    echo "  BUILDPLATFORM: $BUILDPLATFORM" && \
+    echo "  TARGETPLATFORM: $TARGETPLATFORM" && \
+    echo "  TARGETOS: $TARGETOS" && \
+    echo "  TARGETARCH: $TARGETARCH" && \
+    # Map Docker platforms to binary naming convention
+    case "$TARGETPLATFORM" in \
+        "linux/amd64") \
+            BINARY_ARCH="linux-amd64" ;; \
+        "linux/arm64") \
+            BINARY_ARCH="linux-arm64" ;; \
+        "darwin/amd64") \
+            BINARY_ARCH="darwin-amd64" ;; \
+        "darwin/arm64") \
+            BINARY_ARCH="darwin-arm64" ;; \
+        *) \
+            echo "⚠️  Unsupported platform: $TARGETPLATFORM, defaulting to linux-amd64" && \
+            BINARY_ARCH="linux-amd64" ;; \
+    esac && \
+    echo "🔍 Using binary architecture: $BINARY_ARCH" && \
     if [ "$BINARY_VERSION" = "latest" ]; then \
         echo "🔍 Fetching latest release information..." && \
-        # Get latest release version
         LATEST_VERSION=$(curl -s https://api.github.com/repos/pushchain/push-chain-node/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
         if [ -z "$LATEST_VERSION" ]; then \
             echo "⚠️  Failed to get latest version, using fallback" && \
             LATEST_VERSION="v1.1.0"; \
         fi && \
         echo "📦 Latest release version: $LATEST_VERSION" && \
-        DOWNLOAD_URL="${BINARY_URL}/${LATEST_VERSION}/pchaind-${LATEST_VERSION}-${PLATFORM}-${TARGETARCH}.tar.gz"; \
+        DOWNLOAD_URL="${BINARY_URL}/${LATEST_VERSION}/pchaind-${LATEST_VERSION}-${BINARY_ARCH}.tar.gz"; \
     else \
         echo "📦 Using specified version: $BINARY_VERSION" && \
-        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-${BINARY_VERSION}-${PLATFORM}-${TARGETARCH}.tar.gz"; \
+        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-${BINARY_VERSION}-${BINARY_ARCH}.tar.gz"; \
     fi && \
     echo "📥 Downloading binary from: $DOWNLOAD_URL" && \
     # Try to download, with fallback to v1.1.0 if download fails or file is invalid
     if ! curl -sSL "$DOWNLOAD_URL" -o /tmp/pchaind.tar.gz 2>/dev/null || ! file /tmp/pchaind.tar.gz | grep -q "gzip compressed"; then \
         echo "⚠️  Download failed or invalid file, trying fallback version v1.1.0..." && \
-        FALLBACK_URL="${BINARY_URL}/v1.1.0/pchaind-v1.1.0-${PLATFORM}-${TARGETARCH}.tar.gz" && \
+        FALLBACK_URL="${BINARY_URL}/v1.1.0/pchaind-v1.1.0-${BINARY_ARCH}.tar.gz" && \
         curl -sSL "$FALLBACK_URL" -o /tmp/pchaind.tar.gz; \
     fi && \
     echo "📦 Extracting binary..." && \

@@ -106,6 +106,28 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	cosmosevmante "github.com/cosmos/evm/ante"
+	cosmosevmevmante "github.com/cosmos/evm/ante/evm"
+	cosmosevmencoding "github.com/cosmos/evm/encoding"
+	srvflags "github.com/cosmos/evm/server/flags"
+	cosmosevmtypes "github.com/cosmos/evm/types"
+	cosmosevmutils "github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/erc20"
+	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/feemarket"
+	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	transfer "github.com/cosmos/evm/x/ibc/transfer"
+	ibctransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
+
+	"github.com/cosmos/evm/x/vm"
+
+	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
+	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
+
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8/packetforward"
 	packetforwardkeeper "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8/packetforward/keeper"
@@ -138,27 +160,11 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	evmosante "github.com/evmos/os/ante"
-	evmosevmante "github.com/evmos/os/ante/evm"
-	evmosencoding "github.com/evmos/os/encoding"
-	srvflags "github.com/evmos/os/server/flags"
-	evmostypes "github.com/evmos/os/types"
-	evmosutils "github.com/evmos/os/utils"
-	"github.com/evmos/os/x/erc20"
-	erc20keeper "github.com/evmos/os/x/erc20/keeper"
-	erc20types "github.com/evmos/os/x/erc20/types"
-	"github.com/evmos/os/x/evm"
-	_ "github.com/evmos/os/x/evm/core/tracers/js"
-	_ "github.com/evmos/os/x/evm/core/tracers/native"
-	"github.com/evmos/os/x/evm/core/vm"
-	evmkeeper "github.com/evmos/os/x/evm/keeper"
-	evmtypes "github.com/evmos/os/x/evm/types"
-	"github.com/evmos/os/x/feemarket"
-	feemarketkeeper "github.com/evmos/os/x/feemarket/keeper"
-	feemarkettypes "github.com/evmos/os/x/feemarket/types"
-	transfer "github.com/evmos/os/x/ibc/transfer"
-	ibctransferkeeper "github.com/evmos/os/x/ibc/transfer/keeper"
+
+	// "github.com/ethereum/go-ethereum/core/vm"
+	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/rollchains/pchain/app/ante"
+	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	pushtypes "github.com/rollchains/pchain/types"
 	ue "github.com/rollchains/pchain/x/ue"
@@ -330,13 +336,13 @@ func NewChainApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	wasmOpts []wasmkeeper.Option,
-	evmosAppOptions EVMOptionsFn,
+	cosmosevmAppOptions EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *ChainApp {
 
 	// TODO: verify
 
-	encodingConfig := evmosencoding.MakeConfig()
+	encodingConfig := cosmosevmencoding.MakeConfig()
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -384,7 +390,7 @@ func NewChainApp(
 
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
-	if err := evmosAppOptions(bApp.ChainID()); err != nil {
+	if err := cosmosevmAppOptions(bApp.ChainID()); err != nil {
 		// initialize the EVM application configuration
 		panic(fmt.Errorf("failed to initialize EVM app configuration: %w", err))
 	}
@@ -717,6 +723,7 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
+		app.AccountKeeper,
 		&app.UtvKeeper,
 	)
 
@@ -1002,10 +1009,10 @@ func NewChainApp(
 		packetforward.NewAppModule(app.PacketForwardKeeper, app.GetSubspace(packetforwardtypes.ModuleName)),
 		wasmlc.NewAppModule(app.WasmClientKeeper),
 		ratelimit.NewAppModule(appCodec, app.RatelimitKeeper),
-		evm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.UtvKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
 	)
 
@@ -1193,10 +1200,10 @@ func NewChainApp(
 		CircuitKeeper:         &app.CircuitKeeper,
 
 		EvmKeeper:              app.EVMKeeper,
-		ExtensionOptionChecker: evmostypes.HasDynamicFeeExtensionOption,
-		SigGasConsumer:         evmosante.SigVerificationGasConsumer,
+		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		SigGasConsumer:         cosmosevmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
-		TxFeeChecker:           evmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		TxFeeChecker:           cosmosevmevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
 	})
 
 	// must be before Loading version
@@ -1211,6 +1218,8 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
+
+	app.UpgradeKeeper.SetUpgradeHandler("uaid-refactor", uaidrefactor.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper
@@ -1331,7 +1340,7 @@ func (a *ChainApp) Configurator() module.Configurator {
 // InitChainer application update at chain initialization
 func (app *ChainApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 
-	var genesisState evmostypes.GenesisState
+	var genesisState cosmosevmtypes.GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
@@ -1529,12 +1538,12 @@ func BlockedAddresses() map[string]bool {
 	delete(blockedAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range vm.PrecompiledAddressesBerlin {
+	for _, addr := range cosmoscorevm.PrecompiledAddressesBerlin {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
 
 	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[evmosutils.EthHexToCosmosAddr(precompile).String()] = true
+		blockedAddrs[cosmosevmutils.EthHexToCosmosAddr(precompile).String()] = true
 	}
 
 	return blockedAddrs

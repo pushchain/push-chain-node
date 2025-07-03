@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"cosmossdk.io/errors"
@@ -10,7 +11,7 @@ import (
 )
 
 // Stringer method for Params.
-func (p UniversalAccount) String() string {
+func (p UniversalAccountId) String() string {
 	bz, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -19,15 +20,23 @@ func (p UniversalAccount) String() string {
 	return string(bz)
 }
 
+// GetCAIP2 returns the CAIP-2 identifier for the UniversalAccountId.
+func (p UniversalAccountId) GetCAIP2() string {
+	return fmt.Sprintf("%s:%s", p.ChainNamespace, p.ChainId)
+}
+
 // Validate does the sanity check on the params.
-func (p UniversalAccount) ValidateBasic() error {
-	p.Chain = strings.TrimSpace(p.Chain)
+func (p UniversalAccountId) ValidateBasic() error {
+	p.ChainNamespace = strings.TrimSpace(p.ChainNamespace)
+	p.ChainId = strings.TrimSpace(p.ChainId)
 	p.Owner = strings.TrimSpace(p.Owner)
 
-	// Validate CAIP-2 chain format
-	parts := strings.Split(p.Chain, ":")
-	if len(p.Chain) == 0 || len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain must be in CAIP-2 format <namespace>:<reference>")
+	// Validate ChainNamespace and ChainId are non-empty
+	if len(p.ChainNamespace) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain namespace cannot be empty")
+	}
+	if len(p.ChainId) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain ID cannot be empty")
 	}
 
 	// Validate Owner is non-empty

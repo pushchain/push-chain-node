@@ -43,7 +43,7 @@ func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*ty
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	sa, err := ms.k.DeployUEA(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
+	sa, err := ms.k.DeployUEA(ctx, evmFromAddress, msg.UniversalAccountId, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (ms msgServer) MintPC(ctx context.Context, msg *types.MsgMintPC) (*types.Ms
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.MintPC(ctx, evmFromAddress, msg.UniversalAccount, msg.TxHash)
+	err = ms.k.MintPC(ctx, evmFromAddress, msg.UniversalAccountId, msg.TxHash)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccount, msg.UniversalPayload, msg.Signature)
+	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccountId, msg.UniversalPayload, msg.Signature)
 	if err != nil {
 		return nil, err
 	}

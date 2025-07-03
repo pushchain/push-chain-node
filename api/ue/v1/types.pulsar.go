@@ -444,7 +444,7 @@ var (
 	fd_UniversalPayload_max_priority_fee_per_gas protoreflect.FieldDescriptor
 	fd_UniversalPayload_nonce                    protoreflect.FieldDescriptor
 	fd_UniversalPayload_deadline                 protoreflect.FieldDescriptor
-	fd_UniversalPayload_sig_type                 protoreflect.FieldDescriptor
+	fd_UniversalPayload_v_type                   protoreflect.FieldDescriptor
 )
 
 func init() {
@@ -458,7 +458,7 @@ func init() {
 	fd_UniversalPayload_max_priority_fee_per_gas = md_UniversalPayload.Fields().ByName("max_priority_fee_per_gas")
 	fd_UniversalPayload_nonce = md_UniversalPayload.Fields().ByName("nonce")
 	fd_UniversalPayload_deadline = md_UniversalPayload.Fields().ByName("deadline")
-	fd_UniversalPayload_sig_type = md_UniversalPayload.Fields().ByName("sig_type")
+	fd_UniversalPayload_v_type = md_UniversalPayload.Fields().ByName("v_type")
 }
 
 var _ protoreflect.Message = (*fastReflection_UniversalPayload)(nil)
@@ -574,9 +574,9 @@ func (x *fastReflection_UniversalPayload) Range(f func(protoreflect.FieldDescrip
 			return
 		}
 	}
-	if x.SigType != 0 {
-		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.SigType))
-		if !f(fd_UniversalPayload_sig_type, value) {
+	if x.VType != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.VType))
+		if !f(fd_UniversalPayload_v_type, value) {
 			return
 		}
 	}
@@ -611,8 +611,8 @@ func (x *fastReflection_UniversalPayload) Has(fd protoreflect.FieldDescriptor) b
 		return x.Nonce != ""
 	case "ue.v1.UniversalPayload.deadline":
 		return x.Deadline != ""
-	case "ue.v1.UniversalPayload.sig_type":
-		return x.SigType != 0
+	case "ue.v1.UniversalPayload.v_type":
+		return x.VType != 0
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
@@ -645,8 +645,8 @@ func (x *fastReflection_UniversalPayload) Clear(fd protoreflect.FieldDescriptor)
 		x.Nonce = ""
 	case "ue.v1.UniversalPayload.deadline":
 		x.Deadline = ""
-	case "ue.v1.UniversalPayload.sig_type":
-		x.SigType = 0
+	case "ue.v1.UniversalPayload.v_type":
+		x.VType = 0
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
@@ -687,8 +687,8 @@ func (x *fastReflection_UniversalPayload) Get(descriptor protoreflect.FieldDescr
 	case "ue.v1.UniversalPayload.deadline":
 		value := x.Deadline
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.UniversalPayload.sig_type":
-		value := x.SigType
+	case "ue.v1.UniversalPayload.v_type":
+		value := x.VType
 		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
 	default:
 		if descriptor.IsExtension() {
@@ -726,8 +726,8 @@ func (x *fastReflection_UniversalPayload) Set(fd protoreflect.FieldDescriptor, v
 		x.Nonce = value.Interface().(string)
 	case "ue.v1.UniversalPayload.deadline":
 		x.Deadline = value.Interface().(string)
-	case "ue.v1.UniversalPayload.sig_type":
-		x.SigType = (SignatureType)(value.Enum())
+	case "ue.v1.UniversalPayload.v_type":
+		x.VType = (VerificationType)(value.Enum())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
@@ -764,8 +764,8 @@ func (x *fastReflection_UniversalPayload) Mutable(fd protoreflect.FieldDescripto
 		panic(fmt.Errorf("field nonce of message ue.v1.UniversalPayload is not mutable"))
 	case "ue.v1.UniversalPayload.deadline":
 		panic(fmt.Errorf("field deadline of message ue.v1.UniversalPayload is not mutable"))
-	case "ue.v1.UniversalPayload.sig_type":
-		panic(fmt.Errorf("field sig_type of message ue.v1.UniversalPayload is not mutable"))
+	case "ue.v1.UniversalPayload.v_type":
+		panic(fmt.Errorf("field v_type of message ue.v1.UniversalPayload is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalPayload"))
@@ -795,7 +795,7 @@ func (x *fastReflection_UniversalPayload) NewField(fd protoreflect.FieldDescript
 		return protoreflect.ValueOfString("")
 	case "ue.v1.UniversalPayload.deadline":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.UniversalPayload.sig_type":
+	case "ue.v1.UniversalPayload.v_type":
 		return protoreflect.ValueOfEnum(0)
 	default:
 		if fd.IsExtension() {
@@ -898,8 +898,8 @@ func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.SigType != 0 {
-			n += 1 + runtime.Sov(uint64(x.SigType))
+		if x.VType != 0 {
+			n += 1 + runtime.Sov(uint64(x.VType))
 		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
@@ -930,8 +930,8 @@ func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
-		if x.SigType != 0 {
-			i = runtime.EncodeVarint(dAtA, i, uint64(x.SigType))
+		if x.VType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.VType))
 			i--
 			dAtA[i] = 0x48
 		}
@@ -1298,9 +1298,9 @@ func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 9:
 				if wireType != 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SigType", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field VType", wireType)
 				}
-				x.SigType = 0
+				x.VType = 0
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -1310,7 +1310,7 @@ func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					x.SigType |= SignatureType(b&0x7F) << shift
+					x.VType |= VerificationType(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1351,27 +1351,29 @@ func (x *fastReflection_UniversalPayload) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-	md_UniversalAccount       protoreflect.MessageDescriptor
-	fd_UniversalAccount_chain protoreflect.FieldDescriptor
-	fd_UniversalAccount_owner protoreflect.FieldDescriptor
+	md_UniversalAccountId                 protoreflect.MessageDescriptor
+	fd_UniversalAccountId_chain_namespace protoreflect.FieldDescriptor
+	fd_UniversalAccountId_chain_id        protoreflect.FieldDescriptor
+	fd_UniversalAccountId_owner           protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_types_proto_init()
-	md_UniversalAccount = File_ue_v1_types_proto.Messages().ByName("UniversalAccount")
-	fd_UniversalAccount_chain = md_UniversalAccount.Fields().ByName("chain")
-	fd_UniversalAccount_owner = md_UniversalAccount.Fields().ByName("owner")
+	md_UniversalAccountId = File_ue_v1_types_proto.Messages().ByName("UniversalAccountId")
+	fd_UniversalAccountId_chain_namespace = md_UniversalAccountId.Fields().ByName("chain_namespace")
+	fd_UniversalAccountId_chain_id = md_UniversalAccountId.Fields().ByName("chain_id")
+	fd_UniversalAccountId_owner = md_UniversalAccountId.Fields().ByName("owner")
 }
 
-var _ protoreflect.Message = (*fastReflection_UniversalAccount)(nil)
+var _ protoreflect.Message = (*fastReflection_UniversalAccountId)(nil)
 
-type fastReflection_UniversalAccount UniversalAccount
+type fastReflection_UniversalAccountId UniversalAccountId
 
-func (x *UniversalAccount) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_UniversalAccount)(x)
+func (x *UniversalAccountId) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_UniversalAccountId)(x)
 }
 
-func (x *UniversalAccount) slowProtoReflect() protoreflect.Message {
+func (x *UniversalAccountId) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_types_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1383,43 +1385,43 @@ func (x *UniversalAccount) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_UniversalAccount_messageType fastReflection_UniversalAccount_messageType
-var _ protoreflect.MessageType = fastReflection_UniversalAccount_messageType{}
+var _fastReflection_UniversalAccountId_messageType fastReflection_UniversalAccountId_messageType
+var _ protoreflect.MessageType = fastReflection_UniversalAccountId_messageType{}
 
-type fastReflection_UniversalAccount_messageType struct{}
+type fastReflection_UniversalAccountId_messageType struct{}
 
-func (x fastReflection_UniversalAccount_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_UniversalAccount)(nil)
+func (x fastReflection_UniversalAccountId_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_UniversalAccountId)(nil)
 }
-func (x fastReflection_UniversalAccount_messageType) New() protoreflect.Message {
-	return new(fastReflection_UniversalAccount)
+func (x fastReflection_UniversalAccountId_messageType) New() protoreflect.Message {
+	return new(fastReflection_UniversalAccountId)
 }
-func (x fastReflection_UniversalAccount_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_UniversalAccount
+func (x fastReflection_UniversalAccountId_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalAccountId
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_UniversalAccount) Descriptor() protoreflect.MessageDescriptor {
-	return md_UniversalAccount
+func (x *fastReflection_UniversalAccountId) Descriptor() protoreflect.MessageDescriptor {
+	return md_UniversalAccountId
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_UniversalAccount) Type() protoreflect.MessageType {
-	return _fastReflection_UniversalAccount_messageType
+func (x *fastReflection_UniversalAccountId) Type() protoreflect.MessageType {
+	return _fastReflection_UniversalAccountId_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_UniversalAccount) New() protoreflect.Message {
-	return new(fastReflection_UniversalAccount)
+func (x *fastReflection_UniversalAccountId) New() protoreflect.Message {
+	return new(fastReflection_UniversalAccountId)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_UniversalAccount) Interface() protoreflect.ProtoMessage {
-	return (*UniversalAccount)(x)
+func (x *fastReflection_UniversalAccountId) Interface() protoreflect.ProtoMessage {
+	return (*UniversalAccountId)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -1427,16 +1429,22 @@ func (x *fastReflection_UniversalAccount) Interface() protoreflect.ProtoMessage 
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_UniversalAccount) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Chain != "" {
-		value := protoreflect.ValueOfString(x.Chain)
-		if !f(fd_UniversalAccount_chain, value) {
+func (x *fastReflection_UniversalAccountId) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.ChainNamespace != "" {
+		value := protoreflect.ValueOfString(x.ChainNamespace)
+		if !f(fd_UniversalAccountId_chain_namespace, value) {
+			return
+		}
+	}
+	if x.ChainId != "" {
+		value := protoreflect.ValueOfString(x.ChainId)
+		if !f(fd_UniversalAccountId_chain_id, value) {
 			return
 		}
 	}
 	if x.Owner != "" {
 		value := protoreflect.ValueOfString(x.Owner)
-		if !f(fd_UniversalAccount_owner, value) {
+		if !f(fd_UniversalAccountId_owner, value) {
 			return
 		}
 	}
@@ -1453,17 +1461,19 @@ func (x *fastReflection_UniversalAccount) Range(f func(protoreflect.FieldDescrip
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_UniversalAccount) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_UniversalAccountId) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.UniversalAccount.chain":
-		return x.Chain != ""
-	case "ue.v1.UniversalAccount.owner":
+	case "ue.v1.UniversalAccountId.chain_namespace":
+		return x.ChainNamespace != ""
+	case "ue.v1.UniversalAccountId.chain_id":
+		return x.ChainId != ""
+	case "ue.v1.UniversalAccountId.owner":
 		return x.Owner != ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1473,17 +1483,19 @@ func (x *fastReflection_UniversalAccount) Has(fd protoreflect.FieldDescriptor) b
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_UniversalAccount) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_UniversalAccountId) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.UniversalAccount.chain":
-		x.Chain = ""
-	case "ue.v1.UniversalAccount.owner":
+	case "ue.v1.UniversalAccountId.chain_namespace":
+		x.ChainNamespace = ""
+	case "ue.v1.UniversalAccountId.chain_id":
+		x.ChainId = ""
+	case "ue.v1.UniversalAccountId.owner":
 		x.Owner = ""
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1493,19 +1505,22 @@ func (x *fastReflection_UniversalAccount) Clear(fd protoreflect.FieldDescriptor)
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_UniversalAccount) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccountId) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.UniversalAccount.chain":
-		value := x.Chain
+	case "ue.v1.UniversalAccountId.chain_namespace":
+		value := x.ChainNamespace
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.UniversalAccount.owner":
+	case "ue.v1.UniversalAccountId.chain_id":
+		value := x.ChainId
+		return protoreflect.ValueOfString(value)
+	case "ue.v1.UniversalAccountId.owner":
 		value := x.Owner
 		return protoreflect.ValueOfString(value)
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -1519,17 +1534,19 @@ func (x *fastReflection_UniversalAccount) Get(descriptor protoreflect.FieldDescr
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_UniversalAccount) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_UniversalAccountId) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.UniversalAccount.chain":
-		x.Chain = value.Interface().(string)
-	case "ue.v1.UniversalAccount.owner":
+	case "ue.v1.UniversalAccountId.chain_namespace":
+		x.ChainNamespace = value.Interface().(string)
+	case "ue.v1.UniversalAccountId.chain_id":
+		x.ChainId = value.Interface().(string)
+	case "ue.v1.UniversalAccountId.owner":
 		x.Owner = value.Interface().(string)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -1543,44 +1560,48 @@ func (x *fastReflection_UniversalAccount) Set(fd protoreflect.FieldDescriptor, v
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_UniversalAccount) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccountId) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.UniversalAccount.chain":
-		panic(fmt.Errorf("field chain of message ue.v1.UniversalAccount is not mutable"))
-	case "ue.v1.UniversalAccount.owner":
-		panic(fmt.Errorf("field owner of message ue.v1.UniversalAccount is not mutable"))
+	case "ue.v1.UniversalAccountId.chain_namespace":
+		panic(fmt.Errorf("field chain_namespace of message ue.v1.UniversalAccountId is not mutable"))
+	case "ue.v1.UniversalAccountId.chain_id":
+		panic(fmt.Errorf("field chain_id of message ue.v1.UniversalAccountId is not mutable"))
+	case "ue.v1.UniversalAccountId.owner":
+		panic(fmt.Errorf("field owner of message ue.v1.UniversalAccountId is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_UniversalAccount) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_UniversalAccountId) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.UniversalAccount.chain":
+	case "ue.v1.UniversalAccountId.chain_namespace":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.UniversalAccount.owner":
+	case "ue.v1.UniversalAccountId.chain_id":
+		return protoreflect.ValueOfString("")
+	case "ue.v1.UniversalAccountId.owner":
 		return protoreflect.ValueOfString("")
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccount"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.UniversalAccountId"))
 		}
-		panic(fmt.Errorf("message ue.v1.UniversalAccount does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.UniversalAccountId does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_UniversalAccount) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_UniversalAccountId) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.UniversalAccount", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.UniversalAccountId", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -1588,7 +1609,7 @@ func (x *fastReflection_UniversalAccount) WhichOneof(d protoreflect.OneofDescrip
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_UniversalAccount) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_UniversalAccountId) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -1599,7 +1620,7 @@ func (x *fastReflection_UniversalAccount) GetUnknown() protoreflect.RawFields {
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_UniversalAccount) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_UniversalAccountId) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -1611,7 +1632,7 @@ func (x *fastReflection_UniversalAccount) SetUnknown(fields protoreflect.RawFiel
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_UniversalAccount) IsValid() bool {
+func (x *fastReflection_UniversalAccountId) IsValid() bool {
 	return x != nil
 }
 
@@ -1621,9 +1642,9 @@ func (x *fastReflection_UniversalAccount) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_UniversalAccountId) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*UniversalAccount)
+		x := input.Message.Interface().(*UniversalAccountId)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1635,7 +1656,11 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 		var n int
 		var l int
 		_ = l
-		l = len(x.Chain)
+		l = len(x.ChainNamespace)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.ChainId)
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
@@ -1653,7 +1678,7 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*UniversalAccount)
+		x := input.Message.Interface().(*UniversalAccountId)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1677,12 +1702,19 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 			copy(dAtA[i:], x.Owner)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Owner)))
 			i--
+			dAtA[i] = 0x1a
+		}
+		if len(x.ChainId) > 0 {
+			i -= len(x.ChainId)
+			copy(dAtA[i:], x.ChainId)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainId)))
+			i--
 			dAtA[i] = 0x12
 		}
-		if len(x.Chain) > 0 {
-			i -= len(x.Chain)
-			copy(dAtA[i:], x.Chain)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Chain)))
+		if len(x.ChainNamespace) > 0 {
+			i -= len(x.ChainNamespace)
+			copy(dAtA[i:], x.ChainNamespace)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ChainNamespace)))
 			i--
 			dAtA[i] = 0xa
 		}
@@ -1697,7 +1729,7 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*UniversalAccount)
+		x := input.Message.Interface().(*UniversalAccountId)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -1729,15 +1761,15 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccount: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccountId: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccount: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: UniversalAccountId: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Chain", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainNamespace", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -1765,9 +1797,41 @@ func (x *fastReflection_UniversalAccount) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.Chain = string(dAtA[iNdEx:postIndex])
+				x.ChainNamespace = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.ChainId = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Owner", wireType)
 				}
@@ -3300,49 +3364,49 @@ func (VM_TYPE) EnumDescriptor() ([]byte, []int) {
 }
 
 // Signature verification types
-type SignatureType int32
+type VerificationType int32
 
 const (
-	SignatureType_signedVerification      SignatureType = 0 // Signed verification using a signature
-	SignatureType_universalTxVerification SignatureType = 1 // Universal transaction verification
+	VerificationType_signedVerification      VerificationType = 0 // Signed verification using a signature
+	VerificationType_universalTxVerification VerificationType = 1 // Universal transaction verification
 )
 
-// Enum value maps for SignatureType.
+// Enum value maps for VerificationType.
 var (
-	SignatureType_name = map[int32]string{
+	VerificationType_name = map[int32]string{
 		0: "signedVerification",
 		1: "universalTxVerification",
 	}
-	SignatureType_value = map[string]int32{
+	VerificationType_value = map[string]int32{
 		"signedVerification":      0,
 		"universalTxVerification": 1,
 	}
 )
 
-func (x SignatureType) Enum() *SignatureType {
-	p := new(SignatureType)
+func (x VerificationType) Enum() *VerificationType {
+	p := new(VerificationType)
 	*p = x
 	return p
 }
 
-func (x SignatureType) String() string {
+func (x VerificationType) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (SignatureType) Descriptor() protoreflect.EnumDescriptor {
+func (VerificationType) Descriptor() protoreflect.EnumDescriptor {
 	return file_ue_v1_types_proto_enumTypes[1].Descriptor()
 }
 
-func (SignatureType) Type() protoreflect.EnumType {
+func (VerificationType) Type() protoreflect.EnumType {
 	return &file_ue_v1_types_proto_enumTypes[1]
 }
 
-func (x SignatureType) Number() protoreflect.EnumNumber {
+func (x VerificationType) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use SignatureType.Descriptor instead.
-func (SignatureType) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use VerificationType.Descriptor instead.
+func (VerificationType) EnumDescriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
@@ -3389,15 +3453,15 @@ type UniversalPayload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	To                   string        `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`                                                                       // EVM address as hex string (0x...)
-	Value                string        `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                                                 // Amount in upc as string (uint256)
-	Data                 string        `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
-	GasLimit             string        `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`                                           // uint256 as string
-	MaxFeePerGas         string        `protobuf:"bytes,5,opt,name=max_fee_per_gas,json=maxFeePerGas,proto3" json:"max_fee_per_gas,omitempty"`                           // uint256 as string
-	MaxPriorityFeePerGas string        `protobuf:"bytes,6,opt,name=max_priority_fee_per_gas,json=maxPriorityFeePerGas,proto3" json:"max_priority_fee_per_gas,omitempty"` // uint256 as string
-	Nonce                string        `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`                                                                 // uint256 as string
-	Deadline             string        `protobuf:"bytes,8,opt,name=deadline,proto3" json:"deadline,omitempty"`                                                           // uint256 as string
-	SigType              SignatureType `protobuf:"varint,9,opt,name=sig_type,json=sigType,proto3,enum=ue.v1.SignatureType" json:"sig_type,omitempty"`                    // Type of signature verification
+	To                   string           `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`                                                                       // EVM address as hex string (0x...)
+	Value                string           `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                                                 // Amount in upc as string (uint256)
+	Data                 string           `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                                                   // ABI-encoded calldata
+	GasLimit             string           `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`                                           // uint256 as string
+	MaxFeePerGas         string           `protobuf:"bytes,5,opt,name=max_fee_per_gas,json=maxFeePerGas,proto3" json:"max_fee_per_gas,omitempty"`                           // uint256 as string
+	MaxPriorityFeePerGas string           `protobuf:"bytes,6,opt,name=max_priority_fee_per_gas,json=maxPriorityFeePerGas,proto3" json:"max_priority_fee_per_gas,omitempty"` // uint256 as string
+	Nonce                string           `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`                                                                 // uint256 as string
+	Deadline             string           `protobuf:"bytes,8,opt,name=deadline,proto3" json:"deadline,omitempty"`                                                           // uint256 as string
+	VType                VerificationType `protobuf:"varint,9,opt,name=v_type,json=vType,proto3,enum=ue.v1.VerificationType" json:"v_type,omitempty"`                       // Type of verification to use before execution
 }
 
 func (x *UniversalPayload) Reset() {
@@ -3476,25 +3540,26 @@ func (x *UniversalPayload) GetDeadline() string {
 	return ""
 }
 
-func (x *UniversalPayload) GetSigType() SignatureType {
+func (x *UniversalPayload) GetVType() VerificationType {
 	if x != nil {
-		return x.SigType
+		return x.VType
 	}
-	return SignatureType_signedVerification
+	return VerificationType_signedVerification
 }
 
-// UniversalAccount is the identifier of a owner account
-type UniversalAccount struct {
+// UniversalAccountId is the identifier of a owner account
+type UniversalAccountId struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"` // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
-	Owner string `protobuf:"bytes,2,opt,name=owner,proto3" json:"owner,omitempty"` // Owner's public key bytes or address in hex format
+	ChainNamespace string `protobuf:"bytes,1,opt,name=chain_namespace,json=chainNamespace,proto3" json:"chain_namespace,omitempty"` // chain_namespace is the CAIP-2 namespace of the chain where the owner is located (e.g. "eip155" for Ethereum)
+	ChainId        string `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`                      // chain_id is the chain ID of the chain where the owner is located
+	Owner          string `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`                                         // Owner's public key bytes or address in hex format
 }
 
-func (x *UniversalAccount) Reset() {
-	*x = UniversalAccount{}
+func (x *UniversalAccountId) Reset() {
+	*x = UniversalAccountId{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_types_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3502,25 +3567,32 @@ func (x *UniversalAccount) Reset() {
 	}
 }
 
-func (x *UniversalAccount) String() string {
+func (x *UniversalAccountId) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UniversalAccount) ProtoMessage() {}
+func (*UniversalAccountId) ProtoMessage() {}
 
-// Deprecated: Use UniversalAccount.ProtoReflect.Descriptor instead.
-func (*UniversalAccount) Descriptor() ([]byte, []int) {
+// Deprecated: Use UniversalAccountId.ProtoReflect.Descriptor instead.
+func (*UniversalAccountId) Descriptor() ([]byte, []int) {
 	return file_ue_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *UniversalAccount) GetChain() string {
+func (x *UniversalAccountId) GetChainNamespace() string {
 	if x != nil {
-		return x.Chain
+		return x.ChainNamespace
 	}
 	return ""
 }
 
-func (x *UniversalAccount) GetOwner() string {
+func (x *UniversalAccountId) GetChainId() string {
+	if x != nil {
+		return x.ChainId
+	}
+	return ""
+}
+
+func (x *UniversalAccountId) GetOwner() string {
 	if x != nil {
 		return x.Owner
 	}
@@ -3673,7 +3745,7 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x6f, 0x74, 0x6f, 0x22, 0x36, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x14, 0x0a,
 	0x05, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x61, 0x64,
 	0x6d, 0x69, 0x6e, 0x3a, 0x16, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0,
-	0x2a, 0x09, 0x75, 0x65, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xce, 0x02, 0x0a, 0x10,
+	0x2a, 0x09, 0x75, 0x65, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0xcd, 0x02, 0x0a, 0x10,
 	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64,
 	0x12, 0x0e, 0x0a, 0x02, 0x74, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x74, 0x6f,
 	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
@@ -3689,16 +3761,19 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x50, 0x65, 0x72, 0x47, 0x61, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x18,
 	0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x12, 0x1a, 0x0a, 0x08,
 	0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
-	0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e, 0x65, 0x12, 0x2f, 0x0a, 0x08, 0x73, 0x69, 0x67, 0x5f,
-	0x74, 0x79, 0x70, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x14, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x54, 0x79, 0x70, 0x65,
-	0x52, 0x07, 0x73, 0x69, 0x67, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8,
-	0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65,
-	0x72, 0x73, 0x61, 0x6c, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x61, 0x0a, 0x10,
+	0x64, 0x65, 0x61, 0x64, 0x6c, 0x69, 0x6e, 0x65, 0x12, 0x2e, 0x0a, 0x06, 0x76, 0x5f, 0x74, 0x79,
+	0x70, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x54, 0x79, 0x70,
+	0x65, 0x52, 0x05, 0x76, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0,
+	0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x91, 0x01, 0x0a, 0x12,
 	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74,
-	0x12, 0x14, 0x0a, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x3a, 0x21, 0x98, 0xa0,
+	0x49, 0x64, 0x12, 0x27, 0x0a, 0x0f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x6e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12, 0x19, 0x0a, 0x08, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x3a, 0x21, 0x98, 0xa0,
 	0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e,
 	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22,
 	0x8c, 0x01, 0x0a, 0x0c, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
@@ -3738,19 +3813,20 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x56, 0x4d, 0x10, 0x05, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x54, 0x45, 0x4c, 0x4c, 0x41, 0x52, 0x5f,
 	0x56, 0x4d, 0x10, 0x06, 0x12, 0x12, 0x0a, 0x0e, 0x42, 0x49, 0x54, 0x43, 0x4f, 0x49, 0x4e, 0x5f,
 	0x53, 0x43, 0x52, 0x49, 0x50, 0x54, 0x10, 0x07, 0x12, 0x0c, 0x0a, 0x08, 0x4f, 0x54, 0x48, 0x45,
-	0x52, 0x5f, 0x56, 0x4d, 0x10, 0x08, 0x2a, 0x44, 0x0a, 0x0d, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74,
-	0x75, 0x72, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x12, 0x73, 0x69, 0x67, 0x6e, 0x65,
-	0x64, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x00, 0x12,
-	0x1b, 0x0a, 0x17, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x54, 0x78, 0x56, 0x65,
-	0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x01, 0x42, 0x79, 0x0a, 0x09,
-	0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54, 0x79, 0x70, 0x65, 0x73,
-	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b,
-	0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e,
-	0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c,
-	0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02,
-	0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x52, 0x5f, 0x56, 0x4d, 0x10, 0x08, 0x2a, 0x47, 0x0a, 0x10, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69,
+	0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x54, 0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x12, 0x73, 0x69,
+	0x67, 0x6e, 0x65, 0x64, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x10, 0x00, 0x12, 0x1b, 0x0a, 0x17, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x54,
+	0x78, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x01, 0x42,
+	0x79, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54, 0x79,
+	0x70, 0x65, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f,
+	0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05,
+	0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11,
+	0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
+	0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -3768,16 +3844,16 @@ func file_ue_v1_types_proto_rawDescGZIP() []byte {
 var file_ue_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_ue_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_ue_v1_types_proto_goTypes = []interface{}{
-	(VM_TYPE)(0),             // 0: ue.v1.VM_TYPE
-	(SignatureType)(0),       // 1: ue.v1.SignatureType
-	(*Params)(nil),           // 2: ue.v1.Params
-	(*UniversalPayload)(nil), // 3: ue.v1.UniversalPayload
-	(*UniversalAccount)(nil), // 4: ue.v1.UniversalAccount
-	(*MethodConfig)(nil),     // 5: ue.v1.MethodConfig
-	(*ChainConfig)(nil),      // 6: ue.v1.ChainConfig
+	(VM_TYPE)(0),               // 0: ue.v1.VM_TYPE
+	(VerificationType)(0),      // 1: ue.v1.VerificationType
+	(*Params)(nil),             // 2: ue.v1.Params
+	(*UniversalPayload)(nil),   // 3: ue.v1.UniversalPayload
+	(*UniversalAccountId)(nil), // 4: ue.v1.UniversalAccountId
+	(*MethodConfig)(nil),       // 5: ue.v1.MethodConfig
+	(*ChainConfig)(nil),        // 6: ue.v1.ChainConfig
 }
 var file_ue_v1_types_proto_depIdxs = []int32{
-	1, // 0: ue.v1.UniversalPayload.sig_type:type_name -> ue.v1.SignatureType
+	1, // 0: ue.v1.UniversalPayload.v_type:type_name -> ue.v1.VerificationType
 	0, // 1: ue.v1.ChainConfig.vm_type:type_name -> ue.v1.VM_TYPE
 	5, // 2: ue.v1.ChainConfig.gateway_methods:type_name -> ue.v1.MethodConfig
 	3, // [3:3] is the sub-list for method output_type
@@ -3818,7 +3894,7 @@ func file_ue_v1_types_proto_init() {
 			}
 		}
 		file_ue_v1_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UniversalAccount); i {
+			switch v := v.(*UniversalAccountId); i {
 			case 0:
 				return &v.state
 			case 1:

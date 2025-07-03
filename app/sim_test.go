@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,6 +9,10 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+
+	upgradetypes "cosmossdk.io/x/upgrade/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -25,6 +30,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/server"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
+
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	"github.com/cosmos/cosmos-sdk/x/simulation"
@@ -287,8 +293,52 @@ func setupSimulationApp(t *testing.T, msg string) (simtypes.Config, dbm.DB, simt
 	app := NewChainApp(logger, db, nil, true, appOptions,
 		nil,
 		EVMAppOptions,
-		fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
+		fauxMerkleModeOpt, nil)
 	return config, db, appOptions, app
+}
+
+func TestUpgradeSimulation(t *testing.T) {
+	_, _, _, app := setupSimulationApp(t, "upgradePlan check")
+
+	sdkCtx := app.BaseApp.NewContext(false)
+
+	// Flag to verify handler was called
+	handlerCalled := false
+
+	// Set upgrade handler
+	app.UpgradeKeeper.SetUpgradeHandler("test-upgrade", func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		fmt.Println("Upgrade handler called at height:", sdkCtx.BlockHeight())
+		handlerCalled = true
+		return fromVM, nil
+	})
+
+	// Schedule upgrade
+	plan := upgradetypes.Plan{
+		Name:   "test-upgrade",
+		Height: 20,
+	}
+	err := app.UpgradeKeeper.ScheduleUpgrade(sdkCtx, plan)
+	if err != nil {
+		t.Fatalf("failed to schedule upgrade: %v", err)
+	}
+
+	// Simulate block execution up to height 25
+	for height := int64(1); height <= 25; height++ {
+		req := abci.RequestFinalizeBlock{Height: height}
+		app.FinalizeBlock(&req)
+		app.Commit()
+	}
+
+	if !handlerCalled {
+		t.Errorf("upgrade handler was not triggered at height 20")
+	}
+
+	//Optional: check app state post-upgrade
+	finalCtx := app.BaseApp.NewContext(false)
+	if finalCtx.BlockHeight() <= 20 {
+		t.Errorf("expected block height to be > 20 after simulation")
+	}
 }
 
 // TODO: Make another test for the fuzzer itself, which just has noOp txs

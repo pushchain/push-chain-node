@@ -3,8 +3,8 @@ package precompile_util
 import (
 	"fmt"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
-	cmn "github.com/evmos/os/precompiles/common"
 )
 
 func ParseAddressFrom(args []interface{}, argIndex int) (common.Address, error) {

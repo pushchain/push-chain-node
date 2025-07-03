@@ -163,23 +163,27 @@ jobs:
             mv build/pchaind ./pchaind
           fi
           
-          # Create archive
-          tar -czf release/pchaind-${{ matrix.platform }}.tar.gz pchaind
+          # Create archive with version in filename
+          VERSION=${{ needs.check-version.outputs.version }}
+          tar -czf release/pchaind-${VERSION}-${{ matrix.platform }}.tar.gz pchaind
           rm pchaind
           
           # Generate checksum
           cd release
           if [ "${{ matrix.goos }}" = "darwin" ]; then
-            shasum -a 256 pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
+            shasum -a 256 pchaind-${VERSION}-${{ matrix.platform }}.tar.gz > pchaind-${VERSION}-${{ matrix.platform }}.tar.gz.sha256
           else
-            sha256sum pchaind-${{ matrix.platform }}.tar.gz > pchaind-${{ matrix.platform }}.tar.gz.sha256
+            sha256sum pchaind-${VERSION}-${{ matrix.platform }}.tar.gz > pchaind-${VERSION}-${{ matrix.platform }}.tar.gz.sha256
           fi
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pchaind-${{ matrix.platform }}
-          path: release/*
+          path: |
+            release/*.tar.gz
+            release/*.sha256
+          if-no-files-found: error
 
   create-release:
     needs: [check-version, build-binaries]
@@ -242,16 +246,16 @@ jobs:
             
             ```bash
             # Linux (AMD64)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-amd64.tar.gz | tar xz
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-linux-amd64.tar.gz | tar xz
             
             # Linux (ARM64)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-linux-arm64.tar.gz | tar xz
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-linux-arm64.tar.gz | tar xz
             
             # macOS (Intel)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-amd64.tar.gz | tar xz
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-darwin-amd64.tar.gz | tar xz
             
             # macOS (Apple Silicon)
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-darwin-arm64.tar.gz | tar xz
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-darwin-arm64.tar.gz | tar xz
             ```
             
             ## Checksums

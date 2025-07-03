@@ -16,15 +16,15 @@ var (
 // NewMsgExecutePayload creates new instance of MsgExecutePayload
 func NewMsgExecutePayload(
 	sender sdk.Address,
-	universalAccount *UniversalAccount,
+	universalAccountId *UniversalAccountId,
 	universalPayload *UniversalPayload,
 	signature string,
 ) *MsgExecutePayload {
 	return &MsgExecutePayload{
-		Signer:           sender.String(),
-		UniversalAccount: universalAccount,
-		UniversalPayload: universalPayload,
-		Signature:        signature,
+		Signer:             sender.String(),
+		UniversalAccountId: universalAccountId,
+		UniversalPayload:   universalPayload,
+		Signature:          signature,
 	}
 }
 
@@ -52,8 +52,8 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate universalAccount
-	if msg.UniversalAccount == nil {
+	// Validate universalAccountId
+	if msg.UniversalAccountId == nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal account cannot be nil")
 	}
 
@@ -70,9 +70,9 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid signature hex")
 	}
 
-	// Validate universalAccount structure
-	if err := msg.UniversalAccount.ValidateBasic(); err != nil {
-		return errors.Wrap(err, "invalid universalAccount")
+	// Validate universalAccountId structure
+	if err := msg.UniversalAccountId.ValidateBasic(); err != nil {
+		return errors.Wrap(err, "invalid universalAccountId")
 	}
 
 	// Validate universal payload structure

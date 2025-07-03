@@ -29,6 +29,7 @@ type Keeper struct {
 	evmKeeper       types.EVMKeeper
 	feemarketKeeper types.FeeMarketKeeper
 	bankKeeper      types.BankKeeper
+	accountKeeper   types.AccountKeeper
 	utvKeeper       types.UtvKeeper
 }
 
@@ -41,6 +42,7 @@ func NewKeeper(
 	evmKeeper types.EVMKeeper,
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
+	accountKeeper types.AccountKeeper,
 	utvKeeper types.UtvKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
@@ -62,6 +64,7 @@ func NewKeeper(
 		evmKeeper:       evmKeeper,
 		feemarketKeeper: feemarketKeeper,
 		bankKeeper:      bankKeeper,
+		accountKeeper:   accountKeeper,
 		utvKeeper:       utvKeeper,
 	}
 

@@ -31,16 +31,17 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/evmos/os/x/evm/statedb"
-	feemarketkeeper "github.com/evmos/os/x/feemarket/keeper"
+	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/ue"
 	"github.com/rollchains/pchain/x/ue/keeper"
-	"github.com/rollchains/pchain/x/ue/keeper/mocks"
+	"github.com/rollchains/pchain/x/ue/mocks"
 	"github.com/rollchains/pchain/x/ue/types"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	evmtypes "github.com/evmos/os/x/evm/types"
 )
 
 var maccPerms = map[string][]string{
@@ -116,10 +117,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.mockUTVKeeper)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 
 	return f
 }
@@ -191,17 +192,6 @@ func (m MockEVMKeeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
 
 func (m MockEVMKeeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
 	// no-op mock
-}
-
-func (m MockEVMKeeper) CallEVMWithData(
-	ctx sdk.Context,
-	from common.Address,
-	contract *common.Address,
-	data []byte,
-	commit bool,
-) (*evmtypes.MsgEthereumTxResponse, error) {
-	// no-op mock
-	return nil, nil
 }
 
 func (m MockEVMKeeper) CallEVM(

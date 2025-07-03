@@ -13,13 +13,13 @@ var (
 // NewMsgDeployUEA creates new instance of MsgDeployUEA
 func NewMsgDeployUEA(
 	sender sdk.Address,
-	universalAccount *UniversalAccount,
+	universalAccountId *UniversalAccountId,
 	txHash string,
 ) *MsgDeployUEA {
 	return &MsgDeployUEA{
-		Signer:           sender.String(),
-		UniversalAccount: universalAccount,
-		TxHash:           txHash,
+		Signer:             sender.String(),
+		UniversalAccountId: universalAccountId,
+		TxHash:             txHash,
 	}
 }
 
@@ -47,9 +47,9 @@ func (msg *MsgDeployUEA) ValidateBasic() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
-	// Validate universalAccount
-	if msg.UniversalAccount == nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universalAccount cannot be nil")
+	// Validate universalAccountId
+	if msg.UniversalAccountId == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universalAccountId cannot be nil")
 	}
 
 	// Validate txHash
@@ -57,5 +57,5 @@ func (msg *MsgDeployUEA) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "txHash cannot be empty")
 	}
 
-	return msg.UniversalAccount.ValidateBasic()
+	return msg.UniversalAccountId.ValidateBasic()
 }

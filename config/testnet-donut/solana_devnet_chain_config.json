@@ -3,7 +3,7 @@
   "public_rpc_url": "https://api.devnet.solana.com",
   "vm_type": 1,
   "gateway_address": "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
-  "block_confirmation": 1,
+  "block_confirmation": 0,
   "gateway_methods": [
     {
       "name": "add_funds",

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/evmos/os/x/evm/statedb"
+	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/rollchains/pchain/x/ue/types"
 )
 

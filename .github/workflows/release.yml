@@ -127,27 +127,12 @@ jobs:
       - name: Install wasmvm (macOS)
         if: matrix.goos == 'darwin'
         run: |
-          # Download wasmvm for macOS
-          WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm | awk '{print $2}')
+          # The wasmvm Go module already includes the necessary libraries
+          # We just need to ensure CGO can find them
+          echo "Setting up CGO environment for macOS..."
           
-          # Download the static library for the specific architecture
-          if [ "${{ matrix.goarch }}" = "amd64" ]; then
-            WASMVM_ARCH="x86_64"
-          else
-            WASMVM_ARCH="aarch64"
-          fi
-          
-          echo "Downloading wasmvm ${WASMVM_VERSION} for Darwin ${WASMVM_ARCH}..."
-          curl -L "https://github.com/CosmWasm/wasmvm/releases/download/${WASMVM_VERSION}/libwasmvmstatic_darwin.${WASMVM_ARCH}.a" -o /tmp/libwasmvm.a
-          
-          # Create a directory structure that Go expects
-          mkdir -p /tmp/lib
-          mv /tmp/libwasmvm.a /tmp/lib/libwasmvm.a
-          
-          # Set up environment for CGO
-          echo "CGO_LDFLAGS=-L/tmp/lib -lwasmvm -lm" >> $GITHUB_ENV
+          # Enable CGO
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=/tmp/lib" >> $GITHUB_ENV
       
       - name: Build ${{ matrix.platform }}
         run: |
@@ -169,11 +154,12 @@ jobs:
             # Install dependencies
             go mod download
             
-            # Build with wasmvm support
+            # Build with wasmvm support using make
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-              go build -mod=readonly -tags "netgo ledger" \
-              -ldflags '-s -w' \
-              -o pchaind ./cmd/pchaind
+              make build
+            
+            # Move binary to current directory
+            mv build/pchaind ./pchaind
           fi
           
           # Create archive

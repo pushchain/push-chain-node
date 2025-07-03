@@ -7,9 +7,9 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/os/x/evm/core/vm"
+	"github.com/cosmos/evm/x/vm/core/vm"
 
-	cmn "github.com/evmos/os/precompiles/common"
+	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 const (

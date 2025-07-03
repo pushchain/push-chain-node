@@ -138,26 +138,46 @@ jobs:
       - name: Build ${{ matrix.platform }}
         run: |
           mkdir -p release
+          VERSION=${{ needs.check-version.outputs.version }}
           
           if [ "${{ matrix.use-docker }}" = "true" ]; then
-            # Build using Docker for Linux
-            echo "Building ${{ matrix.platform }} binary using Docker..."
-            docker buildx build --platform ${{ matrix.docker-platform }} -t pchaind-builder-${{ matrix.platform }} --load .
+            # Build using Docker for Linux with version injection
+            echo "Building ${{ matrix.platform }} binary using Docker with version $VERSION..."
+            
+            # Create a custom Dockerfile that uses the existing Makefile
+            cat > Dockerfile.build << EOF
+          FROM golang:1.23-alpine AS builder
+          
+          # Install build dependencies
+          RUN apk add --no-cache git build-base linux-headers make
+          
+          WORKDIR /app
+          COPY . .
+          
+          # Build using Makefile with version injection
+          RUN VERSION=$VERSION CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.goarch }} make build
+          
+          FROM alpine:latest
+          RUN apk --no-cache add ca-certificates
+          WORKDIR /root/
+          COPY --from=builder /app/build/pchaind /usr/bin/pchaind
+          EOF
+            
+            docker buildx build --platform ${{ matrix.docker-platform }} -f Dockerfile.build -t pchaind-builder-${{ matrix.platform }} --load .
             
             # Extract the binary
             docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
             docker cp extract:/usr/bin/pchaind ./pchaind
             docker rm extract
           else
-            # Build natively for macOS
-            echo "Building ${{ matrix.platform }} binary natively..."
+            # Build natively for macOS using Makefile with version injection
+            echo "Building ${{ matrix.platform }} binary natively with version $VERSION..."
             
             # Install dependencies
             go mod download
             
-            # Build with wasmvm support using make
-            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-              make build
+            # Build using Makefile with proper version
+            VERSION=$VERSION GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make build
             
             # Move binary to current directory
             mv build/pchaind ./pchaind

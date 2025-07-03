@@ -18,14 +18,14 @@ import (
 )
 
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
-func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
+func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHashBase58 string, chainConfig types.ChainConfig) error {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 		PublicRPC:  chainConfig.PublicRpcUrl,
 	}
 
 	// Get transaction details
-	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHash)
+	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHashBase58)
 	if err != nil {
 		return fmt.Errorf("failed to fetch transaction: %w", err)
 	}
@@ -132,14 +132,14 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
-func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
+func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHashBase58 string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 		PublicRPC:  chainConfig.PublicRpcUrl,
 	}
 
 	// Step 1: Fetch transaction
-	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHash)
+	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHashBase58)
 	if err != nil {
 		return *big.NewInt(0), 0, fmt.Errorf("fetch tx failed: %w", err)
 	}

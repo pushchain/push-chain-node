@@ -18,13 +18,13 @@ func NewMsgExecutePayload(
 	sender sdk.Address,
 	universalAccountId *UniversalAccountId,
 	universalPayload *UniversalPayload,
-	payloadVerifier string,
+	verificationData string,
 ) *MsgExecutePayload {
 	return &MsgExecutePayload{
 		Signer:             sender.String(),
 		UniversalAccountId: universalAccountId,
 		UniversalPayload:   universalPayload,
-		PayloadVerifier:    payloadVerifier,
+		VerificationData:   verificationData,
 	}
 }
 
@@ -62,12 +62,12 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal payload cannot be nil")
 	}
 
-	// Validate payloadVerifier
-	if len(msg.PayloadVerifier) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "payloadVerifier cannot be empty")
+	// Validate verificationData
+	if len(msg.VerificationData) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "verificationData cannot be empty")
 	}
-	if _, err := hex.DecodeString(strings.TrimPrefix(msg.PayloadVerifier, "0x")); err != nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid payloadVerifier hex")
+	if _, err := hex.DecodeString(strings.TrimPrefix(msg.VerificationData, "0x")); err != nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid verificationData hex")
 	}
 
 	// Validate universalAccountId structure

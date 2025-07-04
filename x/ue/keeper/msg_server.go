@@ -75,7 +75,7 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccountId, msg.UniversalPayload, msg.PayloadVerifier)
+	err = ms.k.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccountId, msg.UniversalPayload, msg.VerificationData)
 	if err != nil {
 		return nil, err
 	}

@@ -99,7 +99,7 @@ const UeaV1ABI = `[
             }
           ]
         },
-        { "name": "payloadVerifier", "type": "bytes", "internalType": "bytes" }
+        { "name": "verificationData", "type": "bytes", "internalType": "bytes" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"

@@ -76,7 +76,7 @@ func (k Keeper) CallUEAExecutePayload(
 	ctx sdk.Context,
 	from, ueaAddr common.Address,
 	universal_payload *types.UniversalPayload,
-	payloadVerifier []byte,
+	verificationData []byte,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseUeaABI()
 	if err != nil {
@@ -105,6 +105,6 @@ func (k Keeper) CallUEAExecutePayload(
 		true, // commit
 		"executePayload",
 		abiUniversalPayload,
-		payloadVerifier,
+		verificationData,
 	)
 }

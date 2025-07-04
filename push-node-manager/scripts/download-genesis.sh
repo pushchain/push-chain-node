@@ -4,8 +4,8 @@
 set -e
 
 # Network node (with fallback)
-GENESIS_NODE="http://rpc-testnet-donut-node1.push.org:26657"
-GENESIS_NODE_FALLBACK="http://rpc-testnet-donut-node2.push.org:26657"
+GENESIS_NODE="34.57.209.0:26657"
+GENESIS_NODE_FALLBACK="34.123.139.31:26657"
 
 echo "🔍 Downloading genesis from network node..."
 

@@ -190,8 +190,8 @@ perform_auto_update() {
 # Helper function for RPC calls with fallback
 rpc_call() {
     local endpoint="$1"
-    local primary_url="http://rpc-testnet-donut-node1.push.org:26657$endpoint"
-    local fallback_url="http://rpc-testnet-donut-node2.push.org:26657$endpoint"
+    local primary_url="34.57.209.0:26657$endpoint"
+    local fallback_url="34.123.139.31:26657$endpoint"
     
     # Try primary endpoint first
     if result=$(curl -s --connect-timeout 5 "$primary_url" 2>/dev/null) && [ -n "$result" ]; then
@@ -729,8 +729,8 @@ case "$1" in
         
         if [ -n "$VALIDATORS_JSON" ] && [ "$VALIDATORS_JSON" != "" ]; then
             # Try staking validators for more detailed info
-            STAKING_VALIDATORS=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --node http://rpc-testnet-donut-node1.push.org:26657 --output json 2>/dev/null || \
-                                 $DOCKER_COMPOSE exec -T validator pchaind query staking validators --node http://rpc-testnet-donut-node2.push.org:26657 --output json 2>/dev/null || echo "")
+            STAKING_VALIDATORS=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --node 34.57.209.0:26657 --output json 2>/dev/null || \
+                                 $DOCKER_COMPOSE exec -T validator pchaind query staking validators --node 34.123.139.31:26657 --output json 2>/dev/null || echo "")
             
             if [ -n "$STAKING_VALIDATORS" ] && [ "$STAKING_VALIDATORS" != "null" ]; then
                 # Get total count

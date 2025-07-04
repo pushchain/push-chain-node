@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+# Stage 1: Copy local binary
+FROM --platform=$BUILDPLATFORM alpine:latest AS builder
+COPY pchaind /host/pchaind
+
+# Stage 2: Runtime image
 FROM --platform=$BUILDPLATFORM ubuntu:22.04
 
 # Prevent interactive prompts during package installation
@@ -10,11 +15,10 @@ ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-# Install all required dependencies matching manual setup
+# Install all required dependencies (without golang-go, we'll install newer version)
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
-    golang-go \
     jq \
     python3 \
     python3-pip \
@@ -26,67 +30,59 @@ RUN apt-get update && apt-get install -y \
     bc \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Go 1.23 (compatible with the repository)
+RUN case "$TARGETARCH" in \
+        "amd64") \
+            GO_ARCH="amd64" ;; \
+        "arm64") \
+            GO_ARCH="arm64" ;; \
+        *) \
+            echo "⚠️  Unsupported architecture: $TARGETARCH, defaulting to amd64" && \
+            GO_ARCH="amd64" ;; \
+    esac && \
+    echo "🔍 Installing Go 1.23.4 for architecture: $GO_ARCH" && \
+    wget -O go.tar.gz "https://go.dev/dl/go1.23.4.linux-${GO_ARCH}.tar.gz" && \
+    tar -C /usr/local -xzf go.tar.gz && \
+    rm go.tar.gz && \
+    echo "✅ Go 1.23.4 installed successfully"
+
+# Set Go environment variables
+ENV PATH="/usr/local/go/bin:$PATH"
+ENV GOPATH="/usr/local"
+
 # Install Python dependencies
 RUN pip3 install tomlkit
 
-# Binary configuration - default to known working version
-ARG BINARY_VERSION=v1.1.0
-ARG BINARY_URL=https://github.com/pushchain/push-chain-node/releases/download
-ARG BINARY_CHECKSUM=""
-
-# Multi-architecture binary download with proper platform mapping
-RUN echo "🔍 Build Info:" && \
-    echo "  BUILDPLATFORM: $BUILDPLATFORM" && \
-    echo "  TARGETPLATFORM: $TARGETPLATFORM" && \
-    echo "  TARGETOS: $TARGETOS" && \
-    echo "  TARGETARCH: $TARGETARCH" && \
-    # Map Docker platforms to binary naming convention
-    case "$TARGETPLATFORM" in \
-        "linux/amd64") \
-            BINARY_ARCH="linux-amd64" ;; \
-        "linux/arm64") \
-            BINARY_ARCH="linux-arm64" ;; \
-        "darwin/amd64") \
-            BINARY_ARCH="darwin-amd64" ;; \
-        "darwin/arm64") \
-            BINARY_ARCH="darwin-arm64" ;; \
+# Install libwasmvm for the target architecture
+RUN case "$TARGETARCH" in \
+        "amd64") \
+            WASMVM_ARCH="x86_64" ;; \
+        "arm64") \
+            WASMVM_ARCH="aarch64" ;; \
         *) \
-            echo "⚠️  Unsupported platform: $TARGETPLATFORM, defaulting to linux-amd64" && \
-            BINARY_ARCH="linux-amd64" ;; \
+            echo "⚠️  Unsupported architecture: $TARGETARCH, defaulting to x86_64" && \
+            WASMVM_ARCH="x86_64" ;; \
     esac && \
-    echo "🔍 Using binary architecture: $BINARY_ARCH" && \
-    if [ "$BINARY_VERSION" = "latest" ]; then \
-        echo "🔍 Fetching latest release information..." && \
-        LATEST_VERSION=$(curl -s https://api.github.com/repos/pushchain/push-chain-node/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
-        if [ -z "$LATEST_VERSION" ]; then \
-            echo "⚠️  Failed to get latest version, using fallback" && \
-            LATEST_VERSION="v1.1.0"; \
-        fi && \
-        echo "📦 Latest release version: $LATEST_VERSION" && \
-        DOWNLOAD_URL="${BINARY_URL}/${LATEST_VERSION}/pchaind-${LATEST_VERSION}-${BINARY_ARCH}.tar.gz"; \
-    else \
-        echo "📦 Using specified version: $BINARY_VERSION" && \
-        DOWNLOAD_URL="${BINARY_URL}/${BINARY_VERSION}/pchaind-${BINARY_VERSION}-${BINARY_ARCH}.tar.gz"; \
-    fi && \
-    echo "📥 Downloading binary from: $DOWNLOAD_URL" && \
-    # Try to download, with fallback to v1.1.0 if download fails or file is invalid
-    if ! curl -sSL "$DOWNLOAD_URL" -o /tmp/pchaind.tar.gz 2>/dev/null || ! file /tmp/pchaind.tar.gz | grep -q "gzip compressed"; then \
-        echo "⚠️  Download failed or invalid file, trying fallback version v1.1.0..." && \
-        FALLBACK_URL="${BINARY_URL}/v1.1.0/pchaind-v1.1.0-${BINARY_ARCH}.tar.gz" && \
-        curl -sSL "$FALLBACK_URL" -o /tmp/pchaind.tar.gz; \
-    fi && \
-    echo "📦 Extracting binary..." && \
-    tar -xzf /tmp/pchaind.tar.gz -C /tmp && \
-    mv /tmp/pchaind /usr/local/bin/pchaind && \
-    chmod +x /usr/local/bin/pchaind && \
-    rm -f /tmp/pchaind.tar.gz && \
-    echo "✅ Binary installation complete!" && \
-    # Verify checksum if provided
-    if [ -n "$BINARY_CHECKSUM" ]; then \
-        echo "🔒 Verifying checksum..." && \
-        echo "$BINARY_CHECKSUM  /usr/local/bin/pchaind" | sha256sum -c || \
-        (echo "❌ Checksum verification failed!" && exit 1); \
-    fi
+    echo "🔍 Installing libwasmvm for architecture: $WASMVM_ARCH" && \
+    WASMVM_VERSION="1.5.4" && \
+    wget "https://github.com/CosmWasm/wasmvm/releases/download/v${WASMVM_VERSION}/libwasmvm.${WASMVM_ARCH}.so" \
+        -O "/usr/lib/libwasmvm.${WASMVM_ARCH}.so" && \
+    chmod +x "/usr/lib/libwasmvm.${WASMVM_ARCH}.so" && \
+    ln -sf "/usr/lib/libwasmvm.${WASMVM_ARCH}.so" "/usr/lib/libwasmvm.so" && \
+    echo "📋 Installed libraries:" && \
+    ls -la /usr/lib/libwasmvm* && \
+    ldconfig && \
+    echo "✅ libwasmvm installed successfully"
+
+# Set library path environment variable
+ENV LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+
+# Copy local pchaind binary instead of building from source
+COPY --from=builder /host/pchaind /usr/local/bin/pchaind
+RUN chmod +x /usr/local/bin/pchaind && \
+    echo "✅ Local binary copied successfully!" && \
+    echo "🔍 Binary dependencies:" && \
+    ldd /usr/local/bin/pchaind | grep -i wasmvm || echo "No wasmvm dependency found"
 
 # Create symlink for pchain (matching manual setup)
 RUN ln -s /usr/local/bin/pchaind /usr/local/bin/pchain

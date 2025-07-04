@@ -50,7 +50,7 @@ download_genesis() {
     fi
     
     # Get genesis node RPC from config - ensure it uses http
-    local genesis_rpc="${GENESIS_NODE_RPC:-http://rpc-testnet-donut-node1.push.org:26657}"
+    local genesis_rpc="${GENESIS_NODE_RPC:-34.57.209.0:26657}"
     # Fix protocol if it's tcp://
     genesis_rpc="${genesis_rpc/tcp:\/\//http://}"
     log_info "Downloading from: $genesis_rpc/genesis"

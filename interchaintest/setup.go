@@ -20,8 +20,8 @@ import (
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/evmos/os/crypto/ethsecp256k1"
-	evmtypes "github.com/evmos/os/x/evm/types"
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var (

@@ -17,8 +17,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
-	anteinterfaces "github.com/evmos/os/ante/interfaces"
 )
 
 // BankKeeper defines the contract needed for supply related APIs (noalias)

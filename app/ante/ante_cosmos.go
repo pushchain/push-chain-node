@@ -4,9 +4,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
-	evmoscosmosante "github.com/evmos/os/ante/cosmos"
-	evmante "github.com/evmos/os/ante/evm"
-	evmtypes "github.com/evmos/os/x/evm/types"
+	cosmosevmcosmosante "github.com/cosmos/evm/ante/cosmos"
+	evmante "github.com/cosmos/evm/ante/evm"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	circuitante "cosmossdk.io/x/circuit/ante"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
@@ -18,8 +18,8 @@ import (
 func NewCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
 
 	return sdk.ChainAnteDecorators(
-		evmoscosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
-		evmoscosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
+		cosmosevmcosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
+		cosmosevmcosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
 		),

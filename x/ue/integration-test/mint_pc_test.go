@@ -4,7 +4,6 @@ import (
 	// "math/big"
 	"testing"
 
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	// sdk "github.com/cosmos/cosmos-sdk/types"
 	// "github.com/ethereum/go-ethereum/common"
 	// evmtypes "github.com/evmos/os/x/evm/types"
@@ -17,24 +16,20 @@ import (
 )
 
 func TestMintPC(t *testing.T) {
-	app, ctx := SetAppWithValidators(t)
-
-	// create addr
-	acc := simtestutil.CreateIncrementalAccounts(3)
-	validSigner := acc[0]
+	app, ctx, _ := SetAppWithValidators(t)
 
 	validUA := &uetypes.UniversalAccountId{
 		ChainNamespace: "eip155",
 		ChainId:        "11155111",
-		Owner:          "0x000000000000000000000000000000000000dead",
+		Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 	}
 
-	validTxHash := "0xabc123"
+	validTxHash := "0x85e0cd3022fd21b9e6e2954c29f12faef8b16ea8e388719b28e0845b99394aa2"
 
 	msg := &uetypes.MsgMintPC{
-		Signer:             validSigner.String(),
+		Signer:             "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		UniversalAccountId: validUA,
-		TxHash:             validTxHash,
+		TxHash:             validTxHash, // make a MintPC transaction on Sepolia and add it here
 	}
 
 	//addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -53,16 +48,20 @@ func TestMintPC(t *testing.T) {
 	chainConfigTest := uetypes.ChainConfig{
 		Chain:             "eip155:11155111",
 		VmType:            uetypes.VM_TYPE_EVM,
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
+		PublicRpcUrl:      "https://1rpc.io/sepolia",
+		GatewayAddress:    "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
 		BlockConfirmation: 12,
-		GatewayMethods:    []*uetypes.MethodConfig{},
-		Enabled:           true,
+		GatewayMethods: []*uetypes.MethodConfig{&uetypes.MethodConfig{
+			Name:            "addFunds",
+			Identifier:      "",
+			EventIdentifier: "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+		}},
+		Enabled: true,
 	}
 
 	app.UeKeeper.AddChainConfig(ctx, &chainConfigTest)
 
-	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
+	_, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
 	require.NoError(t, err)
 
 	app.UeKeeper.MintPC(ctx, evmFromAddress, msg.UniversalAccountId, validTxHash)

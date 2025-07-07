@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	uetypes "github.com/rollchains/pchain/x/ue/types"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.
@@ -20,19 +19,13 @@ func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash
 		return fmt.Errorf("chain %s is not enabled", chain)
 	}
 
-	// Step 3: Normalize tx hash
-	txHashNormalized, err := utvtypes.NormalizeTxHash(txHash, chainConfig.VmType)
-	if err != nil {
-		return fmt.Errorf("failed to normalize tx hash: %w", err)
-	}
-
 	switch chainConfig.VmType {
 	case uetypes.VM_TYPE_EVM:
-		if err := k.verifyEVMInteraction(ctx, ownerKey, txHashNormalized, chainConfig); err != nil {
+		if err := k.verifyEVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("evm tx verification failed: %w", err)
 		}
 	case uetypes.VM_TYPE_SVM:
-		if err := k.verifySVMInteraction(ctx, ownerKey, txHashNormalized, chainConfig); err != nil {
+		if err := k.verifySVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("svm tx verification failed: %w", err)
 		}
 	default:

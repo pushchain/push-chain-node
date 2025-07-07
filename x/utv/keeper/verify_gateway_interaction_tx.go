@@ -10,14 +10,7 @@ import (
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.
 func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error {
-	// Step 1: Check if already verified
-	if exists, err := k.IsTxHashVerified(ctx, chain, txHash); err != nil {
-		return err
-	} else if exists {
-		return nil
-	}
-
-	// Step 2: Load chain config
+	// Step 1: Load chain config
 	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return err

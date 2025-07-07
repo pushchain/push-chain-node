@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/decred/base58"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 )
@@ -51,24 +50,10 @@ func (p Precompile) VerifyTxHash(
 	// Convert bytes32 to hex string
 	payloadHash := fmt.Sprintf("0x%x", payloadHashBytes32[:])
 	ownerHex := fmt.Sprintf("0x%x", owner)
-
-	// Convert txHash bytes to string based on chain type
-	var txHash string
-	if chainNamespace == "solana" {
-		// For Solana: bytes should be base58 decoded, convert back to base58 string
-		txHash = base58.Encode(txHashBytes)
-	} else {
-		// For Ethereum: bytes should be hex decoded, convert back to hex string
-		txHash = fmt.Sprintf("0x%x", txHashBytes)
-	}
+	txHash := fmt.Sprintf("0x%x", txHashBytes)
 
 	fmt.Printf("[OCV] VerifyTxHash called with chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",
 		chainNamespace, chainId, ownerHex, payloadHash, txHash)
-
-	if p.utvKeeper == nil {
-		fmt.Printf("[OCV] No UTV keeper\n")
-		return method.Outputs.Pack(false)
-	}
 
 	fmt.Printf("[OCV] Delegating verification to UTV module for gas efficiency\n")
 

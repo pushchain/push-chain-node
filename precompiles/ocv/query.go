@@ -79,18 +79,22 @@ func (p Precompile) VerifyTxHash(
 		Owner:          ownerHex,
 	}
 
+	// Build full chain caip2: "namespace:chain"
+	chainCaip2 := fmt.Sprintf("%s:%s", universalAccountId.ChainNamespace, universalAccountId.ChainId)
+
 	// Delegate all verification to UTV module (much more gas efficient)
-	isValid, err := p.utvKeeper.VerifyTxHashWithPayload(ctx, universalAccountId, payloadHash, txHash)
+	verifiedPayload, err := p.utvKeeper.VerifyAndGetPayloadHash(ctx, universalAccountId.Owner, txHash, chainCaip2)
 	if err != nil {
 		fmt.Printf("[OCV] Verification failed: %v\n", err)
 		return method.Outputs.Pack(false)
 	}
 
-	if isValid {
-		fmt.Printf("[OCV] ✅ Verification successful via UTV module\n")
-	} else {
-		fmt.Printf("[OCV] ❌ Verification failed via UTV module\n")
+	if verifiedPayload != payloadHash {
+		fmt.Printf("[OCV] Payload mismatch: expected %s, got %s\n", payloadHash, verifiedPayload)
+		return method.Outputs.Pack(false)
 	}
 
-	return method.Outputs.Pack(isValid)
+	fmt.Printf("[OCV] ✅ Verification successful via UTV module\n")
+
+	return method.Outputs.Pack(true)
 }

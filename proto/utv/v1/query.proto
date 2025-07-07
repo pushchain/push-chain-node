@@ -3,6 +3,7 @@ package utv.v1;
 
 import "google/api/annotations.proto";
 import "utv/v1/genesis.proto";
+import "utv/v1/types.proto";
 
 option go_package = "github.com/rollchains/pchain/x/utv/types";
 
@@ -39,6 +40,9 @@ message QueryVerifiedTxHashRequest {
 
 // QueryVerifiedTxHashResponse is the response type for the Query/VerifiedTxHash RPC method.
 message QueryVerifiedTxHashResponse {
-  // status indicates whether the transaction hash is already verified.
-  bool status = 1;
+  // metadata contains full details if the transaction hash is verified.
+  VerifiedTxMetadata metadata = 1;
+
+  // found indicates whether the tx was found in the store.
+  bool found = 2;
 }

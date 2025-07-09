@@ -20,9 +20,9 @@ func isValidEVMGateway(toAddress, gatewayAddress string) bool {
 	return NormalizeEVMAddress(toAddress) == NormalizeEVMAddress(gatewayAddress)
 }
 
-// isValidEVMOwner checks if tx.From equals owner address
-func isValidEVMOwner(actualOwner, expectedOwner string) bool {
-	return NormalizeEVMAddress(actualOwner) == NormalizeEVMAddress(expectedOwner)
+// compares if addresses are equal
+func compareEVMAddr(actualAddr, expectedAddr string) bool {
+	return NormalizeEVMAddress(actualAddr) == NormalizeEVMAddress(expectedAddr)
 }
 
 // isEVMTxCallingAddFunds checks if the txInput is of a addFunds fn

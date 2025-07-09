@@ -78,6 +78,10 @@ func (k Keeper) VerifyEVMInboundTx(
 	}
 
 	if found {
+		ok := compareEVMAddr(meta.Sender, ownerKey)
+		if !ok {
+			return nil, fmt.Errorf("ownerKey and sender of the tx mismatched: expected %s, got %s", meta.Sender, ownerKey)
+		}
 		return meta, nil
 	}
 
@@ -115,7 +119,7 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 
 	// INPUT CHECKS
 	// Check 1: Verify if ownerKey is Valid From address
-	if !isValidEVMOwner(from, expectedFrom) {
+	if !compareEVMAddr(from, expectedFrom) {
 		return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
 	}
 
@@ -154,6 +158,7 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 			Amount:   fundsAddedEventLogs.AmountInUSD.String(),
 			Decimals: fundsAddedEventLogs.Decimals,
 		},
+		Sender: ownerKey,
 	}
 
 	// Step 4: Store verified inbound tx in storage

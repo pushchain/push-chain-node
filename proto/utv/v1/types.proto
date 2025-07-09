@@ -16,4 +16,5 @@ message VerifiedTxMetadata {
   bool minted = 1; // is tokens minted for the tx hash
   string payload_hash = 2; // payload_hash emitted in the tx
   USDValue usd_value = 3; // usd value emitted in the tx
+  string sender = 4; // sender of the tx
 }

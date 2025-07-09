@@ -84,6 +84,10 @@ func (k Keeper) VerifySVMInboundTx(
 	}
 
 	if found {
+		ok := compareSVMAddresses(meta.Sender, ownerKey)
+		if !ok {
+			return nil, fmt.Errorf("ownerKey and sender of the tx mismatched: expected %s, got %s", meta.Sender, ownerKey)
+		}
 		return meta, nil
 	}
 
@@ -162,6 +166,7 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 			Amount:   fundsAddedEventLogs.AmountInUSD.String(),
 			Decimals: fundsAddedEventLogs.Decimals,
 		},
+		Sender: ownerKey,
 	}
 
 	// Step 4: Store verified inbound tx in storage

@@ -20,7 +20,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/rollchains/pchain/x/utv/keeper"
-	v2 "github.com/rollchains/pchain/x/utv/keeper/migrations/v2"
+	v2 "github.com/rollchains/pchain/x/utv/migrations/v2"
 	"github.com/rollchains/pchain/x/utv/types"
 )
 

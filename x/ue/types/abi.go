@@ -99,7 +99,7 @@ const UeaV1ABI = `[
             }
           ]
         },
-        { "name": "signature", "type": "bytes", "internalType": "bytes" }
+        { "name": "verificationData", "type": "bytes", "internalType": "bytes" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"

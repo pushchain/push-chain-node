@@ -127,7 +127,7 @@ func TestUniversalPayload_ValidateBasic(t *testing.T) {
 				VType: 99,
 			},
 			expectErr: true,
-			errType:   "invalid signature type",
+			errType:   "invalid verificationData type",
 		},
 	}
 

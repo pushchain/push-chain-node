@@ -1,0 +1,62 @@
+FROM ubuntu:22.04
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    jq \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    netcat \
+    tini \
+    ca-certificates \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install libwasmvm for Cosmos SDK WASM support (version 1.5.4 as required by pchaind)
+RUN wget https://github.com/CosmWasm/wasmvm/releases/download/v1.5.4/libwasmvm.x86_64.so -O /lib/libwasmvm.x86_64.so
+
+# Install Python dependencies
+RUN pip3 install tomlkit
+
+# Create necessary directories
+RUN mkdir -p /root/.pchain/config /root/.pchain/data
+
+# Copy the pchaind binary
+COPY pchaind /usr/local/bin/pchaind
+RUN chmod +x /usr/local/bin/pchaind
+
+# Copy scripts
+COPY scripts/ /scripts/
+RUN chmod +x /scripts/*
+
+# Set working directory
+WORKDIR /root
+
+# Environment variables with defaults
+ENV NETWORK=localchain
+ENV MONIKER=localvalidator
+ENV VALIDATOR_MODE=true
+ENV AUTO_INIT=true
+ENV KEYRING=test
+ENV LOG_LEVEL=info
+ENV PRUNING=nothing
+ENV MINIMUM_GAS_PRICES=1000000000upc
+ENV PCHAIN_HOME=/root/.pchain
+ENV HOME_DIR=/root/.pchain
+ENV CHAIN_DIR=/root/.pchain
+ENV CHAIN_ID=localchain_9000-1
+
+# Expose ports
+EXPOSE 26656 26657 1317 9090 9091 6060 8545 8546
+
+# Use tini as init system to handle signals properly
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Default command - use the entrypoint script
+CMD ["/scripts/entrypoint.sh", "start"]

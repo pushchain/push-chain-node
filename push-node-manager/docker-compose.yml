@@ -1,0 +1,55 @@
+services:
+  push-chain-node:
+    build: .
+    image: push-chain-node:latest
+    container_name: push-chain-node
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - NETWORK=testnet
+      - MONIKER=${MONIKER:-donut-node2}
+      - VALIDATOR_MODE=false
+      - AUTO_INIT=true
+      - KEYRING=test
+      - LOG_LEVEL=info
+      - PRUNING=nothing
+      - MINIMUM_GAS_PRICES=1000000000upc
+      - PN1_URL=dc323e3c930d12369723373516267a213d74ea37@34.57.209.0:26656
+    
+    # Port mappings
+    ports:
+      - "26656:26656"  # P2P
+      - "26657:26657"  # RPC
+      - "1317:1317"    # REST API
+      - "9090:9090"    # gRPC
+      - "9091:9091"    # gRPC Web
+      - "6060:6060"    # Profiling
+      - "8545:8545"    # JSON-RPC
+      - "8546:8546"    # JSON-RPC WS
+    
+    # Volume mounts
+    volumes:
+      - push-chain-data:/root/.pchain
+      # Optional: mount custom genesis file
+      # - ./custom-genesis.json:/genesis/genesis.json:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+# Named volumes
+volumes:
+  push-chain-data:
+    driver: local 

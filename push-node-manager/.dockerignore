@@ -1,0 +1,37 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Build artifacts
+build/
+dist/
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker files (not needed in container)
+Dockerfile
+docker-compose.yml
+.dockerignore
+build.sh 

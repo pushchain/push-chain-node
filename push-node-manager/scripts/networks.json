@@ -1,0 +1,39 @@
+{
+  "directories": {
+    "home": "/root/.pchain",
+    "config": "/root/.pchain/config",
+    "data": "/root/.pchain/data"
+  },
+  "networks": {
+    "testnet": {
+      "name": "Push Chain Testnet",
+      "chain_id": "push_42101-1",
+      "genesis_file": "/root/app/config-tmp/genesis.json",
+      "minimum_gas_prices": "1000000000upc",
+      "persistent_peers": "",
+      "seeds": "",
+      "rpc_endpoints": [
+        "http://34.57.209.0:26657"
+      ]
+    },
+    "localchain": {
+      "name": "Push Chain Local Test",
+      "chain_id": "localchain_9000-1",
+      "genesis_file": "/config/genesis.json",
+      "minimum_gas_prices": "1000000000upc",
+      "persistent_peers": "",
+      "seeds": "",
+      "rpc_endpoints": []
+    }
+  },
+  "ports": {
+    "p2p": "26656",
+    "rpc": "26657",
+    "api": "1317",
+    "grpc": "9090",
+    "grpc_web": "9091",
+    "pprof": "6060",
+    "json_rpc": "8545",
+    "json_rpc_ws": "8546"
+  }
+} 

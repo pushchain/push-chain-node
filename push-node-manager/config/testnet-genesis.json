@@ -288,7 +288,7 @@
                   "max_change_rate": "0.010000000000000000"
                 },
                 "min_self_delegation": "1",
-                "delegator_address": "push1xlwcrca7kz6hcgsgzjdfznq99gqqgjd8d3llhe",
+                "delegator_address": "",
                 "validator_address": "pushvaloper1xlwcrca7kz6hcgsgzjdfznq99gqqgjd8xyyt27",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
@@ -309,7 +309,7 @@
             "signer_infos": [
               {
                 "public_key": {
-                  "@type": "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
+                  "@type": "/os.crypto.v1.ethsecp256k1.PubKey",
                   "key": "Ajnxpc+dCk1HCJWORUJJqEdpzG+ZWylvR7921ObM1NR7"
                 },
                 "mode_info": {

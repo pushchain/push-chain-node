@@ -1,0 +1,59 @@
+services:
+  push-chain-localnode:
+    build:
+      context: .
+      dockerfile: Dockerfile.localchain
+    image: push-chain-node:localchain
+    container_name: push-chain-localnode
+    restart: unless-stopped
+    
+    # Environment variables for localchain
+    environment:
+      - NETWORK=localchain
+      - MONIKER=localvalidator
+      - VALIDATOR_MODE=true
+      - AUTO_INIT=true
+      - KEYRING=test
+      - LOG_LEVEL=info
+      - PRUNING=nothing
+      - MINIMUM_GAS_PRICES=1000000000upc
+      - CHAIN_ID=localchain_9000-1
+    
+    # Port mappings
+    ports:
+      - "26656:26656"  # P2P
+      - "26657:26657"  # RPC
+      - "1317:1317"    # REST API
+      - "9090:9090"    # gRPC
+      - "9091:9091"    # gRPC Web
+      - "6060:6060"    # Profiling
+      - "8545:8545"    # JSON-RPC
+      - "8546:8546"    # JSON-RPC WS
+    
+    # Volume mounts
+    volumes:
+      - push-chain-localdata:/root/.pchain
+      # Mount the localchain genesis file
+      - ./config/localchain-genesis.json:/config/genesis.json:ro
+      # Mount the validator key
+      - ./config/priv_validator_key.json:/root/.pchain/config/priv_validator_key.json:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+# Named volumes
+volumes:
+  push-chain-localdata:
+    driver: local

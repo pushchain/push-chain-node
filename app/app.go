@@ -164,8 +164,9 @@ import (
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/rollchains/pchain/app/ante"
+	"github.com/rollchains/pchain/app/upgrades"
 
-	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
+	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
 	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	pushtypes "github.com/rollchains/pchain/types"
@@ -1229,8 +1230,10 @@ func NewChainApp(
 	}
 
 	app.UpgradeKeeper.SetUpgradeHandler(
-		oneclickexec.UpgradeName,
-		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+		fixoneclick.UpgradeName,
+		fixoneclick.CreateUpgradeHandler(app.ModuleManager, app.configurator, &upgrades.AppKeepers{
+			EVMKeeper: app.EVMKeeper,
+		}))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

@@ -14,6 +14,7 @@ import (
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 )
 
 type AppKeepers struct {
@@ -24,6 +25,7 @@ type AppKeepers struct {
 	GetStoreKey           func(storeKey string) *storetypes.KVStoreKey
 	CapabilityKeeper      *capabilitykeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
+	EVMKeeper             *evmkeeper.Keeper
 }
 type ModuleManager interface {
 	RunMigrations(ctx context.Context, cfg module.Configurator, fromVM module.VersionMap) (module.VersionMap, error)

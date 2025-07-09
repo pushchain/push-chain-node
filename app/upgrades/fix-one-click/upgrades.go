@@ -35,8 +35,6 @@ func CreateUpgradeHandler(
 		sdkCtx := sdk.UnwrapSDKContext(ctx)
 		sdkCtx.Logger().Info("🔧 Running upgrade:", "name", UpgradeName)
 
-		// Activate OCV precompile by updating EVM parameters
-		// USV was already active when testnet launched, only OCV is new
 		evmParams := ak.EVMKeeper.GetParams(sdkCtx)
 
 		// Check if OCV precompile is already in the active list

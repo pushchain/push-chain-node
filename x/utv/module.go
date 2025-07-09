@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -19,12 +20,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/rollchains/pchain/x/utv/keeper"
+	v2 "github.com/rollchains/pchain/x/utv/migrations/v2"
 	"github.com/rollchains/pchain/x/utv/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/utv module consensus version.
-	ConsensusVersion = 1
+	// @dev: Bumped from 1->2 for one-click-execution upgrade
+	ConsensusVersion = 2
 )
 
 var (
@@ -142,6 +145,19 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
+
+	// Register UTV custom migration for v2 (from version 1 → 2)
+	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
+		panic(fmt.Errorf("failed to register migration for utv module: %w", err))
+	}
+}
+
+func (a AppModule) migrateToV2() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running utv module migration: v1 → v2")
+
+		return v2.MigrateVerifiedTxsToMetadata(ctx, &a.keeper, a.AppModuleBasic.cdc)
+	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

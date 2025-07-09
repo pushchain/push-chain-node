@@ -164,7 +164,9 @@ import (
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/rollchains/pchain/app/ante"
-	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
+
+	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
+	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	ue "github.com/rollchains/pchain/x/ue"
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
@@ -751,12 +753,19 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usv precompile
+	// Add the usv precompile for Ed25519 verification
 	usvPrecompile, err := usvprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate usv precompile: %w", err))
 	}
 	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
+
+	// Add the ocv precompile for Payload verification
+	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtvKeeper)
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate ocv precompile: %w", err))
+	}
+	corePrecompiles[ocvPrecompile.Address()] = ocvPrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,
@@ -1218,7 +1227,9 @@ func NewChainApp(
 		}
 	}
 
-	app.UpgradeKeeper.SetUpgradeHandler("evm-derived-tx", evmderivedtx.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+	app.UpgradeKeeper.SetUpgradeHandler(
+		oneclickexec.UpgradeName,
+		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

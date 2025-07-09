@@ -19,7 +19,8 @@ import (
 type Keeper struct {
 	cdc codec.BinaryCodec
 
-	logger log.Logger
+	logger        log.Logger
+	schemaBuilder *collections.SchemaBuilder
 
 	// state management
 	Params             collections.Item[types.Params]
@@ -48,8 +49,9 @@ func NewKeeper(
 	}
 
 	k := Keeper{
-		cdc:    cdc,
-		logger: logger,
+		cdc:           cdc,
+		logger:        logger,
+		schemaBuilder: sb,
 
 		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 		VerifiedInboundTxs: collections.NewMap(
@@ -93,7 +95,7 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k *Keeper) storeVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types.VerifiedTxMetadata) error {
+func (k *Keeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types.VerifiedTxMetadata) error {
 	if chain == "" || txHash == "" {
 		return fmt.Errorf("chain, and tx_hash are required")
 	}
@@ -117,4 +119,12 @@ func (k *Keeper) GetVerifiedInboundTxMetadata(ctx context.Context, chain, txHash
 	}
 
 	return &data, true, nil
+}
+
+func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
+	return k.schemaBuilder
+}
+
+func (k Keeper) GetUEKeeper() types.UeKeeper {
+	return k.ueKeeper
 }

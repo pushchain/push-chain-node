@@ -164,7 +164,8 @@ import (
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/rollchains/pchain/app/ante"
-	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
+
+	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
 	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	pushtypes "github.com/rollchains/pchain/types"
@@ -1227,7 +1228,9 @@ func NewChainApp(
 		}
 	}
 
-	app.UpgradeKeeper.SetUpgradeHandler("evm-derived-tx", evmderivedtx.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+	app.UpgradeKeeper.SetUpgradeHandler(
+		oneclickexec.UpgradeName,
+		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

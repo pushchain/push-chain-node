@@ -59,7 +59,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	metadata.Minted = true
 
 	// Step 4: Mutate Minted to true in the stored metadata
-	err = k.storeVerifiedInboundTx(ctx, chainConfig.Chain, txHash, *metadata)
+	err = k.StoreVerifiedInboundTx(ctx, chainConfig.Chain, txHash, *metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	}
 
 	// Step 4: Store verified inbound tx in storage
-	err = k.storeVerifiedInboundTx(ctx, chainConfig.Chain, txHash, metadata)
+	err = k.StoreVerifiedInboundTx(ctx, chainConfig.Chain, txHash, metadata)
 	if err != nil {
 		return nil, err
 	}

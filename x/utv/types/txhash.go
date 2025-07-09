@@ -29,7 +29,7 @@ func NormalizeTxHash(txHash string, vmType uetypes.VM_TYPE) (string, error) {
 			return "", fmt.Errorf("invalid EVM tx hash length: got %d bytes, expected 32", len(decodedBytes))
 		}
 		// Reconstruct normalized hex with 0x and lowercase
-		return "0x" + strings.ToLower(txHash), nil
+		return "0x" + txHash, nil
 
 	case uetypes.VM_TYPE_SVM:
 		if len(decodedBytes) != 64 {

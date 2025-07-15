@@ -166,7 +166,10 @@ import (
 	chainante "github.com/rollchains/pchain/app/ante"
 	"github.com/rollchains/pchain/app/upgrades"
 
+	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
 	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
+	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
+	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
 	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
 	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
 	ue "github.com/rollchains/pchain/x/ue"
@@ -1227,6 +1230,18 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
+
+	app.UpgradeKeeper.SetUpgradeHandler(
+		"uaid-refactor",
+		uaidrefactor.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+
+	app.UpgradeKeeper.SetUpgradeHandler(
+		"evm-derived-tx",
+		evmderivedtx.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+
+	app.UpgradeKeeper.SetUpgradeHandler(
+		"one-click-exec",
+		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.UpgradeKeeper.SetUpgradeHandler(
 		fixoneclick.UpgradeName,

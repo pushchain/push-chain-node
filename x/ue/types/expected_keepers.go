@@ -30,7 +30,7 @@ type EVMKeeper interface {
 		ctx sdk.Context,
 		abi abi.ABI,
 		from, contract common.Address,
-		value, gasLimit *big.Int,
+		value *big.Int,
 		commit, gasless bool,
 		method string,
 		args ...interface{},

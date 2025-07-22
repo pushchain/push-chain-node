@@ -26,8 +26,6 @@
   </a>
 </h4>
 
----
-
 # Push Chain Node
 
 Push Chain Node is the core implementation of Push Chain, a next-generation, shared-state Layer 1 blockchain. It powers universal app experiences by enabling seamless interoperability, universal execution, and a frictionless developer experience. The node software allows anyone to participate in the Push Chain network - running core validators, universal validators, or full nodes to help secure and operate the chain. Built for extensibility and performance, Push Chain Node is designed to connect any chain, any user, and any app, making cross-chain and cross-ecosystem applications possible out of the box.
@@ -39,8 +37,6 @@ Push Chain Node is the core implementation of Push Chain, a next-generation, sha
 - [Directory Structure](#directory-structure)
 - [Contributing](#contributing)
 
----
-
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -48,8 +44,6 @@ Before you begin, ensure you have the following installed:
 - [Go 1.23+](https://golang.org/dl/)
 - [Docker](https://www.docker.com/)
 - [jq](https://stedolan.github.io/jq/download/) (for scripts)
-
----
 
 ## Running Localnet
 
@@ -61,8 +55,6 @@ cd push-chain-node
 make sh-testnet
 ```
 
----
-
 ## Directory Structure
 
 - `app/` – Core application logic and configuration
@@ -73,8 +65,6 @@ make sh-testnet
 - `deploy/` – Deployment scripts and testnet configs
 - `interchaintest/` – E2E and integration tests
 - `utils/` – Utility functions
-
----
 
 ## Contributing
 

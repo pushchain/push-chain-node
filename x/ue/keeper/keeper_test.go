@@ -32,7 +32,6 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/rollchains/pchain/app"
 	module "github.com/rollchains/pchain/x/ue"
@@ -117,10 +116,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{}, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
 
 	return f
 }

@@ -122,7 +122,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(receipt, errors.New("unable to deploy UEA"))
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -147,7 +147,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(receipt, nil)
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -421,7 +421,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 
 		chainConfigTest := types.ChainConfig{
-			Chain:             "Ethereum",
+			Chain:             "eip155:11155111",
 			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -430,7 +430,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Enabled:           true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "ethereum", chainConfigTest)
+		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
 
@@ -454,7 +454,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 
 		chainConfigTest := types.ChainConfig{
-			Chain:             "Ethereum",
+			Chain:             "eip155:11155111",
 			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -463,9 +463,11 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Enabled:           true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "ethereum", chainConfigTest)
+		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
+
+		// f.mockEVMKeeper.EXPECT().DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "invalid universal payload")
@@ -498,7 +500,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 
 		chainConfigTest := types.ChainConfig{
-			Chain:             "Ethereum",
+			Chain:             "eip155:11155111",
 			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -507,12 +509,12 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Enabled:           true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "ethereum", chainConfigTest)
+		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid signature format")
+		require.ErrorContains(t, err, "invalid verificationData format")
 	})
 
 }
@@ -522,7 +524,7 @@ func TestMsgServer_AddChainConfig(t *testing.T) {
 	validSigner := f.addrs[0]
 
 	chainConfigTest := types.ChainConfig{
-		Chain:             "Ethereum",
+		Chain:             "eip:11155111",
 		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -567,7 +569,7 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 	validSigner := f.addrs[0]
 
 	chainConfigTest := types.ChainConfig{
-		Chain:             "Ethereum",
+		Chain:             "eip:11155111",
 		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -577,7 +579,7 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 	}
 
 	updatedChainConfigTest := types.ChainConfig{
-		Chain:             "Ethereum",
+		Chain:             "eip:11155111",
 		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
 		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
@@ -611,7 +613,7 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 		}
 		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
 		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "chain config for Ethereum does not exist")
+		require.ErrorContains(t, err, "chain config for eip:11155111 does not exist")
 	})
 
 	t.Run("success!", func(t *testing.T) {

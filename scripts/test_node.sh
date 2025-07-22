@@ -1,12 +1,8 @@
 #!/bin/bash
 # Run this script to quickly install, setup, and run the current version of the network without docker.
 #
-# Push Test Net:
-# pn1:
-# CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true ./test_node.sh
-#
 # Examples:
-# CHAIN_ID="push_501-1" MONIKER=pn1 HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
+# CHAIN_ID="localchain_9000-1" HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
 shopt -s expand_aliases
 set -eu
@@ -57,7 +53,7 @@ set_config
 
 from_scratch () {
   # Fresh install on current branch
-#  make install
+  make install
 
   # remove existing daemon files.
   if [ ${#HOME_DIR} -le 2 ]; then
@@ -124,9 +120,8 @@ from_scratch () {
   update_test_genesis '.app_state["tokenfactory"]["params"]["denom_creation_fee"]=[]'
   update_test_genesis '.app_state["tokenfactory"]["params"]["denom_creation_gas_consume"]=100000'
 
-
   # Allocate genesis accounts
-  # total: 10 000000000 . 000000000 000000000
+  # Total: 10 000000000 . 000000000 000000000
   BINARY genesis add-genesis-account $KEY1 5000000000000000000000000000$DENOM,100000000test --keyring-backend $KEYRING --append
   BINARY genesis add-genesis-account $KEY2 3000000000000000000000000000$DENOM,90000000test --keyring-backend $KEYRING --append
   BINARY genesis add-genesis-account $KEY3 2000000000000000000000000000$DENOM,90000000test --keyring-backend $KEYRING --append

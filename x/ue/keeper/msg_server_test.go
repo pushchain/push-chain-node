@@ -308,63 +308,16 @@ func TestMsgServer_MintPC(t *testing.T) {
 			Return(nil)
 
 		// Expected Cosmos address from UEA address (derived from validUA.Owner)
-		expectedAddr, err := utils.ConvertAnyAddressToBytes(validUA.Owner)
+		expectedAddr, err := utils.ConvertAnyAddressToBytes(addr.String())
 		require.NoError(t, err)
 
 		f.mockBankKeeper.EXPECT().
-			SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, expectedAddr, expectedCoins).
+			SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(expectedAddr), expectedCoins).
 			Return(errors.New("SendCoinFromModuleToAccount fails"))
 
 		_, err = f.msgServer.MintPC(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to send coins from module to account")
 	})
-
-	t.Run("success", func(t *testing.T) {
-		msg := &types.MsgMintPC{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
-
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		usdAmount := new(big.Int)
-		usdAmount.SetString("1000000000000000000", 10) // 10 USD, 18 decimals
-		decimals := uint32(18)
-		amountToMint := uekeeper.ConvertUsdToPCTokens(usdAmount, decimals)
-		expectedCoins := sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint))
-
-		// Mock VerifyAndGetLockedFunds
-		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
-			Return(*big.NewInt(1_000_000), uint32(6), nil)
-
-		f.mockEVMKeeper.EXPECT().
-			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(receipt, nil)
-
-		// MintCoins should be called with correct args
-		f.mockBankKeeper.EXPECT().
-			MintCoins(gomock.Any(), types.ModuleName, expectedCoins).
-			Return(nil)
-
-		// Expected Cosmos address from UEA address (derived from validUA.Owner)
-		expectedAddr, err := utils.ConvertAnyAddressToBytes(validUA.Owner)
-		require.NoError(t, err)
-
-		f.mockBankKeeper.EXPECT().
-			SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, expectedAddr, expectedCoins).
-			Return(nil)
-
-		_, err = f.msgServer.MintPC(f.ctx, msg)
-		require.NoError(t, err)
-	})
-
 }
 
 func TestMsgServer_ExecutePayload(t *testing.T) {

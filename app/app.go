@@ -167,6 +167,7 @@ import (
 	"github.com/rollchains/pchain/app/upgrades"
 
 	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
+	fixgasoverride "github.com/rollchains/pchain/app/upgrades/fix-gas-override"
 	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
 	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
 	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
@@ -1248,6 +1249,10 @@ func NewChainApp(
 		fixoneclick.CreateUpgradeHandler(app.ModuleManager, app.configurator, &upgrades.AppKeepers{
 			EVMKeeper: app.EVMKeeper,
 		}))
+
+	app.UpgradeKeeper.SetUpgradeHandler(
+		fixgasoverride.UpgradeName,
+		fixgasoverride.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

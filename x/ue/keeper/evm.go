@@ -63,9 +63,8 @@ func (k Keeper) CallFactoryToDeployUEA(
 		from,        // who is sending the transaction
 		factoryAddr, // destination: FactoryV1 contract
 		big.NewInt(0),
-		big.NewInt(1000000),
-		true,
-		true, // commit = true (real tx, not simulation)
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		"deployUEA",
 		abiUniversalAccount,
 	)
@@ -88,21 +87,14 @@ func (k Keeper) CallUEAExecutePayload(
 		return nil, errors.Wrapf(err, "failed to create universal payload")
 	}
 
-	gasLimit := new(big.Int)
-	gasLimit, ok := gasLimit.SetString(universal_payload.GasLimit, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
-	}
-
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
 		from,
 		ueaAddr,
 		big.NewInt(0),
-		gasLimit,
-		true,
-		true, // commit
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		"executePayload",
 		abiUniversalPayload,
 		verificationData,

@@ -338,10 +338,6 @@ sh-testnet: mod-tidy
 ###                                     help                                ###
 ###############################################################################
 
-.PHONY: explorer
-explorer:
-	docker compose up
-
 .PHONY: generate-webapp
 generate-webapp:
 	sudo npm install --global create-cosmos-app

@@ -66,6 +66,7 @@ build_tags_comma_sep := $(subst $(empty),$(comma),$(build_tags))
 # ref: https://github.com/golang/go/issues/63997
 ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=pchain \
 		  -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind \
+		  -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald \
 		  -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
 		  -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
 		  -X "github.com/cosmos/cosmos-sdk/version.BuildTags=$(build_tags_comma_sep)" \
@@ -93,6 +94,7 @@ ifeq ($(OS),Windows_NT)
 	exit 1
 else
 	go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind ./cmd/pchaind
+	go build -mod=readonly $(BUILD_FLAGS) -o build/puniversald ./cmd/puniversald
 endif
 
 build-windows-client: go.sum
@@ -111,6 +113,7 @@ endif
 
 install: go.sum
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pchaind
+	go install -mod=readonly $(BUILD_FLAGS) ./cmd/puniversald
 
 ########################################
 ### Tools & dependencies

@@ -167,6 +167,7 @@ import (
 	"github.com/rollchains/pchain/app/upgrades"
 
 	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
+	fixgasestimation "github.com/rollchains/pchain/app/upgrades/fix-gas-estimation"
 	fixgasoverride "github.com/rollchains/pchain/app/upgrades/fix-gas-override"
 	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
 	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
@@ -1254,6 +1255,10 @@ func NewChainApp(
 	app.UpgradeKeeper.SetUpgradeHandler(
 		fixgasoverride.UpgradeName,
 		fixgasoverride.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
+
+	app.UpgradeKeeper.SetUpgradeHandler(
+		fixgasestimation.UpgradeName,
+		fixgasestimation.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

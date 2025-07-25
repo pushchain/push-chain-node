@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
@@ -120,12 +119,9 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	transfer "github.com/cosmos/evm/x/ibc/transfer"
 	ibctransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-
 	"github.com/cosmos/evm/x/vm"
-
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
 	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
-
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -160,12 +156,10 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/rollchains/pchain/app/ante"
 	"github.com/rollchains/pchain/app/upgrades"
-
 	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
 	fixgasoverride "github.com/rollchains/pchain/app/upgrades/fix-gas-override"
 	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
@@ -185,6 +179,9 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
+	registry "github.com/rollchains/pchain/x/registry"
+	registrykeeper "github.com/rollchains/pchain/x/registry/keeper"
+	registrytypes "github.com/rollchains/pchain/x/registry/types"
 )
 
 const (
@@ -322,6 +319,7 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UeKeeper                  uekeeper.Keeper
 	UtvKeeper                 utvkeeper.Keeper
+	RegistryKeeper registrykeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -436,6 +434,7 @@ func NewChainApp(
 		erc20types.StoreKey,
 		uetypes.StoreKey,
 		utvtypes.StoreKey,
+		registrytypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -684,6 +683,14 @@ func NewChainApp(
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
+
+	// Create the registry Keeper
+	app.RegistryKeeper = registrykeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[registrytypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
@@ -1028,6 +1035,8 @@ func NewChainApp(
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
+		registry.NewAppModule(appCodec, app.RegistryKeeper),
+
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1076,6 +1085,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
+		registrytypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1099,6 +1109,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
+		registrytypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1149,6 +1160,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
+		registrytypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1616,6 +1628,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uetypes.ModuleName)
 	paramsKeeper.Subspace(utvtypes.ModuleName)
+	paramsKeeper.Subspace(registrytypes.ModuleName)
 
 	return paramsKeeper
 }

@@ -18,22 +18,29 @@ message Params {
 
 // VmType is the type of the vm of the network
 enum VmType {
-  EVM = 0;            // Ethereum, BSC, Polygon, etc.
-  SVM = 1;            // Solana
-  MOVE_VM = 2;        // Aptos, Sui
-  WASM_VM = 3;        // CosmWasm, Near, Polkadot
-  CAIRO_VM = 4;       // Starknet
-  TRON_VM = 5;        // TRON
-  STELLAR_VM = 6;     // Stellar
-  BITCOIN_SCRIPT = 7; // Bitcoin, Litecoin, etc.
-  OTHER_VM = 8;       // Fallback
+  UNKNOWN_VM = 0;    // Default value for unknown VM types
+
+  EVM = 1;            // Ethereum, BSC, Polygon, etc.
+  SVM = 2;            // Solana
+  MOVE_VM = 3;        // Aptos, Sui
+  WASM_VM = 4;        // CosmWasm, Near, Polkadot
+  CAIRO_VM = 5;       // Starknet
+  TRON_VM = 6;        // TRON
+  STELLAR_VM = 7;     // Stellar
+  BITCOIN_SCRIPT = 8; // Bitcoin, Litecoin, etc.
+  OTHER_VM = 9;       // Fallback
 }
 
 enum TokenType {
-  ERC20 = 0;
-  ERC721 = 1;
-  ERC1155 = 2;
-  OTHER_TOKEN = 3;
+  UNKNOWN_TOKEN = 0; // Default value for unknown token types
+
+  // EVM
+  ERC20 = 1;
+  ERC721 = 2;
+  ERC1155 = 3;
+
+  // Solana
+  SPL = 4;
 }
 
 // GatewayMethods defines the configuration for a method that can be used for universal operations

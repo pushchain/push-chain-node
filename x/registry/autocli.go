@@ -16,6 +16,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current consensus parameters",
 				},
+				{
+					RpcMethod: "ChainConfig",
+					Use:       "chain-config --chain [chain]",
+					Short:     "Query the chain configuration for a specific chain",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -24,6 +29,13 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "UpdateParams",
 					Skip:      false, // set to true if authority gated
+				}, {
+					RpcMethod: "AddChainConfig",
+					Use:       "add-chain-config --chain-config [chain-config]",
+				},
+				{
+					RpcMethod: "UpdateChainConfig",
+					Use:       "update-chain-config --chain-config [chain-config]",
 				},
 			},
 		},

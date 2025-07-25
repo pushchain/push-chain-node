@@ -24,6 +24,12 @@ service Msg {
 
   // UpdateChainConfig adds a new ChainConfig entry
   rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
+
+  // AddTokenConfig adds a new TokenConfig entry
+  rpc AddTokenConfig(MsgAddTokenConfig) returns (MsgAddTokenConfigResponse);
+
+  // UpdateTokenConfig updates an existing TokenConfig entry
+  rpc UpdateTokenConfig(MsgUpdateTokenConfig) returns (MsgUpdateTokenConfigResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.

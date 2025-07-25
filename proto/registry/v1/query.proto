@@ -16,25 +16,84 @@ service Query {
 
   // ChainConfig queries a ChainConfig by chain.
   rpc ChainConfig(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
-    option (google.api.http).get = "/ue/v1/chain_config/{chain}";
+    option (google.api.http).get = "/registry/v1/chain_config/{chain}";
+  }
+
+  // AllChainConfigs returns all registered chain configs.
+  rpc AllChainConfigs(QueryAllChainConfigsRequest) returns (QueryAllChainConfigsResponse) {
+    option (google.api.http).get = "/registry/v1/chain_configs";
+  }
+
+  // TokenConfig queries a token config by chain and address.
+  rpc TokenConfig(QueryTokenConfigRequest) returns (QueryTokenConfigResponse) {
+    option (google.api.http).get = "/registry/v1/token_config/{chain}/{address}";
+  }
+
+  // AllTokenConfigs queries all token configs across all chains.
+  rpc AllTokenConfigs(QueryAllTokenConfigsRequest) returns (QueryAllTokenConfigsResponse) {
+    option (google.api.http).get = "/registry/v1/token_configs";
+  }
+
+  // TokenConfigsByChain queries all token configs for a given chain.
+  rpc TokenConfigsByChain(QueryTokenConfigsByChainRequest) returns (QueryTokenConfigsByChainResponse) {
+    option (google.api.http).get = "/registry/v1/token_configs/{chain}";
   }
 }
 
+// Params
 // QueryParamsRequest is the request type for the Query/Params RPC method.
 message QueryParamsRequest {}
 
 // QueryParamsResponse is the response type for the Query/Params RPC method.
 message QueryParamsResponse {
-  // params defines the parameters of the module.
   Params params = 1;
 }
 
-// QueryChainConfigRequest is the request type for querying a ChainConfig by chain.
+// ChainConfig
+// QueryChainConfigRequest is the request type for the Query/ChainConfig RPC method.
 message QueryChainConfigRequest {
   string chain = 1;
 }
 
-// QueryChainConfigResponse is the response type containing the ChainConfig.
+// QueryChainConfigResponse is the response type for the Query/ChainConfig RPC method.
 message QueryChainConfigResponse {
   ChainConfig config = 1;
+}
+
+// QueryAllChainConfigsRequest is the request type for the Query/AllChainConfigs RPC method.
+message QueryAllChainConfigsRequest {}
+
+// QueryAllChainConfigsResponse is the response type for the Query/AllChainConfigs RPC method.
+message QueryAllChainConfigsResponse {
+  repeated ChainConfig configs = 1;
+}
+
+// TokenConfig
+// QueryTokenConfigRequest is the request type for the Query/TokenConfig RPC method.
+message QueryTokenConfigRequest {
+  string chain = 1;
+  string address = 2;
+}
+
+// QueryTokenConfigResponse is the response type for the Query/TokenConfig RPC method.
+message QueryTokenConfigResponse {
+  TokenConfig config = 1;
+}
+
+// QueryAllTokenConfigsRequest is the request type for the Query/AllTokenConfigs RPC method.
+message QueryAllTokenConfigsRequest {}
+
+// QueryAllTokenConfigsResponse is the response type for the Query/AllTokenConfigs RPC method.
+message QueryAllTokenConfigsResponse {
+  repeated TokenConfig configs = 1;
+}
+
+// QueryTokenConfigsByChainRequest is the request type for the Query/TokenConfigsByChain RPC method.
+message QueryTokenConfigsByChainRequest {
+  string chain = 1;
+}
+
+// QueryTokenConfigsByChainResponse is the response type for the Query/TokenConfigsByChain RPC method.
+message QueryTokenConfigsByChainResponse {
+  repeated TokenConfig configs = 1;
 }

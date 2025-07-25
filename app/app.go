@@ -172,11 +172,9 @@ import (
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
-	chainante "github.com/rollchains/pchain/app/ante"
-	pushtypes "github.com/rollchains/pchain/types"
-	registry "github.com/rollchains/pchain/x/registry"
-	registrykeeper "github.com/rollchains/pchain/x/registry/keeper"
-	registrytypes "github.com/rollchains/pchain/x/registry/types"
+	uregistry "github.com/rollchains/pchain/x/uregistry"
+	registrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
+	registrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -684,7 +682,7 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the registry Keeper
+	// Create the uregistry Keeper
 	app.RegistryKeeper = registrykeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[registrytypes.StoreKey]),
@@ -1035,7 +1033,7 @@ func NewChainApp(
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
-		registry.NewAppModule(appCodec, app.RegistryKeeper),
+		uregistry.NewAppModule(appCodec, app.RegistryKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

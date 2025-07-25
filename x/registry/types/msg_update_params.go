@@ -3,6 +3,8 @@ package types
 import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/rollchains/pchain/utils"
 )
 
 var (
@@ -12,12 +14,12 @@ var (
 // NewMsgUpdateParams creates new instance of MsgUpdateParams
 func NewMsgUpdateParams(
 	sender sdk.Address,
-	someValue bool,
+	admin sdk.Address,
 ) *MsgUpdateParams {
 	return &MsgUpdateParams{
 		Authority: sender.String(),
 		Params: Params{
-			SomeValue: someValue,
+			Admin: admin.String(),
 		},
 	}
 }
@@ -40,10 +42,15 @@ func (msg *MsgUpdateParams) GetSigners() []sdk.AccAddress {
 }
 
 // ValidateBasic does a sanity check on the provided data.
-func (msg *MsgUpdateParams) Validate() error {
+func (msg *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Authority); err != nil {
 		return errors.Wrap(err, "invalid authority address")
 	}
 
-	return msg.Params.Validate()
+	isValidAdmin := utils.IsValidAddress(msg.Params.Admin, utils.COSMOS)
+	if !isValidAdmin {
+		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid admin address: %s", msg.Params.Admin)
+	}
+
+	return msg.Params.ValidateBasic()
 }

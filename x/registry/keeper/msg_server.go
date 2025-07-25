@@ -75,3 +75,43 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 
 	return &types.MsgUpdateChainConfigResponse{}, nil
 }
+
+// AddTokenConfig implements types.MsgServer.
+func (ms msgServer) AddTokenConfig(ctx context.Context, msg *types.MsgAddTokenConfig) (*types.MsgAddTokenConfigResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.AddTokenConfig(ctx, msg.TokenConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgAddTokenConfigResponse{}, nil
+}
+
+// UpdateTokenConfig implements types.MsgServer.
+func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateTokenConfig) (*types.MsgUpdateTokenConfigResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.UpdateTokenConfig(ctx, msg.TokenConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateTokenConfigResponse{}, nil
+}

@@ -38,7 +38,7 @@ enum TokenType {
 
 // GatewayMethods defines the configuration for a method that can be used for universal operations
 message GatewayMethods {
-  option (amino.name) = "registry/method_config";
+  option (amino.name) = "registry/gateway_methods";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -49,7 +49,7 @@ message GatewayMethods {
 
 // BlockConfirmation defines the number of blocks to wait for confirmation on the external chain
 message BlockConfirmation {
-  option (amino.name) = "registry/method_config";
+  option (amino.name) = "registry/block_confirmation";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -76,6 +76,10 @@ message ChainConfig {
 }
 
 message NativeRepresentation {
+  option (amino.name) = "registry/native_representation";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+  
   string denom = 1;              // e.g., Cosmos native token if deployed
   string contract_address = 2;   // Contract address if a wrapper exists
 }

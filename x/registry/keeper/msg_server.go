@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 
+	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
@@ -20,24 +21,57 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 	return &msgServer{k: keeper}
 }
 
+// UpdateParams handles MsgUpdateParams for updating module parameters.
+// Only authorized governance account can execute this.
 func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	if ms.k.authority != msg.Authority {
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
 
-	return nil, ms.k.Params.Set(ctx, msg.Params)
+	err := ms.k.UpdateParams(ctx, msg.Params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// AddChainConfig implements types.MsgServer.
+// AddChainConfig enables the addition of a new chain configuration - Admin restricted.
 func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("AddChainConfig is unimplemented")
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.AddChainConfig(ctx, msg.ChainConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.MsgAddChainConfigResponse{}, nil
 }
 
-// UpdateChainConfig implements types.MsgServer.
+// UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
 func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateChainConfig) (*types.MsgUpdateChainConfigResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("UpdateChainConfig is unimplemented")
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.UpdateChainConfig(ctx, msg.ChainConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.MsgUpdateChainConfigResponse{}, nil
 }

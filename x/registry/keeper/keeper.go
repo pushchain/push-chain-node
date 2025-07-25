@@ -11,9 +11,6 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	"cosmossdk.io/orm/model/ormdb"
-
-	apiv1 "github.com/rollchains/pchain/api/registry/v1"
 	"github.com/rollchains/pchain/x/registry/types"
 )
 
@@ -23,9 +20,8 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	Schema collections.Schema
-	Params collections.Item[types.Params]
-	OrmDB  apiv1.StateStore
+	Params       collections.Item[types.Params]
+	ChainConfigs collections.Map[string, types.ChainConfig]
 
 	authority string
 }
@@ -45,32 +41,15 @@ func NewKeeper(
 		authority = authtypes.NewModuleAddress(govtypes.ModuleName).String()
 	}
 
-	db, err := ormdb.NewModuleDB(&types.ORMModuleSchema, ormdb.ModuleDBOptions{KVStoreService: storeService})
-	if err != nil {
-		panic(err)
-	}
-
-	store, err := apiv1.NewStateStore(db)
-	if err != nil {
-		panic(err)
-	}
-
 	k := Keeper{
 		cdc:    cdc,
 		logger: logger,
 
-		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		OrmDB:  store,
+		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 
 		authority: authority,
 	}
-
-	schema, err := sb.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	k.Schema = schema
 
 	return k
 }
@@ -82,7 +61,7 @@ func (k Keeper) Logger() log.Logger {
 // InitGenesis initializes the module's state from a genesis state.
 func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) error {
 
-	if err := data.Params.Validate(); err != nil {
+	if err := data.Params.ValidateBasic(); err != nil {
 		return err
 	}
 
@@ -99,4 +78,20 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params: params,
 	}
+}
+
+func (k Keeper) GetChainConfig(ctx context.Context, chain string) (types.ChainConfig, error) {
+	config, err := k.ChainConfigs.Get(ctx, chain)
+	if err != nil {
+		return types.ChainConfig{}, err
+	}
+	return config, nil
+}
+
+func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) {
+	enabled, err := k.ChainConfigs.Has(ctx, chain)
+	if err != nil {
+		return false, err
+	}
+	return enabled, nil
 }

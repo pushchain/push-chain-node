@@ -55,5 +55,5 @@ func (p ChainConfig) ValidateBasic() error {
 		}
 	}
 
-	return nil
+	return p.BlockConfirmation.ValidateBasic()
 }

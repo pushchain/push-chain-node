@@ -9,14 +9,21 @@ import (
 
 // AddTokenConfig adds a new token configuration to the registry.
 func (k Keeper) AddTokenConfig(ctx context.Context, tokenConfig *types.TokenConfig) error {
-	storageKey := types.GetTokenConfigsStorageKey(tokenConfig.Chain, tokenConfig.Address)
+	// Ensure the chain exists
+	if _, err := k.GetChainConfig(ctx, tokenConfig.Chain); err != nil {
+		return fmt.Errorf("chain %s is not supported: %w", tokenConfig.Chain, err)
+	}
 
-	// Check if the token config already exists
-	if has, err := k.TokenConfigs.Has(ctx, storageKey); err != nil {
+	// More efficient check for existing token config
+	storageKey := types.GetTokenConfigsStorageKey(tokenConfig.Chain, tokenConfig.Address)
+	has, err := k.TokenConfigs.Has(ctx, storageKey)
+	if err != nil {
 		return err
-	} else if has {
+	}
+	if has {
 		return fmt.Errorf("token config for %s on chain %s already exists", tokenConfig.Address, tokenConfig.Chain)
 	}
 
+	// Set the new token config
 	return k.TokenConfigs.Set(ctx, storageKey, *tokenConfig)
 }

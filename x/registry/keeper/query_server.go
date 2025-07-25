@@ -40,3 +40,79 @@ func (k Querier) ChainConfig(goCtx context.Context, req *types.QueryChainConfigR
 
 	return &types.QueryChainConfigResponse{Config: &cc}, nil
 }
+
+// AllChainConfigs implements types.QueryServer.
+func (k Querier) AllChainConfigs(goCtx context.Context, req *types.QueryAllChainConfigsRequest) (*types.QueryAllChainConfigsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	var configs []*types.ChainConfig
+
+	err := k.Keeper.ChainConfigs.Walk(ctx, nil, func(key string, value types.ChainConfig) (stop bool, err error) {
+		v := value
+		configs = append(configs, &v)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllChainConfigsResponse{
+		Configs: configs,
+	}, nil
+}
+
+// TokenConfig implements types.QueryServer.
+func (k Querier) TokenConfig(goCtx context.Context, req *types.QueryTokenConfigRequest) (*types.QueryTokenConfigResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	config, err := k.Keeper.GetTokenConfig(ctx, req.Chain, req.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryTokenConfigResponse{
+		Config: &config,
+	}, nil
+}
+
+// AllTokenConfigs implements types.QueryServer.
+func (k Querier) AllTokenConfigs(goCtx context.Context, req *types.QueryAllTokenConfigsRequest) (*types.QueryAllTokenConfigsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	var configs []*types.TokenConfig
+
+	err := k.Keeper.TokenConfigs.Walk(ctx, nil, func(key string, value types.TokenConfig) (stop bool, err error) {
+		v := value
+		configs = append(configs, &v)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllTokenConfigsResponse{
+		Configs: configs,
+	}, nil
+}
+
+// TokenConfigsByChain implements types.QueryServer.
+func (k Querier) TokenConfigsByChain(goCtx context.Context, req *types.QueryTokenConfigsByChainRequest) (*types.QueryTokenConfigsByChainResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	var configs []*types.TokenConfig
+
+	err := k.Keeper.TokenConfigs.Walk(ctx, nil, func(key string, value types.TokenConfig) (stop bool, err error) {
+		if value.Chain == req.Chain {
+			v := value
+			configs = append(configs, &v)
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryTokenConfigsByChainResponse{
+		Configs: configs,
+	}, nil
+}

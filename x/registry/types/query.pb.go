@@ -28,6 +28,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// Params
 // QueryParamsRequest is the request type for the Query/Params RPC method.
 type QueryParamsRequest struct {
 }
@@ -67,7 +68,6 @@ var xxx_messageInfo_QueryParamsRequest proto.InternalMessageInfo
 
 // QueryParamsResponse is the response type for the Query/Params RPC method.
 type QueryParamsResponse struct {
-	// params defines the parameters of the module.
 	Params *Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
 }
 
@@ -111,7 +111,8 @@ func (m *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
-// QueryChainConfigRequest is the request type for querying a ChainConfig by chain.
+// ChainConfig
+// QueryChainConfigRequest is the request type for the Query/ChainConfig RPC method.
 type QueryChainConfigRequest struct {
 	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
 }
@@ -156,7 +157,7 @@ func (m *QueryChainConfigRequest) GetChain() string {
 	return ""
 }
 
-// QueryChainConfigResponse is the response type containing the ChainConfig.
+// QueryChainConfigResponse is the response type for the Query/ChainConfig RPC method.
 type QueryChainConfigResponse struct {
 	Config *ChainConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 }
@@ -201,40 +202,414 @@ func (m *QueryChainConfigResponse) GetConfig() *ChainConfig {
 	return nil
 }
 
+// QueryAllChainConfigsRequest is the request type for the Query/AllChainConfigs RPC method.
+type QueryAllChainConfigsRequest struct {
+}
+
+func (m *QueryAllChainConfigsRequest) Reset()         { *m = QueryAllChainConfigsRequest{} }
+func (m *QueryAllChainConfigsRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAllChainConfigsRequest) ProtoMessage()    {}
+func (*QueryAllChainConfigsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{4}
+}
+func (m *QueryAllChainConfigsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllChainConfigsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllChainConfigsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllChainConfigsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllChainConfigsRequest.Merge(m, src)
+}
+func (m *QueryAllChainConfigsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllChainConfigsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllChainConfigsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllChainConfigsRequest proto.InternalMessageInfo
+
+// QueryAllChainConfigsResponse is the response type for the Query/AllChainConfigs RPC method.
+type QueryAllChainConfigsResponse struct {
+	Configs []*ChainConfig `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty"`
+}
+
+func (m *QueryAllChainConfigsResponse) Reset()         { *m = QueryAllChainConfigsResponse{} }
+func (m *QueryAllChainConfigsResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAllChainConfigsResponse) ProtoMessage()    {}
+func (*QueryAllChainConfigsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{5}
+}
+func (m *QueryAllChainConfigsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllChainConfigsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllChainConfigsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllChainConfigsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllChainConfigsResponse.Merge(m, src)
+}
+func (m *QueryAllChainConfigsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllChainConfigsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllChainConfigsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllChainConfigsResponse proto.InternalMessageInfo
+
+func (m *QueryAllChainConfigsResponse) GetConfigs() []*ChainConfig {
+	if m != nil {
+		return m.Configs
+	}
+	return nil
+}
+
+// TokenConfig
+// QueryTokenConfigRequest is the request type for the Query/TokenConfig RPC method.
+type QueryTokenConfigRequest struct {
+	Chain   string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *QueryTokenConfigRequest) Reset()         { *m = QueryTokenConfigRequest{} }
+func (m *QueryTokenConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryTokenConfigRequest) ProtoMessage()    {}
+func (*QueryTokenConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{6}
+}
+func (m *QueryTokenConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryTokenConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryTokenConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryTokenConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryTokenConfigRequest.Merge(m, src)
+}
+func (m *QueryTokenConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryTokenConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryTokenConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryTokenConfigRequest proto.InternalMessageInfo
+
+func (m *QueryTokenConfigRequest) GetChain() string {
+	if m != nil {
+		return m.Chain
+	}
+	return ""
+}
+
+func (m *QueryTokenConfigRequest) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+// QueryTokenConfigResponse is the response type for the Query/TokenConfig RPC method.
+type QueryTokenConfigResponse struct {
+	Config *TokenConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+}
+
+func (m *QueryTokenConfigResponse) Reset()         { *m = QueryTokenConfigResponse{} }
+func (m *QueryTokenConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryTokenConfigResponse) ProtoMessage()    {}
+func (*QueryTokenConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{7}
+}
+func (m *QueryTokenConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryTokenConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryTokenConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryTokenConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryTokenConfigResponse.Merge(m, src)
+}
+func (m *QueryTokenConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryTokenConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryTokenConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryTokenConfigResponse proto.InternalMessageInfo
+
+func (m *QueryTokenConfigResponse) GetConfig() *TokenConfig {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
+// QueryAllTokenConfigsRequest is the request type for the Query/AllTokenConfigs RPC method.
+type QueryAllTokenConfigsRequest struct {
+}
+
+func (m *QueryAllTokenConfigsRequest) Reset()         { *m = QueryAllTokenConfigsRequest{} }
+func (m *QueryAllTokenConfigsRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAllTokenConfigsRequest) ProtoMessage()    {}
+func (*QueryAllTokenConfigsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{8}
+}
+func (m *QueryAllTokenConfigsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllTokenConfigsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllTokenConfigsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllTokenConfigsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllTokenConfigsRequest.Merge(m, src)
+}
+func (m *QueryAllTokenConfigsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllTokenConfigsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllTokenConfigsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllTokenConfigsRequest proto.InternalMessageInfo
+
+// QueryAllTokenConfigsResponse is the response type for the Query/AllTokenConfigs RPC method.
+type QueryAllTokenConfigsResponse struct {
+	Configs []*TokenConfig `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty"`
+}
+
+func (m *QueryAllTokenConfigsResponse) Reset()         { *m = QueryAllTokenConfigsResponse{} }
+func (m *QueryAllTokenConfigsResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAllTokenConfigsResponse) ProtoMessage()    {}
+func (*QueryAllTokenConfigsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{9}
+}
+func (m *QueryAllTokenConfigsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllTokenConfigsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllTokenConfigsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllTokenConfigsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllTokenConfigsResponse.Merge(m, src)
+}
+func (m *QueryAllTokenConfigsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllTokenConfigsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllTokenConfigsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllTokenConfigsResponse proto.InternalMessageInfo
+
+func (m *QueryAllTokenConfigsResponse) GetConfigs() []*TokenConfig {
+	if m != nil {
+		return m.Configs
+	}
+	return nil
+}
+
+// QueryTokenConfigsByChainRequest is the request type for the Query/TokenConfigsByChain RPC method.
+type QueryTokenConfigsByChainRequest struct {
+	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
+}
+
+func (m *QueryTokenConfigsByChainRequest) Reset()         { *m = QueryTokenConfigsByChainRequest{} }
+func (m *QueryTokenConfigsByChainRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryTokenConfigsByChainRequest) ProtoMessage()    {}
+func (*QueryTokenConfigsByChainRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{10}
+}
+func (m *QueryTokenConfigsByChainRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryTokenConfigsByChainRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryTokenConfigsByChainRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryTokenConfigsByChainRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryTokenConfigsByChainRequest.Merge(m, src)
+}
+func (m *QueryTokenConfigsByChainRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryTokenConfigsByChainRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryTokenConfigsByChainRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryTokenConfigsByChainRequest proto.InternalMessageInfo
+
+func (m *QueryTokenConfigsByChainRequest) GetChain() string {
+	if m != nil {
+		return m.Chain
+	}
+	return ""
+}
+
+// QueryTokenConfigsByChainResponse is the response type for the Query/TokenConfigsByChain RPC method.
+type QueryTokenConfigsByChainResponse struct {
+	Configs []*TokenConfig `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty"`
+}
+
+func (m *QueryTokenConfigsByChainResponse) Reset()         { *m = QueryTokenConfigsByChainResponse{} }
+func (m *QueryTokenConfigsByChainResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryTokenConfigsByChainResponse) ProtoMessage()    {}
+func (*QueryTokenConfigsByChainResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2c796002401a74df, []int{11}
+}
+func (m *QueryTokenConfigsByChainResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryTokenConfigsByChainResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryTokenConfigsByChainResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryTokenConfigsByChainResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryTokenConfigsByChainResponse.Merge(m, src)
+}
+func (m *QueryTokenConfigsByChainResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryTokenConfigsByChainResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryTokenConfigsByChainResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryTokenConfigsByChainResponse proto.InternalMessageInfo
+
+func (m *QueryTokenConfigsByChainResponse) GetConfigs() []*TokenConfig {
+	if m != nil {
+		return m.Configs
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "registry.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "registry.v1.QueryParamsResponse")
 	proto.RegisterType((*QueryChainConfigRequest)(nil), "registry.v1.QueryChainConfigRequest")
 	proto.RegisterType((*QueryChainConfigResponse)(nil), "registry.v1.QueryChainConfigResponse")
+	proto.RegisterType((*QueryAllChainConfigsRequest)(nil), "registry.v1.QueryAllChainConfigsRequest")
+	proto.RegisterType((*QueryAllChainConfigsResponse)(nil), "registry.v1.QueryAllChainConfigsResponse")
+	proto.RegisterType((*QueryTokenConfigRequest)(nil), "registry.v1.QueryTokenConfigRequest")
+	proto.RegisterType((*QueryTokenConfigResponse)(nil), "registry.v1.QueryTokenConfigResponse")
+	proto.RegisterType((*QueryAllTokenConfigsRequest)(nil), "registry.v1.QueryAllTokenConfigsRequest")
+	proto.RegisterType((*QueryAllTokenConfigsResponse)(nil), "registry.v1.QueryAllTokenConfigsResponse")
+	proto.RegisterType((*QueryTokenConfigsByChainRequest)(nil), "registry.v1.QueryTokenConfigsByChainRequest")
+	proto.RegisterType((*QueryTokenConfigsByChainResponse)(nil), "registry.v1.QueryTokenConfigsByChainResponse")
 }
 
 func init() { proto.RegisterFile("registry/v1/query.proto", fileDescriptor_2c796002401a74df) }
 
 var fileDescriptor_2c796002401a74df = []byte{
-	// 357 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x52, 0xcf, 0x4a, 0x33, 0x31,
-	0x10, 0xef, 0x7e, 0xd0, 0x85, 0x2f, 0xbd, 0xa5, 0x95, 0xd6, 0xad, 0xae, 0x65, 0x55, 0x10, 0xc4,
-	0x8d, 0xad, 0x6f, 0xd0, 0x1e, 0xbc, 0x78, 0xd0, 0x1e, 0xbd, 0xc8, 0xb6, 0xc4, 0x6d, 0xa0, 0x4d,
-	0xb6, 0x49, 0xb6, 0x58, 0x44, 0x04, 0x9f, 0x40, 0xf0, 0xa5, 0x3c, 0x16, 0xbc, 0x78, 0x94, 0xd6,
-	0x27, 0xf0, 0x09, 0xa4, 0x93, 0x14, 0x77, 0x59, 0xc4, 0x53, 0xc8, 0xcc, 0x6f, 0x7e, 0x7f, 0x86,
-	0x41, 0x75, 0x49, 0x63, 0xa6, 0xb4, 0x9c, 0x93, 0x59, 0x9b, 0x4c, 0x53, 0x2a, 0xe7, 0x61, 0x22,
-	0x85, 0x16, 0xb8, 0xb2, 0x69, 0x84, 0xb3, 0xb6, 0xb7, 0x13, 0x0b, 0x11, 0x8f, 0x29, 0x89, 0x12,
-	0x46, 0x22, 0xce, 0x85, 0x8e, 0x34, 0x13, 0x5c, 0x19, 0xa8, 0xb7, 0x9d, 0xe5, 0x88, 0x29, 0xa7,
-	0x8a, 0x6d, 0x5a, 0x39, 0x7a, 0x3d, 0x4f, 0xa8, 0x6d, 0x04, 0x35, 0x84, 0xaf, 0xd6, 0x6a, 0x97,
-	0x91, 0x8c, 0x26, 0xaa, 0x4f, 0xa7, 0x29, 0x55, 0x3a, 0xe8, 0xa2, 0x6a, 0xae, 0xaa, 0x12, 0xc1,
-	0x15, 0xc5, 0xc7, 0xc8, 0x4d, 0xa0, 0xd2, 0x70, 0x5a, 0xce, 0x51, 0xa5, 0x53, 0x0d, 0x33, 0xe6,
-	0x42, 0x0b, 0xb6, 0x90, 0x80, 0xa0, 0x3a, 0x70, 0xf4, 0x46, 0x11, 0xe3, 0x3d, 0xc1, 0x6f, 0x59,
-	0x6c, 0xe9, 0x71, 0x0d, 0x95, 0x87, 0xeb, 0x2a, 0xd0, 0xfc, 0xef, 0x9b, 0x4f, 0x70, 0x81, 0x1a,
-	0xc5, 0x01, 0xab, 0x7c, 0x8a, 0xdc, 0x21, 0x54, 0xac, 0x72, 0x23, 0xa7, 0x9c, 0x9d, 0xb0, 0xb8,
-	0xce, 0x97, 0x83, 0xca, 0x40, 0x87, 0x47, 0xc8, 0x35, 0xd6, 0xf0, 0x5e, 0x6e, 0xaa, 0x98, 0xdb,
-	0x6b, 0xfd, 0x0e, 0x30, 0x46, 0x82, 0xe6, 0xd3, 0xdb, 0xe7, 0xcb, 0xbf, 0x2d, 0x5c, 0x25, 0xd9,
-	0x8d, 0x9a, 0xc8, 0xf8, 0x11, 0x55, 0x32, 0x56, 0xf0, 0x41, 0x91, 0xad, 0xb8, 0x0c, 0xef, 0xf0,
-	0x0f, 0x94, 0x15, 0xde, 0x07, 0xe1, 0x5d, 0xdc, 0x24, 0x29, 0x5d, 0x4b, 0xc2, 0xce, 0x6e, 0x4c,
-	0x58, 0x72, 0x0f, 0xbf, 0x87, 0xee, 0xf9, 0xeb, 0xd2, 0x77, 0x16, 0x4b, 0xdf, 0xf9, 0x58, 0xfa,
-	0xce, 0xf3, 0xca, 0x2f, 0x2d, 0x56, 0x7e, 0xe9, 0x7d, 0xe5, 0x97, 0xae, 0x4f, 0x62, 0xa6, 0x47,
-	0xe9, 0x20, 0x1c, 0x8a, 0x09, 0x91, 0x62, 0x3c, 0x86, 0x01, 0x45, 0x12, 0x78, 0xc9, 0xdd, 0x4f,
-	0x1a, 0x38, 0x8e, 0x81, 0x0b, 0xd7, 0x71, 0xf6, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x54, 0x19, 0x92,
-	0x55, 0x97, 0x02, 0x00, 0x00,
+	// 573 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0x31, 0x6f, 0xd3, 0x40,
+	0x14, 0xae, 0x8b, 0xea, 0x8a, 0x97, 0x01, 0xe9, 0x52, 0x54, 0xe3, 0x06, 0x37, 0x1c, 0x45, 0x6a,
+	0x29, 0xf1, 0xd1, 0x74, 0x60, 0x26, 0x1d, 0x10, 0x12, 0x03, 0x44, 0x88, 0x81, 0x05, 0xb9, 0xe9,
+	0xe1, 0x58, 0xb8, 0x3e, 0xd7, 0xe7, 0x54, 0x44, 0x15, 0x0b, 0x12, 0x0b, 0x0b, 0x48, 0xec, 0xfc,
+	0x1c, 0xc4, 0x58, 0x89, 0x85, 0x11, 0x25, 0xfc, 0x10, 0x94, 0xf3, 0x39, 0x9c, 0xe3, 0x73, 0xb0,
+	0x98, 0xa2, 0xbb, 0xf7, 0xee, 0xfb, 0xbe, 0xf7, 0xe5, 0x7d, 0x32, 0x6c, 0x26, 0xd4, 0x0f, 0x78,
+	0x9a, 0x8c, 0xc9, 0xf9, 0x01, 0x39, 0x1b, 0xd1, 0x64, 0xec, 0xc6, 0x09, 0x4b, 0x19, 0x6a, 0xe4,
+	0x05, 0xf7, 0xfc, 0xc0, 0x6e, 0xf9, 0x8c, 0xf9, 0x21, 0x25, 0x5e, 0x1c, 0x10, 0x2f, 0x8a, 0x58,
+	0xea, 0xa5, 0x01, 0x8b, 0x78, 0xd6, 0x6a, 0xdf, 0x50, 0x31, 0x7c, 0x1a, 0x51, 0x1e, 0xe4, 0xa5,
+	0x02, 0x7c, 0x3a, 0x8e, 0xa9, 0x2c, 0xe0, 0x0d, 0x40, 0xcf, 0x66, 0x6c, 0x4f, 0xbd, 0xc4, 0x3b,
+	0xe5, 0x7d, 0x7a, 0x36, 0xa2, 0x3c, 0xc5, 0x3d, 0x68, 0x16, 0x6e, 0x79, 0xcc, 0x22, 0x4e, 0xd1,
+	0x3e, 0x98, 0xb1, 0xb8, 0xb1, 0x8c, 0xb6, 0xb1, 0xdb, 0xe8, 0x36, 0x5d, 0x45, 0x9c, 0x2b, 0x9b,
+	0x65, 0x0b, 0x26, 0xb0, 0x29, 0x30, 0x8e, 0x86, 0x5e, 0x10, 0x1d, 0xb1, 0xe8, 0x75, 0xe0, 0x4b,
+	0x78, 0xb4, 0x01, 0x6b, 0x83, 0xd9, 0xad, 0x80, 0xb9, 0xda, 0xcf, 0x0e, 0xf8, 0x09, 0x58, 0xe5,
+	0x07, 0x92, 0xf9, 0x3e, 0x98, 0x03, 0x71, 0x23, 0x99, 0xad, 0x02, 0xb3, 0xfa, 0x42, 0xf6, 0xe1,
+	0x9b, 0xb0, 0x25, 0xd0, 0x1e, 0x86, 0xa1, 0x52, 0x9e, 0x4f, 0xd8, 0x87, 0x96, 0xbe, 0x2c, 0x09,
+	0xbb, 0xb0, 0x9e, 0x01, 0xcd, 0x66, 0xbd, 0xb2, 0x94, 0x31, 0x6f, 0xc4, 0x8f, 0xe5, 0xc4, 0xcf,
+	0xd9, 0x1b, 0x5a, 0x67, 0x62, 0x64, 0xc1, 0xba, 0x77, 0x72, 0x92, 0x50, 0xce, 0xad, 0x55, 0x71,
+	0x9f, 0x1f, 0xe7, 0x5e, 0x14, 0xa0, 0x6a, 0x79, 0xa1, 0xbe, 0xd0, 0x78, 0xa1, 0x94, 0x75, 0x5e,
+	0x14, 0xcb, 0xf5, 0xbc, 0x50, 0x19, 0xe7, 0x5e, 0x3c, 0x80, 0xed, 0xc5, 0x01, 0x78, 0x2f, 0xfb,
+	0x6b, 0x97, 0x6f, 0xc1, 0x0b, 0x68, 0x57, 0x3f, 0xfc, 0x7f, 0x41, 0xdd, 0x6f, 0x26, 0xac, 0x09,
+	0x60, 0x34, 0x04, 0x33, 0x5b, 0x55, 0xb4, 0x5d, 0x78, 0x56, 0xce, 0x81, 0xdd, 0xae, 0x6e, 0xc8,
+	0xa4, 0xe0, 0xad, 0xf7, 0x3f, 0x7e, 0x7f, 0x59, 0xbd, 0x8e, 0x9a, 0x44, 0x4d, 0x58, 0x16, 0x01,
+	0xf4, 0xc1, 0x80, 0x86, 0xb2, 0x29, 0x68, 0xa7, 0x0c, 0x57, 0x4e, 0x87, 0x7d, 0xe7, 0x1f, 0x5d,
+	0x92, 0x79, 0x4f, 0x30, 0xdf, 0x46, 0xb7, 0x0a, 0xcc, 0xc2, 0xc4, 0x57, 0xd9, 0xd0, 0xe4, 0x42,
+	0x9c, 0xde, 0xa1, 0x8f, 0x06, 0x5c, 0x5b, 0x58, 0x74, 0xb4, 0x5b, 0x66, 0xd1, 0x47, 0xc5, 0xde,
+	0xab, 0xd1, 0x29, 0x35, 0x61, 0xa1, 0xa9, 0x85, 0xec, 0x4a, 0x4d, 0x1c, 0x7d, 0x32, 0xa0, 0xa1,
+	0xfc, 0x43, 0x3a, 0x53, 0xca, 0x01, 0xd2, 0x99, 0xa2, 0xc9, 0x06, 0x3e, 0x14, 0x02, 0x3a, 0x68,
+	0xbf, 0x20, 0x20, 0x9d, 0x75, 0x2e, 0x98, 0x42, 0x2e, 0x64, 0xd6, 0xe6, 0xf6, 0xa8, 0x1b, 0x57,
+	0x61, 0x8f, 0x26, 0x3d, 0x15, 0xf6, 0xe8, 0x82, 0x54, 0x61, 0x8f, 0xaa, 0x8e, 0xa3, 0xaf, 0x06,
+	0x34, 0x35, 0xbb, 0x8f, 0xee, 0x2d, 0x35, 0x60, 0x21, 0x5b, 0x76, 0xa7, 0x66, 0xb7, 0x14, 0x76,
+	0x57, 0x08, 0xdb, 0x41, 0xb8, 0x5a, 0x58, 0xee, 0x5b, 0xef, 0xd1, 0xf7, 0x89, 0x63, 0x5c, 0x4e,
+	0x1c, 0xe3, 0xd7, 0xc4, 0x31, 0x3e, 0x4f, 0x9d, 0x95, 0xcb, 0xa9, 0xb3, 0xf2, 0x73, 0xea, 0xac,
+	0xbc, 0xec, 0xf8, 0x41, 0x3a, 0x1c, 0x1d, 0xbb, 0x03, 0x76, 0x4a, 0x12, 0x16, 0x86, 0xe2, 0x01,
+	0x27, 0xb1, 0xf8, 0x25, 0x6f, 0xff, 0x62, 0x8b, 0x0f, 0xd0, 0xb1, 0x29, 0xbe, 0x40, 0x87, 0x7f,
+	0x02, 0x00, 0x00, 0xff, 0xff, 0xfe, 0x82, 0x23, 0xb7, 0xfb, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -253,6 +628,14 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
+	// AllChainConfigs returns all registered chain configs.
+	AllChainConfigs(ctx context.Context, in *QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*QueryAllChainConfigsResponse, error)
+	// TokenConfig queries a token config by chain and address.
+	TokenConfig(ctx context.Context, in *QueryTokenConfigRequest, opts ...grpc.CallOption) (*QueryTokenConfigResponse, error)
+	// AllTokenConfigs queries all token configs across all chains.
+	AllTokenConfigs(ctx context.Context, in *QueryAllTokenConfigsRequest, opts ...grpc.CallOption) (*QueryAllTokenConfigsResponse, error)
+	// TokenConfigsByChain queries all token configs for a given chain.
+	TokenConfigsByChain(ctx context.Context, in *QueryTokenConfigsByChainRequest, opts ...grpc.CallOption) (*QueryTokenConfigsByChainResponse, error)
 }
 
 type queryClient struct {
@@ -281,12 +664,56 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 	return out, nil
 }
 
+func (c *queryClient) AllChainConfigs(ctx context.Context, in *QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*QueryAllChainConfigsResponse, error) {
+	out := new(QueryAllChainConfigsResponse)
+	err := c.cc.Invoke(ctx, "/registry.v1.Query/AllChainConfigs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TokenConfig(ctx context.Context, in *QueryTokenConfigRequest, opts ...grpc.CallOption) (*QueryTokenConfigResponse, error) {
+	out := new(QueryTokenConfigResponse)
+	err := c.cc.Invoke(ctx, "/registry.v1.Query/TokenConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllTokenConfigs(ctx context.Context, in *QueryAllTokenConfigsRequest, opts ...grpc.CallOption) (*QueryAllTokenConfigsResponse, error) {
+	out := new(QueryAllTokenConfigsResponse)
+	err := c.cc.Invoke(ctx, "/registry.v1.Query/AllTokenConfigs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TokenConfigsByChain(ctx context.Context, in *QueryTokenConfigsByChainRequest, opts ...grpc.CallOption) (*QueryTokenConfigsByChainResponse, error) {
+	out := new(QueryTokenConfigsByChainResponse)
+	err := c.cc.Invoke(ctx, "/registry.v1.Query/TokenConfigsByChain", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
+	// AllChainConfigs returns all registered chain configs.
+	AllChainConfigs(context.Context, *QueryAllChainConfigsRequest) (*QueryAllChainConfigsResponse, error)
+	// TokenConfig queries a token config by chain and address.
+	TokenConfig(context.Context, *QueryTokenConfigRequest) (*QueryTokenConfigResponse, error)
+	// AllTokenConfigs queries all token configs across all chains.
+	AllTokenConfigs(context.Context, *QueryAllTokenConfigsRequest) (*QueryAllTokenConfigsResponse, error)
+	// TokenConfigsByChain queries all token configs for a given chain.
+	TokenConfigsByChain(context.Context, *QueryTokenConfigsByChainRequest) (*QueryTokenConfigsByChainResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -298,6 +725,18 @@ func (*UnimplementedQueryServer) Params(ctx context.Context, req *QueryParamsReq
 }
 func (*UnimplementedQueryServer) ChainConfig(ctx context.Context, req *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
+}
+func (*UnimplementedQueryServer) AllChainConfigs(ctx context.Context, req *QueryAllChainConfigsRequest) (*QueryAllChainConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllChainConfigs not implemented")
+}
+func (*UnimplementedQueryServer) TokenConfig(ctx context.Context, req *QueryTokenConfigRequest) (*QueryTokenConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TokenConfig not implemented")
+}
+func (*UnimplementedQueryServer) AllTokenConfigs(ctx context.Context, req *QueryAllTokenConfigsRequest) (*QueryAllTokenConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllTokenConfigs not implemented")
+}
+func (*UnimplementedQueryServer) TokenConfigsByChain(ctx context.Context, req *QueryTokenConfigsByChainRequest) (*QueryTokenConfigsByChainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TokenConfigsByChain not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -340,6 +779,78 @@ func _Query_ChainConfig_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AllChainConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllChainConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllChainConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/registry.v1.Query/AllChainConfigs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllChainConfigs(ctx, req.(*QueryAllChainConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TokenConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/registry.v1.Query/TokenConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenConfig(ctx, req.(*QueryTokenConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllTokenConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllTokenConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllTokenConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/registry.v1.Query/AllTokenConfigs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllTokenConfigs(ctx, req.(*QueryAllTokenConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TokenConfigsByChain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenConfigsByChainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenConfigsByChain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/registry.v1.Query/TokenConfigsByChain",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenConfigsByChain(ctx, req.(*QueryTokenConfigsByChainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "registry.v1.Query",
 	HandlerType: (*QueryServer)(nil),
@@ -351,6 +862,22 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChainConfig",
 			Handler:    _Query_ChainConfig_Handler,
+		},
+		{
+			MethodName: "AllChainConfigs",
+			Handler:    _Query_AllChainConfigs_Handler,
+		},
+		{
+			MethodName: "TokenConfig",
+			Handler:    _Query_TokenConfig_Handler,
+		},
+		{
+			MethodName: "AllTokenConfigs",
+			Handler:    _Query_AllTokenConfigs_Handler,
+		},
+		{
+			MethodName: "TokenConfigsByChain",
+			Handler:    _Query_TokenConfigsByChain_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -480,6 +1007,265 @@ func (m *QueryChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error
 	return len(dAtA) - i, nil
 }
 
+func (m *QueryAllChainConfigsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllChainConfigsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllChainConfigsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllChainConfigsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllChainConfigsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllChainConfigsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for iNdEx := len(m.Configs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Configs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryTokenConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryTokenConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryTokenConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Chain) > 0 {
+		i -= len(m.Chain)
+		copy(dAtA[i:], m.Chain)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.Chain)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryTokenConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryTokenConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryTokenConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Config != nil {
+		{
+			size, err := m.Config.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllTokenConfigsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllTokenConfigsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllTokenConfigsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllTokenConfigsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllTokenConfigsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllTokenConfigsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for iNdEx := len(m.Configs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Configs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryTokenConfigsByChainRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryTokenConfigsByChainRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryTokenConfigsByChainRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Chain) > 0 {
+		i -= len(m.Chain)
+		copy(dAtA[i:], m.Chain)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.Chain)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryTokenConfigsByChainResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryTokenConfigsByChainResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryTokenConfigsByChainResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for iNdEx := len(m.Configs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Configs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	offset -= sovQuery(v)
 	base := offset
@@ -535,6 +1321,112 @@ func (m *QueryChainConfigResponse) Size() (n int) {
 	if m.Config != nil {
 		l = m.Config.Size()
 		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllChainConfigsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *QueryAllChainConfigsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for _, e := range m.Configs {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *QueryTokenConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Chain)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryTokenConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllTokenConfigsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *QueryAllTokenConfigsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for _, e := range m.Configs {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *QueryTokenConfigsByChainRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Chain)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryTokenConfigsByChainResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Configs) > 0 {
+		for _, e := range m.Configs {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
 	}
 	return n
 }
@@ -825,6 +1717,640 @@ func (m *QueryChainConfigResponse) Unmarshal(dAtA []byte) error {
 				m.Config = &ChainConfig{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllChainConfigsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllChainConfigsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllChainConfigsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllChainConfigsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllChainConfigsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllChainConfigsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Configs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Configs = append(m.Configs, &ChainConfig{})
+			if err := m.Configs[len(m.Configs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryTokenConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryTokenConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryTokenConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Chain", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Chain = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryTokenConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryTokenConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryTokenConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Config == nil {
+				m.Config = &TokenConfig{}
+			}
+			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllTokenConfigsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllTokenConfigsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllTokenConfigsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllTokenConfigsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllTokenConfigsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllTokenConfigsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Configs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Configs = append(m.Configs, &TokenConfig{})
+			if err := m.Configs[len(m.Configs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryTokenConfigsByChainRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryTokenConfigsByChainRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryTokenConfigsByChainRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Chain", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Chain = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryTokenConfigsByChainResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryTokenConfigsByChainResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryTokenConfigsByChainResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Configs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Configs = append(m.Configs, &TokenConfig{})
+			if err := m.Configs[len(m.Configs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

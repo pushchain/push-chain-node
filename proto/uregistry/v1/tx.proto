@@ -1,0 +1,112 @@
+syntax = "proto3";
+package uregistry.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "uregistry/v1/genesis.proto";
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "uregistry/v1/types.proto";
+
+option go_package = "github.com/rollchains/pchain/x/uregistry/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a governance operation for updating the parameters.
+  //
+  // Since: cosmos-sdk 0.47
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // AddChainConfig adds a new ChainConfig entry
+  rpc AddChainConfig(MsgAddChainConfig) returns (MsgAddChainConfigResponse);
+
+  // UpdateChainConfig adds a new ChainConfig entry
+  rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
+
+  // AddTokenConfig adds a new TokenConfig entry
+  rpc AddTokenConfig(MsgAddTokenConfig) returns (MsgAddTokenConfigResponse);
+
+  // UpdateTokenConfig updates an existing TokenConfig entry
+  rpc UpdateTokenConfig(MsgUpdateTokenConfig) returns (MsgUpdateTokenConfigResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParamsResponse {}
+
+
+// MsgAddChainConfig defines a message to add a new ChainConfig.
+message MsgAddChainConfig {
+  option (amino.name) = "uregistry/MsgAddChainConfig";
+  option (cosmos.msg.v1.signer) = "signer"; // Or another signer role
+
+  // signer is the address authorized to add a chain config
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The new ChainConfig to add
+  ChainConfig chain_config = 2;
+}
+
+// MsgAddChainConfigResponse defines the response for MsgAddChainConfig.
+message MsgAddChainConfigResponse {}
+
+// MsgUpdateChainConfig defines a message to update a existing ChainConfig.
+message MsgUpdateChainConfig {
+  option (amino.name) = "uregistry/MsgUpdateChainConfig";
+  option (cosmos.msg.v1.signer) = "signer"; // Or another signer role
+
+  // signer is the address authorized to add a chain config
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The new ChainConfig to add
+  ChainConfig chain_config = 2;
+}
+
+// MsgUpdateChainConfigResponse defines the response for MsgUpdateChainConfig.
+message MsgUpdateChainConfigResponse {}
+
+// MsgAddTokenConfig defines a message to add a new whitelisted TokenConfig.
+message MsgAddTokenConfig {
+  option (amino.name) = "uregistry/MsgAddTokenConfig";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to whitelist token configs
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The token configuration to whitelist
+  TokenConfig token_config = 2;
+}
+
+// MsgAddTokenConfigResponse defines the response for MsgAddTokenConfig.
+message MsgAddTokenConfigResponse {}
+
+// MsgUpdateTokenConfig defines a message to update an existing TokenConfig.
+message MsgUpdateTokenConfig {
+  option (amino.name) = "uregistry/MsgUpdateTokenConfig";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  TokenConfig token_config = 2;
+}
+
+// MsgUpdateTokenConfigResponse defines the response for MsgUpdateTokenConfig.
+message MsgUpdateTokenConfigResponse {}

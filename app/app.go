@@ -120,12 +120,10 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	transfer "github.com/cosmos/evm/x/ibc/transfer"
 	ibctransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-
 	"github.com/cosmos/evm/x/vm"
 
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
 	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
-
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -174,6 +172,11 @@ import (
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
+	chainante "github.com/rollchains/pchain/app/ante"
+	pushtypes "github.com/rollchains/pchain/types"
+	registry "github.com/rollchains/pchain/x/registry"
+	registrykeeper "github.com/rollchains/pchain/x/registry/keeper"
+	registrytypes "github.com/rollchains/pchain/x/registry/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -316,6 +319,7 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UexecutorKeeper           uexecutorkeeper.Keeper
 	UtxverifierKeeper         utxverifierkeeper.Keeper
+	RegistryKeeper            registrykeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -430,6 +434,7 @@ func NewChainApp(
 		erc20types.StoreKey,
 		uexecutortypes.StoreKey,
 		utxverifiertypes.StoreKey,
+		registrytypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -678,6 +683,14 @@ func NewChainApp(
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
+
+	// Create the registry Keeper
+	app.RegistryKeeper = registrykeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[registrytypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
@@ -1022,6 +1035,7 @@ func NewChainApp(
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
+		registry.NewAppModule(appCodec, app.RegistryKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1070,6 +1084,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		registrytypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1093,6 +1108,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		registrytypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1143,6 +1159,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		registrytypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1588,6 +1605,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uexecutortypes.ModuleName)
 	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
+	paramsKeeper.Subspace(registrytypes.ModuleName)
 
 	return paramsKeeper
 }

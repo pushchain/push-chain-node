@@ -19,8 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName      = "/registry.v1.Query/Params"
-	Query_ChainConfig_FullMethodName = "/registry.v1.Query/ChainConfig"
+	Query_Params_FullMethodName              = "/registry.v1.Query/Params"
+	Query_ChainConfig_FullMethodName         = "/registry.v1.Query/ChainConfig"
+	Query_AllChainConfigs_FullMethodName     = "/registry.v1.Query/AllChainConfigs"
+	Query_TokenConfig_FullMethodName         = "/registry.v1.Query/TokenConfig"
+	Query_AllTokenConfigs_FullMethodName     = "/registry.v1.Query/AllTokenConfigs"
+	Query_TokenConfigsByChain_FullMethodName = "/registry.v1.Query/TokenConfigsByChain"
 )
 
 // QueryClient is the client API for Query service.
@@ -31,6 +35,14 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
+	// AllChainConfigs returns all registered chain configs.
+	AllChainConfigs(ctx context.Context, in *QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*QueryAllChainConfigsResponse, error)
+	// TokenConfig queries a token config by chain and address.
+	TokenConfig(ctx context.Context, in *QueryTokenConfigRequest, opts ...grpc.CallOption) (*QueryTokenConfigResponse, error)
+	// AllTokenConfigs queries all token configs across all chains.
+	AllTokenConfigs(ctx context.Context, in *QueryAllTokenConfigsRequest, opts ...grpc.CallOption) (*QueryAllTokenConfigsResponse, error)
+	// TokenConfigsByChain queries all token configs for a given chain.
+	TokenConfigsByChain(ctx context.Context, in *QueryTokenConfigsByChainRequest, opts ...grpc.CallOption) (*QueryTokenConfigsByChainResponse, error)
 }
 
 type queryClient struct {
@@ -59,6 +71,42 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 	return out, nil
 }
 
+func (c *queryClient) AllChainConfigs(ctx context.Context, in *QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*QueryAllChainConfigsResponse, error) {
+	out := new(QueryAllChainConfigsResponse)
+	err := c.cc.Invoke(ctx, Query_AllChainConfigs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TokenConfig(ctx context.Context, in *QueryTokenConfigRequest, opts ...grpc.CallOption) (*QueryTokenConfigResponse, error) {
+	out := new(QueryTokenConfigResponse)
+	err := c.cc.Invoke(ctx, Query_TokenConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllTokenConfigs(ctx context.Context, in *QueryAllTokenConfigsRequest, opts ...grpc.CallOption) (*QueryAllTokenConfigsResponse, error) {
+	out := new(QueryAllTokenConfigsResponse)
+	err := c.cc.Invoke(ctx, Query_AllTokenConfigs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TokenConfigsByChain(ctx context.Context, in *QueryTokenConfigsByChainRequest, opts ...grpc.CallOption) (*QueryTokenConfigsByChainResponse, error) {
+	out := new(QueryTokenConfigsByChainResponse)
+	err := c.cc.Invoke(ctx, Query_TokenConfigsByChain_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -67,6 +115,14 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
+	// AllChainConfigs returns all registered chain configs.
+	AllChainConfigs(context.Context, *QueryAllChainConfigsRequest) (*QueryAllChainConfigsResponse, error)
+	// TokenConfig queries a token config by chain and address.
+	TokenConfig(context.Context, *QueryTokenConfigRequest) (*QueryTokenConfigResponse, error)
+	// AllTokenConfigs queries all token configs across all chains.
+	AllTokenConfigs(context.Context, *QueryAllTokenConfigsRequest) (*QueryAllTokenConfigsResponse, error)
+	// TokenConfigsByChain queries all token configs for a given chain.
+	TokenConfigsByChain(context.Context, *QueryTokenConfigsByChainRequest) (*QueryTokenConfigsByChainResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -79,6 +135,18 @@ func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*Q
 }
 func (UnimplementedQueryServer) ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
+}
+func (UnimplementedQueryServer) AllChainConfigs(context.Context, *QueryAllChainConfigsRequest) (*QueryAllChainConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllChainConfigs not implemented")
+}
+func (UnimplementedQueryServer) TokenConfig(context.Context, *QueryTokenConfigRequest) (*QueryTokenConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TokenConfig not implemented")
+}
+func (UnimplementedQueryServer) AllTokenConfigs(context.Context, *QueryAllTokenConfigsRequest) (*QueryAllTokenConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllTokenConfigs not implemented")
+}
+func (UnimplementedQueryServer) TokenConfigsByChain(context.Context, *QueryTokenConfigsByChainRequest) (*QueryTokenConfigsByChainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TokenConfigsByChain not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -129,6 +197,78 @@ func _Query_ChainConfig_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AllChainConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllChainConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllChainConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllChainConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllChainConfigs(ctx, req.(*QueryAllChainConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TokenConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TokenConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenConfig(ctx, req.(*QueryTokenConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllTokenConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllTokenConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllTokenConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllTokenConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllTokenConfigs(ctx, req.(*QueryAllTokenConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TokenConfigsByChain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenConfigsByChainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenConfigsByChain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TokenConfigsByChain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenConfigsByChain(ctx, req.(*QueryTokenConfigsByChainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -143,6 +283,22 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChainConfig",
 			Handler:    _Query_ChainConfig_Handler,
+		},
+		{
+			MethodName: "AllChainConfigs",
+			Handler:    _Query_AllChainConfigs_Handler,
+		},
+		{
+			MethodName: "TokenConfig",
+			Handler:    _Query_TokenConfig_Handler,
+		},
+		{
+			MethodName: "AllTokenConfigs",
+			Handler:    _Query_AllTokenConfigs_Handler,
+		},
+		{
+			MethodName: "TokenConfigsByChain",
+			Handler:    _Query_TokenConfigsByChain_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

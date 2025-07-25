@@ -39,6 +39,11 @@ func (p TokenConfig) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "decimals must be greater than zero")
 	}
 
+	// Validate token_type is within known enum range
+	if _, ok := TokenType_name[int32(p.TokenType)]; !ok {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid token_type: %v", p.TokenType)
+	}
+
 	if strings.TrimSpace(p.LiquidityCap) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "liquidity_cap cannot be empty")
 	}

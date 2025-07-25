@@ -22,6 +22,7 @@ type Keeper struct {
 	// state management
 	Params       collections.Item[types.Params]
 	ChainConfigs collections.Map[string, types.ChainConfig]
+	TokenConfigs collections.Map[string, types.TokenConfig]
 
 	authority string
 }
@@ -47,6 +48,7 @@ func NewKeeper(
 
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
+		TokenConfigs: collections.NewMap(sb, types.TokenConfigsKey, types.TokenConfigsName, collections.StringKey, codec.CollValue[types.TokenConfig](cdc)),
 
 		authority: authority,
 	}
@@ -94,4 +96,13 @@ func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) 
 		return false, err
 	}
 	return enabled, nil
+}
+
+func (k Keeper) GetTokenConfig(ctx context.Context, chain, address string) (types.TokenConfig, error) {
+	storageKey := types.GetTokenConfigsStorageKey(chain, address)
+	config, err := k.TokenConfigs.Get(ctx, storageKey)
+	if err != nil {
+		return types.TokenConfig{}, err
+	}
+	return config, nil
 }

@@ -31,7 +31,12 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 
 // ChainConfig implements types.QueryServer.
 func (k Querier) ChainConfig(goCtx context.Context, req *types.QueryChainConfigRequest) (*types.QueryChainConfigResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("ChainConfig is unimplemented")
-	return &types.QueryChainConfigResponse{}, nil
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	cc, err := k.Keeper.GetChainConfig(ctx, req.Chain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryChainConfigResponse{Config: &cc}, nil
 }

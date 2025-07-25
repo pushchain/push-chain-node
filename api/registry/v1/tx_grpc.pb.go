@@ -22,6 +22,8 @@ const (
 	Msg_UpdateParams_FullMethodName      = "/registry.v1.Msg/UpdateParams"
 	Msg_AddChainConfig_FullMethodName    = "/registry.v1.Msg/AddChainConfig"
 	Msg_UpdateChainConfig_FullMethodName = "/registry.v1.Msg/UpdateChainConfig"
+	Msg_AddTokenConfig_FullMethodName    = "/registry.v1.Msg/AddTokenConfig"
+	Msg_UpdateTokenConfig_FullMethodName = "/registry.v1.Msg/UpdateTokenConfig"
 )
 
 // MsgClient is the client API for Msg service.
@@ -36,6 +38,10 @@ type MsgClient interface {
 	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
 	// UpdateChainConfig adds a new ChainConfig entry
 	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
+	// AddTokenConfig adds a new TokenConfig entry
+	AddTokenConfig(ctx context.Context, in *MsgAddTokenConfig, opts ...grpc.CallOption) (*MsgAddTokenConfigResponse, error)
+	// UpdateTokenConfig updates an existing TokenConfig entry
+	UpdateTokenConfig(ctx context.Context, in *MsgUpdateTokenConfig, opts ...grpc.CallOption) (*MsgUpdateTokenConfigResponse, error)
 }
 
 type msgClient struct {
@@ -73,6 +79,24 @@ func (c *msgClient) UpdateChainConfig(ctx context.Context, in *MsgUpdateChainCon
 	return out, nil
 }
 
+func (c *msgClient) AddTokenConfig(ctx context.Context, in *MsgAddTokenConfig, opts ...grpc.CallOption) (*MsgAddTokenConfigResponse, error) {
+	out := new(MsgAddTokenConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_AddTokenConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateTokenConfig(ctx context.Context, in *MsgUpdateTokenConfig, opts ...grpc.CallOption) (*MsgUpdateTokenConfigResponse, error) {
+	out := new(MsgUpdateTokenConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateTokenConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -85,6 +109,10 @@ type MsgServer interface {
 	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
 	// UpdateChainConfig adds a new ChainConfig entry
 	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
+	// AddTokenConfig adds a new TokenConfig entry
+	AddTokenConfig(context.Context, *MsgAddTokenConfig) (*MsgAddTokenConfigResponse, error)
+	// UpdateTokenConfig updates an existing TokenConfig entry
+	UpdateTokenConfig(context.Context, *MsgUpdateTokenConfig) (*MsgUpdateTokenConfigResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -100,6 +128,12 @@ func (UnimplementedMsgServer) AddChainConfig(context.Context, *MsgAddChainConfig
 }
 func (UnimplementedMsgServer) UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateChainConfig not implemented")
+}
+func (UnimplementedMsgServer) AddTokenConfig(context.Context, *MsgAddTokenConfig) (*MsgAddTokenConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddTokenConfig not implemented")
+}
+func (UnimplementedMsgServer) UpdateTokenConfig(context.Context, *MsgUpdateTokenConfig) (*MsgUpdateTokenConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTokenConfig not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -168,6 +202,42 @@ func _Msg_UpdateChainConfig_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AddTokenConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAddTokenConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AddTokenConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_AddTokenConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AddTokenConfig(ctx, req.(*MsgAddTokenConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateTokenConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateTokenConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateTokenConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateTokenConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateTokenConfig(ctx, req.(*MsgUpdateTokenConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,6 +256,14 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateChainConfig",
 			Handler:    _Msg_UpdateChainConfig_Handler,
+		},
+		{
+			MethodName: "AddTokenConfig",
+			Handler:    _Msg_AddTokenConfig_Handler,
+		},
+		{
+			MethodName: "UpdateTokenConfig",
+			Handler:    _Msg_UpdateTokenConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -15,52 +15,52 @@ func TestBlockConfirmation_ValidateBasic(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "valid - fast < slow",
+			name: "valid - fast < standard",
 			config: types.BlockConfirmation{
-				FastInbound: 3,
-				SlowInbound: 10,
+				FastInbound:     3,
+				StandardInbound: 10,
 			},
 			expectErr: false,
 		},
 		{
-			name: "valid - fast == slow",
+			name: "valid - fast == standard",
 			config: types.BlockConfirmation{
-				FastInbound: 5,
-				SlowInbound: 5,
+				FastInbound:     5,
+				StandardInbound: 5,
 			},
 			expectErr: false,
 		},
 		{
-			name: "valid - fast = 0, slow > 0",
+			name: "valid - fast = 0, standard > 0",
 			config: types.BlockConfirmation{
-				FastInbound: 0,
-				SlowInbound: 5,
+				FastInbound:     0,
+				StandardInbound: 5,
 			},
 			expectErr: false,
 		},
 		{
-			name: "invalid - fast > slow (slow = 0)",
+			name: "invalid - fast > standard (standard = 0)",
 			config: types.BlockConfirmation{
-				FastInbound: 2,
-				SlowInbound: 0,
+				FastInbound:     2,
+				StandardInbound: 0,
 			},
 			expectErr: true,
-			errMsg:    "fast_inbound cannot be greater than slow_inbound confirmations",
+			errMsg:    "fast_inbound cannot be greater than standard_inbound confirmations",
 		},
 		{
-			name: "invalid - fast > slow",
+			name: "invalid - fast > standard",
 			config: types.BlockConfirmation{
-				FastInbound: 10,
-				SlowInbound: 5,
+				FastInbound:     10,
+				StandardInbound: 5,
 			},
 			expectErr: true,
-			errMsg:    "fast_inbound cannot be greater than slow_inbound confirmations",
+			errMsg:    "fast_inbound cannot be greater than standard_inbound confirmations",
 		},
 		{
 			name: "valid - both zero",
 			config: types.BlockConfirmation{
-				FastInbound: 0,
-				SlowInbound: 0,
+				FastInbound:     0,
+				StandardInbound: 0,
 			},
 			expectErr: false,
 		},

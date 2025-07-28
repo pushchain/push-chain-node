@@ -61,7 +61,7 @@ message BlockConfirmation {
   option (gogoproto.goproto_stringer) = false;
 
 	uint32 fast_inbound = 1; // fast number of confirmations, for faster executions in inbound
-	uint32 slow_inbound = 2; // slow confirmations, for secure executions
+	uint32 standard_inbound = 2; // standard confirmations, for secure executions
 }
 
 // ChainConfig defines the configuration for a supported source or destination chain

@@ -19,8 +19,8 @@ func (p BlockConfirmation) String() string {
 
 // ValidateBasic performs sanity checks on the BlockConfirmation
 func (p BlockConfirmation) ValidateBasic() error {
-	if p.FastInbound > p.SlowInbound {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "fast_inbound cannot be greater than slow_inbound confirmations")
+	if p.FastInbound > p.StandardInbound {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "fast_inbound cannot be greater than standard_inbound confirmations")
 	}
 
 	return nil

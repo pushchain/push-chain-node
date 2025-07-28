@@ -5,7 +5,7 @@
   "gateway_address": "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
   "block_confirmation": {
     "fast_inbound": 5,
-    "slow_inbound": 12
+    "standard_inbound": 12
   },
   "gateway_methods": [
     {

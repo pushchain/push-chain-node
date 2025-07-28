@@ -17,8 +17,8 @@ func TestMsgAddChainConfig_ValidateBasic(t *testing.T) {
 		PublicRpcUrl:   "https://mainnet.infura.io/v3/123",
 		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
 		BlockConfirmation: &types.BlockConfirmation{
-			FastInbound: 3,
-			SlowInbound: 12,
+			FastInbound:     3,
+			StandardInbound: 12,
 		},
 		GatewayMethods: []*types.GatewayMethods{
 			{

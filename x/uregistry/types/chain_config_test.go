@@ -14,8 +14,8 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 		EventIdentifier: "7f1f6cffbb134644",
 	}
 	validBlockConfirmation := &types.BlockConfirmation{
-		FastInbound: 3,
-		SlowInbound: 10,
+		FastInbound:     3,
+		StandardInbound: 10,
 	}
 
 	tests := []struct {

@@ -65,8 +65,8 @@ func TestMsgServer_AddChainConfig(t *testing.T) {
 		PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
 		BlockConfirmation: &types.BlockConfirmation{
-			FastInbound: 3,
-			SlowInbound: 6,
+			FastInbound:     3,
+			StandardInbound: 6,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
 		Enabled:        true,
@@ -113,8 +113,8 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 		PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
 		BlockConfirmation: &types.BlockConfirmation{
-			FastInbound: 3,
-			SlowInbound: 6,
+			FastInbound:     3,
+			StandardInbound: 6,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
 		Enabled:        true,
@@ -126,8 +126,8 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 		PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
 		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
 		BlockConfirmation: &types.BlockConfirmation{
-			FastInbound: 2,
-			SlowInbound: 8,
+			FastInbound:     2,
+			StandardInbound: 8,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
 		Enabled:        true,

@@ -60,9 +60,9 @@ func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, m
 }
 
 // DerivedEVMCall mocks base method.
-func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, contract common.Address, value *big.Int, commit, gasless bool, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
+func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, contract common.Address, value, gasLimit *big.Int, commit, gasless bool, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, abi, from, contract, value, commit, gasless, method}
+	varargs := []interface{}{ctx, abi, from, contract, value, gasLimit, commit, gasless, method}
 	for _, a := range args {
 		varargs = append(varargs, a)
 	}

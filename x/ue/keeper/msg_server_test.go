@@ -123,7 +123,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(receipt, errors.New("unable to deploy UEA"))
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -148,7 +148,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(receipt, nil)
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)

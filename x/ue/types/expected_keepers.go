@@ -11,7 +11,13 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
+
+// UregistryKeeper defines the expected interface for the UE module.
+type UregistryKeeper interface {
+	GetChainConfig(ctx context.Context, chain string) (uregistrytypes.ChainConfig, error)
+}
 
 // EVMKeeper defines the expected interface for the EVM module.
 type EVMKeeper interface {

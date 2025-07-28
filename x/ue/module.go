@@ -48,6 +48,7 @@ type AppModule struct {
 	feemarketKeeper types.FeeMarketKeeper
 	bankKeeper      types.BankKeeper
 	accountKeeper   types.AccountKeeper
+	uregistryKeeper types.UregistryKeeper
 	utvKeeper       types.UtvKeeper
 }
 
@@ -59,6 +60,7 @@ func NewAppModule(
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
+	uregistryKeeper types.UregistryKeeper,
 	utvKeeper types.UtvKeeper,
 ) *AppModule {
 	return &AppModule{
@@ -68,6 +70,7 @@ func NewAppModule(
 		feemarketKeeper: feemarketKeeper,
 		bankKeeper:      bankKeeper,
 		accountKeeper:   accountKeeper,
+		uregistryKeeper: uregistryKeeper,
 		utvKeeper:       utvKeeper,
 	}
 }

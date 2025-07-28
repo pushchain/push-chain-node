@@ -175,8 +175,8 @@ import (
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 	uregistry "github.com/rollchains/pchain/x/uregistry"
-	registrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
-	registrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	utv "github.com/rollchains/pchain/x/utv"
 	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 	utvtypes "github.com/rollchains/pchain/x/utv/types"
@@ -322,7 +322,7 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UeKeeper                  uekeeper.Keeper
 	UtvKeeper                 utvkeeper.Keeper
-	RegistryKeeper            registrykeeper.Keeper
+	UregistryKeeper           uregistrykeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -437,7 +437,7 @@ func NewChainApp(
 		erc20types.StoreKey,
 		uetypes.StoreKey,
 		utvtypes.StoreKey,
-		registrytypes.StoreKey,
+		uregistrytypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -687,14 +687,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the uregistry Keeper
-	app.RegistryKeeper = registrykeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[registrytypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -731,6 +723,14 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
+	// Create the uregistry Keeper
+	app.UregistryKeeper = uregistrykeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[uregistrytypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
 	// Create the ue Keeper
 	app.UeKeeper = uekeeper.NewKeeper(
 		appCodec,
@@ -741,6 +741,7 @@ func NewChainApp(
 		app.FeeMarketKeeper,
 		app.BankKeeper,
 		app.AccountKeeper,
+		app.UregistryKeeper,
 		&app.UtvKeeper,
 	)
 
@@ -750,7 +751,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UeKeeper,
+		app.UregistryKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1036,9 +1037,9 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
-		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
-		uregistry.NewAppModule(appCodec, app.RegistryKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtvKeeper),
+		utv.NewAppModule(appCodec, app.UtvKeeper, app.UregistryKeeper),
+		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1087,7 +1088,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1111,7 +1112,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1162,7 +1163,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1630,7 +1631,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uetypes.ModuleName)
 	paramsKeeper.Subspace(utvtypes.ModuleName)
-	paramsKeeper.Subspace(registrytypes.ModuleName)
+	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 
 	return paramsKeeper
 }

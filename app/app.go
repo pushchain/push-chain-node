@@ -173,8 +173,8 @@ import (
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	uregistry "github.com/rollchains/pchain/x/uregistry"
-	registrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
-	registrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -317,7 +317,7 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UexecutorKeeper           uexecutorkeeper.Keeper
 	UtxverifierKeeper         utxverifierkeeper.Keeper
-	RegistryKeeper            registrykeeper.Keeper
+	UregistryKeeper           uregistrykeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -431,8 +431,8 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		uexecutortypes.StoreKey,
-		utxverifiertypes.StoreKey,
-		registrytypes.StoreKey,
+		uutxverifiertypes.StoreKey,
+		uu.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -682,14 +682,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the uregistry Keeper
-	app.RegistryKeeper = registrykeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[registrytypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -726,6 +718,14 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
+	// Create the uregistry Keeper
+	app.UregistryKeeper = uregistrykeeper.NewKeeper(
+		appCodec,
+u		runtime.NewKVStoreService(keys[uu.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
 	// Create the ue Keeper
 	app.UexecutorKeeper = uexecutorkeeper.NewKeeper(
 		appCodec,
@@ -736,6 +736,7 @@ func NewChainApp(
 		app.FeeMarketKeeper,
 		app.BankKeeper,
 		app.AccountKeeper,
+		app.UregistryKeeper,
 		&app.UtxverifierKeeper,
 	)
 
@@ -745,7 +746,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UexecutorKeeper,
+		app.UregistryKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1031,9 +1032,9 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
-		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
-		uregistry.NewAppModule(appCodec, app.RegistryKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper),
+		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
+		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1082,7 +1083,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1106,7 +1107,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1157,7 +1158,7 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
-		registrytypes.ModuleName,
+		uregistrytypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1603,7 +1604,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uexecutortypes.ModuleName)
 	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
-	paramsKeeper.Subspace(registrytypes.ModuleName)
+	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 
 	return paramsKeeper
 }

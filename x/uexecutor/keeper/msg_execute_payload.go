@@ -20,7 +20,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
-	chainConfig, err := k.GetChainConfig(sdkCtx, caip2Identifier)
+	chainConfig, err := k.uregistryKeeper.GetChainConfig(sdkCtx, caip2Identifier)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
 	}

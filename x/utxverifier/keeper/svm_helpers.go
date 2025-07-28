@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
-	"github.com/pushchain/push-chain-node/utils/rpc"
-	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
+	"github.com/rollchains/pchain/utils/rpc"
+	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	utxverifiertypes "github.com/rollchains/pchain/x/utxverifier/types"
 )
 
 func IsValidSVMSender(accountKeys []string, expectedHex string) (string, error) {
@@ -49,7 +49,7 @@ func compareSVMAddresses(addr1, addr2 string) bool {
 func IsValidSVMAddFundsInstruction(
 	instructions []svmrpc.Instruction,
 	accountKeys []string,
-	chainConfig uexecutortypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) error {
 	for _, inst := range instructions {
 		if inst.ProgramIDIndex < 0 || inst.ProgramIDIndex >= len(accountKeys) {
@@ -75,7 +75,7 @@ func IsValidSVMAddFundsInstruction(
 
 		var expected []byte
 		for _, method := range chainConfig.GatewayMethods {
-			if method.Name == uexecutortypes.METHOD.SVM.AddFunds {
+			if method.Name == uregistrytypes.GATEWAY_METHOD.SVM.AddFunds {
 				var err error
 				expected, err = hex.DecodeString(method.Identifier)
 				if err != nil {

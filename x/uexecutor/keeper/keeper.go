@@ -21,15 +21,14 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	storeService storetypes.KVStoreService
-	Params       collections.Item[types.Params]
-	ChainConfigs collections.Map[string, types.ChainConfig]
-
+	storeService      storetypes.KVStoreService
+	Params            collections.Item[types.Params]
 	authority         string
 	evmKeeper         types.EVMKeeper
 	feemarketKeeper   types.FeeMarketKeeper
 	bankKeeper        types.BankKeeper
 	accountKeeper     types.AccountKeeper
+	uregistryKeeper   types.UregistryKeeper
 	utxverifierKeeper types.UtxverifierKeeper
 }
 
@@ -43,6 +42,7 @@ func NewKeeper(
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
+	uregistryKeeper types.UregistryKeeper,
 	utxverifierKeeper types.UtxverifierKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
@@ -58,13 +58,13 @@ func NewKeeper(
 		logger:       logger,
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
-		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 
 		authority:         authority,
 		evmKeeper:         evmKeeper,
 		feemarketKeeper:   feemarketKeeper,
 		bankKeeper:        bankKeeper,
 		accountKeeper:     accountKeeper,
+		uregistryKeeper:   uregistryKeeper,
 		utxverifierKeeper: utxverifierKeeper,
 	}
 
@@ -98,20 +98,4 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params: params,
 	}
-}
-
-func (k Keeper) GetChainConfig(ctx context.Context, chain string) (types.ChainConfig, error) {
-	config, err := k.ChainConfigs.Get(ctx, chain)
-	if err != nil {
-		return types.ChainConfig{}, err
-	}
-	return config, nil
-}
-
-func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) {
-	enabled, err := k.ChainConfigs.Has(ctx, chain)
-	if err != nil {
-		return false, err
-	}
-	return enabled, nil
 }

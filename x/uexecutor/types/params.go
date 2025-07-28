@@ -6,8 +6,9 @@ import (
 
 // DefaultParams returns default module parameters.
 func DefaultParams() Params {
+	// TODO:
 	return Params{
-		Admin: "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a",
+		SomeValue: true,
 	}
 }
 
@@ -22,6 +23,7 @@ func (p Params) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p Params) ValidateBasic() error {
+func (p Params) Validate() error {
+	// TODO:
 	return nil
 }

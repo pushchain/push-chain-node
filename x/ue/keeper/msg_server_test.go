@@ -18,6 +18,7 @@ import (
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	"github.com/rollchains/pchain/x/ue/types"
 	ue "github.com/rollchains/pchain/x/ue/types"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 func TestParams(t *testing.T) {
@@ -360,6 +361,9 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			UniversalPayload:   validUP,
 			VerificationData:   "test-signature",
 		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(uregistrytypes.ChainConfig{}, errors.New("failed to get chain config for chain eip155:11155111"))
+
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
 	})
@@ -373,17 +377,20 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			VerificationData:   "test-signature",
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
 
@@ -406,17 +413,21 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Ret: padded,
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		// f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
@@ -452,17 +463,20 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Ret: padded,
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 

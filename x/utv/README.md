@@ -1,6 +1,6 @@
 # Universal Transaction Verification (UTV) Module
 
-This is a UTV (Universal Transaction Verification) module, built using [`spawn`](https://github.com/rollchains/spawn).
+The **Universal Transaction Verification (UTV)** module verifies cross-chain transactions before execution, ensuring trust and correctness in universal workflows.
 
 ## Responsibilities
 
@@ -10,4 +10,4 @@ This is a UTV (Universal Transaction Verification) module, built using [`spawn`]
 
 ## Overview
 
-The UTV module acts as the verification layer in a universal system, ensuring the authenticity of transactions before execution on the destination chain.
+The UTV module acts as the verification layer in a universal system, ensuring the authenticity of transactions before execution on the Push chain.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
@@ -26,9 +26,9 @@ func compareEVMAddr(actualAddr, expectedAddr string) bool {
 }
 
 // isEVMTxCallingAddFunds checks if the txInput is of a addFunds fn
-func isEVMTxCallingAddFunds(txInput string, chainConfig uetypes.ChainConfig) (bool, string) {
+func isEVMTxCallingAddFunds(txInput string, chainConfig uregistrytypes.ChainConfig) (bool, string) {
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == uetypes.METHOD.EVM.AddFunds {
+		if method.Name == uregistrytypes.GATEWAY_METHOD.EVM.AddFunds {
 			selector := method.Identifier
 			if strings.HasPrefix(txInput, selector) {
 				return true, selector

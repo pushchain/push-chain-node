@@ -69,10 +69,11 @@ type testFixture struct {
 	govModAddr string
 	evmAddrs   []common.Address
 
-	ctrl           *gomock.Controller
-	mockBankKeeper *mocks.MockBankKeeper
-	mockUTVKeeper  *mocks.MockUtvKeeper
-	mockEVMKeeper  *mocks.MockEVMKeeper
+	ctrl                *gomock.Controller
+	mockBankKeeper      *mocks.MockBankKeeper
+	mockUTVKeeper       *mocks.MockUtvKeeper
+	mockEVMKeeper       *mocks.MockEVMKeeper
+	mockUregistryKeeper *mocks.MockUregistryKeeper
 }
 
 func SetupTest(t *testing.T) *testFixture {
@@ -85,6 +86,7 @@ func SetupTest(t *testing.T) *testFixture {
 	f.mockBankKeeper = mocks.NewMockBankKeeper(f.ctrl)
 	f.mockUTVKeeper = mocks.NewMockUtvKeeper(f.ctrl)
 	f.mockEVMKeeper = mocks.NewMockEVMKeeper(f.ctrl)
+	f.mockUregistryKeeper = mocks.NewMockUregistryKeeper(f.ctrl)
 
 	cfg := sdk.GetConfig() // do not seal, more set later
 	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
@@ -116,10 +118,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, f.mockUTVKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUTVKeeper)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, f.mockUTVKeeper)
 
 	return f
 }

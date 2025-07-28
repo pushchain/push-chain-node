@@ -18,6 +18,7 @@ import (
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	"github.com/rollchains/pchain/x/ue/types"
 	ue "github.com/rollchains/pchain/x/ue/types"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 func TestParams(t *testing.T) {
@@ -360,6 +361,9 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			UniversalPayload:   validUP,
 			VerificationData:   "test-signature",
 		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(uregistrytypes.ChainConfig{}, errors.New("failed to get chain config for chain eip155:11155111"))
+
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
 	})
@@ -373,17 +377,20 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			VerificationData:   "test-signature",
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
 
@@ -406,17 +413,21 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Ret: padded,
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		// f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
@@ -452,17 +463,20 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Ret: padded,
 		}
 
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled:        true,
 		}
 
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
 		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
@@ -470,119 +484,4 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		require.ErrorContains(t, err, "invalid verificationData format")
 	})
 
-}
-
-func TestMsgServer_AddChainConfig(t *testing.T) {
-	f := SetupTest(t)
-	validSigner := f.addrs[0]
-
-	chainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 12,
-		GatewayMethods:    []*ue.MethodConfig{},
-		Enabled:           true,
-	}
-	t.Run("Failed to get params", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to get params")
-	})
-
-	t.Run("fail : Invalid authority", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, ue.Params{})
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid authority;")
-	})
-
-	t.Run("success!", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.NoError(t, err) // flag : need to add verify condition
-	})
-
-}
-
-func TestMsgServer_UpdateChainConfig(t *testing.T) {
-	f := SetupTest(t)
-	validSigner := f.addrs[0]
-
-	chainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 12,
-		GatewayMethods:    []*ue.MethodConfig{},
-		Enabled:           true,
-	}
-
-	updatedChainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 14,
-		GatewayMethods:    []*ue.MethodConfig{},
-		Enabled:           true,
-	}
-	t.Run("Failed to get params", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to get params")
-	})
-	t.Run("fail : Invalid authority", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, ue.Params{})
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid authority;")
-	})
-
-	t.Run("fail : config does not exist to update", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "chain config for eip:11155111 does not exist")
-	})
-
-	t.Run("success!", func(t *testing.T) {
-		addConfigMsg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, ue.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.AddChainConfig(f.ctx, addConfigMsg)
-		require.NoError(t, err)
-
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &updatedChainConfigTest,
-		}
-		_, err = f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.NoError(t, err) // flag : need to add verify condition (cross-checking)
-	})
 }

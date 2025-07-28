@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:11155111",
+  "address": "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  "name": "USD Coin",
+  "symbol": "USDC",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1, 
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb49"
+  }
+}

@@ -10,7 +10,7 @@ import (
 )
 
 // Stringer method for Params.
-func (p MethodConfig) String() string {
+func (p GatewayMethods) String() string {
 	bz, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -20,7 +20,7 @@ func (p MethodConfig) String() string {
 }
 
 // Validate does the sanity check on the params.
-func (p MethodConfig) ValidateBasic() error {
+func (p GatewayMethods) ValidateBasic() error {
 	// Name must not be empty
 	if strings.TrimSpace(p.Name) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "method name cannot be empty")

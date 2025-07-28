@@ -27,7 +27,7 @@ type Keeper struct {
 	VerifiedInboundTxs collections.Map[string, types.VerifiedTxMetadata]
 
 	// keepers
-	ueKeeper types.UeKeeper
+	uregistryKeeper types.UregistryKeeper
 
 	authority string
 }
@@ -38,7 +38,7 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
-	ueKeeper types.UeKeeper,
+	uregistryKeeper types.UregistryKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -62,8 +62,8 @@ func NewKeeper(
 			codec.CollValue[types.VerifiedTxMetadata](cdc),
 		),
 
-		authority: authority,
-		ueKeeper:  ueKeeper,
+		authority:       authority,
+		uregistryKeeper: uregistryKeeper,
 	}
 
 	return k
@@ -125,6 +125,6 @@ func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
 }
 
-func (k Keeper) GetUEKeeper() types.UeKeeper {
-	return k.ueKeeper
+func (k Keeper) GetURegistryKeeper() types.UregistryKeeper {
+	return k.uregistryKeeper
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // UpdateChainConfig updates the configuration for a specific chain.

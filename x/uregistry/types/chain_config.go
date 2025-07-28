@@ -40,7 +40,7 @@ func (p ChainConfig) ValidateBasic() error {
 	}
 
 	// Validate vm_type is within known enum range
-	if _, ok := VM_TYPE_name[int32(p.VmType)]; !ok {
+	if _, ok := VmType_name[int32(p.VmType)]; !ok {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid vm_type: %v", p.VmType)
 	}
 
@@ -55,5 +55,5 @@ func (p ChainConfig) ValidateBasic() error {
 		}
 	}
 
-	return nil
+	return p.BlockConfirmation.ValidateBasic()
 }

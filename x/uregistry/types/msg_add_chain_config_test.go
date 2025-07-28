@@ -3,21 +3,24 @@ package types_test
 import (
 	"testing"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
+func TestMsgAddChainConfig_ValidateBasic(t *testing.T) {
 	validSigner := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 	invalidSigner := "invalid_bech32"
 
 	validChainConfig := types.ChainConfig{
-		Chain:             "eip155:1",
-		VmType:            types.VM_TYPE_EVM,
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/123",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 5,
-		GatewayMethods: []*types.MethodConfig{
+		Chain:          "eip155:1",
+		VmType:         types.VmType_EVM,
+		PublicRpcUrl:   "https://mainnet.infura.io/v3/123",
+		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+		BlockConfirmation: &types.BlockConfirmation{
+			FastInbound:     3,
+			StandardInbound: 12,
+		},
+		GatewayMethods: []*types.GatewayMethods{
 			{
 				Name:            "mint",
 				Identifier:      "aabbccdd",
@@ -29,7 +32,7 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 
 	invalidChainConfig := types.ChainConfig{
 		Chain: "", // missing chain field
-		GatewayMethods: []*types.MethodConfig{
+		GatewayMethods: []*types.GatewayMethods{
 			{
 				Name:            "mint",
 				Identifier:      "aabbccdd",
@@ -40,12 +43,12 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		msg       *types.MsgUpdateChainConfig
+		msg       *types.MsgAddChainConfig
 		expectErr bool
 	}{
 		{
 			name: "valid message",
-			msg: &types.MsgUpdateChainConfig{
+			msg: &types.MsgAddChainConfig{
 				Signer:      validSigner,
 				ChainConfig: &validChainConfig,
 			},
@@ -53,7 +56,7 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid signer address",
-			msg: &types.MsgUpdateChainConfig{
+			msg: &types.MsgAddChainConfig{
 				Signer:      invalidSigner,
 				ChainConfig: &validChainConfig,
 			},
@@ -61,7 +64,7 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 		},
 		{
 			name: "invalid chain config",
-			msg: &types.MsgUpdateChainConfig{
+			msg: &types.MsgAddChainConfig{
 				Signer:      validSigner,
 				ChainConfig: &invalidChainConfig,
 			},

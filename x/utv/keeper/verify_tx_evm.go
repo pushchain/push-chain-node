@@ -7,12 +7,12 @@ import (
 	"github.com/rollchains/pchain/utils"
 	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
 // verifyEVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
-func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) error {
+func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) error {
 	_, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
-func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (string, error) {
+func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (string, error) {
 	metadata, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return "", err
@@ -32,7 +32,7 @@ func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash str
 }
 
 // Verifies and extracts locked amount (used in mint)
-func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (*utvtypes.USDValue, error) {
+func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (*utvtypes.USDValue, error) {
 	// Fetch stored metadata
 	metadata, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
@@ -50,7 +50,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Check for valid block confirmations
-	err = CheckEVMBlockConfirmations(ctx, txHash, rpcCfg, chainConfig.BlockConfirmation)
+	err = CheckEVMBlockConfirmations(ctx, txHash, rpcCfg, uint64(chainConfig.BlockConfirmation.FastInbound))
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 func (k Keeper) VerifyEVMInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) (*utvtypes.VerifiedTxMetadata, error) {
 	meta, found, err := k.GetVerifiedInboundTxMetadata(ctx, chainConfig.Chain, txHash)
 	if err != nil {
@@ -92,7 +92,7 @@ func (k Keeper) VerifyEVMInboundTx(
 func (k Keeper) EVMProcessUnverifiedInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) (*utvtypes.VerifiedTxMetadata, error) {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
@@ -137,7 +137,7 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	// Step 3: Extract values from logs
 	eventTopic := ""
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == uetypes.METHOD.EVM.AddFunds {
+		if method.Name == uregistrytypes.GATEWAY_METHOD.EVM.AddFunds {
 			eventTopic = method.EventIdentifier
 			break
 		}

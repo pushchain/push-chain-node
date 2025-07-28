@@ -3,15 +3,19 @@ package types_test
 import (
 	"testing"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestChainConfig_ValidateBasic(t *testing.T) {
-	validMethod := &types.MethodConfig{
+	validMethod := &types.GatewayMethods{
 		Name:            "add_funds",
 		Identifier:      "84ed4c39500ab38a",
 		EventIdentifier: "7f1f6cffbb134644",
+	}
+	validBlockConfirmation := &types.BlockConfirmation{
+		FastInbound:     3,
+		StandardInbound: 10,
 	}
 
 	tests := []struct {
@@ -24,11 +28,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "valid config",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "https://api.devnet.solana.com",
 				GatewayAddress:    "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 				Enabled:           true,
 			},
 			expectErr: false,
@@ -37,11 +41,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - empty chain",
 			config: types.ChainConfig{
 				Chain:             "",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "https://api.devnet.solana.com",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "chain cannot be empty",
@@ -50,11 +54,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - chain missing ':' (not CAIP-2)",
 			config: types.ChainConfig{
 				Chain:             "solana",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "https://api.devnet.solana.com",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "chain must be in CAIP-2 format",
@@ -63,11 +67,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - empty public RPC URL",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "public_rpc_url cannot be empty",
@@ -76,11 +80,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - empty gateway address",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "url",
 				GatewayAddress:    "",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "gateway_address cannot be empty",
@@ -92,8 +96,8 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 				VmType:            -1,
 				PublicRpcUrl:      "url",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "invalid vm_type",
@@ -102,11 +106,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - vm_type out of range",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_OTHER_VM + 1,
+				VmType:            types.VmType_OTHER_VM + 1,
 				PublicRpcUrl:      "url",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{validMethod},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
 			},
 			expectErr: true,
 			errMsg:    "invalid vm_type",
@@ -115,11 +119,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - empty gateway methods",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "url",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods:    []*types.MethodConfig{},
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{},
 			},
 			expectErr: true,
 			errMsg:    "gateway_methods cannot be empty",
@@ -128,11 +132,11 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			name: "invalid - bad method inside gateway_methods",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
-				VmType:            types.VM_TYPE_SVM,
+				VmType:            types.VmType_SVM,
 				PublicRpcUrl:      "url",
 				GatewayAddress:    "addr",
-				BlockConfirmation: 1,
-				GatewayMethods: []*types.MethodConfig{
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods: []*types.GatewayMethods{
 					{
 						Name:            "bad_method",
 						Identifier:      "zzznothex", // invalid

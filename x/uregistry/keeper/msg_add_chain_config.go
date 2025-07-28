@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // addChainConfig is for adding a new chain configuration

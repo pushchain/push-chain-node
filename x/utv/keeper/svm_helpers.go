@@ -15,7 +15,7 @@ import (
 	"github.com/decred/base58"
 	"github.com/rollchains/pchain/utils/rpc"
 	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
@@ -49,7 +49,7 @@ func compareSVMAddresses(addr1, addr2 string) bool {
 func IsValidSVMAddFundsInstruction(
 	instructions []svmrpc.Instruction,
 	accountKeys []string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) error {
 	for _, inst := range instructions {
 		if inst.ProgramIDIndex < 0 || inst.ProgramIDIndex >= len(accountKeys) {
@@ -75,7 +75,7 @@ func IsValidSVMAddFundsInstruction(
 
 		var expected []byte
 		for _, method := range chainConfig.GatewayMethods {
-			if method.Name == uetypes.METHOD.SVM.AddFunds {
+			if method.Name == uregistrytypes.GATEWAY_METHOD.SVM.AddFunds {
 				var err error
 				expected, err = hex.DecodeString(method.Identifier)
 				if err != nil {

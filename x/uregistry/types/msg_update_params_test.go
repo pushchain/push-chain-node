@@ -3,7 +3,7 @@ package types_test
 import (
 	"testing"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 

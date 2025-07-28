@@ -1,9 +1,12 @@
 {
   "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
   "public_rpc_url": "https://api.devnet.solana.com",
-  "vm_type": 1,
+  "vm_type": 2,
   "gateway_address": "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
-  "block_confirmation": 0,
+  "block_confirmation": {
+    "fast_inbound": 5,
+    "standard_inbound": 12
+  },
   "gateway_methods": [
     {
       "name": "add_funds",

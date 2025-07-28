@@ -337,7 +337,7 @@ sh-testnet: mod-tidy
 
 sh-testnet-dual: mod-tidy
 	@echo "Starting pchaind and puniversald in parallel with separate configs and logs."
-	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" HOME_DIR="$$HOME/.pchain_pchaind" RPC=26657 REST=1317 PROFF=6060 P2P=26656 GRPC=9090 GRPC_WEB=9091 ROSETTA=8080 CLEAN=true BINARY=pchaind sh scripts/test_node.sh > pchaind.log 2>&1 &
+	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh > pchaind.log 2>&1 &
 	HOME_DIR="$$HOME/.puniversal" CLEAN=true sh scripts/puniversal.sh > puniversald.log 2>&1 &
 	sleep 3
 	@echo "Tailing logs for both nodes..."

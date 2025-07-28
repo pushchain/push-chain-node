@@ -10,8 +10,6 @@ import (
 const (
 	configSubdir   = "config"
 	configFileName = "pushuv_config.json"
-	dbSubdir       = "data"
-	dbFilename     = "pushuv.db"
 )
 
 func validateConfig(cfg *Config) error {
@@ -30,12 +28,12 @@ func validateConfig(cfg *Config) error {
 }
 
 // Save writes the given config to <NodeDir>/config/pushuv_config.json.
-func Save(cfg *Config) error {
+func Save(cfg *Config, basePath string) error {
 	if err := validateConfig(cfg); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
-	configDir := filepath.Join(cfg.NodeDir, configSubdir)
+	configDir := filepath.Join(basePath, configSubdir)
 	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -52,9 +50,9 @@ func Save(cfg *Config) error {
 	return nil
 }
 
-// Load reads and returns the config from <NodeDir>/config/pushuv_config.json.
-func Load(nodeDir string) (Config, error) {
-	configFile := filepath.Join(nodeDir, configSubdir, configFileName)
+// Load reads and returns the config from <BasePath>/config/pushuv_config.json.
+func Load(basePath string) (Config, error) {
+	configFile := filepath.Join(basePath, configSubdir, configFileName)
 	data, err := os.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to read config file: %w", err)
@@ -64,7 +62,5 @@ func Load(nodeDir string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
-
-	cfg.NodeDir = nodeDir // Ensure NodeDir is set if missing
 	return cfg, nil
 }

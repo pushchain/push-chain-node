@@ -2,28 +2,31 @@ package core
 
 import (
 	"context"
-	"log/slog"
+
+	"github.com/rollchains/pchain/universalClient/db"
+	"github.com/rs/zerolog"
 )
 
 type UniversalClient struct {
 	ctx context.Context
-	log *slog.Logger
+	log zerolog.Logger
+	db  *db.DB
 }
 
-func NewUniversalClient(ctx context.Context, log *slog.Logger) *UniversalClient {
+func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB) *UniversalClient {
 	return &UniversalClient{
 		ctx: ctx,
 		log: log,
+		db:  db,
 	}
 }
 
 func (uc *UniversalClient) Start() error {
-	uc.log.Info("🚀 Starting universal client...")
-	uc.log.Info("✅ Initialization complete. Entering main loop...")
+	uc.log.Info().Msg("🚀 Starting universal client...")
+	uc.log.Info().Msg("✅ Initialization complete. Entering main loop...")
 
-	// Block forever (or until context is canceled)
 	<-uc.ctx.Done()
 
-	uc.log.Info("🛑 Shutting down universal client...")
-	return nil
+	uc.log.Info().Msg("🛑 Shutting down universal client...")
+	return uc.db.Close()
 }

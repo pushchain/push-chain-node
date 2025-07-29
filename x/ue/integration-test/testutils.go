@@ -1,6 +1,7 @@
 package integrationtest
 
 import (
+	"fmt"
 	"testing"
 
 	log "cosmossdk.io/log"
@@ -39,6 +40,14 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 
 	err = app.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", addr, coins)
 	require.NoError(t, err)
+
+	addr_cosmos := sdk.MustAccAddressFromBech32("cosmos18pjnzwr9xdnx2vnpv5mxywfnv56xxef5cludl5")
+
+	acc_cosmos := app.AccountKeeper.NewAccountWithAddress(ctx, addr_cosmos)
+	app.AccountKeeper.SetAccount(ctx, acc_cosmos)
+
+	acc_all := app.AccountKeeper.GetAllAccounts(ctx)
+	fmt.Println(acc_all)
 
 	return app, ctx, acc
 }

@@ -7,21 +7,14 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/os/x/evm/statedb"
-	"github.com/evmos/os/x/evm/types"
 )
 
 // EVMKeeper defines the expected interface for the EVM module.
 type EVMKeeper interface {
-	CallEVMWithData(
-		ctx sdk.Context,
-		from common.Address,
-		contract *common.Address,
-		data []byte,
-		commit bool,
-	) (*types.MsgEthereumTxResponse, error)
 	CallEVM(
 		ctx sdk.Context,
 		abi abi.ABI,
@@ -33,6 +26,15 @@ type EVMKeeper interface {
 	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	SetCode(ctx sdk.Context, codeHash, code []byte)
+	DerivedEVMCall(
+		ctx sdk.Context,
+		abi abi.ABI,
+		from, contract common.Address,
+		value, gasLimit *big.Int,
+		commit, gasless bool,
+		method string,
+		args ...interface{},
+	) (*types.MsgEthereumTxResponse, error)
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.
@@ -67,6 +69,11 @@ type BankKeeper interface {
 		moduleName string,
 		amt sdk.Coins,
 	) error
+}
+
+// AccountKeeper defines the expected interface for the auth module
+type AccountKeeper interface {
+	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
 }
 
 // UtvKeeper defines the expected interface for the UTV module.

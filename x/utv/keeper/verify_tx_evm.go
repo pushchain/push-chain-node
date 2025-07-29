@@ -2,55 +2,98 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
-	"math/big"
-	"strings"
 
 	"github.com/rollchains/pchain/utils"
 	"github.com/rollchains/pchain/utils/rpc"
 	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	"github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/rollchains/pchain/x/ue/types"
+	utvtypes "github.com/rollchains/pchain/x/utv/types"
 )
 
 // verifyEVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
-func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) error {
-	rpcCfg := rpc.RpcCallConfig{
-		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
-		PublicRPC:  chainConfig.PublicRpcUrl,
-	}
-
-	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
+func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) error {
+	_, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
-		return fmt.Errorf("failed to fetch transaction: %w", err)
-	}
-
-	// Normalize addresses for comparison
-	from := NormalizeAddress(tx.From)
-	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
-
-	// Check if tx.From matches ownerKey
-	if from != expectedFrom {
-		return fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
-	}
-
-	// Check if tx.To matches gateway address
-	if !didSendToGateway(tx.To, expectedTo) {
-		return fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
-	}
-
-	// Check if transaction is calling addFunds method
-	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
-	if !ok {
-		return fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
+		return err
 	}
 
 	return nil
 }
 
+// verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
+func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (string, error) {
+	metadata, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
+	if err != nil {
+		return "", err
+	}
+
+	return metadata.PayloadHash, err
+}
+
 // Verifies and extracts locked amount (used in mint)
-func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig types.ChainConfig) (big.Int, uint32, error) {
+func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (*utvtypes.USDValue, error) {
+	// Fetch stored metadata
+	metadata, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if already minted
+	if metadata.Minted {
+		return nil, fmt.Errorf("tokens already minted for txHash %s on chain %s", txHash, chainConfig.Chain)
+	}
+
+	rpcCfg := rpc.RpcCallConfig{
+		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
+		PublicRPC:  chainConfig.PublicRpcUrl,
+	}
+
+	// Check for valid block confirmations
+	err = CheckEVMBlockConfirmations(ctx, txHash, rpcCfg, chainConfig.BlockConfirmation)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mutate the original metadata
+	metadata.Minted = true
+
+	// Step 4: Mutate Minted to true in the stored metadata
+	err = k.StoreVerifiedInboundTx(ctx, chainConfig.Chain, txHash, *metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return metadata.UsdValue, nil
+}
+
+func (k Keeper) VerifyEVMInboundTx(
+	ctx context.Context,
+	ownerKey, txHash string,
+	chainConfig uetypes.ChainConfig,
+) (*utvtypes.VerifiedTxMetadata, error) {
+	meta, found, err := k.GetVerifiedInboundTxMetadata(ctx, chainConfig.Chain, txHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
+	}
+
+	if found {
+		ok := compareEVMAddr(meta.Sender, ownerKey)
+		if !ok {
+			return nil, fmt.Errorf("ownerKey and sender of the tx mismatched: expected %s, got %s", meta.Sender, ownerKey)
+		}
+		return meta, nil
+	}
+
+	// If not found, perform verification
+	return k.EVMProcessUnverifiedInboundTx(ctx, ownerKey, txHash, chainConfig)
+}
+
+func (k Keeper) EVMProcessUnverifiedInboundTx(
+	ctx context.Context,
+	ownerKey, txHash string,
+	chainConfig uetypes.ChainConfig,
+) (*utvtypes.VerifiedTxMetadata, error) {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 		PublicRPC:  chainConfig.PublicRpcUrl,
@@ -59,139 +102,71 @@ func (k Keeper) verifyEVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	// Step 1: Fetch transaction receipt
 	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
 	if err != nil {
-		return *big.NewInt(0), 0, fmt.Errorf("fetch receipt failed: %w", err)
+		return nil, fmt.Errorf("fetch receipt failed: %w", err)
 	}
 
-	// Step 2: Verify transaction details
+	// Step 2: Fetch transaction details
 	tx, err := evmrpc.EVMGetTransactionByHash(ctx, rpcCfg, txHash)
 	if err != nil {
-		return *big.NewInt(0), 0, fmt.Errorf("failed to fetch transaction: %w", err)
+		return nil, fmt.Errorf("failed to fetch transaction: %w", err)
 	}
 
 	// Normalize addresses for comparison
-	from := NormalizeAddress(receipt.From)
-	to := NormalizeAddress(receipt.To)
-	expectedFrom := NormalizeAddress(ownerKey)
-	expectedTo := NormalizeAddress(chainConfig.GatewayAddress)
+	from := NormalizeEVMAddress(receipt.From)
+	to := NormalizeEVMAddress(receipt.To)
+	expectedFrom := NormalizeEVMAddress(ownerKey)
+	expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
 
-	if from != expectedFrom {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction sender %s does not match ownerKey %s", receipt.From, expectedFrom)
+	// INPUT CHECKS
+	// Check 1: Verify if ownerKey is Valid From address
+	if !compareEVMAddr(from, expectedFrom) {
+		return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
 	}
 
-	// Check if tx.To matches gateway address
-	if !didSendToGateway(to, expectedTo) {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction recipient %s is not gateway address %s", receipt.To, expectedTo)
+	// Check 2: Verify if tx.To is Valid gateway address
+	if !isValidEVMGateway(to, expectedTo) {
+		return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
 	}
 
-	// Check if transaction is calling addFunds method
-	ok, selector := isCallingAddFunds(tx.Input, chainConfig)
+	// Check 3: Verify if transaction is calling addFunds method
+	ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
 	if !ok {
-		return *big.NewInt(0), 0, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
+		return nil, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
 	}
 
-	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
-	if !ok {
-		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
-	}
-
-	// Get latest block number
-	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcCfg, "latest", false)
-	if err != nil {
-		return *big.NewInt(0), 0, fmt.Errorf("fetch latest block failed: %w", err)
-	}
-	latestBlockNum, ok := new(big.Int).SetString(latestBlock.Number[2:], 16)
-	if !ok {
-		return *big.NewInt(0), 0, fmt.Errorf("invalid block number in latest block: %s", latestBlock.Number)
-	}
-
-	confirmations := new(big.Int).Sub(latestBlockNum, txBlockNum)
-	required := big.NewInt(int64(chainConfig.BlockConfirmation))
-	if confirmations.Cmp(required) < 0 {
-		return *big.NewInt(0), 0, fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), chainConfig.BlockConfirmation)
-	}
-
-	// Step 3: Extract amount from logs
+	// Step 3: Extract values from logs
 	eventTopic := ""
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == types.METHOD.EVM.AddFunds {
+		if method.Name == uetypes.METHOD.EVM.AddFunds {
 			eventTopic = method.EventIdentifier
 			break
 		}
 	}
 	if eventTopic == "" {
-		return *big.NewInt(0), 0, fmt.Errorf("addFunds method not found in gateway methods")
+		return nil, fmt.Errorf("addFunds method not found in gateway methods")
 	}
-	amount, decimals, err := extractAmountFromLogs(receipt.Logs, eventTopic)
+
+	fundsAddedEventLogs, err := ParseEVMFundsAddedEventLogs(receipt.Logs, eventTopic)
 	if err != nil {
-		return *big.NewInt(0), 0, fmt.Errorf("amount extract failed: %w", err)
+		return nil, fmt.Errorf("amount extract failed: %w", err)
 	}
 
-	return amount, decimals, nil
-}
-
-// didSendToGateway checks if tx.To equals gateway address
-func didSendToGateway(toAddress string, gatewayAddress string) bool {
-	return NormalizeAddress(toAddress) == gatewayAddress
-}
-
-func isCallingAddFunds(txInput string, chainConfig types.ChainConfig) (bool, string) {
-	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == types.METHOD.EVM.AddFunds {
-			selector := method.Identifier
-			if strings.HasPrefix(txInput, selector) {
-				return true, selector
-			}
-			return false, selector
-		}
-	}
-	return false, ""
-}
-
-// NormalizeAddress returns a lowercase hex address without 0x prefix
-func NormalizeAddress(addr string) string {
-	return strings.ToLower(addr)
-}
-
-// extractAmountFromLogs parses logs to extract the locked amount using the given event topic
-func extractAmountFromLogs(logs []interface{}, expectedTopic string) (big.Int, uint32, error) {
-	expectedTopic = strings.ToLower(expectedTopic)
-
-	for _, rawLog := range logs {
-		logMap, ok := rawLog.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		// Match the expected event topic
-		topics, ok := logMap["topics"].([]interface{})
-		if !ok || len(topics) == 0 {
-			continue
-		}
-
-		topic0, ok := topics[0].(string)
-		if !ok || strings.ToLower(topic0) != expectedTopic {
-			continue
-		}
-
-		// Get data and decode
-		dataHex, ok := logMap["data"].(string)
-		if !ok || !strings.HasPrefix(dataHex, "0x") {
-			continue
-		}
-
-		dataBytes, err := hex.DecodeString(dataHex[2:])
-		if err != nil || len(dataBytes) < 64 {
-			return *big.NewInt(0), 0, err
-		}
-
-		// First 32 bytes: amountInUSD
-		amount := new(big.Int).SetBytes(dataBytes[:32])
-
-		// Second 32 bytes: decimals (only last byte relevant)
-		decimals := uint32(uint8(dataBytes[63]))
-
-		return *amount, decimals, nil
+	metadata := utvtypes.VerifiedTxMetadata{
+		Minted:      false,
+		PayloadHash: fundsAddedEventLogs.PayloadHash,
+		UsdValue: &utvtypes.USDValue{
+			Amount:   fundsAddedEventLogs.AmountInUSD.String(),
+			Decimals: fundsAddedEventLogs.Decimals,
+		},
+		Sender: ownerKey,
 	}
 
-	return *big.NewInt(0), 0, fmt.Errorf("amount not found with expected topic %s", expectedTopic)
+	// Step 4: Store verified inbound tx in storage
+	err = k.StoreVerifiedInboundTx(ctx, chainConfig.Chain, txHash, metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 5: Return the metadata
+	return &metadata, nil
 }

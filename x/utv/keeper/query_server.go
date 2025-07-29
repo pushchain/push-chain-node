@@ -30,24 +30,28 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 	return &types.QueryParamsResponse{Params: &p}, nil
 }
 
-// VerifiedTx returns if the txHash has already been verified on the chain.
+// VerifiedTxHash returns the verified metadata (if any) for a given txHash on a chain.
 func (q Querier) VerifiedTxHash(
 	goCtx context.Context,
 	req *types.QueryVerifiedTxHashRequest,
 ) (*types.QueryVerifiedTxHashResponse, error) {
 	if req.Chain == "" || req.TxHash == "" {
-		return nil, fmt.Errorf("chain_id and tx_hash are required")
+		return nil, fmt.Errorf("chain and tx_hash are required")
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	// check verification status
-	isVerified, err := q.Keeper.IsTxHashVerified(ctx, req.Chain, req.TxHash)
+	meta, found, err := q.Keeper.GetVerifiedInboundTxMetadata(ctx, req.Chain, req.TxHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.QueryVerifiedTxHashResponse{
-		Status: isVerified,
-	}, nil
+	resp := &types.QueryVerifiedTxHashResponse{
+		Found: found,
+	}
+	if found {
+		resp.Metadata = meta
+	}
+
+	return resp, nil
 }

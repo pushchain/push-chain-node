@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -18,11 +19,12 @@ import (
 type Keeper struct {
 	cdc codec.BinaryCodec
 
-	logger log.Logger
+	logger        log.Logger
+	schemaBuilder *collections.SchemaBuilder
 
 	// state management
-	Params      collections.Item[types.Params]
-	VerifiedTxs collections.Map[string, bool]
+	Params             collections.Item[types.Params]
+	VerifiedInboundTxs collections.Map[string, types.VerifiedTxMetadata]
 
 	// keepers
 	ueKeeper types.UeKeeper
@@ -47,11 +49,18 @@ func NewKeeper(
 	}
 
 	k := Keeper{
-		cdc:    cdc,
-		logger: logger,
+		cdc:           cdc,
+		logger:        logger,
+		schemaBuilder: sb,
 
-		Params:      collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
-		VerifiedTxs: collections.NewMap(sb, types.VerifiedTxsKeyPrefix, types.VerifiedTxsName, collections.StringKey, collections.BoolValue),
+		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		VerifiedInboundTxs: collections.NewMap(
+			sb,
+			types.VerifiedInboundTxsKeyPrefix,
+			types.VerifiedInboundTxsName,
+			collections.StringKey,
+			codec.CollValue[types.VerifiedTxMetadata](cdc),
+		),
 
 		authority: authority,
 		ueKeeper:  ueKeeper,
@@ -86,29 +95,36 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k *Keeper) storeVerifiedTx(ctx context.Context, chain, txHash string) error {
+func (k *Keeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types.VerifiedTxMetadata) error {
 	if chain == "" || txHash == "" {
-		return fmt.Errorf("chain and tx_hash are required")
+		return fmt.Errorf("chain, and tx_hash are required")
 	}
 
-	storageKey := types.GetVerifiedTxStorageKey(chain, txHash)
-	return k.VerifiedTxs.Set(ctx, storageKey, true)
+	storageKey := types.GetVerifiedInboundTxStorageKey(chain, txHash)
+
+	return k.VerifiedInboundTxs.Set(ctx, storageKey, verifiedTxMetadata)
 }
 
-func (k *Keeper) IsTxHashVerified(ctx context.Context, chain, txHash string) (bool, error) {
-	storageKey := types.GetVerifiedTxStorageKey(chain, txHash)
-	fmt.Println("Checking if transaction hash is verified:", storageKey)
+func (k *Keeper) GetVerifiedInboundTxMetadata(ctx context.Context, chain, txHash string) (*types.VerifiedTxMetadata, bool, error) {
+	storageKey := types.GetVerifiedInboundTxStorageKey(chain, txHash)
 
-	// Check if tx hash exists for passed chain
-	if has, err := k.VerifiedTxs.Has(ctx, storageKey); err != nil {
-		fmt.Println("Error checking if transaction hash is verified:", err)
-		return false, err
-	} else if !has {
-		fmt.Println("Transaction hash not found in verified transactions:", has)
-		return false, nil // Not present
+	data, err := k.VerifiedInboundTxs.Get(ctx, storageKey)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			// Not found, but not an actual error
+			return nil, false, nil
+		}
+		// Actual decoding or other storage error
+		return nil, false, err
 	}
 
-	fmt.Println("Transaction hash is verified:", storageKey)
+	return &data, true, nil
+}
 
-	return true, nil // Verified
+func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
+	return k.schemaBuilder
+}
+
+func (k Keeper) GetUEKeeper() types.UeKeeper {
+	return k.ueKeeper
 }

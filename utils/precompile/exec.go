@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/evmos/os/x/evm/core/vm"
+	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
 const (

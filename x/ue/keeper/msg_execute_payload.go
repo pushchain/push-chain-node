@@ -14,7 +14,7 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, universalPayload *types.UniversalPayload, signature string) error {
+func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, universalPayload *types.UniversalPayload, verificationData string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Get Caip2Identifier for the universal account
@@ -42,19 +42,19 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	ueaComputedAddress := "0x" + addressBytes
 	ueaAddr := common.HexToAddress(ueaComputedAddress)
 
-	// // Step 2: Parse and validate payload and signature
+	// // Step 2: Parse and validate payload and verificationData
 	payload, err := types.NewAbiUniversalPayload(universalPayload)
 	if err != nil {
 		return errors.Wrapf(err, "invalid universal payload")
 	}
 
-	signatureVal, err := utils.HexToBytes(signature)
+	verificationDataVal, err := utils.HexToBytes(verificationData)
 	if err != nil {
-		return errors.Wrapf(err, "invalid signature format")
+		return errors.Wrapf(err, "invalid verificationData format")
 	}
 
 	// Step 3: Execute payload through UEA
-	receipt, err = k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, signatureVal)
+	receipt, err = k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
 	if err != nil {
 		return err
 	}

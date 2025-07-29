@@ -8,4 +8,4 @@ testnet/*/binary
 web/
 
 .env
-*.log
+

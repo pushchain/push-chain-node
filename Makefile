@@ -335,13 +335,9 @@ testnet: setup-testnet
 sh-testnet: mod-tidy
 	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 
-sh-testnet-dual: mod-tidy
-	@echo "Starting pchaind and puniversald in parallel with separate configs and logs."
-	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh > pchaind.log 2>&1 &
-	HOME_DIR="$$HOME/.puniversal" CLEAN=true sh scripts/puniversal.sh > puniversald.log 2>&1 &
-	sleep 3
-	@echo "Tailing logs for both nodes..."
-	tail -f pchaind.log puniversald.log
+sh-testnet-universal: mod-tidy
+	@echo "Starting universal validator..."
+	sh scripts/test_universal.sh
 
 .PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet
 
@@ -362,8 +358,8 @@ help:
 	@echo "  local-image         : Install the docker image"
 	@echo "  proto-gen           : Generate code from proto files"
 	@echo "  testnet             : Local devnet with IBC"
-	@echo "  sh-testnet          : Shell local devnet"
-	@echo "  sh-testnet-dual     : Run pchaind and puniversald in parallel"
+	@echo "  sh-testnet          : Shell local devnet (core blockchain)"
+	@echo "  sh-testnet-universal: Shell local devnet (universal validator)"
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"

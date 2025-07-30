@@ -9,8 +9,12 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rollchains/pchain/app"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	// "github.com/rollchains/pchain/utils"
 	// uetypes "github.com/rollchains/pchain/x/ue/types"
 )
@@ -46,8 +50,27 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	acc_cosmos := app.AccountKeeper.NewAccountWithAddress(ctx, addr_cosmos)
 	app.AccountKeeper.SetAccount(ctx, acc_cosmos)
 
+	pk := ed25519.GenPrivKey().PubKey()
+
+	valAddr := sdk.ValAddress(addr)
+
+	validator, err := stakingtypes.NewValidator(valAddr.String(), pk, stakingtypes.Description{})
+	require.NoError(t, err)
+	app.StakingKeeper.SetValidator(ctx, validator)
+	app.StakingKeeper.SetValidatorByConsAddr(ctx, validator)
+	app.StakingKeeper.SetNewValidatorByPowerIndex(ctx, validator)
+	ctx = ctx.WithProposer(sdk.ConsAddress(pk.Address()).Bytes())
+
+	fmt.Println(app.StakingKeeper.GetValidatorByConsAddr(ctx, sdk.ConsAddress(pk.Address())))
+
 	acc_all := app.AccountKeeper.GetAllAccounts(ctx)
 	fmt.Println(acc_all)
+
+	contractAddr := common.HexToAddress("0x00000000000000000000000000000000000000ea")
+	evmAcc := app.EVMKeeper.GetAccountOrEmpty(ctx, contractAddr)
+	code := app.EVMKeeper.GetCode(ctx, common.BytesToHash(evmAcc.CodeHash))
+
+	fmt.Println("Hmmmmmmmmm : ", code)
 
 	return app, ctx, acc
 }

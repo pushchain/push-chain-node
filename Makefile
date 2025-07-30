@@ -337,7 +337,7 @@ sh-testnet: mod-tidy
 
 sh-testnet-universal: mod-tidy
 	@echo "Starting universal validator..."
-	sh scripts/test_universal.sh
+	CLEAN=true sh scripts/test_universal.sh
 
 .PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet
 

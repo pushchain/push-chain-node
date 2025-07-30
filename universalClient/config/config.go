@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -23,7 +24,36 @@ func validateConfig(cfg *Config) error {
 		return fmt.Errorf("log format must be 'json' or 'console'")
 	}
 
-	// Add more validation here if needed
+	// Set defaults for registry config
+	if cfg.ConfigRefreshInterval == 0 {
+		cfg.ConfigRefreshInterval = 10 * time.Second
+	}
+	if cfg.MaxRetries == 0 {
+		cfg.MaxRetries = 3
+	}
+	if cfg.RetryBackoff == 0 {
+		cfg.RetryBackoff = time.Second
+	}
+
+	// Set defaults for startup config
+	if cfg.InitialFetchRetries == 0 {
+		cfg.InitialFetchRetries = 5
+	}
+	if cfg.InitialFetchTimeout == 0 {
+		cfg.InitialFetchTimeout = 30 * time.Second
+	}
+
+	// Validate registry config
+	if len(cfg.PushChainGRPCURLs) == 0 {
+		// Default to localhost:9090 if no URLs provided
+		cfg.PushChainGRPCURLs = []string{"localhost:9090"}
+	}
+
+	// Set defaults for query server
+	if cfg.QueryServerPort == 0 {
+		cfg.QueryServerPort = 8080
+	}
+
 	return nil
 }
 

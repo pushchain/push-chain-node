@@ -59,8 +59,6 @@ bash ./pre-setup/prepare_binary.sh
 testnet/v1/binary/pchaind
 ```
 
----
-
 ### 2. 🧪 (Optional) Set Up Genesis Accounts
 
 This step is **only required if you're setting up the first node (genesis validator)** in the testnet.
@@ -79,8 +77,6 @@ bash ./pre-setup/generate_genesis_accounts.sh <NUM>
 After generating the accounts, replace the `ADDR1`–`ADDR5` placeholders in `setup/setup_genesis_validator.sh` with the generated Bech32 addresseses.
 
 > ⚠️ This step is intentionally manual to ensure that private keys are generated and stored **only on your local machine**, never on the remote validator node.
-
----
 
 ### 3. 🖥️ Create GCP VM Instance
 
@@ -122,8 +118,6 @@ bash ./pre-setup/create_gcp_instance.sh
   ssh <username>@<external-ip>
   ```
 
----
-
 ### 4. ⚙️ Setup Node Environment on GCP VM
 
 Install system dependencies, Go, and copy files to remote `/home/app`.
@@ -156,5 +150,147 @@ bash ./pre-setup/setup_gcp_instance.sh
   ssh <username>@<external-ip>
   cd /home/app
   ```
+
+---
+
+## 🛠️ Setup
+
+All the following steps must be executed **inside your VM instance** (the one provisioned in the previous section).
+
+> ℹ️ Make sure you’ve SSHed into the instance:
+>
+> ```bash
+> ssh <username>@<external-ip>
+> cd /home/app
+> ```
+
+### 🚀 Setup Genesis Validator
+
+This step sets up the **first validator node** on the Push Chain testnet. It initializes the chain from scratch, sets up token allocations, modifies genesis parameters, and starts the node.
+
+> 🧙‍♂️ Only the first node in the network needs to run this step.
+
+#### Prerequisites
+
+- The binary `pchaind` is available at `/home/app/binary/pchaind`
+- Genesis accounts (ADDR1–ADDR5) have been generated using the `generate_genesis_accounts.sh` script and are manually set in `setup/setup_genesis_validator.sh`
+
+#### What This Does
+
+- Removes any existing node data
+- Initializes the chain with Chain ID `push_42101-1`
+- Adds 5 precomputed addresses as funded genesis accounts (~2B tokens each)
+- Creates a **new validator key** on this VM
+- Funds the validator with 100 tokens
+- Modifies key genesis parameters (governance, EVM, fee market, etc.)
+- Starts the node with public RPC, REST, and gRPC endpoints
+- Logs are written to: `/home/app/.pchain/logs/pchaind.log`
+
+> 🔐 **IMPORTANT:** This script creates the validator key locally on the VM.
+>
+> - The mnemonic will be shown once during setup. **Store it securely.**
+> - The VM keyring will only contain the validator key - no other private keys are imported here.
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./setup/setup_genesis_validator.sh
+```
+
+#### Output
+
+- Push Chain is initialized as a validator node under `.pchain`
+
+---
+
+## 🛠️ Post-Setup: Node Utilities & Maintenance
+
+Once your node is setup, the following scripts help with start, stop, daily operations, monitoring, and maintenance. All these scripts are located under:
+
+```
+/home/app/post-setup/
+```
+
+### ▶️ Start Node
+
+Use this if you need to start the node manually.
+
+```bash
+cd /home/app
+bash ./post-setup/start.sh
+```
+
+### ⏹️ Stop Node
+
+Stops the running `pchaind` process (based on PID tracking).
+
+```bash
+cd /home/app
+bash ./post-setup/stop.sh
+```
+
+### 🔁 Log Rotation Setup
+
+Sets up automatic daily log rotation for Push Chain logs to prevent uncontrolled disk usage.
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./post-setup/setup_log_rotation.sh
+```
+
+### 📜 View Logs
+
+Tails the `pchaind` log with formatting for easier reading.
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./post-setup/show_logs.sh
+```
+
+---
+
+### 🔍 Check Sync Status
+
+Displays syncing status, latest block height, and peer count of your node.
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./post-setup/sync_status.sh
+```
+
+#### Output
+
+- Whether node is catching up
+- Latest block height
+- Number of connected peers
+- Chain ID and node moniker
+
+### 🌐 Setup NGINX for Public Access
+
+Exposes the Cosmos and EVM RPCs via HTTPS using NGINX and Let's Encrypt.
+
+#### Usage
+
+```bash
+cd /home/app
+bash ./post-setup/setup_nginx.sh your-domain.com
+```
+
+#### What It Does
+
+- Sets up NGINX with SSL for:
+  - `https://<domain>` → Cosmos RPC (26657)
+  - `https://evm.<domain>` → EVM HTTP+WebSocket (8545 / 8546)
+- Adds basic rate-limiting to prevent abuse
+- Automatically provisions certificates using `certbot`
+
+> 📝 You must have DNS records pointing to the VM's public IP for this to work.
 
 ---

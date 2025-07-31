@@ -18,6 +18,23 @@ ROOT_DIR="$SCRIPT_DIR/../../.."
 BINARY_OUT_DIR="$SCRIPT_DIR/../binary"
 mkdir -p "$BINARY_OUT_DIR"
 
+# 🔧 Patch chain ID inside app/app.go
+APP_FILE="$ROOT_DIR/app/app.go"
+OLD_CHAIN_ID="localchain_9000-1"
+NEW_CHAIN_ID="push_42101-1"
+
+if grep -q "$OLD_CHAIN_ID" "$APP_FILE"; then
+  echo "🔁 Patching chain ID in app/app.go: $OLD_CHAIN_ID → $NEW_CHAIN_ID"
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
+  else
+    sed -i "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
+  fi
+else
+  echo "✅ Chain ID already set to $NEW_CHAIN_ID in app/app.go"
+fi
+
 echo "🐳 Building Linux binary via Docker..."
 
 docker run --rm \
@@ -50,7 +67,6 @@ docker run --rm \
     echo "⚙️  Running make build..."
     make build
   '
-
 
 echo "📁 Copying built binary to $BINARY_OUT_DIR/pchaind ..."
 cp "$ROOT_DIR/build/pchaind" "$BINARY_OUT_DIR/pchaind"

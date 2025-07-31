@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ---------------------------
-# ✅ Prerequisites (System Requirements)
+# Push Chain NGINX + SSL Setup Script
 # ---------------------------
 # - Ubuntu/Debian-based Linux OS
 # - DNS A records set:
@@ -19,33 +19,38 @@
 #   bash setup_nginx.sh your-domain.com
 # ---------------------------
 
+# 🔧 Input validation
 if [ -z "$1" ]; then
-    echo "❌ Usage: ./setup_nginx.sh your-domain.com"
+    echo "❌ Usage: ./setup_nginx.sh yourdomain.com"
     exit 1
 fi
 
 DOMAIN=$1
+EVM_SUBDOMAIN="evm.$DOMAIN"
+NGINX_CONFIG="/etc/nginx/sites-available/push-node"
 
-# 📡 Allow HTTP/HTTPS traffic
-sudo ufw allow 80
-sudo ufw allow 443
+echo "🌐 Setting up NGINX for $DOMAIN and $EVM_SUBDOMAIN..."
+
+# 📡 Allow HTTP/HTTPS
+sudo ufw allow 'Nginx Full'
+sudo ufw allow 26656/tcp
 
 # 🛠️ Install dependencies
 sudo apt update
 sudo apt install -y nginx certbot python3-certbot-nginx jq
 
-# 🧾 Create Nginx config
-cat > /tmp/push-node-nginx << EOF
+# 🧾 Write NGINX config
+sudo tee "$NGINX_CONFIG" > /dev/null <<EOF
 limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
 
-# Redirect HTTP to HTTPS for main domain
+# Redirect HTTP → HTTPS (Cosmos RPC)
 server {
     listen 80;
     server_name $DOMAIN;
     return 301 https://\$host\$request_uri;
 }
 
-# Serve Cosmos RPC at https://<domain>
+# Cosmos RPC over HTTPS
 server {
     listen 443 ssl http2;
     server_name $DOMAIN;
@@ -69,14 +74,14 @@ server {
     }
 }
 
-# Redirect HTTP to HTTPS for EVM
+# Redirect HTTP → HTTPS (EVM RPC)
 server {
     listen 80;
-    server_name evm.$DOMAIN;
+    server_name $EVM_SUBDOMAIN;
     return 301 https://\$host\$request_uri;
 }
 
-# Serve EVM RPC at https://evm.<domain>
+# EVM upstreams
 upstream http_backend {
     server 127.0.0.1:8545;
 }
@@ -90,12 +95,13 @@ map \$http_upgrade \$connection_upgrade {
     '' close;
 }
 
+# EVM RPC over HTTPS
 server {
     listen 443 ssl http2;
-    server_name evm.$DOMAIN;
+    server_name $EVM_SUBDOMAIN;
 
-    ssl_certificate /etc/letsencrypt/live/evm.$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/evm.$DOMAIN/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
 
     location / {
         limit_req zone=req_limit_per_ip burst=10 nodelay;
@@ -119,15 +125,13 @@ server {
 }
 EOF
 
-# 🔁 Copy config and enable site
-sudo cp /tmp/push-node-nginx /etc/nginx/sites-available/push-node
-sudo ln -sf /etc/nginx/sites-available/push-node /etc/nginx/sites-enabled/
-
-# 🔄 Reload nginx
+# 🔗 Enable and reload NGINX
+sudo ln -sf "$NGINX_CONFIG" /etc/nginx/sites-enabled/push-node
 sudo nginx -t && sudo systemctl reload nginx
 
-# 🔐 Setup HTTPS with Let's Encrypt
-sudo certbot --nginx -d "$DOMAIN" -d "evm.$DOMAIN" --non-interactive --agree-tos -m admin@"$DOMAIN"
+# 🔐 Request SSL cert
+echo "🔐 Requesting SSL certificates for $DOMAIN and $EVM_SUBDOMAIN..."
+sudo certbot --nginx -d "$DOMAIN" -d "$EVM_SUBDOMAIN" --non-interactive --agree-tos -m admin@$DOMAIN
 
 # 🔁 Check certbot auto-renewal
 echo ""
@@ -142,17 +146,25 @@ RPC_STATUS=$(curl -s https://$DOMAIN/status | jq '.result.sync_info.catching_up'
 if [[ "$RPC_STATUS" == "false" ]]; then
   echo "✅ Cosmos RPC is synced and reachable: https://$DOMAIN/status"
 else
-  echo "⚠️ Cosmos RPC not responding correctly or still syncing: https://$DOMAIN/status"
+  echo "⚠️ Cosmos RPC not responding or still syncing: https://$DOMAIN/status"
 fi
 
-EVM_STATUS=$(curl -s https://evm.$DOMAIN -m 5)
-if echo "$EVM_STATUS" | grep -q "jsonrpc"; then
-  echo "✅ EVM RPC is live: https://evm.$DOMAIN"
+echo ""
+echo "🔎 Verifying EVM RPC (HTTPS + WebSocket)..."
+
+# -- JSON-RPC check via HTTPS (8545) --
+EVM_RPC_CHECK=$(curl -s -X POST https://evm.$DOMAIN \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
+
+if echo "$EVM_RPC_CHECK" | jq -e '.result' &>/dev/null; then
+  echo "✅ EVM RPC (HTTPS) is live: https://evm.$DOMAIN"
 else
-  echo "⚠️ EVM RPC not responding correctly. Check if port 8545/8546 is open and node is running."
+  echo "⚠️ EVM RPC (HTTPS) not responding correctly. Check if node is running and port 8545 is open."
 fi
+
 
 echo ""
 echo "🚀 Setup complete!"
 echo "🔗 Cosmos RPC: https://$DOMAIN"
-echo "🔗 EVM RPC:    https://evm.$DOMAIN"
+echo "🔗 EVM RPC:    https://$EVM_SUBDOMAIN"

@@ -68,7 +68,6 @@ It generates `<NUM>` genesis accounts that will collectively hold the initial to
 #### Steps
 
 ```bash
-cd testnet/v1
 bash ./pre-setup/generate_genesis_accounts.sh <NUM>
 ```
 
@@ -100,7 +99,6 @@ Provision a Push Chain validator VM with static IP, firewall rules, network setu
 #### Steps
 
 ```bash
-cd testnet/v1
 bash ./pre-setup/create_gcp_instance.sh
 ```
 
@@ -131,7 +129,6 @@ Install system dependencies, Go, and copy files to remote `/home/app`.
 #### Steps
 
 ```bash
-cd testnet/v1
 bash ./pre-setup/setup_gcp_instance.sh
 ```
 
@@ -251,8 +248,6 @@ Tails the `pchaind` log with formatting for easier reading.
 cd /home/app
 bash ./post-setup/show_logs.sh
 ```
-
----
 
 ### 🔍 Check Sync Status
 

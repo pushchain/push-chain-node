@@ -63,9 +63,9 @@ testnet/v1/binary/pchaind
 
 ### 2. 🧪 (Optional) Set Up Genesis Accounts
 
-Only required if you're setting up the **first node (genesis validator)** in the testnet.
+This step is **only required if you're setting up the first node (genesis validator)** in the testnet.
 
-This generates `<NUM>` accounts that will hold the initial token supply in genesis.
+It generates `<NUM>` genesis accounts that will collectively hold the initial token supply of the chain (e.g., 10 billion tokens across 5 accounts).
 
 #### Steps
 
@@ -74,7 +74,11 @@ cd testnet/v1
 bash ./pre-setup/generate_genesis_accounts.sh <NUM>
 ```
 
-> 🔐 **Save the printed mnemonics securely.** These accounts will be funded in the genesis and cannot be recovered otherwise.
+> 🔐 **Save the printed mnemonics securely.** These accounts will be funded in the genesis and cannot be recovered if lost.
+
+After generating the accounts, replace the `ADDR1`–`ADDR5` placeholders in `setup/setup_genesis_validator.sh` with the generated Bech32 addresseses.
+
+> ⚠️ This step is intentionally manual to ensure that private keys are generated and stored **only on your local machine**, never on the remote validator node.
 
 ---
 

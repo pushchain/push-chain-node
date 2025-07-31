@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/rs/zerolog"
 )
 
 // QueryServer provides HTTP endpoints for querying configuration data
 type QueryServer struct {
 	client *UniversalClient
-	logger *zap.Logger
+	logger zerolog.Logger
 	server *http.Server
 }
 
 // NewQueryServer creates a new QueryServer instance
-func NewQueryServer(client *UniversalClient, logger *zap.Logger, port int) *QueryServer {
+func NewQueryServer(client *UniversalClient, logger zerolog.Logger, port int) *QueryServer {
 	qs := &QueryServer{
 		client: client,
 		logger: logger,
@@ -52,13 +52,12 @@ func (qs *QueryServer) Start() error {
 		err := qs.server.ListenAndServe()
 		switch err {
 		case nil:
-			qs.logger.Info("Query server stopped normally")
+			qs.logger.Info().Msg("Query server stopped normally")
 		case http.ErrServerClosed:
-			qs.logger.Info("Query server closed gracefully")
+			qs.logger.Info().Msg("Query server closed gracefully")
 		default:
-			qs.logger.Error("Query server error", zap.Error(err))
+			qs.logger.Error().Err(err).Msg("Query server error")
 		}
-		qs.logger.Info("Query server goroutine exiting")
 	}()
 
 	// Give the server time to start

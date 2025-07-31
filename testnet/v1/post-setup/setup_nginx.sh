@@ -1,56 +1,80 @@
 #!/bin/bash
 
-# ---------------------------
+# ---------------------------------------
 # Push Chain NGINX + SSL Setup Script
-# ---------------------------
-# - Ubuntu/Debian-based Linux OS
-# - DNS A records set:
-#     - YOUR_DOMAIN → your VM's public IP
-#     - evm.YOUR_DOMAIN → your VM's public IP
-# - Node already running with:
-#     - Tendermint RPC on port 26657
-#     - EVM HTTP RPC on port 8545
-#     - EVM WebSocket RPC on port 8546
-# - jq installed: `sudo apt install jq`
+# ---------------------------------------
+# - Sets up NGINX to serve Cosmos and EVM RPCs
+# - Bootstraps temporary HTTP config to fetch certs
+# - Replaces config with SSL-enabled version
+# ---------------------------------------
 
-# ---------------------------
-# 🔧 Usage
-# ---------------------------
-#   bash setup_nginx.sh your-domain.com
-# ---------------------------
-
-# 🔧 Input validation
 if [ -z "$1" ]; then
-    echo "❌ Usage: ./setup_nginx.sh yourdomain.com"
-    exit 1
+  echo "❌ Usage: ./setup_nginx.sh yourdomain.com"
+  exit 1
 fi
 
 DOMAIN=$1
 EVM_SUBDOMAIN="evm.$DOMAIN"
 NGINX_CONFIG="/etc/nginx/sites-available/push-node"
+TMP_CONFIG="/tmp/push-node-temp"
+FINAL_CONFIG="/tmp/push-node-final"
+WEBROOT="/var/www/certbot"
+
+set -e
 
 echo "🌐 Setting up NGINX for $DOMAIN and $EVM_SUBDOMAIN..."
 
-# 📡 Allow HTTP/HTTPS
-sudo ufw allow 'Nginx Full'
-sudo ufw allow 26656/tcp
-
-# 🛠️ Install dependencies
+# 📦 Install dependencies
 sudo apt update
 sudo apt install -y nginx certbot python3-certbot-nginx jq
 
-# 🧾 Write NGINX config
-sudo tee "$NGINX_CONFIG" > /dev/null <<EOF
+# 📡 Allow required ports
+sudo ufw allow 'Nginx Full'
+sudo ufw allow 26656/tcp
+
+# 📁 Ensure webroot exists
+sudo mkdir -p "$WEBROOT"
+sudo chown -R www-data:www-data "$WEBROOT"
+
+# ⚙️ Write temporary HTTP-only config to serve .well-known
+sudo tee "$TMP_CONFIG" > /dev/null <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN $EVM_SUBDOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root $WEBROOT;
+    }
+
+    location / {
+        return 200 'Temporary NGINX setup for Certbot';
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+
+sudo cp "$TMP_CONFIG" "$NGINX_CONFIG"
+sudo ln -sf "$NGINX_CONFIG" /etc/nginx/sites-enabled/push-node
+sudo nginx -t && sudo systemctl reload nginx
+
+# 🔐 Request certs via webroot method
+sudo certbot certonly --webroot \
+  -w "$WEBROOT" \
+  -d "$DOMAIN" \
+  -d "$EVM_SUBDOMAIN" \
+  --non-interactive --agree-tos -m admin@$DOMAIN
+
+# ✅ Write final SSL-enabled config
+sudo tee "$FINAL_CONFIG" > /dev/null <<EOF
 limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
 
-# Redirect HTTP → HTTPS (Cosmos RPC)
+# Cosmos RPC
 server {
     listen 80;
     server_name $DOMAIN;
     return 301 https://\$host\$request_uri;
 }
 
-# Cosmos RPC over HTTPS
 server {
     listen 443 ssl http2;
     server_name $DOMAIN;
@@ -60,7 +84,6 @@ server {
 
     location / {
         limit_req zone=req_limit_per_ip burst=10 nodelay;
-
         proxy_pass http://localhost:26657;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -74,14 +97,7 @@ server {
     }
 }
 
-# Redirect HTTP → HTTPS (EVM RPC)
-server {
-    listen 80;
-    server_name $EVM_SUBDOMAIN;
-    return 301 https://\$host\$request_uri;
-}
-
-# EVM upstreams
+# EVM RPC
 upstream http_backend {
     server 127.0.0.1:8545;
 }
@@ -95,7 +111,12 @@ map \$http_upgrade \$connection_upgrade {
     '' close;
 }
 
-# EVM RPC over HTTPS
+server {
+    listen 80;
+    server_name $EVM_SUBDOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
 server {
     listen 443 ssl http2;
     server_name $EVM_SUBDOMAIN;
@@ -105,12 +126,10 @@ server {
 
     location / {
         limit_req zone=req_limit_per_ip burst=10 nodelay;
-
         set \$backend http://http_backend;
         if (\$http_upgrade = "websocket") {
             set \$backend http://ws_backend;
         }
-
         proxy_pass \$backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -125,46 +144,19 @@ server {
 }
 EOF
 
-# 🔗 Enable and reload NGINX
-sudo ln -sf "$NGINX_CONFIG" /etc/nginx/sites-enabled/push-node
+sudo cp "$FINAL_CONFIG" "$NGINX_CONFIG"
 sudo nginx -t && sudo systemctl reload nginx
 
-# 🔐 Request SSL cert
-echo "🔐 Requesting SSL certificates for $DOMAIN and $EVM_SUBDOMAIN..."
-sudo certbot --nginx -d "$DOMAIN" -d "$EVM_SUBDOMAIN" --non-interactive --agree-tos -m admin@$DOMAIN
+# 🧪 Verify setup
+curl -s https://$DOMAIN/status | jq '.result.sync_info.catching_up' || echo "⚠️ Cosmos RPC check failed"
 
-# 🔁 Check certbot auto-renewal
-echo ""
-echo "⏰ Checking certbot auto-renewal..."
-sudo systemctl list-timers | grep certbot || echo "⚠️ Certbot auto-renewal timer not found."
-
-# 🔍 Verify endpoints
-echo ""
-echo "🔎 Verifying endpoint availability..."
-
-RPC_STATUS=$(curl -s https://$DOMAIN/status | jq '.result.sync_info.catching_up' 2>/dev/null || echo "unreachable")
-if [[ "$RPC_STATUS" == "false" ]]; then
-  echo "✅ Cosmos RPC is synced and reachable: https://$DOMAIN/status"
+EVM_RPC=$(curl -s -X POST https://$EVM_SUBDOMAIN -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
+if echo "$EVM_RPC" | jq -e '.result' &>/dev/null; then
+  echo "✅ EVM RPC (HTTPS) is live: https://$EVM_SUBDOMAIN"
 else
-  echo "⚠️ Cosmos RPC not responding or still syncing: https://$DOMAIN/status"
+  echo "⚠️ EVM RPC (HTTPS) not responding"
 fi
 
-echo ""
-echo "🔎 Verifying EVM RPC (HTTPS + WebSocket)..."
-
-# -- JSON-RPC check via HTTPS (8545) --
-EVM_RPC_CHECK=$(curl -s -X POST https://evm.$DOMAIN \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
-
-if echo "$EVM_RPC_CHECK" | jq -e '.result' &>/dev/null; then
-  echo "✅ EVM RPC (HTTPS) is live: https://evm.$DOMAIN"
-else
-  echo "⚠️ EVM RPC (HTTPS) not responding correctly. Check if node is running and port 8545 is open."
-fi
-
-
-echo ""
-echo "🚀 Setup complete!"
+echo "\n🚀 Setup complete!"
 echo "🔗 Cosmos RPC: https://$DOMAIN"
 echo "🔗 EVM RPC:    https://$EVM_SUBDOMAIN"

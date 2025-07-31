@@ -267,6 +267,21 @@ bash ./post-setup/sync_status.sh
 - Number of connected peers
 - Chain ID and node moniker
 
+### 📜 Backup Data
+
+Backup node Data
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./post-setup/backup.sh
+```
+
+#### Output
+
+- New backup is created under `/home/app/backups/`
+
 ### 🌐 Setup NGINX for Public Access
 
 Exposes the Cosmos and EVM RPCs via HTTPS using NGINX and Let's Encrypt.

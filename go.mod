@@ -76,7 +76,6 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/strangelove-ventures/tokenfactory v0.50.3
 	github.com/stretchr/testify v1.10.0
-	go.uber.org/zap v1.21.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5
@@ -280,6 +279,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
+	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect

@@ -12,7 +12,6 @@ import (
 	"github.com/rollchains/pchain/universalClient/registry"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/rs/zerolog"
-	"go.uber.org/zap"
 )
 
 type UniversalClient struct {
@@ -64,15 +63,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	}
 	
 	// Create query server
-	// TODO: For now, create a new zap logger for query server
-	// In future, we might want to unify logging approach
-	zapLogger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to create zap logger for query server")
-		return nil, fmt.Errorf("failed to create zap logger: %w", err)
-	}
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
-	uc.queryServer = NewQueryServer(uc, zapLogger, cfg.QueryServerPort)
+	uc.queryServer = NewQueryServer(uc, log, cfg.QueryServerPort)
 	
 	return uc, nil
 }

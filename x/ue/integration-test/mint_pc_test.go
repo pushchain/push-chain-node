@@ -53,7 +53,7 @@ func TestMintPC(t *testing.T) {
 		BlockConfirmation: 12,
 		GatewayMethods: []*uetypes.MethodConfig{&uetypes.MethodConfig{
 			Name:            "addFunds",
-			Identifier:      "",
+			Identifier:      "0xf9bfe8a7",
 			EventIdentifier: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
 		}},
 		Enabled: true,

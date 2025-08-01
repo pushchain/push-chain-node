@@ -50,6 +50,17 @@ const FactoryABI = `[
   },
   {
     "type": "function",
+    "name": "registerUEA",
+    "inputs": [
+      { "name": "_chainHash", "type": "bytes32" },
+      { "name": "_vmHash", "type": "bytes32" },
+      { "name": "_UEA", "type": "address" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "deployUEA",
     "inputs": [
       {
@@ -69,6 +80,17 @@ const FactoryABI = `[
     "stateMutability": "nonpayable"
   },
   {
+  "type": "function",
+  "name": "getUEA",
+  "inputs": [
+    { "name": "_chainHash", "type": "bytes32", "internalType": "bytes32" }
+  ],
+  "outputs": [
+    { "name": "", "type": "address", "internalType": "address" }
+  ],
+  "stateMutability": "view"
+ }, 
+  {
     "type": "function",
     "name": "computeUEA",
     "inputs": [
@@ -83,6 +105,15 @@ const FactoryABI = `[
         ]
       }
     ],
+    "outputs": [
+      { "name": "", "type": "address", "internalType": "address" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
     "outputs": [
       { "name": "", "type": "address", "internalType": "address" }
     ],
@@ -137,47 +168,72 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	ctx = ctx.WithProposer(sdk.ConsAddress(pk.Address()).Bytes())
 
 	fmt.Println(app.StakingKeeper.GetValidatorByConsAddr(ctx, sdk.ConsAddress(pk.Address())))
-
-	acc_all := app.AccountKeeper.GetAllAccounts(ctx)
-	fmt.Println(acc_all)
+	factoryAddr := common.HexToAddress("0x00000000000000000000000000000000000000ea")
+	factoryABI, err := abi.JSON(strings.NewReader(FactoryABI))
 
 	app.UeKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
+	ownerAddr, err := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "owner")
+	fmt.Println("Factory owner after genesis:", common.BytesToAddress(ownerAddr))
 
-	factoryAddr := common.HexToAddress("0x00000000000000000000000000000000000000ea")
-	evmAcc := app.EVMKeeper.GetAccountOrEmpty(ctx, factoryAddr)
-	code := app.EVMKeeper.GetCode(ctx, common.BytesToHash(evmAcc.CodeHash))
-
-	factoryABI, err := abi.JSON(strings.NewReader(FactoryABI))
+	// evmAcc := app.EVMKeeper.GetAccountOrEmpty(ctx, factoryAddr)
+	// code := app.EVMKeeper.GetCode(ctx, common.BytesToHash(evmAcc.CodeHash))
 
 	// 4. Call factory.initialize(owner)
 	owner := common.BytesToAddress(addr.Bytes())
-	app.EVMKeeper.CallEVM(ctx, factoryABI, common.BytesToAddress(addr.Bytes()), factoryAddr, false, "initialize", owner)
+	app.EVMKeeper.CallEVM(ctx, factoryABI, common.BytesToAddress(addr.Bytes()), factoryAddr, true, "initialize", owner)
 
 	require.NoError(t, err)
-
-	ownerAddr, _ := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "getOwner")
-	fmt.Println("Stored owner:", common.BytesToAddress(ownerAddr))
+	ownerAd, err := app.EVMKeeper.CallEVM(ctx, factoryABI, common.BytesToAddress(addr.Bytes()), factoryAddr, true, "owner")
+	fmt.Println("Owner now : ", ownerAd)
+	// ownerAddr, _ := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "getOwner")
+	// fmt.Println("Stored owner:", common.BytesToAddress(ownerAddr))
 
 	evmHash := crypto.Keccak256Hash([]byte("EVM"))
 	evmSepoliaHash := crypto.Keccak256Hash([]byte("eip15511155111"))
 
-	app.EVMKeeper.CallEVM(
+	receipt, err := app.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
 		common.BytesToAddress(addr.Bytes()), // from
 		factoryAddr,                         // contract
-		false,                               // commit (stateful tx)
+		true,                                // commit (stateful tx)
 		"registerNewChain",
-		[32]byte(evmSepoliaHash), // arg1: bytes32
-		[32]byte(evmHash),        // arg2: bytes32
+		evmSepoliaHash, // arg1: bytes32
+		evmHash,        // arg2: bytes32
 	)
 	require.NoError(t, err)
+	fmt.Println("Receipt : ", receipt)
 
 	evmImplAddr := DeployContract(t, app, ctx, common.HexToAddress("0x0000000000000000000000000000000000000e01"), UEA_EVM_BYTECODE)
 
-	_, err = CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "registerUEA", evmSepoliaHash, evmHash, evmImplAddr)
+	receipt, err = app.EVMKeeper.CallEVM(
+		ctx,
+		factoryABI,
+		owner,       // must equal the factory owner
+		factoryAddr, // 0x...ea
+		true,
+		"registerUEA",
+		evmSepoliaHash,
+		evmHash,
+		evmImplAddr,
+	)
 	require.NoError(t, err)
-	fmt.Println("Hmmmmmmmmm : ", code)
+	fmt.Println("Receipt : ", receipt)
+
+	ueaAddrBytes, err := CallContractMethod(
+		t,
+		app,
+		ctx,
+		addr,        // from
+		factoryAddr, // contract
+		factoryABI,
+		"getUEA",
+		evmSepoliaHash,
+	)
+	require.NoError(t, err)
+
+	ueaAddr := common.BytesToAddress(ueaAddrBytes)
+	fmt.Println("UEA registered at:", ueaAddr.Hex())
 
 	return app, ctx, acc
 }

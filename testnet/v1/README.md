@@ -199,6 +199,35 @@ bash ./setup/setup_genesis_validator.sh
 
 - Push Chain is initialized as a validator node under `.pchain`
 
+### 🚀 Setup Full Node
+
+This step sets up the **a full node** on the Push Chain testnet.
+
+> 🧙‍♂️ Full Node need to know the Domain of another full node to be set up
+
+#### Prerequisites
+
+- The binary `pchaind` is available at `/home/app/binary/pchaind`
+
+#### What This Does
+
+- Removes any existing node data
+- Initializes the chain with Chain ID `push_42101-1`
+- Fetches the genesis file from the connected node
+- Starts the node with public RPC, REST, and gRPC endpoints
+- Logs are written to: `/home/app/.pchain/logs/pchaind.log`
+
+#### Steps
+
+```bash
+cd /home/app
+bash ./setup/setup_fullnode.sh <OTHER_NODE_TENDERMINT_ENDPOINT>
+```
+
+#### Output
+
+- Push Chain is initialized as a validator node under `.pchain`
+
 ---
 
 ## 🛠️ Post-Setup: Node Utilities & Maintenance

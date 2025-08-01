@@ -7,6 +7,7 @@ shopt -s expand_aliases
 # ---------------------------
 
 CHAIN_ID="push_42101-1" 
+EVM_CHAIN_ID="42101"
 MONIKER="genesis-validator"
 KEY_NAME="validator-key"
 KEYRING="os"  # use 'os' for security; avoid 'test' in prod
@@ -108,7 +109,8 @@ echo "🛠️ Updating genesis parameters..."
   # === CORE MODULES ===
 
   # Block
-  update_test_genesis '.consensus_params["block"]["max_gas"]="100000000"'
+  update_test_genesis '.consensus["params"]["block"]["max_gas"]="100000000"'
+  update_test_genesis '.consensus["params"]["block"]["time_iota_ms"]="1000"'
 
   # Gov
   update_test_genesis `printf '.app_state["gov"]["params"]["min_deposit"]=[{"denom":"%s","amount":"1000000"}]' $DENOM`
@@ -116,10 +118,37 @@ echo "🛠️ Updating genesis parameters..."
   update_test_genesis '.app_state["gov"]["params"]["voting_period"]="300s"'
   update_test_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="150s"'
 
-  update_test_genesis `printf '.app_state["evm"]["params"]["evm_denom"]="%s"' $DENOM`
+  # EVM
+  update_test_genesis `printf '.app_state["evm"]["params"]["evm_denom"]="%s"' $DENOM` # This seems duplicated since chain config already has this
   update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805","0x0000000000000000000000000000000000000901"]'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["homestead_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["dao_fork_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["dao_fork_support"]=true'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["eip150_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["eip150_hash"]="0x0000000000000000000000000000000000000000000000000000000000000000"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["eip155_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["eip158_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["byzantium_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["constantinople_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["petersburg_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["istanbul_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["muir_glacier_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["berlin_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["london_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["arrow_glacier_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["gray_glacier_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["merge_netsplit_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["shanghai_block"]="0"'
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["cancun_block"]="0"'
+  update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["chain_id"]=%s' $EVM_CHAIN_ID`
+  update_test_genesis `printf '.app_state["evm"]["params"]["chain_config"]["denom"]="%s"' $DENOM`
+  update_test_genesis '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
+
   update_test_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' # https://eips.ethereum.org/EIPS/eip-7528
   update_test_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
+
+  
+  # feemarket
   update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=false'
   update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="1000000000.000000000000000000"'
   update_test_genesis '.app_state["feemarket"]["params"]["min_gas_price"]="1000000000.000000000000000000"'

@@ -48,7 +48,7 @@
     "ics_enabled": ["ics20-1"],
     "genesis": {
       "name": "v1",
-      "genesis_url": "https://github.com/pushchain/push-chain-node/blob/main/deploy/test-push-chain/config/genesis.json"
+      "genesis_url": "https://rpc-testnet-donut-node1.push.org/genesis"
     },
     "versions": [
       {

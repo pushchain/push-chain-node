@@ -27,7 +27,7 @@ read -p "🔑 Enter SSH Public key: " SSH_PUB_KEY
 # ---------------
 PROJECT_ID="push-chain-testnet"
 ZONE="us-central1-a"
-MACHINE_TYPE="custom-4-10496"
+MACHINE_TYPE="n2-standard-2"
 IMAGE_FAMILY="ubuntu-2204-lts"
 IMAGE_PROJECT="ubuntu-os-cloud"
 DISK_SIZE="200"

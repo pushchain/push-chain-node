@@ -10,6 +10,9 @@ replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.2 //indirect
+
+	// Force IBC-go v8 to resolve version conflict with interchaintest
+	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v8 v8.5.2
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	// breaks SDK app.toml parsing for client configs.
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
@@ -31,18 +34,15 @@ require (
 	cosmossdk.io/math v1.5.0
 	github.com/CosmWasm/wasmd v0.50.0
 	github.com/cosmos/cosmos-sdk v0.50.13
-	github.com/cosmos/evm v0.2.0
-	github.com/cosmos/ibc-go/v8 v8.5.2
+	github.com/cosmos/evm v0.1.0
+	github.com/cosmos/ibc-go/v8 v8.7.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.8.1
 	github.com/strangelove-ventures/tokenfactory v0.50.3
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 )
 
-require (
-	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
-	github.com/cosmos/ibc-go/v10 v10.1.1 // indirect
-)
+require github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
 
 require (
 	cloud.google.com/go v0.115.0 // indirect

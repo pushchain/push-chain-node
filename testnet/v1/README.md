@@ -228,6 +228,15 @@ bash ./setup/setup_fullnode.sh <OTHER_NODE_TENDERMINT_ENDPOINT>
 
 - Push Chain is initialized as a validator node under `.pchain`
 
+#### Promote Full Node to Validator
+
+```bash
+cd /home/app
+bash ./setup/promote_to_validator
+```
+
+> 🧙‍♂️ This step will create validator keys which need to stored safely and also funded before the keys can send a create-validator tx
+
 ---
 
 ## 🛠️ Post-Setup: Node Utilities & Maintenance

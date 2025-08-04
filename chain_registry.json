@@ -72,20 +72,28 @@
   "apis": {
     "rpc": [
       {
-        "address": "http://127.0.0.1:26657",
-        "provider": "localhost"
+        "address": "https://evm.rpc-testnet-donut-node1.push.org/",
+        "provider": "Push Chain"
+      },
+      {
+        "address": "https://evm.rpc-testnet-donut-node2.push.org/",
+        "provider": "Push Chain"
       }
     ],
     "rest": [
       {
-        "address": "http://127.0.0.1:1317",
-        "provider": "localhost"
+        "address": "https://evm.rpc-testnet-donut-node1.push.org/",
+        "provider": "Push Chain"
+      },
+      {
+        "address": "https://evm.rpc-testnet-donut-node2.push.org/",
+        "provider": "Push Chain"
       }
     ]
   },
   "explorers": [
     {
-      "kind": "cosmos",
+      "kind": "BlockScout",
       "url": "https://donut.push.network/",
       "tx_page": "https://donut.push.network/txs",
       "account_page": "https://donut.push.network/accounts"

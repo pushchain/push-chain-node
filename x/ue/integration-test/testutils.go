@@ -39,6 +39,19 @@ const FactoryABI = `[
     "stateMutability": "nonpayable"
   },
   {
+  "type": "function",
+  "name": "setUEAProxyImplementation",
+  "inputs": [
+    {
+      "name": "_UEA_PROXY_IMPLEMENTATION",
+      "type": "address",
+      "internalType": "address"
+    }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+},
+  {
     "type": "function",
     "name": "registerNewChain",
     "inputs": [
@@ -110,6 +123,15 @@ const FactoryABI = `[
     ],
     "stateMutability": "view"
   },
+  {
+  "type": "function",
+  "name": "UEA_PROXY_IMPLEMENTATION",
+  "inputs": [],
+  "outputs": [
+    { "name": "", "type": "address", "internalType": "address" }
+  ],
+  "stateMutability": "view"
+},
   {
     "type": "function",
     "name": "owner",
@@ -188,10 +210,25 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	// ownerAddr, _ := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "getOwner")
 	// fmt.Println("Stored owner:", common.BytesToAddress(ownerAddr))
 
-	evmHash := crypto.Keccak256Hash([]byte("EVM"))
-	evmSepoliaHash := crypto.Keccak256Hash([]byte("eip15511155111"))
+	ueProxyAddress := DeployContract(t, app, ctx, common.HexToAddress("0x0000000000000000000000000000000000000e09"), UEA_PROXY_BYTECODE)
+	receipt, err := app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, "setUEAProxyImplementation", ueProxyAddress)
+	require.NoError(t, err)
+	fmt.Println("Proxy receipt : ", receipt)
 
-	receipt, err := app.EVMKeeper.CallEVM(
+	evmHash := crypto.Keccak256Hash([]byte("EVM"))
+
+	// evmSepoliaHash := crypto.Keccak256Hash([]byte("eip15511155111"))
+	chainArgs := abi.Arguments{
+		{Type: abi.Type{T: abi.StringTy}},
+		{Type: abi.Type{T: abi.StringTy}},
+	}
+	packed, err := chainArgs.Pack("eip155", "11155111")
+	require.NoError(t, err)
+
+	evmSepoliaHash := crypto.Keccak256Hash(packed)
+	fmt.Println("Computed chainHash:", evmSepoliaHash.Hex())
+
+	receipt, err = app.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
 		common.BytesToAddress(addr.Bytes()), // from

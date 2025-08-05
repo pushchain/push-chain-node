@@ -10,13 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/base"
+	"github.com/rollchains/pchain/universalClient/chains/common"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // Client implements the ChainClient interface for EVM chains
 type Client struct {
-	*base.BaseChainClient
+	*common.BaseChainClient
 	logger    zerolog.Logger
 	chainID   int64 // Numeric chain ID extracted from CAIP-2
 	rpcURL    string
@@ -40,7 +40,7 @@ func NewClient(config *uregistrytypes.ChainConfig, logger zerolog.Logger) (*Clie
 	}
 
 	return &Client{
-		BaseChainClient: base.NewBaseChainClient(config),
+		BaseChainClient: common.NewBaseChainClient(config),
 		logger: logger.With().
 			Str("component", "evm_client").
 			Str("chain", config.Chain).

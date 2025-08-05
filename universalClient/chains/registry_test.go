@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/universalClient/chains/base"
+	"github.com/rollchains/pchain/universalClient/chains/common"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
-// MockChainClient implements base.ChainClient for testing
+// MockChainClient implements common.ChainClient for testing
 type MockChainClient struct {
 	config       *uregistrytypes.ChainConfig
 	started      bool
@@ -156,10 +156,10 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 // MockableChainRegistry extends ChainRegistry for testing
 type MockableChainRegistry struct {
 	*ChainRegistry
-	createChainClientFunc func(*uregistrytypes.ChainConfig) (base.ChainClient, error)
+	createChainClientFunc func(*uregistrytypes.ChainConfig) (common.ChainClient, error)
 }
 
-func (m *MockableChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+func (m *MockableChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 	if m.createChainClientFunc != nil {
 		return m.createChainClientFunc(config)
 	}
@@ -227,12 +227,12 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	
 	t.Run("Add new chain - with mock", func(t *testing.T) {
 		baseRegistry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		registry := &MockableChainRegistry{
 			ChainRegistry: baseRegistry,
-			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 				return NewMockChainClient(cfg), nil
 			},
 		}
@@ -256,7 +256,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	
 	t.Run("Update existing chain with same config", func(t *testing.T) {
 		registry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		
@@ -284,7 +284,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	
 	t.Run("Update existing chain with different config", func(t *testing.T) {
 		registry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		
@@ -312,7 +312,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		// Create a mockable registry
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
-			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 				return NewMockChainClient(cfg), nil
 			},
 		}
@@ -349,7 +349,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	
 	t.Run("Client start error", func(t *testing.T) {
 		registry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		
@@ -361,7 +361,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		// Create a mockable registry that returns client that fails to start
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
-			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+			createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 				mock := NewMockChainClient(cfg)
 				mock.startError = errors.New("start failed")
 				return mock, nil
@@ -383,7 +383,7 @@ func TestChainRegistryRemoveChain(t *testing.T) {
 	
 	t.Run("Remove existing chain", func(t *testing.T) {
 		registry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		
@@ -411,7 +411,7 @@ func TestChainRegistryRemoveChain(t *testing.T) {
 	
 	t.Run("Remove chain with stop error", func(t *testing.T) {
 		registry := &ChainRegistry{
-			chains: make(map[string]base.ChainClient),
+			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
 		
@@ -434,7 +434,7 @@ func TestChainRegistryRemoveChain(t *testing.T) {
 func TestChainRegistryGetChain(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
 	
@@ -460,7 +460,7 @@ func TestChainRegistryGetChain(t *testing.T) {
 func TestChainRegistryGetAllChains(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
 	
@@ -484,7 +484,7 @@ func TestChainRegistryGetAllChains(t *testing.T) {
 func TestChainRegistryStopAll(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
 	
@@ -509,7 +509,7 @@ func TestChainRegistryStopAll(t *testing.T) {
 func TestChainRegistryGetHealthStatus(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
 	
@@ -542,14 +542,14 @@ func TestChainRegistryGetHealthStatus(t *testing.T) {
 func TestChainRegistryConcurrency(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
 	
 	// Create a mockable registry for concurrent adds
 	mockableRegistry := &MockableChainRegistry{
 		ChainRegistry: registry,
-		createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+		createChainClientFunc: func(cfg *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 			return NewMockChainClient(cfg), nil
 		},
 	}

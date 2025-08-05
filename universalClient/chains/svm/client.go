@@ -1,4 +1,4 @@
-package solana
+package svm
 
 import (
 	"context"
@@ -9,13 +9,13 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/base"
+	"github.com/rollchains/pchain/universalClient/chains/common"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // Client implements the ChainClient interface for Solana chains
 type Client struct {
-	*base.BaseChainClient
+	*common.BaseChainClient
 	logger      zerolog.Logger
 	genesisHash string // Genesis hash extracted from CAIP-2
 	rpcURL      string
@@ -39,7 +39,7 @@ func NewClient(config *uregistrytypes.ChainConfig, logger zerolog.Logger) (*Clie
 	}
 
 	return &Client{
-		BaseChainClient: base.NewBaseChainClient(config),
+		BaseChainClient: common.NewBaseChainClient(config),
 		logger: logger.With().
 			Str("component", "solana_client").
 			Str("chain", config.Chain).

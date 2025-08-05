@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/cosmos/chain-registry/master/chain.schema.json",
-  "chain_name": "pchain",
+  "chain_name": "pushchain",
   "chain_type": "ethereum",
   "status": "live",
   "website": "https://push.org/",
@@ -16,10 +16,9 @@
     "fee_tokens": [
       {
         "denom": "upc",
-        "fixed_min_gas_price": 0,
-        "low_gas_price": 0,
-        "average_gas_price": 0.025,
-        "high_gas_price": 0.04
+        "low_gas_price": 1000000000,
+        "average_gas_price": 25000000000,
+        "high_gas_price": 40000000000
       }
     ]
   },
@@ -99,5 +98,5 @@
       "account_page": "https://donut.push.network/accounts"
     }
   ],
-  "keywords": ["cosmos", "spawn"]
+  "keywords": ["cosmos", "pushchain"]
 }

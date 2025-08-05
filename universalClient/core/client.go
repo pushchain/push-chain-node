@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rollchains/pchain/universalClient/api"
 	"github.com/rollchains/pchain/universalClient/chains"
-	"github.com/rollchains/pchain/universalClient/chains/base"
+	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/registry"
@@ -25,7 +26,7 @@ type UniversalClient struct {
 	configUpdater  *ConfigUpdater
 	chainRegistry  *chains.ChainRegistry
 	config         *config.Config
-	queryServer    *QueryServer
+	queryServer    *api.Server
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -64,7 +65,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
-	uc.queryServer = NewQueryServer(uc, log, cfg.QueryServerPort)
+	uc.queryServer = api.NewServer(uc, log, cfg.QueryServerPort)
 	
 	return uc, nil
 }
@@ -143,7 +144,7 @@ func (uc *UniversalClient) GetCacheLastUpdate() time.Time {
 }
 
 // GetChainClient returns the chain client for a specific chain
-func (uc *UniversalClient) GetChainClient(chainID string) base.ChainClient {
+func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
 	return uc.chainRegistry.GetChain(chainID)
 }
 

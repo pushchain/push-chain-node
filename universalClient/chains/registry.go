@@ -7,29 +7,29 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/base"
+	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/chains/evm"
-	"github.com/rollchains/pchain/universalClient/chains/solana"
+	"github.com/rollchains/pchain/universalClient/chains/svm"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // ChainRegistry manages chain clients based on their configurations
 type ChainRegistry struct {
 	mu     sync.RWMutex
-	chains map[string]base.ChainClient // key: CAIP-2 chain ID
+	chains map[string]common.ChainClient // key: CAIP-2 chain ID
 	logger zerolog.Logger
 }
 
 // NewChainRegistry creates a new chain registry
 func NewChainRegistry(logger zerolog.Logger) *ChainRegistry {
 	return &ChainRegistry{
-		chains: make(map[string]base.ChainClient),
+		chains: make(map[string]common.ChainClient),
 		logger: logger.With().Str("component", "chain_registry").Logger(),
 	}
 }
 
 // CreateChainClient creates a chain client based on VM type
-func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (base.ChainClient, error) {
+func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (common.ChainClient, error) {
 	if config == nil {
 		return nil, fmt.Errorf("chain config is nil")
 	}
@@ -42,8 +42,8 @@ func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (b
 	switch config.VmType {
 	case uregistrytypes.VmType_EVM:
 		return evm.NewClient(config, r.logger)
-	case uregistrytypes.VmType_SVM: // SVM in the enum
-		return solana.NewClient(config, r.logger) // But use solana package
+	case uregistrytypes.VmType_SVM:
+		return svm.NewClient(config, r.logger)
 	default:
 		return nil, fmt.Errorf("unsupported VM type: %v", config.VmType)
 	}
@@ -130,7 +130,7 @@ func (r *ChainRegistry) RemoveChain(chainID string) {
 }
 
 // GetChain retrieves a chain client by ID
-func (r *ChainRegistry) GetChain(chainID string) base.ChainClient {
+func (r *ChainRegistry) GetChain(chainID string) common.ChainClient {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -138,12 +138,12 @@ func (r *ChainRegistry) GetChain(chainID string) base.ChainClient {
 }
 
 // GetAllChains returns all registered chain clients
-func (r *ChainRegistry) GetAllChains() map[string]base.ChainClient {
+func (r *ChainRegistry) GetAllChains() map[string]common.ChainClient {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	// Create a copy to avoid race conditions
-	chains := make(map[string]base.ChainClient)
+	chains := make(map[string]common.ChainClient)
 	for k, v := range r.chains {
 		chains[k] = v
 	}
@@ -168,7 +168,7 @@ func (r *ChainRegistry) StopAll() {
 	}
 
 	// Clear the registry
-	r.chains = make(map[string]base.ChainClient)
+	r.chains = make(map[string]common.ChainClient)
 }
 
 // GetHealthStatus returns the health status of all chains

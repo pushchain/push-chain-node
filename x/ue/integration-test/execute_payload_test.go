@@ -3,6 +3,7 @@ package integrationtest
 import (
 	"testing"
 
+	"cosmossdk.io/math"
 	"github.com/rollchains/pchain/utils"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 	"github.com/stretchr/testify/require"
@@ -41,18 +42,23 @@ func TestExecutePayload(t *testing.T) {
 	app.UeKeeper.AddChainConfig(ctx, &chainConfigTest)
 
 	validUP := &uetypes.UniversalPayload{
-		To:                   "0x1234567890abcdef1234567890abcdef12345670",
-		Value:                "10",
-		Data:                 "test-data",
-		GasLimit:             "1000000000000",
-		MaxFeePerGas:         "10",
-		MaxPriorityFeePerGas: "10",
+		To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
+		Value:                "0",
+		Data:                 "0x2ba2ed980000000000000000000000000000000000000000000000000000000000000312",
+		GasLimit:             "21000000",
+		MaxFeePerGas:         "1000000000",
+		MaxPriorityFeePerGas: "200000000",
 		Nonce:                "1",
-		Deadline:             "some-deadline",
+		Deadline:             "9999999999",
+		VType:                uetypes.VerificationType(0),
 	}
+
+	params := app.FeeMarketKeeper.GetParams(ctx)
+	params.BaseFee = math.LegacyNewDec(1000000000)
+	app.FeeMarketKeeper.SetParams(ctx, params)
 
 	_, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
 	require.NoError(t, err)
-	app.UeKeeper.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccountId, validUP, "test-signature")
+	app.UeKeeper.ExecutePayload(ctx, evmFromAddress, msg.UniversalAccountId, validUP, "0x075bcd15")
 
 }

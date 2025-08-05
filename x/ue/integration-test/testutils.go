@@ -193,6 +193,21 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	factoryAddr := common.HexToAddress("0x00000000000000000000000000000000000000ea")
 	factoryABI, err := abi.JSON(strings.NewReader(FactoryABI))
 
+	// the account you want to fund
+	targetAddr := sdk.AccAddress([]byte("\x86i\xbe\xd1!\xfe\xfa=\x9c\xf2\x82\x12s\xf4\x89\xe7\x17̩]"))
+
+	// ------------------------------------------for execute payload--------------------------------------------------------
+	coins = sdk.NewCoins(sdk.NewInt64Coin("upc", 23748000000000)) // or more
+	acc = app.AccountKeeper.NewAccountWithAddress(ctx, targetAddr)
+	app.AccountKeeper.SetAccount(ctx, acc)
+
+	err = app.BankKeeper.MintCoins(ctx, "mint", coins)
+	require.NoError(t, err)
+
+	err = app.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", targetAddr, coins)
+	require.NoError(t, err)
+
+	// ------------------------------------------for execute payload--------------------------------------------------------
 	app.UeKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
 	ownerAddr, err := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "owner")
 	fmt.Println("Factory owner after genesis:", common.BytesToAddress(ownerAddr))

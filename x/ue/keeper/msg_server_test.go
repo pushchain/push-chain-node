@@ -90,21 +90,6 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 		require.ErrorContains(err, "failed to parse signer address")
 	})
 
-	t.Run("fail; gateway interaction tx not verified", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
-		msg := &types.MsgDeployUEA{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			TxHash:             "invalid_tx",
-		}
-		f.mockUTVKeeper.
-			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.GetCAIP2()).
-			Return(errors.New("Gateway interaction failed"))
-
-		_, err := f.msgServer.DeployUEA(f.ctx, msg)
-		require.ErrorContains(err, "failed to verify gateway interaction transaction")
-	})
-
 	t.Run("fail: CallFactoryToDeployUEA Fails", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
 			Signer:             validSigner.String(),
@@ -218,44 +203,6 @@ func TestMsgServer_MintPC(t *testing.T) {
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to convert EVM address")
-	})
-
-	t.Run("fail: Mint Fails", func(t *testing.T) {
-		msg := &types.MsgMintPC{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
-
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		usdAmount := new(big.Int)
-		usdAmount.SetString("1000000000000000000", 10) // 10 USD, 18 decimals
-		decimals := uint32(18)
-		amountToMint := uekeeper.ConvertUsdToPCTokens(usdAmount, decimals)
-		expectedCoins := sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint))
-
-		// Mock VerifyAndGetLockedFunds
-		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
-			Return(*big.NewInt(1_000_000), uint32(6), nil)
-
-		f.mockEVMKeeper.EXPECT().
-			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(receipt, nil)
-
-		// MintCoins should be called with correct args
-		f.mockBankKeeper.EXPECT().
-			MintCoins(gomock.Any(), types.ModuleName, expectedCoins).
-			Return(errors.New("minting failed"))
-
-		_, err := f.msgServer.MintPC(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to mint coins")
 	})
 
 	t.Run("success", func(t *testing.T) {

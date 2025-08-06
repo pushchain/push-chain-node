@@ -3,26 +3,13 @@ package integrationtest
 import (
 	"testing"
 
-	"github.com/rollchains/pchain/utils"
+	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDeployUEA(t *testing.T) {
 	app, ctx, _ := SetAppWithValidators(t)
-	validUA := &uetypes.UniversalAccountId{
-		ChainNamespace: "eip155",
-		ChainId:        "11155111",
-		Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
-	}
-
-	validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
-
-	msg := &uetypes.MsgDeployUEA{
-		Signer:             "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
-		UniversalAccountId: validUA,
-		TxHash:             validTxHash, // make a Deploy UEA transaction on Sepolia and add it here
-	}
 
 	chainConfigTest := uetypes.ChainConfig{
 		Chain:             "eip155:11155111",
@@ -39,9 +26,63 @@ func TestDeployUEA(t *testing.T) {
 	}
 
 	app.UeKeeper.AddChainConfig(ctx, &chainConfigTest)
+	ms := uekeeper.NewMsgServerImpl(app.UeKeeper)
 
-	_, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
-	require.NoError(t, err)
-	app.UeKeeper.DeployUEA(ctx, evmFromAddress, msg.UniversalAccountId, validTxHash)
+	t.Run("Success!", func(t *testing.T) {
+		validUA := &uetypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+
+		msg := &uetypes.MsgDeployUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+		resp, err := ms.DeployUEA(ctx, msg)
+		require.NoError(t, err)
+		expected := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 134, 105, 190, 209, 33, 254, 250, 61, 156, 242, 130, 18, 115, 244, 137, 231, 23, 204, 169, 93}
+		require.Equal(t, expected, resp.UEA)
+
+	})
+	t.Run("Repeat transaction!", func(t *testing.T) {
+		validUA := &uetypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+
+		msg := &uetypes.MsgDeployUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err := ms.DeployUEA(ctx, msg)
+		require.ErrorContains(t, err, "contract call failed: method 'deployUEA', contract '0x00000000000000000000000000000000000000eA'")
+	})
+	t.Run("Repeat transaction!", func(t *testing.T) {
+		validUA := &uetypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		validTxHash := "0xinvalidhash"
+
+		msg := &uetypes.MsgDeployUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err := ms.DeployUEA(ctx, msg)
+		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
+	})
 
 }

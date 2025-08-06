@@ -43,14 +43,12 @@ func TestMintPC(t *testing.T) {
 			TxHash:             validTxHash,
 		}
 
-		// _, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
-		// require.NoError(t, err)
-
 		_, err := ms.MintPC(ctx, msg)
 		require.NoError(t, err)
+
 	})
 
-	t.Run("Invalid Signer!", func(t *testing.T) {
+	t.Run("Tokens Already Minted!", func(t *testing.T) {
 		validUA := &uetypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -60,16 +58,32 @@ func TestMintPC(t *testing.T) {
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		msg := &uetypes.MsgMintPC{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err := ms.MintPC(ctx, msg)
+		require.ErrorContains(t, err, "evm tx verification failed: tokens already minted for txHash 0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2 on chain eip155:11155111")
+
+	})
+	t.Run("Invalid Signer!", func(t *testing.T) {
+		validUA := &uetypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		validTxHash := "0x392dbaf3d9bb0a0d8c91d93e22c5f1ef3ee7141083945770077211565dcbada2"
+
+		msg := &uetypes.MsgMintPC{
 			Signer:             "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 			UniversalAccountId: validUA,
 			TxHash:             validTxHash,
 		}
 
-		// _, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
-		// require.NoError(t, err)
-
 		_, err := ms.MintPC(ctx, msg)
-		require.ErrorContains(t, err, "contract call failed: method 'computeUEA', contract '0x00000000000000000000000000000000000000eA")
+		require.ErrorContains(t, err, "contract call failed: method 'computeUEA', contract '0x00000000000000000000000000000000000000eA'")
 
 		// err = app.UeKeeper.MintPC(ctx, evmFromAddress, msg.UniversalAccountId, validTxHash)
 		// require.NoError(t, err)
@@ -88,11 +102,8 @@ func TestMintPC(t *testing.T) {
 			TxHash:             validTxHash,
 		}
 
-		// _, evmFromAddress, err := utils.GetAddressPair("cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9")
-		// require.NoError(t, err)
-
 		_, err := ms.MintPC(ctx, msg)
-		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
+		require.ErrorContains(t, err, "rpc call failed after retries")
 	})
 
 }

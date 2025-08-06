@@ -11,7 +11,50 @@ import (
 
 // FactoryV1ABI contains the ABI for the factory contract
 const FactoryV1ABI = `[
-	{
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [
+      { "name": "initialOwner", "type": "address", "internalType": "address" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+  "type": "function",
+  "name": "setUEAProxyImplementation",
+  "inputs": [
+    {
+      "name": "_UEA_PROXY_IMPLEMENTATION",
+      "type": "address",
+      "internalType": "address"
+    }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+},
+  {
+    "type": "function",
+    "name": "registerNewChain",
+    "inputs": [
+      { "name": "_chainHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "_vmHash", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerUEA",
+    "inputs": [
+      { "name": "_chainHash", "type": "bytes32" },
+      { "name": "_vmHash", "type": "bytes32" },
+      { "name": "_UEA", "type": "address" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "function",
     "name": "deployUEA",
     "inputs": [
@@ -20,19 +63,28 @@ const FactoryV1ABI = `[
         "type": "tuple",
         "internalType": "struct UniversalAccountId",
         "components": [
-          {
-            "name": "chainNamespace",
-            "type": "string",
-            "internalType": "string"
-          },
+          { "name": "chainNamespace", "type": "string", "internalType": "string" },
           { "name": "chainId", "type": "string", "internalType": "string" },
           { "name": "owner", "type": "bytes", "internalType": "bytes" }
         ]
       }
     ],
-    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "outputs": [
+      { "name": "", "type": "address", "internalType": "address" }
+    ],
     "stateMutability": "nonpayable"
   },
+  {
+  "type": "function",
+  "name": "getUEA",
+  "inputs": [
+    { "name": "_chainHash", "type": "bytes32", "internalType": "bytes32" }
+  ],
+  "outputs": [
+    { "name": "", "type": "address", "internalType": "address" }
+  ],
+  "stateMutability": "view"
+ }, 
   {
     "type": "function",
     "name": "computeUEA",
@@ -42,17 +94,33 @@ const FactoryV1ABI = `[
         "type": "tuple",
         "internalType": "struct UniversalAccountId",
         "components": [
-          {
-            "name": "chainNamespace",
-            "type": "string",
-            "internalType": "string"
-          },
+          { "name": "chainNamespace", "type": "string", "internalType": "string" },
           { "name": "chainId", "type": "string", "internalType": "string" },
           { "name": "owner", "type": "bytes", "internalType": "bytes" }
         ]
       }
     ],
-    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "outputs": [
+      { "name": "", "type": "address", "internalType": "address" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+  "type": "function",
+  "name": "UEA_PROXY_IMPLEMENTATION",
+  "inputs": [],
+  "outputs": [
+    { "name": "", "type": "address", "internalType": "address" }
+  ],
+  "stateMutability": "view"
+},
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      { "name": "", "type": "address", "internalType": "address" }
+    ],
     "stateMutability": "view"
   }
 ]`

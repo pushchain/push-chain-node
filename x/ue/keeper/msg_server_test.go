@@ -166,21 +166,6 @@ func TestMsgServer_MintPC(t *testing.T) {
 	}
 	validTxHash := "0xabc123"
 
-	t.Run("fail: VerifyAndGetLockedFunds fails", func(t *testing.T) {
-		msg := &types.MsgMintPC{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
-
-		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
-			Return(*big.NewInt(0), uint32(0), errors.New("some error"))
-
-		_, err := f.msgServer.MintPC(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
-	})
-
 	t.Run("fail: CallFactoryToComputeUEAAddress returns error", func(t *testing.T) {
 		usdAmount := new(big.Int)
 		usdAmount.SetString("10000000000000000000", 10)

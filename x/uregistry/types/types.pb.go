@@ -112,7 +112,7 @@ func (TokenType) EnumDescriptor() ([]byte, []int) {
 
 // Params defines the set of module parameters.
 type Params struct {
-	// The admin account of the ue module.
+	// The admin account of the uregistry module.
 	Admin string `protobuf:"bytes,1,opt,name=admin,proto3" json:"admin,omitempty"`
 }
 

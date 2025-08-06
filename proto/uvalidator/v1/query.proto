@@ -1,0 +1,79 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "google/api/annotations.proto";
+import "uvalidator/v1/genesis.proto";
+import "uvalidator/v1/types.proto";
+
+option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+
+// Query provides defines the gRPC querier service.
+service Query {
+  // Params queries all parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/params";
+  }
+
+  // UniversalValidatorByCore queries the universal validator associated with the given core validator address.
+  rpc UniversalValidatorByCore(QueryUniversalValidatorByCoreRequest) returns (QueryUniversalValidatorByCoreResponse) {
+    option (google.api.http).get = "/uvalidator/v1/core_validators/{core_validator_address}/universal_validator";
+  }
+
+  // CoreValidatorByUniversal queries the core validator address associated with the given universal validator address.
+  rpc CoreValidatorByUniversal(QueryCoreValidatorByUniversalRequest) returns (QueryCoreValidatorByUniversalResponse) {
+    option (google.api.http).get = "/uvalidator/v1/universal_validators/{universal_validator_address}/core_validator";
+  }
+
+  // AllUniversalValidators queries the details of a specific universal validator by its address.
+  rpc AllUniversalValidators(QueryUniversalValidatorsSetRequest) returns (QueryUniversalValidatorsSetResponse) {
+    option (google.api.http).get = "/uvalidator/v1/universal_validators";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params defines the parameters of the module.
+  Params params = 1;
+}
+
+// Add Observer
+// 1. take arguments
+// 2. validate if the validator already has an observer registered
+// 3. check if validator is not jailed
+// 4. Store the observer in the state
+
+// QueryUniversalValidatorByCoreRequest is the request type for the Query/UniversalValidatorByCore RPC method.
+message QueryUniversalValidatorByCoreRequest {
+  // core_validator_address specifies the address of the core validator to query.
+  string core_validator_address = 1;
+}
+
+// QueryUniversalValidatorByCoreResponse is the response type for the Query/UniversalValidatorByCore RPC method.
+message QueryUniversalValidatorByCoreResponse {
+  // universal_validator defines the universal validator associated with the specified core validator.
+  string universal_validator = 1;
+}
+
+// QueryCoreValidatorByUniversalRequest is the request type for the Query/CoreValidatorByUniversal RPC method.
+message QueryCoreValidatorByUniversalRequest {
+  // universal_validator_address specifies the address of the universal validator to query.
+  string universal_validator_address = 1;
+}
+
+// QueryCoreValidatorByUniversalResponse is the response type for the Query/CoreValidatorByUniversal RPC method.
+message QueryCoreValidatorByUniversalResponse {
+  // core_validator_address defines the core validator associated with the specified universal validator.
+  string core_validator_address = 1;
+}
+
+// QueryUniversalValidatorsSetRequest is the request type for Query/UniversalValidatorAddresses.
+message QueryUniversalValidatorsSetRequest {}
+
+// QueryUniversalValidatorsSetResponse is the response type for Query/UniversalValidatorAddresses.
+message QueryUniversalValidatorsSetResponse {
+  // addresses is the list of all universal validator addresses registered in the module.
+  repeated string addresses = 1;
+}

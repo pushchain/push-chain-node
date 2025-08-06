@@ -181,6 +181,9 @@ import (
 	utv "github.com/rollchains/pchain/x/utv"
 	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
 	utvtypes "github.com/rollchains/pchain/x/utv/types"
+	uvalidator "github.com/rollchains/pchain/x/uvalidator"
+	uvalidatorkeeper "github.com/rollchains/pchain/x/uvalidator/keeper"
+	uvalidatortypes "github.com/rollchains/pchain/x/uvalidator/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -324,6 +327,7 @@ type ChainApp struct {
 	UeKeeper                  uekeeper.Keeper
 	UtvKeeper                 utvkeeper.Keeper
 	UregistryKeeper           uregistrykeeper.Keeper
+	UvalidatorKeeper          uvalidatorkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -439,6 +443,7 @@ func NewChainApp(
 		uetypes.StoreKey,
 		utvtypes.StoreKey,
 		uregistrytypes.StoreKey,
+		uvalidatortypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -755,6 +760,15 @@ func NewChainApp(
 		app.UregistryKeeper,
 	)
 
+	// Create the uvalidator Keeper
+	app.UvalidatorKeeper = uvalidatorkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[uvalidatortypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.StakingKeeper,
+	)
+
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.
 	corePrecompiles := NewAvailableStaticPrecompiles(
@@ -1041,6 +1055,7 @@ func NewChainApp(
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1090,6 +1105,7 @@ func NewChainApp(
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
 		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1114,6 +1130,7 @@ func NewChainApp(
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
 		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1165,6 +1182,7 @@ func NewChainApp(
 		uetypes.ModuleName,
 		utvtypes.ModuleName,
 		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1637,6 +1655,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(uetypes.ModuleName)
 	paramsKeeper.Subspace(utvtypes.ModuleName)
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
+	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
 
 	return paramsKeeper
 }

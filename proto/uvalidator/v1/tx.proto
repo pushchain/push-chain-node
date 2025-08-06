@@ -1,0 +1,96 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "uvalidator/v1/genesis.proto";
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "uvalidator/v1/types.proto";
+
+option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a governance operation for updating the parameters.
+  //
+  // Since: cosmos-sdk 0.47
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // AddUniversalValidator defines a message to add a universal validator.
+  rpc AddUniversalValidator(MsgAddUniversalValidator) returns (MsgAddUniversalValidatorResponse);
+
+  // UpdateUniversalValidator defines a message to update a universal validator.
+  rpc UpdateUniversalValidator(MsgUpdateUniversalValidator) returns (MsgUpdateUniversalValidatorResponse);
+
+  // RemoveUniversalValidator defines a message to remove a universal validator.
+  rpc RemoveUniversalValidator(MsgRemoveUniversalValidator) returns (MsgRemoveUniversalValidatorResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParamsResponse {}
+
+message MsgAddUniversalValidator {
+  option (amino.name) = "uvalidator/MsgAddUniversalValidator";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to execute this message
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // core_validator_address is the address of the core validator.
+  string core_validator_address = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+
+  // universal_validator_address is the address of the uvalidator to be added.
+  string universal_validator_address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgAddUniversalValidatorResponse {}
+
+message MsgUpdateUniversalValidator {
+  option (amino.name) = "uvalidator/MsgUpdateUniversalValidator";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to execute this message
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // core_validator_address is the address of the core validator.
+  string core_validator_address = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+
+  // universal_validator_address is the address of the uvalidator to be updated.
+  string universal_validator_address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgUpdateUniversalValidatorResponse {}
+
+message MsgRemoveUniversalValidator {
+  option (amino.name) = "uvalidator/MsgRemoveUniversalValidator";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to execute this message
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // universal_validator_address is the address of the uvalidator to be removed.
+  string universal_validator_address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgRemoveUniversalValidatorResponse {}

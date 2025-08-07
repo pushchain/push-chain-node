@@ -66,7 +66,8 @@ sudo certbot certonly --webroot \
 
 # ✅ Write final SSL-enabled config
 sudo tee "$FINAL_CONFIG" > /dev/null <<EOF
-limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
+limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=10r/s;
+limit_req_status 429;
 
 # Cosmos RPC
 server {
@@ -83,7 +84,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
 
     location / {
-        limit_req zone=req_limit_per_ip burst=10 nodelay;
+        limit_req zone=req_limit_per_ip burst=20 nodelay;
         proxy_pass http://localhost:26657;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -125,7 +126,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
 
     location / {
-        limit_req zone=req_limit_per_ip burst=10 nodelay;
+        limit_req zone=req_limit_per_ip burst=20 nodelay;
         set \$backend http://http_backend;
         if (\$http_upgrade = "websocket") {
             set \$backend http://ws_backend;

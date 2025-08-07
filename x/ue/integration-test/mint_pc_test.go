@@ -4,13 +4,14 @@ import (
 	// "math/big"
 	"testing"
 
+	utils "github.com/rollchains/pchain/testutils"
 	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMintPC(t *testing.T) {
-	app, ctx, _ := SetAppWithValidators(t)
+	app, ctx, _ := utils.SetAppWithValidators(t)
 	chainConfigTest := uetypes.ChainConfig{
 		Chain:             "eip155:11155111",
 		VmType:            uetypes.VM_TYPE_EVM,

@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	log "cosmossdk.io/log"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	uetypes "github.com/rollchains/pchain/x/ue/types"
@@ -91,8 +89,8 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 
 	// ------------------------------------------for execute payload--------------------------------------------------------
 	app.UeKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
-	ownerAddr, err := CallContractMethod(t, app, ctx, addr, factoryAddr, factoryABI, "owner")
-	fmt.Println("Factory owner after genesis:", common.BytesToAddress(ownerAddr))
+	ownerAddr, err := app.EVMKeeper.CallEVM(ctx, factoryABI, common.BytesToAddress(addr.Bytes()), factoryAddr, true, "owner")
+	fmt.Println("Factory owner after genesis:", common.BytesToAddress(ownerAddr.Ret))
 
 	owner := common.BytesToAddress(addr.Bytes())
 	app.EVMKeeper.CallEVM(ctx, factoryABI, common.BytesToAddress(addr.Bytes()), factoryAddr, true, "initialize", owner)
@@ -145,19 +143,10 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	)
 	require.NoError(t, err)
 
-	ueaAddrBytes, err := CallContractMethod(
-		t,
-		app,
-		ctx,
-		addr,        // from
-		factoryAddr, // contract
-		factoryABI,
-		"getUEA",
-		evmSepoliaHash,
-	)
+	ueaAddrBytes, err := app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, "getUEA", evmSepoliaHash)
 	require.NoError(t, err)
 
-	ueaAddr := common.BytesToAddress(ueaAddrBytes)
+	ueaAddr := common.BytesToAddress(ueaAddrBytes.Ret)
 	fmt.Println("UEA registered at:", ueaAddr.Hex())
 
 	return app, ctx, acc
@@ -181,29 +170,4 @@ func DeployContract(
 	app.EVMKeeper.SetCode(ctx, codeHash.Bytes(), bytecode)
 
 	return contractAddr
-}
-
-func CallContractMethod(t *testing.T, app *app.ChainApp, ctx sdk.Context, from sdk.AccAddress, contract common.Address, contractABI abi.ABI, method string, args ...interface{}) ([]byte, error) {
-	input, err := contractABI.Pack(method, args...)
-	nonce := app.EVMKeeper.GetNonce(ctx, common.BytesToAddress(from.Bytes()))
-
-	msg := ethtypes.NewMessage(
-		common.BytesToAddress(from.Bytes()), // from
-		&contract,                           // to
-		nonce,                               // nonce
-		big.NewInt(0),                       // no value sent
-		5_000_000,                           // gas limit
-		big.NewInt(1_000_000_000),           // gas price
-		nil, nil,                            // no fee caps
-		input, // data (encoded method)
-		nil,   // access list
-		true,  // check nonce
-	)
-
-	res, err := app.EVMKeeper.ApplyMessage(ctx, msg, nil, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Ret, nil
 }

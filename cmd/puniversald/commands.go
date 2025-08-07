@@ -19,6 +19,7 @@ func InitRootCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(startCmd())
+	rootCmd.AddCommand(queryCmd())
 }
 
 func versionCmd() *cobra.Command {
@@ -82,7 +83,10 @@ func startCmd() *cobra.Command {
 
 			// --- Step 4: Start client ---
 			ctx := context.Background()
-			client := core.NewUniversalClient(ctx, log, database)
+			client, err := core.NewUniversalClient(ctx, log, database, &loadedCfg)
+			if err != nil {
+				return fmt.Errorf("failed to create universal client: %w", err)
+			}
 			return client.Start()
 		},
 	}

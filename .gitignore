@@ -8,3 +8,6 @@ testnet/*/binary
 web/
 
 .env
+validator/TODO.md
+/build
+push-node-manager/pchaind-local

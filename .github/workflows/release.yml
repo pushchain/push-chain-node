@@ -1,0 +1,302 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+      - feature/validator-node-setup
+    paths:
+      - 'cmd/pchaind/**'
+      - 'x/ue/**'
+      - 'x/utv/**'
+      - 'app/**'
+      - 'proto/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/release.yml'
+  
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Additional release notes (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if version changed
+        id: version_check
+        run: |
+          # Check if this is a manual trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Use manual version
+            VERSION="${{ github.event.inputs.version }}"
+            # Ensure version starts with 'v'
+            if [[ ! "$VERSION" =~ ^v ]]; then
+              VERSION="v$VERSION"
+            fi
+            echo "Manual release version: $VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For automatic triggers, check commit messages
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Generate new version based on commit messages
+          if git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^(feat|fix)!:"; then
+            # Breaking change - major version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print "v"$1+1".0.0"}' | sed 's/vv/v/')
+          elif git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^feat:"; then
+            # New feature - minor version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print $1"."$2+1".0"}')
+          elif git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -E "^fix:"; then
+            # Bug fix - patch version
+            VERSION=$(echo $LATEST_TAG | awk -F. '{print $1"."$2"."$3+1}')
+          else
+            echo "No release needed"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "New version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "should_release=true" >> $GITHUB_OUTPUT
+
+  build-binaries:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    strategy:
+      matrix:
+        include:
+          - platform: linux-amd64
+            docker-platform: linux/amd64
+            goos: linux
+            goarch: amd64
+            runs-on: ubuntu-latest
+            use-docker: true
+          - platform: linux-arm64
+            docker-platform: linux/arm64
+            goos: linux
+            goarch: arm64
+            runs-on: ubuntu-latest
+            use-docker: true
+          - platform: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            runs-on: macos-latest
+            use-docker: false
+          - platform: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            runs-on: macos-latest
+            use-docker: false
+    
+    runs-on: ${{ matrix.runs-on }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        if: matrix.use-docker
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+      
+      - name: Setup macOS build environment
+        if: matrix.goos == 'darwin'
+        run: |
+          # Clear any existing CGO flags that might interfere
+          echo "CGO_LDFLAGS=" >> $GITHUB_ENV
+          echo "CGO_CFLAGS=" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=" >> $GITHUB_ENV
+          
+          # Enable CGO for macOS builds
+          echo "CGO_ENABLED=1" >> $GITHUB_ENV
+      
+      - name: Build ${{ matrix.platform }}
+        run: |
+          mkdir -p release
+          VERSION=${{ needs.check-version.outputs.version }}
+          
+          if [ "${{ matrix.use-docker }}" = "true" ]; then
+            # Build using Docker for Linux with version injection
+            echo "Building ${{ matrix.platform }} binary using Docker with version $VERSION..."
+            
+            # Create a custom Dockerfile that uses the existing Makefile
+            cat > Dockerfile.build << 'EOF'
+          FROM golang:1.23 AS builder
+          
+          # Install build dependencies  
+          RUN apt-get update && apt-get install -y git build-essential
+          
+          WORKDIR /app
+          COPY . .
+          
+          # Build using go build directly with version injection
+          ARG VERSION
+          ARG GOARCH
+          RUN COMMIT_HASH=$(git log -1 --format='%H') && \
+              mkdir -p build && \
+              CGO_ENABLED=1 GOOS=linux GOARCH=${GOARCH} go build \
+              -mod=readonly \
+              -tags "netgo,ledger" \
+              -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT_HASH} -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger -s -w" \
+              -trimpath \
+              -o build/pchaind ./cmd/pchaind
+          
+          FROM alpine:latest
+          RUN apk --no-cache add ca-certificates
+          WORKDIR /root/
+          COPY --from=builder /app/build/pchaind /usr/bin/pchaind
+          EOF
+            
+            docker buildx build --platform ${{ matrix.docker-platform }} -f Dockerfile.build \
+              --build-arg VERSION=$VERSION \
+              --build-arg GOARCH=${{ matrix.goarch }} \
+              -t pchaind-builder-${{ matrix.platform }} --load .
+            
+            # Extract the binary
+            docker create --platform ${{ matrix.docker-platform }} --name extract pchaind-builder-${{ matrix.platform }}
+            docker cp extract:/usr/bin/pchaind ./pchaind
+            docker rm extract
+          else
+            # Build natively for macOS using Makefile with version injection
+            echo "Building ${{ matrix.platform }} binary natively with version $VERSION..."
+            
+            # Install dependencies
+            go mod download
+            
+            # Build using Makefile with proper version
+            VERSION=$VERSION GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make build
+            
+            # Move binary to current directory
+            mv build/pchaind ./pchaind
+          fi
+          
+          # Create archive with version in filename
+          VERSION=${{ needs.check-version.outputs.version }}
+          tar -czf release/pchaind-${VERSION}-${{ matrix.platform }}.tar.gz pchaind
+          rm pchaind
+          
+          # Generate checksum
+          cd release
+          if [ "${{ matrix.goos }}" = "darwin" ]; then
+            shasum -a 256 pchaind-${VERSION}-${{ matrix.platform }}.tar.gz > pchaind-${VERSION}-${{ matrix.platform }}.tar.gz.sha256
+          else
+            sha256sum pchaind-${VERSION}-${{ matrix.platform }}.tar.gz > pchaind-${VERSION}-${{ matrix.platform }}.tar.gz.sha256
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pchaind-${{ matrix.platform }}
+          path: |
+            release/*.tar.gz
+            release/*.sha256
+          if-no-files-found: error
+
+  create-release:
+    needs: [check-version, build-binaries]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+          
+          # Format changelog
+          echo "# Changelog" > changelog.md
+          echo "" >> changelog.md
+          
+          # Group by type
+          echo "## Features" >> changelog.md
+          echo "$CHANGELOG" | grep -E "^- feat:" | sed 's/^- feat: /- /' >> changelog.md || echo "None" >> changelog.md
+          
+          echo "" >> changelog.md
+          echo "## Bug Fixes" >> changelog.md
+          echo "$CHANGELOG" | grep -E "^- fix:" | sed 's/^- fix: /- /' >> changelog.md || echo "None" >> changelog.md
+          
+          echo "" >> changelog.md
+          echo "## Other Changes" >> changelog.md
+          echo "$CHANGELOG" | grep -vE "^- (feat|fix):" >> changelog.md || echo "None" >> changelog.md
+          
+          # Save for release body
+          echo 'changelog<<EOF' >> $GITHUB_OUTPUT
+          cat changelog.md >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: Release ${{ needs.check-version.outputs.version }}
+          body: |
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes || '' }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform and extract it:
+            
+            ```bash
+            # Linux (AMD64)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-linux-amd64.tar.gz | tar xz
+            
+            # Linux (ARM64)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-linux-arm64.tar.gz | tar xz
+            
+            # macOS (Intel)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-darwin-amd64.tar.gz | tar xz
+            
+            # macOS (Apple Silicon)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.check-version.outputs.version }}/pchaind-${{ needs.check-version.outputs.version }}-darwin-arm64.tar.gz | tar xz
+            ```
+            
+            ## Checksums
+            
+            Verify the integrity of downloaded files using the provided SHA256 checksums.
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.sha256
+          draft: false
+          prerelease: false
+

@@ -46,20 +46,20 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper   keeper.Keeper
-	ueKeeper types.UeKeeper
+	keeper          keeper.Keeper
+	uexecutorKeeper types.UexecutorKeeper
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
-	ueKeeper types.UeKeeper,
+	uexecutorKeeper types.UexecutorKeeper,
 ) *AppModule {
 	return &AppModule{
-		AppModuleBasic: AppModuleBasic{cdc: cdc},
-		keeper:         keeper,
-		ueKeeper:       ueKeeper,
+		AppModuleBasic:  AppModuleBasic{cdc: cdc},
+		keeper:          keeper,
+		uexecutorKeeper: uexecutorKeeper,
 	}
 }
 

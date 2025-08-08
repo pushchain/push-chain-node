@@ -31,7 +31,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/utv/keeper"
 	"github.com/pushchain/push-chain-node/x/utv/types"
 
-	ueKeeper "github.com/pushchain/push-chain-node/x/ue/keeper"
+	uexecutorKeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 )
 
 var maccPerms = map[string][]string{
@@ -88,10 +88,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &ueKeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &uexecutorKeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &ueKeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &uexecutorKeeper.Keeper{})
 
 	return f
 }

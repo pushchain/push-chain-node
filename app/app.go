@@ -175,9 +175,9 @@ import (
 	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/ocv"
 	usvprecompile "github.com/pushchain/push-chain-node/precompiles/usv"
 	pushtypes "github.com/pushchain/push-chain-node/types"
-	ue "github.com/pushchain/push-chain-node/x/ue"
-	uekeeper "github.com/pushchain/push-chain-node/x/ue/keeper"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
+	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utv "github.com/pushchain/push-chain-node/x/utv"
 	utvkeeper "github.com/pushchain/push-chain-node/x/utv/keeper"
 	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
@@ -258,7 +258,7 @@ var maccPerms = map[string][]string{
 	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
-	uetypes.ModuleName:           {authtypes.Minter, authtypes.Burner},
+	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 }
 
 var (
@@ -321,7 +321,7 @@ type ChainApp struct {
 	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
-	UeKeeper                  uekeeper.Keeper
+	UexecutorKeeper           uexecutorkeeper.Keeper
 	UtvKeeper                 utvkeeper.Keeper
 
 	// the module manager
@@ -435,7 +435,7 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
-		uetypes.StoreKey,
+		uexecutortypes.StoreKey,
 		utvtypes.StoreKey,
 	)
 
@@ -723,9 +723,9 @@ func NewChainApp(
 	)
 
 	// Create the ue Keeper
-	app.UeKeeper = uekeeper.NewKeeper(
+	app.UexecutorKeeper = uexecutorkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[uetypes.StoreKey]),
+		runtime.NewKVStoreService(keys[uexecutortypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.EVMKeeper,
@@ -741,7 +741,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UeKeeper,
+		app.UexecutorKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1027,8 +1027,8 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
-		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
+		utv.NewAppModule(appCodec, app.UtvKeeper, app.UexecutorKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1075,7 +1075,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
+		uexecutortypes.ModuleName,
 		utvtypes.ModuleName,
 	)
 
@@ -1098,7 +1098,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
+		uexecutortypes.ModuleName,
 		utvtypes.ModuleName,
 	)
 
@@ -1148,7 +1148,7 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
+		uexecutortypes.ModuleName,
 		utvtypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1619,7 +1619,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
-	paramsKeeper.Subspace(uetypes.ModuleName)
+	paramsKeeper.Subspace(uexecutortypes.ModuleName)
 	paramsKeeper.Subspace(utvtypes.ModuleName)
 
 	return paramsKeeper

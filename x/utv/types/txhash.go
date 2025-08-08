@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func NormalizeTxHash(txHash string, vmType uetypes.VM_TYPE) (string, error) {
+func NormalizeTxHash(txHash string, vmType uexecutortypes.VM_TYPE) (string, error) {
 	txHash = strings.TrimSpace(txHash)
 
 	// Strip "0x" prefix if present
@@ -24,14 +24,14 @@ func NormalizeTxHash(txHash string, vmType uetypes.VM_TYPE) (string, error) {
 	}
 
 	switch vmType {
-	case uetypes.VM_TYPE_EVM:
+	case uexecutortypes.VM_TYPE_EVM:
 		if len(decodedBytes) != 32 {
 			return "", fmt.Errorf("invalid EVM tx hash length: got %d bytes, expected 32", len(decodedBytes))
 		}
 		// Reconstruct normalized hex with 0x and lowercase
 		return "0x" + txHash, nil
 
-	case uetypes.VM_TYPE_SVM:
+	case uexecutortypes.VM_TYPE_SVM:
 		if len(decodedBytes) != 64 {
 			return "", fmt.Errorf("invalid Solana tx signature: expected 64 bytes, got %d", len(decodedBytes))
 		}

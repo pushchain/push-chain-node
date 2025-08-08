@@ -15,7 +15,7 @@ import (
 	"github.com/decred/base58"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 )
 
@@ -49,7 +49,7 @@ func compareSVMAddresses(addr1, addr2 string) bool {
 func IsValidSVMAddFundsInstruction(
 	instructions []svmrpc.Instruction,
 	accountKeys []string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uexecutortypes.ChainConfig,
 ) error {
 	for _, inst := range instructions {
 		if inst.ProgramIDIndex < 0 || inst.ProgramIDIndex >= len(accountKeys) {
@@ -75,7 +75,7 @@ func IsValidSVMAddFundsInstruction(
 
 		var expected []byte
 		for _, method := range chainConfig.GatewayMethods {
-			if method.Name == uetypes.METHOD.SVM.AddFunds {
+			if method.Name == uexecutortypes.METHOD.SVM.AddFunds {
 				var err error
 				expected, err = hex.DecodeString(method.Identifier)
 				if err != nil {

@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // VerifyAndGetLockedFunds verifies if the user has interacted with the gateway on the source chain and send the locked funds amount.
 func (k Keeper) VerifyAndGetPayloadHash(ctx sdk.Context, ownerKey, txHash, chain string) (string, error) {
 	// Step 1: Load chain config
-	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
+	chainConfig, err := k.uexecutorKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return "", err
 	}
@@ -20,13 +20,13 @@ func (k Keeper) VerifyAndGetPayloadHash(ctx sdk.Context, ownerKey, txHash, chain
 	}
 
 	switch chainConfig.VmType {
-	case uetypes.VM_TYPE_EVM:
+	case uexecutortypes.VM_TYPE_EVM:
 		payloadHash, err := k.verifyEVMAndGetPayload(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
 			return "", fmt.Errorf("evm tx verification failed: %w", err)
 		}
 		return payloadHash, nil
-	case uetypes.VM_TYPE_SVM:
+	case uexecutortypes.VM_TYPE_SVM:
 		payloadHash, err := k.verifySVMAndGetPayload(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
 			return "", fmt.Errorf("svm tx verification failed: %w", err)

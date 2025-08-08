@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 const VerifyTxHashMethod = "verifyTxHash"
@@ -57,8 +57,8 @@ func (p Precompile) VerifyTxHash(
 
 	fmt.Printf("[OCV] Delegating verification to UTV module for gas efficiency\n")
 
-	// Convert to UE module format
-	universalAccountId := uetypes.UniversalAccountId{
+	// Convert to Uexecutor module format
+	universalAccountId := uexecutortypes.UniversalAccountId{
 		ChainNamespace: chainNamespace,
 		ChainId:        chainId,
 		Owner:          ownerHex,

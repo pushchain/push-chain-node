@@ -11,7 +11,7 @@ import (
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/pushchain/push-chain-node/x/utv/keeper"
 	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 )
@@ -47,7 +47,7 @@ func MigrateVerifiedTxsToMetadata(ctx sdk.Context, k *keeper.Keeper, cdc codec.B
 			chain = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
 		}
 
-		chainConfig, err := k.GetUEKeeper().GetChainConfig(ctx, chain)
+		chainConfig, err := k.GetUexecutorKeeper().GetChainConfig(ctx, chain)
 		if err != nil {
 			ctx.Logger().Error("Failed to get chain config", "chain", chain, "err", err)
 			return false, nil
@@ -56,7 +56,7 @@ func MigrateVerifiedTxsToMetadata(ctx sdk.Context, k *keeper.Keeper, cdc codec.B
 		var meta *utvtypes.VerifiedTxMetadata
 
 		switch chainConfig.VmType {
-		case uetypes.VM_TYPE_EVM:
+		case uexecutortypes.VM_TYPE_EVM:
 			rpcCfg := rpc.RpcCallConfig{
 				PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 				PublicRPC:  chainConfig.PublicRpcUrl,
@@ -69,7 +69,7 @@ func MigrateVerifiedTxsToMetadata(ctx sdk.Context, k *keeper.Keeper, cdc codec.B
 			from := receipt.From
 			meta, err = k.VerifyEVMInboundTx(ctx, from, txHash, chainConfig)
 
-		case uetypes.VM_TYPE_SVM:
+		case uexecutortypes.VM_TYPE_SVM:
 			// ⚠️ Skipping SVM txHash migration due to known corrupted base58-encoded lowercase entries
 			ctx.Logger().Info("⏭️ Skipping corrupted SVM txHash", "txHash", txHash)
 			return false, nil

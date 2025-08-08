@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.
 func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error {
 	// Step 1: Load chain config
-	chainConfig, err := k.ueKeeper.GetChainConfig(ctx, chain)
+	chainConfig, err := k.uexecutorKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return err
 	}
@@ -20,11 +20,11 @@ func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash
 	}
 
 	switch chainConfig.VmType {
-	case uetypes.VM_TYPE_EVM:
+	case uexecutortypes.VM_TYPE_EVM:
 		if err := k.verifyEVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("evm tx verification failed: %w", err)
 		}
-	case uetypes.VM_TYPE_SVM:
+	case uexecutortypes.VM_TYPE_SVM:
 		if err := k.verifySVMInteraction(ctx, ownerKey, txHash, chainConfig); err != nil {
 			return fmt.Errorf("svm tx verification failed: %w", err)
 		}

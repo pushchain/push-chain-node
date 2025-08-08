@@ -12,7 +12,7 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // MinGasPriceDecorator will check if the transaction's fee is at least as large
@@ -78,7 +78,7 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 		}
 	}
 
-	if uetypes.IsGaslessTx(tx) {
+	if uexecutortypes.IsGaslessTx(tx) {
 		// Skip fee deduction for MsgGaslessUpdate
 		return next(ctx, tx, simulate)
 	}

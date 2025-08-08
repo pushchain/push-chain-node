@@ -8,12 +8,12 @@ import (
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
-	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
-func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) error {
+func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) error {
 	_, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
-func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (string, error) {
+func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) (string, error) {
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return "", err
@@ -33,7 +33,7 @@ func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash str
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
-func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uetypes.ChainConfig) (*utvtypes.USDValue, error) {
+func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) (*utvtypes.USDValue, error) {
 	// Fetch stored metadata
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
@@ -76,7 +76,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 func (k Keeper) VerifySVMInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uexecutortypes.ChainConfig,
 ) (*utvtypes.VerifiedTxMetadata, error) {
 	meta, found, err := k.GetVerifiedInboundTxMetadata(ctx, chainConfig.Chain, txHash)
 	if err != nil {
@@ -98,7 +98,7 @@ func (k Keeper) VerifySVMInboundTx(
 func (k Keeper) SVMProcessUnverifiedInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uetypes.ChainConfig,
+	chainConfig uexecutortypes.ChainConfig,
 ) (*utvtypes.VerifiedTxMetadata, error) {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
@@ -142,7 +142,7 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 	// Get the event discriminator from chain config
 	var eventDiscriminator []byte
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == uetypes.METHOD.SVM.AddFunds {
+		if method.Name == uexecutortypes.METHOD.SVM.AddFunds {
 			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
 			if err != nil {
 				return nil, fmt.Errorf("invalid event discriminator in chain config: %w", err)

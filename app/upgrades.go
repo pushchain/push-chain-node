@@ -6,7 +6,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	uaidrefactor "github.com/pushchain/push-chain-node/app/upgrades/uaid-refactor"
+	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades
@@ -17,7 +17,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 	// setupLegacyKeyTables(&app.ParamsKeeper)
 	if len(Upgrades) == 0 {
 		// always have a unique upgrade registered for the current version to test in system tests
-		Upgrades = append(Upgrades, uaidrefactor.NewUpgrade(app.Version()))
+		Upgrades = append(Upgrades, noop.NewUpgrade(app.Version()))
 	}
 
 	keepers := upgrades.AppKeepers{

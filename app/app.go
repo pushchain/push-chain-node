@@ -164,14 +164,7 @@ import (
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
-	"github.com/pushchain/push-chain-node/app/upgrades"
 
-	evmderivedtx "github.com/pushchain/push-chain-node/app/upgrades/evm-derived-tx"
-	fixgasestimation "github.com/pushchain/push-chain-node/app/upgrades/fix-gas-estimation"
-	fixgasoverride "github.com/pushchain/push-chain-node/app/upgrades/fix-gas-override"
-	fixoneclick "github.com/pushchain/push-chain-node/app/upgrades/fix-one-click"
-	oneclickexec "github.com/pushchain/push-chain-node/app/upgrades/one-click-exec"
-	uaidrefactor "github.com/pushchain/push-chain-node/app/upgrades/uaid-refactor"
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 	utxhashverifierprecompile "github.com/pushchain/push-chain-node/precompiles/utxhashverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
@@ -1233,32 +1226,6 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"uaid-refactor",
-		uaidrefactor.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"evm-derived-tx",
-		evmderivedtx.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"one-click-exec",
-		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixoneclick.UpgradeName,
-		fixoneclick.CreateUpgradeHandler(app.ModuleManager, app.configurator, &upgrades.AppKeepers{
-			EVMKeeper: app.EVMKeeper,
-		}))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixgasoverride.UpgradeName,
-		fixgasoverride.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixgasestimation.UpgradeName,
-		fixgasestimation.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper

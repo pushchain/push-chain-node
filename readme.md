@@ -58,7 +58,7 @@ make sh-testnet
 ## Directory Structure
 
 - `app/` – Core application logic and configuration
-- `x/` – Cosmos SDK modules (UExecutor, UTV, etc.)
+- `x/` – Cosmos SDK modules (UExecutor, UTxVerifier, etc.)
 - `precompiles/` – EVM precompiles for universal verification
 - `proto/` – Protobuf definitions
 - `cmd/` – CLI entrypoints

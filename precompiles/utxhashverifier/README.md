@@ -40,7 +40,7 @@ function verifyTxHash(
 
 ### Architecture Overview
 
-The UTxHashVerifier precompile delegates verification to the UTV (Universal Transaction Verification) module for gas efficiency. The verification process involves:
+The UTxHashVerifier precompile delegates verification to the UTxVerifier (Universal Transaction Verification) module for gas efficiency. The verification process involves:
 
 1. **Chain Detection**: Extracts chain information from chainNamespace parameter
 2. **Owner Verification**: Ensures the transaction sender matches the provided owner
@@ -226,7 +226,7 @@ precompiles/utxhashverifier/
 
 ## Integration with UtxverifierKeeper moduledule
 
-The UTxHashVerifier precompile integrates with the UTV (Universal Transaction Verification) module:
+The UTxHashVerifier precompile integrates with the UtxVerifier (Universal Transaction Verification) module:
 
 ```go
 // UtxverifierKeeper moduledule provides the core verification logic

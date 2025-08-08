@@ -728,7 +728,7 @@ func NewChainApp(
 		&app.UtxverifierKeeper,
 	)
 
-	// Create the utv Keeper
+	// Create the utxverifier Keeper
 	app.UtxverifierKeeper = utxverifierkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),

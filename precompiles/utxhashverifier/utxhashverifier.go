@@ -56,7 +56,7 @@ func NewPrecompile() (*Precompile, error) {
 	return p, nil
 }
 
-// NewPrecompileWithUtv creates a new UTxHashVerifier precompile with UTV keeper dependency
+// NewPrecompileWithUtv creates a new UTxHashVerifier precompile with Utxverifier keeper dependency
 func NewPrecompileWithUtv(utxverifierKeeper UtxverifierKeeper) (*Precompile, error) {
 	p, err := NewPrecompile()
 	if err != nil {

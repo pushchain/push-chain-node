@@ -4,7 +4,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// UtxverifierKeeper defines the expected interface for the UTV keeper
+// UtxverifierKeeper defines the expected interface for the Utxverifier keeper
 type UtxverifierKeeper interface {
 	VerifyAndGetPayloadHash(ctx sdk.Context, ownerKey, txHash, chain string) (string, error)
 }

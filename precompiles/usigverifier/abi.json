@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "USV",
-  "sourceName": "precompiles/USV.sol",
+  "contractName": "USigVerifier",
+  "sourceName": "precompiles/USigVerifier.sol",
   "bytecode": "0x",
   "deployedBytecode": "0x",
   "linkReferences": {},

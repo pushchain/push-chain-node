@@ -1,19 +1,19 @@
-package usv
+package usigverifier
 
 import (
 	"embed"
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 const (
-	UsvPrecompileAddress = "0x00000000000000000000000000000000000000ca"
+	USigVerifierPrecompileAddress = "0x00000000000000000000000000000000000000ca"
 	// VerifyEd25519Gas is the gas cost for verifying an Ed25519 signature.
 	VerifyEd25519Gas uint64 = 4000
 )
@@ -32,11 +32,11 @@ type Precompile struct {
 
 // return address of the precompile
 func GetAddress() common.Address {
-	return common.HexToAddress(UsvPrecompileAddress)
+	return common.HexToAddress(USigVerifierPrecompileAddress)
 }
 
 func NewPrecompile() (*Precompile, error) {
-	usvABI, err := cmn.LoadABI(f, "abi.json")
+	usigverifierABI, err := cmn.LoadABI(f, "abi.json")
 
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func NewPrecompile() (*Precompile, error) {
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  usvABI,
+			ABI:                  usigverifierABI,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},

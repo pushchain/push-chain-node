@@ -173,7 +173,7 @@ import (
 	oneclickexec "github.com/pushchain/push-chain-node/app/upgrades/one-click-exec"
 	uaidrefactor "github.com/pushchain/push-chain-node/app/upgrades/uaid-refactor"
 	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/ocv"
-	usvprecompile "github.com/pushchain/push-chain-node/precompiles/usv"
+	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
@@ -760,12 +760,12 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usv precompile for Ed25519 verification
-	usvPrecompile, err := usvprecompile.NewPrecompile()
+	// Add the usigverifier precompile for Ed25519 verification
+	usigverifierPrecompile, err := usigverifierprecompile.NewPrecompile()
 	if err != nil {
-		panic(fmt.Errorf("failed to instantiate usv precompile: %w", err))
+		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
 	}
-	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
+	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
 
 	// Add the ocv precompile for Payload verification
 	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)

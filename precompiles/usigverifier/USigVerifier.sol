@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.18;
 
-/// @dev The USV contract's address.
-address constant USV_PRECOMPILE_ADDRESS = 0x00000000000000000000000000000000000000ca;
+/// @dev The USigVerifier contract's address.
+address constant USigVerifier_PRECOMPILE_ADDRESS = 0x00000000000000000000000000000000000000ca;
 
-/// @dev The IUSV contract's instance.
-IUSV constant USV_CONTRACT = IUSV(USV_PRECOMPILE_ADDRESS);
+/// @dev The IUSigVerifier contract's instance.
+IUSigVerifier constant USigVerifier_CONTRACT = IUSigVerifier(USigVerifier_PRECOMPILE_ADDRESS);
 
-/// @dev The IUSV contract's interface.
-interface IUSV {
+/// @dev The IUSigVerifier contract's interface.
+interface IUSigVerifier {
     /// @notice Verifies a signature using Ed25519
     /// @param pubKey The base58-encoded public key (Solana address)
     /// @param msg The message that was signed

@@ -1,4 +1,4 @@
-package usv
+package usigverifier
 
 import (
 	"crypto/ed25519"

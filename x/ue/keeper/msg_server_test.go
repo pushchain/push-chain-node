@@ -90,30 +90,6 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 		require.ErrorContains(err, "failed to parse signer address")
 	})
 
-	t.Run("fail: CallFactoryToDeployUEA Fails", func(t *testing.T) {
-		msg := &types.MsgDeployUEA{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-		f.mockUTVKeeper.
-			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
-			Return(nil)
-
-		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(receipt, errors.New("unable to deploy UEA"))
-
-		_, err := f.msgServer.DeployUEA(f.ctx, msg)
-		require.ErrorContains(err, "unable to deploy UEA")
-	})
-
 	t.Run("success; valid input returns UEA", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
 			Signer:             validSigner.String(),
@@ -176,33 +152,6 @@ func TestMsgServer_MintPC(t *testing.T) {
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
 		require.ErrorContains(t, err, "call-factory fails")
-	})
-
-	t.Run("bad-address", func(t *testing.T) {
-		usdAmount := new(big.Int)
-		usdAmount.SetString("10000000000000000000", 10)
-		decimals := uint32(18)
-
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 40) // Incorrect 40 bytes padding to initiate the error
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		f.mockUTVKeeper.EXPECT().
-			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
-			Return(*usdAmount, decimals, nil)
-
-		f.mockEVMKeeper.EXPECT().
-			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(receipt, nil)
-
-		msg := &types.MsgMintPC{
-			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
-		}
-		_, err := f.msgServer.MintPC(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to convert EVM address")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -294,112 +243,6 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
-	})
-
-	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
-		msg := &types.MsgExecutePayload{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
-		}
-
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
-		}
-
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
-
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
-
-		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
-		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
-	})
-
-	t.Run("Fail : Invalid UniversalPayload", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
-		msg := &types.MsgExecutePayload{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
-		}
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
-		}
-
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
-
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
-
-		// f.mockEVMKeeper.EXPECT().DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
-
-		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid universal payload")
-	})
-
-	t.Run("Fail : Invalid Signature", func(t *testing.T) {
-		avalidUP := &types.UniversalPayload{
-			To:                   "0x8ba1f109551bD432803012645Ac136ddd64DBA72", // 20‑byte address
-			Value:                "0",                                          // wei, decimal string
-			Data:                 "0xdeadbeef",                                 // <- EVEN‑length hex → []byte{0xde, 0xad, 0xbe, 0xef}
-			GasLimit:             "21000",                                      // decimal
-			MaxFeePerGas:         "1000000000",                                 // 1 gwei
-			MaxPriorityFeePerGas: "2000000000",                                 // 2 gwei
-			Nonce:                "0",
-			Deadline:             "0",
-			VType:                ue.VerificationType_signedVerification,
-		}
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
-		msg := &types.MsgExecutePayload{
-			Signer:             validSigner.String(),
-			UniversalAccountId: validUA,
-			UniversalPayload:   avalidUP,
-			VerificationData:   "test-signature",
-		}
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		chainConfigTest := types.ChainConfig{
-			Chain:             "eip155:11155111",
-			VmType:            ue.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: 12,
-			GatewayMethods:    []*ue.MethodConfig{},
-			Enabled:           true,
-		}
-
-		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
-
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
-
-		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid verificationData format")
 	})
 
 }

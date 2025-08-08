@@ -11,7 +11,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// CallFactoryToGetUEAAddressForOrigin calls FactoryV1.computeUEA(...)
+// CallFactoryToGetUEAAddressForOrigin calls FactoryV1.getUEAForOrigin(...)
 func (k Keeper) CallFactoryToGetUEAAddressForOrigin(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,

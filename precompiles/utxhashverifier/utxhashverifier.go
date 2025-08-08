@@ -1,4 +1,4 @@
-package ocv
+package utxhashverifier
 
 import (
 	"embed"
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	OcvPrecompileAddress = "0x0000000000000000000000000000000000000901"
+	UTxHashVerifierPrecompileAddress = "0x0000000000000000000000000000000000000901"
 	// VerifyTxHashGas is the gas cost for verifying transaction hash.
 	VerifyTxHashGas uint64 = 4000
 )
@@ -33,11 +33,11 @@ type Precompile struct {
 
 // return address of the precompile
 func GetAddress() common.Address {
-	return common.HexToAddress(OcvPrecompileAddress)
+	return common.HexToAddress(UTxHashVerifierPrecompileAddress)
 }
 
 func NewPrecompile() (*Precompile, error) {
-	ocvABI, err := cmn.LoadABI(f, "abi.json")
+	utxhashverifierABI, err := cmn.LoadABI(f, "abi.json")
 
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewPrecompile() (*Precompile, error) {
 
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  ocvABI,
+			ABI:                  utxhashverifierABI,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
@@ -56,7 +56,7 @@ func NewPrecompile() (*Precompile, error) {
 	return p, nil
 }
 
-// NewPrecompileWithUtv creates a new OCV precompile with UTV keeper dependency
+// NewPrecompileWithUtv creates a new UTxHashVerifier precompile with UTV keeper dependency
 func NewPrecompileWithUtv(utxverifierKeeper UtxverifierKeeper) (*Precompile, error) {
 	p, err := NewPrecompile()
 	if err != nil {

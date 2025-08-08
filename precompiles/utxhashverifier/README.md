@@ -1,6 +1,6 @@
-# OCV (Owner and Chain Verification) Precompile
+# UTxHashVerifier (Universal Tx Hash Verifier) Precompile
 
-The OCV precompile provides transaction verification functionality for multiple chains, specifically Ethereum and Solana. It verifies that a transaction hash contains an event with a specific payload hash, ensuring cross-chain transaction integrity.
+The UTxHashVerifier precompile provides transaction verification functionality for multiple chains, specifically Ethereum and Solana. It verifies that a transaction hash contains an event with a specific payload hash, ensuring cross-chain transaction integrity.
 
 ## Address
 
@@ -40,7 +40,7 @@ function verifyTxHash(
 
 ### Architecture Overview
 
-The OCV precompile delegates verification to the UTV (Universal Transaction Verification) module for gas efficiency. The verification process involves:
+The UTxHashVerifier precompile delegates verification to the UTV (Universal Transaction Verification) module for gas efficiency. The verification process involves:
 
 1. **Chain Detection**: Extracts chain information from chainNamespace parameter
 2. **Owner Verification**: Ensures the transaction sender matches the provided owner
@@ -157,7 +157,7 @@ function verifyTransaction(
     bytes32 payloadHash,
     bytes memory txHashBytes
 ) external returns (bool) {
-    (bool success, bytes memory result) = OCV_PRECOMPILE.staticcall(
+    (bool success, bytes memory result) = UTxHashVerifier_PRECOMPILE.staticcall(
         abi.encodeWithSignature(
             "verifyTxHash(string,string,bytes,bytes32,bytes)",
             id.chainNamespace,
@@ -211,9 +211,9 @@ The precompile returns `false` and logs detailed error information for:
 
 ### Code Structure
 ```
-precompiles/ocv/
+precompiles/utxhashverifier/
 ├── abi.json          # Contract ABI definition
-├── ocv.go           # Main precompile logic
+├── utxhashverifier.go           # Main precompile logic
 ├── query.go         # VerifyTxHash implementation
 ├── types.go         # Type definitions and interfaces
 └── README.md        # This documentation
@@ -226,7 +226,7 @@ precompiles/ocv/
 
 ## Integration with UtxverifierKeeper moduledule
 
-The OCV precompile integrates with the UTV (Universal Transaction Verification) module:
+The UTxHashVerifier precompile integrates with the UTV (Universal Transaction Verification) module:
 
 ```go
 // UtxverifierKeeper moduledule provides the core verification logic

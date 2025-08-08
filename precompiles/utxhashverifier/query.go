@@ -1,4 +1,4 @@
-package ocv
+package utxhashverifier
 
 import (
 	"fmt"
@@ -52,10 +52,10 @@ func (p Precompile) VerifyTxHash(
 	ownerHex := fmt.Sprintf("0x%x", owner)
 	txHash := fmt.Sprintf("0x%x", txHashBytes)
 
-	fmt.Printf("[OCV] VerifyTxHash called with chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",
+	fmt.Printf("[UTxHashVerifier] VerifyTxHash called with chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",
 		chainNamespace, chainId, ownerHex, payloadHash, txHash)
 
-	fmt.Printf("[OCV] Delegating verification to UtxverifierKeeper moduledule for gas efficiency\n")
+	fmt.Printf("[UTxHashVerifier] Delegating verification to UtxverifierKeeper moduledule for gas efficiency\n")
 
 	// Convert to Uexecutor module format
 	universalAccountId := uexecutortypes.UniversalAccountId{
@@ -70,16 +70,16 @@ func (p Precompile) VerifyTxHash(
 	// Delegate all verification to UtxverifierKeeper moduledule (much more gas efficient)
 	verifiedPayload, err := p.utxverifierKeeper.VerifyAndGetPayloadHash(ctx, universalAccountId.Owner, txHash, chainCaip2)
 	if err != nil {
-		fmt.Printf("[OCV] Verification failed: %v\n", err)
+		fmt.Printf("[UTxHashVerifier] Verification failed: %v\n", err)
 		return method.Outputs.Pack(false)
 	}
 
 	if verifiedPayload != payloadHash {
-		fmt.Printf("[OCV] Payload mismatch: expected %s, got %s\n", payloadHash, verifiedPayload)
+		fmt.Printf("[UTxHashVerifier] Payload mismatch: expected %s, got %s\n", payloadHash, verifiedPayload)
 		return method.Outputs.Pack(false)
 	}
 
-	fmt.Printf("[OCV] ✅ Verification successful via UtxverifierKeeper moduledule\n")
+	fmt.Printf("[UTxHashVerifier] ✅ Verification successful via UtxverifierKeeper moduledule\n")
 
 	return method.Outputs.Pack(true)
 }

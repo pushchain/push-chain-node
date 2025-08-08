@@ -9,7 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/ocv"
+	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/utxhashverifier"
 )
 
 const UpgradeName = "fix-one-click"
@@ -41,7 +41,7 @@ func CreateUpgradeHandler(
 		ocvExists := false
 
 		for _, addr := range evmParams.ActiveStaticPrecompiles {
-			if addr == ocvprecompile.OcvPrecompileAddress {
+			if addr == ocvprecompile.UTxHashVerifierPrecompileAddress {
 				ocvExists = true
 				break
 			}
@@ -49,7 +49,7 @@ func CreateUpgradeHandler(
 
 		// Add OCV precompile if not already present
 		if !ocvExists {
-			evmParams.ActiveStaticPrecompiles = append(evmParams.ActiveStaticPrecompiles, ocvprecompile.OcvPrecompileAddress)
+			evmParams.ActiveStaticPrecompiles = append(evmParams.ActiveStaticPrecompiles, ocvprecompile.UTxHashVerifierPrecompileAddress)
 			ak.EVMKeeper.SetParams(sdkCtx, evmParams)
 		}
 

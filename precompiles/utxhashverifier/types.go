@@ -1,4 +1,4 @@
-package ocv
+package utxhashverifier
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"

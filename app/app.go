@@ -172,8 +172,8 @@ import (
 	fixoneclick "github.com/pushchain/push-chain-node/app/upgrades/fix-one-click"
 	oneclickexec "github.com/pushchain/push-chain-node/app/upgrades/one-click-exec"
 	uaidrefactor "github.com/pushchain/push-chain-node/app/upgrades/uaid-refactor"
-	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/ocv"
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
+	utxhashverifierprecompile "github.com/pushchain/push-chain-node/precompiles/utxhashverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
@@ -767,12 +767,12 @@ func NewChainApp(
 	}
 	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
 
-	// Add the ocv precompile for Payload verification
-	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
+	// Add the utxhashverifier precompile for Payload verification
+	utxhashverifierPrecompile, err := utxhashverifierprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
 	if err != nil {
-		panic(fmt.Errorf("failed to instantiate ocv precompile: %w", err))
+		panic(fmt.Errorf("failed to instantiate utxhashverifier precompile: %w", err))
 	}
-	corePrecompiles[ocvPrecompile.Address()] = ocvPrecompile
+	corePrecompiles[utxhashverifierPrecompile.Address()] = utxhashverifierPrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,

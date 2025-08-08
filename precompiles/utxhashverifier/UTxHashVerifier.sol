@@ -2,7 +2,7 @@
 pragma solidity >=0.8.18;
 
 /// @dev The UTxHashVerifier contract's address.
-address constant UTxHashVerifier_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000901;
+address constant UTxHashVerifier_PRECOMPILE_ADDRESS = 0x00000000000000000000000000000000000000CB;
 
 /// @dev The IUTxHashVerifier contract's instance.
 IUTxHashVerifier constant UTxHashVerifier_CONTRACT = IUTxHashVerifier(UTxHashVerifier_PRECOMPILE_ADDRESS);

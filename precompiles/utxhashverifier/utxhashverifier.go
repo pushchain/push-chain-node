@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	UTxHashVerifierPrecompileAddress = "0x0000000000000000000000000000000000000901"
+	UTxHashVerifierPrecompileAddress = "0x00000000000000000000000000000000000000CB"
 	// VerifyTxHashGas is the gas cost for verifying transaction hash.
 	VerifyTxHashGas uint64 = 4000
 )

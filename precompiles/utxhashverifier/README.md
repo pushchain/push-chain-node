@@ -5,7 +5,7 @@ The UTxHashVerifier precompile provides transaction verification functionality f
 ## Address
 
 ```
-0x0000000000000000000000000000000000000901
+0x00000000000000000000000000000000000000CB
 ```
 
 ## Functions
@@ -85,7 +85,7 @@ The precompile extracts the `transaction_hash` field from bytes 68-100 of the de
 
 ### Ethereum Verification
 ```bash
-cast call 0x0000000000000000000000000000000000000901 \
+cast call 0x00000000000000000000000000000000000000CB \
   "verifyTxHash(string,string,bytes,bytes32,bytes)" \
   "eip155" \
   "11155111" \
@@ -96,7 +96,7 @@ cast call 0x0000000000000000000000000000000000000901 \
 
 ### Solana Verification
 ```bash
-cast call 0x0000000000000000000000000000000000000901 \
+cast call 0x00000000000000000000000000000000000000CB \
   "verifyTxHash(string,string,bytes,bytes32,bytes)" \
   "solana" \
   "EtWTRABZaYq6iMfeYKouRu166VU2xqa1" \

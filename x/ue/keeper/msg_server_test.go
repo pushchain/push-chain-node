@@ -13,11 +13,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/common"
-	pchaintypes "github.com/rollchains/pchain/types"
-	"github.com/rollchains/pchain/utils"
-	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
-	"github.com/rollchains/pchain/x/ue/types"
-	ue "github.com/rollchains/pchain/x/ue/types"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
+	"github.com/pushchain/push-chain-node/utils"
+	uekeeper "github.com/pushchain/push-chain-node/x/ue/keeper"
+	"github.com/pushchain/push-chain-node/x/ue/types"
+	ue "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 func TestParams(t *testing.T) {

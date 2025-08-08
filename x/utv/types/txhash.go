@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 func NormalizeTxHash(txHash string, vmType uetypes.VM_TYPE) (string, error) {

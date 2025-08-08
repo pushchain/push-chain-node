@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 func TestMsgDeployUEA_ValidateBasic(t *testing.T) {

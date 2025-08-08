@@ -9,10 +9,10 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/rollchains/pchain/utils/rpc"
-	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/utils/rpc"
+	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 // isValidEVMGateway checks if tx.To equals gateway address

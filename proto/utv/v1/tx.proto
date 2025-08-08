@@ -6,7 +6,7 @@ import "utv/v1/genesis.proto";
 import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
 
-option go_package = "github.com/rollchains/pchain/x/utv/types";
+option go_package = "github.com/pushchain/push-chain-node/x/utv/types";
 
 // Msg defines the Msg service.
 service Msg {

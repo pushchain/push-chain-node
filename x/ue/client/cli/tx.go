@@ -4,7 +4,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/spf13/cobra"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // !NOTE: Must enable in module.go (disabled in favor of autocli.go)

@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // UeKeeper defines the expected interface for the UE module.

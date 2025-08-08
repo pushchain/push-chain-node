@@ -26,12 +26,12 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/rollchains/pchain/app"
-	module "github.com/rollchains/pchain/x/utv"
-	"github.com/rollchains/pchain/x/utv/keeper"
-	"github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/app"
+	module "github.com/pushchain/push-chain-node/x/utv"
+	"github.com/pushchain/push-chain-node/x/utv/keeper"
+	"github.com/pushchain/push-chain-node/x/utv/types"
 
-	ueKeeper "github.com/rollchains/pchain/x/ue/keeper"
+	ueKeeper "github.com/pushchain/push-chain-node/x/ue/keeper"
 )
 
 var maccPerms = map[string][]string{

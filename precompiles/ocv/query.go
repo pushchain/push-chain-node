@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 const VerifyTxHashMethod = "verifyTxHash"

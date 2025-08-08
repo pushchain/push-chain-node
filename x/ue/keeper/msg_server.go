@@ -6,8 +6,8 @@ import (
 	"cosmossdk.io/errors"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/utils"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 type msgServer struct {

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 	"github.com/stretchr/testify/require"
 )
 

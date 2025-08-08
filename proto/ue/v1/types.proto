@@ -4,7 +4,7 @@ package ue.v1;
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
 
-option go_package = "github.com/rollchains/pchain/x/ue/types";
+option go_package = "github.com/pushchain/push-chain-node/x/ue/types";
 
 // Params defines the set of module parameters.
 message Params {

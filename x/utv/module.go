@@ -19,9 +19,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/x/utv/keeper"
-	v2 "github.com/rollchains/pchain/x/utv/migrations/v2"
-	"github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/x/utv/keeper"
+	v2 "github.com/pushchain/push-chain-node/x/utv/migrations/v2"
+	"github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 const (

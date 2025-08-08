@@ -16,9 +16,9 @@ import (
 	"cosmossdk.io/depinject"
 	"cosmossdk.io/log"
 
-	modulev1 "github.com/rollchains/pchain/api/utv/module/v1"
-	"github.com/rollchains/pchain/x/utv/keeper"
-	"github.com/rollchains/pchain/x/utv/types"
+	modulev1 "github.com/pushchain/push-chain-node/api/utv/module/v1"
+	"github.com/pushchain/push-chain-node/x/utv/keeper"
+	"github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 var _ appmodule.AppModule = AppModule{}

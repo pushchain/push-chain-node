@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 func deployFactoryProxy(ctx context.Context, evmKeeper types.EVMKeeper) {

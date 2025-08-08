@@ -2,7 +2,7 @@ package module
 
 import (
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
-	modulev1 "github.com/rollchains/pchain/api/ue/v1"
+	modulev1 "github.com/pushchain/push-chain-node/api/ue/v1"
 )
 
 // AutoCLIOptions implements the autocli.HasAutoCLIConfig interface.

@@ -12,7 +12,7 @@ import (
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 type Keeper struct {

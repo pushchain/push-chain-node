@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // VerifyAndGetLockedFunds verifies if the user has interacted with the gateway on the source chain and send the locked funds amount.

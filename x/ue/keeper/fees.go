@@ -7,8 +7,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	pchaintypes "github.com/rollchains/pchain/types"
-	"github.com/rollchains/pchain/x/ue/types"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // DeductAndBurnFees deducts gas fees from the user's smart account and burns them.

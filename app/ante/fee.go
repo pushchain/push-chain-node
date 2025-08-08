@@ -10,7 +10,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // TxFeeChecker check if the provided fee is enough and returns the effective fee and tx priority,

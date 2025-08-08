@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // UpdateChainConfig updates the configuration for a specific chain.

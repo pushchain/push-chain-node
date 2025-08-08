@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/utils/rpc"
-	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/utils"
+	"github.com/pushchain/push-chain-node/utils/rpc"
+	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 // verifyEVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract

@@ -12,9 +12,9 @@ import (
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	pchaintypes "github.com/rollchains/pchain/types"
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/x/ue/types"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
+	"github.com/pushchain/push-chain-node/utils"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // updateParams is for updating params collections of the module

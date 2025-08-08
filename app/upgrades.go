@@ -5,8 +5,8 @@ import (
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
-	"github.com/rollchains/pchain/app/upgrades"
-	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
+	"github.com/pushchain/push-chain-node/app/upgrades"
+	uaidrefactor "github.com/pushchain/push-chain-node/app/upgrades/uaid-refactor"
 )
 
 // Upgrades list of chain upgrades

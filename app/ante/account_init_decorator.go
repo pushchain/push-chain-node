@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 
 	"google.golang.org/protobuf/types/known/anypb"
 

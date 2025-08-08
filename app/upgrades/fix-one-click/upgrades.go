@@ -8,8 +8,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/app/upgrades"
-	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
+	"github.com/pushchain/push-chain-node/app/upgrades"
+	ocvprecompile "github.com/pushchain/push-chain-node/precompiles/ocv"
 )
 
 const UpgradeName = "fix-one-click"

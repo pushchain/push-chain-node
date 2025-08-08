@@ -6,7 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 var _ types.QueryServer = Querier{}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rollchains/pchain/utils"
+	"github.com/pushchain/push-chain-node/utils"
 )
 
 // FactoryV1ABI contains the ABI for the factory contract

@@ -9,7 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 
-	"github.com/rollchains/pchain/x/utv/types"
+	"github.com/pushchain/push-chain-node/x/utv/types"
 )
 
 // !NOTE: Must enable in module.go (disabled in favor of autocli.go)

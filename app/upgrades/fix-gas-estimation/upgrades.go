@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/app/upgrades"
+	"github.com/pushchain/push-chain-node/app/upgrades"
 )
 
 const UpgradeName = "fix-gas-estimation"

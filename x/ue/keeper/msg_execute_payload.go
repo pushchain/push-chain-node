@@ -9,8 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/utils"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // updateParams is for updating params collections of the module

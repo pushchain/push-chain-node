@@ -3,8 +3,8 @@ package types_test
 import (
 	"testing"
 
-	uetypes "github.com/rollchains/pchain/x/ue/types"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
+	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
 	"github.com/stretchr/testify/require"
 )
 

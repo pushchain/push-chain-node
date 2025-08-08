@@ -18,8 +18,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/x/ue/keeper"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/ue/keeper"
+	"github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/ue/types"
 )
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.

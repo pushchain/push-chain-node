@@ -119,7 +119,7 @@ cast call 0x0000000000000000000000000000000000000901 \
 
 ### 3. Efficient Architecture
 - **Single RPC Call**: Fetches transaction data once and performs all verifications
-- **Gas Optimization**: Delegates to UTV module to avoid expensive precompile operations
+- **Gas Optimization**: Delegates to UtxverifierKeeper moduledule to avoid expensive precompile operations
 - **Error Handling**: Comprehensive error messages for debugging
 
 ### 4. Robust Event Parsing
@@ -203,7 +203,7 @@ The precompile returns `false` and logs detailed error information for:
 ## Implementation Details
 
 ### Dependencies
-- **UTV Module**: Core verification logic and RPC utilities
+- **UtxverifierKeeper moduledule**: Core verification logic and RPC utilities
 - **EVM RPC**: Ethereum transaction and receipt fetching
 - **SVM RPC**: Solana transaction and log parsing
 - **Context Support**: Proper timeout and cancellation handling
@@ -224,12 +224,12 @@ precompiles/ocv/
 - `NewPrecompileWithUtv`: Factory with UTV keeper injection
 - `RequiredGas`: Gas cost calculation (4000 gas units)
 
-## Integration with UTV Module
+## Integration with UtxverifierKeeper moduledule
 
 The OCV precompile integrates with the UTV (Universal Transaction Verification) module:
 
 ```go
-// UTV module provides the core verification logic
+// UtxverifierKeeper moduledule provides the core verification logic
 func (k Keeper) VerifyTxHashWithPayload(
     ctx context.Context, 
     universalAccountId UniversalAccount, 

@@ -178,9 +178,9 @@ import (
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utv "github.com/pushchain/push-chain-node/x/utv"
-	utvkeeper "github.com/pushchain/push-chain-node/x/utv/keeper"
-	utvtypes "github.com/pushchain/push-chain-node/x/utv/types"
+	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
+	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -322,7 +322,7 @@ type ChainApp struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UexecutorKeeper           uexecutorkeeper.Keeper
-	UtvKeeper                 utvkeeper.Keeper
+	UtxverifierKeeper         utxverifierkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -436,7 +436,7 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		uexecutortypes.StoreKey,
-		utvtypes.StoreKey,
+		utxverifiertypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -732,13 +732,13 @@ func NewChainApp(
 		app.FeeMarketKeeper,
 		app.BankKeeper,
 		app.AccountKeeper,
-		&app.UtvKeeper,
+		&app.UtxverifierKeeper,
 	)
 
 	// Create the utv Keeper
-	app.UtvKeeper = utvkeeper.NewKeeper(
+	app.UtxverifierKeeper = utxverifierkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
+		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.UexecutorKeeper,
@@ -768,7 +768,7 @@ func NewChainApp(
 	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
 
 	// Add the ocv precompile for Payload verification
-	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtvKeeper)
+	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate ocv precompile: %w", err))
 	}
@@ -1027,8 +1027,8 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
-		utv.NewAppModule(appCodec, app.UtvKeeper, app.UexecutorKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
+		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1076,7 +1076,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utvtypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1099,7 +1099,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utvtypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1149,7 +1149,7 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utvtypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1620,7 +1620,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uexecutortypes.ModuleName)
-	paramsKeeper.Subspace(utvtypes.ModuleName)
+	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
 
 	return paramsKeeper
 }

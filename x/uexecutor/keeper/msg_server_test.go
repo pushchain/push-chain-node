@@ -91,7 +91,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 	})
 
 	t.Run("fail; gateway interaction tx not verified", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgDeployUEA{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
@@ -353,7 +353,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	})
 
 	t.Run("Fail : ChainConfig for Universal Accout not set", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
@@ -365,7 +365,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	})
 
 	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
@@ -392,7 +392,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	})
 
 	t.Run("Fail : Invalid UniversalPayload", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
@@ -438,7 +438,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Deadline:             "0",
 			VType:                uexecutor.VerificationType_signedVerification,
 		}
-		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,

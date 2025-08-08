@@ -18,7 +18,7 @@ func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universal
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to verify the gateway interaction tx on source chain
-	err := k.utvKeeper.VerifyGatewayInteractionTx(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
+	err := k.utxverifierKeeper.VerifyGatewayInteractionTx(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify gateway interaction transaction")
 	}

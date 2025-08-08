@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -18,13 +19,15 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/pushchain/push-chain-node/x/uexecutor/keeper"
-	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	"github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	v2 "github.com/pushchain/push-chain-node/x/utxverifier/migrations/v2"
+	"github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 const (
-	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	ConsensusVersion = 1
+	// ConsensusVersion defines the current x/utxverifier module consensus version.
+	// @dev: Bumped from 1->2 for one-click-execution upgrade
+	ConsensusVersion = 2
 )
 
 var (
@@ -43,32 +46,20 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper            keeper.Keeper
-	evmKeeper         types.EVMKeeper
-	feemarketKeeper   types.FeeMarketKeeper
-	bankKeeper        types.BankKeeper
-	accountKeeper     types.AccountKeeper
-	utxverifierKeeper types.UtxverifierKeeper
+	keeper          keeper.Keeper
+	uexecutorKeeper types.UexecutorKeeper
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
-	evmKeeper types.EVMKeeper,
-	feemarketKeeper types.FeeMarketKeeper,
-	bankKeeper types.BankKeeper,
-	accountKeeper types.AccountKeeper,
-	utxverifierKeeper types.UtxverifierKeeper,
+	uexecutorKeeper types.UexecutorKeeper,
 ) *AppModule {
 	return &AppModule{
-		AppModuleBasic:    AppModuleBasic{cdc: cdc},
-		keeper:            keeper,
-		evmKeeper:         evmKeeper,
-		feemarketKeeper:   feemarketKeeper,
-		bankKeeper:        bankKeeper,
-		accountKeeper:     accountKeeper,
-		utxverifierKeeper: utxverifierKeeper,
+		AppModuleBasic:  AppModuleBasic{cdc: cdc},
+		keeper:          keeper,
+		uexecutorKeeper: uexecutorKeeper,
 	}
 }
 
@@ -88,7 +79,7 @@ func (a AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, _ client.TxEn
 	if err != nil {
 		return err
 	}
-	if err := data.Params.ValidateBasic(); err != nil {
+	if err := data.Params.Validate(); err != nil {
 		return errorsmod.Wrap(err, "params")
 	}
 	return nil
@@ -154,6 +145,19 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
+
+	// Register UTV custom migration for v2 (from version 1 → 2)
+	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
+		panic(fmt.Errorf("failed to register migration for UtxverifierKeeper moduledule: %w", err))
+	}
+}
+
+func (a AppModule) migrateToV2() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running UtxverifierKeeper moduledule migration: v1 → v2")
+
+		return v2.MigrateVerifiedTxsToMetadata(ctx, &a.keeper, a.AppModuleBasic.cdc)
+	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

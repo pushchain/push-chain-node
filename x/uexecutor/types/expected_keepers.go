@@ -76,8 +76,8 @@ type AccountKeeper interface {
 	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
 }
 
-// UtvKeeper defines the expected interface for the UTV module.
-type UtvKeeper interface {
+// UtxverifierKeeper defines the expected interface for the UtxverifierKeeper moduledule.
+type UtxverifierKeeper interface {
 	VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error
 	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error)
 }

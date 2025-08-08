@@ -12,31 +12,31 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockUtvKeeper is a mock of UtvKeeper interface.
-type MockUtvKeeper struct {
+// MockUtxverifierKeeper is a mock of UtxverifierKeeper interface.
+type MockUtxverifierKeeper struct {
 	ctrl     *gomock.Controller
-	recorder *MockUtvKeeperMockRecorder
+	recorder *MockUtxverifierKeeperMockRecorder
 }
 
-// MockUtvKeeperMockRecorder is the mock recorder for MockUtvKeeper.
-type MockUtvKeeperMockRecorder struct {
-	mock *MockUtvKeeper
+// MockUtxverifierKeeperMockRecorder is the mock recorder for MockUtxverifierKeeper.
+type MockUtxverifierKeeperMockRecorder struct {
+	mock *MockUtxverifierKeeper
 }
 
-// NewMockUtvKeeper creates a new mock instance.
-func NewMockUtvKeeper(ctrl *gomock.Controller) *MockUtvKeeper {
-	mock := &MockUtvKeeper{ctrl: ctrl}
-	mock.recorder = &MockUtvKeeperMockRecorder{mock}
+// NewMockUtxverifierKeeper creates a new mock instance.
+func NewMockUtxverifierKeeper(ctrl *gomock.Controller) *MockUtxverifierKeeper {
+	mock := &MockUtxverifierKeeper{ctrl: ctrl}
+	mock.recorder = &MockUtxverifierKeeperMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUtvKeeper) EXPECT() *MockUtvKeeperMockRecorder {
+func (m *MockUtxverifierKeeper) EXPECT() *MockUtxverifierKeeperMockRecorder {
 	return m.recorder
 }
 
 // VerifyAndGetLockedFunds mocks base method.
-func (m *MockUtvKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error) {
+func (m *MockUtxverifierKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifyAndGetLockedFunds", ctx, ownerKey, txHash, chainId)
 	ret0, _ := ret[0].(big.Int)
@@ -46,13 +46,13 @@ func (m *MockUtvKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, t
 }
 
 // VerifyAndGetLockedFunds indicates an expected call of VerifyAndGetLockedFunds.
-func (mr *MockUtvKeeperMockRecorder) VerifyAndGetLockedFunds(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
+func (mr *MockUtxverifierKeeperMockRecorder) VerifyAndGetLockedFunds(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyAndGetLockedFunds", reflect.TypeOf((*MockUtvKeeper)(nil).VerifyAndGetLockedFunds), ctx, ownerKey, txHash, chainId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyAndGetLockedFunds", reflect.TypeOf((*MockUtxverifierKeeper)(nil).VerifyAndGetLockedFunds), ctx, ownerKey, txHash, chainId)
 }
 
 // VerifyGatewayInteractionTx mocks base method.
-func (m *MockUtvKeeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
+func (m *MockUtxverifierKeeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifyGatewayInteractionTx", ctx, ownerKey, txHash, chainId)
 	ret0, _ := ret[0].(error)
@@ -60,7 +60,7 @@ func (m *MockUtvKeeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey
 }
 
 // VerifyGatewayInteractionTx indicates an expected call of VerifyGatewayInteractionTx.
-func (mr *MockUtvKeeperMockRecorder) VerifyGatewayInteractionTx(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
+func (mr *MockUtxverifierKeeperMockRecorder) VerifyGatewayInteractionTx(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyGatewayInteractionTx", reflect.TypeOf((*MockUtvKeeper)(nil).VerifyGatewayInteractionTx), ctx, ownerKey, txHash, chainId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyGatewayInteractionTx", reflect.TypeOf((*MockUtxverifierKeeper)(nil).VerifyGatewayInteractionTx), ctx, ownerKey, txHash, chainId)
 }

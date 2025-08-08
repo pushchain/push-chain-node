@@ -16,9 +16,9 @@ import (
 	"cosmossdk.io/depinject"
 	"cosmossdk.io/log"
 
-	modulev1 "github.com/pushchain/push-chain-node/api/uexecutor/module/v1"
-	"github.com/pushchain/push-chain-node/x/uexecutor/keeper"
-	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	modulev1 "github.com/pushchain/push-chain-node/api/utxverifier/module/v1"
+	"github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	"github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -43,13 +43,9 @@ type ModuleInputs struct {
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
 
-	StakingKeeper     stakingkeeper.Keeper
-	SlashingKeeper    slashingkeeper.Keeper
-	EVMKeeper         types.EVMKeeper
-	FeeMarketKeeper   types.FeeMarketKeeper
-	BankKeeper        types.BankKeeper
-	AccountKeeper     types.AccountKeeper
-	UtxverifierKeeper types.UtxverifierKeeper
+	StakingKeeper   stakingkeeper.Keeper
+	SlashingKeeper  slashingkeeper.Keeper
+	UexecutorKeeper types.UexecutorKeeper
 }
 
 type ModuleOutputs struct {
@@ -62,8 +58,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UtxverifierKeeper)
-	m := NewAppModule(in.Cdc, k, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UtxverifierKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UexecutorKeeper)
+	m := NewAppModule(in.Cdc, k, in.UexecutorKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

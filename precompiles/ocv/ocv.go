@@ -28,7 +28,7 @@ var f embed.FS
 // Precompile defines the precompile
 type Precompile struct {
 	cmn.Precompile
-	utvKeeper UtvKeeper
+	utxverifierKeeper UtxverifierKeeper
 }
 
 // return address of the precompile
@@ -57,13 +57,13 @@ func NewPrecompile() (*Precompile, error) {
 }
 
 // NewPrecompileWithUtv creates a new OCV precompile with UTV keeper dependency
-func NewPrecompileWithUtv(utvKeeper UtvKeeper) (*Precompile, error) {
+func NewPrecompileWithUtv(utxverifierKeeper UtxverifierKeeper) (*Precompile, error) {
 	p, err := NewPrecompile()
 	if err != nil {
 		return nil, err
 	}
 
-	p.utvKeeper = utvKeeper
+	p.utxverifierKeeper = utxverifierKeeper
 	return p, nil
 }
 

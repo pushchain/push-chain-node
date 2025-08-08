@@ -25,12 +25,12 @@ type Keeper struct {
 	Params       collections.Item[types.Params]
 	ChainConfigs collections.Map[string, types.ChainConfig]
 
-	authority       string
-	evmKeeper       types.EVMKeeper
-	feemarketKeeper types.FeeMarketKeeper
-	bankKeeper      types.BankKeeper
-	accountKeeper   types.AccountKeeper
-	utvKeeper       types.UtvKeeper
+	authority         string
+	evmKeeper         types.EVMKeeper
+	feemarketKeeper   types.FeeMarketKeeper
+	bankKeeper        types.BankKeeper
+	accountKeeper     types.AccountKeeper
+	utxverifierKeeper types.UtxverifierKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -43,7 +43,7 @@ func NewKeeper(
 	feemarketKeeper types.FeeMarketKeeper,
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
-	utvKeeper types.UtvKeeper,
+	utxverifierKeeper types.UtxverifierKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -60,12 +60,12 @@ func NewKeeper(
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 
-		authority:       authority,
-		evmKeeper:       evmKeeper,
-		feemarketKeeper: feemarketKeeper,
-		bankKeeper:      bankKeeper,
-		accountKeeper:   accountKeeper,
-		utvKeeper:       utvKeeper,
+		authority:         authority,
+		evmKeeper:         evmKeeper,
+		feemarketKeeper:   feemarketKeeper,
+		bankKeeper:        bankKeeper,
+		accountKeeper:     accountKeeper,
+		utxverifierKeeper: utxverifierKeeper,
 	}
 
 	return k

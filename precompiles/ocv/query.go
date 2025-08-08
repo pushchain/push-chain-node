@@ -55,7 +55,7 @@ func (p Precompile) VerifyTxHash(
 	fmt.Printf("[OCV] VerifyTxHash called with chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",
 		chainNamespace, chainId, ownerHex, payloadHash, txHash)
 
-	fmt.Printf("[OCV] Delegating verification to UTV module for gas efficiency\n")
+	fmt.Printf("[OCV] Delegating verification to UtxverifierKeeper moduledule for gas efficiency\n")
 
 	// Convert to Uexecutor module format
 	universalAccountId := uexecutortypes.UniversalAccountId{
@@ -67,8 +67,8 @@ func (p Precompile) VerifyTxHash(
 	// Build full chain caip2: "namespace:chain"
 	chainCaip2 := fmt.Sprintf("%s:%s", universalAccountId.ChainNamespace, universalAccountId.ChainId)
 
-	// Delegate all verification to UTV module (much more gas efficient)
-	verifiedPayload, err := p.utvKeeper.VerifyAndGetPayloadHash(ctx, universalAccountId.Owner, txHash, chainCaip2)
+	// Delegate all verification to UtxverifierKeeper moduledule (much more gas efficient)
+	verifiedPayload, err := p.utxverifierKeeper.VerifyAndGetPayloadHash(ctx, universalAccountId.Owner, txHash, chainCaip2)
 	if err != nil {
 		fmt.Printf("[OCV] Verification failed: %v\n", err)
 		return method.Outputs.Pack(false)
@@ -79,7 +79,7 @@ func (p Precompile) VerifyTxHash(
 		return method.Outputs.Pack(false)
 	}
 
-	fmt.Printf("[OCV] ✅ Verification successful via UTV module\n")
+	fmt.Printf("[OCV] ✅ Verification successful via UtxverifierKeeper moduledule\n")
 
 	return method.Outputs.Pack(true)
 }

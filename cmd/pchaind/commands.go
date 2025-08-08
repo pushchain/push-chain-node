@@ -8,7 +8,7 @@ import (
 	cmtcfg "github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rollchains/pchain/app"
+	"github.com/pushchain/push-chain-node/app"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

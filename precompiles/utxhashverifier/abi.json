@@ -1,0 +1,50 @@
+{
+    "_format": "hh-sol-artifact-1",
+    "contractName": "UTxHashVerifier",
+    "sourceName": "precompiles/UTxHashVerifier.sol",
+    "bytecode": "0x",
+    "deployedBytecode": "0x",
+    "linkReferences": {},
+    "deployedLinkReferences": {},
+    "abi": [
+        {
+            "inputs": [
+                {
+                    "internalType": "string",
+                    "name": "chainNamespace",
+                    "type": "string"
+                },
+                {
+                    "internalType": "string",
+                    "name": "chainId",
+                    "type": "string"
+                },
+                {
+                    "internalType": "bytes",
+                    "name": "owner",
+                    "type": "bytes"
+                },
+                {
+                    "internalType": "bytes32",
+                    "name": "payloadHash",
+                    "type": "bytes32"
+                },
+                {
+                    "internalType": "bytes",
+                    "name": "txHash",
+                    "type": "bytes"
+                }
+            ],
+            "name": "verifyTxHash",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }
+    ]
+}

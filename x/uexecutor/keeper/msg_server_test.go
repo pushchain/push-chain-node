@@ -181,7 +181,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
 	})
 
-	t.Run("fail: CallFactoryToComputeUEAAddress returns error", func(t *testing.T) {
+	t.Run("fail: CallFactoryToGetUEAAddressForOrigin returns error", func(t *testing.T) {
 		usdAmount := new(big.Int)
 		usdAmount.SetString("10000000000000000000", 10)
 		decimals := uint32(18)
@@ -232,7 +232,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to convert EVM address")
+		require.ErrorContains(t, err, "failed to decode result: abi: cannot marshal in to go type: length insufficient 40 require 64")
 	})
 
 	t.Run("fail: Mint Fails", func(t *testing.T) {
@@ -244,9 +244,8 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
 		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
+			Ret: encodeReturn(addr, true), // or false depending on the test
 		}
 
 		usdAmount := new(big.Int)
@@ -282,9 +281,8 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
 		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
+			Ret: encodeReturn(addr, true), // or false depending on the test
 		}
 
 		usdAmount := new(big.Int)
@@ -364,7 +362,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		require.ErrorContains(t, err, "failed to get chain config")
 	})
 
-	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
+	t.Run("Fail: CallFactoryToGetUEAAddressForOrigin", func(t *testing.T) {
 		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
@@ -385,10 +383,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 
 		f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
 
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
+		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToGetUEAAddressForOrigin Failed"))
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
-		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
+		require.ErrorContains(t, err, "CallFactoryToGetUEAAddressForOrigin Failed")
 	})
 
 	t.Run("Fail : Invalid UniversalPayload", func(t *testing.T) {
@@ -401,9 +399,8 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
 		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
+			Ret: encodeReturn(addr, true), // or false depending on the test
 		}
 
 		chainConfigTest := types.ChainConfig{
@@ -447,9 +444,8 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
 		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
+			Ret: encodeReturn(addr, true), // or false depending on the test
 		}
 
 		chainConfigTest := types.ChainConfig{
@@ -585,4 +581,19 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 		_, err = f.msgServer.UpdateChainConfig(f.ctx, msg)
 		require.NoError(t, err) // flag : need to add verify condition (cross-checking)
 	})
+}
+
+func encodeReturn(address common.Address, isDeployed bool) []byte {
+	abi, err := types.ParseFactoryABI()
+	if err != nil {
+		panic(err)
+	}
+
+	// Pack the values
+	packed, err := abi.Methods["getUEAForOrigin"].Outputs.Pack(address, isDeployed)
+	if err != nil {
+		panic(err)
+	}
+
+	return packed
 }

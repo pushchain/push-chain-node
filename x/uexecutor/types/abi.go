@@ -54,6 +54,31 @@ const FactoryV1ABI = `[
     ],
     "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUEAForOrigin",
+    "inputs": [
+      {
+        "name": "_id",
+        "type": "tuple",
+        "internalType": "struct UniversalAccountId",
+        "components": [
+          {
+            "name": "chainNamespace",
+            "type": "string",
+            "internalType": "string"
+          },
+          { "name": "chainId", "type": "string", "internalType": "string" },
+          { "name": "owner", "type": "bytes", "internalType": "bytes" }
+        ]
+      }
+    ],
+    "outputs": [
+      { "name": "uea", "type": "address", "internalType": "address" },
+      { "name": "isDeployed", "type": "bool", "internalType": "bool" }
+    ],
+    "stateMutability": "view"
   }
 ]`
 

@@ -11,31 +11,44 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// CallFactoryToComputeUEAAddress calls FactoryV1.computeUEA(...)
-func (k Keeper) CallFactoryToComputeUEAAddress(
+// CallFactoryToGetUEAAddressForOrigin calls FactoryV1.computeUEA(...)
+func (k Keeper) CallFactoryToGetUEAAddressForOrigin(
 	ctx sdk.Context,
 	from, factoryAddr common.Address,
 	universalAccount *types.UniversalAccountId,
-) (*evmtypes.MsgEthereumTxResponse, error) {
+) (common.Address, bool, error) {
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse factory ABI")
+		return common.Address{}, false, errors.Wrap(err, "failed to parse factory ABI")
 	}
 
 	abiUniversalAccount, err := types.NewAbiUniversalAccountId(universalAccount)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create universal account")
+		return common.Address{}, false, errors.Wrapf(err, "failed to create universal account")
 	}
 
-	return k.evmKeeper.CallEVM(
+	receipt, err := k.evmKeeper.CallEVM(
 		ctx,
 		abi,
 		from,
 		factoryAddr,
 		false, // commit
-		"computeUEA",
+		"getUEAForOrigin",
 		abiUniversalAccount,
 	)
+	if err != nil {
+		return common.Address{}, false, err
+	}
+
+	results, err := abi.Methods["getUEAForOrigin"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return common.Address{}, false, errors.Wrap(err, "failed to decode result")
+	}
+
+	ueaAddress := results[0].(common.Address)
+	isDeployed := results[1].(bool)
+
+	return ueaAddress, isDeployed, nil
 }
 
 // CallFactoryToDeployUEA deploys a new UEA using factory contract

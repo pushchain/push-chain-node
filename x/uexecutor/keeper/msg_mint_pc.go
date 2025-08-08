@@ -31,17 +31,13 @@ func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAcc
 	amountToMint := ConvertUsdToPCTokens(&amountOfUsdLocked, usdDecimals)
 
 	// Calling factory contract to compute the UEA address
-	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccountId)
+	ueaAddress, _, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
 	}
 
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	ueaComputedAddress := "0x" + addressBytes
-
 	// Convert the computed address to a Cosmos address
-	cosmosAddr, err := utils.ConvertAnyAddressToBytes(ueaComputedAddress)
+	cosmosAddr, err := utils.ConvertAnyAddressToBytes(ueaAddress.Hex())
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert EVM address to Cosmos address")
@@ -59,7 +55,7 @@ func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAcc
 
 	// Emit derived EVM tx events to simulate an EVM-style mint transaction
 	// from the module to the computed UEA address, for indexing and RPC compatibility.
-	k.DerivedMintPCEvmTx(sdkCtx, common.HexToAddress(ueaComputedAddress), amountToMint.BigInt())
+	k.DerivedMintPCEvmTx(sdkCtx, ueaAddress, amountToMint.BigInt())
 
 	return nil
 }

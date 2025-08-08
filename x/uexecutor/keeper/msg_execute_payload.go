@@ -32,15 +32,11 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// Step 1: Compute smart account address
-	receipt, err := k.CallFactoryToComputeUEAAddress(sdkCtx, evmFrom, factoryAddress, universalAccountId)
+	// Calling factory contract to compute the UEA address
+	ueaAddr, _, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
 	}
-
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	addressBytes := returnedBytesHex[24:] // last 20 bytes
-	ueaComputedAddress := "0x" + addressBytes
-	ueaAddr := common.HexToAddress(ueaComputedAddress)
 
 	// // Step 2: Parse and validate payload and verificationData
 	payload, err := types.NewAbiUniversalPayload(universalPayload)
@@ -54,7 +50,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	// Step 3: Execute payload through UEA
-	receipt, err = k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
+	receipt, err := k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
 	if err != nil {
 		return err
 	}

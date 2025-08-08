@@ -3,7 +3,6 @@ package module
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -20,14 +19,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/pushchain/push-chain-node/x/utxverifier/keeper"
-	v2 "github.com/pushchain/push-chain-node/x/utxverifier/migrations/v2"
 	"github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/utxverifier module consensus version.
-	// @dev: Bumped from 1->2 for one-click-execution upgrade
-	ConsensusVersion = 2
+	ConsensusVersion = 1
 )
 
 var (
@@ -145,19 +142,6 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
-
-	// Register UTV custom migration for v2 (from version 1 → 2)
-	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
-		panic(fmt.Errorf("failed to register migration for UtxverifierKeeper moduledule: %w", err))
-	}
-}
-
-func (a AppModule) migrateToV2() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running UtxverifierKeeper moduledule migration: v1 → v2")
-
-		return v2.MigrateVerifiedTxsToMetadata(ctx, &a.keeper, a.AppModuleBasic.cdc)
-	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

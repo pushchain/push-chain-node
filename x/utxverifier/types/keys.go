@@ -14,16 +14,8 @@ var (
 	// ParamsName is the name of the params collection.
 	ParamsName = "params"
 
-	// OLD collection: For migration
-	// VerifiedTxsKey saves the verified transactions collection prefix
-	VerifiedTxsKeyPrefix = collections.NewPrefix(1)
-
-	// VerifiedTxsName is the name of the verified transactions collection.
-	VerifiedTxsName = "verified_txs"
-
-	// New upgraded collection
 	// VerifiedInboundTxsKey saves the verified transactions collection prefix
-	VerifiedInboundTxsKeyPrefix = collections.NewPrefix(2)
+	VerifiedInboundTxsKeyPrefix = collections.NewPrefix(1)
 
 	// VerifiedInboundTxsName is the name of the verified transactions collection.
 	VerifiedInboundTxsName = "verified_inbound_txs"

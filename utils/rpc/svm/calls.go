@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	rpc "github.com/rollchains/pchain/utils/rpc"
+	rpc "github.com/pushchain/push-chain-node/utils/rpc"
 )
 
 // GetTransaction fetches transaction details using getTransaction RPC method

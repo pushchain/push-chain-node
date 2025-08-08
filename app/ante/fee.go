@@ -10,7 +10,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // TxFeeChecker check if the provided fee is enough and returns the effective fee and tx priority,
@@ -57,7 +57,7 @@ func (dfd DeductFeeDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	)
 
 	// Check if this is a MsgMintToken transaction
-	if uetypes.IsGaslessTx(tx) {
+	if uexecutortypes.IsGaslessTx(tx) {
 		// Skip fee deduction for MsgMintToken
 		return next(ctx, tx, simulate)
 	}

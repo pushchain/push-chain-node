@@ -1,2 +1,0 @@
-#!/bin/bash
-(cd ~ && nohup ~/app/pchaind start --pruning=nothing  --minimum-gas-prices=0upc --rpc.laddr="tcp://0.0.0.0:26657" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="push_501-1" --home ~/.pchain >> ~/app/chain.log 2>&1 &)

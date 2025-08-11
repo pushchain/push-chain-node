@@ -484,7 +484,17 @@ list_validators() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
     
     if is_node_running; then
-        VALIDATORS=$("$NATIVE_BINARY" query staking validators --output json --node tcp://localhost:26657 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
+        # Check if local node is synced
+        SYNC_STATUS=$("$NATIVE_BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.SyncInfo.catching_up // "true"' 2>/dev/null || echo "true")
+        
+        if [ "$SYNC_STATUS" = "true" ]; then
+            print_status "⚠️  Local node syncing - using remote RPC for accurate validator list"
+            NODE_ENDPOINT="https://rpc-testnet-donut-node1.push.org:443"
+        else
+            NODE_ENDPOINT="tcp://localhost:26657"
+        fi
+        
+        VALIDATORS=$("$NATIVE_BINARY" query staking validators --output json --node "$NODE_ENDPOINT" 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
         
         if [ -n "$VALIDATORS" ]; then
             echo

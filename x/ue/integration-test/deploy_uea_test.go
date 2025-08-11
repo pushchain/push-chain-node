@@ -1,8 +1,10 @@
 package integrationtest
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	utils "github.com/pushchain/push-chain-node/testutils"
 	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -45,8 +47,13 @@ func TestDeployUEA(t *testing.T) {
 		}
 		resp, err := ms.DeployUEA(ctx, msg)
 		require.NoError(t, err)
-		expected := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 134, 105, 190, 209, 33, 254, 250, 61, 156, 242, 130, 18, 115, 244, 137, 231, 23, 204, 169, 93}
-		require.Equal(t, expected, resp.UEA)
+
+		addr := common.HexToAddress("0x8669BeD121FefA3d9CF2821273f489e717cca95d").Bytes()
+
+		var expected [32]byte
+		copy(expected[32-len(addr):], addr)
+
+		require.True(t, bytes.Equal(expected[:], resp.UEA), "address bytes do not match")
 
 	})
 	t.Run("Repeat transaction!", func(t *testing.T) {

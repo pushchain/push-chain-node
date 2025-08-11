@@ -1,9 +1,10 @@
 package integrationtest
 
 import (
-	// "math/big"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	utils "github.com/pushchain/push-chain-node/testutils"
 	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -36,6 +37,11 @@ func TestMintPC(t *testing.T) {
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
+		ethAddr := common.HexToAddress("0x8669BeD121FefA3d9CF2821273f489e717cca95d")
+		cosmosAddr := sdk.AccAddress(ethAddr.Bytes())
+
+		beforeMinting := app.BankKeeper.GetBalance(ctx, cosmosAddr, "upc")
+
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		msg := &uetypes.MsgMintPC{
@@ -46,6 +52,8 @@ func TestMintPC(t *testing.T) {
 
 		_, err := ms.MintPC(ctx, msg)
 		require.NoError(t, err)
+		afterMining := app.BankKeeper.GetBalance(ctx, cosmosAddr, "upc")
+		require.True(t, afterMining.Amount.GT(beforeMinting.Amount), "after balance should be greater than before balance")
 
 	})
 

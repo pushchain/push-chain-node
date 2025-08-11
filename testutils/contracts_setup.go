@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rollchains/pchain/app"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/app"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +21,7 @@ func setupUESystem(
 	accounts TestAccounts,
 ) error {
 	// Initialize UE genesis
-	app.UeKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
+	app.UexecutorKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
 
 	// Parse factory ABI
 	factoryABI, err := uetypes.ParseFactoryABI()

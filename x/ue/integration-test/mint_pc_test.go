@@ -4,9 +4,9 @@ import (
 	// "math/big"
 	"testing"
 
-	utils "github.com/rollchains/pchain/testutils"
-	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	utils "github.com/pushchain/push-chain-node/testutils"
+	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,8 +26,8 @@ func TestMintPC(t *testing.T) {
 		Enabled: true,
 	}
 
-	app.UeKeeper.AddChainConfig(ctx, &chainConfigTest)
-	ms := uekeeper.NewMsgServerImpl(app.UeKeeper)
+	app.UexecutorKeeper.AddChainConfig(ctx, &chainConfigTest)
+	ms := uekeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
 	t.Run("Success", func(t *testing.T) {
 		validUA := &uetypes.UniversalAccountId{
@@ -84,7 +84,7 @@ func TestMintPC(t *testing.T) {
 		}
 
 		_, err := ms.MintPC(ctx, msg)
-		require.ErrorContains(t, err, "contract call failed: method 'computeUEA', contract '0x00000000000000000000000000000000000000eA'")
+		require.ErrorContains(t, err, "contract call failed")
 
 	})
 

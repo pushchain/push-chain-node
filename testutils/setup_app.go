@@ -8,7 +8,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rollchains/pchain/app"
+	"github.com/pushchain/push-chain-node/app"
 	"github.com/stretchr/testify/require"
 )
 

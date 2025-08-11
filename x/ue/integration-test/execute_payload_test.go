@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
-	utils "github.com/rollchains/pchain/testutils"
-	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	utils "github.com/pushchain/push-chain-node/testutils"
+	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,13 +27,13 @@ func TestExecutePayload(t *testing.T) {
 		Enabled: true,
 	}
 
-	app.UeKeeper.AddChainConfig(ctx, &chainConfigTest)
+	app.UexecutorKeeper.AddChainConfig(ctx, &chainConfigTest)
 
 	params := app.FeeMarketKeeper.GetParams(ctx)
 	params.BaseFee = math.LegacyNewDec(1000000000)
 	app.FeeMarketKeeper.SetParams(ctx, params)
 
-	ms := uekeeper.NewMsgServerImpl(app.UeKeeper)
+	ms := uekeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
 	t.Run("Success!", func(t *testing.T) {
 		validUA := &uetypes.UniversalAccountId{

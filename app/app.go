@@ -163,24 +163,17 @@ import (
 
 	// "github.com/ethereum/go-ethereum/core/vm"
 	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
-	chainante "github.com/rollchains/pchain/app/ante"
-	"github.com/rollchains/pchain/app/upgrades"
+	chainante "github.com/pushchain/push-chain-node/app/ante"
 
-	evmderivedtx "github.com/rollchains/pchain/app/upgrades/evm-derived-tx"
-	fixgasestimation "github.com/rollchains/pchain/app/upgrades/fix-gas-estimation"
-	fixgasoverride "github.com/rollchains/pchain/app/upgrades/fix-gas-override"
-	fixoneclick "github.com/rollchains/pchain/app/upgrades/fix-one-click"
-	oneclickexec "github.com/rollchains/pchain/app/upgrades/one-click-exec"
-	uaidrefactor "github.com/rollchains/pchain/app/upgrades/uaid-refactor"
-	ocvprecompile "github.com/rollchains/pchain/precompiles/ocv"
-	usvprecompile "github.com/rollchains/pchain/precompiles/usv"
-	pushtypes "github.com/rollchains/pchain/types"
-	ue "github.com/rollchains/pchain/x/ue"
-	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
-	utv "github.com/rollchains/pchain/x/utv"
-	utvkeeper "github.com/rollchains/pchain/x/utv/keeper"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
+	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
+	utxhashverifierprecompile "github.com/pushchain/push-chain-node/precompiles/utxhashverifier"
+	pushtypes "github.com/pushchain/push-chain-node/types"
+	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
+	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
+	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -258,7 +251,7 @@ var maccPerms = map[string][]string{
 	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
-	uetypes.ModuleName:           {authtypes.Minter, authtypes.Burner},
+	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 }
 
 var (
@@ -321,8 +314,8 @@ type ChainApp struct {
 	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
-	UeKeeper                  uekeeper.Keeper
-	UtvKeeper                 utvkeeper.Keeper
+	UexecutorKeeper           uexecutorkeeper.Keeper
+	UtxverifierKeeper         utxverifierkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -435,8 +428,8 @@ func NewChainApp(
 		evmtypes.StoreKey,
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
-		uetypes.StoreKey,
-		utvtypes.StoreKey,
+		uexecutortypes.StoreKey,
+		utxverifiertypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -723,25 +716,25 @@ func NewChainApp(
 	)
 
 	// Create the ue Keeper
-	app.UeKeeper = uekeeper.NewKeeper(
+	app.UexecutorKeeper = uexecutorkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[uetypes.StoreKey]),
+		runtime.NewKVStoreService(keys[uexecutortypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.EVMKeeper,
 		app.FeeMarketKeeper,
 		app.BankKeeper,
 		app.AccountKeeper,
-		&app.UtvKeeper,
+		&app.UtxverifierKeeper,
 	)
 
-	// Create the utv Keeper
-	app.UtvKeeper = utvkeeper.NewKeeper(
+	// Create the utxverifier Keeper
+	app.UtxverifierKeeper = utxverifierkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[utvtypes.StoreKey]),
+		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UeKeeper,
+		app.UexecutorKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -760,19 +753,19 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usv precompile for Ed25519 verification
-	usvPrecompile, err := usvprecompile.NewPrecompile()
+	// Add the usigverifier precompile for Ed25519 verification
+	usigverifierPrecompile, err := usigverifierprecompile.NewPrecompile()
 	if err != nil {
-		panic(fmt.Errorf("failed to instantiate usv precompile: %w", err))
+		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
 	}
-	corePrecompiles[usvPrecompile.Address()] = usvPrecompile
+	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
 
-	// Add the ocv precompile for Payload verification
-	ocvPrecompile, err := ocvprecompile.NewPrecompileWithUtv(&app.UtvKeeper)
+	// Add the utxhashverifier precompile for Payload verification
+	utxhashverifierPrecompile, err := utxhashverifierprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
 	if err != nil {
-		panic(fmt.Errorf("failed to instantiate ocv precompile: %w", err))
+		panic(fmt.Errorf("failed to instantiate utxhashverifier precompile: %w", err))
 	}
-	corePrecompiles[ocvPrecompile.Address()] = ocvPrecompile
+	corePrecompiles[utxhashverifierPrecompile.Address()] = utxhashverifierPrecompile
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,
@@ -1027,8 +1020,8 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtvKeeper),
-		utv.NewAppModule(appCodec, app.UtvKeeper, app.UeKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
+		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1075,8 +1068,8 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
-		utvtypes.ModuleName,
+		uexecutortypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1098,8 +1091,8 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
-		utvtypes.ModuleName,
+		uexecutortypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1148,8 +1141,8 @@ func NewChainApp(
 		packetforwardtypes.ModuleName,
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
-		uetypes.ModuleName,
-		utvtypes.ModuleName,
+		uexecutortypes.ModuleName,
+		utxverifiertypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1233,32 +1226,6 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"uaid-refactor",
-		uaidrefactor.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"evm-derived-tx",
-		evmderivedtx.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		"one-click-exec",
-		oneclickexec.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixoneclick.UpgradeName,
-		fixoneclick.CreateUpgradeHandler(app.ModuleManager, app.configurator, &upgrades.AppKeepers{
-			EVMKeeper: app.EVMKeeper,
-		}))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixgasoverride.UpgradeName,
-		fixgasoverride.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
-
-	app.UpgradeKeeper.SetUpgradeHandler(
-		fixgasestimation.UpgradeName,
-		fixgasestimation.CreateUpgradeHandler(app.ModuleManager, app.configurator, nil))
 
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper
@@ -1619,8 +1586,8 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(evmtypes.ModuleName)
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
-	paramsKeeper.Subspace(uetypes.ModuleName)
-	paramsKeeper.Subspace(utvtypes.ModuleName)
+	paramsKeeper.Subspace(uexecutortypes.ModuleName)
+	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
 
 	return paramsKeeper
 }

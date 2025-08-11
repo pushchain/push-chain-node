@@ -1,31 +1,42 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Push Node Manager - Native Only Version
 # Completely Docker-free Push Chain validator management
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# Load environment variables from .env if it exists
+# Load environment variables from .env if it exists (robust, supports spaces)
 if [ -f "$SCRIPT_DIR/.env" ]; then
-    export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+    set -a
+    . "$SCRIPT_DIR/.env"
+    set +a
 fi
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;94m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-WHITE='\033[1;37m'
-NC='\033[0m'
-BOLD='\033[1m'
+# Colors for output - Standardized palette
+GREEN='\033[0;32m'      # Success messages
+RED='\033[0;31m'        # Error messages  
+YELLOW='\033[0;33m'     # Warning messages
+CYAN='\033[0;36m'       # Status/info messages
+BLUE='\033[1;94m'       # Headers/titles (bright blue)
+MAGENTA='\033[0;35m'    # Accent/highlight data
+WHITE='\033[1;37m'      # Important values (bold white)
+NC='\033[0m'            # No color/reset
+BOLD='\033[1m'          # Emphasis
 
-# Print functions
+# Print functions - Unified across all scripts
 print_status() {
+    echo -e "${CYAN}$1${NC}"
+}
+
+print_header() {
     echo -e "${BLUE}$1${NC}"
+}
+
+print_value() {
+    echo -e "${MAGENTA}$1${NC}"
 }
 
 print_success() {
@@ -38,6 +49,53 @@ print_error() {
 
 print_warning() {
     echo -e "${YELLOW}$1${NC}"
+}
+
+# Dependency helpers
+require_cmd() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "Missing dependency: $1" >&2
+        exit 1
+    fi
+}
+
+require_one_of() {
+    for cmd in "$@"; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+    echo "Missing dependency: one of [$*] is required" >&2
+    exit 1
+}
+
+# Resolve hostname to single IPv4 address using dig/nslookup/host
+resolve_host_ip() {
+    local host="$1"
+    local ip=""
+    if command -v dig >/dev/null 2>&1; then
+        ip=$(dig +short "$host" A | tail -n1)
+    elif command -v nslookup >/dev/null 2>&1; then
+        ip=$(nslookup "$host" 2>/dev/null | awk '/^Address: /{print $2; found=1} END{if(!found) exit 1}') || true
+    elif command -v host >/dev/null 2>&1; then
+        ip=$(host "$host" 2>/dev/null | awk '/ has address /{print $4; exit}') || true
+    fi
+    echo "$ip"
+}
+
+# Kill process listening on port if it is pchaind; try TERM then KILL
+kill_pchaind_on_port() {
+    local port="$1"
+    local pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    for pid in $pids; do
+        if ps -o comm= -p "$pid" | grep -q "pchaind"; then
+            kill "$pid" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+        fi
+    done
 }
 
 # Native binary path
@@ -68,6 +126,16 @@ if [ ! -f "$NATIVE_BINARY" ]; then
     fi
 fi
 
+# Verify critical dependencies up front
+require_cmd curl
+require_cmd jq
+require_cmd awk
+require_cmd sed
+require_cmd bc
+require_cmd lsof
+require_cmd nohup
+require_one_of dig nslookup host
+
 # ASCII Art Banner
 show_banner() {
     echo -e "${BOLD}${GREEN}"
@@ -89,6 +157,7 @@ DENOM="upc"
 HOME_DIR="$HOME/.pchain"
 GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
 GENESIS_RPC="https://$GENESIS_DOMAIN"
+KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 
 # Process management
 PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
@@ -114,22 +183,9 @@ start_node() {
     # Comprehensive cleanup of port conflicts and stale processes
     print_status "🧹 Cleaning up any port conflicts and stale processes..."
     
-    # Kill processes using port 26657 (RPC)
-    if lsof -ti:26657 >/dev/null 2>&1; then
-        for pid in $(lsof -ti:26657 2>/dev/null); do
-            kill -9 "$pid" 2>/dev/null || true
-        done
-    fi
-    
-    # Kill processes using port 26656 (P2P)
-    if lsof -ti:26656 >/dev/null 2>&1; then
-        for pid in $(lsof -ti:26656 2>/dev/null); do
-            kill -9 "$pid" 2>/dev/null || true
-        done
-    fi
-    
-    # Kill any stale pchaind processes
-    pkill -f pchaind 2>/dev/null || true
+    # Kill only pchaind processes bound to the known ports
+    kill_pchaind_on_port 26657
+    kill_pchaind_on_port 26656
     
     # Remove stale PID file
     rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
@@ -137,22 +193,33 @@ start_node() {
     # Brief pause to ensure cleanup
     sleep 1
     
-    # Clean setup like testnet script
+    # Initialize if needed
     if [ ! -f "$HOME_DIR/config/config.toml" ]; then
         print_status "🧱 Initializing chain: $MONIKER ($CHAIN_ID)"
-        rm -rf "$HOME_DIR"
+        mkdir -p "$HOME_DIR/config" "$HOME_DIR/logs"
         
         # Initialize the chain (suppress verbose output)
         "$NATIVE_BINARY" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
         
         print_status "🌍 Fetching genesis.json from $GENESIS_RPC/genesis"
-        curl -s "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"
+        if ! curl -fsS "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
+            print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
+            exit 1
+        fi
         
         print_status "🔍 Fetching validator node ID from /status"
-        VALIDATOR_NODE_ID=$(curl -s "$GENESIS_RPC/status" | jq -r '.result.node_info.id')
+        VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+        if [ -z "${VALIDATOR_NODE_ID}" ]; then
+            print_error "❌ Failed to query validator node ID from $GENESIS_RPC/status"
+            exit 1
+        fi
         
         print_status "🔍 Resolving $GENESIS_DOMAIN to IP"
-        VALIDATOR_IP=$(dig +short "$GENESIS_DOMAIN" | tail -n1)
+        VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
+        if [ -z "${VALIDATOR_IP}" ]; then
+            print_error "❌ Failed to resolve IP for $GENESIS_DOMAIN"
+            exit 1
+        fi
         
         PERSISTENT_PEER="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
         print_status "🔗 persistent_peers = $PERSISTENT_PEER"
@@ -162,6 +229,38 @@ start_node() {
             "$HOME_DIR/config/config.toml"
         
         print_success "✅ Node configured for native execution"
+    fi
+
+    # Ensure genesis.json exists even if config was present
+    if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
+        print_warning "⚠️ Missing genesis.json - fetching from $GENESIS_RPC/genesis"
+        if ! curl -fsS "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
+            print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
+            exit 1
+        fi
+
+        # Also refresh persistent_peers to be safe
+        print_status "🔍 Refreshing seed peer information"
+        VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+        VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
+        if [ -n "$VALIDATOR_NODE_ID" ] && [ -n "$VALIDATOR_IP" ]; then
+            PERSISTENT_PEER="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
+            sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEER\"/" "$HOME_DIR/config/config.toml"
+            print_success "🔗 persistent_peers refreshed: $PERSISTENT_PEER"
+        fi
+    fi
+
+    # Ensure priv_validator_state.json exists to avoid CometBFT panic when data was wiped
+    if [ ! -f "$HOME_DIR/data/priv_validator_state.json" ]; then
+        print_warning "⚠️ Missing priv_validator_state.json - creating default state"
+        mkdir -p "$HOME_DIR/data"
+        cat > "$HOME_DIR/data/priv_validator_state.json" <<'STATEEOF'
+{
+  "height": "0",
+  "round": 0,
+  "step": 0
+}
+STATEEOF
     fi
     
     # Start in background
@@ -179,9 +278,19 @@ stop_node() {
     
     if is_node_running; then
         PID=$(cat "$PCHAIND_PID_FILE")
-        kill "$PID"
-        rm -f "$PCHAIND_PID_FILE"
-        print_success "✅ Node stopped (PID: $PID)"
+        kill "$PID" 2>/dev/null || true
+        # wait up to 5s
+        for i in {1..5}; do
+            if ! kill -0 "$PID" 2>/dev/null; then
+                break
+            fi
+            sleep 1
+        done
+        if kill -0 "$PID" 2>/dev/null; then
+            kill -9 "$PID" 2>/dev/null || true
+        fi
+        rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
+        print_success "✅ Node stop signal sent (PID: $PID)"
     else
         print_warning "⚠️ Node is not running"
     fi
@@ -189,7 +298,7 @@ stop_node() {
 
 # Show node status
 show_status() {
-    print_status "📊 Push Chain Node Status"
+    print_header "📊 Push Chain Node Status"
     echo -e "${GREEN}══════════════════════════════════════════${NC}"
     
     echo -e "${BOLD}${BLUE}Runtime Mode: ${GREEN}Native Execution${NC}"
@@ -219,26 +328,26 @@ show_status() {
                 
                 if [ -n "$NODE_STATUS" ]; then
                     echo
-                    echo -e "${BOLD}${BLUE}Node Information:${NC}"
+                    print_header "Node Information:"
                     echo -e "${GREEN}─────────────────────────────────────────${NC}"
                     
                     NODE_ID=$(echo "$NODE_STATUS" | jq -r '.result.node_info.id // "unknown"' 2>/dev/null)
                     NETWORK=$(echo "$NODE_STATUS" | jq -r '.result.node_info.network // "unknown"' 2>/dev/null)  
                     MONIKER=$(echo "$NODE_STATUS" | jq -r '.result.node_info.moniker // "unknown"' 2>/dev/null)
                     
-                    echo -e "  ${BOLD}Node ID:${NC} ${YELLOW}$NODE_ID${NC}"
+                    echo -e "  ${BOLD}Node ID:${NC} ${MAGENTA}$NODE_ID${NC}"
                     echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
                     echo -e "  ${BOLD}Moniker:${NC} ${BOLD}${WHITE}$MONIKER${NC}"
                     
                     echo
-                    echo -e "${BOLD}${BLUE}Sync Status:${NC}"
+                    print_header "Sync Status:"
                     echo -e "${GREEN}─────────────────────────────────────────${NC}"
                     
                     LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null)
                     LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null)
                     CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
                     
-                    echo -e "  ${BOLD}Block Height:${NC} ${GREEN}$LOCAL_HEIGHT${NC}"
+                    echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$LOCAL_HEIGHT${NC}"
                     echo -e "  ${BOLD}Block Time:${NC} $LATEST_TIME"
                     
                     if [ "$CATCHING_UP" = "false" ]; then
@@ -353,13 +462,13 @@ monitor_sync() {
             echo -e "${BOLD}${GREEN}Push Chain Sync Monitor${NC}"
             echo -e "${GREEN}═══════════════════════════════════════════${NC}"
             echo
-            echo -e "${BOLD}${BLUE}Node Information:${NC}"
+            print_header "Node Information:"
             echo -e "  ${BOLD}Moniker:${NC} ${WHITE}$MONIKER${NC}"
             echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
             echo
             
-            echo -e "${BOLD}${BLUE}Sync Status:${NC}"
-            echo -e "  ${BOLD}Block Height:${NC} ${GREEN}$LOCAL_HEIGHT${NC}"
+            print_header "Sync Status:"
+            echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$LOCAL_HEIGHT${NC}"
             echo -e "  ${BOLD}Last Block:${NC} $LATEST_TIME"
             
             if [ "$CATCHING_UP" = "false" ]; then
@@ -394,12 +503,12 @@ monitor_sync() {
             fi
             
             echo
-            echo -e "${BOLD}${BLUE}Runtime Stats:${NC}"
+            print_header "Runtime Stats:"
             echo -e "  ${BOLD}Monitoring Time:${NC} ${elapsed}s"
             if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} (${LOCAL_HEIGHT}/${REMOTE_HEIGHT})"
+                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} (${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC})"
             else
-                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${YELLOW}unknown target height${NC} (${LOCAL_HEIGHT}/?)"
+                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${YELLOW}unknown target height${NC} (${MAGENTA}${LOCAL_HEIGHT}${NC}/?)"
             fi
             
             if [ "$CATCHING_UP" = "false" ]; then
@@ -412,12 +521,12 @@ monitor_sync() {
             
         else
             clear
-            echo -e "${BOLD}${YELLOW}⚠️ Waiting for node to respond...${NC}"
+            print_warning "⚠️ Waiting for node to respond..."
             echo "Make sure the node is running: ./push-node-manager status"
         fi
         
         echo
-        echo -e "${BLUE}Press Ctrl+C to exit monitor${NC}"
+        print_status "Press Ctrl+C to exit monitor"
         sleep 3
     done
 }
@@ -442,7 +551,7 @@ register_validator() {
 
 # Configure genesis RPC endpoint
 configure_genesis() {
-    if [ -n "$2" ]; then
+    if [ -n "${2-}" ]; then
         NEW_GENESIS_DOMAIN="$2"
         print_status "🔧 Setting genesis RPC domain to: $NEW_GENESIS_DOMAIN"
         
@@ -456,12 +565,27 @@ configure_genesis() {
         
         print_success "✅ Genesis RPC configured: https://$NEW_GENESIS_DOMAIN"
         print_status "💡 This setting will persist across restarts"
-        print_status "🔄 Restart the node to use the new endpoint: ./push-node-manager restart"
+
+        # If node already initialized, update persistent_peers accordingly
+        if [ -f "$HOME_DIR/config/config.toml" ]; then
+            NEW_NODE_ID=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/status" | jq -r '.result.node_info.id // empty' || true)
+            NEW_IP=$(resolve_host_ip "$NEW_GENESIS_DOMAIN")
+            if [ -n "$NEW_NODE_ID" ] && [ -n "$NEW_IP" ]; then
+                NEW_PEER="$NEW_NODE_ID@$NEW_IP:26656"
+                sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$NEW_PEER\"/" "$HOME_DIR/config/config.toml"
+                print_success "🔗 Updated persistent_peers to $NEW_PEER"
+                print_status "🔄 Restart the node to apply the new peers: ./push-node-manager restart"
+            else
+                print_warning "⚠️ Could not resolve new peer info; leaving config unchanged."
+            fi
+        else
+            print_status "🔄 Start will use the new endpoint on first initialization"
+        fi
     else
-        print_status "📡 Current Genesis RPC Configuration"
+        print_header "📡 Current Genesis RPC Configuration"
         echo -e "${GREEN}══════════════════════════════════════${NC}"
-        echo -e "  ${BOLD}Domain:${NC} ${GREEN}$GENESIS_DOMAIN${NC}"
-        echo -e "  ${BOLD}Full URL:${NC} ${CYAN}$GENESIS_RPC${NC}"
+        echo -e "  ${BOLD}Domain:${NC} ${MAGENTA}$GENESIS_DOMAIN${NC}"
+        echo -e "  ${BOLD}Full URL:${NC} ${MAGENTA}$GENESIS_RPC${NC}"
         echo
         print_status "💡 To change: ./push-node-manager set-genesis <domain>"
         print_status "   Example: ./push-node-manager set-genesis rpc.custom-node.org"
@@ -476,20 +600,20 @@ check_balance() {
     print_status "💰 Checking wallet balance..."
     
     # Check if wallet exists
-    if ! "$NATIVE_BINARY" keys show "$WALLET_NAME" --keyring-backend test --home "$HOME_DIR" >/dev/null 2>&1; then
+    if ! "$NATIVE_BINARY" keys show "$WALLET_NAME" --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" >/dev/null 2>&1; then
         print_error "❌ Wallet '$WALLET_NAME' not found!"
         echo "Create a wallet first using: ./push-node-manager register-validator"
         exit 1
     fi
     
     # Get address
-    ADDRESS=$("$NATIVE_BINARY" keys show "$WALLET_NAME" -a --keyring-backend test --home "$HOME_DIR" 2>/dev/null)
+    ADDRESS=$("$NATIVE_BINARY" keys show "$WALLET_NAME" -a --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" 2>/dev/null)
     
     echo "Wallet: $WALLET_NAME"
     echo "Address: $ADDRESS"
     
-    # Get balance from RPC
-    BALANCE=$("$NATIVE_BINARY" query bank balances "$ADDRESS" --node tcp://localhost:26657 -o json 2>/dev/null | \
+    # Get balance from remote RPC for accuracy
+    BALANCE=$("$NATIVE_BINARY" query bank balances "$ADDRESS" --node "tcp://$GENESIS_DOMAIN:26657" -o json 2>/dev/null | \
         jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' || echo "0")
     
     if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
@@ -515,25 +639,18 @@ check_balance() {
 
 # List validators
 list_validators() {
-    print_status "👥 Active Push Chain Validators"
+    print_header "👥 Active Push Chain Validators"
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
     
     if is_node_running; then
-        # Check if local node is synced
-        SYNC_STATUS=$("$NATIVE_BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
-        
-        if [ "$SYNC_STATUS" = "true" ]; then
-            print_status "⚠️  Local node syncing - using remote RPC for accurate validator list"
-            NODE_ENDPOINT="$GENESIS_RPC:443"
-        else
-            NODE_ENDPOINT="tcp://localhost:26657"
-        fi
+        # Always use remote RPC for validator queries since we need network-wide data
+        NODE_ENDPOINT="tcp://$GENESIS_DOMAIN:26657"
         
         VALIDATORS=$("$NATIVE_BINARY" query staking validators --output json --node "$NODE_ENDPOINT" 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
         
         if [ -n "$VALIDATORS" ]; then
             echo
-            echo -e "${BOLD}${YELLOW}VALIDATOR                 STATUS          STAKE (PC)   COMMISSION${NC}"
+            printf "${BOLD}${YELLOW}%-26s %-12s %12s %11s${NC}\n" "VALIDATOR" "STATUS" "STAKE (PC)" "COMMISSION"
             echo -e "${BLUE}─────────────────────────────────────────────────────────────────${NC}"
             
             echo "$VALIDATORS" | jq -r '
@@ -545,20 +662,25 @@ list_validators() {
                 ((.tokens | tonumber / 1000000000000000000) | tostring | split(".")[0]) + "|" +
                 ((.commission.commission_rates.rate | tonumber * 100) | tostring | split(".")[0]) + "%"
             ' 2>/dev/null | while IFS='|' read -r moniker status tokens commission; do
-                # Color code status using printf with -e flag
+                # Pre-pad fields WITHOUT color so width counts are correct
+                moniker_padded=$(printf "%-26s" "$moniker")
+                status_padded=$(printf "%-12s" "$status")
+                tokens_padded=$(printf "%12s" "$tokens")
+                commission_padded=$(printf "%11s" "$commission")
+
+                # Apply colors after padding
                 case "$status" in
-                    "BONDED")     status_colored="$(printf "\e[0;32m✅ %s\e[0m" "$status")" ;;
-                    "UNBONDING")  status_colored="$(printf "\e[0;33m⏳ %s\e[0m" "$status")" ;;
-                    "UNBONDED")   status_colored="$(printf "\e[0;31m❌ %s\e[0m" "$status")" ;;
-                    *)            status_colored="$(printf "\e[0;34m%s\e[0m" "$status")" ;;
+                    "BONDED")     status_colored="${GREEN}${status_padded}${NC}" ;;
+                    "UNBONDING")  status_colored="${YELLOW}${status_padded}${NC}" ;;
+                    "UNBONDED")   status_colored="${RED}${status_padded}${NC}" ;;
+                    *)             status_colored="${CYAN}${status_padded}${NC}" ;;
                 esac
-                
-                # Format the output line with proper spacing using printf
-                printf "\e[1m%-25s\e[0m %s \e[0;36m%12s\e[0m \e[0;35m%15s\e[0m\n" "$moniker" "$status_colored" "$tokens" "$commission"
+
+                echo -e "${BOLD}${moniker_padded}${NC} ${status_colored} ${MAGENTA}${tokens_padded}${NC} ${MAGENTA}${commission_padded}${NC}"
             done
             
             echo
-            echo -e "${BLUE}Total Validators: $(echo "$VALIDATORS" | jq -s length)${NC}"
+            print_status "Total Validators: $(echo "$VALIDATORS" | jq -s length)"
         else
             print_warning "No validators found or node not synced"
         fi

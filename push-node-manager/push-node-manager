@@ -7,6 +7,11 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Load environment variables from .env if it exists
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;94m'
@@ -46,13 +51,13 @@ if [ ! -f "$NATIVE_BINARY" ]; then
     echo
     
     # Run setup script automatically
-    if [ -f "$SCRIPT_DIR/setup-native-dependencies.sh" ]; then
-        bash "$SCRIPT_DIR/setup-native-dependencies.sh"
+    if [ -f "$SCRIPT_DIR/setup-dependencies.sh" ]; then
+        bash "$SCRIPT_DIR/setup-dependencies.sh"
         echo
         print_success "✅ Auto-setup completed! Continuing with node start..."
         echo
     else
-        print_error "❌ Setup script not found: $SCRIPT_DIR/setup-native-dependencies.sh"
+        print_error "❌ Setup script not found: $SCRIPT_DIR/setup-dependencies.sh"
         exit 1
     fi
     
@@ -427,11 +432,41 @@ register_validator() {
     echo -e "  ${GREEN}✓${NC} Register your node as a validator"
     echo
     
-    if [ -f "$SCRIPT_DIR/scripts/register-validator-simple.sh" ]; then
-        bash "$SCRIPT_DIR/scripts/register-validator-simple.sh"
+    if [ -f "$SCRIPT_DIR/scripts/register-validator.sh" ]; then
+        bash "$SCRIPT_DIR/scripts/register-validator.sh"
     else
-        print_error "❌ Simplified registration script not found!"
+        print_error "❌ Validator registration script not found!"
         exit 1
+    fi
+}
+
+# Configure genesis RPC endpoint
+configure_genesis() {
+    if [ -n "$2" ]; then
+        NEW_GENESIS_DOMAIN="$2"
+        print_status "🔧 Setting genesis RPC domain to: $NEW_GENESIS_DOMAIN"
+        
+        # Create/update .env file for persistence
+        ENV_FILE="$SCRIPT_DIR/.env"
+        if [ -f "$ENV_FILE" ]; then
+            # Remove existing GENESIS_DOMAIN line
+            grep -v "^GENESIS_DOMAIN=" "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE" || touch "$ENV_FILE"
+        fi
+        echo "GENESIS_DOMAIN=$NEW_GENESIS_DOMAIN" >> "$ENV_FILE"
+        
+        print_success "✅ Genesis RPC configured: https://$NEW_GENESIS_DOMAIN"
+        print_status "💡 This setting will persist across restarts"
+        print_status "🔄 Restart the node to use the new endpoint: ./push-node-manager restart"
+    else
+        print_status "📡 Current Genesis RPC Configuration"
+        echo -e "${GREEN}══════════════════════════════════════${NC}"
+        echo -e "  ${BOLD}Domain:${NC} ${GREEN}$GENESIS_DOMAIN${NC}"
+        echo -e "  ${BOLD}Full URL:${NC} ${CYAN}$GENESIS_RPC${NC}"
+        echo
+        print_status "💡 To change: ./push-node-manager set-genesis <domain>"
+        print_status "   Example: ./push-node-manager set-genesis rpc.custom-node.org"
+        echo
+        print_status "🔧 Default: rpc-testnet-donut-node1.push.org"
     fi
 }
 
@@ -485,11 +520,11 @@ list_validators() {
     
     if is_node_running; then
         # Check if local node is synced
-        SYNC_STATUS=$("$NATIVE_BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.SyncInfo.catching_up // "true"' 2>/dev/null || echo "true")
+        SYNC_STATUS=$("$NATIVE_BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
         
         if [ "$SYNC_STATUS" = "true" ]; then
             print_status "⚠️  Local node syncing - using remote RPC for accurate validator list"
-            NODE_ENDPOINT="https://rpc-testnet-donut-node1.push.org:443"
+            NODE_ENDPOINT="$GENESIS_RPC:443"
         else
             NODE_ENDPOINT="tcp://localhost:26657"
         fi
@@ -510,16 +545,16 @@ list_validators() {
                 ((.tokens | tonumber / 1000000000000000000) | tostring | split(".")[0]) + "|" +
                 ((.commission.commission_rates.rate | tonumber * 100) | tostring | split(".")[0]) + "%"
             ' 2>/dev/null | while IFS='|' read -r moniker status tokens commission; do
-                # Color code status
+                # Color code status using printf with -e flag
                 case "$status" in
-                    "BONDED")     status_colored="${GREEN}✅ $status${NC}" ;;
-                    "UNBONDING")  status_colored="${YELLOW}⏳ $status${NC}" ;;
-                    "UNBONDED")   status_colored="${RED}❌ $status${NC}" ;;
-                    *)            status_colored="${BLUE}$status${NC}" ;;
+                    "BONDED")     status_colored="$(printf "\e[0;32m✅ %s\e[0m" "$status")" ;;
+                    "UNBONDING")  status_colored="$(printf "\e[0;33m⏳ %s\e[0m" "$status")" ;;
+                    "UNBONDED")   status_colored="$(printf "\e[0;31m❌ %s\e[0m" "$status")" ;;
+                    *)            status_colored="$(printf "\e[0;34m%s\e[0m" "$status")" ;;
                 esac
                 
-                # Format the output line with proper spacing
-                echo -e "${BOLD}$(printf "%-25s" "$moniker")${NC} $status_colored ${CYAN}$(printf "%12s" "$tokens")${NC} ${MAGENTA}$(printf "%15s" "$commission")${NC}"
+                # Format the output line with proper spacing using printf
+                printf "\e[1m%-25s\e[0m %s \e[0;36m%12s\e[0m \e[0;35m%15s\e[0m\n" "$moniker" "$status_colored" "$tokens" "$commission"
             done
             
             echo
@@ -557,6 +592,10 @@ show_help() {
     printf "  ${YELLOW}register-validator${NC} 🔐 Validator registration\n"
     printf "  ${YELLOW}validators${NC}         👥 List all active validators on the network\n"
     printf "  ${YELLOW}balance${NC} [wallet]   💰 Check wallet balance (default: validator-key)\n"
+    printf "\n"
+    printf "${BOLD}${CYAN}🌐 Network Configuration:${NC}\n"
+    printf "  ${YELLOW}genesis${NC}            📡 Show current genesis RPC endpoint\n"
+    printf "  ${YELLOW}set-genesis${NC} <url>  🔧 Set custom genesis RPC endpoint\n"
     printf "\n"
     printf "${BOLD}${MAGENTA}💡 Quick Start Guide:${NC}\n"
     printf "  ${CYAN}1.${NC} ${BOLD}./push-node-manager start${NC}\n"
@@ -620,9 +659,17 @@ case "${1:-help}" in
         list_validators
         ;;
         
+    set-genesis)
+        configure_genesis "$@"
+        ;;
+        
+    genesis)
+        configure_genesis "$@"
+        ;;
+        
     setup-deps)
         print_status "🔧 Running dependency setup..."
-        bash "$SCRIPT_DIR/setup-native-dependencies.sh"
+        bash "$SCRIPT_DIR/setup-dependencies.sh"
         ;;
         
     reset)

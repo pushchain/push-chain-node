@@ -60,7 +60,8 @@ if [ "$SYNC_STATUS" = "true" ]; then
     echo
     print_status "💡 Current sync status:"
     LOCAL_HEIGHT=$("$BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
-    REMOTE_HEIGHT=$("$BINARY" status --node https://rpc-testnet-donut-node1.push.org:443 2>/dev/null | jq -r '.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+    GENESIS_RPC="https://${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}:443"
+    REMOTE_HEIGHT=$("$BINARY" status --node "$GENESIS_RPC" 2>/dev/null | jq -r '.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
     print_status "   • Local height: $LOCAL_HEIGHT"
     print_status "   • Network height: $REMOTE_HEIGHT"
     if [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
@@ -122,7 +123,7 @@ if [ "$SYNC_STATUS" = "true" ]; then
     
     # Try querying from remote node for accurate balance
     print_status "🔍 Checking balance via remote RPC..."
-    GENESIS_RPC="https://rpc-testnet-donut-node1.push.org:443"
+    GENESIS_RPC="https://${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}:443"
     BALANCE=$("$BINARY" query bank balances "$VALIDATOR_ADDR" --node "$GENESIS_RPC" -o json 2>/dev/null | \
         jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' 2>/dev/null || echo "0")
     

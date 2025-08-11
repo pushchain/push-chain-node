@@ -48,7 +48,7 @@ message Ballot {
   string id = 1;                              // Unique ID (e.g., txHash, messageHash)
   BallotObservationType ballot_type = 2;      // Type of ballot
 
-  repeated string voter_list = 3;             // Snapshot of allowed voters at creation
+  repeated string eligible_voters = 3;             // Snapshot of allowed voters at creation
   repeated VoteResult votes = 4;              // Parallel array to voter_list (same index = same voter)
   repeated string reasons = 5;                // Parallel array for optional reasons (index-matched to voter_list)
 

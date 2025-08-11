@@ -109,7 +109,7 @@ echo "🛠️ Updating genesis parameters..."
   # === CORE MODULES ===
 
   # Block
-  update_test_genesis '.consensus["params"]["block"]["max_gas"]="100000000"'
+  # update_test_genesis '.consensus["params"]["block"]["max_gas"]="100000000"' # Not needed let it be infinite
   update_test_genesis '.consensus["params"]["block"]["time_iota_ms"]="1000"'
 
   # Gov

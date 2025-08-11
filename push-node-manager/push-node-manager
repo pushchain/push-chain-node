@@ -109,13 +109,13 @@ if [ ! -f "$NATIVE_BINARY" ]; then
     echo
     
     # Run setup script automatically
-    if [ -f "$SCRIPT_DIR/setup-dependencies.sh" ]; then
-        bash "$SCRIPT_DIR/setup-dependencies.sh"
+    if [ -f "$SCRIPT_DIR/scripts/setup-dependencies.sh" ]; then
+        bash "$SCRIPT_DIR/scripts/setup-dependencies.sh"
         echo
         print_success "✅ Auto-setup completed! Continuing with node start..."
         echo
     else
-        print_error "❌ Setup script not found: $SCRIPT_DIR/setup-dependencies.sh"
+        print_error "❌ Setup script not found: $SCRIPT_DIR/scripts/setup-dependencies.sh"
         exit 1
     fi
     
@@ -791,7 +791,7 @@ case "${1:-help}" in
         
     setup-deps)
         print_status "🔧 Running dependency setup..."
-        bash "$SCRIPT_DIR/setup-dependencies.sh"
+        bash "$SCRIPT_DIR/scripts/setup-dependencies.sh"
         ;;
         
     reset)

@@ -36,7 +36,7 @@ NATIVE_BINARY="$SCRIPT_DIR/../build/pchaind"
 # Native-only mode
 if [ ! -f "$NATIVE_BINARY" ]; then
     print_error "❌ Native binary not found at: $NATIVE_BINARY"
-    echo "🔧 Run './setup-native-dependencies.sh' to build the binary"
+    echo "🔧 Run './scripts/setup-dependencies.sh' to build the binary"
     exit 1
 fi
 

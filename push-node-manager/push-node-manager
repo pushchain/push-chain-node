@@ -719,6 +719,11 @@ show_help() {
     printf "  ${YELLOW}genesis${NC}            📡 Show current genesis RPC endpoint\n"
     printf "  ${YELLOW}set-genesis${NC} <url>  🔧 Set custom genesis RPC endpoint\n"
     printf "\n"
+    printf "${BOLD}${CYAN}🌍 Public Setup (Optional):${NC}\n"
+    printf "  ${YELLOW}setup-nginx${NC} <domain> 🔒 Setup NGINX + SSL for public RPC endpoints\n"
+    printf "  ${YELLOW}setup-logs${NC}           📋 Configure log rotation\n"
+    printf "  ${YELLOW}backup${NC}               💾 Create node backup\n"
+    printf "\n"
     printf "${BOLD}${MAGENTA}💡 Quick Start Guide:${NC}\n"
     printf "  ${CYAN}1.${NC} ${BOLD}./push-node-manager start${NC}\n"
     printf "  ${CYAN}2.${NC} ${BOLD}./push-node-manager status${NC}\n"
@@ -816,6 +821,23 @@ case "${1:-help}" in
             print_status "Node will be completely re-initialized on next start"
             print_status "Start the node to re-sync: ./push-node-manager start"
         fi
+        ;;
+        
+    setup-nginx)
+        if [ -z "${2:-}" ]; then
+            print_error "❌ Domain required for NGINX setup"
+            echo "Usage: ./push-node-manager setup-nginx yourdomain.com"
+            exit 1
+        fi
+        bash "$SCRIPT_DIR/scripts/setup-nginx.sh" "$2"
+        ;;
+        
+    setup-logs)
+        bash "$SCRIPT_DIR/scripts/setup-log-rotation.sh"
+        ;;
+        
+    backup)
+        bash "$SCRIPT_DIR/scripts/backup.sh"
         ;;
         
     help|--help|-h|"")

@@ -1,6 +1,8 @@
 # Built with https://github.com/rollchains/spawn
 configs/logs.json
 dist/
+build/
+testnet/*/binary
 
 # Create cosmos app
 web/

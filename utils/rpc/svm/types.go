@@ -5,12 +5,8 @@ type Transaction struct {
 	Slot        uint64 `json:"slot"`
 	Transaction struct {
 		Message struct {
-			AccountKeys  []string `json:"accountKeys"`
-			Instructions []struct {
-				ProgramIDIndex int    `json:"programIdIndex"`
-				Accounts       []int  `json:"accounts"`
-				Data           string `json:"data"`
-			} `json:"instructions"`
+			AccountKeys  []string      `json:"accountKeys"`
+			Instructions []Instruction `json:"instructions"`
 		} `json:"message"`
 	} `json:"transaction"`
 	Meta struct {
@@ -21,3 +17,10 @@ type Transaction struct {
 
 // Slot represents a Solana slot response from getSlot
 type Slot uint64
+
+// Inside the svmrpc package
+type Instruction struct {
+	ProgramIDIndex int    `json:"programIdIndex"`
+	Accounts       []int  `json:"accounts"`
+	Data           string `json:"data"`
+}

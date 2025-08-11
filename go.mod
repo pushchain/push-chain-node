@@ -1,4 +1,4 @@
-module github.com/rollchains/pchain
+module github.com/pushchain/push-chain-node
 
 go 1.23.6
 
@@ -10,7 +10,7 @@ replace (
 	cosmossdk.io/store => github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe
 	github.com/CosmWasm/wasmd => github.com/rollchains/wasmd v0.50.0-evm
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7
-	github.com/cosmos/evm => github.com/pushchain/evm v0.0.0-20250701182310-ac867fcd2e4e
+	github.com/cosmos/evm => github.com/pushchain/evm v0.0.0-20250724105658-22e6fe88ef01
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4
 
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0 // v1.18+ breaks app overrides

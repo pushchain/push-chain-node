@@ -10,7 +10,7 @@ SIMAPP = ./app
 
 # for dockerized protobuf tools
 DOCKER := $(shell which docker)
-HTTPS_GIT := github.com/rollchains/pchain.git
+HTTPS_GIT := github.com/pushchain/push-chain-node.git
 
 export GO111MODULE = on
 
@@ -337,10 +337,6 @@ sh-testnet: mod-tidy
 ###############################################################################
 ###                                     help                                ###
 ###############################################################################
-
-.PHONY: explorer
-explorer:
-	docker compose up
 
 .PHONY: generate-webapp
 generate-webapp:

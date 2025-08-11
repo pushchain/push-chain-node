@@ -11,7 +11,7 @@ import (
 	circuitante "cosmossdk.io/x/circuit/ante"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
-	cosmosante "github.com/rollchains/pchain/app/cosmos"
+	cosmosante "github.com/pushchain/push-chain-node/app/cosmos"
 )
 
 // newCosmosAnteHandler creates the default ante handler for Cosmos transactions

@@ -1,42 +1,66 @@
 #!/bin/bash
-# Push Node Manager Control Script
+# Push Node Manager - Native Only Version
+# Completely Docker-free Push Chain validator management
 
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# Source common functions if available (we're outside container)
-if [ -f "$SCRIPT_DIR/scripts/common.sh" ]; then
-    source "$SCRIPT_DIR/scripts/common.sh"
-else
-    # Define colors locally if common.sh not available
-    GREEN='\033[0;32m'
-    BLUE='\033[0;34m'
-    RED='\033[0;31m'
-    YELLOW='\033[0;33m'
-    CYAN='\033[0;36m'
-    MAGENTA='\033[0;35m'
-    WHITE='\033[1;37m'
-    NC='\033[0m'
-    BOLD='\033[1m'
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;94m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+# Print functions
+print_status() {
+    echo -e "${BLUE}$1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}$1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}$1${NC}"
+}
+
+# Native binary path
+BUILD_DIR="$SCRIPT_DIR/build"
+NATIVE_BINARY="$BUILD_DIR/pchaind"
+
+# Check if binary exists and auto-setup if missing
+if [ ! -f "$NATIVE_BINARY" ]; then
+    print_warning "❌ Native binary not found at: $NATIVE_BINARY"
+    print_status "🔧 Running automatic dependency setup and build..."
+    echo
     
-    # Define local versions of print functions
-    print_status() {
-        echo -e "${BLUE}$1${NC}"
-    }
+    # Run setup script automatically
+    if [ -f "$SCRIPT_DIR/setup-native-dependencies.sh" ]; then
+        bash "$SCRIPT_DIR/setup-native-dependencies.sh"
+        echo
+        print_success "✅ Auto-setup completed! Continuing with node start..."
+        echo
+    else
+        print_error "❌ Setup script not found: $SCRIPT_DIR/setup-native-dependencies.sh"
+        exit 1
+    fi
     
-    print_success() {
-        echo -e "${GREEN}$1${NC}"
-    }
-    
-    print_error() {
-        echo -e "${RED}$1${NC}"
-    }
-    
-    print_warning() {
-        echo -e "${YELLOW}$1${NC}"
-    }
+    # Verify binary was created
+    if [ ! -f "$NATIVE_BINARY" ]; then
+        print_error "❌ Binary creation failed during auto-setup"
+        exit 1
+    fi
 fi
 
 # ASCII Art Banner
@@ -48,1321 +72,580 @@ show_banner() {
     echo " / ____/ /_/ (__  ) / / /  / /___/ / / / /_/ / / / / / "
     echo "/_/    \\__,_/____/_/ /_/   \\____/_/ /_/\\__,_/_/_/ /_/  "
     echo -e "${NC}"
-    echo -e "${BOLD}${YELLOW}          Push Node Manager v2.0.0${NC}"
+    echo -e "${BOLD}${YELLOW}            Push Node Manager${NC}"
     echo -e "${GREEN}        ═══════════════════════════════${NC}"
     echo
 }
 
-# Load environment
-if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
-fi
+# Chain configuration
+CHAIN_ID="push_42101-1"
+MONIKER="${MONIKER:-push-validator}"
+DENOM="upc"
+HOME_DIR="$HOME/.pchain"
+GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
+GENESIS_RPC="https://$GENESIS_DOMAIN"
 
-# Docker compose command (support both old and new versions)
-if docker compose version &> /dev/null; then
-    DOCKER_COMPOSE="docker compose"
-else
-    DOCKER_COMPOSE="docker-compose"
-fi
+# Process management
+PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
 
-# Update detection functions
-get_latest_version() {
-    # Fetch latest release from GitHub API directly
-    local LATEST_RELEASE=$(curl -s --connect-timeout 10 \
-        "https://api.github.com/repos/pushchain/push-chain-node/releases/latest" 2>/dev/null)
-    
-    if [ -n "$LATEST_RELEASE" ] && echo "$LATEST_RELEASE" | grep -q '"tag_name"'; then
-        echo "$LATEST_RELEASE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo ""
-    else
-        echo ""
-    fi
-}
-
-get_current_binary_version() {
-    # Try to get version from the binary if it's running
-    if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
-        # Get the short version which should match release tags
-        local VERSION=$($DOCKER_COMPOSE exec -T validator pchaind version 2>/dev/null | tr -d '\r' || echo "")
-        
-        if [ -n "$VERSION" ] && [ "$VERSION" != "null" ] && [ "$VERSION" != "unknown" ]; then
-            # If it doesn't start with 'v', add it to match GitHub release format
-            if [[ ! "$VERSION" =~ ^v ]]; then
-                echo "v$VERSION"
-            else
-                echo "$VERSION"
-            fi
+# Check if node is running
+is_node_running() {
+    if [ -f "$PCHAIND_PID_FILE" ]; then
+        PID=$(cat "$PCHAIND_PID_FILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            return 0
         else
-            echo "unknown"
-        fi
-    else
-        echo "unknown"
-    fi
-}
-
-compare_versions() {
-    local CURRENT="$1"
-    local LATEST="$2"
-    
-    # If we can't determine versions, skip update check
-    if [ -z "$LATEST" ] || [ "$LATEST" = "unknown" ]; then
-        return 1  # No update check possible
-    fi
-    
-    # If current version is unknown, assume update needed
-    if [ -z "$CURRENT" ] || [ "$CURRENT" = "unknown" ]; then
-        return 0  # Update needed
-    fi
-    
-    # If current version is a commit hash (no dots, just hex), check if it's up to date
-    if [[ "$CURRENT" =~ ^v?[a-f0-9]+$ ]] && [ ${#CURRENT} -ge 7 ] && [ ${#CURRENT} -le 41 ]; then
-        # For git hashes, assume they're development versions and don't need updates
-        # unless the user specifically wants to update to a release version
-        return 1  # Don't show update for git hash versions
-    fi
-    
-    # Remove 'v' prefix for comparison
-    CURRENT=$(echo "$CURRENT" | sed 's/^v//')
-    LATEST=$(echo "$LATEST" | sed 's/^v//')
-    
-    # Simple string comparison for now (works for semantic versions)
-    if [ "$CURRENT" != "$LATEST" ]; then
-        return 0  # Update available
-    else
-        return 1  # No update needed
-    fi
-}
-
-check_and_notify_updates() {
-    local LATEST_VERSION=$(get_latest_version)
-    local CURRENT_VERSION=$(get_current_binary_version)
-    
-    if [ -n "$LATEST_VERSION" ] && compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
-        echo
-        print_warning "📦 Update Available!"
-        echo -e "  Current: ${YELLOW}$CURRENT_VERSION${NC}"
-        echo -e "  Latest:  ${GREEN}$LATEST_VERSION${NC}"
-        echo
-        echo -e "  Run ${BOLD}${GREEN}'./push-node-manager update'${NC} to update"
-        if [ "${AUTO_UPDATE:-false}" != "true" ]; then
-            echo -e "  Or set ${BOLD}AUTO_UPDATE=true${NC} in .env for automatic updates"
-        fi
-        echo
-        return 0  # Update available
-    fi
-    return 1  # No update available
-}
-
-perform_auto_update() {
-    local LATEST_VERSION=$(get_latest_version)
-    local CURRENT_VERSION=$(get_current_binary_version)
-    
-    if [ -n "$LATEST_VERSION" ] && compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
-        print_status "🔄 Auto-updating to $LATEST_VERSION..."
-        
-        # Check if validator is actively validating (has voting power)
-        if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
-            local VOTING_POWER=$($DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null | \
-                jq -r '.validator_info.voting_power // "0"' 2>/dev/null || echo "0")
-            
-            if [ "$VOTING_POWER" != "0" ] && [ "$VOTING_POWER" != "null" ]; then
-                print_warning "⚠️  Validator is actively validating (voting power: $VOTING_POWER)"
-                echo "Skipping auto-update to avoid disruption."
-                echo "Run './push-node-manager update' manually when ready."
-                return 1
-            fi
-        fi
-        
-        # Perform the update
-        print_status "🔨 Rebuilding image with latest binary..."
-        $DOCKER_COMPOSE build --no-cache --quiet || {
-            print_error "❌ Auto-update failed!"
-            echo "Try running './push-node-manager update' manually."
+            rm -f "$PCHAIND_PID_FILE"
             return 1
-        }
-        
-        print_success "✅ Auto-update complete!"
-        echo "Using binary version: $LATEST_VERSION"
-        return 0
+        fi
     fi
-    return 1  # No update needed
-}
-
-# Helper function for RPC calls with fallback
-rpc_call() {
-    local endpoint="$1"
-    local primary_url="34.57.209.0:26657$endpoint"
-    local fallback_url="34.123.139.31:26657$endpoint"
-    
-    # Try primary endpoint first
-    if result=$(curl -s --connect-timeout 5 "$primary_url" 2>/dev/null) && [ -n "$result" ]; then
-        echo "$result"
-        return 0
-    fi
-    
-    # Try fallback endpoint
-    if result=$(curl -s --connect-timeout 5 "$fallback_url" 2>/dev/null) && [ -n "$result" ]; then
-        echo "$result"
-        return 0
-    fi
-    
     return 1
 }
 
-# Show banner for interactive commands (not for status checks)
-case "$1" in
-    start|stop|restart|register-validator|setup|monitor|sync|validators|public-setup|help|"")
-        show_banner
-        ;;
-esac
+# Start node in background
+start_node() {
+    print_status "🚀 Starting Push Chain node..."
+    
+    # Comprehensive cleanup of port conflicts and stale processes
+    print_status "🧹 Cleaning up any port conflicts and stale processes..."
+    
+    # Kill processes using port 26657 (RPC)
+    if lsof -ti:26657 >/dev/null 2>&1; then
+        for pid in $(lsof -ti:26657 2>/dev/null); do
+            kill -9 "$pid" 2>/dev/null || true
+        done
+    fi
+    
+    # Kill processes using port 26656 (P2P)
+    if lsof -ti:26656 >/dev/null 2>&1; then
+        for pid in $(lsof -ti:26656 2>/dev/null); do
+            kill -9 "$pid" 2>/dev/null || true
+        done
+    fi
+    
+    # Kill any stale pchaind processes
+    pkill -f pchaind 2>/dev/null || true
+    
+    # Remove stale PID file
+    rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
+    
+    # Brief pause to ensure cleanup
+    sleep 1
+    
+    # Clean setup like testnet script
+    if [ ! -f "$HOME_DIR/config/config.toml" ]; then
+        print_status "🧱 Initializing chain: $MONIKER ($CHAIN_ID)"
+        rm -rf "$HOME_DIR"
+        
+        # Initialize the chain (suppress verbose output)
+        "$NATIVE_BINARY" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
+        
+        print_status "🌍 Fetching genesis.json from $GENESIS_RPC/genesis"
+        curl -s "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"
+        
+        print_status "🔍 Fetching validator node ID from /status"
+        VALIDATOR_NODE_ID=$(curl -s "$GENESIS_RPC/status" | jq -r '.result.node_info.id')
+        
+        print_status "🔍 Resolving $GENESIS_DOMAIN to IP"
+        VALIDATOR_IP=$(dig +short "$GENESIS_DOMAIN" | tail -n1)
+        
+        PERSISTENT_PEER="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
+        print_status "🔗 persistent_peers = $PERSISTENT_PEER"
+        
+        sed -i.bak \
+            -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEER\"/" \
+            "$HOME_DIR/config/config.toml"
+        
+        print_success "✅ Node configured for native execution"
+    fi
+    
+    # Start in background
+    mkdir -p "$HOME_DIR/logs"
+    nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
+    echo $! > "$PCHAIND_PID_FILE"
+    
+    print_success "✅ Node started in background (PID: $(cat "$PCHAIND_PID_FILE"))"
+    print_status "📜 Logs: tail -f $HOME_DIR/logs/pchaind.log"
+}
 
-# Main commands
-case "$1" in
-    start)
-        print_status "🚀 Starting Push node container..."
-        
-        # Check if already running
-        if $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
-            print_warning "⚠️  Node container is already running!"
-            print_status "Check status with: ./push-node-manager status"
-            exit 0
+# Stop node
+stop_node() {
+    print_status "🛑 Stopping Push Chain node..."
+    
+    if is_node_running; then
+        PID=$(cat "$PCHAIND_PID_FILE")
+        kill "$PID"
+        rm -f "$PCHAIND_PID_FILE"
+        print_success "✅ Node stopped (PID: $PID)"
+    else
+        print_warning "⚠️ Node is not running"
+    fi
+}
+
+# Show node status
+show_status() {
+    print_status "📊 Push Chain Node Status"
+    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    
+    echo -e "${BOLD}${BLUE}Runtime Mode: ${GREEN}Native Execution${NC}"
+    echo -e "  ${BOLD}Binary:${NC} $NATIVE_BINARY"
+    # Get version safely with better error handling
+    if [ -f "$NATIVE_BINARY" ]; then
+        VERSION=$("$NATIVE_BINARY" version 2>/dev/null | head -n1 || echo "v1.0.1-native")
+        # Fallback if version command doesn't work
+        if [ -z "$VERSION" ] || [ "$VERSION" = "" ]; then
+            VERSION="v1.0.1-native"
         fi
+    else
+        VERSION="Binary not found"
+    fi
+    echo -e "  ${BOLD}Version:${NC} $VERSION"
+    echo
+    
+    if [ -f "$HOME_DIR/config/config.toml" ]; then
+        print_success "✅ Node initialized"
         
-        # Check for auto-update if enabled
-        if [ "${AUTO_UPDATE:-false}" = "true" ]; then
-            print_status "🔍 Checking for updates (AUTO_UPDATE=true)..."
-            if perform_auto_update; then
-                print_status "Continuing with startup using updated binary..."
-            fi
-        fi
-        
-        # Build image if needed
-        if ! docker images | grep -q "push-node-manager"; then
-            print_status "🔨 Building validator image..."
+        if is_node_running; then
+            print_success "✅ Node is running (PID: $(cat "$PCHAIND_PID_FILE"))"
             
-            # Check if we should use multi-arch build for Mac
-            if [[ "$OSTYPE" == "darwin"* ]] && command -v docker buildx >/dev/null 2>&1; then
-                print_status "🍎 Detected Mac - using optimized build"
-                if [ -f "./build-docker.sh" ]; then
-                    ./build-docker.sh local
+            # Get detailed status
+            if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+                NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+                
+                if [ -n "$NODE_STATUS" ]; then
+                    echo
+                    echo -e "${BOLD}${BLUE}Node Information:${NC}"
+                    echo -e "${GREEN}─────────────────────────────────────────${NC}"
+                    
+                    NODE_ID=$(echo "$NODE_STATUS" | jq -r '.result.node_info.id // "unknown"' 2>/dev/null)
+                    NETWORK=$(echo "$NODE_STATUS" | jq -r '.result.node_info.network // "unknown"' 2>/dev/null)  
+                    MONIKER=$(echo "$NODE_STATUS" | jq -r '.result.node_info.moniker // "unknown"' 2>/dev/null)
+                    
+                    echo -e "  ${BOLD}Node ID:${NC} ${YELLOW}$NODE_ID${NC}"
+                    echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
+                    echo -e "  ${BOLD}Moniker:${NC} ${BOLD}${WHITE}$MONIKER${NC}"
+                    
+                    echo
+                    echo -e "${BOLD}${BLUE}Sync Status:${NC}"
+                    echo -e "${GREEN}─────────────────────────────────────────${NC}"
+                    
+                    LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null)
+                    LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null)
+                    CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
+                    
+                    echo -e "  ${BOLD}Block Height:${NC} ${GREEN}$LOCAL_HEIGHT${NC}"
+                    echo -e "  ${BOLD}Block Time:${NC} $LATEST_TIME"
+                    
+                    if [ "$CATCHING_UP" = "false" ]; then
+                        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
+                    else
+                        echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC}"
+                    fi
                 else
-                    print_warning "build-docker.sh not found, using standard build"
-                    $DOCKER_COMPOSE build
+                    print_warning "⚠️ Node is starting up..."
                 fi
             else
-                $DOCKER_COMPOSE build
-            fi
-        fi
-        
-        # Start services
-        $DOCKER_COMPOSE up -d
-        
-        # Check for AppHash errors in first 10 seconds
-        print_status "🔍 Checking for sync issues..."
-        sleep 5
-        
-        if $DOCKER_COMPOSE logs --tail=50 2>&1 | grep -q "wrong Block.Header.AppHash"; then
-            print_error "❌ AppHash mismatch detected - blockchain data incompatible with genesis"
-            echo ""
-            echo "This usually happens when:"
-            echo "1. Genesis file was updated"
-            echo "2. Switching between networks"
-            echo "3. Blockchain data is corrupted"
-            echo ""
-            read -p "Would you like to clean data and restart? (yes/no): " -r
-            if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-                print_status "🧹 Cleaning blockchain data..."
-                $DOCKER_COMPOSE down -v
-                print_status "🚀 Starting fresh..."
-                $DOCKER_COMPOSE up -d
-                print_success "✅ Validator restarted with clean data!"
-            else
-                print_warning "⚠️  Validator may not sync properly without cleaning data"
+                print_warning "⚠️ curl or jq not available - install for detailed status"
             fi
         else
+            print_error "❌ Node is not running"
+            echo "Use: ./push-node-manager start"
+        fi
+    else
+        print_error "❌ Node not initialized"
+        echo "Use: ./push-node-manager start"
+    fi
+}
+
+# Show logs
+show_logs() {
+    print_status "📜 Showing Push Chain logs..."
+    
+    if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
+        tail -f "$HOME_DIR/logs/pchaind.log"
+    else
+        print_warning "⚠️ No log file found"
+        if is_node_running; then
+            print_status "Node is running but logs not found at expected location"
+        else
+            print_status "Start the node first: ./push-node-manager start"
+        fi
+    fi
+}
+
+# Monitor sync progress
+monitor_sync() {
+    print_status "📊 Real-time Sync Monitor"
+    echo -e "${GREEN}═══════════════════════════════════════════${NC}"
+    echo "Press Ctrl+C to exit"
+    echo
+    
+    if ! is_node_running; then
+        print_error "❌ Node is not running"
+        echo "Start the node first: ./push-node-manager start"
+        exit 1
+    fi
+    
+    # Check if curl and jq are available
+    if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+        print_error "❌ curl or jq not available"
+        print_status "Install with: sudo apt-get install curl jq (Linux) or brew install curl jq (macOS)"
+        exit 1
+    fi
+    
+    local previous_height=0
+    local start_time=$(date +%s)
+    
+    while true; do
+        # Get node status
+        NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+        
+        if [ -n "$NODE_STATUS" ]; then
+            # Extract sync information
+            LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+            LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null || echo "unknown")
+            
+            # Fetch remote (network) latest height to compute progress
+            REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null || echo "")
+            REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            # Normalize to integers if possible
+            [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]] || REMOTE_HEIGHT=0
+
+            # Get network information
+            MONIKER=$(echo "$NODE_STATUS" | jq -r '.result.node_info.moniker // "unknown"' 2>/dev/null || echo "unknown")
+            NETWORK=$(echo "$NODE_STATUS" | jq -r '.result.node_info.network // "unknown"' 2>/dev/null || echo "unknown")
+            
+            # Calculate sync rate
+            local current_time=$(date +%s)
+            local elapsed=$((current_time - start_time))
+            local height_diff=$((LOCAL_HEIGHT - previous_height))
+            local blocks_per_sec=0
+            
+            if [ $elapsed -gt 0 ] && [ $height_diff -gt 0 ]; then
+                blocks_per_sec=$(echo "scale=2; $height_diff / $elapsed" | bc 2>/dev/null || echo "0")
+            fi
+            
+            # Compute progress percentage and render a progress bar
+            PROGRESS_PERCENT="0.00"
+            if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+                if [ "$LOCAL_HEIGHT" -ge "$REMOTE_HEIGHT" ]; then
+                    PROGRESS_PERCENT="100.00"
+                else
+                    PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0.00")
+                fi
+            fi
+            BAR_WIDTH=30
+            FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
+            [ -z "$FILLED" ] && FILLED=0
+            EMPTY=$((BAR_WIDTH - FILLED))
+            BAR_FILLED=$(printf "%0.s█" $(seq 1 ${FILLED}))
+            BAR_EMPTY=$(printf "%0.s░" $(seq 1 ${EMPTY}))
+            PROGRESS_BAR="${BAR_FILLED}${BAR_EMPTY}"
+            
+            # Clear screen and show status
+            clear
+            echo -e "${BOLD}${GREEN}Push Chain Sync Monitor${NC}"
+            echo -e "${GREEN}═══════════════════════════════════════════${NC}"
             echo
-            echo -e "${GREEN}╔═══════════════════════════════════════════╗${NC}"
-            echo -e "${GREEN}║      ✅ NODE STARTED SUCCESSFULLY! ✅     ║${NC}"
-            echo -e "${GREEN}╚═══════════════════════════════════════════╝${NC}"
+            echo -e "${BOLD}${BLUE}Node Information:${NC}"
+            echo -e "  ${BOLD}Moniker:${NC} ${WHITE}$MONIKER${NC}"
+            echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
+            echo
+            
+            echo -e "${BOLD}${BLUE}Sync Status:${NC}"
+            echo -e "  ${BOLD}Block Height:${NC} ${GREEN}$LOCAL_HEIGHT${NC}"
+            echo -e "  ${BOLD}Last Block:${NC} $LATEST_TIME"
+            
+            if [ "$CATCHING_UP" = "false" ]; then
+                echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ FULLY SYNCED${NC}"
+                echo -e "  ${BOLD}Sync Rate:${NC} ${GREEN}Maintaining sync${NC}"
+            else
+                echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ SYNCING...${NC}"
+                if [ "$blocks_per_sec" != "0" ]; then
+                    echo -e "  ${BOLD}Sync Rate:${NC} ${CYAN}${blocks_per_sec} blocks/sec${NC}"
+                    # Estimate ETA based on remaining blocks and current rate
+                    if [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
+                        REMAINING_BLOCKS=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+                        # Ensure blocks_per_sec > 0 using bc for float compare
+                        RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
+                        if [ "$RATE_POS" -eq 1 ]; then
+                            ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
+                            if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
+                                ETA_H=$((ETA_SECONDS / 3600))
+                                ETA_M=$(((ETA_SECONDS % 3600) / 60))
+                                ETA_S=$((ETA_SECONDS % 60))
+                                if [ "$ETA_H" -gt 0 ]; then
+                                    echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_H}h ${ETA_M}m${NC}"
+                                elif [ "$ETA_M" -gt 0 ]; then
+                                    echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_M}m ${ETA_S}s${NC}"
+                                else
+                                    echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_S}s${NC}"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+            
+            echo
+            echo -e "${BOLD}${BLUE}Runtime Stats:${NC}"
+            echo -e "  ${BOLD}Monitoring Time:${NC} ${elapsed}s"
+            if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} (${LOCAL_HEIGHT}/${REMOTE_HEIGHT})"
+            else
+                echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${YELLOW}unknown target height${NC} (${LOCAL_HEIGHT}/?)"
+            fi
+            
+            if [ "$CATCHING_UP" = "false" ]; then
+                echo
+                echo -e "${BOLD}${GREEN}🎉 Node is fully synced and ready!${NC}"
+                echo -e "You can now register as validator: ${BOLD}./push-node-manager register-validator${NC}"
+            fi
+            
+            previous_height=$LOCAL_HEIGHT
+            
+        else
+            clear
+            echo -e "${BOLD}${YELLOW}⚠️ Waiting for node to respond...${NC}"
+            echo "Make sure the node is running: ./push-node-manager status"
         fi
         
         echo
-        echo -e "${BOLD}Next steps:${NC}"
-        echo -e "  ${BOLD}Check sync status:${NC}   ${YELLOW}./push-node-manager status${NC}"
-        echo -e "  ${BOLD}View logs:${NC}           ${YELLOW}./push-node-manager logs${NC}"
-        echo -e "  ${BOLD}Become a validator:${NC} ${YELLOW}./push-node-manager register-validator${NC}"
+        echo -e "${BLUE}Press Ctrl+C to exit monitor${NC}"
+        sleep 3
+    done
+}
+
+# Register validator
+register_validator() {
+    print_status "🚀 Starting validator registration..."
+    echo
+    echo -e "${BOLD}This simplified wizard will:${NC}"
+    echo -e "  ${GREEN}✓${NC} Create a validator key"
+    echo -e "  ${GREEN}✓${NC} Help you fund the account"  
+    echo -e "  ${GREEN}✓${NC} Register your node as a validator"
+    echo
+    
+    if [ -f "$SCRIPT_DIR/scripts/register-validator-simple.sh" ]; then
+        bash "$SCRIPT_DIR/scripts/register-validator-simple.sh"
+    else
+        print_error "❌ Simplified registration script not found!"
+        exit 1
+    fi
+}
+
+# Check wallet balance
+check_balance() {
+    WALLET_NAME="${2:-validator-key}"
+    print_status "💰 Checking wallet balance..."
+    
+    # Check if wallet exists
+    if ! "$NATIVE_BINARY" keys show "$WALLET_NAME" --keyring-backend test --home "$HOME_DIR" >/dev/null 2>&1; then
+        print_error "❌ Wallet '$WALLET_NAME' not found!"
+        echo "Create a wallet first using: ./push-node-manager register-validator"
+        exit 1
+    fi
+    
+    # Get address
+    ADDRESS=$("$NATIVE_BINARY" keys show "$WALLET_NAME" -a --keyring-backend test --home "$HOME_DIR" 2>/dev/null)
+    
+    echo "Wallet: $WALLET_NAME"
+    echo "Address: $ADDRESS"
+    
+    # Get balance from RPC
+    BALANCE=$("$NATIVE_BINARY" query bank balances "$ADDRESS" --node tcp://localhost:26657 -o json 2>/dev/null | \
+        jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' || echo "0")
+    
+    if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
+        # Convert to PUSH (divide by 10^18) using awk
+        PUSH_AMOUNT=$(awk -v bal="$BALANCE" 'BEGIN {printf "%.6f", bal/1000000000000000000}')
+        print_success "Balance: $PUSH_AMOUNT PUSH"
+    else
+        print_warning "Balance: 0 PUSH"
+        
+        # Convert to EVM address for faucet
+        EVM_ADDRESS=$("$NATIVE_BINARY" debug addr "$ADDRESS" --home "$HOME_DIR" 2>/dev/null | grep "hex" | awk '{print "0x"$3}')
+        
+        if [ -n "$EVM_ADDRESS" ]; then
+            echo
+            echo "To get test tokens:"
+            echo -e "${GREEN}1. Visit: https://faucet.push.org${NC}"
+            echo -e "${GREEN}2. Use this address: ${BOLD}$EVM_ADDRESS${NC}"
+        else
+            echo "Get test tokens at: https://faucet.push.org"
+        fi
+    fi
+}
+
+# List validators
+list_validators() {
+    print_status "👥 Active Push Chain Validators"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    
+    if is_node_running; then
+        VALIDATORS=$("$NATIVE_BINARY" query staking validators --output json --node tcp://localhost:26657 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
+        
+        if [ -n "$VALIDATORS" ]; then
+            echo
+            echo -e "${BOLD}${YELLOW}VALIDATOR                 STATUS          STAKE (PC)   COMMISSION${NC}"
+            echo -e "${BLUE}─────────────────────────────────────────────────────────────────${NC}"
+            
+            echo "$VALIDATORS" | jq -r '
+                (.description.moniker // "unknown") + "|" + 
+                (if .status == "BOND_STATUS_BONDED" then "BONDED" 
+                 elif .status == "BOND_STATUS_UNBONDING" then "UNBONDING"
+                 elif .status == "BOND_STATUS_UNBONDED" then "UNBONDED"
+                 else .status end) + "|" +
+                ((.tokens | tonumber / 1000000000000000000) | tostring | split(".")[0]) + "|" +
+                ((.commission.commission_rates.rate | tonumber * 100) | tostring | split(".")[0]) + "%"
+            ' 2>/dev/null | while IFS='|' read -r moniker status tokens commission; do
+                # Color code status
+                case "$status" in
+                    "BONDED")     status_colored="${GREEN}✅ $status${NC}" ;;
+                    "UNBONDING")  status_colored="${YELLOW}⏳ $status${NC}" ;;
+                    "UNBONDED")   status_colored="${RED}❌ $status${NC}" ;;
+                    *)            status_colored="${BLUE}$status${NC}" ;;
+                esac
+                
+                # Format the output line with proper spacing
+                echo -e "${BOLD}$(printf "%-25s" "$moniker")${NC} $status_colored ${CYAN}$(printf "%12s" "$tokens")${NC} ${MAGENTA}$(printf "%15s" "$commission")${NC}"
+            done
+            
+            echo
+            echo -e "${BLUE}Total Validators: $(echo "$VALIDATORS" | jq -s length)${NC}"
+        else
+            print_warning "No validators found or node not synced"
+        fi
+    else
+        print_error "❌ Node must be running to query validators"
+        echo "Start the node first: ./push-node-manager start"
+    fi
+}
+
+# Show help
+show_help() {
+    printf "${GREEN}═══════════════════════════════════════════════════════${NC}\n"
+    printf "${BOLD}${YELLOW}🚀 Push Node Manager${NC}\n"
+    printf "${GREEN}═══════════════════════════════════════════════════════${NC}\n"
+    printf "\n"
+    printf "Usage: ./push-node-manager [command] [options]\n"
+    printf "\n"
+    printf "${BOLD}${CYAN}⚡ Commands:${NC}\n"
+    printf "${BOLD}${CYAN}🔧 Node Management:${NC}\n"
+    printf "  ${YELLOW}start${NC}              🚀 Start the Push node\n"
+    printf "  ${YELLOW}stop${NC}               🛑 Stop the Push node\n"
+    printf "  ${YELLOW}restart${NC}            🔄 Restart the Push node\n"
+    printf "  ${YELLOW}status${NC}             📊 Show node sync status and validator info\n"
+    printf "  ${YELLOW}sync${NC}               📈 Real-time sync monitoring dashboard\n"
+    printf "  ${YELLOW}logs${NC}               📜 Show node logs (live tail)\n"
+    printf "  ${YELLOW}setup-deps${NC}         📦 Install dependencies and build binary\n"
+    printf "  ${YELLOW}reset${NC}              🔄 Reset blockchain data (keeps wallets)\n"
+    printf "  ${YELLOW}help${NC}               ❓ Show this help message\n"
+    printf "\n"
+    printf "${BOLD}${CYAN}🎯 Validator Operations:${NC}\n"
+    printf "  ${YELLOW}register-validator${NC} 🔐 Validator registration\n"
+    printf "  ${YELLOW}validators${NC}         👥 List all active validators on the network\n"
+    printf "  ${YELLOW}balance${NC} [wallet]   💰 Check wallet balance (default: validator-key)\n"
+    printf "\n"
+    printf "${BOLD}${MAGENTA}💡 Quick Start Guide:${NC}\n"
+    printf "  ${CYAN}1.${NC} ${BOLD}./push-node-manager start${NC}\n"
+    printf "  ${CYAN}2.${NC} ${BOLD}./push-node-manager status${NC}\n"
+    printf "  ${CYAN}3.${NC} ${BOLD}./push-node-manager register-validator${NC}\n"
+    printf "  ${CYAN}4.${NC} ${BOLD}./push-node-manager sync${NC}\n"
+    printf "\n"
+    printf "${BOLD}${CYAN}🌐 Network Info:${NC}\n"
+    printf "  ${GREEN}🆔 Chain ID:${NC}     ${YELLOW}push_42101-1${NC}\n"
+    printf "  ${GREEN}🧪 Network:${NC}      ${YELLOW}Testnet${NC}\n"
+    printf "  ${GREEN}🔗 RPC:${NC}          ${YELLOW}http://localhost:26657${NC}\n"
+    printf "  ${GREEN}🚰 Faucet:${NC}       ${YELLOW}https://faucet.push.org${NC}\n"
+    printf "  ${GREEN}💎 Min Stake:${NC}    ${YELLOW}2 PC${NC}\n"
+    printf "\n"
+    printf "${BOLD}${CYAN}📝 Notes:${NC}\n"
+    printf "  ${BLUE}•${NC} Node runs as background daemon\n"
+    printf "  ${BLUE}•${NC} Logs: ${YELLOW}~/.pchain/logs/pchaind.log${NC}\n"
+    printf "  ${BLUE}•${NC} Keys: ${YELLOW}~/.pchain directory${NC}\n"
+    printf "\n"
+}
+
+# Command handling
+case "${1:-help}" in
+    start|run)
+        show_banner
+        start_node
         ;;
         
     stop)
-        print_status "🛑 Stopping Push node container..."
-        $DOCKER_COMPOSE down
-        echo
-        echo -e "${YELLOW}╔═══════════════════════════════════════╗${NC}"
-        echo -e "${YELLOW}║      ⏹️  NODE STOPPED SAFELY ⏹️        ║${NC}"
-        echo -e "${YELLOW}╚═══════════════════════════════════════╝${NC}"
-        echo
-        echo -e "${BOLD}To restart:${NC} ${YELLOW}./push-node-manager start${NC}"
+        stop_node
         ;;
         
     restart)
-        print_status "🔄 Restarting validator..."
-        $DOCKER_COMPOSE restart
-        print_success "✅ Validator restarted"
+        stop_node
+        sleep 2
+        start_node
         ;;
         
     status)
-        print_status "📊 Validator Status"
-        echo -e "${GREEN}══════════════════════════════════════════${NC}"
-        
-        # First check if Docker is running
-        if ! docker info >/dev/null 2>&1; then
-            echo
-            echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
-            echo -e "${RED}║      ❌ DOCKER IS NOT RUNNING ❌      ║${NC}"
-            echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
-            echo
-            echo -e "${YELLOW}💡 Please start Docker first${NC}"
-            exit 1
-        fi
-        
-        # Check if container exists
-        if ! docker ps -a --format '{{.Names}}' | grep -q "push-node-manager"; then
-            echo
-            echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
-            echo -e "${RED}║   ❌ VALIDATOR NOT INITIALIZED ❌     ║${NC}"
-            echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
-            echo
-            echo -e "${YELLOW}💡 Run '${BOLD}./push-node-manager start${NC}${YELLOW}' to initialize${NC}"
-            exit 1
-        fi
-        
-        # Check if container is running
-        if ! docker ps --format '{{.Names}}' | grep -q "push-node-manager"; then
-            echo
-            echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
-            echo -e "${RED}║    ❌ VALIDATOR IS STOPPED ❌         ║${NC}"
-            echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
-            echo
-            echo -e "${YELLOW}💡 Start with: ${BOLD}./push-node-manager start${NC}"
-            exit 1
-        fi
-        
-        # Get node status
-        NODE_STATUS=$($DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null)
-        
-        if [ -z "$NODE_STATUS" ]; then
-            print_warning "⏳ Node is starting up..."
-            echo "This can take a few minutes. Try again shortly."
-            echo ""
-            echo "You can check logs with: ./push-node-manager logs"
-            exit 0
-        fi
-        
-        # Parse and display local node status with colors
-        echo
-        echo -e "${BOLD}${BLUE}Node Information:${NC}"
-        echo -e "${GREEN}─────────────────────────────────────────${NC}"
-        
-        NODE_INFO=$(echo "$NODE_STATUS" | jq -r '"\(.node_info.id)|\(.node_info.network)|\(.node_info.moniker)|\(.node_info.version)"' 2>/dev/null)
-        IFS='|' read -r NODE_ID NETWORK MONIKER VERSION <<< "$NODE_INFO"
-        
-        echo -e "  ${BOLD}Node ID:${NC} ${YELLOW}$NODE_ID${NC}"
-        echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
-        echo -e "  ${BOLD}Moniker:${NC} ${BOLD}${WHITE}$MONIKER${NC}"
-        echo -e "  ${BOLD}Version:${NC} $VERSION"
-        
-        echo
-        echo -e "${BOLD}${BLUE}Sync Status:${NC}"
-        echo -e "${GREEN}─────────────────────────────────────────${NC}"
-        
-        # Extract sync info
-        SYNC_INFO=$(echo "$NODE_STATUS" | jq -r '"\(.sync_info.latest_block_height)|\(.sync_info.latest_block_time)|\(.sync_info.catching_up)"' 2>/dev/null)
-        IFS='|' read -r LOCAL_HEIGHT LATEST_TIME CATCHING_UP <<< "$SYNC_INFO"
-        
-        echo -e "  ${BOLD}Block Height:${NC} ${GREEN}$LOCAL_HEIGHT${NC}"
-        echo -e "  ${BOLD}Block Time:${NC} $LATEST_TIME"
-        
-        # Color code catching up status
-        if [ "$CATCHING_UP" = "false" ]; then
-            echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
-        else
-            echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC}"
-        fi
-        
-        # Get remote node status to show sync progress
-        # Try to get from genesis node using curl with fallback
-        REMOTE_STATUS=$(rpc_call "/status" || echo "")
-        
-        if [ -n "$REMOTE_STATUS" ]; then
-            REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "unknown"' 2>/dev/null || echo "unknown")
-            if [ "$REMOTE_HEIGHT" != "unknown" ] && [ "$REMOTE_HEIGHT" != "null" ]; then
-                LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
-                
-                # Calculate sync percentage
-                if [ "$REMOTE_HEIGHT" -gt 0 ] && [ "$LOCAL_HEIGHT" -gt 0 ]; then
-                    SYNC_PERCENT=$(awk -v local=$LOCAL_HEIGHT -v remote=$REMOTE_HEIGHT 'BEGIN {printf "%.1f", (local/remote)*100}')
-                    BLOCKS_BEHIND=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                    
-                    echo "  Remote Block Height: $REMOTE_HEIGHT"
-                    
-                    # Calculate ETA based on sync speed
-                    # First, get the previous block height from a temp file
-                    TEMP_FILE="/tmp/push_node_manager_sync_status"
-                    CURRENT_TIME=$(date +%s)
-                    
-                    if [ -f "$TEMP_FILE" ]; then
-                        # Read previous data
-                        PREV_DATA=$(cat "$TEMP_FILE" 2>/dev/null || echo "")
-                        PREV_HEIGHT=$(echo "$PREV_DATA" | cut -d',' -f1 2>/dev/null || echo "0")
-                        PREV_TIME=$(echo "$PREV_DATA" | cut -d',' -f2 2>/dev/null || echo "0")
-                        
-                        if [ "$PREV_HEIGHT" -gt 0 ] && [ "$PREV_TIME" -gt 0 ]; then
-                            # Calculate blocks per second
-                            TIME_DIFF=$((CURRENT_TIME - PREV_TIME))
-                            HEIGHT_DIFF=$((LOCAL_HEIGHT - PREV_HEIGHT))
-                            
-                            if [ "$TIME_DIFF" -gt 0 ] && [ "$HEIGHT_DIFF" -gt 0 ]; then
-                                BLOCKS_PER_SEC=$(awk -v diff=$HEIGHT_DIFF -v time=$TIME_DIFF 'BEGIN {printf "%.2f", diff/time}')
-                                
-                                # Calculate ETA in seconds
-                                BPS_CHECK=$(echo "$BLOCKS_PER_SEC" | awk '{print ($1 > 0)}')
-                                if [ "$BPS_CHECK" -eq 1 ]; then
-                                    ETA_SECONDS=$(awk -v behind=$BLOCKS_BEHIND -v bps=$BLOCKS_PER_SEC 'BEGIN {printf "%d", behind/bps}')
-                                    
-                                    # Convert to human readable format
-                                    if [ "$ETA_SECONDS" -lt 60 ]; then
-                                        ETA_STRING="${ETA_SECONDS}s"
-                                    elif [ "$ETA_SECONDS" -lt 3600 ]; then
-                                        ETA_MINUTES=$((ETA_SECONDS / 60))
-                                        ETA_STRING="${ETA_MINUTES}m"
-                                    elif [ "$ETA_SECONDS" -lt 86400 ]; then
-                                        ETA_HOURS=$((ETA_SECONDS / 3600))
-                                        ETA_MINUTES=$(((ETA_SECONDS % 3600) / 60))
-                                        ETA_STRING="${ETA_HOURS}h ${ETA_MINUTES}m"
-                                    else
-                                        ETA_DAYS=$((ETA_SECONDS / 86400))
-                                        ETA_HOURS=$(((ETA_SECONDS % 86400) / 3600))
-                                        ETA_STRING="${ETA_DAYS}d ${ETA_HOURS}h"
-                                    fi
-                                    
-                                    SPEED_STRING="$(printf "%.1f" $BLOCKS_PER_SEC) blocks/s"
-                                else
-                                    ETA_STRING="calculating..."
-                                    SPEED_STRING="measuring..."
-                                fi
-                            else
-                                ETA_STRING="calculating..."
-                                SPEED_STRING="measuring..."
-                            fi
-                        else
-                            ETA_STRING="calculating..."
-                            SPEED_STRING="measuring..."
-                        fi
-                    else
-                        ETA_STRING="calculating..."
-                        SPEED_STRING="measuring..."
-                    fi
-                    
-                    # Save current data for next run
-                    echo "$LOCAL_HEIGHT,$CURRENT_TIME" > "$TEMP_FILE"
-                    
-                    # Create progress bar
-                    BAR_LENGTH=30
-                    FILLED_LENGTH=$(awk -v percent=$SYNC_PERCENT -v bar=$BAR_LENGTH 'BEGIN {printf "%d", (percent/100)*bar}')
-                    
-                    # Build the progress bar
-                    PROGRESS_BAR="["
-                    for ((i=0; i<$BAR_LENGTH; i++)); do
-                        if [ $i -lt $FILLED_LENGTH ]; then
-                            PROGRESS_BAR="${PROGRESS_BAR}▓"
-                        else
-                            PROGRESS_BAR="${PROGRESS_BAR}░"
-                        fi
-                    done
-                    PROGRESS_BAR="${PROGRESS_BAR}]"
-                    
-                    # Color code the sync progress
-                    if [ $(echo "$SYNC_PERCENT" | awk '{print ($1 >= 99)}') -eq 1 ]; then
-                        echo -e "  Sync Progress: ${GREEN}${PROGRESS_BAR} ${SYNC_PERCENT}%${NC}"
-                        echo -e "  Blocks Behind: ${GREEN}$BLOCKS_BEHIND${NC} | Speed: $SPEED_STRING | ETA: $ETA_STRING"
-                    elif [ $(echo "$SYNC_PERCENT" | awk '{print ($1 >= 90)}') -eq 1 ]; then
-                        echo -e "  Sync Progress: ${YELLOW}${PROGRESS_BAR} ${SYNC_PERCENT}%${NC}"
-                        echo -e "  Blocks Behind: ${YELLOW}$BLOCKS_BEHIND${NC} | Speed: $SPEED_STRING | ETA: $ETA_STRING"
-                    else
-                        echo -e "  Sync Progress: ${RED}${PROGRESS_BAR} ${SYNC_PERCENT}%${NC}"
-                        echo -e "  Blocks Behind: ${RED}$BLOCKS_BEHIND${NC} | Speed: $SPEED_STRING | ETA: $ETA_STRING"
-                    fi
-                else
-                    echo "  Remote Block Height: $REMOTE_HEIGHT"
-                fi
-            fi
-        fi
-        
-        # Show validator info
-        echo
-        echo -e "${BOLD}${BLUE}Validator Info:${NC}"
-        echo -e "${GREEN}─────────────────────────────────────────${NC}"
-        
-        VOTING_POWER=$(echo "$NODE_STATUS" | jq -r '.validator_info.voting_power // "0"' 2>/dev/null || echo "0")
-        
-        if [ "$VOTING_POWER" != "0" ] && [ "$VOTING_POWER" != "null" ]; then
-            echo -e "  ${BOLD}Voting Power:${NC} ${GREEN}$VOTING_POWER${NC} ${GREEN}✅ Active Validator${NC}"
-        else
-            echo -e "  ${BOLD}Voting Power:${NC} ${YELLOW}0${NC} ${YELLOW}⚠️  Not a validator yet${NC}"
-            echo
-            echo -e "  ${YELLOW}💡 To become a validator:${NC}"
-            echo -e "     Run ${BOLD}${GREEN}'./push-node-manager register-validator'${NC}"
-            echo
-            echo -e "  This wizard will guide you through:"
-            echo -e "     ${GREEN}•${NC} Creating/importing a wallet"
-            echo -e "     ${GREEN}•${NC} Getting tokens from the faucet"
-            echo -e "     ${GREEN}•${NC} Registering as a validator"
-        fi
-        
-        # Check for available updates
-        check_and_notify_updates
-        ;;
-        
-    logs)
-        # Optional: filter by service
-        SERVICE="${2:-validator}"
-        TAIL="${3:-100}"
-        
-        print_status "📜 Showing logs for $SERVICE (last $TAIL lines)..."
-        $DOCKER_COMPOSE logs -f --tail=$TAIL $SERVICE
-        ;;
-        
-    backup)
-        print_status "💾 Creating secure backup..."
-        
-        # Create backup directory
-        BACKUP_DIR="backups"
-        mkdir -p "$BACKUP_DIR"
-        
-        # Run secure backup script inside container
-        $DOCKER_COMPOSE exec -T validator /scripts/backup-keys.sh backup || {
-            # Fallback to simple backup if new script not available
-            print_warning "Using simple backup method..."
-            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            $DOCKER_COMPOSE exec -T validator tar -czf - \
-                /root/.pchain/config/priv_validator_key.json \
-                /root/.pchain/config/node_key.json \
-                /root/.pchain/data/priv_validator_state.json 2>/dev/null \
-                > "$BACKUP_DIR/node-keys-${TIMESTAMP}.tar.gz"
-            print_success "✅ Backup complete: $BACKUP_DIR/node-keys-${TIMESTAMP}.tar.gz"
-        }
-        
-        # Also backup local config
-        if [ -f .env ]; then
-            cp .env "$BACKUP_DIR/.env.backup"
-        fi
-        ;;
-        
-    shell)
-        print_status "🐚 Opening shell in validator container..."
-        $DOCKER_COMPOSE exec validator /bin/sh
-        ;;
-        
-    reset-data)
-        print_warning "⚠️  This will reset blockchain data only!"
-        echo "Your wallets and validator keys will be preserved."
-        echo "Use this to fix sync issues or clear corrupted data."
-        echo ""
-        echo "Choose reset method:"
-        echo "1) Quick reset (node stays running)"
-        echo "2) Clean reset (stop node and remove volumes)"
-        read -p "Choose option (1-2): " reset_option
-        
-        case "$reset_option" in
-            1)
-                # Check if container is running
-                if ! $DOCKER_COMPOSE ps | grep -q "push-node-manager.*Up"; then
-                    print_error "❌ Node is not running!"
-                    echo "Start the node first: ./push-node-manager start"
-                    exit 1
-                fi
-                
-                if [[ $(read -p "Proceed with quick reset? (yes/no): " -r && echo $REPLY) == "yes" ]]; then
-                    print_status "🔄 Resetting blockchain data..."
-                    $DOCKER_COMPOSE exec -T validator pchaind tendermint unsafe-reset-all --home /root/.pchain
-                    print_success "✅ Blockchain data reset"
-                    echo "Restart your node to begin syncing: ./push-node-manager restart"
-                else
-                    echo "Reset cancelled"
-                fi
-                ;;
-            2)
-                if [[ $(read -p "Proceed with clean reset? (yes/no): " -r && echo $REPLY) == "yes" ]]; then
-                    print_status "🛑 Stopping validator..."
-                    $DOCKER_COMPOSE down -v
-                    
-                    # Also remove host data directory
-                    if [ -d "./data" ]; then
-                        print_status "🗑️  Removing host data directory..."
-                        rm -rf ./data
-                    fi
-                    
-                    print_success "✅ Blockchain data cleaned"
-                    echo "Start fresh with: ./push-node-manager start"
-                else
-                    echo "Reset cancelled"
-                fi
-                ;;
-            *)
-                print_error "Invalid option"
-                ;;
-        esac
-        ;;
-        
-    reset-all)
-        print_error "🚨 DANGER: Complete Reset!"
-        echo "This will DELETE EVERYTHING:"
-        echo "  • All blockchain data"
-        echo "  • All wallets and keys"
-        echo "  • All validator configuration"
-        echo "  • Docker volumes and images"
-        echo ""
-        echo "You will need to:"
-        echo "  1. Create new wallets"
-        echo "  2. Get new tokens from faucet"
-        echo "  3. Re-register as validator"
-        echo ""
-        read -p "Type 'DELETE' to confirm: " -r
-        if [[ $REPLY == "DELETE" ]]; then
-            # Call the reset script with skip-confirm flag
-            if [ -f "$SCRIPT_DIR/reset-node-manager.sh" ]; then
-                bash "$SCRIPT_DIR/reset-node-manager.sh" --skip-confirm
-            else
-                print_error "Reset script not found!"
-                exit 1
-            fi
-        else
-            echo "Reset cancelled"
-        fi
-        ;;
-        
-    keys)
-        # Key management subcommands
-        case "$2" in
-            list)
-                $DOCKER_COMPOSE exec -T validator pchaind keys list --keyring-backend test --home /root/.pchain
-                ;;
-            add)
-                KEY_NAME="${3:-validator}"
-                print_status "🔑 Creating new key: $KEY_NAME"
-                $DOCKER_COMPOSE exec validator pchaind keys add $KEY_NAME --keyring-backend test --home /root/.pchain
-                ;;
-            show)
-                KEY_NAME="${3:-validator}"
-                $DOCKER_COMPOSE exec -T validator pchaind keys show $KEY_NAME --keyring-backend test --home /root/.pchain
-                ;;
-            *)
-                echo "Usage: ./push-node-manager keys {list|add|show} [key-name]"
-                ;;
-        esac
-        ;;
-        
-    update)
-        print_status "🔄 Updating validator..."
-        echo "This will:"
-        echo "  • Pull latest scripts and configuration"
-        echo "  • Download latest pchaind binary from GitHub releases"
-        echo "  • Rebuild the validator image"
-        echo
-        
-        read -p "Continue with update? (yes/no): " confirm
-        if [[ ! "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
-            echo "Update cancelled"
-            exit 0
-        fi
-        
-        # Pull latest repository changes
-        print_status "📥 Updating repository..."
-        git pull
-        
-        # Check which version will be downloaded
-        print_status "🔍 Checking latest release version..."
-        LATEST_VERSION=$(get_latest_version)
-        
-        # Detect architecture
-        ARCH=$(uname -m)
-        case $ARCH in
-            x86_64)
-                TARGETARCH="amd64"
-                ;;
-            arm64|aarch64)
-                TARGETARCH="arm64"
-                ;;
-            *)
-                TARGETARCH="amd64"  # Default fallback
-                print_warning "⚠️  Unknown architecture $ARCH, defaulting to amd64"
-                ;;
-        esac
-        
-        if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "unknown" ]; then
-            BINARY_FILENAME="pchaind-${LATEST_VERSION}-linux-${TARGETARCH}.tar.gz"
-            print_status "📦 Will download binary version: ${GREEN}${LATEST_VERSION}${NC}"
-            print_status "🏗️  Architecture: ${CYAN}${TARGETARCH}${NC} (detected from $(uname -m))"
-            print_status "📁 Binary filename: ${YELLOW}${BINARY_FILENAME}${NC}"
-        else
-            print_warning "⚠️  Could not determine latest version, using fallback"
-        fi
-        
-        # Rebuild image with latest binary
-        print_status "🔨 Rebuilding image with latest binary..."
-        TARGETARCH=$TARGETARCH $DOCKER_COMPOSE build --no-cache
-        
-        print_success "✅ Update complete!"
-        echo
-        echo "Next steps:"
-        echo "  • Restart validator: ./push-node-manager restart"
-        echo "  • Check status: ./push-node-manager status"
-        ;;
-        
-    validators|list-validators)
-        print_status "📋 Active Validators"
-        echo "=================="
-        
-        # Get validators from genesis node
-        print_status "Fetching validator list..."
-        
-        VALIDATORS_JSON=$(rpc_call "/validators" || echo "")
-        
-        if [ -n "$VALIDATORS_JSON" ] && [ "$VALIDATORS_JSON" != "" ]; then
-            # Try staking validators for more detailed info
-            STAKING_VALIDATORS=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --node 34.57.209.0:26657 --output json 2>/dev/null || \
-                                 $DOCKER_COMPOSE exec -T validator pchaind query staking validators --node 34.123.139.31:26657 --output json 2>/dev/null || echo "")
-            
-            if [ -n "$STAKING_VALIDATORS" ] && [ "$STAKING_VALIDATORS" != "null" ]; then
-                # Get total count
-                VALIDATOR_COUNT=$(echo "$STAKING_VALIDATORS" | jq '.validators | length' 2>/dev/null || echo "0")
-                echo -e "${BOLD}Total Validators: $VALIDATOR_COUNT${NC}"
-                echo
-                
-                # Get user's validator address if available
-                USER_VALIDATOR_ADDR=""
-                if docker ps --format '{{.Names}}' | grep -q "push-node-manager"; then
-                    # Try to get the first wallet address
-                    USER_WALLET_ADDR=$($DOCKER_COMPOSE exec -T validator pchaind keys list --keyring-backend test --home /root/.pchain 2>/dev/null | grep -A 1 "address:" | grep -v "address:" | head -1 | tr -d '[:space:]' || echo "")
-                fi
-                
-                # Parse and display validators without table (for full display)
-                for i in $(seq 0 $((VALIDATOR_COUNT - 1))); do
-                    MONIKER=$(echo "$STAKING_VALIDATORS" | jq -r ".validators[$i].description.moniker // \"Unknown\"" 2>/dev/null)
-                    STATUS=$(echo "$STAKING_VALIDATORS" | jq -r ".validators[$i].status // \"UNKNOWN\"" 2>/dev/null)
-                    TOKENS=$(echo "$STAKING_VALIDATORS" | jq -r ".validators[$i].tokens // \"0\"" 2>/dev/null)
-                    OPERATOR_ADDR=$(echo "$STAKING_VALIDATORS" | jq -r ".validators[$i].operator_address // \"\"" 2>/dev/null)
-                    
-                    # Convert tokens to PUSH
-                    VOTING_POWER=$(echo "$TOKENS" | awk '{printf "%.2f", $1/1000000000000000000}')
-                    
-                    # Format status
-                    case "$STATUS" in
-                        "BOND_STATUS_BONDED")
-                            STATUS_TEXT="BONDED"
-                            STATUS_COLOR="${GREEN}"
-                            ;;
-                        "BOND_STATUS_UNBONDING")
-                            STATUS_TEXT="UNBONDING"
-                            STATUS_COLOR="${YELLOW}"
-                            ;;
-                        "BOND_STATUS_UNBONDED")
-                            STATUS_TEXT="UNBONDED"
-                            STATUS_COLOR="${RED}"
-                            ;;
-                        *)
-                            STATUS_TEXT="UNKNOWN"
-                            STATUS_COLOR="${NC}"
-                            ;;
-                    esac
-                    
-                    # Rank
-                    RANK=$((i + 1))
-                    
-                    # Format voting power
-                    VP_DISPLAY="${VOTING_POWER} PUSH"
-                    
-                    # Print full information without truncation
-                    echo
-                    echo -e "${BOLD}Validator #$RANK${NC}"
-                    echo -e "  ${CYAN}Name:${NC}     $MONIKER"
-                    echo -e "  ${CYAN}Address:${NC}  $OPERATOR_ADDR"
-                    echo -e "  ${CYAN}Status:${NC}   ${STATUS_COLOR}$STATUS_TEXT${NC}"
-                    echo -e "  ${CYAN}Power:${NC}    $VP_DISPLAY"
-                    
-                    # Check if this is the user's validator
-                    if [ -n "$USER_VALIDATOR_ADDR" ] && echo "$OPERATOR_ADDR" | grep -q "$USER_VALIDATOR_ADDR"; then
-                        echo -e "  ${GREEN}★ This is your validator${NC}"
-                    fi
-                done
-                
-                echo
-                echo -e "${BLUE}Note: Validators are ranked by voting power${NC}"
-            else
-                # Fallback to basic validator info
-                VALIDATOR_COUNT=$(echo "$VALIDATORS_JSON" | jq '.result.validators | length' 2>/dev/null || echo "0")
-                echo -e "${BOLD}Total Validators: $VALIDATOR_COUNT${NC}"
-                echo
-                
-                echo "$VALIDATORS_JSON" | jq -r '.result.validators[] | 
-                    "• Address: \(.address) - Voting Power: \(.voting_power)"' 2>/dev/null || \
-                    print_error "Failed to parse validator data"
-            fi
-        else
-            print_error "Could not fetch validator list"
-            echo "Make sure your node is running and connected to the network"
-        fi
+        show_status
         ;;
         
     sync)
-        # Live sync monitoring
-        print_status "🔄 Live Sync Monitor (Ctrl+C to exit)..."
-        echo "Starting in 3 seconds..."
-        sleep 3
-        
-        # Hide cursor for cleaner display
-        tput civis
-        
-        # Restore cursor on exit
-        trap 'tput cnorm; exit' INT TERM
-        
-        # Clear screen once
-        clear
-        
-        while true; do
-            # Move cursor to home position (top-left)
-            tput cup 0 0
-            
-            echo -e "${BOLD}${BLUE}Push Chain Sync Monitor${NC}  ${YELLOW}[Ctrl+C to exit]${NC}"
-            echo "====================================================="
-            echo "Time: $(date)"
-            echo ""
-            
-            # Get node status
-            NODE_STATUS=$($DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null)
-            
-            if [ -n "$NODE_STATUS" ]; then
-                # Parse local status
-                LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
-                CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.sync_info.catching_up // true' 2>/dev/null || echo "true")
-                LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.sync_info.latest_block_time // "unknown"' 2>/dev/null || echo "unknown")
-                
-                echo -e "${BOLD}Local Node:${NC}"
-                echo "  Block Height: $LOCAL_HEIGHT"
-                echo "  Block Time: $LATEST_TIME"
-                echo "  Syncing: $CATCHING_UP"
-                echo ""
-                
-                # Get remote status
-                REMOTE_STATUS=$(rpc_call "/status" || echo "")
-                
-                if [ -n "$REMOTE_STATUS" ]; then
-                    REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "unknown"' 2>/dev/null || echo "unknown")
-                    
-                    if [ "$REMOTE_HEIGHT" != "unknown" ] && [ "$REMOTE_HEIGHT" != "null" ] && [ "$REMOTE_HEIGHT" -gt 0 ] && [ "$LOCAL_HEIGHT" -gt 0 ]; then
-                        echo -e "${BOLD}Network:${NC}"
-                        echo "  Latest Height: $REMOTE_HEIGHT"
-                        
-                        # Calculate sync percentage
-                        SYNC_PERCENT=$(awk -v local=$LOCAL_HEIGHT -v remote=$REMOTE_HEIGHT 'BEGIN {printf "%.2f", (local/remote)*100}')
-                        BLOCKS_BEHIND=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                        
-                        # Calculate speed and ETA
-                        TEMP_FILE="/tmp/push_node_manager_sync_monitor"
-                        CURRENT_TIME=$(date +%s)
-                        
-                        if [ -f "$TEMP_FILE" ]; then
-                            PREV_DATA=$(cat "$TEMP_FILE" 2>/dev/null || echo "")
-                            PREV_HEIGHT=$(echo "$PREV_DATA" | cut -d',' -f1 2>/dev/null || echo "0")
-                            PREV_TIME=$(echo "$PREV_DATA" | cut -d',' -f2 2>/dev/null || echo "0")
-                            
-                            if [ "$PREV_HEIGHT" -gt 0 ] && [ "$PREV_TIME" -gt 0 ]; then
-                                TIME_DIFF=$((CURRENT_TIME - PREV_TIME))
-                                HEIGHT_DIFF=$((LOCAL_HEIGHT - PREV_HEIGHT))
-                                
-                                if [ "$TIME_DIFF" -gt 0 ] && [ "$HEIGHT_DIFF" -gt 0 ]; then
-                                    BLOCKS_PER_SEC=$(awk -v diff=$HEIGHT_DIFF -v time=$TIME_DIFF 'BEGIN {printf "%.1f", diff/time}')
-                                    
-                                    BPS_CHECK=$(echo "$BLOCKS_PER_SEC" | awk '{print ($1 > 0)}')
-                                    if [ "$BPS_CHECK" -eq 1 ]; then
-                                        ETA_SECONDS=$(awk -v behind=$BLOCKS_BEHIND -v bps=$BLOCKS_PER_SEC 'BEGIN {printf "%d", behind/bps}')
-                                        
-                                        # Convert to human readable
-                                        if [ "$ETA_SECONDS" -lt 60 ]; then
-                                            ETA_STRING="${ETA_SECONDS}s"
-                                        elif [ "$ETA_SECONDS" -lt 3600 ]; then
-                                            ETA_MINUTES=$((ETA_SECONDS / 60))
-                                            ETA_STRING="${ETA_MINUTES}m"
-                                        elif [ "$ETA_SECONDS" -lt 86400 ]; then
-                                            ETA_HOURS=$((ETA_SECONDS / 3600))
-                                            ETA_MINUTES=$(((ETA_SECONDS % 3600) / 60))
-                                            ETA_STRING="${ETA_HOURS}h ${ETA_MINUTES}m"
-                                        else
-                                            ETA_DAYS=$((ETA_SECONDS / 86400))
-                                            ETA_HOURS=$(((ETA_SECONDS % 86400) / 3600))
-                                            ETA_STRING="${ETA_DAYS}d ${ETA_HOURS}h"
-                                        fi
-                                    else
-                                        BLOCKS_PER_SEC="0.0"
-                                        ETA_STRING="calculating..."
-                                    fi
-                                else
-                                    BLOCKS_PER_SEC="0.0"
-                                    ETA_STRING="calculating..."
-                                fi
-                            else
-                                BLOCKS_PER_SEC="0.0"
-                                ETA_STRING="measuring..."
-                            fi
-                        else
-                            BLOCKS_PER_SEC="0.0"
-                            ETA_STRING="measuring..."
-                        fi
-                        
-                        # Save current data
-                        echo "$LOCAL_HEIGHT,$CURRENT_TIME" > "$TEMP_FILE"
-                        
-                        echo ""
-                        echo -e "${BOLD}Sync Progress:${NC}"
-                        
-                        # Create progress bar with activity indicator
-                        BAR_LENGTH=50
-                        FILLED_LENGTH=$(awk -v percent=$SYNC_PERCENT -v bar=$BAR_LENGTH 'BEGIN {printf "%d", (percent/100)*bar}')
-                        
-                        # Add animated activity indicator for active syncing
-                        ACTIVITY_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
-                        FRAME_INDEX=$(($(date +%s) % 10))
-                        ACTIVITY="${ACTIVITY_FRAMES[$FRAME_INDEX]}"
-                        
-                        PROGRESS_BAR="["
-                        for ((i=0; i<$BAR_LENGTH; i++)); do
-                            if [ $i -lt $FILLED_LENGTH ]; then
-                                PROGRESS_BAR="${PROGRESS_BAR}▓"
-                            elif [ $i -eq $FILLED_LENGTH ] && [ "$CATCHING_UP" = "true" ]; then
-                                # Show activity at the edge of progress
-                                PROGRESS_BAR="${PROGRESS_BAR}${ACTIVITY}"
-                            else
-                                PROGRESS_BAR="${PROGRESS_BAR}░"
-                            fi
-                        done
-                        PROGRESS_BAR="${PROGRESS_BAR}]"
-                        
-                        # Color based on progress
-                        if [ $(echo "$SYNC_PERCENT" | awk '{print ($1 >= 99)}') -eq 1 ]; then
-                            COLOR="${GREEN}"
-                        elif [ $(echo "$SYNC_PERCENT" | awk '{print ($1 >= 90)}') -eq 1 ]; then
-                            COLOR="${YELLOW}"
-                        else
-                            COLOR="${RED}"
-                        fi
-                        
-                        # Calculate percentage increase
-                        PERCENT_INCREASE=""
-                        if [ -f "$TEMP_FILE.last_percent" ]; then
-                            LAST_PERCENT=$(cat "$TEMP_FILE.last_percent")
-                            PERCENT_DIFF=$(awk -v curr=$SYNC_PERCENT -v last=$LAST_PERCENT 'BEGIN {printf "%.3f", curr - last}')
-                            
-                            if [ $(awk -v diff=$PERCENT_DIFF 'BEGIN {print (diff > 0)}') -eq 1 ]; then
-                                PERCENT_INCREASE=" ${GREEN}+${PERCENT_DIFF}%${NC}"
-                            fi
-                        fi
-                        echo "$SYNC_PERCENT" > "$TEMP_FILE.last_percent"
-                        
-                        echo -e "  Progress: ${COLOR}${PROGRESS_BAR} ${SYNC_PERCENT}%${NC}${PERCENT_INCREASE}"
-                        echo -e "  Blocks Behind: ${COLOR}$BLOCKS_BEHIND${NC}"
-                        
-                        # Show sync speed with activity indicator
-                        if [ "$BLOCKS_PER_SEC" != "0.0" ] && [ "$CATCHING_UP" = "true" ]; then
-                            echo -e "  Sync Speed: ${GREEN}▶${NC} $BLOCKS_PER_SEC blocks/s"
-                            
-                            # Show blocks synced in this session
-                            if [ -f "$TEMP_FILE.start" ]; then
-                                START_HEIGHT=$(cat "$TEMP_FILE.start")
-                                START_TIME=$(cat "$TEMP_FILE.start_time" 2>/dev/null || echo "$CURRENT_TIME")
-                                BLOCKS_SYNCED=$((LOCAL_HEIGHT - START_HEIGHT))
-                                SESSION_TIME=$((CURRENT_TIME - START_TIME))
-                                
-                                if [ $SESSION_TIME -gt 60 ]; then
-                                    AVG_SPEED=$(awk -v synced=$BLOCKS_SYNCED -v time=$SESSION_TIME 'BEGIN {printf "%.1f", synced/time}')
-                                    echo -e "  Blocks Synced: ${BOLD}$BLOCKS_SYNCED${NC} (avg: $AVG_SPEED blocks/s)"
-                                else
-                                    echo -e "  Blocks Synced: ${BOLD}$BLOCKS_SYNCED${NC}"
-                                fi
-                            else
-                                echo "$LOCAL_HEIGHT" > "$TEMP_FILE.start"
-                                echo "$CURRENT_TIME" > "$TEMP_FILE.start_time"
-                            fi
-                        else
-                            echo -e "  Sync Speed: $BLOCKS_PER_SEC blocks/s"
-                        fi
-                        
-                        echo -e "  ETA: ${BOLD}$ETA_STRING${NC}"
-                        
-                        if [ "$CATCHING_UP" = "false" ]; then
-                            echo ""
-                            echo -e "${GREEN}✅ Fully synced!${NC}"
-                        fi
-                    fi
-                fi
-            else
-                print_error "Node not responding..."
-            fi
-            
-            # Clear to end of screen to remove any leftover text
-            tput ed
-            
-            # Refresh every 2 seconds for more responsive updates
-            sleep 2
-        done
+        monitor_sync
         ;;
         
-    monitor)
-        # Simple monitoring view
-        print_status "📊 Monitoring validator (Ctrl+C to exit)..."
-        while true; do
-            clear
-            echo -e "${BLUE}Push Chain Validator Monitor${NC}"
-            echo "============================="
-            echo "Time: $(date)"
-            echo ""
-            
-            # Get basic status
-            if $DOCKER_COMPOSE exec -T validator pchaind status --home /root/.pchain 2>/dev/null | jq -r '
-                "Height: \(.sync_info.latest_block_height)
-Catching Up: \(.sync_info.catching_up)
-Connected: true"
-            '; then
-                echo ""
-            else
-                print_error "Node not responding..."
-            fi
-            
-            sleep 5
-        done
-        ;;
-        
-    test|health|check)
-        # Run comprehensive health check tests
-        if [ -f "$SCRIPT_DIR/test-node-manager.sh" ]; then
-            print_status "🚀 Running comprehensive health checks..."
-            bash "$SCRIPT_DIR/test-node-manager.sh"
-        else
-            print_error "Test script not found!"
-            exit 1
-        fi
+    logs)
+        show_logs
         ;;
         
     register-validator|setup)
-        # Interactive wallet setup and validator registration
-        print_status "🚀 Starting validator registration wizard..."
-        echo
-        echo -e "${BOLD}This wizard will help you:${NC}"
-        echo -e "  ${GREEN}✓${NC} Create or import a wallet"
-        echo -e "  ${GREEN}✓${NC} Get test tokens from the faucet"
-        echo -e "  ${GREEN}✓${NC} Register your node as a validator"
-        echo
-        $DOCKER_COMPOSE exec -it validator /scripts/setup-node-registration.sh
-        ;;
-        
-    auto-register|register)
-        # Automatic registration for CI/CD deployments
-        print_status "⚡ Starting automatic validator registration..."
-        
-        # This command is designed for automated deployments where:
-        # 1. Wallet is already created and funded
-        # 2. You want minimal interaction
-        
-        # Check for wallet name parameter or use first available wallet
-        WALLET_NAME="${2:-}"
-        
-        if [ -z "$WALLET_NAME" ]; then
-            # Try to get the first available wallet
-            WALLET_NAME=$($DOCKER_COMPOSE exec -T validator pchaind keys list --keyring-backend test --home /root/.pchain --output json 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
-            
-            if [ -z "$WALLET_NAME" ]; then
-                print_error "❌ No wallet found!"
-                echo ""
-                echo "For automated registration, you need to:"
-                echo "1. First run: ./push-node-manager setup (to create/import wallet)"
-                echo "2. Fund the wallet with at least 1.3 PUSH"
-                echo "3. Then run: ./push-node-manager auto-register [wallet-name]"
-                echo ""
-                echo "For interactive setup, use: ./push-node-manager setup"
-                exit 1
-            fi
-            print_status "Using first available wallet: $WALLET_NAME"
-        else
-            # Check if specified wallet exists
-            if ! $DOCKER_COMPOSE exec -T validator pchaind keys show "$WALLET_NAME" --keyring-backend test --home /root/.pchain >/dev/null 2>&1; then
-                print_error "❌ Wallet '$WALLET_NAME' not found!"
-                echo ""
-                echo "Available wallets:"
-                $DOCKER_COMPOSE exec -T validator pchaind keys list --keyring-backend test --home /root/.pchain 2>/dev/null | grep -E "^\s*name:" | sed 's/.*name: /  - /'
-                exit 1
-            fi
-        fi
-        
-        # Get current balance
-        ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind keys show "$WALLET_NAME" -a --keyring-backend test --home /root/.pchain 2>/dev/null | tr -d '\r')
-        print_status "Using wallet '$WALLET_NAME': $ADDRESS"
-        
-        # Run auto-registration with defaults
-        # Input sequence:
-        # 1 = Use existing wallet
-        # shoaib = wallet name (or the detected wallet name)
-        # Push-Validator = validator name
-        # (empty) = website
-        # (empty) = email
-        # (empty) = description
-        # 1 = stake amount
-        # yes = confirm registration
-        cat << EOF | $DOCKER_COMPOSE exec -T validator /scripts/setup-node-registration.sh
-1
-$WALLET_NAME
-Push-Validator
-
-
-
-1
-yes
-EOF
+        show_banner
+        register_validator
         ;;
         
     balance|wallet)
-        # Check wallet balance
-        WALLET_NAME="${2:-validator}"
-        print_status "💰 Checking wallet balance..."
+        check_balance "$@"
+        ;;
         
-        # Get address
-        ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind keys show $WALLET_NAME -a --keyring-backend test --home /root/.pchain 2>/dev/null | tr -d '\r')
+    validators)
+        list_validators
+        ;;
         
-        if [ -n "$ADDRESS" ]; then
-            echo "Wallet: $WALLET_NAME"
-            echo "Address: $ADDRESS"
+    setup-deps)
+        print_status "🔧 Running dependency setup..."
+        bash "$SCRIPT_DIR/setup-native-dependencies.sh"
+        ;;
+        
+    reset)
+        print_warning "⚠️ This will reset all blockchain data (wallets will be preserved)"
+        read -p "Continue? (yes/no): " confirm
+        if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+            stop_node
+            print_status "🧹 Removing blockchain data..."
+            rm -rf "$HOME_DIR/data"
+            rm -f "$HOME_DIR/config/genesis.json"
+            rm -f "$HOME_DIR/config/addrbook.json"
+            rm -f "$HOME_DIR/config/config.toml.bak"
             
-            # Get balance from RPC
-            BALANCE=$($DOCKER_COMPOSE exec -T validator pchaind query bank balances $ADDRESS --node tcp://localhost:26657 -o json 2>/dev/null | \
-                jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' || echo "0")
+            # Additional thorough cleanup for AppHash errors
+            print_status "🔧 Performing thorough cleanup..."
+            rm -rf "$HOME_DIR/data" 2>/dev/null || true
+            rm -rf "$HOME_DIR/wasm" 2>/dev/null || true
+            rm -f "$HOME_DIR/config/config.toml" 2>/dev/null || true
+            rm -rf "$HOME_DIR/logs" 2>/dev/null || true
             
-            if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
-                # Convert to PUSH (divide by 10^18) using awk instead of bc
-                PUSH_AMOUNT=$(awk -v bal="$BALANCE" 'BEGIN {printf "%.6f", bal/1000000000000000000}')
-                print_success "Balance: $PUSH_AMOUNT PUSH"
-            else
-                print_warning "Balance: 0 PUSH"
-                
-                # Convert to EVM address for faucet
-                EVM_ADDRESS=$($DOCKER_COMPOSE exec -T validator pchaind debug addr $ADDRESS 2>/dev/null | grep "hex" | awk '{print "0x"$3}')
-                
-                if [ -n "$EVM_ADDRESS" ]; then
-                    echo
-                    echo "To get test tokens:"
-                    echo -e "${GREEN}1. Visit: https://faucet.push.org${NC}"
-                    echo -e "${GREEN}2. Use this address: ${BOLD}$EVM_ADDRESS${NC}"
-                else
-                    echo "Get test tokens at: https://faucet.push.org"
-                fi
-            fi
-        else
-            print_error "Wallet '$WALLET_NAME' not found"
-            echo "Run './push-node-manager setup' to create a wallet"
+            print_success "✅ Blockchain data reset completely"
+            print_status "Node will be completely re-initialized on next start"
+            print_status "Start the node to re-sync: ./push-node-manager start"
         fi
         ;;
         
-    public-setup)
-        # Setup public HTTPS endpoints
-        print_status "🌐 Setting up public HTTPS access for your validator..."
-        echo
-        
-        # Check if running on macOS
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            print_error "Public setup requires Ubuntu/Debian Linux"
-            echo "This setup configures nginx on the host machine."
-            echo "For local development, your validator is already accessible at:"
-            echo "  - RPC: http://localhost:26657"
-            echo "  - EVM: http://localhost:8545"
-            echo "  - API: http://localhost:1317"
-            echo
-            print_warning "For testing purposes, you can use the local test script:"
-            echo -e "${CYAN}./push-node-manager test-public-setup${NC}"
-            exit 1
-        fi
-        
-        # Check if validator is running
-        if ! $DOCKER_COMPOSE ps | grep -q "Up"; then
-            print_error "Please start your validator first: ./push-node-manager start"
-            exit 1
-        fi
-        
-        # Check if validator is registered
-        print_status "Checking validator status..."
-        VALIDATOR_INFO=$($DOCKER_COMPOSE exec -T validator pchaind query staking validators --output json 2>/dev/null | jq '.validators[] | select(.description.moniker != null)' 2>/dev/null || echo "")
-        
-        if [ -z "$VALIDATOR_INFO" ]; then
-            print_warning "No validator found. It's recommended to register as a validator first."
-            echo "Run: ./push-node-manager setup"
-            echo
-            read -p "Continue anyway? (yes/no): " continue_anyway
-            if [[ ! "$continue_anyway" =~ ^[Yy][Ee][Ss]$ ]]; then
-                exit 0
-            fi
-        fi
-        
-        # Run the public setup script
-        if [ -f "$SCRIPT_DIR/scripts/setup-public-validator.sh" ]; then
-            bash "$SCRIPT_DIR/scripts/setup-public-validator.sh"
-        else
-            print_error "Public setup script not found!"
-            echo "Expected at: $SCRIPT_DIR/scripts/setup-public-validator.sh"
-            exit 1
-        fi
-        ;;
-        
-    test-public-setup)
-        # Test public setup locally
-        print_status "🧪 Testing public validator setup locally..."
-        echo
-        echo "This will:"
-        echo "  • Add test domains to /etc/hosts (requires sudo)"
-        echo "  • Create self-signed certificates"
-        echo "  • Set up nginx with test configuration"
-        echo "  • Test the endpoints locally"
-        echo
-        read -p "Continue with test setup? (yes/no): " confirm
-        if [[ ! "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
-            exit 0
-        fi
-        
-        # Check if validator is running
-        if ! $DOCKER_COMPOSE ps | grep -q "Up"; then
-            print_warning "Validator is not running. Some tests may fail."
-            echo "Start it with: ./push-node-manager start"
-            echo
-        fi
-        
-        # Run the test script
-        if [ -f "$SCRIPT_DIR/scripts/test-public-setup-local.sh" ]; then
-            bash "$SCRIPT_DIR/scripts/test-public-setup-local.sh" "$@"
-        else
-            print_error "Test script not found!"
-            echo "Expected at: $SCRIPT_DIR/scripts/test-public-setup-local.sh"
-            exit 1
-        fi
-        ;;
-        
-    help|--help|-h)
-        cat << EOF
-${GREEN}═══════════════════════════════════════════════════════${NC}
-
-Usage: ./push-node-manager [command] [options]
-
-$(echo -e "${BOLD}Commands:${NC}")
-$(echo -e "${BOLD}${GREEN}Docker Container Management:${NC}")
-  start              Start the Push node Docker container
-  stop               Stop the Push node Docker container  
-  restart            Restart the Push node Docker container
-  shell              Open shell inside the node container
-
-$(echo -e "${BOLD}${GREEN}Node Operations:${NC}")
-  status             Show node sync status and validator info
-  sync               Live sync monitor with progress bar (Ctrl+C to exit)
-  logs               Show node logs (live tail)
-  monitor            Simple monitoring dashboard (Ctrl+C to exit)
-  test               Run comprehensive health checks
-
-$(echo -e "${BOLD}${GREEN}Validator Management:${NC}")
-  register-validator Interactive wizard to become a validator
-  validators         List all active validators on the network
-  auto-register      Automatic validator registration (uses first wallet or specify name)
-
-$(echo -e "${BOLD}${GREEN}Wallet & Keys:${NC}")
-  balance            Check wallet balance and show faucet info
-  backup             Backup validator keys to ./backup/ directory
-  keys               Key management subcommands:
-                       list              - List all wallets
-                       add <name>        - Create new wallet
-                       show <name>       - Show wallet address
-                       delete <name>     - Delete wallet (careful!)
-
-$(echo -e "${BOLD}${GREEN}Maintenance:${NC}")
-  reset-data         Reset blockchain data (keeps wallets)
-  reset-all          $(echo -e "${RED}DANGER:${NC}") Complete reset - deletes EVERYTHING!
-  update             Update node software to latest version (or set AUTO_UPDATE=true)
-  public-setup       Setup HTTPS endpoints for public access (Linux only)
-  help               Show this help message
-
-$(echo -e "${BOLD}Examples:${NC}")
-$(echo -e "${BOLD}Getting Started:${NC}")
-  ./push-node-manager start               # Start the Push node container
-  ./push-node-manager status              # Check node sync status
-  ./push-node-manager sync                # Watch live sync progress
-  ./push-node-manager register-validator  # Become a validator (interactive)
-  ./push-node-manager auto-register       # Auto-register using first wallet
-  ./push-node-manager auto-register mykey # Auto-register using specific wallet
-
-$(echo -e "${BOLD}Daily Operations:${NC}")
-  ./push-node-manager logs                # View live node logs
-  ./push-node-manager monitor             # Watch node metrics
-  ./push-node-manager validators          # List all validators
-  ./push-node-manager balance             # Check wallet balance
-
-$(echo -e "${BOLD}Wallet Management:${NC}")
-  ./push-node-manager keys list           # List all wallets
-  ./push-node-manager keys add mykey      # Create wallet named 'mykey'
-  ./push-node-manager keys show mykey     # Show address for 'mykey'
-  ./push-node-manager backup              # Backup your keys
-
-$(echo -e "${BOLD}Updates:${NC}")
-  ./push-node-manager update              # Manual update (default)
-  echo "AUTO_UPDATE=true" >> .env         # Enable automatic updates
-  ./push-node-manager start               # Auto-updates if enabled
-
-$(echo -e "${BOLD}Troubleshooting:${NC}")
-  ./push-node-manager test                # Run health checks
-  ./push-node-manager reset-data          # Reset blockchain data
-  ./push-node-manager logs -f             # Follow logs continuously
-  ./push-node-manager shell               # Access container shell
-
-$(echo -e "${BOLD}Public Access:${NC}")
-  ./push-node-manager public-setup        # Setup HTTPS endpoints (requires domain)
-
-$(echo -e "${BOLD}Network Information:${NC}")
-  Chain ID:     push_42101-1
-  Network:      Testnet
-  RPC:          http://localhost:26657
-  API:          http://localhost:1317
-  Faucet:       https://faucet.push.org
-  Min Stake:    1 PUSH
-  
-$(echo -e "${BOLD}Important Notes:${NC}")
-  • Validator registration requires minimum 1 PUSH + gas fees (~0.1 PUSH)
-  • Default wallet name is 'validator'
-  • All keys are stored in the Docker volume for persistence
-  • Backup your keys regularly using the 'backup' command
-  
-$(echo -e "${BOLD}Reset Options Explained:${NC}")
-  • $(echo -e "${YELLOW}reset-data${NC}") - Reset blockchain data only (keeps wallets)
-                 Option 1: Quick reset (node stays running)
-                 Option 2: Clean reset (stops node, removes volumes)
-                 Use when: Sync issues, corrupted data, AppHash errors
-  • $(echo -e "${RED}reset-all${NC}")  - DELETES EVERYTHING including wallets!
-                 Use when: Complete fresh start needed
-                 Warning: Requires new wallet creation & tokens
-
-$(echo -e "${BOLD}Troubleshooting:${NC}")
-  • If validator won't start: ./push-node-manager logs
-  • If sync is stuck: ./push-node-manager reset-data (option 2)
-  • If balance shows 0: Check with genesis node (network might be syncing)
-  • For detailed debugging: ./push-node-manager shell
-  • AppHash errors: ./push-node-manager reset-data (clears incompatible data)
-
-For documentation: Coming soon
-For support: Coming soon
-EOF
+    help|--help|-h|"")
+        show_help
         ;;
         
     *)
-        print_error "Unknown command: $1"
-        echo "Run './push-node-manager help' for usage information"
+        print_error "❌ Unknown command: $1"
+        echo "Use './push-node-manager help' for usage information"
         exit 1
         ;;
 esac

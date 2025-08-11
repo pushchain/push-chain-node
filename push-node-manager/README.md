@@ -1,6 +1,204 @@
-# Push Node Manager 🚀
+# Push Node Manager
 
-Run a Push Chain node in minutes with our simple one-line installer. Whether you want to run a validator or just a full node, we've got you covered!
+**Completely Docker-free Push Chain validator management**
+
+## 🚀 Quick Start
+
+### First Time Setup (One Command!)
+```bash
+# Auto-installs dependencies, builds binary, and starts node
+./push-node-manager start
+
+# Check sync status
+./push-node-manager status
+
+# Register as validator (when synced)
+./push-node-manager register-validator
+```
+
+## ✨ What's New in v3.0.0
+
+- **🚫 Docker-Free**: Complete removal of Docker dependency
+- **⚡ Native-Only**: Uses official Push Chain binaries directly  
+- **🔧 One-Command Setup**: Auto-installs dependencies, builds binary, and starts node
+- **🎯 Simplified**: Clean, streamlined codebase following testnet approach
+- **📱 Background Daemon**: Node runs as background process with proper management
+- **📊 Real-time Sync Monitor**: Live dashboard for sync progress tracking
+
+## 📋 Features
+
+### Core Functions
+- **Node Management**: Start, stop, restart, status monitoring
+- **Validator Operations**: Simplified registration wizard
+- **Wallet Management**: Balance checking, faucet integration
+- **Real-time Monitoring**: Live logs, sync status, validator info
+- **Automated Setup**: Dependencies, building, configuration
+
+### Removed Complexity
+- ❌ Docker containers and compose files
+- ❌ Complex network configuration files
+- ❌ Over-engineered error handling
+- ❌ Multiple execution modes
+- ❌ Complex update mechanisms
+
+## 🛠️ System Requirements
+
+### Dependencies (Auto-Installed)
+- **Go 1.19+** (for building binaries)
+- **jq** (JSON processing)
+- **curl** (HTTP requests)
+- **dig** (DNS resolution) 
+- **Python 3.10+** with tomlkit (configuration editing)
+
+### Operating Systems
+- **Linux** (Ubuntu, Debian, CentOS, etc.)
+- **macOS** (Intel and Apple Silicon)
+
+## 📖 Commands Reference
+
+### Node Management
+```bash
+./push-node-manager start         # Auto-setup + Start the Push node
+./push-node-manager stop          # Stop the Push node  
+./push-node-manager restart       # Restart the Push node
+./push-node-manager status        # Show detailed node status
+./push-node-manager sync          # Real-time sync monitoring dashboard
+./push-node-manager logs          # Show live logs (Ctrl+C to exit)
+```
+
+### Validator Operations
+```bash
+./push-node-manager register-validator  # Interactive validator setup
+./push-node-manager validators          # List all active validators
+./push-node-manager balance [wallet]    # Check wallet balance
+```
+
+### Maintenance
+```bash
+./push-node-manager setup-deps    # Install dependencies & build binary
+./push-node-manager reset         # Reset blockchain data (keeps wallets)
+./push-node-manager help          # Show help information
+```
+
+## 🔧 Advanced Configuration
+
+### Environment Variables
+```bash
+export MONIKER="my-validator-name"          # Custom validator name
+export GENESIS_DOMAIN="your-rpc-node.com"  # Custom genesis source
+```
+
+### File Locations
+- **Binary**: `./build/pchaind`
+- **Config**: `~/.pchain/config/`
+- **Data**: `~/.pchain/data/`
+- **Keys**: `~/.pchain/keyring-test/`
+- **Logs**: `~/.pchain/logs/pchaind.log`
+- **PID**: `~/.pchain/pchaind.pid`
+
+## 🔄 Migration from Docker Version
+
+### If upgrading from previous Docker-based version:
+
+1. **Backup your keys** (important!):
+   ```bash
+   mkdir -p backup-keys
+   docker compose exec validator pchaind keys export validator-key > backup-keys/validator.key
+   ```
+
+2. **Stop Docker version**:
+   ```bash
+   docker compose down
+   ```
+
+3. **Setup native version**:
+   ```bash
+   ./setup-native-dependencies.sh
+   ./push-node-manager start
+   ```
+
+4. **Import your keys**:
+   ```bash
+   ./build/pchaind keys import validator-key backup-keys/validator.key --keyring-backend test
+   ```
+
+## 🛡️ Security Notes
+
+- **Keys are stored locally** in `~/.pchain/keyring-test/`
+- **No external dependencies** beyond system packages
+- **Process runs under your user account** (not root)
+- **Network connections** only to official Push Chain RPCs
+- **Log files** contain no sensitive information
+
+## 🐛 Troubleshooting
+
+### Binary Not Found
+```bash
+❌ Native binary not found at: ./build/pchaind
+🔧 Run './setup-native-dependencies.sh' to build the binary
+```
+**Solution**: Run the setup script to install dependencies and build
+
+### Node Won't Start  
+**Check logs**: `./push-node-manager logs`
+**Common issues**:
+- Port 26657 already in use (stop other Cosmos nodes)
+- Genesis file download failed (check internet connection)
+- Peer connection issues (will resolve automatically)
+
+### Node Not Syncing
+**Check status**: `./push-node-manager status`
+**Solutions**:
+- Wait longer (initial sync can take time)
+- Reset and restart: `./push-node-manager reset` then `start`
+- Check peers are reachable
+
+### Validator Registration Fails
+**Requirements**:
+- Node must be fully synced first
+- Need 2+ PC tokens from faucet
+- Account must be funded before registration
+
+## 📊 Network Information
+
+- **Chain ID**: `push_42101-1`
+- **Network**: Push Chain Testnet
+- **RPC**: http://localhost:26657 (when running)
+- **Faucet**: https://faucet.push.org
+- **Explorer**: https://donut.push.network
+- **Min Stake**: 2 PC
+
+## 🤝 Support
+
+For issues with the Push Node Manager:
+1. Check logs: `./push-node-manager logs`
+2. Verify status: `./push-node-manager status`
+3. Review this README
+4. Check [Push Chain Documentation](https://docs.push.org)
+
+## 📝 Changelog
+
+### v3.0.0 - Native-Only Edition
+- Complete Docker removal
+- Native binary execution
+- Automated dependency setup
+- Simplified command structure
+- Background daemon mode
+- Clean testnet-based architecture
+
+### v2.1.0 - Simplified & Streamlined  
+- Native mode preference
+- Docker fallback support
+- Simplified registration wizard
+
+### v2.0.0 - Enhanced
+- Interactive features
+- Public setup capabilities
+- Monitoring tools
+
+---
+
+**Push Node Manager v3.0.0** - Built for simplicity, reliability, and native performance.
 
 
 ## 🎯 Quick Start Guide
@@ -58,9 +256,9 @@ After registration completes:
 - Becoming a validator: 2-3 minutes
 - Full sync: 1-2 hours (but you can register while syncing)
 
-**"How much PUSH do I need?"**
-- Minimum: 1.3 PUSH (1 for staking + 0.3 for fees)
-- The faucet gives you 100 PUSH (testnet)
+**"How much PC do I need?"**
+- Minimum: 2 PC for staking
+- The faucet gives you test PC tokens
 
 **"Is my validator working?"**
 - Run `./push-node-manager status` to check

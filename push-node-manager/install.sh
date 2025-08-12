@@ -52,9 +52,19 @@ echo "Building native binary and setting up manager..."
 cd "$REPO_DIR/push-node-manager"
 bash scripts/setup-dependencies.sh
 
+# Create symlink for binary in expected location
+mkdir -p build
+ln -sf scripts/build/pchaind build/pchaind
+
 # Link manager script to a stable path in $HOME
 ln -sf "$PWD/push-node-manager" "$MANAGER_LINK"
 chmod +x "$MANAGER_LINK"
+
+# Verify the script exists
+if [[ ! -f "$PWD/push-node-manager" ]]; then
+  echo "Error: push-node-manager script not found in $PWD"
+  exit 1
+fi
 
 # Add to PATH if not already there
 SHELL_CONFIG=""
@@ -100,6 +110,19 @@ fi
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
   echo "Use: push-node-manager status"
+fi
+
+# Optional: Clean up the cloned repository to save space (keep only push-node-manager)
+echo "Cleaning up temporary build files..."
+cd "$ROOT_DIR"
+if [[ -d "$REPO_DIR" ]]; then
+    # Copy push-node-manager contents to permanent location
+    cp -r "$REPO_DIR/push-node-manager/"* ./
+    # Update symlink to point to new location
+    ln -sf "$ROOT_DIR/push-node-manager" "$MANAGER_LINK"
+    # Remove the temporary clone
+    rm -rf "$REPO_DIR"
+    echo "Repository cleanup complete"
 fi
 
 

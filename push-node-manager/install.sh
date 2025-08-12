@@ -56,6 +56,26 @@ bash scripts/setup-dependencies.sh
 ln -sf "$PWD/push-node-manager" "$MANAGER_LINK"
 chmod +x "$MANAGER_LINK"
 
+# Add to PATH if not already there
+SHELL_CONFIG=""
+if [[ -f "$HOME/.zshrc" ]]; then
+    SHELL_CONFIG="$HOME/.zshrc"
+elif [[ -f "$HOME/.bashrc" ]]; then
+    SHELL_CONFIG="$HOME/.bashrc"
+elif [[ -f "$HOME/.bash_profile" ]]; then
+    SHELL_CONFIG="$HOME/.bash_profile"
+fi
+
+if [[ -n "$SHELL_CONFIG" ]]; then
+    if ! grep -q "push-node-manager" "$SHELL_CONFIG" 2>/dev/null; then
+        echo "" >> "$SHELL_CONFIG"
+        echo "# Push Node Manager" >> "$SHELL_CONFIG"
+        echo "export PATH=\"$ROOT_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+        echo "Added push-node-manager to PATH in $SHELL_CONFIG"
+        echo "Run: source $SHELL_CONFIG  (or restart terminal)"
+    fi
+fi
+
 # Persist configuration
 ENV_FILE="$ROOT_DIR/.env"
 tmp="$ENV_FILE.tmp"; : > "$tmp"
@@ -67,14 +87,19 @@ mv "$tmp" "$ENV_FILE"
   echo "KEYRING_BACKEND=$KEYRING_BACKEND"
 } >> "$ENV_FILE"
 
-echo "Installed. To manage the node, use: $MANAGER_LINK <command>"
+echo "Installed. To manage the node, use: push-node-manager <command>"
 echo "Examples:"
-echo "  $MANAGER_LINK start"
-echo "  $MANAGER_LINK status"
+echo "  push-node-manager start"
+echo "  push-node-manager status"
+if [[ -n "$SHELL_CONFIG" ]]; then
+    echo ""
+    echo "Note: If 'push-node-manager' command not found, restart your terminal or run:"
+    echo "  source $SHELL_CONFIG"
+fi
 
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
-  echo "Use: $MANAGER_LINK status"
+  echo "Use: push-node-manager status"
 fi
 
 

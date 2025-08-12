@@ -234,25 +234,44 @@ start_node() {
             exit 1
         fi
         
-        print_status "🔍 Fetching validator node ID from /status"
-        VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
-        if [ -z "${VALIDATOR_NODE_ID}" ]; then
-            print_error "❌ Failed to query validator node ID from $GENESIS_RPC/status"
-            exit 1
+        print_status "🔍 Fetching available peers from network"
+        # Try to get multiple peers from the network
+        PEERS_JSON=$(curl -fsS "$GENESIS_RPC/net_info" 2>/dev/null || echo '{}')
+        PERSISTENT_PEERS=""
+        
+        # Extract peers from net_info if available
+        if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
+            PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
+            if [ -n "$PEER_LIST" ]; then
+                PERSISTENT_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
+                print_status "🔗 Found multiple peers from network"
+            fi
         fi
         
-        print_status "🔍 Resolving $GENESIS_DOMAIN to IP"
-        VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
-        if [ -z "${VALIDATOR_IP}" ]; then
-            print_error "❌ Failed to resolve IP for $GENESIS_DOMAIN"
-            exit 1
+        # Fallback to single peer from status endpoint
+        if [ -z "$PERSISTENT_PEERS" ]; then
+            print_status "🔍 Fetching validator node ID from /status"
+            VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+            if [ -z "${VALIDATOR_NODE_ID}" ]; then
+                print_error "❌ Failed to query validator node ID from $GENESIS_RPC/status"
+                exit 1
+            fi
+            
+            print_status "🔍 Resolving $GENESIS_DOMAIN to IP"
+            VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
+            if [ -z "${VALIDATOR_IP}" ]; then
+                print_error "❌ Failed to resolve IP for $GENESIS_DOMAIN"
+                exit 1
+            fi
+            
+            PERSISTENT_PEERS="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
         fi
         
-        PERSISTENT_PEER="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
-        print_status "🔗 persistent_peers = $PERSISTENT_PEER"
+        print_status "🔗 persistent_peers = $PERSISTENT_PEERS"
         
         sed -i.bak \
-            -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEER\"/" \
+            -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEERS\"/" \
+            -e "s/^addr_book_strict = .*/addr_book_strict = false/" \
             "$HOME_DIR/config/config.toml"
         
         print_success "✅ Node configured for native execution"
@@ -268,12 +287,31 @@ start_node() {
 
         # Also refresh persistent_peers to be safe
         print_status "🔍 Refreshing seed peer information"
-        VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
-        VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
-        if [ -n "$VALIDATOR_NODE_ID" ] && [ -n "$VALIDATOR_IP" ]; then
-            PERSISTENT_PEER="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
-            sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEER\"/" "$HOME_DIR/config/config.toml"
-            print_success "🔗 persistent_peers refreshed: $PERSISTENT_PEER"
+        
+        # Try to get multiple peers from the network
+        PEERS_JSON=$(curl -fsS "$GENESIS_RPC/net_info" 2>/dev/null || echo '{}')
+        PERSISTENT_PEERS=""
+        
+        # Extract peers from net_info if available
+        if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
+            PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
+            if [ -n "$PEER_LIST" ]; then
+                PERSISTENT_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
+            fi
+        fi
+        
+        # Fallback to single peer
+        if [ -z "$PERSISTENT_PEERS" ]; then
+            VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+            VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
+            if [ -n "$VALIDATOR_NODE_ID" ] && [ -n "$VALIDATOR_IP" ]; then
+                PERSISTENT_PEERS="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
+            fi
+        fi
+        
+        if [ -n "$PERSISTENT_PEERS" ]; then
+            sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEERS\"/" -e "s/^addr_book_strict = .*/addr_book_strict = false/" "$HOME_DIR/config/config.toml"
+            print_success "🔗 persistent_peers refreshed: $PERSISTENT_PEERS"
         fi
     fi
 
@@ -595,12 +633,29 @@ configure_genesis() {
 
         # If node already initialized, update persistent_peers accordingly
         if [ -f "$HOME_DIR/config/config.toml" ]; then
-            NEW_NODE_ID=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/status" | jq -r '.result.node_info.id // empty' || true)
-            NEW_IP=$(resolve_host_ip "$NEW_GENESIS_DOMAIN")
-            if [ -n "$NEW_NODE_ID" ] && [ -n "$NEW_IP" ]; then
-                NEW_PEER="$NEW_NODE_ID@$NEW_IP:26656"
-                sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$NEW_PEER\"/" "$HOME_DIR/config/config.toml"
-                print_success "🔗 Updated persistent_peers to $NEW_PEER"
+            # Try to get multiple peers from the new genesis domain
+            NEW_PEERS=""
+            PEERS_JSON=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/net_info" 2>/dev/null || echo '{}')
+            
+            if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
+                PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
+                if [ -n "$PEER_LIST" ]; then
+                    NEW_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
+                fi
+            fi
+            
+            # Fallback to single peer
+            if [ -z "$NEW_PEERS" ]; then
+                NEW_NODE_ID=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/status" | jq -r '.result.node_info.id // empty' || true)
+                NEW_IP=$(resolve_host_ip "$NEW_GENESIS_DOMAIN")
+                if [ -n "$NEW_NODE_ID" ] && [ -n "$NEW_IP" ]; then
+                    NEW_PEERS="$NEW_NODE_ID@$NEW_IP:26656"
+                fi
+            fi
+            
+            if [ -n "$NEW_PEERS" ]; then
+                sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$NEW_PEERS\"/" -e "s/^addr_book_strict = .*/addr_book_strict = false/" "$HOME_DIR/config/config.toml"
+                print_success "🔗 Updated persistent_peers to $NEW_PEERS"
                 print_status "🔄 Restart the node to apply the new peers: ./push-node-manager restart"
             else
                 print_warning "⚠️ Could not resolve new peer info; leaving config unchanged."

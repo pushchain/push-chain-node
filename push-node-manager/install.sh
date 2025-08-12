@@ -70,7 +70,8 @@ bash scripts/setup-dependencies.sh
 mkdir -p build
 ln -sf scripts/build/pchaind build/pchaind
 
-# Install a small launcher script (not a symlink) to avoid symlink path issues
+# Remove any existing symlink/script and install a small launcher script
+rm -f "$MANAGER_LINK"
 cat > "$MANAGER_LINK" <<EOF
 #!/usr/bin/env bash
 exec "$INSTALL_DIR/push-node-manager" "\$@"
@@ -120,19 +121,22 @@ echo "Examples:"
 echo "  push-node-manager start"
 echo "  push-node-manager status"
 
+# Run auto-start before cleanup to ensure wrapper script is available
+if [[ "$AUTO_START" = "yes" ]]; then
+  "$MANAGER_LINK" start || true
+  echo "Use: push-node-manager status"
+  echo
+  echo "💡 Quick commands:"
+  echo "  push-node-manager status    📊 Check node status"
+  echo "  push-node-manager sync      📈 Monitor sync progress"
+  echo "  push-node-manager help      ❓ Show all commands"
+fi
+
 # Optional: Clean up the cloned repository to save space (keep only push-node-manager)
-echo "Cleaning up temporary build files..."
 cd "$ROOT_DIR"
 if [[ -d "$REPO_DIR" ]]; then
     # Remove the temporary clone
     rm -rf "$REPO_DIR"
-    echo "Repository cleanup complete"
-fi
-
-# Run auto-start after cleanup to ensure wrapper script is available
-if [[ "$AUTO_START" = "yes" ]]; then
-  "$MANAGER_LINK" start || true
-  echo "Use: push-node-manager status"
 fi
 
 

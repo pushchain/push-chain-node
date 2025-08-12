@@ -70,7 +70,7 @@ install_linux_deps() {
         python3-pip \
         curl \
         wget \
-        netcat
+        netcat-traditional
     
     # Install Python dependencies
     pip3 install tomlkit

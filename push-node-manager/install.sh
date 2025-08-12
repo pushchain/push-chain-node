@@ -46,36 +46,35 @@ cd "$ROOT_DIR"
 
 echo "Installing Push Node Manager into $ROOT_DIR"
 
-# Use existing repository - no cloning/deleting for now
-# if [[ ! -d "$REPO_DIR/push-node-manager" ]]; then
-#   echo "Cloning repository..."
-#   rm -rf "$REPO_DIR" || true
-#   git clone --depth 1 --branch feature/validator-node-setup https://github.com/pushchain/push-chain-node "$REPO_DIR"
-# else
-  echo "Using existing local repository at $REPO_DIR"
-# fi
+# Always clone fresh repository to ensure latest version
+echo "Cloning repository..."
+rm -rf "$REPO_DIR"
+git clone --depth 1 --branch feature/validator-node-setup https://github.com/pushchain/push-chain-node "$REPO_DIR"
 
 # Build native binary and ensure manager script
 echo "Building native binary and setting up manager..."
 
-# Use existing repository directly - no copying for now
-# rm -rf "$INSTALL_DIR"
-# mkdir -p "$INSTALL_DIR"
-# if [[ ! -d "$REPO_DIR/push-node-manager" ]]; then
-#   echo "Error: missing source at $REPO_DIR/push-node-manager"
-#   exit 1
-# fi
-# cp -a "$REPO_DIR/push-node-manager/." "$INSTALL_DIR/"
+# Copy manager to a stable install directory so we can delete the repo later
+rm -rf "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+if [[ ! -d "$REPO_DIR/push-node-manager" ]]; then
+  echo "Error: missing source at $REPO_DIR/push-node-manager"
+  exit 1
+fi
+cp -a "$REPO_DIR/push-node-manager/." "$INSTALL_DIR/"
 
-cd "$REPO_DIR/push-node-manager"
+cd "$INSTALL_DIR"
 bash scripts/setup-dependencies.sh
 
 # Create symlink for binary in expected location
 mkdir -p build
 ln -sf scripts/build/pchaind build/pchaind
 
-# Link manager script to a stable path in $HOME
-ln -sf "$PWD/push-node-manager" "$MANAGER_LINK"
+# Install a small launcher script (not a symlink) to avoid symlink path issues
+cat > "$MANAGER_LINK" <<EOF
+#!/usr/bin/env bash
+exec "$INSTALL_DIR/push-node-manager" "\$@"
+EOF
 chmod +x "$MANAGER_LINK"
 
 # Verify the script exists
@@ -121,10 +120,14 @@ echo "Examples:"
 echo "  push-node-manager start"
 echo "  push-node-manager status"
 
-# Repository cleanup disabled for now to avoid clone/delete issues
-# echo "Cleaning up temporary build files..."
-# rm -rf "$REPO_DIR/.git" "$REPO_DIR/push-node-manager" || true
-# echo "Repository cleanup complete"
+# Optional: Clean up the cloned repository to save space (keep only push-node-manager)
+echo "Cleaning up temporary build files..."
+cd "$ROOT_DIR"
+if [[ -d "$REPO_DIR" ]]; then
+    # Remove the temporary clone
+    rm -rf "$REPO_DIR"
+    echo "Repository cleanup complete"
+fi
 
 # Run auto-start after cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then

@@ -34,11 +34,11 @@ push-node-manager register-validator
 
 ### Essential Commands
 ```bash
-push-node-manager start           # Setup + start node  
-push-node-manager stop            # Stop node
-push-node-manager status          # Show sync status & validator info
-push-node-manager register-validator # Become a validator
-push-node-manager logs            # View live logs
+push-node-manager start                # Setup + start node  
+push-node-manager stop                 # Stop node
+push-node-manager status               # Show sync status & validator info
+push-node-manager register-validator   # Become a validator
+push-node-manager logs                 # View live logs
 ```
 
 ### Additional Commands

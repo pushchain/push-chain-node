@@ -110,7 +110,6 @@ push-node-manager setup-logs
 ```bash
 push-node-manager backup
 ```
-**Creates:**
 - Timestamped backup in `~/push-node-backups/`
 - Includes all config, keys, and blockchain data  
 - Compressed archive with integrity verification

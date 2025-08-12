@@ -67,20 +67,32 @@ install_linux_deps() {
         golang-go \
         jq \
         python3 \
-        python3-pip \
+        python3-venv \
         curl \
         wget \
         netcat-traditional
     
-    # Install Python dependencies
-    pip3 install tomlkit
+    # Setup Python virtual environment for dependencies
+    VENV_DIR="$ROOT_TOP/venv"
+    if [ ! -d "$VENV_DIR" ]; then
+        print_status "Creating Python virtual environment..."
+        python3 -m venv "$VENV_DIR"
+    fi
+    
+    # Activate virtual environment and install dependencies
+    source "$VENV_DIR/bin/activate"
+    
+    if ! pip show tomlkit &> /dev/null; then
+        print_status "Installing tomlkit in virtual environment..."
+        pip install tomlkit
+    fi
     
     # Verify installations
     print_status "✅ Verifying installations..."
     go version || print_error "Go installation failed"
     jq --version || print_error "jq installation failed"
     python3 --version || print_error "Python3 installation failed"
-    pip3 show tomlkit || print_error "tomlkit installation failed"
+    pip show tomlkit || print_error "tomlkit installation failed"
 }
 
 # Function to install dependencies on macOS
@@ -105,10 +117,19 @@ install_macos_deps() {
         brew install jq
     fi
     
-    # Install Python dependencies
-    if ! pip3 show tomlkit &> /dev/null; then
-        print_status "Installing tomlkit..."
-        pip3 install tomlkit
+    # Setup Python virtual environment for dependencies
+    VENV_DIR="$ROOT_TOP/venv"
+    if [ ! -d "$VENV_DIR" ]; then
+        print_status "Creating Python virtual environment..."
+        python3 -m venv "$VENV_DIR"
+    fi
+    
+    # Activate virtual environment and install dependencies
+    source "$VENV_DIR/bin/activate"
+    
+    if ! pip show tomlkit &> /dev/null; then
+        print_status "Installing tomlkit in virtual environment..."
+        pip install tomlkit
     fi
     
     # Verify installations
@@ -116,7 +137,7 @@ install_macos_deps() {
     go version
     jq --version
     python3 --version
-    pip3 show tomlkit >/dev/null 2>&1 && echo "tomlkit: ✅ Installed"
+    pip show tomlkit >/dev/null 2>&1 && echo "tomlkit: ✅ Installed"
 }
 
 # Install dependencies based on OS

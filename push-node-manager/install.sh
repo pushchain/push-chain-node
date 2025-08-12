@@ -116,8 +116,13 @@ fi
 echo "Cleaning up temporary build files..."
 cd "$ROOT_DIR"
 if [[ -d "$REPO_DIR" ]]; then
-    # Copy push-node-manager contents to permanent location
-    cp -r "$REPO_DIR/push-node-manager/"* ./
+    # Copy essential files only (avoid copying broken symlinks)
+    cp "$REPO_DIR/push-node-manager/push-node-manager" ./
+    cp -r "$REPO_DIR/push-node-manager/scripts" ./
+    cp -r "$REPO_DIR/push-node-manager/tests" ./
+    # Copy binary to expected location
+    mkdir -p build
+    cp "$REPO_DIR/push-node-manager/scripts/build/pchaind" build/pchaind
     # Update symlink to point to new location
     ln -sf "$ROOT_DIR/push-node-manager" "$MANAGER_LINK"
     # Remove the temporary clone

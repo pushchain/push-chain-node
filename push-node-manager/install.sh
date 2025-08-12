@@ -42,7 +42,7 @@ echo "Installing Push Node Manager into $ROOT_DIR"
 # Shallow clone if repo missing
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   echo "Cloning repository..."
-  git clone --depth 1 https://github.com/pushchain/push-chain-node "$REPO_DIR"
+  git clone --depth 1 --branch feature/validator-node-setup https://github.com/pushchain/push-chain-node "$REPO_DIR"
 else
   echo "Repository already present; leaving as-is (no update)."
 fi

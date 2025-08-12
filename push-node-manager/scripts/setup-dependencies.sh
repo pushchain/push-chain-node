@@ -17,11 +17,29 @@ print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_URL="https://github.com/pushchain/push-chain-node.git"
+# Installer layout:
+#   ROOT_TOP (~/.local/share/push-node-manager)
+#     ├─ app/ (this script lives in app/scripts)
+#     └─ repo/ (cloned source)
+ROOT_TOP="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LOCAL_REPO_DIR="$ROOT_TOP/repo"
 TEMP_DIR="$SCRIPT_DIR/temp"
 BUILD_DIR="$SCRIPT_DIR/build"
 
 print_status "🚀 Setting up native Push Chain environment..."
 echo
+
+# Fast-path: if binary already exists and works, skip all
+if [ -f "$BUILD_DIR/pchaind" ]; then
+    if "$BUILD_DIR/pchaind" --help >/dev/null 2>&1; then
+        print_success "✅ Existing binary detected: $BUILD_DIR/pchaind"
+        print_success "✅ Skipping source clone and rebuild"
+        echo
+        echo "Binary location: $BUILD_DIR/pchaind"
+        echo "Version: $("$BUILD_DIR/pchaind" version 2>/dev/null || echo "unknown")"
+        exit 0
+    fi
+fi
 
 # Detect OS
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -111,14 +129,23 @@ fi
 print_success "✅ Dependencies installed successfully!"
 echo
 
-# Clone and build Push Chain
-print_status "📥 Cloning Push Chain repository..."
-rm -rf "$TEMP_DIR"
-mkdir -p "$TEMP_DIR"
-cd "$TEMP_DIR"
+SRC_DIR=""
 
-git clone "$REPO_URL"
-cd push-chain-node
+# Prefer locally installed repo if present to avoid network clone
+if [ -d "$LOCAL_REPO_DIR/push-chain-node" ] && [ -f "$LOCAL_REPO_DIR/push-chain-node/go.mod" ]; then
+    print_status "📦 Using existing push-chain-node source at: $LOCAL_REPO_DIR/push-chain-node"
+    SRC_DIR="$LOCAL_REPO_DIR/push-chain-node"
+else
+    # Clone and build Push Chain
+    print_status "📥 Cloning Push Chain repository..."
+    rm -rf "$TEMP_DIR"
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR"
+    git clone "$REPO_URL"
+    SRC_DIR="$TEMP_DIR/push-chain-node"
+fi
+
+cd "$SRC_DIR"
 
 # 🔧 Patch chain ID inside app/app.go (similar to testnet/v1/pre-setup/prepare_binary.sh)
 print_status "🔧 Patching chain ID in app/app.go..."
@@ -169,10 +196,12 @@ else
     exit 1
 fi
 
-# Clean up temporary directory
+# Clean up temporary directory only if we cloned
 print_status "🧹 Cleaning up temporary files..."
 cd "$SCRIPT_DIR"
-rm -rf "$TEMP_DIR"
+if [ -d "$TEMP_DIR" ]; then
+    rm -rf "$TEMP_DIR"
+fi
 
 print_success "🎉 Native Push Chain setup complete!"
 echo

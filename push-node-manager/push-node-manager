@@ -5,7 +5,14 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Resolve script directory robustly, following symlinks
+SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SCRIPT_SOURCE" ]; do
+  BASE_DIR="$(cd -P "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+  SCRIPT_SOURCE="$(readlink "$SCRIPT_SOURCE")"
+  [[ "$SCRIPT_SOURCE" != /* ]] && SCRIPT_SOURCE="$BASE_DIR/$SCRIPT_SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Load environment variables from .env if it exists (robust, supports spaces)
@@ -98,9 +105,22 @@ kill_pchaind_on_port() {
     done
 }
 
-# Native binary path
+# Native binary path (prefer build/, fallback to scripts/build/)
 BUILD_DIR="$SCRIPT_DIR/build"
+SCRIPTS_BUILD_DIR="$SCRIPT_DIR/scripts/build"
 NATIVE_BINARY="$BUILD_DIR/pchaind"
+
+resolve_binary_path() {
+    if [ -f "$BUILD_DIR/pchaind" ]; then
+        NATIVE_BINARY="$BUILD_DIR/pchaind"
+    elif [ -f "$SCRIPTS_BUILD_DIR/pchaind" ]; then
+        NATIVE_BINARY="$SCRIPTS_BUILD_DIR/pchaind"
+    else
+        NATIVE_BINARY="$BUILD_DIR/pchaind" # default
+    fi
+}
+
+resolve_binary_path
 
 # Check if binary exists and auto-setup if missing
 if [ ! -f "$NATIVE_BINARY" ]; then
@@ -114,6 +134,13 @@ if [ ! -f "$NATIVE_BINARY" ]; then
         echo
         print_success "✅ Auto-setup completed! Continuing with node start..."
         echo
+        # Ensure convenience symlink exists
+        mkdir -p "$BUILD_DIR" 2>/dev/null || true
+        if [ -f "$SCRIPTS_BUILD_DIR/pchaind" ] && [ ! -f "$BUILD_DIR/pchaind" ]; then
+            ln -sf "../scripts/build/pchaind" "$BUILD_DIR/pchaind" 2>/dev/null || true
+        fi
+        # Re-resolve binary path after setup
+        resolve_binary_path
     else
         print_error "❌ Setup script not found: $SCRIPT_DIR/scripts/setup-dependencies.sh"
         exit 1

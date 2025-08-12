@@ -30,25 +30,43 @@ done
 require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing dependency: $1" >&2; exit 1; }; }
 for c in curl jq git tar; do require_cmd "$c"; done
 
-ROOT_DIR="$HOME/push-node-manager"
+# Use XDG Base Directory or fallback to hidden directory
+if [[ -n "${XDG_DATA_HOME:-}" ]]; then
+    ROOT_DIR="$XDG_DATA_HOME/push-node-manager"
+else
+    ROOT_DIR="$HOME/.local/share/push-node-manager"
+fi
 REPO_DIR="$ROOT_DIR/repo"
-MANAGER_LINK="$ROOT_DIR/push-node-manager"
+INSTALL_DIR="$ROOT_DIR/app"
+MANAGER_LINK="$HOME/.local/bin/push-node-manager"
 
 mkdir -p "$ROOT_DIR"
+mkdir -p "$HOME/.local/bin"
 cd "$ROOT_DIR"
 
 echo "Installing Push Node Manager into $ROOT_DIR"
 
-# Shallow clone if repo missing
-if [[ ! -d "$REPO_DIR/.git" ]]; then
-  echo "Cloning repository..."
-  git clone --depth 1 --branch feature/validator-node-setup https://github.com/pushchain/push-chain-node "$REPO_DIR"
-else
-  echo "Repository already present; leaving as-is (no update)."
-fi
+# Use existing repository - no cloning/deleting for now
+# if [[ ! -d "$REPO_DIR/push-node-manager" ]]; then
+#   echo "Cloning repository..."
+#   rm -rf "$REPO_DIR" || true
+#   git clone --depth 1 --branch feature/validator-node-setup https://github.com/pushchain/push-chain-node "$REPO_DIR"
+# else
+  echo "Using existing local repository at $REPO_DIR"
+# fi
 
 # Build native binary and ensure manager script
 echo "Building native binary and setting up manager..."
+
+# Use existing repository directly - no copying for now
+# rm -rf "$INSTALL_DIR"
+# mkdir -p "$INSTALL_DIR"
+# if [[ ! -d "$REPO_DIR/push-node-manager" ]]; then
+#   echo "Error: missing source at $REPO_DIR/push-node-manager"
+#   exit 1
+# fi
+# cp -a "$REPO_DIR/push-node-manager/." "$INSTALL_DIR/"
+
 cd "$REPO_DIR/push-node-manager"
 bash scripts/setup-dependencies.sh
 
@@ -80,10 +98,11 @@ if [[ -n "$SHELL_CONFIG" ]]; then
     if ! grep -q "push-node-manager" "$SHELL_CONFIG" 2>/dev/null; then
         echo "" >> "$SHELL_CONFIG"
         echo "# Push Node Manager" >> "$SHELL_CONFIG"
-        echo "export PATH=\"$ROOT_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+        echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$SHELL_CONFIG"
         echo "Added push-node-manager to PATH in $SHELL_CONFIG"
-        echo "Run: source $SHELL_CONFIG  (or restart terminal)"
     fi
+    # Load the PATH immediately for this session
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 # Persist configuration
@@ -101,33 +120,16 @@ echo "Installed. To manage the node, use: push-node-manager <command>"
 echo "Examples:"
 echo "  push-node-manager start"
 echo "  push-node-manager status"
-if [[ -n "$SHELL_CONFIG" ]]; then
-    echo ""
-    echo "Note: If 'push-node-manager' command not found, restart your terminal or run:"
-    echo "  source $SHELL_CONFIG"
-fi
 
+# Repository cleanup disabled for now to avoid clone/delete issues
+# echo "Cleaning up temporary build files..."
+# rm -rf "$REPO_DIR/.git" "$REPO_DIR/push-node-manager" || true
+# echo "Repository cleanup complete"
+
+# Run auto-start after cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
   echo "Use: push-node-manager status"
-fi
-
-# Optional: Clean up the cloned repository to save space (keep only push-node-manager)
-echo "Cleaning up temporary build files..."
-cd "$ROOT_DIR"
-if [[ -d "$REPO_DIR" ]]; then
-    # Copy essential files only (avoid copying broken symlinks)
-    cp "$REPO_DIR/push-node-manager/push-node-manager" ./
-    cp -r "$REPO_DIR/push-node-manager/scripts" ./
-    cp -r "$REPO_DIR/push-node-manager/tests" ./
-    # Copy binary to expected location
-    mkdir -p build
-    cp "$REPO_DIR/push-node-manager/scripts/build/pchaind" build/pchaind
-    # Update symlink to point to new location
-    ln -sf "$ROOT_DIR/push-node-manager" "$MANAGER_LINK"
-    # Remove the temporary clone
-    rm -rf "$REPO_DIR"
-    echo "Repository cleanup complete"
 fi
 
 

@@ -52,7 +52,7 @@ message Ballot {
   repeated VoteResult votes = 4;              // Parallel array to voter_list (same index = same voter)
   repeated string reasons = 5;                // Parallel array for optional reasons (index-matched to voter_list)
 
-  int32 voting_threshold = 6;                                          // Required fraction (e.g., 0.66)
+  int64 voting_threshold = 6;                                          // Required fraction (e.g., 0.66)
 
   BallotStatus status = 7;                    // Lifecycle status of the ballot
   int64 block_height_created = 8;             // Creation block height

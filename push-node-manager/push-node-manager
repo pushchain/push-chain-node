@@ -205,6 +205,7 @@ is_node_running() {
 
 # Start node in background
 start_node() {
+    echo  # Add blank line for spacing
     print_status "🚀 Starting Push Chain node..."
     
     # Comprehensive cleanup of port conflicts and stale processes (silent)
@@ -333,6 +334,7 @@ STATEEOF
 
 # Stop node
 stop_node() {
+    echo  # Add blank line for spacing
     print_status "🛑 Stopping Push Chain node..."
     
     if is_node_running; then
@@ -357,6 +359,7 @@ stop_node() {
 
 # Show node status
 show_status() {
+    echo  # Add blank line for spacing
     print_header "📊 Push Chain Node Status"
     echo -e "${GREEN}══════════════════════════════════════════${NC}"
     
@@ -448,6 +451,7 @@ show_logs() {
 
 # Monitor sync progress
 monitor_sync() {
+    echo  # Add blank line for spacing
     print_status "📊 Real-time Sync Monitor"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
     echo "Press Ctrl+C to exit"
@@ -470,6 +474,9 @@ monitor_sync() {
     local start_time=$(date +%s)
     
     while true; do
+        # Clear screen for fresh update
+        clear
+        
         # Get node status
         NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
         
@@ -579,7 +586,6 @@ monitor_sync() {
             previous_height=$LOCAL_HEIGHT
             
         else
-            clear
             print_warning "⚠️ Waiting for node to respond..."
             echo "Make sure the node is running: ./push-node-manager status"
         fi
@@ -592,6 +598,7 @@ monitor_sync() {
 
 # Register validator
 register_validator() {
+    echo  # Add blank line for spacing
     print_status "🚀 Starting validator registration..."
     
     if [ -f "$SCRIPT_DIR/scripts/register-validator.sh" ]; then

@@ -142,6 +142,19 @@ if [[ "$AUTO_START" = "yes" ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
+# Check if we're running from a pipe (curl | bash)
+if [ -t 0 ]; then
+  # Running interactively - PATH will persist
+  true
+else
+  # Running from pipe - PATH won't persist after script exits
+  echo
+  echo -e "\033[1;33m⚠️  To use push-node-manager in this terminal, run:\033[0m"
+  echo -e "\033[1;32m    export PATH=\"\$HOME/.local/bin:\$PATH\"\033[0m"
+  echo
+  echo "Or open a new terminal window."
+fi
+
 # Optional: Clean up the cloned repository to save space (keep only push-node-manager)
 cd "$ROOT_DIR"
 if [[ -d "$REPO_DIR" ]]; then

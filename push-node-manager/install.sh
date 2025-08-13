@@ -123,13 +123,16 @@ mv "$tmp" "$ENV_FILE"
   echo "KEYRING_BACKEND=$KEYRING_BACKEND"
 } >> "$ENV_FILE"
 
-echo "✅ Installation complete!"
 echo "📁 Node data: $HOME/.pchain"
+echo
+echo "✅ Installation complete!"
+echo
 
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
-  echo "Use: push-node-manager status"
+  echo
+  echo "✅ Node started successfully!"
   echo
   echo "💡 Quick commands:"
   echo "  push-node-manager status    📊 Check node status"

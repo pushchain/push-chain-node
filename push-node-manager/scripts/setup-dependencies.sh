@@ -216,9 +216,6 @@ if [ -d "$TEMP_DIR" ]; then
     rm -rf "$TEMP_DIR"
 fi
 
-print_success "🎉 Native Push Chain setup complete!"
 echo
 echo "Binary location: $BUILD_DIR/pchaind"
 echo "Version: $("$BUILD_DIR/pchaind" version)"
-echo
-print_status "You can now use: ./push-node-manager start"

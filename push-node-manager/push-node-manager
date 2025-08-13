@@ -451,11 +451,18 @@ show_logs() {
 
 # Monitor sync progress
 monitor_sync() {
-    # Options: compact mode updates a single line in place
-    local COMPACT_MODE=0
-    if [ "${1-}" = "-c" ] || [ "${1-}" = "--compact" ]; then
-        COMPACT_MODE=1
-    fi
+    # Options: default is compact single-line; use -d/--dashboard for full-screen
+    local COMPACT_MODE=1
+    for arg in "$@"; do
+        case "$arg" in
+            -d|--dashboard)
+                COMPACT_MODE=0
+                ;;
+            -c|--compact)
+                COMPACT_MODE=1
+                ;;
+        esac
+    done
 
     if ! is_node_running; then
         echo  # Add blank line for spacing
@@ -538,11 +545,13 @@ monitor_sync() {
             PROGRESS_BAR="${BAR_FILLED}${BAR_EMPTY}"
             
             if [ "$COMPACT_MODE" -eq 1 ]; then
-                # Single-line compact output
-                local status_text="SYNCING"
-                [ "$CATCHING_UP" = "false" ] && status_text="SYNCED"
+                # Single-line compact output with colors
+                local status_text="${YELLOW}⏳ SYNCING${NC}"
+                if [ "$CATCHING_UP" = "false" ]; then
+                    status_text="${GREEN}✅ SYNCED${NC}"
+                fi
                 local eta_text=""
-                if [ "$status_text" = "SYNCING" ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
+                if [ "$CATCHING_UP" != "false" ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
                     REMAINING_BLOCKS=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
                     RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
                     if [ "$RATE_POS" -eq 1 ]; then
@@ -552,17 +561,18 @@ monitor_sync() {
                             ETA_M=$(((ETA_SECONDS % 3600) / 60))
                             ETA_S=$((ETA_SECONDS % 60))
                             if [ "$ETA_H" -gt 0 ]; then
-                                eta_text=" ~${ETA_H}h ${ETA_M}m"
+                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
                             elif [ "$ETA_M" -gt 0 ]; then
-                                eta_text=" ~${ETA_M}m ${ETA_S}s"
+                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
                             else
-                                eta_text=" ~${ETA_S}s"
+                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
                             fi
                         fi
                     fi
                 fi
-                # Carriage return without adding new line; clear to EOL
-                printf "\rHeight %s/%s (%.2f%%) | %s | Rate %s blk/s%s\033[K" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT" "$PROGRESS_PERCENT" "$status_text" "$blocks_per_sec" "$eta_text"
+                # Build colored single-line summary and print in place
+                local line="${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} (${GREEN}${PROGRESS_PERCENT}%${NC}) | ${status_text} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                printf "\r%b\033[K" "$line"
             else
                 # Full-screen rich output
                 echo -e "${BOLD}${GREEN}Push Chain Sync Monitor${NC}"
@@ -822,11 +832,11 @@ show_help() {
     echo -e "${BOLD}Usage:${NC} push-node-manager [command] [options]"
     echo
     echo -e "${BOLD}${CYAN}CORE COMMANDS${NC}"
-    echo -e "  ${BOLD}start${NC}               Start the Push node"
-    echo -e "  ${BOLD}stop${NC}                Stop the Push node" 
-    echo -e "  ${BOLD}status${NC}              Check node status"
-    echo -e "  ${BOLD}sync${NC} [-c]         Monitor sync progress (use -c for compact single-line mode)"
-    echo -e "  ${BOLD}logs${NC}                View node logs"
+    printf "  ${BOLD}%-18s${NC}%s\n" "start" "Start the Push node"
+    printf "  ${BOLD}%-18s${NC}%s\n" "stop" "Stop the Push node"
+    printf "  ${BOLD}%-18s${NC}%s\n" "status" "Check node status"
+    printf "  ${BOLD}%-18s${NC}%s\n" "sync [-d]" "Monitor sync. Use -d for dashboard"
+    printf "  ${BOLD}%-18s${NC}%s\n" "logs" "View node logs"
     echo
     echo -e "${BOLD}${CYAN}VALIDATOR${NC}"
     echo -e "  ${BOLD}register-validator${NC}  Register as validator"

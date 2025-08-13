@@ -66,6 +66,9 @@ cp -a "$REPO_DIR/push-node-manager/." "$INSTALL_DIR/"
 cd "$INSTALL_DIR"
 bash scripts/setup-dependencies.sh
 
+# Ensure the push-node-manager script is executable
+chmod +x "$INSTALL_DIR/push-node-manager"
+
 # Create symlink for binary in expected location
 mkdir -p build
 ln -sf scripts/build/pchaind build/pchaind
@@ -78,9 +81,14 @@ exec "$INSTALL_DIR/push-node-manager" "\$@"
 EOF
 chmod +x "$MANAGER_LINK"
 
-# Verify the script exists
-if [[ ! -f "$PWD/push-node-manager" ]]; then
-  echo "Error: push-node-manager script not found in $PWD"
+# Verify the script exists and is executable
+if [[ ! -f "$INSTALL_DIR/push-node-manager" ]]; then
+  echo "Error: push-node-manager script not found in $INSTALL_DIR"
+  exit 1
+fi
+
+if [[ ! -x "$INSTALL_DIR/push-node-manager" ]]; then
+  echo "Error: push-node-manager script is not executable"
   exit 1
 fi
 

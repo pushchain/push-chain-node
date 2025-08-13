@@ -207,8 +207,7 @@ is_node_running() {
 start_node() {
     print_status "🚀 Starting Push Chain node..."
     
-    # Comprehensive cleanup of port conflicts and stale processes
-    print_status "🧹 Cleaning up any port conflicts and stale processes..."
+    # Comprehensive cleanup of port conflicts and stale processes (silent)
     
     # Kill only pchaind processes bound to the known ports
     kill_pchaind_on_port 26657
@@ -279,14 +278,12 @@ start_node() {
 
     # Ensure genesis.json exists even if config was present
     if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
-        print_warning "⚠️ Missing genesis.json - fetching from $GENESIS_RPC/genesis"
         if ! curl -fsS "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
             print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
             exit 1
         fi
 
-        # Also refresh persistent_peers to be safe
-        print_status "🔍 Refreshing seed peer information"
+        # Also refresh persistent_peers to be safe (silent)
         
         # Try to get multiple peers from the network
         PEERS_JSON=$(curl -fsS "$GENESIS_RPC/net_info" 2>/dev/null || echo '{}')
@@ -311,13 +308,11 @@ start_node() {
         
         if [ -n "$PERSISTENT_PEERS" ]; then
             sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$PERSISTENT_PEERS\"/" -e "s/^addr_book_strict = .*/addr_book_strict = false/" "$HOME_DIR/config/config.toml"
-            print_success "🔗 persistent_peers refreshed: $PERSISTENT_PEERS"
         fi
     fi
 
     # Ensure priv_validator_state.json exists to avoid CometBFT panic when data was wiped
     if [ ! -f "$HOME_DIR/data/priv_validator_state.json" ]; then
-        print_warning "⚠️ Missing priv_validator_state.json - creating default state"
         mkdir -p "$HOME_DIR/data"
         cat > "$HOME_DIR/data/priv_validator_state.json" <<'STATEEOF'
 {

@@ -274,8 +274,8 @@ func (x *fastReflection_Ballot) Range(f func(protoreflect.FieldDescriptor, proto
 			return
 		}
 	}
-	if x.VotingThreshold != int32(0) {
-		value := protoreflect.ValueOfInt32(x.VotingThreshold)
+	if x.VotingThreshold != int64(0) {
+		value := protoreflect.ValueOfInt64(x.VotingThreshold)
 		if !f(fd_Ballot_voting_threshold, value) {
 			return
 		}
@@ -324,7 +324,7 @@ func (x *fastReflection_Ballot) Has(fd protoreflect.FieldDescriptor) bool {
 	case "uvalidator.v1.Ballot.reasons":
 		return len(x.Reasons) != 0
 	case "uvalidator.v1.Ballot.voting_threshold":
-		return x.VotingThreshold != int32(0)
+		return x.VotingThreshold != int64(0)
 	case "uvalidator.v1.Ballot.status":
 		return x.Status != 0
 	case "uvalidator.v1.Ballot.block_height_created":
@@ -358,7 +358,7 @@ func (x *fastReflection_Ballot) Clear(fd protoreflect.FieldDescriptor) {
 	case "uvalidator.v1.Ballot.reasons":
 		x.Reasons = nil
 	case "uvalidator.v1.Ballot.voting_threshold":
-		x.VotingThreshold = int32(0)
+		x.VotingThreshold = int64(0)
 	case "uvalidator.v1.Ballot.status":
 		x.Status = 0
 	case "uvalidator.v1.Ballot.block_height_created":
@@ -407,7 +407,7 @@ func (x *fastReflection_Ballot) Get(descriptor protoreflect.FieldDescriptor) pro
 		return protoreflect.ValueOfList(listValue)
 	case "uvalidator.v1.Ballot.voting_threshold":
 		value := x.VotingThreshold
-		return protoreflect.ValueOfInt32(value)
+		return protoreflect.ValueOfInt64(value)
 	case "uvalidator.v1.Ballot.status":
 		value := x.Status
 		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
@@ -454,7 +454,7 @@ func (x *fastReflection_Ballot) Set(fd protoreflect.FieldDescriptor, value proto
 		clv := lv.(*_Ballot_5_list)
 		x.Reasons = *clv.list
 	case "uvalidator.v1.Ballot.voting_threshold":
-		x.VotingThreshold = int32(value.Int())
+		x.VotingThreshold = value.Int()
 	case "uvalidator.v1.Ballot.status":
 		x.Status = (BallotStatus)(value.Enum())
 	case "uvalidator.v1.Ballot.block_height_created":
@@ -538,7 +538,7 @@ func (x *fastReflection_Ballot) NewField(fd protoreflect.FieldDescriptor) protor
 		list := []string{}
 		return protoreflect.ValueOfList(&_Ballot_5_list{list: &list})
 	case "uvalidator.v1.Ballot.voting_threshold":
-		return protoreflect.ValueOfInt32(int32(0))
+		return protoreflect.ValueOfInt64(int64(0))
 	case "uvalidator.v1.Ballot.status":
 		return protoreflect.ValueOfEnum(0)
 	case "uvalidator.v1.Ballot.block_height_created":
@@ -999,7 +999,7 @@ func (x *fastReflection_Ballot) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					x.VotingThreshold |= int32(b&0x7F) << shift
+					x.VotingThreshold |= int64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1284,7 +1284,7 @@ type Ballot struct {
 	EligibleVoters     []string              `protobuf:"bytes,3,rep,name=eligible_voters,json=eligibleVoters,proto3" json:"eligible_voters,omitempty"`                               // Snapshot of allowed voters at creation
 	Votes              []VoteResult          `protobuf:"varint,4,rep,packed,name=votes,proto3,enum=uvalidator.v1.VoteResult" json:"votes,omitempty"`                                 // Parallel array to voter_list (same index = same voter)
 	Reasons            []string              `protobuf:"bytes,5,rep,name=reasons,proto3" json:"reasons,omitempty"`                                                                   // Parallel array for optional reasons (index-matched to voter_list)
-	VotingThreshold    int32                 `protobuf:"varint,6,opt,name=voting_threshold,json=votingThreshold,proto3" json:"voting_threshold,omitempty"`                           // Required fraction (e.g., 0.66)
+	VotingThreshold    int64                 `protobuf:"varint,6,opt,name=voting_threshold,json=votingThreshold,proto3" json:"voting_threshold,omitempty"`                           // Required fraction (e.g., 0.66)
 	Status             BallotStatus          `protobuf:"varint,7,opt,name=status,proto3,enum=uvalidator.v1.BallotStatus" json:"status,omitempty"`                                    // Lifecycle status of the ballot
 	BlockHeightCreated int64                 `protobuf:"varint,8,opt,name=block_height_created,json=blockHeightCreated,proto3" json:"block_height_created,omitempty"`                // Creation block height
 	BlockHeightExpiry  int64                 `protobuf:"varint,9,opt,name=block_height_expiry,json=blockHeightExpiry,proto3" json:"block_height_expiry,omitempty"`                   // Expiry block height
@@ -1345,7 +1345,7 @@ func (x *Ballot) GetReasons() []string {
 	return nil
 }
 
-func (x *Ballot) GetVotingThreshold() int32 {
+func (x *Ballot) GetVotingThreshold() int64 {
 	if x != nil {
 		return x.VotingThreshold
 	}
@@ -1396,7 +1396,7 @@ var file_uvalidator_v1_ballot_proto_rawDesc = []byte{
 	0x12, 0x18, 0x0a, 0x07, 0x72, 0x65, 0x61, 0x73, 0x6f, 0x6e, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28,
 	0x09, 0x52, 0x07, 0x72, 0x65, 0x61, 0x73, 0x6f, 0x6e, 0x73, 0x12, 0x29, 0x0a, 0x10, 0x76, 0x6f,
 	0x74, 0x69, 0x6e, 0x67, 0x5f, 0x74, 0x68, 0x72, 0x65, 0x73, 0x68, 0x6f, 0x6c, 0x64, 0x18, 0x06,
-	0x20, 0x01, 0x28, 0x05, 0x52, 0x0f, 0x76, 0x6f, 0x74, 0x69, 0x6e, 0x67, 0x54, 0x68, 0x72, 0x65,
+	0x20, 0x01, 0x28, 0x03, 0x52, 0x0f, 0x76, 0x6f, 0x74, 0x69, 0x6e, 0x67, 0x54, 0x68, 0x72, 0x65,
 	0x73, 0x68, 0x6f, 0x6c, 0x64, 0x12, 0x33, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18,
 	0x07, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
 	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x53, 0x74, 0x61, 0x74,

@@ -16,14 +16,12 @@ print_error() { echo -e "${RED}$1${NC}"; }
 print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_URL="https://github.com/pushchain/push-chain-node.git"
 # Installer layout:
 #   ROOT_TOP (~/.local/share/push-node-manager)
 #     ├─ app/ (this script lives in app/scripts)
-#     └─ repo/ (cloned source)
+#     └─ repo/ (cloned source by install.sh)
 ROOT_TOP="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOCAL_REPO_DIR="$ROOT_TOP/repo"
-TEMP_DIR="$SCRIPT_DIR/temp"
 BUILD_DIR="$SCRIPT_DIR/build"
 
 print_status "🚀 Setting up native Push Chain environment..."
@@ -152,22 +150,14 @@ fi
 print_success "✅ Dependencies installed successfully!"
 echo
 
-SRC_DIR=""
-
-# Prefer locally installed repo if present to avoid network clone
-if [ -d "$LOCAL_REPO_DIR/push-chain-node" ] && [ -f "$LOCAL_REPO_DIR/push-chain-node/go.mod" ]; then
-    print_status "📦 Using existing push-chain-node source at: $LOCAL_REPO_DIR/push-chain-node"
-    SRC_DIR="$LOCAL_REPO_DIR/push-chain-node"
-else
-    # Clone and build Push Chain
-    print_status "📥 Cloning Push Chain repository..."
-    rm -rf "$TEMP_DIR"
-    mkdir -p "$TEMP_DIR"
-    cd "$TEMP_DIR"
-    git clone "$REPO_URL"
-    SRC_DIR="$TEMP_DIR/push-chain-node"
+# Use the repo cloned by install.sh
+if [ ! -d "$LOCAL_REPO_DIR" ] || [ ! -f "$LOCAL_REPO_DIR/go.mod" ]; then
+    print_error "❌ Push Chain source not found at: $LOCAL_REPO_DIR"
+    print_error "This script should be called by install.sh which clones the repository first."
+    exit 1
 fi
 
+SRC_DIR="$LOCAL_REPO_DIR"
 cd "$SRC_DIR"
 
 # Patch chain ID inside app/app.go (silent)
@@ -208,12 +198,6 @@ if [ -f "$BUILD_DIR/pchaind" ]; then
 else
     print_error "❌ Binary creation failed"
     exit 1
-fi
-
-# Clean up temporary directory only if we cloned (silent)
-cd "$SCRIPT_DIR"
-if [ -d "$TEMP_DIR" ]; then
-    rm -rf "$TEMP_DIR"
 fi
 
 echo

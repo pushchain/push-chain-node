@@ -328,8 +328,7 @@ STATEEOF
     nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
     echo $! > "$PCHAIND_PID_FILE"
     
-    print_success "✅ Node started in background (PID: $(cat "$PCHAIND_PID_FILE"))"
-    print_status "📜 Logs: tail -f $HOME_DIR/logs/pchaind.log"
+    print_success "✅ Node started successfully"
 }
 
 # Stop node

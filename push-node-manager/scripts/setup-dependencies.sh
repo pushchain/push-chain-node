@@ -183,7 +183,7 @@ if grep -q "$OLD_CHAIN_ID" "$APP_FILE"; then
     fi
 fi
 
-print_status "🔨 Building Push Chain binary..."
+# Building Push Chain binary (silent)
 # Build directly to our target directory to avoid quarantine issues
 mkdir -p "$BUILD_DIR"
 
@@ -196,17 +196,13 @@ go build -mod=readonly -tags "netgo,ledger" \
     -trimpath -o "$BUILD_DIR/pchaind" ./cmd/pchaind
 
 # Verify binary was created
-print_status "✅ Verifying binary..."
 if [ -f "$BUILD_DIR/pchaind" ]; then
-    print_success "✅ Binary created successfully: $BUILD_DIR/pchaind"
     
     # Make executable and set proper permissions
     chmod +x "$BUILD_DIR/pchaind"
     
-    # Test basic functionality
-    if "$BUILD_DIR/pchaind" --help >/dev/null 2>&1; then
-        print_success "✅ Binary is working correctly"
-    else
+    # Test basic functionality (silent)
+    if ! "$BUILD_DIR/pchaind" --help >/dev/null 2>&1; then
         print_warning "⚠️ Binary created but may have issues"
     fi
 else

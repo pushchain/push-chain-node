@@ -173,7 +173,8 @@ if grep -q "$OLD_CHAIN_ID" "$APP_FILE"; then
     fi
 fi
 
-# Building Push Chain binary (silent)
+print_status "🔨 Building Push Chain binary..."
+
 # Build directly to our target directory to avoid quarantine issues
 mkdir -p "$BUILD_DIR"
 

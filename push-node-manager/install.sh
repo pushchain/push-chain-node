@@ -107,7 +107,6 @@ if [[ -n "$SHELL_CONFIG" ]]; then
         echo "" >> "$SHELL_CONFIG"
         echo "# Push Node Manager" >> "$SHELL_CONFIG"
         echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$SHELL_CONFIG"
-        echo "Added push-node-manager to PATH in $SHELL_CONFIG"
     fi
     # Load the PATH immediately for this session
     export PATH="$HOME/.local/bin:$PATH"
@@ -124,10 +123,8 @@ mv "$tmp" "$ENV_FILE"
   echo "KEYRING_BACKEND=$KEYRING_BACKEND"
 } >> "$ENV_FILE"
 
-echo "Installed. To manage the node, use: push-node-manager <command>"
-echo "Examples:"
-echo "  push-node-manager start"
-echo "  push-node-manager status"
+echo "✅ Installation complete!"
+echo "📁 Node data: $HOME/.pchain"
 
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then

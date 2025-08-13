@@ -170,22 +170,17 @@ fi
 
 cd "$SRC_DIR"
 
-# 🔧 Patch chain ID inside app/app.go (similar to testnet/v1/pre-setup/prepare_binary.sh)
-print_status "🔧 Patching chain ID in app/app.go..."
+# Patch chain ID inside app/app.go (silent)
 APP_FILE="app/app.go"
 OLD_CHAIN_ID="localchain_9000-1"
 NEW_CHAIN_ID="push_42101-1"
 
 if grep -q "$OLD_CHAIN_ID" "$APP_FILE"; then
-    print_status "🔁 Patching chain ID: $OLD_CHAIN_ID → $NEW_CHAIN_ID"
     if [[ "$OS" == "macos" ]]; then
         sed -i '' "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
     else
         sed -i "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
     fi
-    print_success "✅ Chain ID patched successfully"
-else
-    print_success "✅ Chain ID already set to $NEW_CHAIN_ID in app/app.go"
 fi
 
 print_status "🔨 Building Push Chain binary..."

@@ -796,6 +796,7 @@ show_help() {
     echo -e "  Chain ID:    ${YELLOW}push_42101-1${NC}"
     echo -e "  Network:     ${YELLOW}Testnet${NC}"
     echo -e "  RPC:         ${YELLOW}http://localhost:26657${NC}"
+    echo -e "  Genesis RPC: ${YELLOW}https://$GENESIS_DOMAIN${NC}"
     echo -e "  Faucet:      ${YELLOW}https://faucet.push.org${NC}"
     echo
     echo -e "${BOLD}DATA LOCATIONS${NC}"

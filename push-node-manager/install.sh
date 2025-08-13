@@ -142,11 +142,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
-# Check if we're running from a pipe (curl | bash)
-if [ -t 0 ]; then
-  # Running interactively - PATH will persist
-  true
-else
+# ALWAYS show PATH instruction when running from pipe (curl | bash)
+if [ ! -t 0 ]; then
   # Running from pipe - PATH won't persist after script exits
   echo
   echo -e "\033[1;33m⚠️  To use push-node-manager in this terminal, run:\033[0m"

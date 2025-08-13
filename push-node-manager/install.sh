@@ -132,8 +132,6 @@ echo
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
   echo
-  echo "✅ Node started successfully!"
-  echo
   echo "💡 Quick commands:"
   echo "  push-node-manager status    📊 Check node status"
   echo "  push-node-manager sync      📈 Monitor sync progress"

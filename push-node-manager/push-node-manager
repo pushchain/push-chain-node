@@ -593,12 +593,6 @@ monitor_sync() {
 # Register validator
 register_validator() {
     print_status "🚀 Starting validator registration..."
-    echo
-    echo -e "${BOLD}This simplified wizard will:${NC}"
-    echo -e "  ${GREEN}✓${NC} Create a validator key"
-    echo -e "  ${GREEN}✓${NC} Help you fund the account"  
-    echo -e "  ${GREEN}✓${NC} Register your node as a validator"
-    echo
     
     if [ -f "$SCRIPT_DIR/scripts/register-validator.sh" ]; then
         bash "$SCRIPT_DIR/scripts/register-validator.sh"

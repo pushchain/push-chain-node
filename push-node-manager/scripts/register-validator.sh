@@ -42,12 +42,9 @@ fi
 
 HOME_DIR="$HOME/.pchain"
 BINARY="$NATIVE_BINARY"
-print_status "📁 Using native binary: $BINARY"
-
-print_status "📁 Using HOME_DIR: $HOME_DIR"
 
 # Check sync status FIRST before asking for any input
-print_status "🔍 Checking node sync status before registration..."
+print_status "🔍 Checking node sync status..."
 SYNC_STATUS=$("$BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
 
 # Get block heights for more accurate sync assessment
@@ -72,24 +69,11 @@ if [ "$SYNC_STATUS" = "false" ] || [ "$BLOCKS_BEHIND" -le "$SYNC_THRESHOLD" ]; t
         print_success "✅ Node is sufficiently synced ($BLOCKS_BEHIND blocks behind) - safe to proceed with validator registration"
     fi
 else
-    print_error "❌ CRITICAL: Node is too far behind network to safely register validator!"
+    print_error "❌ Node too far behind to register validator"
     echo
-    print_warning "⚠️  Why this matters:"
-    print_status "   • Validators that are too far behind will miss blocks"
-    print_status "   • Missing blocks leads to validator jailing and slashing"
-    print_status "   • Jailed validators lose stake and need to be unjailed"
+    print_status "Node is ${MAGENTA}$BLOCKS_BEHIND${NC} blocks behind (limit: $SYNC_THRESHOLD)"
+    print_status "Run ${CYAN}push-node-manager sync${NC} to monitor progress"
     echo
-    print_status "📋 Required steps:"
-    print_status "   1. Wait for better sync: ./push-node-manager sync"
-    print_status "   2. Verify sync status: ./push-node-manager status"
-    print_status "   3. Try again when within $SYNC_THRESHOLD blocks of network height"
-    echo
-    print_header "💡 Current sync status:"
-    print_status "   • Local height: ${MAGENTA}$LOCAL_HEIGHT${NC}"
-    print_status "   • Network height: ${MAGENTA}$REMOTE_HEIGHT${NC}"
-    print_status "   • Blocks behind: ${MAGENTA}$BLOCKS_BEHIND${NC} (threshold: $SYNC_THRESHOLD)"
-    echo
-    print_error "❌ Validator registration cancelled - better sync required first!"
     exit 1
 fi
 

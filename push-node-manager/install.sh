@@ -132,10 +132,13 @@ echo
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
   echo
-  echo "💡 Quick commands:"
-  echo "  push-node-manager status    📊 Check node status"
-  echo "  push-node-manager sync      📈 Monitor sync progress"
-  echo "  push-node-manager help      ❓ Show all commands"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "\033[1;33m💡 Quick Commands:\033[0m"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "  \033[1mpush-node-manager status\033[0m    📊 Check node status"
+  echo -e "  \033[1mpush-node-manager sync\033[0m      📈 Monitor sync progress"
+  echo -e "  \033[1mpush-node-manager help\033[0m      ❓ Show all commands"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
 # Optional: Clean up the cloned repository to save space (keep only push-node-manager)

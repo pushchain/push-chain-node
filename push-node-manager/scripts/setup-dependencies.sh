@@ -201,5 +201,6 @@ else
 fi
 
 echo
+print_success "✅ Binary created successfully"
 echo "Binary location: $BUILD_DIR/pchaind"
 echo "Version: $("$BUILD_DIR/pchaind" version)"

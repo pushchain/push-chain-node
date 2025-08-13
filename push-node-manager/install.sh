@@ -108,9 +108,10 @@ if [[ -n "$SHELL_CONFIG" ]]; then
         echo "# Push Node Manager" >> "$SHELL_CONFIG"
         echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$SHELL_CONFIG"
     fi
-    # Load the PATH immediately for this session
-    export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# ALWAYS export PATH for current session, regardless of shell config
+export PATH="$HOME/.local/bin:$PATH"
 
 # Persist configuration
 ENV_FILE="$ROOT_DIR/.env"

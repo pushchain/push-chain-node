@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -27,6 +28,12 @@ type Keeper struct {
 	Params                collections.Item[types.Params]
 	CoreToUniversal       collections.Map[string, string] // Mapping: Core Validator Address → Universal Validator Address
 	UniversalValidatorSet collections.KeySet[string]      // Set of all registered Universal Validator addresses
+
+	// Ballots management
+	Ballots            collections.Map[string, types.Ballot] // stores the actual ballot object, keyed by ballot ID
+	ActiveBallotIDs    collections.KeySet[string]            // set of ballot IDs currently collecting votes
+	ExpiredBallotIDs   collections.KeySet[string]            // set of ballot IDs that have expired (not yet pruned)
+	FinalizedBallotIDs collections.KeySet[string]            // set of ballot IDs that are PASSED or REJECTED
 
 	stakingKeeper types.StakingKeeper
 
@@ -66,6 +73,24 @@ func NewKeeper(
 			sb,
 			types.CoreValidatorSetKey,
 			types.CoreValidatorSetName,
+			collections.StringKey,
+		),
+
+		// Ballot collections
+		Ballots: collections.NewMap(
+			sb, types.BallotsKey, types.BallotsName,
+			collections.StringKey, codec.CollValue[types.Ballot](cdc),
+		),
+		ActiveBallotIDs: collections.NewKeySet(
+			sb, types.ActiveBallotIDsKey, types.ActiveBallotIDsName,
+			collections.StringKey,
+		),
+		ExpiredBallotIDs: collections.NewKeySet(
+			sb, types.ExpiredBallotIDsKey, types.ExpiredBallotIDsName,
+			collections.StringKey,
+		),
+		FinalizedBallotIDs: collections.NewKeySet(
+			sb, types.FinalizedBallotIDsKey, types.FinalizedBallotIDsName,
 			collections.StringKey,
 		),
 
@@ -155,4 +180,9 @@ func (k Keeper) HasUniversalValidatorInSet(ctx context.Context, uvAddr string) (
 
 func (k Keeper) RemoveUniversalValidatorFromSet(ctx context.Context, addr string) error {
 	return k.UniversalValidatorSet.Remove(ctx, addr)
+}
+
+func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	return sdkCtx.BlockHeight(), nil
 }

@@ -27,7 +27,7 @@ func (b Ballot) HasVoted(address string) bool {
 
 // AddVote records a vote for the given voter.
 // Ensures the voter is eligible, hasn't already voted, and ballot is pending.
-func (b *Ballot) AddVote(address string, vote VoteResult, reason string) error {
+func (b *Ballot) AddVote(address string, vote VoteResult) error {
 	if b.Status != BallotStatus_BALLOT_STATUS_PENDING {
 		return fmt.Errorf("cannot vote on ballot %s: not pending", b.Id)
 	}
@@ -42,7 +42,6 @@ func (b *Ballot) AddVote(address string, vote VoteResult, reason string) error {
 	}
 
 	b.Votes[idx] = vote
-	b.Reasons[idx] = reason
 	return nil
 }
 
@@ -59,14 +58,12 @@ func (b Ballot) CountVotes() (yes, no int) {
 	return yes, no
 }
 
-// InitEmptyVotes initializes the Votes and Reasons slices to match EligibleVoters length.
+// InitEmptyVotes initializes the Votes slice to match EligibleVoters length.
 func (b *Ballot) InitEmptyVotes() {
 	n := len(b.EligibleVoters)
 	b.Votes = make([]VoteResult, n)
-	b.Reasons = make([]string, n)
 	for i := 0; i < n; i++ {
 		b.Votes[i] = VoteResult_VOTE_RESULT_NOT_YET_VOTED
-		b.Reasons[i] = ""
 	}
 }
 

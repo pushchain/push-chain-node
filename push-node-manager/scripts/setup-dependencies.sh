@@ -210,8 +210,7 @@ else
     exit 1
 fi
 
-# Clean up temporary directory only if we cloned
-print_status "🧹 Cleaning up temporary files..."
+# Clean up temporary directory only if we cloned (silent)
 cd "$SCRIPT_DIR"
 if [ -d "$TEMP_DIR" ]; then
     rm -rf "$TEMP_DIR"

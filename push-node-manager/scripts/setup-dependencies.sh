@@ -82,9 +82,10 @@ install_linux_deps() {
     # Activate virtual environment and install dependencies
     source "$VENV_DIR/bin/activate"
     
-    if ! pip show tomlkit &> /dev/null; then
+    # Check and install tomlkit in the virtual environment
+    if ! python3 -m pip show tomlkit &> /dev/null; then
         print_status "Installing tomlkit in virtual environment..."
-        pip install tomlkit
+        python3 -m pip install tomlkit
     fi
     
     # Verify installations
@@ -92,7 +93,7 @@ install_linux_deps() {
     go version || print_error "Go installation failed"
     jq --version || print_error "jq installation failed"
     python3 --version || print_error "Python3 installation failed"
-    pip show tomlkit || print_error "tomlkit installation failed"
+    python3 -m pip show tomlkit || print_error "tomlkit installation failed"
 }
 
 # Function to install dependencies on macOS
@@ -127,9 +128,10 @@ install_macos_deps() {
     # Activate virtual environment and install dependencies
     source "$VENV_DIR/bin/activate"
     
-    if ! pip show tomlkit &> /dev/null; then
+    # Check and install tomlkit in the virtual environment
+    if ! python3 -m pip show tomlkit &> /dev/null; then
         print_status "Installing tomlkit in virtual environment..."
-        pip install tomlkit
+        python3 -m pip install tomlkit
     fi
     
     # Verify installations
@@ -137,7 +139,7 @@ install_macos_deps() {
     go version
     jq --version
     python3 --version
-    pip show tomlkit >/dev/null 2>&1 && echo "tomlkit: ✅ Installed"
+    python3 -m pip show tomlkit >/dev/null 2>&1 && echo "tomlkit: ✅ Installed"
 }
 
 # Install dependencies based on OS

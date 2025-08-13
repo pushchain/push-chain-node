@@ -50,11 +50,10 @@ message Ballot {
 
   repeated string eligible_voters = 3;             // Snapshot of allowed voters at creation
   repeated VoteResult votes = 4;              // Parallel array to voter_list (same index = same voter)
-  repeated string reasons = 5;                // Parallel array for optional reasons (index-matched to voter_list)
 
-  int64 voting_threshold = 6;                                          // Required fraction (e.g., 0.66)
+  int64 voting_threshold = 5;                                          // Required fraction (e.g., 0.66)
 
-  BallotStatus status = 7;                    // Lifecycle status of the ballot
-  int64 block_height_created = 8;             // Creation block height
-  int64 block_height_expiry = 9;              // Expiry block height
+  BallotStatus status = 6;                    // Lifecycle status of the ballot
+  int64 block_height_created = 7;             // Creation block height
+  int64 block_height_expiry = 8;              // Expiry block height
 }

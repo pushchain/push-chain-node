@@ -474,8 +474,8 @@ monitor_sync() {
     local start_time=$(date +%s)
     
     while true; do
-        # Clear screen for fresh update
-        clear
+        # Clear screen and reset cursor for fresh update
+        printf '\033[2J\033[H'
         
         # Get node status
         NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")

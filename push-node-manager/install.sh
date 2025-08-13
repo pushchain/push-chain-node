@@ -70,8 +70,11 @@ bash scripts/setup-dependencies.sh
 chmod +x "$INSTALL_DIR/push-node-manager"
 
 # Create symlink for binary in expected location
-mkdir -p build
-ln -sf scripts/build/pchaind build/pchaind
+# The register-validator script expects ../build/pchaind relative to scripts/ directory
+mkdir -p "$INSTALL_DIR/build"
+cd "$INSTALL_DIR/build"
+ln -sf ../scripts/build/pchaind pchaind
+cd "$INSTALL_DIR"
 
 # Remove any existing symlink/script and install a small launcher script
 rm -f "$MANAGER_LINK"

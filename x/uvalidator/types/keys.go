@@ -25,6 +25,30 @@ var (
 
 	// CoreValidatorSetName is the name of the core validator set.
 	CoreValidatorSetName = "core_validator_set"
+
+	// BallotsKey is the key for the collection of ballots.
+	BallotsKey = collections.NewPrefix(3)
+
+	// BallotsName is the name of the ballots collection.
+	BallotsName = "ballots"
+
+	// ActiveBallotIDsKey is the key for the set of active ballot IDs.
+	ActiveBallotIDsKey = collections.NewPrefix(4)
+
+	// ActiveBallotIDsName is the name of the active ballot IDs set.
+	ActiveBallotIDsName = "active_ballot_ids"
+
+	// ExpiredBallotIDsKey is the key for the set of expired ballot IDs.
+	ExpiredBallotIDsKey = collections.NewPrefix(5)
+
+	// ExpiredBallotIDsName is the name of the expired ballot IDs set.
+	ExpiredBallotIDsName = "expired_ballot_ids"
+
+	// FinalizedBallotIDsKey is the key for the set of finalized ballot IDs.
+	FinalizedBallotIDsKey = collections.NewPrefix(6)
+
+	// FinalizedBallotIDsName is the name of the finalized ballot IDs set.
+	FinalizedBallotIDsName = "finalized_ballot_ids"
 )
 
 const (

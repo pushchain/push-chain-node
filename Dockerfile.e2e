@@ -1,0 +1,24 @@
+FROM golang:1.23 AS build
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN make install  # regular build (dynamic link)
+
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y bash curl jq git make && rm -rf /var/lib/apt/lists/*
+
+# Install wasmvm v1.5.4 shared library
+RUN curl -L https://github.com/CosmWasm/wasmvm/releases/download/v1.5.4/libwasmvm.aarch64.so \
+    -o /usr/lib/libwasmvm.aarch64.so && chmod 755 /usr/lib/libwasmvm.aarch64.so
+
+COPY --from=build /go/bin/pchaind /usr/local/bin/pchaind
+COPY scripts /app/scripts
+WORKDIR /app
+
+ENV CHAIN_ID=localchain_9000-1 \
+    BLOCK_TIME=1000ms \
+    CLEAN=true
+
+CMD ["bash", "scripts/test_node.sh"]

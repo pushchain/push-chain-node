@@ -30,14 +30,14 @@ export ROSETTA=${ROSETTA:-"8080"}
 export BLOCK_TIME=${BLOCK_TIME:-"1s"}
 
 # if which binary does not exist, install it
-if [ -z `which $BINARY` ]; then
-  make install
+# if [ -z `which $BINARY` ]; then
+#   make install
 
-  if [ -z `which $BINARY` ]; then
-    echo "Ensure $BINARY is installed and in your PATH"
-    exit 1
-  fi
-fi
+#   if [ -z `which $BINARY` ]; then
+#     echo "Ensure $BINARY is installed and in your PATH"
+#     exit 1
+#   fi
+# fi
 
 alias BINARY="$BINARY --home=$HOME_DIR"
 
@@ -53,7 +53,7 @@ set_config
 
 from_scratch () {
   # Fresh install on current branch
-  make install
+  # make install
 
   # remove existing daemon files.
   if [ ${#HOME_DIR} -le 2 ]; then

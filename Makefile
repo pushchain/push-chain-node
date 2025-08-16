@@ -357,3 +357,91 @@ help:
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help
+
+###############################################################################
+###                                     e2e...                              ###
+###############################################################################
+
+# ------------------------
+# Docker commands (from before)
+# ------------------------
+docker-build:
+	docker build -t push-chain-node -f Dockerfile.e2e .
+
+docker-up:
+	docker compose -f docker-compose.yml up --build -d
+
+docker-down:
+	docker compose -f docker-compose.yml down
+
+docker-logs:
+	docker compose -f docker-compose.yml logs -f
+
+docker-reset:
+	docker system prune -a --volumes -f
+
+
+# ------------------------
+# Docker Setup flow
+# ------------------------
+
+ANVIL_URL=http://localhost:9545
+PUSH_EVM_URL=http://localhost:8545
+CHAIN_RPC=http://localhost:26657
+CHAIN_ID=localchain_9000-1
+
+# Path where contracts will be cloned
+CONTRACTS_DIR := contracts-tmp
+INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git
+CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
+
+e2e: docker-up wait-for-services fund-acc1 deploy-interop set-chain-config deploy-core
+
+# Wait for services to start up
+wait-for-services:
+	@echo "Waiting for Anvil and Push-Chain-Node to start..."
+	@sleep 30
+	@curl --fail $(CHAIN_RPC)/status || (echo "Push-chain-node not ready" && exit 1)
+	@echo "Services are up!"
+
+# Fund acc1 on push-chain
+fund-acc1:
+	@echo "Funding acc1 on push-chain..."
+	pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
+		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
+		1000000000000000000upc \
+		--gas-prices 100000000000upc -y
+
+# Deploy the interop contract and capture address
+deploy-interop:
+	@echo "Deploying interop contract..."
+	@rm -rf $(CONTRACTS_DIR) && mkdir $(CONTRACTS_DIR)
+	cd $(CONTRACTS_DIR) && git clone $(INTEROP_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && forge build
+	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && \
+		ADDR=$$(forge create ./src/UniversalGateway.sol:UniversalGateway \
+			--rpc-url $(ANVIL_URL) \
+			--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+			--broadcast \
+			| grep "Deployed to:" | awk '{print $$3}'); \
+		echo $$ADDR > ../../../interop_address.txt && echo "Interop contract deployed at $$ADDR"
+
+# Set chainConfigs in push-chain-node using JSON config
+set-chain-config:
+	@echo "Setting chain config with interop contract address..."
+	pchaind tx uexecutor add-chain-config \
+		--chain-config "$$(cat config/testnet-donut/eth_sepolia_chain_config.json)" \
+		--from acc1 \
+		--gas-prices 100000000000upc -y
+
+# Deploy push-core-contracts using forge script
+deploy-core:
+	@echo "Deploying Push Core Contracts..."
+	cd $(CONTRACTS_DIR) && git clone $(CORE_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployFactory.s.sol \
+		--broadcast \
+		--rpc-url $(PUSH_EVM_URL) \
+		--private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 \
+		--slow
+
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow

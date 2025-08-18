@@ -2,12 +2,13 @@ version: '3.8'
 
 services:
   anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
-    command: anvil --host 0.0.0.0 --port 8545 --chain-id 11155111
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
     ports:
       - "9545:9545"
     networks:
       - pushnet
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--port", "9545", "--chain-id", "11155111"]
 
   push-chain-node:
     build:
@@ -22,6 +23,7 @@ services:
     ports:
       - "26657:26657"   # Tendermint RPC
       - "1317:1317"     # Cosmos REST API
+      - "8545:8545"     # Cosmos REST API
     networks:
       - pushnet
     depends_on:

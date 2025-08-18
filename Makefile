@@ -392,7 +392,7 @@ CHAIN_ID=localchain_9000-1
 
 # Path where contracts will be cloned
 CONTRACTS_DIR := contracts-tmp
-INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git
+INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
 CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
 
 e2e: docker-up wait-for-services fund-acc1 deploy-interop set-chain-config deploy-core
@@ -417,14 +417,21 @@ deploy-interop:
 	@echo "Deploying interop contract..."
 	@rm -rf $(CONTRACTS_DIR) && mkdir $(CONTRACTS_DIR)
 	cd $(CONTRACTS_DIR) && git clone $(INTEROP_REPO)
-	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && forge build
+	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && forge install
+	cd $(CONTRACTS_DIR)/push-chain-interop-contracts && \
+		forge install OpenZeppelin/openzeppelin-foundry-upgrades && \
+		cd contracts/evm-gateway && mkdir -p lib && \
+		ln -s ../../../lib/openzeppelin-foundry-upgrades lib/openzeppelin-foundry-upgrades
+	@echo "Make sure your foundry.toml has the required remappings for OpenZeppelin upgrades."
 	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && \
 		ADDR=$$(forge create ./src/UniversalGateway.sol:UniversalGateway \
 			--rpc-url $(ANVIL_URL) \
 			--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
 			--broadcast \
 			| grep "Deployed to:" | awk '{print $$3}'); \
-		echo $$ADDR > ../../../interop_address.txt && echo "Interop contract deployed at $$ADDR"
+		echo $$ADDR > ../../../interop_address.txt && \
+		echo "Interop contract deployed at $$ADDR"
+
 
 # Set chainConfigs in push-chain-node using JSON config
 set-chain-config:
@@ -438,6 +445,8 @@ set-chain-config:
 deploy-core:
 	@echo "Deploying Push Core Contracts..."
 	cd $(CONTRACTS_DIR) && git clone $(CORE_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && git submodule update --init --recursive
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge install && forge build
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployFactory.s.sol \
 		--broadcast \
 		--rpc-url $(PUSH_EVM_URL) \

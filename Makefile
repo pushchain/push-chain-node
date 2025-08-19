@@ -395,7 +395,7 @@ CONTRACTS_DIR := contracts-tmp
 INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
 CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
 
-e2e: docker-up wait-for-services fund-acc1 deploy-interop set-chain-config deploy-core
+e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core
 
 # Wait for services to start up
 wait-for-services:
@@ -430,16 +430,11 @@ deploy-interop:
 			--broadcast \
 			| grep "Deployed to:" | awk '{print $$3}'); \
 		echo $$ADDR > ../../../interop_address.txt && \
-		echo "Interop contract deployed at $$ADDR"
-
-
-# Set chainConfigs in push-chain-node using JSON config
-set-chain-config:
-	@echo "Setting chain config with interop contract address..."
-	pchaind tx uexecutor add-chain-config \
-		--chain-config "$$(cat config/testnet-donut/eth_sepolia_chain_config.json)" \
-		--from acc1 \
-		--gas-prices 100000000000upc -y
+		echo "Interop contract deployed at $$ADDR" && \
+		pchaind tx uexecutor add-chain-config \
+			--chain-config "{\"chain\":\"eip155:11155111\",\"public_rpc_url\":\"https://1rpc.io/sepolia\",\"vm_type\":0,\"gateway_address\":\"$$ADDR\",\"block_confirmation\":0,\"gateway_methods\":[{\"name\":\"addFunds\",\"identifier\":\"0xf9bfe8a7\",\"event_identifier\":\"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd\"}],\"enabled\":true}" \
+			--from acc1 \
+			--gas-prices 100000000000upc -y
 
 # Deploy push-core-contracts using forge script
 deploy-core:

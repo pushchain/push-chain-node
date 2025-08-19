@@ -24,17 +24,3 @@ type GatewayTransaction struct {
 	Confirmations   uint64
 	Data            []byte // Store raw event data
 }
-
-// GatewayEvent represents a processed gateway event
-type GatewayEvent struct {
-	gorm.Model
-	ChainID     string `gorm:"index"`
-	TxHash      string `gorm:"index"`
-	BlockNumber uint64
-	Method      string
-	Sender      string
-	Receiver    string
-	Amount      string
-	Payload     []byte
-	Processed   bool `gorm:"index"`
-}

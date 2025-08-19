@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	sdkversion "github.com/cosmos/cosmos-sdk/version"
 	"github.com/rollchains/pchain/universalClient/config"
@@ -10,7 +11,9 @@ import (
 	"github.com/rollchains/pchain/universalClient/core"
 	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/logger"
+	"github.com/rollchains/pchain/universalClient/store"
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 )
 
 var cfg config.Config
@@ -20,6 +23,7 @@ func InitRootCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(startCmd())
 	rootCmd.AddCommand(queryCmd())
+	rootCmd.AddCommand(setblockCmd())
 }
 
 func versionCmd() *cobra.Command {
@@ -90,5 +94,94 @@ func startCmd() *cobra.Command {
 			return client.Start()
 		},
 	}
+	return cmd
+}
+
+func setblockCmd() *cobra.Command {
+	var (
+		chainID string
+		block   int64
+		list    bool
+		blockSet bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "setblock",
+		Short: "Set or list last observed blocks for chains",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Open database
+			dbPath := filepath.Join(constant.DefaultNodeHome, "data", "pushuv.db")
+			database, err := db.OpenFileDB(filepath.Dir(dbPath), filepath.Base(dbPath), false)
+			if err != nil {
+				return fmt.Errorf("failed to open database: %w", err)
+			}
+			defer database.Close()
+
+			// List mode
+			if list {
+				var blocks []store.LastObservedBlock
+				if err := database.Client().Find(&blocks).Error; err != nil {
+					return fmt.Errorf("failed to list blocks: %w", err)
+				}
+				
+				fmt.Println("\nCurrent last observed blocks:")
+				fmt.Println("================================")
+				for _, block := range blocks {
+					fmt.Printf("Chain: %s\n", block.ChainID)
+					fmt.Printf("Block: %d\n", block.Block)
+					fmt.Printf("Updated: %v\n", block.UpdatedAt)
+					fmt.Println("--------------------------------")
+				}
+				
+				if len(blocks) == 0 {
+					fmt.Println("No records found")
+				}
+				return nil
+			}
+
+			// Check if block flag was actually provided
+			blockSet = cmd.Flags().Changed("block")
+			
+			// Set mode
+			if chainID == "" || !blockSet {
+				return fmt.Errorf("--chain and --block are required when not using --list")
+			}
+
+			var lastBlock store.LastObservedBlock
+			result := database.Client().Where("chain_id = ?", chainID).First(&lastBlock)
+			
+			if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+				return fmt.Errorf("failed to query last observed block: %w", result.Error)
+			}
+			
+			if result.Error == gorm.ErrRecordNotFound {
+				// Create new record
+				lastBlock = store.LastObservedBlock{
+					ChainID: chainID,
+					Block:   block,
+				}
+				if err := database.Client().Create(&lastBlock).Error; err != nil {
+					return fmt.Errorf("failed to create last observed block record: %w", err)
+				}
+				fmt.Printf("Created new record for chain %s at block %d\n", chainID, block)
+			} else {
+				// Update existing record
+				oldBlock := lastBlock.Block
+				lastBlock.Block = block
+				if err := database.Client().Save(&lastBlock).Error; err != nil {
+					return fmt.Errorf("failed to update last observed block: %w", err)
+				}
+				fmt.Printf("Updated block from %d to %d for chain %s\n", oldBlock, block, chainID)
+			}
+			
+			fmt.Printf("✅ Successfully set block %d for chain %s\n", block, chainID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&chainID, "chain", "", "Chain ID (e.g., 'eip155:11155111' or 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1')")
+	cmd.Flags().Int64Var(&block, "block", -1, "Block number to set")
+	cmd.Flags().BoolVar(&list, "list", false, "List all current block records")
+
 	return cmd
 }

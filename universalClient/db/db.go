@@ -33,7 +33,6 @@ var (
 	schemaModels = []any{
 		&store.LastObservedBlock{},
 		&store.GatewayTransaction{},
-		&store.GatewayEvent{},
 		// Add additional models here as needed.
 	}
 )

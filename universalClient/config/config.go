@@ -26,7 +26,7 @@ func validateConfig(cfg *Config) error {
 
 	// Set defaults for registry config
 	if cfg.ConfigRefreshInterval == 0 {
-		cfg.ConfigRefreshInterval = 10 * time.Second
+		cfg.ConfigRefreshInterval = 60 * time.Second
 	}
 	if cfg.MaxRetries == 0 {
 		cfg.MaxRetries = 3
@@ -52,6 +52,11 @@ func validateConfig(cfg *Config) error {
 	// Set defaults for query server
 	if cfg.QueryServerPort == 0 {
 		cfg.QueryServerPort = 8080
+	}
+
+	// Set defaults for event monitoring
+	if cfg.EventPollingInterval == 0 {
+		cfg.EventPollingInterval = 5 * time.Second
 	}
 
 	return nil

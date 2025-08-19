@@ -28,7 +28,7 @@ func TestClientInitialization(t *testing.T) {
 			Enabled:        true,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.Equal(t, "EtWTRABZaYq6iMfeYKouRu166VU2xqa1", client.genesisHash)
@@ -38,7 +38,7 @@ func TestClientInitialization(t *testing.T) {
 	})
 
 	t.Run("Nil config", func(t *testing.T) {
-		client, err := NewClient(nil, logger)
+		client, err := NewClient(nil, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "config is nil")
@@ -50,7 +50,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_EVM, // Wrong VM type
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "invalid VM type for Solana client")
@@ -62,7 +62,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "invalid CAIP-2 format")
@@ -74,7 +74,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "not a Solana chain")
@@ -167,7 +167,7 @@ func TestClientStartStop(t *testing.T) {
 			Enabled:        true,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -189,7 +189,7 @@ func TestClientStartStop(t *testing.T) {
 			GatewayAddress: "Sol123...",
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -205,7 +205,7 @@ func TestClientStartStop(t *testing.T) {
 			PublicRpcUrl: "",
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -239,7 +239,7 @@ func TestClientIsHealthy(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -261,7 +261,7 @@ func TestClientIsHealthy(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		healthy := client.IsHealthy()
@@ -281,7 +281,7 @@ func TestClientIsHealthy(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client - should fail because getHealth returns error
@@ -307,7 +307,7 @@ func TestClientGetMethods(t *testing.T) {
 		Enabled:        true,
 	}
 
-	client, err := NewClient(config, logger)
+	client, err := NewClient(config, nil, nil, logger)
 	require.NoError(t, err)
 
 	t.Run("GetGenesisHash", func(t *testing.T) {
@@ -376,7 +376,7 @@ func TestClientGetSlot(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -397,7 +397,7 @@ func TestClientGetSlot(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -445,7 +445,7 @@ func TestClientGetSlot(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -485,7 +485,7 @@ func TestClientConcurrency(t *testing.T) {
 		PublicRpcUrl: server.URL,
 	}
 
-	client, err := NewClient(config, logger)
+	client, err := NewClient(config, nil, nil, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()

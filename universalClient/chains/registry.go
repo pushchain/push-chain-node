@@ -10,22 +10,34 @@ import (
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/chains/evm"
 	"github.com/rollchains/pchain/universalClient/chains/svm"
+	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/rollchains/pchain/universalClient/db"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // ChainRegistry manages chain clients based on their configurations
 type ChainRegistry struct {
-	mu     sync.RWMutex
-	chains map[string]common.ChainClient // key: CAIP-2 chain ID
-	logger zerolog.Logger
+	mu        sync.RWMutex
+	chains    map[string]common.ChainClient // key: CAIP-2 chain ID
+	logger    zerolog.Logger
+	database  *db.DB
+	appConfig *config.Config
 }
 
 // NewChainRegistry creates a new chain registry
-func NewChainRegistry(logger zerolog.Logger) *ChainRegistry {
+func NewChainRegistry(database *db.DB, logger zerolog.Logger) *ChainRegistry {
 	return &ChainRegistry{
-		chains: make(map[string]common.ChainClient),
-		logger: logger.With().Str("component", "chain_registry").Logger(),
+		chains:   make(map[string]common.ChainClient),
+		logger:   logger.With().Str("component", "chain_registry").Logger(),
+		database: database,
 	}
+}
+
+// SetAppConfig sets the application config for the registry
+func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.appConfig = cfg
 }
 
 // CreateChainClient creates a chain client based on VM type
@@ -41,9 +53,9 @@ func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (c
 
 	switch config.VmType {
 	case uregistrytypes.VmType_EVM:
-		return evm.NewClient(config, r.logger)
+		return evm.NewClient(config, r.database, r.appConfig, r.logger)
 	case uregistrytypes.VmType_SVM:
-		return svm.NewClient(config, r.logger)
+		return svm.NewClient(config, r.database, r.appConfig, r.logger)
 	default:
 		return nil, fmt.Errorf("unsupported VM type: %v", config.VmType)
 	}

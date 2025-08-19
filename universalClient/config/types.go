@@ -20,4 +20,7 @@ type Config struct {
 	
 	// Query Server configuration
 	QueryServerPort     int           `json:"query_server_port"`        // Port for HTTP query server (default: 8080)
+	
+	// Event monitoring configuration
+	EventPollingInterval time.Duration `json:"event_polling_interval"`   // How often to poll for new events (default: 5s)
 }

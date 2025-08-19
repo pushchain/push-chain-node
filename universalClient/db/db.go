@@ -32,6 +32,8 @@ var (
 	// schemaModels lists the structs to be auto-migrated into the database.
 	schemaModels = []any{
 		&store.LastObservedBlock{},
+		&store.GatewayTransaction{},
+		&store.GatewayEvent{},
 		// Add additional models here as needed.
 	}
 )
@@ -60,6 +62,12 @@ func OpenInMemoryDB(migrateSchema bool) (*DB, error) {
 // openSQLite creates a GORM-backed database instance using the given SQLite DSN.
 // If migrateSchema is true, GORM auto-migrates all schema models.
 func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
+	// Add SQLite connection parameters for concurrent access
+	// Only add parameters if it's a file database (not in-memory)
+	if dsn != InMemorySQLiteDSN && !strings.Contains(dsn, "?") {
+		dsn += "?_journal_mode=WAL&_busy_timeout=5000&cache=shared&mode=rwc"
+	}
+	
 	db, err := gorm.Open(sqlite.Open(dsn), gormConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open SQLite database")
@@ -70,6 +78,19 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 			return nil, errors.Wrap(err, "failed to auto-migrate database schema")
 		}
 	}
+
+	// Configure connection pool for better concurrent access
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get underlying sql.DB")
+	}
+	
+	// Set maximum number of open connections
+	sqlDB.SetMaxOpenConns(1)  // SQLite performs best with a single connection in WAL mode
+	// Set maximum number of idle connections
+	sqlDB.SetMaxIdleConns(1)
+	// Set maximum lifetime of a connection
+	sqlDB.SetConnMaxLifetime(0) // Connections don't expire
 
 	return &DB{client: db}, nil
 }

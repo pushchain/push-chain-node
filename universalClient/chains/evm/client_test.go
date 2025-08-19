@@ -28,7 +28,7 @@ func TestClientInitialization(t *testing.T) {
 			Enabled:        true,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.Equal(t, int64(1), client.chainID)
@@ -38,7 +38,7 @@ func TestClientInitialization(t *testing.T) {
 	})
 
 	t.Run("Nil config", func(t *testing.T) {
-		client, err := NewClient(nil, logger)
+		client, err := NewClient(nil, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "config is nil")
@@ -50,7 +50,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM, // Wrong VM type
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "invalid VM type for EVM client")
@@ -62,7 +62,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_EVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "not an EVM chain")
@@ -74,7 +74,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_EVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "failed to parse chain ID")
@@ -167,7 +167,7 @@ func TestClientStartStop(t *testing.T) {
 			Enabled:        true,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -189,7 +189,7 @@ func TestClientStartStop(t *testing.T) {
 			GatewayAddress: "0x123...",
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -205,7 +205,7 @@ func TestClientStartStop(t *testing.T) {
 			PublicRpcUrl: "",
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -253,7 +253,7 @@ func TestClientIsHealthy(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -275,7 +275,7 @@ func TestClientIsHealthy(t *testing.T) {
 			VmType: uregistrytypes.VmType_EVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		healthy := client.IsHealthy()
@@ -295,7 +295,7 @@ func TestClientGetMethods(t *testing.T) {
 		Enabled:        true,
 	}
 
-	client, err := NewClient(config, logger)
+	client, err := NewClient(config, nil, nil, logger)
 	require.NoError(t, err)
 
 	t.Run("GetChainID", func(t *testing.T) {
@@ -350,7 +350,7 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -372,7 +372,7 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 			VmType: uregistrytypes.VmType_EVM,
 		}
 
-		client, err := NewClient(config, logger)
+		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -403,7 +403,7 @@ func TestClientConcurrency(t *testing.T) {
 		PublicRpcUrl: server.URL,
 	}
 
-	client, err := NewClient(config, logger)
+	client, err := NewClient(config, nil, nil, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()

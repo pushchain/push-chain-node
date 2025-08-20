@@ -5,6 +5,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+ # Load environment variables from .env if it exists
+if [ -f "$APP_DIR/.env" ]; then
+  export $(grep -v '^#' "$APP_DIR/.env" | xargs)
+  echo "✅ Loaded environment variables from .env"
+fi
+
 BINARY="$APP_DIR/binary/pchaind"
 NODE_HOME="$APP_DIR/.pchain"
 LOG_DIR="$APP_DIR/logs"

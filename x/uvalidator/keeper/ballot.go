@@ -10,7 +10,7 @@ import (
 // CreateBallot creates a new ballot with the given parameters, stores it, and marks it as active.
 func (k Keeper) CreateBallot(
 	ctx context.Context,
-	proposalID string,
+	id string,
 	ballotType types.BallotObservationType,
 	eligibleVoters []string,
 	votingThreshold int64,
@@ -25,7 +25,7 @@ func (k Keeper) CreateBallot(
 
 	// Create ballot
 	ballot := types.NewBallot(
-		proposalID,
+		id,
 		ballotType,
 		eligibleVoters,
 		votingThreshold,
@@ -54,13 +54,15 @@ func (k Keeper) GetOrCreateBallot(
 	voters []string,
 	votesNeeded int64,
 	expiryAfterBlocks int64,
-) (types.Ballot, error) {
+) (types.Ballot, bool, error) {
 
 	if ballot, err := k.Ballots.Get(ctx, id); err == nil {
-		return ballot, nil
+		return ballot, false, nil
 	}
 
-	return k.CreateBallot(ctx, id, ballotType, voters, votesNeeded, expiryAfterBlocks)
+	newBallot, err := k.CreateBallot(ctx, id, ballotType, voters, votesNeeded, expiryAfterBlocks)
+
+	return newBallot, true, err
 }
 
 // GetBallot retrieves a ballot by ID

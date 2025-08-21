@@ -2,8 +2,10 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	errors "cosmossdk.io/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/rollchains/pchain/x/uvalidator/types"
 )
@@ -20,6 +22,44 @@ func (k Keeper) AddVoteToBallot(
 	}
 	k.SetBallot(ctx, ballot)
 	return ballot, nil
+}
+
+func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
+	// Check if the universal validator is in the registered set
+	exists, err := k.HasUniversalValidatorInSet(ctx, universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("failed to check universal validator set: %w", err)
+	}
+	if !exists {
+		return false, nil // not in set → not bonded
+	}
+
+	// Get the corresponding core validator
+	coreValidatorAddr, found, err := k.GetUniversalToCore(ctx, universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("failed to get core validator for universal validator %s: %w", universalValidator, err)
+	}
+	if !found {
+		return false, fmt.Errorf("universal validator %s has no mapped core validator", universalValidator)
+	}
+
+	coreValAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
+	if err != nil {
+		return false, fmt.Errorf("invalid core validator address: %w", err)
+	}
+
+	// Ensure the core validator exists in the staking module
+	validator, err := k.stakingKeeper.GetValidator(ctx, coreValAddr)
+	if err != nil {
+		return false, fmt.Errorf("core validator not found: %w", err)
+	}
+
+	// Check that the validator is in bonded status
+	if !validator.IsBonded() {
+		return false, nil // exists but not bonded
+	}
+
+	return true, nil
 }
 
 func (k Keeper) VoteOnBallot(

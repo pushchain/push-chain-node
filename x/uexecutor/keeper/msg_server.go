@@ -81,3 +81,10 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 
 	return &types.MsgExecutePayloadResponse{}, nil
 }
+
+// VoteInboundSynthetic implements types.MsgServer.
+func (ms msgServer) VoteInboundSynthetic(ctx context.Context, msg *types.MsgVoteInboundSynthetic) (*types.MsgVoteInboundSyntheticResponse, error) {
+	// ctx := sdk.UnwrapSDKContext(goCtx)
+	panic("VoteInboundSynthetic is unimplemented")
+	return &types.MsgVoteInboundSyntheticResponse{}, nil
+}

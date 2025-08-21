@@ -21,15 +21,16 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	storeService    storetypes.KVStoreService
-	Params          collections.Item[types.Params]
-	authority       string
-	evmKeeper       types.EVMKeeper
-	feemarketKeeper types.FeeMarketKeeper
-	bankKeeper      types.BankKeeper
-	accountKeeper   types.AccountKeeper
-	uregistryKeeper types.UregistryKeeper
-	utvKeeper       types.UtvKeeper
+	storeService     storetypes.KVStoreService
+	Params           collections.Item[types.Params]
+	authority        string
+	evmKeeper        types.EVMKeeper
+	feemarketKeeper  types.FeeMarketKeeper
+	bankKeeper       types.BankKeeper
+	accountKeeper    types.AccountKeeper
+	uregistryKeeper  types.UregistryKeeper
+	utvKeeper        types.UtvKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -44,6 +45,7 @@ func NewKeeper(
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
 	utvKeeper types.UtvKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -59,13 +61,14 @@ func NewKeeper(
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
-		authority:       authority,
-		evmKeeper:       evmKeeper,
-		feemarketKeeper: feemarketKeeper,
-		bankKeeper:      bankKeeper,
-		accountKeeper:   accountKeeper,
-		uregistryKeeper: uregistryKeeper,
-		utvKeeper:       utvKeeper,
+		authority:        authority,
+		evmKeeper:        evmKeeper,
+		feemarketKeeper:  feemarketKeeper,
+		bankKeeper:       bankKeeper,
+		accountKeeper:    accountKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		utvKeeper:        utvKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 
 	return k

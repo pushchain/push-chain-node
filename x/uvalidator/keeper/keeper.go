@@ -186,3 +186,27 @@ func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	return sdkCtx.BlockHeight(), nil
 }
+
+// GetUniversalToCore finds the core validator address corresponding to a universal validator.
+// Returns (coreAddr, true, nil) if found, ("", false, nil) if not found, or error if something goes wrong.
+func (k Keeper) GetUniversalToCore(ctx context.Context, uvAddr string) (string, bool, error) {
+	var coreAddr string
+	var found bool
+
+	err := k.CoreToUniversal.Walk(ctx, nil, func(cAddr, mappedUV string) (bool, error) {
+		if mappedUV == uvAddr {
+			coreAddr = cAddr
+			found = true
+			return true, nil // stop walking early
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", false, fmt.Errorf("error walking CoreToUniversal map: %w", err)
+	}
+
+	if !found {
+		return "", false, nil
+	}
+	return coreAddr, true, nil
+}

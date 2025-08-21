@@ -1,0 +1,540 @@
+#!/usr/bin/env bash
+# Local Validator Manager - Multi-validator Docker setup management
+# Manages 3 core validators + 3 universal validators
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# Resolve script directory
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m' 
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BLUE='\033[1;94m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+# Print functions
+print_status() { echo -e "${CYAN}$1${NC}"; }
+print_header() { echo -e "${BLUE}$1${NC}"; }
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error() { echo -e "${RED}$1${NC}"; }
+print_warning() { echo -e "${YELLOW}$1${NC}"; }
+
+# ASCII Art Banner
+show_banner() {
+    echo -e "${BOLD}${GREEN}"
+    echo "    ____             __       ________          _      "
+    echo "   / __ \\__  _______/ /_     / ____/ /_  ____ _(_)___  "
+    echo "  / /_/ / / / / ___/ __ \\   / /   / __ \\/ __ \`/ / __ \\ "
+    echo " / ____/ /_/ (__  ) / / /  / /___/ / / / /_/ / / / / / "
+    echo "/_/    \\__,_/____/_/ /_/   \\____/_/ /_/\\__,_/_/_/ /_/  "
+    echo -e "${NC}"
+    echo -e "${BOLD}${YELLOW}        Local Multi-Validator Manager${NC}"
+    echo -e "${GREEN}        ═══════════════════════════════════${NC}"
+    echo
+}
+
+# Check docker-compose availability
+require_docker_compose() {
+    if ! command -v docker-compose >/dev/null 2>&1; then
+        print_error "❌ docker-compose not found"
+        echo "Install docker-compose to manage the local validator setup"
+        exit 1
+    fi
+}
+
+# Start all validators
+start_all() {
+    show_banner
+    print_status "🚀 Starting local multi-validator setup..."
+    require_docker_compose
+    
+    docker-compose up -d
+    print_success "✅ All validators starting up..."
+    echo
+    print_status "💡 Use './local-validator-manager status' to check progress"
+}
+
+# Stop all validators
+stop_all() {
+    print_status "🛑 Stopping all validators..."
+    require_docker_compose
+    
+    docker-compose down
+    print_success "✅ All validators stopped"
+}
+
+# Restart all validators
+restart_all() {
+    print_status "🔄 Restarting all validators..."
+    require_docker_compose
+    
+    docker-compose restart
+    print_success "✅ All validators restarted"
+}
+
+# Show overall status
+show_status() {
+    echo
+    print_header "📊 Local Multi-Validator Status"
+    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    require_docker_compose
+    
+    echo
+    print_header "Container Status:"
+    
+    # Custom formatted status display
+    printf "${BOLD}${YELLOW}%-25s %-12s %-12s %-12s %-10s %-25s${NC}\n" "SERVICE" "STATUS" "HEALTH" "CONTAINER ID" "UPTIME" "KEY PORTS"
+    echo -e "${BLUE}──────────────────────────────────────────────────────────────────────────────────────────────${NC}"
+    
+    docker-compose ps --format json | jq -r '
+        .Name + "|" + 
+        .State + "|" + 
+        (.Health // "none") + "|" + 
+        .Service + "|" +
+        (.Publishers // [] | map((.PublishedPort | tostring) + ":" + (.TargetPort | tostring)) | join(","))
+    ' | while IFS='|' read -r name state health service ports; do
+        
+        local status_color="${RED}"
+        if [ "$state" = "running" ]; then
+            status_color="${GREEN}"
+        fi
+        
+        # Check health for universal validators via port accessibility
+        local health_display="$health"
+        if [[ "$service" == universal-validator-* ]] && [ "$state" = "running" ]; then
+            # For universal validators, if they're running, consider them healthy
+            # (they don't have health checks but port accessibility indicates health)
+            health_display="healthy"
+            health="healthy"
+        fi
+        
+        local health_color="${YELLOW}"
+        if [ "$health" = "healthy" ]; then
+            health_color="${GREEN}"
+        elif [ "$health" = "none" ]; then
+            health_color="${CYAN}"
+            health_display="n/a"
+        elif [ "$health" = "unhealthy" ]; then
+            health_color="${RED}"
+        fi
+        
+        # Get container ID and uptime
+        local container_info=$(docker inspect "$name" 2>/dev/null | jq -r '.[0].Id[0:12] + "|" + .[0].State.StartedAt' || echo "unknown|unknown")
+        local container_id=$(echo "$container_info" | cut -d'|' -f1)
+        local uptime=$(echo "$container_info" | cut -d'|' -f2 | head -c 16 | tail -c 8)
+        
+        # Extract key ports for different service types
+        local key_ports=""
+        if [[ "$service" == core-validator-* ]]; then
+            # Show RPC, REST, and WebSocket ports for core validators
+            local rpc_port=$(echo "$ports" | grep -o '[0-9]*:26657' | cut -d: -f1 | head -1)
+            local rest_port=$(echo "$ports" | grep -o '[0-9]*:1317' | cut -d: -f1 | head -1)
+            local ws_port=$(echo "$ports" | grep -o '[0-9]*:8546' | cut -d: -f1 | head -1)
+            key_ports="RPC:$rpc_port REST:$rest_port WS:$ws_port"
+        elif [[ "$service" == universal-validator-* ]]; then
+            # Show query API port for universal validators
+            local api_port=$(echo "$ports" | grep -o '[0-9]*:8080' | cut -d: -f1 | head -1)
+            key_ports="API:$api_port"
+        fi
+        
+        printf "%-25s ${status_color}%-12s${NC} ${health_color}%-12s${NC} ${CYAN}%-12s${NC} %-10s ${MAGENTA}%-25s${NC}\n" \
+            "$service" "$state" "$health_display" "$container_id" "$uptime" "$key_ports"
+    done
+    
+    echo
+    print_header "Core Validators Block Heights:"
+    echo -e "${GREEN}─────────────────────────────────────────${NC}"
+    
+    # Check each core validator
+    for i in 1 2 3; do
+        local port=26657
+        if [ "$i" -eq 2 ]; then port=26658; fi
+        if [ "$i" -eq 3 ]; then port=26659; fi
+        
+        local height=$(curl -s "http://localhost:$port/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // "offline"' 2>/dev/null || echo "offline")
+        local status_color="${RED}"
+        if [ "$height" != "offline" ] && [ "$height" != "null" ]; then
+            status_color="${GREEN}"
+        fi
+        printf "  ${BOLD}Validator $i:${NC} ${status_color}$height${NC}\n"
+    done
+    
+    echo
+    print_header "Universal Validators:"
+    echo -e "${GREEN}─────────────────────────────────────────${NC}"
+    
+    # Check each universal validator
+    for i in 1 2 3; do
+        local port=$((8079 + i))
+        local status=$(curl -s "http://localhost:$port/health" 2>/dev/null || echo "offline")
+        local status_color="${RED}"
+        if [ "$status" = "OK" ]; then
+            status_color="${GREEN}"
+        fi
+        printf "  ${BOLD}Universal Validator $i:${NC} ${status_color}$status${NC} (port $port)\n"
+    done
+}
+
+# Show logs for specific validator
+show_logs() {
+    local validator_name="${2:-}"
+    
+    if [ -z "$validator_name" ]; then
+        print_error "❌ Validator name required"
+        echo "Usage: ./local-validator-manager logs <validator-name>"
+        echo "Available validators: core-validator-1, core-validator-2, core-validator-3,"
+        echo "                     universal-validator-1, universal-validator-2, universal-validator-3"
+        exit 1
+    fi
+    
+    require_docker_compose
+    print_status "📜 Showing logs for $validator_name..."
+    
+    docker-compose logs -f "$validator_name"
+}
+
+# Show status for specific validator
+show_validator_status() {
+    local validator_id="${2:-}"
+    
+    if [ -z "$validator_id" ] || ! [[ "$validator_id" =~ ^[1-3]$ ]]; then
+        print_error "❌ Valid validator ID required (1, 2, or 3)"
+        echo "Usage: ./local-validator-manager validator-status <1|2|3>"
+        exit 1
+    fi
+    
+    require_docker_compose
+    print_header "📊 Validator $validator_id Status"
+    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    
+    # Core validator status
+    local core_port=26657
+    local rest_port=1317
+    if [ "$validator_id" -eq 2 ]; then core_port=26658; rest_port=1318; fi
+    if [ "$validator_id" -eq 3 ]; then core_port=26659; rest_port=1319; fi
+    
+    echo
+    print_header "Core Validator $validator_id:"
+    local core_status=$(curl -s "http://localhost:$core_port/status" 2>/dev/null)
+    
+    if [ -n "$core_status" ]; then
+        local height=$(echo "$core_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+        local catching_up=$(echo "$core_status" | jq -r '.result.sync_info.catching_up // "true"')
+        local moniker=$(echo "$core_status" | jq -r '.result.node_info.moniker // "unknown"')
+        local node_id=$(echo "$core_status" | jq -r '.result.node_info.id // "unknown"')
+        
+        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Running${NC}"
+        echo -e "  ${BOLD}Moniker:${NC} ${WHITE}$moniker${NC}"
+        echo -e "  ${BOLD}Node ID:${NC} ${MAGENTA}$node_id${NC}"
+        echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$height${NC}"
+        
+        if [ "$catching_up" = "false" ]; then
+            echo -e "  ${BOLD}Sync Status:${NC} ${GREEN}✅ Synced${NC}"
+        else
+            echo -e "  ${BOLD}Sync Status:${NC} ${YELLOW}⏳ Syncing${NC}"
+        fi
+        
+        echo -e "  ${BOLD}RPC:${NC} ${YELLOW}http://localhost:$core_port${NC}"
+        echo -e "  ${BOLD}REST:${NC} ${YELLOW}http://localhost:$rest_port${NC}"
+    else
+        echo -e "  ${BOLD}Status:${NC} ${RED}❌ Offline${NC}"
+    fi
+    
+    # Universal validator status
+    local universal_port=$((8079 + validator_id))
+    
+    echo
+    print_header "Universal Validator $validator_id:"
+    local universal_status=$(curl -s "http://localhost:$universal_port/health" 2>/dev/null || echo "offline")
+    
+    if [ "$universal_status" = "OK" ]; then
+        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Running${NC}"
+        echo -e "  ${BOLD}Connected to:${NC} ${CYAN}core-validator-$validator_id${NC}"
+        echo -e "  ${BOLD}Query API:${NC} ${YELLOW}http://localhost:$universal_port${NC}"
+    else
+        echo -e "  ${BOLD}Status:${NC} ${RED}❌ Offline${NC}"
+    fi
+}
+
+# List all validators in the network
+list_validators() {
+    print_header "👥 Local Network Validators"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    
+    # Query from core-validator-1
+    local validators=$(curl -s "http://localhost:26657/validators" 2>/dev/null | jq -r '.result.validators[]' 2>/dev/null || echo "")
+    
+    if [ -n "$validators" ]; then
+        echo
+        printf "${BOLD}${YELLOW}%-15s %-20s %-12s${NC}\n" "VALIDATOR" "VOTING POWER" "STATUS"
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────${NC}"
+        
+        echo "$validators" | jq -r '
+            .address[0:15] + "|" + 
+            .voting_power + "|" + 
+            (if .proposer_priority then "ACTIVE" else "INACTIVE" end)
+        ' | while IFS='|' read -r address power status; do
+            local status_color="${GREEN}"
+            if [ "$status" = "INACTIVE" ]; then
+                status_color="${YELLOW}"
+            fi
+            printf "${BOLD}%-15s${NC} ${MAGENTA}%-20s${NC} ${status_color}%-12s${NC}\n" "$address" "$power" "$status"
+        done
+        
+        local count=$(echo "$validators" | jq -s length)
+        echo
+        print_status "Total Active Validators: $count"
+    else
+        print_warning "❌ Could not query validators (node may be starting)"
+    fi
+}
+
+# Regenerate accounts
+regenerate_accounts() {
+    print_warning "⚠️ This will regenerate all account mnemonics"
+    read -p "Continue? (yes/no): " confirm
+    if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+        print_status "🔑 Regenerating accounts..."
+        require_docker_compose
+        
+        docker-compose run --rm account-generator
+        print_success "✅ New accounts generated in /tmp/push-accounts/"
+        print_status "💡 Restart validators to use new accounts: ./local-validator-manager restart"
+    fi
+}
+
+# Rebuild containers
+rebuild_containers() {
+    local rebuild_target="${2:-all}"
+    
+    require_docker_compose
+    
+    case "$rebuild_target" in
+        all)
+            print_status "🔧 Rebuilding all containers (with cache)..."
+            docker-compose build
+            print_success "✅ All containers rebuilt"
+            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            ;;
+        core)
+            print_status "🔧 Rebuilding core validator containers (with cache)..."
+            docker-compose build core-validator-1 core-validator-2 core-validator-3
+            print_success "✅ Core validator containers rebuilt"
+            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            ;;
+        universal)
+            print_status "🔧 Rebuilding universal validator containers (with cache)..."
+            docker-compose build universal-validator-1 universal-validator-2 universal-validator-3
+            print_success "✅ Universal validator containers rebuilt"
+            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            ;;
+        core-validator-*|universal-validator-*)
+            print_status "🔧 Rebuilding $rebuild_target container (with cache)..."
+            docker-compose build "$rebuild_target"
+            print_success "✅ $rebuild_target container rebuilt"
+            print_status "💡 Use './local-validator-manager restart-validator $rebuild_target' to apply changes"
+            ;;
+        clean)
+            print_status "🔧 Clean rebuilding all containers (no cache)..."
+            docker-compose build --no-cache
+            print_success "✅ All containers clean rebuilt"
+            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            ;;
+        *)
+            print_error "❌ Invalid rebuild target: $rebuild_target"
+            echo "Valid targets: all, core, universal, clean, core-validator-1, core-validator-2, core-validator-3,"
+            echo "              universal-validator-1, universal-validator-2, universal-validator-3"
+            exit 1
+            ;;
+    esac
+}
+
+# Clean reset
+clean_reset() {
+    print_warning "⚠️ This will completely reset the local validator setup"
+    print_warning "   - Stop all containers"
+    print_warning "   - Remove all volumes and data"
+    print_warning "   - Regenerate all accounts"
+    read -p "Continue? (yes/no): " confirm
+    if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+        require_docker_compose
+        
+        print_status "🛑 Stopping all containers..."
+        docker-compose down -v
+        
+        print_status "🧹 Cleaning account files..."
+        rm -rf /tmp/push-accounts
+        
+        print_status "🔑 Regenerating accounts..."
+        docker-compose run --rm account-generator
+        
+        print_success "✅ Clean reset complete"
+        print_status "💡 Start validators: ./local-validator-manager start"
+    fi
+}
+
+# Show individual validator help
+show_validator_help() {
+    echo
+    echo -e "${BOLD}${GREEN}Local Validator Commands${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    echo -e "${BOLD}INDIVIDUAL VALIDATOR COMMANDS${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "validator-status <1-3>" "Show specific validator status"
+    printf "  ${BOLD}%-25s${NC}%s\n" "logs <validator-name>" "Show logs for validator"
+    printf "  ${BOLD}%-25s${NC}%s\n" "restart-validator <name>" "Restart specific validator"
+    echo
+    echo -e "${BOLD}VALIDATOR NAMES:${NC}"
+    echo -e "  ${CYAN}Core validators:${NC} core-validator-1, core-validator-2, core-validator-3"
+    echo -e "  ${CYAN}Universal validators:${NC} universal-validator-1, universal-validator-2, universal-validator-3"
+    echo
+    echo -e "${BOLD}EXAMPLES:${NC}"
+    echo -e "  ./local-validator-manager ${BOLD}validator-status 1${NC}"
+    echo -e "  ./local-validator-manager ${BOLD}logs core-validator-2${NC}"
+    echo -e "  ./local-validator-manager ${BOLD}restart-validator universal-validator-3${NC}"
+}
+
+# Restart specific validator
+restart_validator() {
+    local validator_name="${2:-}"
+    
+    if [ -z "$validator_name" ]; then
+        print_error "❌ Validator name required"
+        show_validator_help
+        exit 1
+    fi
+    
+    require_docker_compose
+    print_status "🔄 Restarting $validator_name..."
+    
+    docker-compose restart "$validator_name"
+    print_success "✅ $validator_name restarted"
+}
+
+# Show help
+show_help() {
+    echo
+    echo -e "${BOLD}${GREEN}Local Multi-Validator Manager${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    echo -e "${BOLD}Usage:${NC} local-validator-manager [command] [options]"
+    echo
+    echo -e "${BOLD}${CYAN}SETUP COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "start" "Start all validators (3 core + 3 universal)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "stop" "Stop all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "restart" "Restart all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "status" "Show overall status"
+    echo
+    echo -e "${BOLD}${CYAN}VALIDATOR MANAGEMENT${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "validator-status <id>" "Show validator <1-3> detailed status"
+    printf "  ${BOLD}%-25s${NC}%s\n" "logs <name>" "Show logs for specific validator"
+    printf "  ${BOLD}%-25s${NC}%s\n" "restart-validator <name>" "Restart specific validator"
+    printf "  ${BOLD}%-25s${NC}%s\n" "validators" "List all active validators"
+    echo
+    echo -e "${BOLD}${CYAN}MAINTENANCE${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "regenerate-accounts" "Generate new account mnemonics"
+    printf "  ${BOLD}%-25s${NC}%s\n" "clean-reset" "Complete reset (removes all data)"
+    printf "  ${BOLD}%-25s${NC}%s\n" "validator-help" "Show validator-specific commands"
+    echo
+    echo -e "${BOLD}${CYAN}REBUILD COMMANDS${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild all" "Rebuild all containers (with cache, fast)"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild core" "Rebuild only core validator containers"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild universal" "Rebuild only universal validator containers"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild clean" "Clean rebuild all (no cache, slow)"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild <service>" "Rebuild specific service container"
+    echo
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}${YELLOW}QUICK START${NC}"
+    echo -e "  1. local-validator-manager ${BOLD}start${NC}"
+    echo -e "  2. local-validator-manager ${BOLD}status${NC}"
+    echo -e "  3. local-validator-manager ${BOLD}validators${NC}"
+    echo
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}NETWORK ACCESS${NC}"
+    echo -e "  Chain ID:       ${YELLOW}localchain_9000-1${NC}"
+    echo -e "  Network:        ${YELLOW}Local Docker${NC}"
+    echo
+    echo -e "${BOLD}CORE VALIDATORS${NC}"
+    echo -e "  Validator 1:    ${YELLOW}http://localhost:26657${NC} (RPC) ${YELLOW}http://localhost:1317${NC} (REST)"
+    echo -e "  Validator 2:    ${YELLOW}http://localhost:26658${NC} (RPC) ${YELLOW}http://localhost:1318${NC} (REST)"
+    echo -e "  Validator 3:    ${YELLOW}http://localhost:26659${NC} (RPC) ${YELLOW}http://localhost:1319${NC} (REST)"
+    echo
+    echo -e "${BOLD}UNIVERSAL VALIDATORS${NC}"
+    echo -e "  Universal 1:    ${YELLOW}http://localhost:8080${NC} (Query API)"
+    echo -e "  Universal 2:    ${YELLOW}http://localhost:8081${NC} (Query API)"
+    echo -e "  Universal 3:    ${YELLOW}http://localhost:8082${NC} (Query API)"
+    echo
+    echo -e "${BOLD}DATA LOCATIONS${NC}"
+    echo -e "  Accounts:       ${YELLOW}/tmp/push-accounts/#{NC}"
+    echo -e "  Validator data: ${YELLOW}Docker volumes${NC}"
+    echo
+}
+
+# Command handling
+case "${1:-help}" in
+    start)
+        start_all
+        ;;
+        
+    stop)
+        stop_all
+        ;;
+        
+    restart)
+        restart_all
+        ;;
+        
+    status)
+        show_status
+        ;;
+        
+    logs)
+        show_logs "$@"
+        ;;
+        
+    validator-status)
+        show_validator_status "$@"
+        ;;
+        
+    restart-validator)
+        restart_validator "$@"
+        ;;
+        
+    validators)
+        list_validators
+        ;;
+        
+    regenerate-accounts)
+        regenerate_accounts
+        ;;
+        
+    clean-reset)
+        clean_reset
+        ;;
+        
+    validator-help)
+        show_validator_help
+        ;;
+        
+    rebuild)
+        rebuild_containers "$@"
+        ;;
+        
+    help|--help|-h|"")
+        show_help
+        ;;
+        
+    *)
+        print_error "❌ Unknown command: $1"
+        echo "Use './local-validator-manager help' for usage information"
+        exit 1
+        ;;
+esac

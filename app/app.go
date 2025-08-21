@@ -767,6 +767,7 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.StakingKeeper,
+		app.SlashingKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1055,7 +1056,7 @@ func NewChainApp(
 		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtvKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

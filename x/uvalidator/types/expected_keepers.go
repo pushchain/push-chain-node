@@ -12,3 +12,8 @@ type StakingKeeper interface {
 	GetValidator(ctx context.Context, addr sdk.ValAddress) (validator stakingtypes.Validator, err error)
 	GetAllValidators(ctx context.Context) (validators []stakingtypes.Validator, err error)
 }
+
+// SlashingKeeper defines the expected interface for the slashing module.
+type SlashingKeeper interface {
+	IsTombstoned(ctx context.Context, addr sdk.ConsAddress) bool
+}

@@ -761,6 +761,7 @@ u		runtime.NewKVStoreService(keys[uu.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.StakingKeeper,
+		app.SlashingKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1049,7 +1050,7 @@ u		runtime.NewKVStoreService(keys[uu.StoreKey]),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

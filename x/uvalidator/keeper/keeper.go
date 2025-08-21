@@ -35,7 +35,8 @@ type Keeper struct {
 	ExpiredBallotIDs   collections.KeySet[string]            // set of ballot IDs that have expired (not yet pruned)
 	FinalizedBallotIDs collections.KeySet[string]            // set of ballot IDs that are PASSED or REJECTED
 
-	stakingKeeper types.StakingKeeper
+	stakingKeeper  types.StakingKeeper
+	slashingKeeper types.SlashingKeeper
 
 	authority string
 }
@@ -47,6 +48,7 @@ func NewKeeper(
 	logger log.Logger,
 	authority string,
 	stakingKeeper types.StakingKeeper,
+	slashingKeeper types.SlashingKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -94,8 +96,9 @@ func NewKeeper(
 			collections.StringKey,
 		),
 
-		authority:     authority,
-		stakingKeeper: stakingKeeper,
+		authority:      authority,
+		stakingKeeper:  stakingKeeper,
+		slashingKeeper: slashingKeeper,
 	}
 
 	return k

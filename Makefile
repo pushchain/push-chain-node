@@ -431,8 +431,8 @@ deploy-interop:
 			| grep "Deployed to:" | awk '{print $$3}'); \
 		echo $$ADDR > ../../../interop_address.txt && \
 		echo "Interop contract deployed at $$ADDR" && \
-		pchaind tx uexecutor add-chain-config \
-			--chain-config "{\"chain\":\"eip155:11155111\",\"public_rpc_url\":\"https://1rpc.io/sepolia\",\"vm_type\":0,\"gateway_address\":\"$$ADDR\",\"block_confirmation\":0,\"gateway_methods\":[{\"name\":\"addFunds\",\"identifier\":\"0xf9bfe8a7\",\"event_identifier\":\"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd\"}],\"enabled\":true}" \
+		docker exec -it push-chain-node pchaind tx uexecutor add-chain-config \
+			--chain-config "{\"chain\":\"eip155:11155111\",\"public_rpc_url\":\"http://anvil:9545\",\"vm_type\":0,\"gateway_address\":\"0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe\",\"block_confirmation\":0,\"gateway_methods\":[{\"name\":\"addFunds\",\"identifier\":\"0xf9bfe8a7\",\"event_identifier\":\"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd\"}],\"enabled\":true}" \
 			--from acc1 \
 			--gas-prices 100000000000upc -y
 

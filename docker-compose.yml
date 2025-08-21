@@ -8,7 +8,7 @@ services:
     networks:
       - pushnet
     entrypoint: ["anvil"]
-    command: ["--host", "0.0.0.0", "--port", "9545", "--chain-id", "11155111"]
+    command: ["--host", "0.0.0.0", "--port", "9545", "--chain-id", "11155111", "--fork-url", "https://ethereum-sepolia-rpc.publicnode.com", "--block-time", "1"]
 
   push-chain-node:
     build:

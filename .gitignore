@@ -8,3 +8,4 @@ web/
 
 .env
 
+universalClient/coverage.out

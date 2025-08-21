@@ -10,8 +10,9 @@ export CLEAN=${CLEAN:-"true"}
 echo "Setting up puniversald..."
 
 # Check if binary exists, install if not
-if [ -z `which puniversald` ]; then
-    echo "Installing puniversald..."
+# If CLEAN=true, always rebuild to ensure latest code
+if [ "$CLEAN" == "true" ] || [ -z `which puniversald` ]; then
+    echo "Building and installing puniversald..."
     make install
     if [ -z `which puniversald` ]; then
         echo "Ensure puniversald is installed and in your PATH"

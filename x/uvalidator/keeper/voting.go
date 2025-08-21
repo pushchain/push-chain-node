@@ -62,6 +62,48 @@ func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidat
 	return true, nil
 }
 
+func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// Check if the universal validator exists in the set
+	exists, err := k.HasUniversalValidatorInSet(ctx, universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("failed to check universal validator set: %w", err)
+	}
+	if !exists {
+		return false, nil // Not in set → cannot be tombstoned
+	}
+
+	// Get the corresponding core validator
+	coreValidatorAddr, found, err := k.GetUniversalToCore(ctx, universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("failed to get core validator for universal validator %s: %w", universalValidator, err)
+	}
+	if !found {
+		return false, fmt.Errorf("universal validator %s has no mapped core validator", universalValidator)
+	}
+
+	// Convert core validator (operator) address to SDK validator address
+	coreValAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
+	if err != nil {
+		return false, fmt.Errorf("failed to get operator address from core validator: %w", err)
+	}
+
+	// Query the validator
+	validator, err := k.stakingKeeper.GetValidator(sdkCtx, coreValAddr)
+	if err != nil {
+		return false, fmt.Errorf("core validator not found: %w", err)
+	}
+
+	// Get consensus address and check tombstoned status via slashing keeper
+	consAddress, err := validator.GetConsAddr()
+	if err != nil {
+		return false, fmt.Errorf("failed to get consensus address: %w", err)
+	}
+
+	return k.slashingKeeper.IsTombstoned(sdkCtx, consAddress), nil
+}
+
 func (k Keeper) VoteOnBallot(
 	ctx context.Context,
 	id string,

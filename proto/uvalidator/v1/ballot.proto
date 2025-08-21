@@ -1,0 +1,59 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+
+// ---------------------------
+// Ballot Status Enum
+// ---------------------------
+enum BallotStatus {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  BALLOT_STATUS_UNSPECIFIED = 0;
+  BALLOT_STATUS_PENDING = 1;     // Ballot is collecting votes
+  BALLOT_STATUS_PASSED = 2;      // Ballot reached success threshold
+  BALLOT_STATUS_REJECTED = 3;    // Ballot reached failure threshold
+  BALLOT_STATUS_EXPIRED = 4;     // Ballot expired without quorum
+}
+
+// ---------------------------
+// Ballot Observation Type
+// ---------------------------
+enum BallotObservationType {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  BALLOT_OBSERVATION_TYPE_UNSPECIFIED = 0;
+  BALLOT_OBSERVATION_TYPE_INBOUND_TX = 1;
+  BALLOT_OBSERVATION_TYPE_OUTBOUND_TX = 2;
+}
+
+// ---------------------------
+// Vote Result Enum
+// ---------------------------
+enum VoteResult {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  VOTE_RESULT_NOT_YET_VOTED = 0; // Default state before a vote is cast
+  VOTE_RESULT_YES = 1;           // Positive vote
+  VOTE_RESULT_NO = 2;            // Negative vote
+}
+
+// ---------------------------
+// Core Ballot Message (Indexed Voting Approach)
+// ---------------------------
+message Ballot {
+  string id = 1;                              // Unique ID (e.g., txHash, messageHash)
+  BallotObservationType ballot_type = 2;      // Type of ballot
+
+  repeated string eligible_voters = 3;             // Snapshot of allowed voters at creation
+  repeated VoteResult votes = 4;              // Parallel array to voter_list (same index = same voter)
+
+  int64 voting_threshold = 5;                                          // Required fraction (e.g., 0.66)
+
+  BallotStatus status = 6;                    // Lifecycle status of the ballot
+  int64 block_height_created = 7;             // Creation block height
+  int64 block_height_expiry = 8;              // Expiry block height
+}

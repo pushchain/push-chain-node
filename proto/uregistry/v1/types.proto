@@ -12,7 +12,7 @@ message Params {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
-  // The admin account of the ue module.
+  // The admin account of the uregistry module.
   string admin = 1;
 }
 

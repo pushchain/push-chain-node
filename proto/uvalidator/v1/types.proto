@@ -1,0 +1,17 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "uvalidator/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the uvalidator module.
+  string admin = 1;
+}

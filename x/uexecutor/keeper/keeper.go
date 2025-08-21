@@ -30,6 +30,7 @@ type Keeper struct {
 	accountKeeper     types.AccountKeeper
 	uregistryKeeper   types.UregistryKeeper
 	utxverifierKeeper types.UtxverifierKeeper
+	uvalidatorKeeper  types.UValidatorKeeper
 }
 
 // NewKeeper creates a new Keeper instance
@@ -44,6 +45,7 @@ func NewKeeper(
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
 	utxverifierKeeper types.UtxverifierKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -66,6 +68,7 @@ func NewKeeper(
 		accountKeeper:     accountKeeper,
 		uregistryKeeper:   uregistryKeeper,
 		utxverifierKeeper: utxverifierKeeper,
+		uvalidatorKeeper:  uvalidatorKeeper,
 	}
 
 	return k

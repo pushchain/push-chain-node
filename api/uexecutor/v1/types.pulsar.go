@@ -1900,6 +1900,7 @@ func (x *fastReflection_UniversalAccountId) ProtoMethods() *protoiface.Methods {
 
 <<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 var (
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	md_MethodConfig                  protoreflect.MessageDescriptor
 	fd_MethodConfig_name             protoreflect.FieldDescriptor
 	fd_MethodConfig_identifier       protoreflect.FieldDescriptor
@@ -1912,6 +1913,30 @@ func init() {
 	fd_MethodConfig_name = md_MethodConfig.Fields().ByName("name")
 	fd_MethodConfig_identifier = md_MethodConfig.Fields().ByName("identifier")
 	fd_MethodConfig_event_identifier = md_MethodConfig.Fields().ByName("event_identifier")
+=======
+	md_InboundSynthetic                protoreflect.MessageDescriptor
+	fd_InboundSynthetic_source_chain   protoreflect.FieldDescriptor
+	fd_InboundSynthetic_tx_hash        protoreflect.FieldDescriptor
+	fd_InboundSynthetic_sender         protoreflect.FieldDescriptor
+	fd_InboundSynthetic_recipient      protoreflect.FieldDescriptor
+	fd_InboundSynthetic_amount         protoreflect.FieldDescriptor
+	fd_InboundSynthetic_asset_addr     protoreflect.FieldDescriptor
+	fd_InboundSynthetic_log_index      protoreflect.FieldDescriptor
+	fd_InboundSynthetic_inbound_status protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_ue_v1_types_proto_init()
+	md_InboundSynthetic = File_ue_v1_types_proto.Messages().ByName("InboundSynthetic")
+	fd_InboundSynthetic_source_chain = md_InboundSynthetic.Fields().ByName("source_chain")
+	fd_InboundSynthetic_tx_hash = md_InboundSynthetic.Fields().ByName("tx_hash")
+	fd_InboundSynthetic_sender = md_InboundSynthetic.Fields().ByName("sender")
+	fd_InboundSynthetic_recipient = md_InboundSynthetic.Fields().ByName("recipient")
+	fd_InboundSynthetic_amount = md_InboundSynthetic.Fields().ByName("amount")
+	fd_InboundSynthetic_asset_addr = md_InboundSynthetic.Fields().ByName("asset_addr")
+	fd_InboundSynthetic_log_index = md_InboundSynthetic.Fields().ByName("log_index")
+	fd_InboundSynthetic_inbound_status = md_InboundSynthetic.Fields().ByName("inbound_status")
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 }
 
 var _ protoreflect.Message = (*fastReflection_MethodConfig)(nil)
@@ -1991,9 +2016,45 @@ func (x *fastReflection_MethodConfig) Range(f func(protoreflect.FieldDescriptor,
 			return
 		}
 	}
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	if x.EventIdentifier != "" {
 		value := protoreflect.ValueOfString(x.EventIdentifier)
 		if !f(fd_MethodConfig_event_identifier, value) {
+=======
+	if x.Sender != "" {
+		value := protoreflect.ValueOfString(x.Sender)
+		if !f(fd_InboundSynthetic_sender, value) {
+			return
+		}
+	}
+	if x.Recipient != "" {
+		value := protoreflect.ValueOfString(x.Recipient)
+		if !f(fd_InboundSynthetic_recipient, value) {
+			return
+		}
+	}
+	if x.Amount != "" {
+		value := protoreflect.ValueOfString(x.Amount)
+		if !f(fd_InboundSynthetic_amount, value) {
+			return
+		}
+	}
+	if x.AssetAddr != "" {
+		value := protoreflect.ValueOfString(x.AssetAddr)
+		if !f(fd_InboundSynthetic_asset_addr, value) {
+			return
+		}
+	}
+	if x.LogIndex != "" {
+		value := protoreflect.ValueOfString(x.LogIndex)
+		if !f(fd_InboundSynthetic_log_index, value) {
+			return
+		}
+	}
+	if x.InboundStatus != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.InboundStatus))
+		if !f(fd_InboundSynthetic_inbound_status, value) {
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 			return
 		}
 	}
@@ -2012,12 +2073,31 @@ func (x *fastReflection_MethodConfig) Range(f func(protoreflect.FieldDescriptor,
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_MethodConfig) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	case "uexecutor.v1.MethodConfig.name":
 		return x.Name != ""
 	case "uexecutor.v1.MethodConfig.identifier":
 		return x.Identifier != ""
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		return x.EventIdentifier != ""
+=======
+	case "ue.v1.InboundSynthetic.source_chain":
+		return x.SourceChain != ""
+	case "ue.v1.InboundSynthetic.tx_hash":
+		return x.TxHash != ""
+	case "ue.v1.InboundSynthetic.sender":
+		return x.Sender != ""
+	case "ue.v1.InboundSynthetic.recipient":
+		return x.Recipient != ""
+	case "ue.v1.InboundSynthetic.amount":
+		return x.Amount != ""
+	case "ue.v1.InboundSynthetic.asset_addr":
+		return x.AssetAddr != ""
+	case "ue.v1.InboundSynthetic.log_index":
+		return x.LogIndex != ""
+	case "ue.v1.InboundSynthetic.inbound_status":
+		return x.InboundStatus != 0
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2034,12 +2114,31 @@ func (x *fastReflection_MethodConfig) Has(fd protoreflect.FieldDescriptor) bool 
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_MethodConfig) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	case "uexecutor.v1.MethodConfig.name":
 		x.Name = ""
 	case "uexecutor.v1.MethodConfig.identifier":
 		x.Identifier = ""
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		x.EventIdentifier = ""
+=======
+	case "ue.v1.InboundSynthetic.source_chain":
+		x.SourceChain = ""
+	case "ue.v1.InboundSynthetic.tx_hash":
+		x.TxHash = ""
+	case "ue.v1.InboundSynthetic.sender":
+		x.Sender = ""
+	case "ue.v1.InboundSynthetic.recipient":
+		x.Recipient = ""
+	case "ue.v1.InboundSynthetic.amount":
+		x.Amount = ""
+	case "ue.v1.InboundSynthetic.asset_addr":
+		x.AssetAddr = ""
+	case "ue.v1.InboundSynthetic.log_index":
+		x.LogIndex = ""
+	case "ue.v1.InboundSynthetic.inbound_status":
+		x.InboundStatus = 0
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2065,6 +2164,24 @@ func (x *fastReflection_MethodConfig) Get(descriptor protoreflect.FieldDescripto
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		value := x.EventIdentifier
 		return protoreflect.ValueOfString(value)
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
+=======
+	case "ue.v1.InboundSynthetic.recipient":
+		value := x.Recipient
+		return protoreflect.ValueOfString(value)
+	case "ue.v1.InboundSynthetic.amount":
+		value := x.Amount
+		return protoreflect.ValueOfString(value)
+	case "ue.v1.InboundSynthetic.asset_addr":
+		value := x.AssetAddr
+		return protoreflect.ValueOfString(value)
+	case "ue.v1.InboundSynthetic.log_index":
+		value := x.LogIndex
+		return protoreflect.ValueOfString(value)
+	case "ue.v1.InboundSynthetic.inbound_status":
+		value := x.InboundStatus
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2085,12 +2202,31 @@ func (x *fastReflection_MethodConfig) Get(descriptor protoreflect.FieldDescripto
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_MethodConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	case "uexecutor.v1.MethodConfig.name":
 		x.Name = value.Interface().(string)
 	case "uexecutor.v1.MethodConfig.identifier":
 		x.Identifier = value.Interface().(string)
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		x.EventIdentifier = value.Interface().(string)
+=======
+	case "ue.v1.InboundSynthetic.source_chain":
+		x.SourceChain = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.tx_hash":
+		x.TxHash = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.sender":
+		x.Sender = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.recipient":
+		x.Recipient = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.amount":
+		x.Amount = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.asset_addr":
+		x.AssetAddr = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.log_index":
+		x.LogIndex = value.Interface().(string)
+	case "ue.v1.InboundSynthetic.inbound_status":
+		x.InboundStatus = (Status)(value.Enum())
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2111,12 +2247,31 @@ func (x *fastReflection_MethodConfig) Set(fd protoreflect.FieldDescriptor, value
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_MethodConfig) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	case "uexecutor.v1.MethodConfig.name":
 		panic(fmt.Errorf("field name of message uexecutor.v1.MethodConfig is not mutable"))
 	case "uexecutor.v1.MethodConfig.identifier":
 		panic(fmt.Errorf("field identifier of message uexecutor.v1.MethodConfig is not mutable"))
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		panic(fmt.Errorf("field event_identifier of message uexecutor.v1.MethodConfig is not mutable"))
+=======
+	case "ue.v1.InboundSynthetic.source_chain":
+		panic(fmt.Errorf("field source_chain of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.tx_hash":
+		panic(fmt.Errorf("field tx_hash of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.sender":
+		panic(fmt.Errorf("field sender of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.recipient":
+		panic(fmt.Errorf("field recipient of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.amount":
+		panic(fmt.Errorf("field amount of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.asset_addr":
+		panic(fmt.Errorf("field asset_addr of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.log_index":
+		panic(fmt.Errorf("field log_index of message ue.v1.InboundSynthetic is not mutable"))
+	case "ue.v1.InboundSynthetic.inbound_status":
+		panic(fmt.Errorf("field inbound_status of message ue.v1.InboundSynthetic is not mutable"))
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2136,6 +2291,19 @@ func (x *fastReflection_MethodConfig) NewField(fd protoreflect.FieldDescriptor) 
 		return protoreflect.ValueOfString("")
 	case "uexecutor.v1.MethodConfig.event_identifier":
 		return protoreflect.ValueOfString("")
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
+=======
+	case "ue.v1.InboundSynthetic.recipient":
+		return protoreflect.ValueOfString("")
+	case "ue.v1.InboundSynthetic.amount":
+		return protoreflect.ValueOfString("")
+	case "ue.v1.InboundSynthetic.asset_addr":
+		return protoreflect.ValueOfString("")
+	case "ue.v1.InboundSynthetic.log_index":
+		return protoreflect.ValueOfString("")
+	case "ue.v1.InboundSynthetic.inbound_status":
+		return protoreflect.ValueOfEnum(0)
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MethodConfig"))
@@ -2217,6 +2385,28 @@ func (x *fastReflection_MethodConfig) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
+=======
+		l = len(x.Recipient)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.Amount)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.AssetAddr)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.LogIndex)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.InboundStatus != 0 {
+			n += 1 + runtime.Sov(uint64(x.InboundStatus))
+		}
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -2246,10 +2436,50 @@ func (x *fastReflection_MethodConfig) ProtoMethods() *protoiface.Methods {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 		if len(x.EventIdentifier) > 0 {
 			i -= len(x.EventIdentifier)
 			copy(dAtA[i:], x.EventIdentifier)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.EventIdentifier)))
+=======
+		if x.InboundStatus != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.InboundStatus))
+			i--
+			dAtA[i] = 0x40
+		}
+		if len(x.LogIndex) > 0 {
+			i -= len(x.LogIndex)
+			copy(dAtA[i:], x.LogIndex)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.LogIndex)))
+			i--
+			dAtA[i] = 0x3a
+		}
+		if len(x.AssetAddr) > 0 {
+			i -= len(x.AssetAddr)
+			copy(dAtA[i:], x.AssetAddr)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.AssetAddr)))
+			i--
+			dAtA[i] = 0x32
+		}
+		if len(x.Amount) > 0 {
+			i -= len(x.Amount)
+			copy(dAtA[i:], x.Amount)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Amount)))
+			i--
+			dAtA[i] = 0x2a
+		}
+		if len(x.Recipient) > 0 {
+			i -= len(x.Recipient)
+			copy(dAtA[i:], x.Recipient)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Recipient)))
+			i--
+			dAtA[i] = 0x22
+		}
+		if len(x.Sender) > 0 {
+			i -= len(x.Sender)
+			copy(dAtA[i:], x.Sender)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Sender)))
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 			i--
 			dAtA[i] = 0x1a
 		}
@@ -2412,6 +2642,156 @@ func (x *fastReflection_MethodConfig) ProtoMethods() *protoiface.Methods {
 				}
 				x.EventIdentifier = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
+=======
+			case 4:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Recipient", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Recipient = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 5:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Amount = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 6:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field AssetAddr", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.AssetAddr = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 7:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field LogIndex", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.LogIndex = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 8:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field InboundStatus", wireType)
+				}
+				x.InboundStatus = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.InboundStatus |= Status(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -5412,9 +5792,20 @@ type MethodConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	Name            string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                              // Human-readable method name (e.g. "add_funds")
 	Identifier      string `protobuf:"bytes,2,opt,name=identifier,proto3" json:"identifier,omitempty"`                                  // Hex-encoded selector or discriminator for the method
 	EventIdentifier string `protobuf:"bytes,3,opt,name=event_identifier,json=eventIdentifier,proto3" json:"event_identifier,omitempty"` // Hex-encoded topic or identifier for emitted event
+=======
+	SourceChain   string `protobuf:"bytes,1,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`                          // origin chain caip2 id (e.g. eip155:11155111)
+	TxHash        string `protobuf:"bytes,2,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`                                         // unique tx hash / identifier from source chain
+	Sender        string `protobuf:"bytes,3,opt,name=sender,proto3" json:"sender,omitempty"`                                                       // sender address on source chain
+	Recipient     string `protobuf:"bytes,4,opt,name=recipient,proto3" json:"recipient,omitempty"`                                                 // recipient address on destination chain
+	Amount        string `protobuf:"bytes,5,opt,name=amount,proto3" json:"amount,omitempty"`                                                       // synthetic token amount bridged in
+	AssetAddr     string `protobuf:"bytes,6,opt,name=asset_addr,json=assetAddr,proto3" json:"asset_addr,omitempty"`                                // address of erc20 token address on source chain
+	LogIndex      string `protobuf:"bytes,7,opt,name=log_index,json=logIndex,proto3" json:"log_index,omitempty"`                                   // log index that originated the cross chain tx
+	InboundStatus Status `protobuf:"varint,8,opt,name=inbound_status,json=inboundStatus,proto3,enum=ue.v1.Status" json:"inbound_status,omitempty"` // status of inbound synthetic
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 }
 
 func (x *MethodConfig) Reset() {
@@ -5479,6 +5870,13 @@ func (x *InboundSynthetic) GetAmount() string {
 func (x *InboundSynthetic) GetAssetAddr() string {
 	if x != nil {
 		return x.AssetAddr
+	}
+	return ""
+}
+
+func (x *InboundSynthetic) GetLogIndex() string {
+	if x != nil {
+		return x.LogIndex
 	}
 	return ""
 }
@@ -5950,7 +6348,7 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x14, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
 	0x6f, 0x77, 0x6e, 0x65, 0x72, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a,
 	0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
-	0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x94, 0x02, 0x0a, 0x10, 0x49, 0x6e, 0x62,
+	0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0xb1, 0x02, 0x0a, 0x10, 0x49, 0x6e, 0x62,
 	0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x21, 0x0a,
 	0x0c, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x0b, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e,
@@ -5962,6 +6360,7 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x61, 0x73, 0x73, 0x65, 0x74,
 	0x5f, 0x61, 0x64, 0x64, 0x72, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x61, 0x73, 0x73,
+<<<<<<< HEAD:api/uexecutor/v1/types.pulsar.go
 	0x65, 0x74, 0x41, 0x64, 0x64, 0x72, 0x12, 0x34, 0x0a, 0x0e, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
 	0x64, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0d,
 	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0d, 0x69,
@@ -6042,6 +6441,88 @@ var file_ue_v1_types_proto_rawDesc = []byte{
 	0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x33,
 >>>>>>> 6f271b2 (refactor: added generated protobuf):api/ue/v1/types.pulsar.go
+=======
+	0x65, 0x74, 0x41, 0x64, 0x64, 0x72, 0x12, 0x1b, 0x0a, 0x09, 0x6c, 0x6f, 0x67, 0x5f, 0x69, 0x6e,
+	0x64, 0x65, 0x78, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6c, 0x6f, 0x67, 0x49, 0x6e,
+	0x64, 0x65, 0x78, 0x12, 0x34, 0x0a, 0x0e, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x73,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0d, 0x2e, 0x75, 0x65,
+	0x2e, 0x76, 0x31, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0d, 0x69, 0x6e, 0x62, 0x6f,
+	0x75, 0x6e, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8,
+	0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x69, 0x6e, 0x62, 0x6f, 0x75,
+	0x6e, 0x64, 0x5f, 0x73, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x22, 0xc1, 0x01, 0x0a,
+	0x04, 0x50, 0x43, 0x54, 0x78, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61, 0x73, 0x68,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x48, 0x61, 0x73, 0x68, 0x12, 0x16,
+	0x0a, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06,
+	0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x12, 0x19, 0x0a, 0x08, 0x67, 0x61, 0x73, 0x5f, 0x75, 0x73,
+	0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x07, 0x67, 0x61, 0x73, 0x55, 0x73, 0x65,
+	0x64, 0x12, 0x21, 0x0a, 0x0c, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x68, 0x65, 0x69, 0x67, 0x68,
+	0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0b, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x48, 0x65,
+	0x69, 0x67, 0x68, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x06,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1b, 0x0a, 0x09,
+	0x65, 0x72, 0x72, 0x6f, 0x72, 0x5f, 0x6d, 0x73, 0x67, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x08, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x4d, 0x73, 0x67, 0x3a, 0x15, 0x98, 0xa0, 0x1f, 0x00, 0xe8,
+	0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x08, 0x75, 0x65, 0x2f, 0x70, 0x63, 0x5f, 0x74, 0x78,
+	0x22, 0xc4, 0x01, 0x0a, 0x0a, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x12,
+	0x2b, 0x0a, 0x11, 0x64, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x64, 0x65, 0x73, 0x74,
+	0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x17, 0x0a, 0x07,
+	0x74, 0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74,
+	0x78, 0x48, 0x61, 0x73, 0x68, 0x12, 0x1c, 0x0a, 0x09, 0x72, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65,
+	0x6e, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x72, 0x65, 0x63, 0x69, 0x70, 0x69,
+	0x65, 0x6e, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x61,
+	0x73, 0x73, 0x65, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x09, 0x61, 0x73, 0x73, 0x65, 0x74, 0x41, 0x64, 0x64, 0x72, 0x3a, 0x1b, 0x98, 0xa0, 0x1f, 0x00,
+	0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x0e, 0x75, 0x65, 0x2f, 0x6f, 0x75, 0x74, 0x62,
+	0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x74, 0x78, 0x22, 0xfe, 0x01, 0x0a, 0x0b, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x54, 0x78, 0x12, 0x36, 0x0a, 0x0a, 0x69, 0x6e, 0x62, 0x6f, 0x75,
+	0x6e, 0x64, 0x5f, 0x74, 0x78, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75, 0x65,
+	0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68,
+	0x65, 0x74, 0x69, 0x63, 0x52, 0x09, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x12,
+	0x20, 0x0a, 0x05, 0x70, 0x78, 0x5f, 0x74, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0b,
+	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x43, 0x54, 0x78, 0x52, 0x04, 0x70, 0x78, 0x54,
+	0x78, 0x12, 0x32, 0x0a, 0x0b, 0x6f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x74, 0x78,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4f,
+	0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x52, 0x0a, 0x6f, 0x75, 0x74, 0x62, 0x6f,
+	0x75, 0x6e, 0x64, 0x54, 0x78, 0x12, 0x43, 0x0a, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
+	0x6c, 0x54, 0x78, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0f, 0x75, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x3a, 0x1c, 0x98, 0xa0, 0x1f, 0x00,
+	0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x0f, 0x75, 0x65, 0x2f, 0x75, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x74, 0x78, 0x2a, 0x47, 0x0a, 0x10, 0x56, 0x65, 0x72, 0x69,
+	0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x54, 0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x12,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x10, 0x00, 0x12, 0x1b, 0x0a, 0x17, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
+	0x6c, 0x54, 0x78, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10,
+	0x01, 0x2a, 0x83, 0x02, 0x0a, 0x11, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x54,
+	0x78, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x23, 0x0a, 0x1f, 0x55, 0x4e, 0x49, 0x56, 0x45,
+	0x52, 0x53, 0x41, 0x4c, 0x5f, 0x54, 0x58, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55,
+	0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x13, 0x0a, 0x0f,
+	0x49, 0x4e, 0x42, 0x4f, 0x55, 0x4e, 0x44, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x45, 0x53, 0x53, 0x10,
+	0x01, 0x12, 0x1d, 0x0a, 0x19, 0x50, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x5f, 0x49, 0x4e, 0x42,
+	0x4f, 0x55, 0x4e, 0x44, 0x5f, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x02,
+	0x12, 0x17, 0x0a, 0x13, 0x50, 0x43, 0x5f, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x45, 0x44, 0x5f,
+	0x53, 0x55, 0x43, 0x43, 0x45, 0x53, 0x53, 0x10, 0x03, 0x12, 0x16, 0x0a, 0x12, 0x50, 0x43, 0x5f,
+	0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x45, 0x44, 0x5f, 0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10,
+	0x04, 0x12, 0x15, 0x0a, 0x11, 0x50, 0x43, 0x5f, 0x50, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x5f,
+	0x52, 0x45, 0x56, 0x45, 0x52, 0x54, 0x10, 0x05, 0x12, 0x14, 0x0a, 0x10, 0x4f, 0x55, 0x54, 0x42,
+	0x4f, 0x55, 0x4e, 0x44, 0x5f, 0x50, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x10, 0x06, 0x12, 0x14,
+	0x0a, 0x10, 0x4f, 0x55, 0x54, 0x42, 0x4f, 0x55, 0x4e, 0x44, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x45,
+	0x53, 0x53, 0x10, 0x07, 0x12, 0x13, 0x0a, 0x0f, 0x4f, 0x55, 0x54, 0x42, 0x4f, 0x55, 0x4e, 0x44,
+	0x5f, 0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10, 0x08, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x41, 0x4e,
+	0x43, 0x45, 0x4c, 0x45, 0x44, 0x10, 0x09, 0x2a, 0x24, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75,
+	0x73, 0x12, 0x0b, 0x0a, 0x07, 0x50, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x10, 0x00, 0x12, 0x0d,
+	0x0a, 0x09, 0x46, 0x49, 0x4e, 0x41, 0x4c, 0x49, 0x5a, 0x45, 0x44, 0x10, 0x01, 0x42, 0x79, 0x0a,
+	0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54, 0x79, 0x70, 0x65,
+	0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f,
+	0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31,
+	0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65,
+	0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65,
+	0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea,
+	0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+>>>>>>> 1a0be44 (refactor: added logIndex in inbound tx):api/ue/v1/types.pulsar.go
 }
 
 var (

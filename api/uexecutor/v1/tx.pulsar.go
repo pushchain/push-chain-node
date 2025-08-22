@@ -3800,26 +3800,16 @@ func (x *MsgAddChainConfig) slowProtoReflect() protoreflect.Message {
 	mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
 =======
 var (
-	md_MsgVoteInboundSynthetic              protoreflect.MessageDescriptor
-	fd_MsgVoteInboundSynthetic_signer       protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_source_chain protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_tx_hash      protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_sender       protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_recipient    protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_amount       protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_asset_addr   protoreflect.FieldDescriptor
+	md_MsgVoteInboundSynthetic                   protoreflect.MessageDescriptor
+	fd_MsgVoteInboundSynthetic_signer            protoreflect.FieldDescriptor
+	fd_MsgVoteInboundSynthetic_inbound_synthetic protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
 	md_MsgVoteInboundSynthetic = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundSynthetic")
 	fd_MsgVoteInboundSynthetic_signer = md_MsgVoteInboundSynthetic.Fields().ByName("signer")
-	fd_MsgVoteInboundSynthetic_source_chain = md_MsgVoteInboundSynthetic.Fields().ByName("source_chain")
-	fd_MsgVoteInboundSynthetic_tx_hash = md_MsgVoteInboundSynthetic.Fields().ByName("tx_hash")
-	fd_MsgVoteInboundSynthetic_sender = md_MsgVoteInboundSynthetic.Fields().ByName("sender")
-	fd_MsgVoteInboundSynthetic_recipient = md_MsgVoteInboundSynthetic.Fields().ByName("recipient")
-	fd_MsgVoteInboundSynthetic_amount = md_MsgVoteInboundSynthetic.Fields().ByName("amount")
-	fd_MsgVoteInboundSynthetic_asset_addr = md_MsgVoteInboundSynthetic.Fields().ByName("asset_addr")
+	fd_MsgVoteInboundSynthetic_inbound_synthetic = md_MsgVoteInboundSynthetic.Fields().ByName("inbound_synthetic")
 }
 
 var _ protoreflect.Message = (*fastReflection_MsgVoteInboundSynthetic)(nil)
@@ -3942,6 +3932,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.Field
 			return
 		}
 	}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	if x.SourceChain != "" {
 		value := protoreflect.ValueOfString(x.SourceChain)
 		if !f(fd_MsgVoteInboundSynthetic_source_chain, value) {
@@ -3976,6 +3967,11 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.Field
 		value := protoreflect.ValueOfString(x.AssetAddr)
 		if !f(fd_MsgVoteInboundSynthetic_asset_addr, value) {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+	if x.InboundSynthetic != nil {
+		value := protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
+		if !f(fd_MsgVoteInboundSynthetic_inbound_synthetic, value) {
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 			return
 		}
 	}
@@ -4009,18 +4005,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescri
 	switch fd.FullName() {
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		return x.SourceChain != ""
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		return x.TxHash != ""
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		return x.Sender != ""
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		return x.Recipient != ""
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		return x.Amount != ""
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		return x.AssetAddr != ""
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		return x.InboundSynthetic != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4053,18 +4039,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDesc
 	switch fd.FullName() {
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		x.Signer = ""
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		x.SourceChain = ""
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		x.TxHash = ""
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		x.Sender = ""
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		x.Recipient = ""
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		x.Amount = ""
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		x.AssetAddr = ""
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		x.InboundSynthetic = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4100,24 +4076,9 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.Fie
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		value := x.SourceChain
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		value := x.TxHash
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		value := x.Sender
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		value := x.Recipient
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		value := x.Amount
-		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		value := x.AssetAddr
-		return protoreflect.ValueOfString(value)
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		value := x.InboundSynthetic
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4154,18 +4115,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescri
 	switch fd.FullName() {
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		x.SourceChain = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		x.TxHash = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		x.Sender = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		x.Recipient = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		x.Amount = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		x.AssetAddr = value.Interface().(string)
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		x.InboundSynthetic = value.Message().Interface().(*InboundSynthetic)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4203,20 +4154,13 @@ func (x *fastReflection_MsgAddChainConfig) Mutable(fd protoreflect.FieldDescript
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		if x.InboundSynthetic == nil {
+			x.InboundSynthetic = new(InboundSynthetic)
+		}
+		return protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		panic(fmt.Errorf("field source_chain of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		panic(fmt.Errorf("field tx_hash of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		panic(fmt.Errorf("field sender of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		panic(fmt.Errorf("field recipient of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		panic(fmt.Errorf("field amount of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		panic(fmt.Errorf("field asset_addr of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4247,18 +4191,9 @@ func (x *fastReflection_MsgVoteInboundSynthetic) NewField(fd protoreflect.FieldD
 	switch fd.FullName() {
 	case "ue.v1.MsgVoteInboundSynthetic.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.source_chain":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.tx_hash":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.sender":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.recipient":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.amount":
-		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.asset_addr":
-		return protoreflect.ValueOfString("")
+	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
+		m := new(InboundSynthetic)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
@@ -4359,6 +4294,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		if x.ChainConfig != nil {
 			l = options.Size(x.ChainConfig)
 =======
@@ -4385,6 +4321,10 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		l = len(x.AssetAddr)
 		if l > 0 {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		if x.InboundSynthetic != nil {
+			l = options.Size(x.InboundSynthetic)
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if x.unknownFields != nil {
@@ -4421,8 +4361,13 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			copy(dAtA[i:], x.unknownFields)
 		}
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		if x.ChainConfig != nil {
 			encoded, err := options.Marshal(x.ChainConfig)
+=======
+		if x.InboundSynthetic != nil {
+			encoded, err := options.Marshal(x.InboundSynthetic)
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4432,6 +4377,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			i -= len(encoded)
 			copy(dAtA[i:], encoded)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 =======
 		if len(x.AssetAddr) > 0 {
 			i -= len(x.AssetAddr)
@@ -4473,6 +4419,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			copy(dAtA[i:], x.SourceChain)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.SourceChain)))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 			i--
 			dAtA[i] = 0x12
 		}
@@ -4577,6 +4525,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
 				}
@@ -5405,8 +5354,11 @@ func (x *fastReflection_MsgUpdateChainConfig) ProtoMethods() *protoiface.Methods
 =======
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SourceChain", wireType)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field InboundSynthetic", wireType)
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 				}
-				var stringLen uint64
+				var msglen int
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -5416,22 +5368,22 @@ func (x *fastReflection_MsgUpdateChainConfig) ProtoMethods() *protoiface.Methods
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
+					msglen |= int(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
+				if msglen < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
-				postIndex := iNdEx + intStringLen
+				postIndex := iNdEx + msglen
 				if postIndex < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 				x.Signer = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
@@ -5623,6 +5575,14 @@ func (x *fastReflection_MsgUpdateChainConfig) ProtoMethods() *protoiface.Methods
 				}
 				x.AssetAddr = string(dAtA[iNdEx:postIndex])
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+				if x.InboundSynthetic == nil {
+					x.InboundSynthetic = &InboundSynthetic{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.InboundSynthetic); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
@@ -6555,13 +6515,8 @@ type MsgVoteInboundSynthetic struct {
 	unknownFields protoimpl.UnknownFields
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer      string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	SourceChain string `protobuf:"bytes,2,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"` // origin chain caip2 id (e.g. eip155:11155111)
-	TxHash      string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`                // unique tx hash / identifier from source chain
-	Sender      string `protobuf:"bytes,4,opt,name=sender,proto3" json:"sender,omitempty"`                              // sender address on source chain
-	Recipient   string `protobuf:"bytes,5,opt,name=recipient,proto3" json:"recipient,omitempty"`                        // recipient address on destination chain
-	Amount      string `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`                              // synthetic token amount bridged in
-	AssetAddr   string `protobuf:"bytes,7,opt,name=asset_addr,json=assetAddr,proto3" json:"asset_addr,omitempty"`       // address of erc20 token address on source chain
+	Signer           string            `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	InboundSynthetic *InboundSynthetic `protobuf:"bytes,2,opt,name=inbound_synthetic,json=inboundSynthetic,proto3" json:"inbound_synthetic,omitempty"`
 }
 
 func (x *MsgVoteInboundSynthetic) Reset() {
@@ -6591,46 +6546,11 @@ func (x *MsgVoteInboundSynthetic) GetSigner() string {
 	return ""
 }
 
-func (x *MsgVoteInboundSynthetic) GetSourceChain() string {
+func (x *MsgVoteInboundSynthetic) GetInboundSynthetic() *InboundSynthetic {
 	if x != nil {
-		return x.SourceChain
+		return x.InboundSynthetic
 	}
-	return ""
-}
-
-func (x *MsgVoteInboundSynthetic) GetTxHash() string {
-	if x != nil {
-		return x.TxHash
-	}
-	return ""
-}
-
-func (x *MsgVoteInboundSynthetic) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgVoteInboundSynthetic) GetRecipient() string {
-	if x != nil {
-		return x.Recipient
-	}
-	return ""
-}
-
-func (x *MsgVoteInboundSynthetic) GetAmount() string {
-	if x != nil {
-		return x.Amount
-	}
-	return ""
-}
-
-func (x *MsgVoteInboundSynthetic) GetAssetAddr() string {
-	if x != nil {
-		return x.AssetAddr
-	}
-	return ""
+	return nil
 }
 
 // MsgVoteInboundSyntheticResponse defines the response for MsgExecutePayload.
@@ -6987,6 +6907,7 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x19, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f,
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x97, 0x02, 0x0a, 0x03, 0x4d,
 	0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
 	0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
@@ -7020,26 +6941,47 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 =======
 	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa0, 0x02, 0x0a, 0x17, 0x4d,
 >>>>>>> 2e4e4a5 (refactor: updated msg_vote_inbound_synthetic proto and generated protobuf):api/ue/v1/tx.pulsar.go
+=======
+	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xbd, 0x01, 0x0a, 0x17, 0x4d,
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e,
 	0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d,
 	0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67,
-	0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x21, 0x0a, 0x0c, 0x73, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b,
-	0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x17, 0x0a, 0x07, 0x74,
-	0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78,
-	0x48, 0x61, 0x73, 0x68, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x18, 0x04,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x12, 0x1c, 0x0a, 0x09,
-	0x72, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x09, 0x72, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d,
-	0x6f, 0x75, 0x6e, 0x74, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75,
-	0x6e, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x61, 0x73, 0x73, 0x65, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72,
-	0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x61, 0x73, 0x73, 0x65, 0x74, 0x41, 0x64, 0x64,
-	0x72, 0x3a, 0x2a, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7,
-	0xb0, 0x2a, 0x1a, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62,
-	0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x22, 0x21, 0x0a,
-	0x1f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
+	0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x44, 0x0a, 0x11, 0x69, 0x6e, 0x62, 0x6f,
+	0x75, 0x6e, 0x64, 0x5f, 0x73, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f,
+	0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x10, 0x69, 0x6e,
+	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x3a, 0x2a,
+	0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1a,
+	0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
+	0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x22, 0x21, 0x0a, 0x1f, 0x4d, 0x73,
+	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74,
+	0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xf7, 0x02,
+	0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
+	0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
+	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e,
+	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
+	0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a,
+	0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e,
+	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a,
+	0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f,
+	0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06,
+	0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
+	0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20,
+	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x5e, 0x0a, 0x14, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
+	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
+	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x1a, 0x26, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
 	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0x32, 0xf7, 0x02, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61,
 	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
 	0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
@@ -7104,6 +7046,17 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a,
 	0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 >>>>>>> 2e4e4a5 (refactor: updated msg_vote_inbound_synthetic proto and generated protobuf):api/ue/v1/tx.pulsar.go
+=======
+	0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
+	0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
+	0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55,
+	0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c,
+	0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65,
+	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 }
 
 var (
@@ -7183,6 +7136,7 @@ var file_ue_v1_tx_proto_goTypes = []interface{}{
 	(*Params)(nil),                          // 10: ue.v1.Params
 	(*UniversalAccountId)(nil),              // 11: ue.v1.UniversalAccountId
 	(*UniversalPayload)(nil),                // 12: ue.v1.UniversalPayload
+	(*InboundSynthetic)(nil),                // 13: ue.v1.InboundSynthetic
 }
 var file_ue_v1_tx_proto_depIdxs = []int32{
 	10, // 0: ue.v1.MsgUpdateParams.params:type_name -> ue.v1.Params
@@ -7190,6 +7144,7 @@ var file_ue_v1_tx_proto_depIdxs = []int32{
 	11, // 2: ue.v1.MsgMintPC.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	11, // 3: ue.v1.MsgExecutePayload.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	12, // 4: ue.v1.MsgExecutePayload.universal_payload:type_name -> ue.v1.UniversalPayload
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0,  // 5: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
 	2,  // 6: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
 	4,  // 7: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
@@ -7206,6 +7161,24 @@ var file_ue_v1_tx_proto_depIdxs = []int32{
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
 >>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
+=======
+	13, // 5: ue.v1.MsgVoteInboundSynthetic.inbound_synthetic:type_name -> ue.v1.InboundSynthetic
+	0,  // 6: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
+	2,  // 7: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
+	4,  // 8: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
+	6,  // 9: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
+	8,  // 10: ue.v1.Msg.VoteInboundSynthetic:input_type -> ue.v1.MsgVoteInboundSynthetic
+	1,  // 11: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
+	3,  // 12: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
+	5,  // 13: ue.v1.Msg.MintPC:output_type -> ue.v1.MsgMintPCResponse
+	7,  // 14: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
+	9,  // 15: ue.v1.Msg.VoteInboundSynthetic:output_type -> ue.v1.MsgVoteInboundSyntheticResponse
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
+>>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 }
 
 func init() { file_uexecutor_v1_tx_proto_init() }

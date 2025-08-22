@@ -23,14 +23,18 @@ func NewMsgVoteInboundSynthetic(
 	recipient string,
 	amount string,
 	assetAddr string,
+	logIndex string,
 ) *MsgVoteInboundSynthetic {
 	return &MsgVoteInboundSynthetic{
-		Signer:      sender.String(),
-		SourceChain: sourceChain,
-		TxHash:      txHash,
-		Recipient:   recipient,
-		Amount:      amount,
-		AssetAddr:   assetAddr,
+		Signer: sender.String(),
+		InboundSynthetic: &InboundSynthetic{
+			SourceChain: sourceChain,
+			TxHash:      txHash,
+			Recipient:   recipient,
+			Amount:      amount,
+			AssetAddr:   assetAddr,
+			LogIndex:    logIndex,
+		},
 	}
 }
 
@@ -60,36 +64,41 @@ func (msg *MsgVoteInboundSynthetic) ValidateBasic() error {
 	}
 
 	// source chain (e.g. eip155:11155111)
-	if strings.TrimSpace(msg.SourceChain) == "" {
+	if strings.TrimSpace(msg.InboundSynthetic.SourceChain) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "source chain cannot be empty")
 	}
 
 	// tx hash (from source chain)
-	if strings.TrimSpace(msg.TxHash) == "" {
+	if strings.TrimSpace(msg.InboundSynthetic.TxHash) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "tx hash cannot be empty")
 	}
 
 	// Validate recipient is non-empty
-	if len(msg.Recipient) == 0 {
+	if len(msg.InboundSynthetic.Recipient) == 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "recipient cannot be empty")
 	}
 
 	// Validate recipient hex format
-	recipientStr := strings.TrimPrefix(msg.Recipient, "0x")
+	recipientStr := strings.TrimPrefix(msg.InboundSynthetic.Recipient, "0x")
 	_, err := hex.DecodeString(recipientStr)
 	if err != nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "recipient must be valid hex string")
 	}
 
 	// validate amount: must be positive integer string
-	amt, ok := sdkmath.NewIntFromString(msg.Amount)
+	amt, ok := sdkmath.NewIntFromString(msg.InboundSynthetic.Amount)
 	if !ok || !amt.IsPositive() {
 		return errors.Wrap(sdkerrors.ErrInvalidCoins, "amount must be a positive integer")
 	}
 
 	// validate asset address
-	if strings.TrimSpace(msg.AssetAddr) == "" {
+	if strings.TrimSpace(msg.InboundSynthetic.AssetAddr) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "asset address cannot be empty")
+	}
+
+	// validate asset address
+	if strings.TrimSpace(msg.InboundSynthetic.LogIndex) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "log index cannot be empty")
 	}
 
 	return nil

@@ -78,8 +78,9 @@ message InboundSynthetic {
   string recipient    = 4;  // recipient address on destination chain
   string amount = 5; // synthetic token amount bridged in
   string asset_addr        = 6;  // address of erc20 token address on source chain
+  string log_index = 7; // log index that originated the cross chain tx
 
-  Status inbound_status = 7; // status of inbound synthetic
+  Status inbound_status = 8; // status of inbound synthetic
 }
 
 message PCTx {

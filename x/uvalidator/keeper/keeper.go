@@ -213,3 +213,18 @@ func (k Keeper) GetUniversalToCore(ctx context.Context, uvAddr string) (string, 
 	}
 	return coreAddr, true, nil
 }
+
+// Returns the universal validator set
+func (k Keeper) GetUniversalValidatorSet(ctx context.Context) ([]string, error) {
+	var validators []string
+
+	err := k.UniversalValidatorSet.Walk(ctx, nil, func(key string) (stop bool, err error) {
+		validators = append(validators, key)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return validators, nil
+}

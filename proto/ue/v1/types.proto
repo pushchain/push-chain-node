@@ -117,7 +117,7 @@ message UniversalTx {
   option (gogoproto.goproto_stringer) = false;
   
   InboundSynthetic inbound_tx = 1;    // Full inbound tx data
-  PCTx px_tx = 2;               // Execution details on Push Chain
+  PCTx pc_tx = 2;               // Execution details on Push Chain
   OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
   UniversalTxStatus universal_status = 4;       // Current status
 }

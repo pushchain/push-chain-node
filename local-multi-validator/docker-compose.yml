@@ -56,9 +56,9 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120
 
   # Core Validator 2
   core-validator-2:
@@ -95,9 +95,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120
 
   # Core Validator 3
   core-validator-3:
@@ -134,9 +134,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120
 
   # Universal Validator 1 (connects to Core Validator 1)
   universal-validator-1:
@@ -160,9 +160,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120
 
   # Universal Validator 2 (connects to Core Validator 2)
   universal-validator-2:
@@ -186,9 +186,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120
 
   # Universal Validator 3 (connects to Core Validator 3)
   universal-validator-3:
@@ -212,6 +212,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
+      interval: 1s
       timeout: 10s
-      retries: 3
+      retries: 120

@@ -27,6 +27,54 @@ print_success() { echo -e "${GREEN}$1${NC}"; }
 print_error() { echo -e "${RED}$1${NC}"; }
 print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
+# Calculate human-readable uptime from container StartedAt timestamp
+calculate_uptime() {
+    local started_at="$1"
+    
+    # Handle case where timestamp is unknown or empty
+    if [ "$started_at" = "unknown" ] || [ -z "$started_at" ]; then
+        echo "unknown"
+        return
+    fi
+    
+    # Convert ISO timestamp to Unix timestamp (handle both Linux and macOS)
+    local start_unix
+    
+    if date --version >/dev/null 2>&1; then
+        # GNU date (Linux) - handles UTC automatically
+        start_unix=$(date -d "$started_at" +%s 2>/dev/null || echo "0")
+    else
+        # BSD date (macOS) - handle UTC timezone properly
+        start_unix=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "${started_at%.*}" +%s 2>/dev/null || echo "0")
+    fi
+    
+    # Get current Unix timestamp
+    local current_unix=$(date +%s)
+    
+    # Calculate difference in seconds
+    local diff=$((current_unix - start_unix))
+    
+    # Handle negative or zero differences
+    if [ "$diff" -le 0 ]; then
+        echo "just now"
+        return
+    fi
+    
+    # Format based on time magnitude
+    if [ "$diff" -lt 60 ]; then
+        echo "${diff} sec ago"
+    elif [ "$diff" -lt 3600 ]; then
+        local minutes=$((diff / 60))
+        echo "${minutes} min ago"
+    elif [ "$diff" -lt 86400 ]; then
+        local hours=$((diff / 3600))
+        echo "${hours} hr ago"
+    else
+        local days=$((diff / 86400))
+        echo "${days} day ago"
+    fi
+}
+
 # ASCII Art Banner
 show_banner() {
     echo -e "${BOLD}${GREEN}"
@@ -129,7 +177,8 @@ show_status() {
         # Get container ID and uptime
         local container_info=$(docker inspect "$name" 2>/dev/null | jq -r '.[0].Id[0:12] + "|" + .[0].State.StartedAt' || echo "unknown|unknown")
         local container_id=$(echo "$container_info" | cut -d'|' -f1)
-        local uptime=$(echo "$container_info" | cut -d'|' -f2 | head -c 16 | tail -c 8)
+        local started_at=$(echo "$container_info" | cut -d'|' -f2)
+        local uptime=$(calculate_uptime "$started_at")
         
         # Extract key ports for different service types
         local key_ports=""

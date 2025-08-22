@@ -123,9 +123,10 @@ message MsgVoteInboundSynthetic {
   string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   string source_chain = 2;  // origin chain caip2 id (e.g. eip155:11155111)
   string tx_hash        = 3;  // unique tx hash / identifier from source chain
-  string recipient    = 4;  // recipient address on destination chain
-  string amount = 5; // synthetic token amount bridged in
-  string asset_addr        = 6;  // address of erc20 token address on source chain
+  string sender = 4; // sender address on source chain
+  string recipient    = 5;  // recipient address on destination chain
+  string amount = 6; // synthetic token amount bridged in
+  string asset_addr        = 7;  // address of erc20 token address on source chain
 }
 
 // MsgVoteInboundSyntheticResponse defines the response for MsgExecutePayload.

@@ -20,7 +20,7 @@ type GatewayTransaction struct {
 	BlockNumber     uint64
 	Method          string
 	EventIdentifier string
-	Status          string `gorm:"index"` // "pending", "confirmed", "failed"
+	Status          string `gorm:"index"` // "pending", "fast_confirmed", "confirmed", "failed"
 	Confirmations   uint64
 	Data            []byte // Store raw event data
 }

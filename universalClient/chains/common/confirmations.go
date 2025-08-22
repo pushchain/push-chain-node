@@ -98,9 +98,9 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 ) error {
 	var pendingTxs []store.GatewayTransaction
 	
-	// Get all pending transactions for this chain
+	// Get all transactions that are not yet fully confirmed for this chain
 	err := ct.db.Client().
-		Where("chain_id = ? AND status = ?", chainID, "pending").
+		Where("chain_id = ? AND status IN (?)", chainID, []string{"pending", "fast_confirmed"}).
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions: %w", err)
@@ -120,23 +120,37 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 		}
 		
 		confirmations := currentBlock - tx.BlockNumber
+		originalStatus := tx.Status
 		tx.Confirmations = confirmations
 		
-		// Check if transaction is confirmed
-		if confirmations >= ct.standardInbound {
+		// Check if transaction meets fast threshold and is still pending
+		if confirmations >= ct.fastInbound && tx.Status == "pending" {
+			tx.Status = "fast_confirmed"
+			ct.logger.Info().
+				Str("tx_hash", tx.TxHash).
+				Uint64("confirmations", confirmations).
+				Uint64("fast_threshold", ct.fastInbound).
+				Msg("transaction fast confirmed")
+		}
+		
+		// Check if transaction meets standard threshold and is not already confirmed
+		if confirmations >= ct.standardInbound && tx.Status != "confirmed" {
 			tx.Status = "confirmed"
 			ct.logger.Info().
 				Str("tx_hash", tx.TxHash).
 				Uint64("confirmations", confirmations).
+				Uint64("standard_threshold", ct.standardInbound).
 				Msg("transaction confirmed (standard)")
 		}
 		
-		// Save updated transaction
-		if err := ct.db.Client().Save(&tx).Error; err != nil {
-			ct.logger.Error().
-				Err(err).
-				Str("tx_hash", tx.TxHash).
-				Msg("failed to update transaction confirmations")
+		// Only save if status changed to prevent unnecessary updates
+		if tx.Status != originalStatus {
+			if err := ct.db.Client().Save(&tx).Error; err != nil {
+				ct.logger.Error().
+					Err(err).
+					Str("tx_hash", tx.TxHash).
+					Msg("failed to update transaction confirmations")
+			}
 		}
 	}
 	
@@ -154,14 +168,20 @@ func (ct *ConfirmationTracker) IsConfirmed(
 		return false, fmt.Errorf("transaction not found: %w", err)
 	}
 	
-	required := ct.GetRequiredConfirmations(mode)
-	confirmed := tx.Confirmations >= required
+	var confirmed bool
+	if mode == "fast" {
+		// For fast mode, accept both fast_confirmed and confirmed status
+		confirmed = tx.Status == "fast_confirmed" || tx.Status == "confirmed"
+	} else {
+		// For standard mode, only accept confirmed status
+		confirmed = tx.Status == "confirmed"
+	}
 	
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
 		Str("mode", mode).
+		Str("status", tx.Status).
 		Uint64("confirmations", tx.Confirmations).
-		Uint64("required", required).
 		Bool("confirmed", confirmed).
 		Msg("checking confirmation status")
 	

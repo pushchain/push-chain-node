@@ -105,7 +105,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	tx, err := tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(5), tx.Confirmations)
-	assert.Equal(t, "pending", tx.Status) // Still pending (needs 12 for standard)
+	assert.Equal(t, "fast_confirmed", tx.Status) // Fast confirmed at 5 confirmations
 	
 	// Update confirmations with current block at 112
 	err = tracker.UpdateConfirmations("eip155:11155111", 112)
@@ -115,7 +115,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	tx, err = tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(12), tx.Confirmations)
-	assert.Equal(t, "confirmed", tx.Status) // Now confirmed
+	assert.Equal(t, "confirmed", tx.Status) // Now confirmed (standard)
 }
 
 func TestIsConfirmed(t *testing.T) {

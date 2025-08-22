@@ -31,6 +31,9 @@ type Keeper struct {
 	uregistryKeeper  types.UregistryKeeper
 	utvKeeper        types.UtvKeeper
 	uvalidatorKeeper types.UValidatorKeeper
+
+	// Inbound synthetics trackers
+	InboundSynthetics collections.Map[string, types.InboundSynthetic]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -69,6 +72,14 @@ func NewKeeper(
 		uregistryKeeper:  uregistryKeeper,
 		utvKeeper:        utvKeeper,
 		uvalidatorKeeper: uvalidatorKeeper,
+
+		InboundSynthetics: collections.NewMap(
+			sb,
+			types.InboundSyntheticsKey,  // define in types/constants.go
+			types.InboundSyntheticsName, // define in types/constants.go
+			collections.StringKey,
+			codec.CollValue[types.InboundSynthetic](cdc),
+		),
 	}
 
 	return k

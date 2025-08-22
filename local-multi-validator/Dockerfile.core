@@ -1,19 +1,22 @@
 ARG BASE_IMAGE=local-multi-validator-base:latest
 FROM $BASE_IMAGE AS core-builder
 
-# Copy source code for core validator (changing these won't invalidate base dependency cache)
+# Copy source code in order of change frequency (most stable first)
 COPY Makefile ./
-COPY cmd/ ./cmd/
-COPY app/ ./app/
-COPY x/ ./x/
 COPY contrib/ ./contrib/
 COPY api/ ./api/
 COPY precompiles/ ./precompiles/
 COPY types/ ./types/
 COPY utils/ ./utils/
+COPY x/ ./x/
+COPY app/ ./app/
+# Copy cmd/ last as it changes most frequently (especially main.go)
+COPY cmd/ ./cmd/
 
-# Build ONLY pchaind binary (skip puniversald for core validators)
-RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
+# Build ONLY pchaind binary with build cache mount for faster incremental builds
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
   -mod=readonly -tags "netgo,muslc" \
   -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-Wl,-z,muldefs -static"' \
   -trimpath -o build/pchaind ./cmd/pchaind \

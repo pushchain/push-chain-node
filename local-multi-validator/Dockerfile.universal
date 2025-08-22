@@ -1,17 +1,20 @@
 ARG BASE_IMAGE=local-multi-validator-base:latest
 FROM $BASE_IMAGE AS universal-builder
 
-# Copy source code for universal validator (needs cmd, universalClient, x modules, and utils)
+# Copy source code in order of change frequency (most stable first)
 COPY Makefile ./
-COPY cmd/ ./cmd/
-COPY universalClient/ ./universalClient/
-COPY x/ ./x/
 COPY utils/ ./utils/
+COPY x/ ./x/
+COPY universalClient/ ./universalClient/
+# Copy cmd/ last as it changes most frequently
+COPY cmd/ ./cmd/
 
-# Build ONLY puniversald binary (skip pchaind for universal validators)
-RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
+# Build ONLY puniversald binary with build cache mount for faster incremental builds
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
   -mod=readonly -tags "netgo,muslc" \
-  -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-Wl,-z,muldefs -static"' \
+  -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=puniversald -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-Wl,-z,muldefs -static"' \
   -trimpath -o build/puniversald ./cmd/puniversald \
   && file /code/build/puniversald \
   && echo "Ensuring puniversald is statically linked ..." \

@@ -319,39 +319,41 @@ rebuild_containers() {
     
     case "$rebuild_target" in
         all)
-            print_status "🔧 Rebuilding all containers (with cache)..."
-            docker-compose build
-            print_success "✅ All containers rebuilt"
+            print_status "🔧 Rebuilding all validators (with cache)..."
+            (cd .. && docker build -f local-multi-validator/Dockerfile.base -t local-multi-validator-base:latest . && \
+            docker build -f local-multi-validator/Dockerfile.core -t push-core:latest . && \
+            docker build -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            print_success "✅ All validators rebuilt successfully"
             print_status "💡 Use './local-validator-manager restart' to apply changes"
             ;;
         core)
-            print_status "🔧 Rebuilding core validator containers (with cache)..."
-            docker-compose build core-validator-1 core-validator-2 core-validator-3
-            print_success "✅ Core validator containers rebuilt"
-            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            print_status "🔧 Rebuilding core validators..."
+            (cd .. && docker build -f local-multi-validator/Dockerfile.core -t push-core:latest .)
+            print_success "✅ Core validators rebuilt successfully"
             ;;
         universal)
-            print_status "🔧 Rebuilding universal validator containers (with cache)..."
-            docker-compose build universal-validator-1 universal-validator-2 universal-validator-3
-            print_success "✅ Universal validator containers rebuilt"
-            print_status "💡 Use './local-validator-manager restart' to apply changes"
+            print_status "🔧 Rebuilding universal validators..."
+            (cd .. && docker build -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            print_success "✅ Universal validators rebuilt successfully"
             ;;
-        core-validator-*|universal-validator-*)
-            print_status "🔧 Rebuilding $rebuild_target container (with cache)..."
-            docker-compose build "$rebuild_target"
-            print_success "✅ $rebuild_target container rebuilt"
-            print_status "💡 Use './local-validator-manager restart-validator $rebuild_target' to apply changes"
+        base)
+            print_status "🔧 Rebuilding base dependencies..."
+            (cd .. && docker build -f local-multi-validator/Dockerfile.base -t local-multi-validator-base:latest .)
+            print_success "✅ Base dependencies rebuilt successfully"
+            print_status "💡 Rebuild core/universal images next to apply changes"
             ;;
         clean)
-            print_status "🔧 Clean rebuilding all containers (no cache)..."
-            docker-compose build --no-cache
-            print_success "✅ All containers clean rebuilt"
+            print_status "🔧 Clean rebuilding all validators (no cache)..."
+            (cd .. && docker build --no-cache -f local-multi-validator/Dockerfile.base -t local-multi-validator-base:latest . && \
+            docker build --no-cache -f local-multi-validator/Dockerfile.core -t push-core:latest . && \
+            docker build --no-cache -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            print_success "✅ Clean rebuild completed successfully"
             print_status "💡 Use './local-validator-manager restart' to apply changes"
             ;;
         *)
             print_error "❌ Invalid rebuild target: $rebuild_target"
-            echo "Valid targets: all, core, universal, clean, core-validator-1, core-validator-2, core-validator-3,"
-            echo "              universal-validator-1, universal-validator-2, universal-validator-3"
+            echo "Valid targets: all, core, universal, base, clean"
+            echo "Note: All validators are rebuilt together"
             exit 1
             ;;
     esac
@@ -445,11 +447,14 @@ show_help() {
     printf "  ${BOLD}%-25s${NC}%s\n" "validator-help" "Show validator-specific commands"
     echo
     echo -e "${BOLD}${CYAN}REBUILD COMMANDS${NC}"
-    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild all" "Rebuild all containers (with cache, fast)"
-    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild core" "Rebuild only core validator containers"
-    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild universal" "Rebuild only universal validator containers"
-    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild clean" "Clean rebuild all (no cache, slow)"
-    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild <service>" "Rebuild specific service container"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild all" "Rebuild base + all validators (with cache)"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild core" "Rebuild core validators only"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild universal" "Rebuild universal validators only"  
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild base" "Rebuild shared dependencies only"
+    printf "  ${BOLD}%-25s${NC}%s\n" "rebuild clean" "Clean rebuild all (slow, no cache)"
+    echo
+    echo -e "${BOLD}${CYAN}🔥 DEVELOPMENT & HOT RELOAD${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "dev-watch" "Auto-rebuild on file changes (requires fswatch)"
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BOLD}${YELLOW}QUICK START${NC}"
@@ -477,6 +482,55 @@ show_help() {
     echo -e "  Validator data: ${YELLOW}Docker volumes${NC}"
     echo
 }
+
+# Hot reload functionality
+start_dev_watch() {
+    require_docker_compose
+    
+    print_header "🔥 Hot Reload Development Mode"
+    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    
+    # Check if fswatch is available
+    if ! command -v fswatch >/dev/null 2>&1; then
+        print_error "❌ fswatch not found"
+        echo "Install fswatch for file watching:"
+        echo "  macOS: brew install fswatch"
+        echo "  Linux: apt-get install fswatch"
+        exit 1
+    fi
+    
+    print_status "📁 Watching source directories: cmd/, app/, x/, universalClient/"
+    print_status "🔧 Auto-rebuild on file changes (Ctrl+C to stop)"
+    echo
+    
+    # Initial status check
+    show_status
+    echo
+    
+    # Start file watching
+    fswatch -e "\.git" -e "\.log" -e "build/" ../cmd/ ../app/ ../x/ ../universalClient/ | while read file; do
+        echo
+        print_status "📝 File changed: $(basename "$file")"
+        # Smart rebuilding based on changed file
+        if echo "$file" | grep -qE "(universalClient/)"; then
+            print_status "🔧 Universal file changed - rebuilding universal validators..."
+            BUILD_CMD="(cd .. && docker build -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)"
+        else
+            print_status "🔧 Core file changed - rebuilding core validators..."
+            BUILD_CMD="(cd .. && docker build -f local-multi-validator/Dockerfile.core -t push-core:latest .)"
+        fi
+        
+        if eval "$BUILD_CMD"; then
+            print_status "🔄 Restarting validators..."
+            docker-compose restart core-validator-1 core-validator-2 core-validator-3 universal-validator-1 universal-validator-2 universal-validator-3
+            print_success "✅ Hot reload complete! New code is active."
+        else
+            print_error "❌ Build failed - check your code changes"
+        fi
+        echo
+    done
+}
+
 
 # Command handling
 case "${1:-help}" in
@@ -526,6 +580,10 @@ case "${1:-help}" in
         
     rebuild)
         rebuild_containers "$@"
+        ;;
+        
+    dev-watch)
+        start_dev_watch "$@"
         ;;
         
     help|--help|-h|"")

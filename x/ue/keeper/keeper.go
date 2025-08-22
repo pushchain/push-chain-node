@@ -33,7 +33,7 @@ type Keeper struct {
 	uvalidatorKeeper types.UValidatorKeeper
 
 	// Inbound synthetics trackers
-	InboundSynthetics collections.Map[string, types.InboundSynthetic]
+	InboundSynthetics collections.Map[string, types.InboundStatus]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -78,7 +78,7 @@ func NewKeeper(
 			types.InboundSyntheticsKey,  // define in types/constants.go
 			types.InboundSyntheticsName, // define in types/constants.go
 			collections.StringKey,
-			codec.CollValue[types.InboundSynthetic](cdc),
+			codec.CollValue[types.InboundStatus](cdc),
 		),
 	}
 

@@ -1,6 +1,8 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	fmt "fmt"
 
 	"cosmossdk.io/collections"
@@ -31,7 +33,8 @@ const (
 	QuerierRoute = ModuleName
 )
 
-// GetInboundSyntheticKey generates a unique key for an inbound synthetic transaction
-func GetInboundSyntheticKey(sourceChain, txHash, logIndex string) string {
-	return fmt.Sprintf("%s:%s", sourceChain, txHash, logIndex)
+func GetInboundSyntheticKey(inbound InboundSynthetic) string {
+	data := fmt.Sprintf("%s:%s:%s:%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex, inbound.Sender, inbound.Recipient, inbound.Amount)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte
 }

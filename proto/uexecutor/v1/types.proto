@@ -63,8 +63,13 @@ enum UniversalTxStatus {
 }
 
 enum Status {
-  PENDING = 0;
-  FINALIZED = 1;
+  UNSPECIFIED = 0;
+  PENDING = 1;
+  FINALIZED = 2;
+}
+
+message InboundStatus {
+  Status status = 1;
 }
 
 message InboundSynthetic {

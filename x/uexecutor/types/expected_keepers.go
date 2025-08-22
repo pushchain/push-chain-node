@@ -18,6 +18,8 @@ import (
 // UregistryKeeper defines the expected interface for the UE module.
 type UregistryKeeper interface {
 	GetChainConfig(ctx context.Context, chain string) (uregistrytypes.ChainConfig, error)
+	IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error)
+	IsChainInboundEnabled(ctx context.Context, chain string) (bool, error)
 }
 
 // EVMKeeper defines the expected interface for the EVM module.
@@ -106,6 +108,7 @@ type UValidatorKeeper interface {
 		isFinalized bool,
 		isNew bool,
 		err error)
+	GetUniversalValidatorSet(ctx context.Context) ([]string, error)
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

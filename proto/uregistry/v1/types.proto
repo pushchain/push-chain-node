@@ -64,6 +64,16 @@ message BlockConfirmation {
 	uint32 standard_inbound = 2; // standard confirmations, for secure executions
 }
 
+// ChainEnabled defines if chain is enabled for inbound as well as outbound
+message ChainEnabled {
+  option (amino.name) = "uregistry/chain_enabled";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  bool isInboundEnabled = 1;
+  bool isOutboundEnabled = 2;
+}
+
 // ChainConfig defines the configuration for a supported source or destination chain
 message ChainConfig {
   option (amino.name) = "uregistry/chain_config";
@@ -79,7 +89,7 @@ message ChainConfig {
   
   repeated GatewayMethods gateway_methods = 6; // List of methods that can be used for universal operations
 
-  bool enabled = 7; // Whether this chain is currently enabled or not
+  ChainEnabled enabled = 7; // Whether this chain is currently enabled or not
 }
 
 message NativeRepresentation {

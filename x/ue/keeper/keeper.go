@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/ethereum/go-ethereum/common"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -21,15 +22,22 @@ type Keeper struct {
 	logger log.Logger
 
 	// state management
-	storeService    storetypes.KVStoreService
-	Params          collections.Item[types.Params]
-	authority       string
-	evmKeeper       types.EVMKeeper
-	feemarketKeeper types.FeeMarketKeeper
-	bankKeeper      types.BankKeeper
-	accountKeeper   types.AccountKeeper
-	uregistryKeeper types.UregistryKeeper
-	utvKeeper       types.UtvKeeper
+	storeService     storetypes.KVStoreService
+	Params           collections.Item[types.Params]
+	authority        string
+	evmKeeper        types.EVMKeeper
+	feemarketKeeper  types.FeeMarketKeeper
+	bankKeeper       types.BankKeeper
+	accountKeeper    types.AccountKeeper
+	uregistryKeeper  types.UregistryKeeper
+	utvKeeper        types.UtvKeeper
+	uvalidatorKeeper types.UValidatorKeeper
+
+	// Inbound trackers
+	PendingInbounds collections.KeySet[string]
+
+	// UniversalTx collection
+	UniversalTx collections.Map[string, types.UniversalTx]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -44,6 +52,7 @@ func NewKeeper(
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
 	utvKeeper types.UtvKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -59,13 +68,29 @@ func NewKeeper(
 		storeService: storeService,
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
-		authority:       authority,
-		evmKeeper:       evmKeeper,
-		feemarketKeeper: feemarketKeeper,
-		bankKeeper:      bankKeeper,
-		accountKeeper:   accountKeeper,
-		uregistryKeeper: uregistryKeeper,
-		utvKeeper:       utvKeeper,
+		authority:        authority,
+		evmKeeper:        evmKeeper,
+		feemarketKeeper:  feemarketKeeper,
+		bankKeeper:       bankKeeper,
+		accountKeeper:    accountKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		utvKeeper:        utvKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
+
+		PendingInbounds: collections.NewKeySet(
+			sb,
+			types.InboundsKey,
+			types.InboundsName,
+			collections.StringKey,
+		),
+
+		UniversalTx: collections.NewMap(
+			sb,
+			types.UniversalTxKey,
+			types.UniversalTxName,
+			collections.StringKey,
+			codec.CollValue[types.UniversalTx](cdc),
+		),
 	}
 
 	return k
@@ -98,4 +123,13 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params: params,
 	}
+}
+
+func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string) {
+	ueModuleAcc := k.accountKeeper.GetModuleAccount(ctx, types.ModuleName) // "ue"
+	ueModuleAddr := ueModuleAcc.GetAddress()
+	var ethSenderUEAddr common.Address
+	copy(ethSenderUEAddr[:], ueModuleAddr.Bytes())
+
+	return ethSenderUEAddr, ethSenderUEAddr.Hex()
 }

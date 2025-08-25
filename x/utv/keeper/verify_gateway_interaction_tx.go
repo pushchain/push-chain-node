@@ -15,7 +15,7 @@ func (k Keeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash
 		return err
 	}
 
-	if !chainConfig.Enabled {
+	if !chainConfig.Enabled.IsInboundEnabled {
 		return fmt.Errorf("chain %s is not enabled", chain)
 	}
 

@@ -56,8 +56,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.StakingKeeper)
-	m := NewAppModule(in.Cdc, k, in.StakingKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.StakingKeeper, in.SlashingKeeper)
+	m := NewAppModule(in.Cdc, k, in.StakingKeeper, in.SlashingKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

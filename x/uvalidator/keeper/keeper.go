@@ -35,7 +35,8 @@ type Keeper struct {
 	ExpiredBallotIDs   collections.KeySet[string]            // set of ballot IDs that have expired (not yet pruned)
 	FinalizedBallotIDs collections.KeySet[string]            // set of ballot IDs that are PASSED or REJECTED
 
-	stakingKeeper types.StakingKeeper
+	stakingKeeper  types.StakingKeeper
+	slashingKeeper types.SlashingKeeper
 
 	authority string
 }
@@ -47,6 +48,7 @@ func NewKeeper(
 	logger log.Logger,
 	authority string,
 	stakingKeeper types.StakingKeeper,
+	slashingKeeper types.SlashingKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -94,8 +96,9 @@ func NewKeeper(
 			collections.StringKey,
 		),
 
-		authority:     authority,
-		stakingKeeper: stakingKeeper,
+		authority:      authority,
+		stakingKeeper:  stakingKeeper,
+		slashingKeeper: slashingKeeper,
 	}
 
 	return k
@@ -185,4 +188,43 @@ func (k Keeper) RemoveUniversalValidatorFromSet(ctx context.Context, addr string
 func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	return sdkCtx.BlockHeight(), nil
+}
+
+// GetUniversalToCore finds the core validator address corresponding to a universal validator.
+// Returns (coreAddr, true, nil) if found, ("", false, nil) if not found, or error if something goes wrong.
+func (k Keeper) GetUniversalToCore(ctx context.Context, uvAddr string) (string, bool, error) {
+	var coreAddr string
+	var found bool
+
+	err := k.CoreToUniversal.Walk(ctx, nil, func(cAddr, mappedUV string) (bool, error) {
+		if mappedUV == uvAddr {
+			coreAddr = cAddr
+			found = true
+			return true, nil // stop walking early
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", false, fmt.Errorf("error walking CoreToUniversal map: %w", err)
+	}
+
+	if !found {
+		return "", false, nil
+	}
+	return coreAddr, true, nil
+}
+
+// Returns the universal validator set
+func (k Keeper) GetUniversalValidatorSet(ctx context.Context) ([]string, error) {
+	var validators []string
+
+	err := k.UniversalValidatorSet.Walk(ctx, nil, func(key string) (stop bool, err error) {
+		validators = append(validators, key)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return validators, nil
 }

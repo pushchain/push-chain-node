@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -80,4 +81,35 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	}
 
 	return &types.MsgExecutePayloadResponse{}, nil
+}
+
+// VoteInbound implements types.MsgServer.
+func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) (*types.MsgVoteInboundResponse, error) {
+	// Get the signer address
+	signerAddr := msg.Signer
+
+	// Lookup the linked universal validator for this signer
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, signerAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", signerAddr)
+	}
+	if !isBonded {
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", signerAddr)
+	}
+
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, signerAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", signerAddr)
+	}
+	if isTombstoned {
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", signerAddr)
+	}
+
+	// continue with inbound synthetic creation / voting logic here
+	err = ms.k.VoteInbound(ctx, signerAddr, *msg.Inbound)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgVoteInboundResponse{}, nil
 }

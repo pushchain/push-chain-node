@@ -749,6 +749,7 @@ func NewChainApp(
 		app.AccountKeeper,
 		app.UregistryKeeper,
 		&app.UtvKeeper,
+		&app.UvalidatorKeeper,
 	)
 
 	// Create the utv Keeper
@@ -767,6 +768,7 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.StakingKeeper,
+		app.SlashingKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1052,10 +1054,10 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtvKeeper),
+		ue.NewAppModule(appCodec, app.UeKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtvKeeper, app.UvalidatorKeeper),
 		utv.NewAppModule(appCodec, app.UtvKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

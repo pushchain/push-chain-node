@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
@@ -90,12 +91,30 @@ func (k Keeper) GetChainConfig(ctx context.Context, chain string) (types.ChainCo
 	return config, nil
 }
 
-func (k Keeper) IsChainEnabled(ctx context.Context, chain string) (bool, error) {
-	enabled, err := k.ChainConfigs.Has(ctx, chain)
+// IsChainInboundEnabled checks if inbound is enabled for a given chain
+func (k Keeper) IsChainInboundEnabled(ctx context.Context, chain string) (bool, error) {
+	config, err := k.GetChainConfig(ctx, chain)
 	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			// chain not found
+			return false, nil
+		}
 		return false, err
 	}
-	return enabled, nil
+	return config.Enabled.IsInboundEnabled, nil
+}
+
+// IsChainOutboundEnabled checks if outbound is enabled for a given chain
+func (k Keeper) IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error) {
+	config, err := k.GetChainConfig(ctx, chain)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			// chain not found
+			return false, nil
+		}
+		return false, err
+	}
+	return config.Enabled.IsOutboundEnabled, nil
 }
 
 func (k Keeper) GetTokenConfig(ctx context.Context, chain, address string) (types.TokenConfig, error) {

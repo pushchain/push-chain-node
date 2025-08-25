@@ -43,13 +43,14 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper          keeper.Keeper
-	evmKeeper       types.EVMKeeper
-	feemarketKeeper types.FeeMarketKeeper
-	bankKeeper      types.BankKeeper
-	accountKeeper   types.AccountKeeper
-	uregistryKeeper types.UregistryKeeper
-	utvKeeper       types.UtvKeeper
+	keeper           keeper.Keeper
+	evmKeeper        types.EVMKeeper
+	feemarketKeeper  types.FeeMarketKeeper
+	bankKeeper       types.BankKeeper
+	accountKeeper    types.AccountKeeper
+	uregistryKeeper  types.UregistryKeeper
+	utvKeeper        types.UtvKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 }
 
 // NewAppModule constructor
@@ -62,16 +63,18 @@ func NewAppModule(
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
 	utvKeeper types.UtvKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) *AppModule {
 	return &AppModule{
-		AppModuleBasic:  AppModuleBasic{cdc: cdc},
-		keeper:          keeper,
-		evmKeeper:       evmKeeper,
-		feemarketKeeper: feemarketKeeper,
-		bankKeeper:      bankKeeper,
-		accountKeeper:   accountKeeper,
-		uregistryKeeper: uregistryKeeper,
-		utvKeeper:       utvKeeper,
+		AppModuleBasic:   AppModuleBasic{cdc: cdc},
+		keeper:           keeper,
+		evmKeeper:        evmKeeper,
+		feemarketKeeper:  feemarketKeeper,
+		bankKeeper:       bankKeeper,
+		accountKeeper:    accountKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		utvKeeper:        utvKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 }
 

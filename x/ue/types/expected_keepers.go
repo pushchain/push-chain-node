@@ -12,11 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uvalidatortypes "github.com/rollchains/pchain/x/uvalidator/types"
 )
 
 // UregistryKeeper defines the expected interface for the UE module.
 type UregistryKeeper interface {
 	GetChainConfig(ctx context.Context, chain string) (uregistrytypes.ChainConfig, error)
+	IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error)
+	IsChainInboundEnabled(ctx context.Context, chain string) (bool, error)
+	GetTokenConfig(ctx context.Context, chain, address string) (uregistrytypes.TokenConfig, error)
 }
 
 // EVMKeeper defines the expected interface for the EVM module.
@@ -86,6 +90,26 @@ type AccountKeeper interface {
 type UtvKeeper interface {
 	VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error
 	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error)
+}
+
+type UValidatorKeeper interface {
+	IsTombstonedUniversalValidator(ctx context.Context, universalValidator string) (bool, error)
+	IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error)
+	VoteOnBallot(
+		ctx context.Context,
+		id string,
+		ballotType uvalidatortypes.BallotObservationType,
+		voter string,
+		voteResult uvalidatortypes.VoteResult,
+		voters []string,
+		votesNeeded int64,
+		expiryAfterBlocks int64,
+	) (
+		ballot uvalidatortypes.Ballot,
+		isFinalized bool,
+		isNew bool,
+		err error)
+	GetUniversalValidatorSet(ctx context.Context) ([]string, error)
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

@@ -40,7 +40,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	configCache := registry.NewConfigCache(log)
 
 	// Create chain registry
-	chainRegistry := chains.NewChainRegistry(log)
+	chainRegistry := chains.NewChainRegistry(db, log)
+	chainRegistry.SetAppConfig(cfg)
 
 	// Create config updater
 	configUpdater := NewConfigUpdater(

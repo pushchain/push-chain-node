@@ -86,11 +86,28 @@ func (m *MockChainClient) IsStopped() bool {
 	return m.stopped
 }
 
+// Implement GatewayOperations interface
+func (m *MockChainClient) GetLatestBlock(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockChainClient) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
+	return nil, nil
+}
+
+func (m *MockChainClient) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockChainClient) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
+	return false, nil
+}
+
 // TestChainRegistryInitialization tests the creation of ChainRegistry
 func TestChainRegistryInitialization(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	
-	registry := NewChainRegistry(logger)
+	registry := NewChainRegistry(nil, logger)
 	
 	assert.NotNil(t, registry)
 	assert.NotNil(t, registry.chains)
@@ -101,7 +118,7 @@ func TestChainRegistryInitialization(t *testing.T) {
 // TestChainRegistryCreateChainClient tests chain client creation
 func TestChainRegistryCreateChainClient(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	registry := NewChainRegistry(logger)
+	registry := NewChainRegistry(nil, logger)
 	
 	t.Run("Create EVM client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
@@ -332,7 +349,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	})
 	
 	t.Run("Invalid config", func(t *testing.T) {
-		registry := NewChainRegistry(logger)
+		registry := NewChainRegistry(nil, logger)
 		
 		// Nil config
 		err := registry.AddOrUpdateChain(ctx, nil)
@@ -403,7 +420,7 @@ func TestChainRegistryRemoveChain(t *testing.T) {
 	})
 	
 	t.Run("Remove non-existent chain", func(t *testing.T) {
-		registry := NewChainRegistry(logger)
+		registry := NewChainRegistry(nil, logger)
 		
 		// Should not panic
 		registry.RemoveChain("non-existent")

@@ -11,3 +11,16 @@ type LastObservedBlock struct {
 	ChainID string `gorm:"uniqueIndex"`
 	Block   int64
 }
+
+// GatewayTransaction tracks gateway transactions and their confirmation status
+type GatewayTransaction struct {
+	gorm.Model
+	ChainID         string `gorm:"index"`
+	TxHash          string `gorm:"uniqueIndex"`
+	BlockNumber     uint64
+	Method          string
+	EventIdentifier string
+	Status          string `gorm:"index"` // "pending", "fast_confirmed", "confirmed", "failed", "reorged"
+	Confirmations   uint64
+	Data            []byte // Store raw event data
+}

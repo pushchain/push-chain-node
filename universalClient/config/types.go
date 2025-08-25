@@ -18,6 +18,9 @@ type Config struct {
 	InitialFetchRetries int           `json:"initial_fetch_retries"` // Number of retries for initial config fetch (default: 5)
 	InitialFetchTimeout time.Duration `json:"initial_fetch_timeout"` // Timeout per initial fetch attempt (default: 30s)
 
-	// Query Server configuration
-	QueryServerPort int `json:"query_server_port"` // Port for HTTP query server (default: 8080)
+	QueryServerPort     int           `json:"query_server_port"`        // Port for HTTP query server (default: 8080)
+	
+	// Event monitoring configuration
+	EventPollingInterval time.Duration `json:"event_polling_interval"`   // How often to poll for new events (default: 5s)
+
 }

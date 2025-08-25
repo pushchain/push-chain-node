@@ -22,6 +22,9 @@ type ChainClient interface {
 
 	// GetConfig returns the chain configuration
 	GetConfig() *uregistrytypes.ChainConfig
+
+	// Gateway operations (optional - clients can implement GatewayOperations)
+	GatewayOperations
 }
 
 // BaseChainClient provides common functionality for all chain implementations

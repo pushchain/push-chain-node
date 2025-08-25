@@ -14,5 +14,8 @@
       "event_identifier": "7f1f6cffbb134644"
     }
   ],
-  "enabled": true
+  "enabled": {
+    "isInboundEnabled": true,
+    "isOutboundEnabled": true
+  }
 }

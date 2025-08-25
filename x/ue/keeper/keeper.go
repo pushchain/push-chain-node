@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/ethereum/go-ethereum/common"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -122,4 +123,13 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params: params,
 	}
+}
+
+func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string) {
+	ueModuleAcc := k.accountKeeper.GetModuleAccount(ctx, types.ModuleName) // "ue"
+	ueModuleAddr := ueModuleAcc.GetAddress()
+	var ethSenderUEAddr common.Address
+	copy(ethSenderUEAddr[:], ueModuleAddr.Bytes())
+
+	return ethSenderUEAddr, ethSenderUEAddr.Hex()
 }

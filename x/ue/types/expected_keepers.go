@@ -20,6 +20,7 @@ type UregistryKeeper interface {
 	GetChainConfig(ctx context.Context, chain string) (uregistrytypes.ChainConfig, error)
 	IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error)
 	IsChainInboundEnabled(ctx context.Context, chain string) (bool, error)
+	GetTokenConfig(ctx context.Context, chain, address string) (uregistrytypes.TokenConfig, error)
 }
 
 // EVMKeeper defines the expected interface for the EVM module.

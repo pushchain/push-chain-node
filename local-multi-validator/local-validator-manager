@@ -104,6 +104,14 @@ start_all() {
     print_status "🚀 Starting local multi-validator setup..."
     require_docker_compose
     
+    # Check if images exist, build if needed
+    if ! docker images | grep -q "push-core.*latest" || ! docker images | grep -q "push-universal.*latest"; then
+        print_status "🔧 Building Docker images..."
+        ./build.sh
+    else
+        print_status "✅ Docker images already exist, skipping build..."
+    fi
+    
     docker-compose up -d
     print_success "✅ All validators starting up..."
     echo
@@ -369,20 +377,18 @@ rebuild_containers() {
     case "$rebuild_target" in
         all)
             print_status "🔧 Rebuilding all validators (with cache)..."
-            (cd .. && docker build -f local-multi-validator/Dockerfile.base -t local-multi-validator-base:latest . && \
-            docker build -f local-multi-validator/Dockerfile.core -t push-core:latest . && \
-            docker build -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            ./build.sh
             print_success "✅ All validators rebuilt successfully"
             print_status "💡 Use './local-validator-manager restart' to apply changes"
             ;;
         core)
             print_status "🔧 Rebuilding core validators..."
-            (cd .. && docker build -f local-multi-validator/Dockerfile.core -t push-core:latest .)
+            (cd .. && docker build --pull=false -f local-multi-validator/Dockerfile.core -t push-core:latest .)
             print_success "✅ Core validators rebuilt successfully"
             ;;
         universal)
             print_status "🔧 Rebuilding universal validators..."
-            (cd .. && docker build -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            (cd .. && docker build --pull=false -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
             print_success "✅ Universal validators rebuilt successfully"
             ;;
         base)
@@ -394,8 +400,8 @@ rebuild_containers() {
         clean)
             print_status "🔧 Clean rebuilding all validators (no cache)..."
             (cd .. && docker build --no-cache -f local-multi-validator/Dockerfile.base -t local-multi-validator-base:latest . && \
-            docker build --no-cache -f local-multi-validator/Dockerfile.core -t push-core:latest . && \
-            docker build --no-cache -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
+            docker build --no-cache --pull=false -f local-multi-validator/Dockerfile.core -t push-core:latest . && \
+            docker build --no-cache --pull=false -f local-multi-validator/Dockerfile.universal -t push-universal:latest .)
             print_success "✅ Clean rebuild completed successfully"
             print_status "💡 Use './local-validator-manager restart' to apply changes"
             ;;

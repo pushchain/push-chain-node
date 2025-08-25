@@ -1,5 +1,4 @@
-ARG BASE_IMAGE=local-multi-validator-base:latest
-FROM $BASE_IMAGE AS universal-builder
+FROM local-multi-validator-base:latest AS universal-builder
 
 # Copy source code in order of change frequency (most stable first)
 COPY Makefile ./

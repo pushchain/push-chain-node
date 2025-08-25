@@ -19,8 +19,13 @@ if ! command -v docker-compose > /dev/null 2>&1; then
     exit 1
 fi
 
-echo "🔧 Building Docker images..."
-docker-compose build
+# Check if images exist, build if needed
+if ! docker images | grep -q "push-core.*latest" || ! docker images | grep -q "push-universal.*latest"; then
+    echo "🔧 Building Docker images..."
+    ./build.sh
+else
+    echo "✅ Docker images already exist, skipping build..."
+fi
 
 echo "🧹 Cleaning up any existing containers and volumes..."
 docker-compose down -v --remove-orphans

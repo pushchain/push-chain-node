@@ -15,7 +15,7 @@ func (k Keeper) VerifyAndGetPayloadHash(ctx sdk.Context, ownerKey, txHash, chain
 		return "", err
 	}
 
-	if !chainConfig.Enabled {
+	if !chainConfig.Enabled.IsInboundEnabled {
 		return "", fmt.Errorf("chain %s is not enabled", chain)
 	}
 

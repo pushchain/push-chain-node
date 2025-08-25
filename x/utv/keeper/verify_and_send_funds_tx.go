@@ -16,7 +16,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 		return *big.NewInt(0), 0, err
 	}
 
-	if !chainConfig.Enabled {
+	if !chainConfig.Enabled.IsInboundEnabled {
 		return *big.NewInt(0), 0, fmt.Errorf("chain %s is not enabled", chain)
 	}
 

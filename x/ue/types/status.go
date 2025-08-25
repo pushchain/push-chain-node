@@ -1,18 +1,14 @@
 package types
 
-import (
-	"encoding/json"
-)
-
 // Stringer method for Params.
-func (p Status) String() string {
-	bz, err := json.Marshal(p)
-	if err != nil {
-		panic(err)
-	}
+// func (p Status) String() string {
+// 	bz, err := json.Marshal(p)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	return string(bz)
-}
+// 	return string(bz)
+// }
 
 // TODO: update the validation fn
 // Validate does the sanity check on the params.

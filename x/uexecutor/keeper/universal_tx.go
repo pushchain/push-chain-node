@@ -35,6 +35,31 @@ func (k Keeper) GetUniversalTx(ctx context.Context, key string) (types.Universal
 	return utx, true, nil
 }
 
+// UpdateUniversalTx updates an existing UniversalTx in the store.
+// It fetches the UniversalTx, applies the update function, and saves it back.
+func (k Keeper) UpdateUniversalTx(
+	ctx context.Context,
+	key string,
+	updateFn func(*types.UniversalTx) error,
+) error {
+	// fetch
+	utx, found, err := k.GetUniversalTx(ctx, key)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("universal tx with key %s not found", key)
+	}
+
+	// apply user-defined mutation
+	if err := updateFn(&utx); err != nil {
+		return err
+	}
+
+	// save back
+	return k.UniversalTx.Set(ctx, key, utx)
+}
+
 // HasUniversalTx checks if a UniversalTx exists
 func (k Keeper) HasUniversalTx(ctx context.Context, key string) (bool, error) {
 	return k.UniversalTx.Has(ctx, key)

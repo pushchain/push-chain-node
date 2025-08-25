@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 <<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
 <<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
+<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
 	Msg_UpdateParams_FullMethodName      = "/uexecutor.v1.Msg/UpdateParams"
 	Msg_DeployUEA_FullMethodName         = "/uexecutor.v1.Msg/DeployUEA"
 	Msg_MintPC_FullMethodName            = "/uexecutor.v1.Msg/MintPC"
@@ -28,10 +29,13 @@ const (
 	Msg_AddChainConfig_FullMethodName    = "/uexecutor.v1.Msg/AddChainConfig"
 	Msg_UpdateChainConfig_FullMethodName = "/uexecutor.v1.Msg/UpdateChainConfig"
 =======
+=======
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx_grpc.pb.go
 	Msg_UpdateParams_FullMethodName   = "/ue.v1.Msg/UpdateParams"
 	Msg_DeployUEA_FullMethodName      = "/ue.v1.Msg/DeployUEA"
 	Msg_MintPC_FullMethodName         = "/ue.v1.Msg/MintPC"
 	Msg_ExecutePayload_FullMethodName = "/ue.v1.Msg/ExecutePayload"
+<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
 >>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx_grpc.pb.go
 =======
 	Msg_UpdateParams_FullMethodName         = "/ue.v1.Msg/UpdateParams"
@@ -40,6 +44,9 @@ const (
 	Msg_ExecutePayload_FullMethodName       = "/ue.v1.Msg/ExecutePayload"
 	Msg_VoteInboundSynthetic_FullMethodName = "/ue.v1.Msg/VoteInboundSynthetic"
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx_grpc.pb.go
+=======
+	Msg_VoteInbound_FullMethodName    = "/ue.v1.Msg/VoteInbound"
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx_grpc.pb.go
 )
 
 // MsgClient is the client API for Msg service.
@@ -56,8 +63,8 @@ type MsgClient interface {
 	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
-	// VoteInboundSynthetic defines a message for voting on synthetic assets bridging from external chain to PC
-	VoteInboundSynthetic(ctx context.Context, in *MsgVoteInboundSynthetic, opts ...grpc.CallOption) (*MsgVoteInboundSyntheticResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
 }
 
 type msgClient struct {
@@ -104,9 +111,9 @@ func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, o
 	return out, nil
 }
 
-func (c *msgClient) VoteInboundSynthetic(ctx context.Context, in *MsgVoteInboundSynthetic, opts ...grpc.CallOption) (*MsgVoteInboundSyntheticResponse, error) {
-	out := new(MsgVoteInboundSyntheticResponse)
-	err := c.cc.Invoke(ctx, Msg_VoteInboundSynthetic_FullMethodName, in, out, opts...)
+func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error) {
+	out := new(MsgVoteInboundResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteInbound_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +134,8 @@ type MsgServer interface {
 	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
-	// VoteInboundSynthetic defines a message for voting on synthetic assets bridging from external chain to PC
-	VoteInboundSynthetic(context.Context, *MsgVoteInboundSynthetic) (*MsgVoteInboundSyntheticResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -148,8 +155,8 @@ func (UnimplementedMsgServer) MintPC(context.Context, *MsgMintPC) (*MsgMintPCRes
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
 }
-func (UnimplementedMsgServer) VoteInboundSynthetic(context.Context, *MsgVoteInboundSynthetic) (*MsgVoteInboundSyntheticResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method VoteInboundSynthetic not implemented")
+func (UnimplementedMsgServer) VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -236,20 +243,20 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_VoteInboundSynthetic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgVoteInboundSynthetic)
+func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteInbound)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).VoteInboundSynthetic(ctx, in)
+		return srv.(MsgServer).VoteInbound(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Msg_VoteInboundSynthetic_FullMethodName,
+		FullMethod: Msg_VoteInbound_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).VoteInboundSynthetic(ctx, req.(*MsgVoteInboundSynthetic))
+		return srv.(MsgServer).VoteInbound(ctx, req.(*MsgVoteInbound))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -278,8 +285,8 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_ExecutePayload_Handler,
 		},
 		{
-			MethodName: "VoteInboundSynthetic",
-			Handler:    _Msg_VoteInboundSynthetic_Handler,
+			MethodName: "VoteInbound",
+			Handler:    _Msg_VoteInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

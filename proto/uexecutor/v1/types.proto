@@ -72,8 +72,14 @@ message InboundStatus {
   Status status = 1;
 }
 
-message InboundSynthetic {
-  option (amino.name) = "ue/inbound_synthetic";
+enum InboundTxType {
+  UNSPECIFIED_TX = 0;
+  SYNTHETIC = 1;
+  FEE_ABSTRACTION = 2;
+}
+
+message Inbound {
+  option (amino.name) = "ue/inbound";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -84,6 +90,7 @@ message InboundSynthetic {
   string amount = 5; // synthetic token amount bridged in
   string asset_addr        = 6;  // address of erc20 token address on source chain
   string log_index = 7; // log index that originated the cross chain tx
+  InboundTxType tx_type = 8; // inbound tx type
 }
 
 message PCTx {
@@ -116,7 +123,7 @@ message UniversalTx {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
   
-  InboundSynthetic inbound_tx = 1;    // Full inbound tx data
+  Inbound inbound_tx = 1;    // Full inbound tx data
   PCTx pc_tx = 2;               // Execution details on Push Chain
   OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
   UniversalTxStatus universal_status = 4;       // Current status

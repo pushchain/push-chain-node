@@ -32,8 +32,8 @@ type Keeper struct {
 	utxverifierKeeper types.UtxverifierKeeper
 	uvalidatorKeeper  types.UValidatorKeeper
 
-	// Inbound synthetics trackers
-	PendingInboundSynthetics collections.KeySet[string]
+	// Inbound trackers
+	PendingInbounds collections.KeySet[string]
 
 	// UniversalTx collection
 	UniversalTx collections.Map[string, types.UniversalTx]
@@ -76,10 +76,10 @@ func NewKeeper(
 		utxverifierKeeper: utxverifierKeeper,
 		uvalidatorKeeper:  uvalidatorKeeper,
 
-		PendingInboundSynthetics: collections.NewKeySet(
+		PendingInbounds: collections.NewKeySet(
 			sb,
-			types.InboundSyntheticsKey,
-			types.InboundSyntheticsName,
+			types.InboundsKey,
+			types.InboundsName,
 			collections.StringKey,
 		),
 

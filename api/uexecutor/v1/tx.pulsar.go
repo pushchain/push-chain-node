@@ -3800,27 +3800,27 @@ func (x *MsgAddChainConfig) slowProtoReflect() protoreflect.Message {
 	mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
 =======
 var (
-	md_MsgVoteInboundSynthetic                   protoreflect.MessageDescriptor
-	fd_MsgVoteInboundSynthetic_signer            protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_inbound_synthetic protoreflect.FieldDescriptor
+	md_MsgVoteInbound         protoreflect.MessageDescriptor
+	fd_MsgVoteInbound_signer  protoreflect.FieldDescriptor
+	fd_MsgVoteInbound_inbound protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
-	md_MsgVoteInboundSynthetic = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundSynthetic")
-	fd_MsgVoteInboundSynthetic_signer = md_MsgVoteInboundSynthetic.Fields().ByName("signer")
-	fd_MsgVoteInboundSynthetic_inbound_synthetic = md_MsgVoteInboundSynthetic.Fields().ByName("inbound_synthetic")
+	md_MsgVoteInbound = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInbound")
+	fd_MsgVoteInbound_signer = md_MsgVoteInbound.Fields().ByName("signer")
+	fd_MsgVoteInbound_inbound = md_MsgVoteInbound.Fields().ByName("inbound")
 }
 
-var _ protoreflect.Message = (*fastReflection_MsgVoteInboundSynthetic)(nil)
+var _ protoreflect.Message = (*fastReflection_MsgVoteInbound)(nil)
 
-type fastReflection_MsgVoteInboundSynthetic MsgVoteInboundSynthetic
+type fastReflection_MsgVoteInbound MsgVoteInbound
 
-func (x *MsgVoteInboundSynthetic) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSynthetic)(x)
+func (x *MsgVoteInbound) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteInbound)(x)
 }
 
-func (x *MsgVoteInboundSynthetic) slowProtoReflect() protoreflect.Message {
+func (x *MsgVoteInbound) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_tx_proto_msgTypes[8]
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -3833,6 +3833,7 @@ func (x *MsgVoteInboundSynthetic) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 var _fastReflection_MsgAddChainConfig_messageType fastReflection_MsgAddChainConfig_messageType
 var _ protoreflect.MessageType = fastReflection_MsgAddChainConfig_messageType{}
@@ -3850,22 +3851,32 @@ func (x fastReflection_MsgAddChainConfig_messageType) Descriptor() protoreflect.
 =======
 var _fastReflection_MsgVoteInboundSynthetic_messageType fastReflection_MsgVoteInboundSynthetic_messageType
 var _ protoreflect.MessageType = fastReflection_MsgVoteInboundSynthetic_messageType{}
+=======
+var _fastReflection_MsgVoteInbound_messageType fastReflection_MsgVoteInbound_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteInbound_messageType{}
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 
-type fastReflection_MsgVoteInboundSynthetic_messageType struct{}
+type fastReflection_MsgVoteInbound_messageType struct{}
 
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSynthetic)(nil)
+func (x fastReflection_MsgVoteInbound_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteInbound)(nil)
 }
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSynthetic)
+func (x fastReflection_MsgVoteInbound_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInbound)
 }
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x fastReflection_MsgVoteInboundSynthetic_messageType) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInboundSynthetic
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x fastReflection_MsgVoteInbound_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInbound
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgAddChainConfig
@@ -3873,11 +3884,16 @@ func (x *fastReflection_MsgAddChainConfig) Descriptor() protoreflect.MessageDesc
 func (x *fastReflection_MsgVoteInboundSynthetic) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInboundSynthetic
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInbound
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Type() protoreflect.MessageType {
 	return _fastReflection_MsgAddChainConfig_messageType
@@ -3895,10 +3911,20 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Type() protoreflect.MessageType
 func (x *fastReflection_MsgVoteInboundSynthetic) New() protoreflect.Message {
 	return new(fastReflection_MsgVoteInboundSynthetic)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteInbound_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVoteInbound) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Interface() protoreflect.ProtoMessage {
 	return (*MsgAddChainConfig)(x)
@@ -3906,6 +3932,10 @@ func (x *fastReflection_MsgAddChainConfig) Interface() protoreflect.ProtoMessage
 func (x *fastReflection_MsgVoteInboundSynthetic) Interface() protoreflect.ProtoMessage {
 	return (*MsgVoteInboundSynthetic)(x)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteInbound)(x)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -3913,6 +3943,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Interface() protoreflect.ProtoM
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
 	if x.Signer != "" {
@@ -3926,12 +3957,16 @@ func (x *fastReflection_MsgAddChainConfig) Range(f func(protoreflect.FieldDescri
 		if !f(fd_MsgAddChainConfig_chain_config, value) {
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+=======
+func (x *fastReflection_MsgVoteInbound) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	if x.Signer != "" {
 		value := protoreflect.ValueOfString(x.Signer)
-		if !f(fd_MsgVoteInboundSynthetic_signer, value) {
+		if !f(fd_MsgVoteInbound_signer, value) {
 			return
 		}
 	}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	if x.SourceChain != "" {
 		value := protoreflect.ValueOfString(x.SourceChain)
@@ -3972,6 +4007,11 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.Field
 		value := protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
 		if !f(fd_MsgVoteInboundSynthetic_inbound_synthetic, value) {
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
+=======
+	if x.Inbound != nil {
+		value := protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
+		if !f(fd_MsgVoteInbound_inbound, value) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			return
 		}
 	}
@@ -3989,6 +4029,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.Field
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
 	case "uexecutor.v1.MsgAddChainConfig.signer":
@@ -4002,17 +4043,24 @@ func (x *fastReflection_MsgAddChainConfig) Has(fd protoreflect.FieldDescriptor) 
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescriptor) bool {
+=======
+func (x *fastReflection_MsgVoteInbound) Has(fd protoreflect.FieldDescriptor) bool {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		return x.InboundSynthetic != nil
+	case "ue.v1.MsgVoteInbound.inbound":
+		return x.Inbound != nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4022,6 +4070,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescri
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
@@ -4036,17 +4085,24 @@ func (x *fastReflection_MsgAddChainConfig) Clear(fd protoreflect.FieldDescriptor
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDescriptor) {
+=======
+func (x *fastReflection_MsgVoteInbound) Clear(fd protoreflect.FieldDescriptor) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		x.Signer = ""
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		x.InboundSynthetic = nil
+	case "ue.v1.MsgVoteInbound.inbound":
+		x.Inbound = nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4056,6 +4112,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDesc
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
@@ -4072,19 +4129,26 @@ func (x *fastReflection_MsgAddChainConfig) Get(descriptor protoreflect.FieldDesc
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", descriptor.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+=======
+func (x *fastReflection_MsgVoteInbound) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch descriptor.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		value := x.InboundSynthetic
+	case "ue.v1.MsgVoteInbound.inbound":
+		value := x.Inbound
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", descriptor.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", descriptor.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4099,6 +4163,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.Fie
 //
 // Set is a mutating operation and unsafe for concurrent use.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
 	case "uexecutor.v1.MsgAddChainConfig.signer":
@@ -4112,17 +4177,24 @@ func (x *fastReflection_MsgAddChainConfig) Set(fd protoreflect.FieldDescriptor, 
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+=======
+func (x *fastReflection_MsgVoteInbound) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		x.InboundSynthetic = value.Message().Interface().(*InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		x.Inbound = value.Message().Interface().(*Inbound)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4136,6 +4208,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescri
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
@@ -4153,26 +4226,34 @@ func (x *fastReflection_MsgAddChainConfig) Mutable(fd protoreflect.FieldDescript
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+=======
+func (x *fastReflection_MsgVoteInbound) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		if x.InboundSynthetic == nil {
-			x.InboundSynthetic = new(InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		if x.Inbound == nil {
+			x.Inbound = new(Inbound)
 		}
-		return protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
-		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
+		return protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
+	case "ue.v1.MsgVoteInbound.signer":
+		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInbound is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
@@ -4188,24 +4269,32 @@ func (x *fastReflection_MsgAddChainConfig) NewField(fd protoreflect.FieldDescrip
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+=======
+func (x *fastReflection_MsgVoteInbound) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		m := new(InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		m := new(Inbound)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
@@ -4217,6 +4306,12 @@ func (x *fastReflection_MsgVoteInboundSynthetic) WhichOneof(d protoreflect.Oneof
 	default:
 		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundSynthetic", d.FullName()))
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInbound", d.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 	panic("unreachable")
 }
@@ -4225,10 +4320,14 @@ func (x *fastReflection_MsgVoteInboundSynthetic) WhichOneof(d protoreflect.Oneof
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) GetUnknown() protoreflect.RawFields {
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) GetUnknown() protoreflect.RawFields {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) GetUnknown() protoreflect.RawFields {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x.unknownFields
 }
 
@@ -4240,10 +4339,14 @@ func (x *fastReflection_MsgVoteInboundSynthetic) GetUnknown() protoreflect.RawFi
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) SetUnknown(fields protoreflect.RawFields) {
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) SetUnknown(fields protoreflect.RawFields) {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) SetUnknown(fields protoreflect.RawFields) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	x.unknownFields = fields
 }
 
@@ -4256,10 +4359,14 @@ func (x *fastReflection_MsgVoteInboundSynthetic) SetUnknown(fields protoreflect.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) IsValid() bool {
 =======
 func (x *fastReflection_MsgVoteInboundSynthetic) IsValid() bool {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) IsValid() bool {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x != nil
 }
 
@@ -4270,6 +4377,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) IsValid() bool {
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfig) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
 		x := input.Message.Interface().(*MsgAddChainConfig)
@@ -4278,6 +4386,11 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
 		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVoteInbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4293,6 +4406,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		if x.ChainConfig != nil {
@@ -4325,6 +4439,10 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		if x.InboundSynthetic != nil {
 			l = options.Size(x.InboundSynthetic)
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
+=======
+		if x.Inbound != nil {
+			l = options.Size(x.Inbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if x.unknownFields != nil {
@@ -4338,10 +4456,14 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		x := input.Message.Interface().(*MsgAddChainConfig)
 =======
 		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		x := input.Message.Interface().(*MsgVoteInbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4362,12 +4484,17 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		}
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		if x.ChainConfig != nil {
 			encoded, err := options.Marshal(x.ChainConfig)
 =======
 		if x.InboundSynthetic != nil {
 			encoded, err := options.Marshal(x.InboundSynthetic)
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
+=======
+		if x.Inbound != nil {
+			encoded, err := options.Marshal(x.Inbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4443,10 +4570,14 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		x := input.Message.Interface().(*MsgAddChainConfig)
 =======
 		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+		x := input.Message.Interface().(*MsgVoteInbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4479,6 +4610,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfig: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
@@ -4489,6 +4621,12 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			if fieldNum <= 0 {
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSynthetic: illegal tag %d (wire type %d)", fieldNum, wire)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: illegal tag %d (wire type %d)", fieldNum, wire)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			}
 			switch fieldNum {
 			case 1:
@@ -4527,7 +4665,11 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 				if wireType != 2 {
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
+=======
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -4554,10 +4696,17 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 				if x.ChainConfig == nil {
 					x.ChainConfig = &ChainConfig{}
 				}
 				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.ChainConfig); err != nil {
+=======
+				if x.Inbound == nil {
+					x.Inbound = &Inbound{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Inbound); err != nil {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -4597,6 +4746,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 }
 
 var (
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	md_MsgAddChainConfigResponse protoreflect.MessageDescriptor
 )
 
@@ -4615,6 +4765,26 @@ func (x *MsgAddChainConfigResponse) ProtoReflect() protoreflect.Message {
 
 func (x *MsgAddChainConfigResponse) slowProtoReflect() protoreflect.Message {
 	mi := &file_uexecutor_v1_tx_proto_msgTypes[9]
+=======
+	md_MsgVoteInboundResponse protoreflect.MessageDescriptor
+)
+
+func init() {
+	file_ue_v1_tx_proto_init()
+	md_MsgVoteInboundResponse = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundResponse")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVoteInboundResponse)(nil)
+
+type fastReflection_MsgVoteInboundResponse MsgVoteInboundResponse
+
+func (x *MsgVoteInboundResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteInboundResponse)(x)
+}
+
+func (x *MsgVoteInboundResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_ue_v1_tx_proto_msgTypes[9]
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4625,6 +4795,7 @@ func (x *MsgAddChainConfigResponse) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 var _fastReflection_MsgAddChainConfigResponse_messageType fastReflection_MsgAddChainConfigResponse_messageType
 var _ protoreflect.MessageType = fastReflection_MsgAddChainConfigResponse_messageType{}
 
@@ -4638,17 +4809,38 @@ func (x fastReflection_MsgAddChainConfigResponse_messageType) New() protoreflect
 }
 func (x fastReflection_MsgAddChainConfigResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgAddChainConfigResponse
+=======
+var _fastReflection_MsgVoteInboundResponse_messageType fastReflection_MsgVoteInboundResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteInboundResponse_messageType{}
+
+type fastReflection_MsgVoteInboundResponse_messageType struct{}
+
+func (x fastReflection_MsgVoteInboundResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteInboundResponse)(nil)
+}
+func (x fastReflection_MsgVoteInboundResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInboundResponse)
+}
+func (x fastReflection_MsgVoteInboundResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInboundResponse
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgAddChainConfigResponse
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInboundResponse
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Type() protoreflect.MessageType {
 	return _fastReflection_MsgAddChainConfigResponse_messageType
 }
@@ -4656,12 +4848,26 @@ func (x *fastReflection_MsgAddChainConfigResponse) Type() protoreflect.MessageTy
 // New returns a newly allocated and mutable empty message.
 func (x *fastReflection_MsgAddChainConfigResponse) New() protoreflect.Message {
 	return new(fastReflection_MsgAddChainConfigResponse)
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteInboundResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVoteInboundResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInboundResponse)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Interface() protoreflect.ProtoMessage {
 	return (*MsgAddChainConfigResponse)(x)
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteInboundResponse)(x)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -4669,7 +4875,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) Interface() protoreflect.Prot
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Has reports whether a field is populated.
@@ -4683,6 +4893,7 @@ func (x *fastReflection_MsgAddChainConfigResponse) Range(f func(protoreflect.Fie
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
 	default:
@@ -4690,6 +4901,15 @@ func (x *fastReflection_MsgAddChainConfigResponse) Has(fd protoreflect.FieldDesc
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4699,6 +4919,7 @@ func (x *fastReflection_MsgAddChainConfigResponse) Has(fd protoreflect.FieldDesc
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
 	default:
@@ -4706,6 +4927,15 @@ func (x *fastReflection_MsgAddChainConfigResponse) Clear(fd protoreflect.FieldDe
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4715,6 +4945,7 @@ func (x *fastReflection_MsgAddChainConfigResponse) Clear(fd protoreflect.FieldDe
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
 	default:
@@ -4722,6 +4953,15 @@ func (x *fastReflection_MsgAddChainConfigResponse) Get(descriptor protoreflect.F
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", descriptor.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", descriptor.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4735,6 +4975,7 @@ func (x *fastReflection_MsgAddChainConfigResponse) Get(descriptor protoreflect.F
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
 	default:
@@ -4742,6 +4983,15 @@ func (x *fastReflection_MsgAddChainConfigResponse) Set(fd protoreflect.FieldDesc
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
@@ -4755,6 +5005,7 @@ func (x *fastReflection_MsgAddChainConfigResponse) Set(fd protoreflect.FieldDesc
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
@@ -4762,12 +5013,22 @@ func (x *fastReflection_MsgAddChainConfigResponse) Mutable(fd protoreflect.Field
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
@@ -4775,16 +5036,32 @@ func (x *fastReflection_MsgAddChainConfigResponse) NewField(fd protoreflect.Fiel
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
 		}
 		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+		}
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
 		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgAddChainConfigResponse", d.FullName()))
+=======
+func (x *fastReflection_MsgVoteInboundResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundResponse", d.FullName()))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	}
 	panic("unreachable")
 }
@@ -4792,7 +5069,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) WhichOneof(d protoreflect.One
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) GetUnknown() protoreflect.RawFields {
+=======
+func (x *fastReflection_MsgVoteInboundResponse) GetUnknown() protoreflect.RawFields {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x.unknownFields
 }
 
@@ -4803,7 +5084,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) GetUnknown() protoreflect.Raw
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) SetUnknown(fields protoreflect.RawFields) {
+=======
+func (x *fastReflection_MsgVoteInboundResponse) SetUnknown(fields protoreflect.RawFields) {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	x.unknownFields = fields
 }
 
@@ -4815,7 +5100,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) SetUnknown(fields protoreflec
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) IsValid() bool {
+=======
+func (x *fastReflection_MsgVoteInboundResponse) IsValid() bool {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x != nil
 }
 
@@ -4825,9 +5114,15 @@ func (x *fastReflection_MsgAddChainConfigResponse) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 func (x *fastReflection_MsgAddChainConfigResponse) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
 		x := input.Message.Interface().(*MsgAddChainConfigResponse)
+=======
+func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4849,7 +5144,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) ProtoMethods() *protoiface.Me
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		x := input.Message.Interface().(*MsgAddChainConfigResponse)
+=======
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4879,7 +5178,11 @@ func (x *fastReflection_MsgAddChainConfigResponse) ProtoMethods() *protoiface.Me
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		x := input.Message.Interface().(*MsgAddChainConfigResponse)
+=======
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4911,10 +5214,17 @@ func (x *fastReflection_MsgAddChainConfigResponse) ProtoMethods() *protoiface.Me
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfigResponse: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+=======
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			}
 			switch fieldNum {
 			default:
@@ -6502,6 +6812,7 @@ func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
 
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 // MsgAddChainConfig defines a message to add a new ChainConfig.
 type MsgAddChainConfig struct {
 	state         protoimpl.MessageState
@@ -6510,17 +6821,21 @@ type MsgAddChainConfig struct {
 =======
 // MsgVoteInboundSynthetic allows a universal validator to vote on an inbound synthetic transfer.
 type MsgVoteInboundSynthetic struct {
+=======
+// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+type MsgVoteInbound struct {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer           string            `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	InboundSynthetic *InboundSynthetic `protobuf:"bytes,2,opt,name=inbound_synthetic,json=inboundSynthetic,proto3" json:"inbound_synthetic,omitempty"`
+	Signer  string   `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	Inbound *Inbound `protobuf:"bytes,2,opt,name=inbound,proto3" json:"inbound,omitempty"`
 }
 
-func (x *MsgVoteInboundSynthetic) Reset() {
-	*x = MsgVoteInboundSynthetic{}
+func (x *MsgVoteInbound) Reset() {
+	*x = MsgVoteInbound{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -6528,40 +6843,40 @@ func (x *MsgVoteInboundSynthetic) Reset() {
 	}
 }
 
-func (x *MsgVoteInboundSynthetic) String() string {
+func (x *MsgVoteInbound) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgVoteInboundSynthetic) ProtoMessage() {}
+func (*MsgVoteInbound) ProtoMessage() {}
 
-// Deprecated: Use MsgVoteInboundSynthetic.ProtoReflect.Descriptor instead.
-func (*MsgVoteInboundSynthetic) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgVoteInbound.ProtoReflect.Descriptor instead.
+func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *MsgVoteInboundSynthetic) GetSigner() string {
+func (x *MsgVoteInbound) GetSigner() string {
 	if x != nil {
 		return x.Signer
 	}
 	return ""
 }
 
-func (x *MsgVoteInboundSynthetic) GetInboundSynthetic() *InboundSynthetic {
+func (x *MsgVoteInbound) GetInbound() *Inbound {
 	if x != nil {
-		return x.InboundSynthetic
+		return x.Inbound
 	}
 	return nil
 }
 
-// MsgVoteInboundSyntheticResponse defines the response for MsgExecutePayload.
-type MsgVoteInboundSyntheticResponse struct {
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+type MsgVoteInboundResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *MsgVoteInboundSyntheticResponse) Reset() {
-	*x = MsgVoteInboundSyntheticResponse{}
+func (x *MsgVoteInboundResponse) Reset() {
+	*x = MsgVoteInboundResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -6569,14 +6884,14 @@ func (x *MsgVoteInboundSyntheticResponse) Reset() {
 	}
 }
 
-func (x *MsgVoteInboundSyntheticResponse) String() string {
+func (x *MsgVoteInboundResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgVoteInboundSyntheticResponse) ProtoMessage() {}
+func (*MsgVoteInboundResponse) ProtoMessage() {}
 
-// Deprecated: Use MsgVoteInboundSyntheticResponse.ProtoReflect.Descriptor instead.
-func (*MsgVoteInboundSyntheticResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgVoteInboundResponse.ProtoReflect.Descriptor instead.
+func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
@@ -6908,6 +7223,7 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x97, 0x02, 0x0a, 0x03, 0x4d,
 	0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
 	0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
@@ -7057,6 +7373,50 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62,
 	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
+=======
+	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x8f, 0x01, 0x0a, 0x0e, 0x4d,
+	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x30, 0x0a,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2,
+	0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12,
+	0x28, 0x0a, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64,
+	0x52, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x3a, 0x21, 0x82, 0xe7, 0xb0, 0x2a, 0x06,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x11, 0x75, 0x65, 0x2f, 0x4d, 0x73,
+	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x18, 0x0a, 0x16,
+	0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xdc, 0x02, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46,
+	0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16,
+	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79,
+	0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44,
+	0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12,
+	0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50,
+	0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e,
+	0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e,
+	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65,
+	0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
+	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
+	0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x43, 0x0a, 0x0b, 0x56, 0x6f, 0x74,
+	0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x15, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a,
+	0x1d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49,
+	0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05,
+	0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e,
+	0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68,
+	0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
+	0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31,
+	0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61,
+	0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 var (
@@ -7123,20 +7483,20 @@ var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
 var file_ue_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),                 // 0: ue.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),         // 1: ue.v1.MsgUpdateParamsResponse
-	(*MsgDeployUEA)(nil),                    // 2: ue.v1.MsgDeployUEA
-	(*MsgDeployUEAResponse)(nil),            // 3: ue.v1.MsgDeployUEAResponse
-	(*MsgMintPC)(nil),                       // 4: ue.v1.MsgMintPC
-	(*MsgMintPCResponse)(nil),               // 5: ue.v1.MsgMintPCResponse
-	(*MsgExecutePayload)(nil),               // 6: ue.v1.MsgExecutePayload
-	(*MsgExecutePayloadResponse)(nil),       // 7: ue.v1.MsgExecutePayloadResponse
-	(*MsgVoteInboundSynthetic)(nil),         // 8: ue.v1.MsgVoteInboundSynthetic
-	(*MsgVoteInboundSyntheticResponse)(nil), // 9: ue.v1.MsgVoteInboundSyntheticResponse
-	(*Params)(nil),                          // 10: ue.v1.Params
-	(*UniversalAccountId)(nil),              // 11: ue.v1.UniversalAccountId
-	(*UniversalPayload)(nil),                // 12: ue.v1.UniversalPayload
-	(*InboundSynthetic)(nil),                // 13: ue.v1.InboundSynthetic
+	(*MsgUpdateParams)(nil),           // 0: ue.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),   // 1: ue.v1.MsgUpdateParamsResponse
+	(*MsgDeployUEA)(nil),              // 2: ue.v1.MsgDeployUEA
+	(*MsgDeployUEAResponse)(nil),      // 3: ue.v1.MsgDeployUEAResponse
+	(*MsgMintPC)(nil),                 // 4: ue.v1.MsgMintPC
+	(*MsgMintPCResponse)(nil),         // 5: ue.v1.MsgMintPCResponse
+	(*MsgExecutePayload)(nil),         // 6: ue.v1.MsgExecutePayload
+	(*MsgExecutePayloadResponse)(nil), // 7: ue.v1.MsgExecutePayloadResponse
+	(*MsgVoteInbound)(nil),            // 8: ue.v1.MsgVoteInbound
+	(*MsgVoteInboundResponse)(nil),    // 9: ue.v1.MsgVoteInboundResponse
+	(*Params)(nil),                    // 10: ue.v1.Params
+	(*UniversalAccountId)(nil),        // 11: ue.v1.UniversalAccountId
+	(*UniversalPayload)(nil),          // 12: ue.v1.UniversalPayload
+	(*Inbound)(nil),                   // 13: ue.v1.Inbound
 }
 var file_ue_v1_tx_proto_depIdxs = []int32{
 	10, // 0: ue.v1.MsgUpdateParams.params:type_name -> ue.v1.Params
@@ -7144,6 +7504,7 @@ var file_ue_v1_tx_proto_depIdxs = []int32{
 	11, // 2: ue.v1.MsgMintPC.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	11, // 3: ue.v1.MsgExecutePayload.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	12, // 4: ue.v1.MsgExecutePayload.universal_payload:type_name -> ue.v1.UniversalPayload
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0,  // 5: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
 	2,  // 6: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
@@ -7163,16 +7524,19 @@ var file_ue_v1_tx_proto_depIdxs = []int32{
 >>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
 =======
 	13, // 5: ue.v1.MsgVoteInboundSynthetic.inbound_synthetic:type_name -> ue.v1.InboundSynthetic
+=======
+	13, // 5: ue.v1.MsgVoteInbound.inbound:type_name -> ue.v1.Inbound
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	0,  // 6: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
 	2,  // 7: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
 	4,  // 8: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
 	6,  // 9: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
-	8,  // 10: ue.v1.Msg.VoteInboundSynthetic:input_type -> ue.v1.MsgVoteInboundSynthetic
+	8,  // 10: ue.v1.Msg.VoteInbound:input_type -> ue.v1.MsgVoteInbound
 	1,  // 11: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
 	3,  // 12: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
 	5,  // 13: ue.v1.Msg.MintPC:output_type -> ue.v1.MsgMintPCResponse
 	7,  // 14: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
-	9,  // 15: ue.v1.Msg.VoteInboundSynthetic:output_type -> ue.v1.MsgVoteInboundSyntheticResponse
+	9,  // 15: ue.v1.Msg.VoteInbound:output_type -> ue.v1.MsgVoteInboundResponse
 	11, // [11:16] is the sub-list for method output_type
 	6,  // [6:11] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
@@ -7290,8 +7654,12 @@ func file_uexecutor_v1_tx_proto_init() {
 			switch v := v.(*MsgAddChainConfig); i {
 =======
 		file_ue_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 			switch v := v.(*MsgVoteInboundSynthetic); i {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+			switch v := v.(*MsgVoteInbound); i {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			case 0:
 				return &v.state
 			case 1:
@@ -7307,8 +7675,12 @@ func file_uexecutor_v1_tx_proto_init() {
 			switch v := v.(*MsgAddChainConfigResponse); i {
 =======
 		file_ue_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 			switch v := v.(*MsgVoteInboundSyntheticResponse); i {
 >>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+=======
+			switch v := v.(*MsgVoteInboundResponse); i {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			case 0:
 				return &v.state
 			case 1:

@@ -454,6 +454,7 @@ var xxx_messageInfo_MsgExecutePayloadResponse proto.InternalMessageInfo
 
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 // MsgAddChainConfig defines a message to add a new ChainConfig.
 type MsgAddChainConfig struct {
 	// signer is the address authorized to add a chain config
@@ -477,24 +478,32 @@ func (m *MsgAddChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 =======
 // MsgVoteInboundSynthetic allows a universal validator to vote on an inbound synthetic transfer.
 type MsgVoteInboundSynthetic struct {
+=======
+// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+type MsgVoteInbound struct {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer           string            `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	InboundSynthetic *InboundSynthetic `protobuf:"bytes,2,opt,name=inbound_synthetic,json=inboundSynthetic,proto3" json:"inbound_synthetic,omitempty"`
+	Signer  string   `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	Inbound *Inbound `protobuf:"bytes,2,opt,name=inbound,proto3" json:"inbound,omitempty"`
 }
 
-func (m *MsgVoteInboundSynthetic) Reset()         { *m = MsgVoteInboundSynthetic{} }
-func (m *MsgVoteInboundSynthetic) String() string { return proto.CompactTextString(m) }
-func (*MsgVoteInboundSynthetic) ProtoMessage()    {}
-func (*MsgVoteInboundSynthetic) Descriptor() ([]byte, []int) {
+func (m *MsgVoteInbound) Reset()         { *m = MsgVoteInbound{} }
+func (m *MsgVoteInbound) String() string { return proto.CompactTextString(m) }
+func (*MsgVoteInbound) ProtoMessage()    {}
+func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f834ff460f0f5219, []int{8}
 }
-func (m *MsgVoteInboundSynthetic) XXX_Unmarshal(b []byte) error {
+func (m *MsgVoteInbound) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgVoteInboundSynthetic) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgVoteInbound) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 		return xxx_messageInfo_MsgVoteInboundSynthetic.Marshal(b, m, deterministic)
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+		return xxx_messageInfo_MsgVoteInbound.Marshal(b, m, deterministic)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -504,6 +513,7 @@ func (m *MsgVoteInboundSynthetic) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func (m *MsgAddChainConfig) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MsgAddChainConfig.Merge(m, src)
@@ -521,24 +531,33 @@ func (m *MsgAddChainConfig) GetSigner() string {
 =======
 func (m *MsgVoteInboundSynthetic) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MsgVoteInboundSynthetic.Merge(m, src)
+=======
+func (m *MsgVoteInbound) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVoteInbound.Merge(m, src)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 }
-func (m *MsgVoteInboundSynthetic) XXX_Size() int {
+func (m *MsgVoteInbound) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgVoteInboundSynthetic) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgVoteInboundSynthetic.DiscardUnknown(m)
+func (m *MsgVoteInbound) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVoteInbound.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgVoteInboundSynthetic proto.InternalMessageInfo
+var xxx_messageInfo_MsgVoteInbound proto.InternalMessageInfo
 
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func (m *MsgVoteInboundSynthetic) GetSigner() string {
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+func (m *MsgVoteInbound) GetSigner() string {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	if m != nil {
 		return m.Signer
 	}
 	return ""
 }
 
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func (m *MsgAddChainConfig) GetChainConfig() *ChainConfig {
@@ -698,30 +717,37 @@ func (m *MsgVoteInboundSynthetic) GetAssetAddr() string {
 	return ""
 =======
 func (m *MsgVoteInboundSynthetic) GetInboundSynthetic() *InboundSynthetic {
+=======
+func (m *MsgVoteInbound) GetInbound() *Inbound {
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	if m != nil {
-		return m.InboundSynthetic
+		return m.Inbound
 	}
 	return nil
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):x/ue/types/tx.pb.go
 }
 
-// MsgVoteInboundSyntheticResponse defines the response for MsgExecutePayload.
-type MsgVoteInboundSyntheticResponse struct {
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+type MsgVoteInboundResponse struct {
 }
 
-func (m *MsgVoteInboundSyntheticResponse) Reset()         { *m = MsgVoteInboundSyntheticResponse{} }
-func (m *MsgVoteInboundSyntheticResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgVoteInboundSyntheticResponse) ProtoMessage()    {}
-func (*MsgVoteInboundSyntheticResponse) Descriptor() ([]byte, []int) {
+func (m *MsgVoteInboundResponse) Reset()         { *m = MsgVoteInboundResponse{} }
+func (m *MsgVoteInboundResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgVoteInboundResponse) ProtoMessage()    {}
+func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f834ff460f0f5219, []int{9}
 }
-func (m *MsgVoteInboundSyntheticResponse) XXX_Unmarshal(b []byte) error {
+func (m *MsgVoteInboundResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgVoteInboundSyntheticResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgVoteInboundResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 		return xxx_messageInfo_MsgVoteInboundSyntheticResponse.Marshal(b, m, deterministic)
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+		return xxx_messageInfo_MsgVoteInboundResponse.Marshal(b, m, deterministic)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -731,6 +757,7 @@ func (m *MsgVoteInboundSyntheticResponse) XXX_Marshal(b []byte, deterministic bo
 		return b[:n], nil
 	}
 }
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func (m *MsgUpdateChainConfigResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MsgUpdateChainConfigResponse.Merge(m, src)
@@ -761,15 +788,19 @@ func init() {
 =======
 func (m *MsgVoteInboundSyntheticResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MsgVoteInboundSyntheticResponse.Merge(m, src)
+=======
+func (m *MsgVoteInboundResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVoteInboundResponse.Merge(m, src)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 }
-func (m *MsgVoteInboundSyntheticResponse) XXX_Size() int {
+func (m *MsgVoteInboundResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgVoteInboundSyntheticResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgVoteInboundSyntheticResponse.DiscardUnknown(m)
+func (m *MsgVoteInboundResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVoteInboundResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgVoteInboundSyntheticResponse proto.InternalMessageInfo
+var xxx_messageInfo_MsgVoteInboundResponse proto.InternalMessageInfo
 
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
 func init() {
@@ -782,11 +813,16 @@ func init() {
 	proto.RegisterType((*MsgExecutePayload)(nil), "ue.v1.MsgExecutePayload")
 	proto.RegisterType((*MsgExecutePayloadResponse)(nil), "ue.v1.MsgExecutePayloadResponse")
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 >>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):x/ue/types/tx.pb.go
 =======
 	proto.RegisterType((*MsgVoteInboundSynthetic)(nil), "ue.v1.MsgVoteInboundSynthetic")
 	proto.RegisterType((*MsgVoteInboundSyntheticResponse)(nil), "ue.v1.MsgVoteInboundSyntheticResponse")
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+	proto.RegisterType((*MsgVoteInbound)(nil), "ue.v1.MsgVoteInbound")
+	proto.RegisterType((*MsgVoteInboundResponse)(nil), "ue.v1.MsgVoteInboundResponse")
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 }
 
 func init() { proto.RegisterFile("uexecutor/v1/tx.proto", fileDescriptor_88d6216044506365) }
@@ -842,6 +878,7 @@ var fileDescriptor_88d6216044506365 = []byte{
 	0x37, 0xe1, 0xc5, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x37, 0xe8, 0x66, 0x99, 0xc4, 0x08, 0x00,
 =======
 var fileDescriptor_f834ff460f0f5219 = []byte{
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
@@ -1035,6 +1072,53 @@ var fileDescriptor_f834ff460f0f5219 = []byte{
 	0x2e, 0xd5, 0xbd, 0xe8, 0xbf, 0x3e, 0xd4, 0x03, 0xc4, 0xbf, 0x54, 0x07, 0xd9, 0xe8, 0xcb, 0x73,
 	0xf7, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0x88, 0x42, 0xfa, 0xde, 0x02, 0x07, 0x00, 0x00,
 >>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):x/ue/types/tx.pb.go
+=======
+	// 691 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xcd, 0x6e, 0xd3, 0x4c,
+	0x14, 0x8d, 0xfb, 0x93, 0x2a, 0xd3, 0x7c, 0x69, 0xe2, 0xe6, 0x6b, 0x1c, 0x17, 0xdc, 0x62, 0x81,
+	0x88, 0x5a, 0x11, 0xd3, 0x82, 0x58, 0x44, 0x62, 0x91, 0xfe, 0x20, 0x2a, 0x88, 0x54, 0x19, 0x85,
+	0x05, 0x9b, 0x68, 0x6a, 0x0f, 0xce, 0x48, 0x89, 0xc7, 0xf2, 0x8c, 0xa3, 0x64, 0x87, 0x58, 0xb2,
+	0x81, 0x17, 0xe0, 0x09, 0xd8, 0x74, 0xc1, 0x0b, 0xb0, 0xa2, 0xcb, 0x8a, 0x15, 0x0b, 0x84, 0x50,
+	0xbb, 0xe8, 0x6b, 0x20, 0x7b, 0x26, 0x76, 0xe2, 0x16, 0x21, 0xb1, 0x81, 0x4d, 0x32, 0x73, 0xee,
+	0xbd, 0xe7, 0x9e, 0x73, 0xc7, 0x63, 0x83, 0x42, 0x80, 0x8c, 0xc1, 0x96, 0xc1, 0x86, 0x75, 0xcf,
+	0x27, 0x8c, 0xc8, 0xf3, 0x01, 0xaa, 0x0f, 0xb6, 0xd4, 0x12, 0xec, 0x63, 0x97, 0x18, 0xd1, 0x2f,
+	0x8f, 0xa8, 0x15, 0x8b, 0xd0, 0x3e, 0xa1, 0x46, 0x9f, 0x3a, 0x61, 0x45, 0x9f, 0x3a, 0x22, 0x50,
+	0x12, 0x14, 0x23, 0x0f, 0x51, 0x01, 0x95, 0x1d, 0xe2, 0x90, 0x68, 0x69, 0x84, 0x2b, 0x81, 0x56,
+	0x39, 0x43, 0x87, 0x07, 0xf8, 0x86, 0x87, 0xf4, 0xf7, 0x12, 0x58, 0x6a, 0x51, 0xa7, 0xed, 0xd9,
+	0x90, 0xa1, 0x43, 0xe8, 0xc3, 0x3e, 0x95, 0x1f, 0x80, 0x1c, 0x0c, 0x58, 0x97, 0xf8, 0x98, 0x8d,
+	0x14, 0x69, 0x5d, 0xaa, 0xe5, 0x76, 0x94, 0x2f, 0x1f, 0xef, 0x94, 0x45, 0x61, 0xd3, 0xb6, 0x7d,
+	0x44, 0xe9, 0x33, 0xe6, 0x63, 0xd7, 0x31, 0x93, 0x54, 0x79, 0x13, 0x64, 0xbd, 0x88, 0x41, 0x99,
+	0x59, 0x97, 0x6a, 0x8b, 0xdb, 0xff, 0xd5, 0x23, 0x4f, 0x75, 0x4e, 0xbb, 0x33, 0x77, 0xf2, 0x7d,
+	0x2d, 0x63, 0x8a, 0x94, 0xc6, 0xad, 0xd7, 0x17, 0xc7, 0x1b, 0x49, 0xf1, 0x9b, 0x8b, 0xe3, 0x0d,
+	0x39, 0x40, 0x46, 0x4a, 0x8b, 0x5e, 0x05, 0x95, 0x14, 0x64, 0x22, 0xea, 0x11, 0x97, 0x22, 0xfd,
+	0xb3, 0x04, 0xf2, 0x2d, 0xea, 0xec, 0x21, 0xaf, 0x47, 0x46, 0xed, 0xfd, 0xa6, 0x7c, 0x17, 0x64,
+	0x29, 0x76, 0x5c, 0xe4, 0xff, 0x56, 0xb4, 0xc8, 0x93, 0x9f, 0x80, 0x72, 0xe0, 0xe2, 0x01, 0xf2,
+	0x29, 0xec, 0x75, 0xa0, 0x65, 0x91, 0xc0, 0x65, 0x1d, 0x6c, 0x0b, 0xfd, 0x55, 0xa1, 0xbf, 0x3d,
+	0x4e, 0x69, 0xf2, 0x8c, 0x03, 0xdb, 0x94, 0x83, 0x4b, 0x98, 0x5c, 0x01, 0x0b, 0x6c, 0xd8, 0xe9,
+	0x42, 0xda, 0x55, 0x66, 0xc3, 0xfe, 0x66, 0x96, 0x0d, 0x1f, 0x43, 0xda, 0x6d, 0xac, 0x85, 0x56,
+	0x45, 0xcb, 0xd0, 0xe7, 0x12, 0xf7, 0x19, 0x0b, 0xd7, 0x6b, 0xa0, 0x3c, 0xb9, 0x1f, 0x3b, 0x94,
+	0x8b, 0x60, 0xb6, 0xbd, 0xdf, 0x8c, 0xdc, 0xe4, 0xcd, 0x70, 0xa9, 0x7f, 0x92, 0x40, 0xae, 0x45,
+	0x9d, 0x16, 0x76, 0xd9, 0xe1, 0xee, 0x3f, 0x6b, 0xf8, 0x5a, 0xca, 0x70, 0x9e, 0x1b, 0xe6, 0xaa,
+	0xf5, 0x65, 0x50, 0x8a, 0x37, 0xf1, 0x61, 0x7e, 0x98, 0x89, 0xd0, 0xfd, 0x21, 0xb2, 0x82, 0xf0,
+	0xa4, 0x47, 0x3d, 0x02, 0xed, 0xbf, 0x6d, 0x70, 0x0f, 0x94, 0x12, 0x32, 0x8f, 0x6b, 0x8a, 0xac,
+	0x2e, 0x6e, 0x57, 0xd2, 0x4c, 0x42, 0xb2, 0x59, 0x0c, 0x52, 0x88, 0xbc, 0x09, 0x4a, 0x03, 0xe4,
+	0xe3, 0x97, 0xd8, 0x82, 0x0c, 0x13, 0xb7, 0x63, 0x43, 0x06, 0x95, 0xb9, 0x68, 0x60, 0xc5, 0xc9,
+	0xc0, 0x1e, 0x64, 0xb0, 0x71, 0x33, 0x35, 0xba, 0x32, 0x1f, 0xdd, 0xf4, 0x5c, 0xf4, 0x55, 0x50,
+	0xbd, 0x04, 0xc6, 0xa3, 0x7c, 0x2b, 0x81, 0x42, 0x8b, 0x3a, 0xcf, 0x09, 0x43, 0x07, 0xee, 0x11,
+	0x09, 0xdc, 0x3f, 0x99, 0x63, 0x0d, 0x2c, 0x60, 0x5e, 0x2c, 0x46, 0x57, 0x10, 0x86, 0x05, 0xa5,
+	0x39, 0x0e, 0x37, 0x6e, 0xa4, 0x14, 0x97, 0xb8, 0xe2, 0x89, 0xf6, 0xba, 0x02, 0x56, 0xa6, 0x91,
+	0xb1, 0xd6, 0xed, 0x6f, 0x33, 0x60, 0xb6, 0x45, 0x1d, 0xf9, 0x11, 0xc8, 0x4f, 0xbd, 0x82, 0x56,
+	0x44, 0xb7, 0xd4, 0xdd, 0x57, 0xb5, 0xab, 0xf1, 0xf8, 0xc6, 0x3c, 0x04, 0xb9, 0xe4, 0x7d, 0xb0,
+	0x9c, 0x24, 0xc7, 0xa0, 0xba, 0x7a, 0x05, 0x18, 0x97, 0xdf, 0x07, 0x59, 0x71, 0xb5, 0x8a, 0x49,
+	0x1a, 0x47, 0x54, 0x25, 0x8d, 0xc4, 0x55, 0x4f, 0x41, 0x21, 0xf5, 0xdc, 0x4e, 0xe4, 0x4e, 0x47,
+	0xd4, 0xf5, 0x5f, 0x45, 0x62, 0xb6, 0x5d, 0xb0, 0x38, 0x79, 0x74, 0xff, 0x27, 0x05, 0x13, 0xb0,
+	0x7a, 0xfd, 0x4a, 0x78, 0x4c, 0xa2, 0xce, 0xbf, 0xba, 0x38, 0xde, 0x90, 0x76, 0x9a, 0x27, 0x67,
+	0x9a, 0x74, 0x7a, 0xa6, 0x49, 0x3f, 0xce, 0x34, 0xe9, 0xdd, 0xb9, 0x96, 0x39, 0x3d, 0xd7, 0x32,
+	0x5f, 0xcf, 0xb5, 0xcc, 0x8b, 0xdb, 0x0e, 0x66, 0xdd, 0xe0, 0xa8, 0x6e, 0x91, 0xbe, 0xe1, 0x93,
+	0x5e, 0xcf, 0xea, 0x42, 0xec, 0x52, 0xc3, 0x8b, 0xfe, 0x8d, 0xa1, 0x11, 0x20, 0xfe, 0x5d, 0x39,
+	0xca, 0x46, 0xdf, 0x89, 0x7b, 0x3f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x43, 0xad, 0xa0, 0x0d, 0xb0,
+	0x06, 0x00, 0x00,
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1059,8 +1143,8 @@ type MsgClient interface {
 	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
-	// VoteInboundSynthetic defines a message for voting on synthetic assets bridging from external chain to PC
-	VoteInboundSynthetic(ctx context.Context, in *MsgVoteInboundSynthetic, opts ...grpc.CallOption) (*MsgVoteInboundSyntheticResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
 }
 
 type msgClient struct {
@@ -1109,6 +1193,7 @@ func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, o
 
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
 	out := new(MsgAddChainConfigResponse)
 	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/AddChainConfig", in, out, opts...)
@@ -1117,6 +1202,11 @@ func (c *msgClient) VoteInboundSynthetic(ctx context.Context, in *MsgVoteInbound
 	out := new(MsgVoteInboundSyntheticResponse)
 	err := c.cc.Invoke(ctx, "/ue.v1.Msg/VoteInboundSynthetic", in, out, opts...)
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error) {
+	out := new(MsgVoteInboundResponse)
+	err := c.cc.Invoke(ctx, "/ue.v1.Msg/VoteInbound", in, out, opts...)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	if err != nil {
 		return nil, err
 	}
@@ -1149,8 +1239,8 @@ type MsgServer interface {
 	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
-	// VoteInboundSynthetic defines a message for voting on synthetic assets bridging from external chain to PC
-	VoteInboundSynthetic(context.Context, *MsgVoteInboundSynthetic) (*MsgVoteInboundSyntheticResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -1169,8 +1259,8 @@ func (*UnimplementedMsgServer) MintPC(ctx context.Context, req *MsgMintPC) (*Msg
 func (*UnimplementedMsgServer) ExecutePayload(ctx context.Context, req *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
 }
-func (*UnimplementedMsgServer) VoteInboundSynthetic(ctx context.Context, req *MsgVoteInboundSynthetic) (*MsgVoteInboundSyntheticResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method VoteInboundSynthetic not implemented")
+func (*UnimplementedMsgServer) VoteInbound(ctx context.Context, req *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -1251,16 +1341,22 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgAddChainConfig)
 =======
 func _Msg_VoteInboundSynthetic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgVoteInboundSynthetic)
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteInbound)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 		return srv.(MsgServer).AddChainConfig(ctx, in)
 	}
@@ -1272,14 +1368,21 @@ func _Msg_VoteInboundSynthetic_Handler(srv interface{}, ctx context.Context, dec
 		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
 =======
 		return srv.(MsgServer).VoteInboundSynthetic(ctx, in)
+=======
+		return srv.(MsgServer).VoteInbound(ctx, in)
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ue.v1.Msg/VoteInboundSynthetic",
+		FullMethod: "/ue.v1.Msg/VoteInbound",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 		return srv.(MsgServer).VoteInboundSynthetic(ctx, req.(*MsgVoteInboundSynthetic))
 >>>>>>> 92f2d3f (refactor: added dummy msg server impl of vote inbound synthetic):x/ue/types/tx.pb.go
+=======
+		return srv.(MsgServer).VoteInbound(ctx, req.(*MsgVoteInbound))
+>>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1328,8 +1431,8 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_ExecutePayload_Handler,
 		},
 		{
-			MethodName: "VoteInboundSynthetic",
-			Handler:    _Msg_VoteInboundSynthetic_Handler,
+			MethodName: "VoteInbound",
+			Handler:    _Msg_VoteInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1634,7 +1737,7 @@ func (m *MsgExecutePayloadResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgVoteInboundSynthetic) Marshal() (dAtA []byte, err error) {
+func (m *MsgVoteInbound) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1644,19 +1747,19 @@ func (m *MsgVoteInboundSynthetic) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgVoteInboundSynthetic) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgVoteInbound) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgVoteInboundSynthetic) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgVoteInbound) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.InboundSynthetic != nil {
+	if m.Inbound != nil {
 		{
-			size, err := m.InboundSynthetic.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Inbound.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1676,7 +1779,7 @@ func (m *MsgVoteInboundSynthetic) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgVoteInboundSyntheticResponse) Marshal() (dAtA []byte, err error) {
+func (m *MsgVoteInboundResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1686,12 +1789,12 @@ func (m *MsgVoteInboundSyntheticResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgVoteInboundSyntheticResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgVoteInboundResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgVoteInboundSyntheticResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgVoteInboundResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1832,7 +1935,7 @@ func (m *MsgExecutePayloadResponse) Size() (n int) {
 	return n
 }
 
-func (m *MsgVoteInboundSynthetic) Size() (n int) {
+func (m *MsgVoteInbound) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1842,14 +1945,14 @@ func (m *MsgVoteInboundSynthetic) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.InboundSynthetic != nil {
-		l = m.InboundSynthetic.Size()
+	if m.Inbound != nil {
+		l = m.Inbound.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	return n
 }
 
-func (m *MsgVoteInboundSyntheticResponse) Size() (n int) {
+func (m *MsgVoteInboundResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2699,7 +2802,7 @@ func (m *MsgExecutePayloadResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgVoteInboundSynthetic) Unmarshal(dAtA []byte) error {
+func (m *MsgVoteInbound) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2722,10 +2825,10 @@ func (m *MsgVoteInboundSynthetic) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgVoteInboundSynthetic: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgVoteInbound: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgVoteInboundSynthetic: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgVoteInbound: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2762,7 +2865,7 @@ func (m *MsgVoteInboundSynthetic) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InboundSynthetic", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2789,10 +2892,10 @@ func (m *MsgVoteInboundSynthetic) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.InboundSynthetic == nil {
-				m.InboundSynthetic = &InboundSynthetic{}
+			if m.Inbound == nil {
+				m.Inbound = &Inbound{}
 			}
-			if err := m.InboundSynthetic.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Inbound.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2817,7 +2920,7 @@ func (m *MsgVoteInboundSynthetic) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgVoteInboundSyntheticResponse) Unmarshal(dAtA []byte) error {
+func (m *MsgVoteInboundResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2840,10 +2943,10 @@ func (m *MsgVoteInboundSyntheticResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgVoteInboundResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgVoteInboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

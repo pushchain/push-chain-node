@@ -23,6 +23,9 @@ var (
 
 	InboundSyntheticsKey  = collections.NewPrefix(2)
 	InboundSyntheticsName = "inbound_synthetics"
+
+	UniversalTxKey  = collections.NewPrefix(3)
+	UniversalTxName = "universal_tx"
 )
 
 const (

@@ -34,6 +34,9 @@ type Keeper struct {
 
 	// Inbound synthetics trackers
 	PendingInboundSynthetics collections.KeySet[string]
+
+	// UniversalTx collection
+	UniversalTx collections.Map[string, types.UniversalTx]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -78,6 +81,14 @@ func NewKeeper(
 			types.InboundSyntheticsKey,
 			types.InboundSyntheticsName,
 			collections.StringKey,
+		),
+
+		UniversalTx: collections.NewMap(
+			sb,
+			types.UniversalTxKey,
+			types.UniversalTxName,
+			collections.StringKey,
+			codec.CollValue[types.UniversalTx](cdc),
 		),
 	}
 

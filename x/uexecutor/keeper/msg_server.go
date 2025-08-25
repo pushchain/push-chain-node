@@ -106,6 +106,10 @@ func (ms msgServer) VoteInboundSynthetic(ctx context.Context, msg *types.MsgVote
 	}
 
 	// continue with inbound synthetic creation / voting logic here
+	err = ms.k.VoteInboundSynthetic(ctx, signerAddr, *msg.InboundSynthetic)
+	if err != nil {
+		return nil, err
+	}
 
 	return &types.MsgVoteInboundSyntheticResponse{}, nil
 }

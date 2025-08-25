@@ -120,7 +120,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 		}
 		
 		confirmations := currentBlock - tx.BlockNumber
-		originalStatus := tx.Status
 		tx.Confirmations = confirmations
 		
 		// Check if transaction meets fast threshold and is still pending
@@ -143,14 +142,12 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 				Msg("transaction confirmed (standard)")
 		}
 		
-		// Only save if status changed to prevent unnecessary updates
-		if tx.Status != originalStatus {
-			if err := ct.db.Client().Save(&tx).Error; err != nil {
-				ct.logger.Error().
-					Err(err).
-					Str("tx_hash", tx.TxHash).
-					Msg("failed to update transaction confirmations")
-			}
+		// Always save to update confirmation count
+		if err := ct.db.Client().Save(&tx).Error; err != nil {
+			ct.logger.Error().
+				Err(err).
+				Str("tx_hash", tx.TxHash).
+				Msg("failed to update transaction confirmations")
 		}
 	}
 	
@@ -175,6 +172,14 @@ func (ct *ConfirmationTracker) IsConfirmed(
 	} else {
 		// For standard mode, only accept confirmed status
 		confirmed = tx.Status == "confirmed"
+	}
+	
+	// Log when checking reorged transactions for visibility
+	if tx.Status == "reorged" {
+		ct.logger.Debug().
+			Str("tx_hash", txHash).
+			Str("mode", mode).
+			Msg("transaction was reorganized out - returning false")
 	}
 	
 	ct.logger.Debug().

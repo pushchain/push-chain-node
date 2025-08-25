@@ -265,7 +265,12 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromBlock uint6
 					}
 				}
 
-				// Update confirmations for pending transactions
+				// First verify all pending transactions for reorgs (EVM-specific)
+				if err := h.verifyPendingTransactions(ctx); err != nil {
+					h.logger.Error().Err(err).Msg("failed to verify pending transactions for reorgs")
+				}
+
+				// Then update confirmations for remaining valid transactions
 				if err := h.tracker.UpdateConfirmations(h.config.Chain, latestBlock); err != nil {
 					h.logger.Error().Err(err).Msg("failed to update confirmations")
 				}
@@ -381,4 +386,84 @@ func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string, mode st
 // GetConfirmationTracker returns the confirmation tracker
 func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 	return h.tracker
+}
+
+// verifyTransactionExistence checks if an EVM transaction still exists on chain (reorg detection)
+func (h *GatewayHandler) verifyTransactionExistence(
+	ctx context.Context,
+	tx *store.GatewayTransaction,
+) (bool, error) {
+	hash := ethcommon.HexToHash(tx.TxHash)
+	receipt, err := h.client.TransactionReceipt(ctx, hash)
+	if err != nil {
+		// Transaction not found - likely reorganized out
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_block", tx.BlockNumber).
+			Err(err).
+			Msg("EVM transaction not found on chain - marking as reorged")
+		
+		tx.Status = "reorged"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	// Check if transaction moved to a different block due to reorg
+	if receipt.BlockNumber.Uint64() != tx.BlockNumber {
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_block", tx.BlockNumber).
+			Uint64("new_block", receipt.BlockNumber.Uint64()).
+			Msg("EVM transaction moved to different block due to reorg - updating block number")
+		
+		// Update block number and reset status
+		tx.BlockNumber = receipt.BlockNumber.Uint64()
+		tx.Status = "pending"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// verifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs
+func (h *GatewayHandler) verifyPendingTransactions(ctx context.Context) error {
+	var pendingTxs []store.GatewayTransaction
+	
+	// Get all transactions that need verification
+	err := h.database.Client().
+		Where("chain_id = ? AND status IN (?)", h.config.Chain, []string{"pending", "fast_confirmed"}).
+		Find(&pendingTxs).Error
+	if err != nil {
+		return fmt.Errorf("failed to fetch pending transactions for verification: %w", err)
+	}
+
+	h.logger.Debug().
+		Str("chain_id", h.config.Chain).
+		Int("pending_count", len(pendingTxs)).
+		Msg("verifying EVM transactions for reorgs")
+	
+	// Verify each transaction
+	for _, tx := range pendingTxs {
+		exists, err := h.verifyTransactionExistence(ctx, &tx)
+		if err != nil {
+			h.logger.Error().
+				Err(err).
+				Str("tx_hash", tx.TxHash).
+				Msg("failed to verify EVM transaction existence")
+			continue
+		}
+		
+		// If transaction was reorged or moved, save the updated status
+		if !exists {
+			if err := h.database.Client().Save(&tx).Error; err != nil {
+				h.logger.Error().
+					Err(err).
+					Str("tx_hash", tx.TxHash).
+					Msg("failed to update reorged EVM transaction")
+			}
+		}
+	}
+	
+	return nil
 }

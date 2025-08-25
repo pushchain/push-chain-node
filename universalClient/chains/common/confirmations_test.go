@@ -231,3 +231,34 @@ func TestMarkTransactionFailed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "failed", tx.Status)
 }
+
+func TestIsConfirmedWithReorgedStatus(t *testing.T) {
+	logger := zerolog.Nop()
+	database, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer database.Close()
+	
+	tracker := NewConfirmationTracker(database, nil, logger)
+	
+	// Create a transaction and manually set it to reorged status
+	tx := &store.GatewayTransaction{
+		ChainID:         "eip155:11155111",
+		TxHash:          "0x1234567890abcdef",
+		BlockNumber:     100,
+		Method:          "addFunds",
+		EventIdentifier: "0xf9bfe8a7",
+		Status:          "reorged",
+		Confirmations:   0,
+	}
+	err = database.Client().Create(tx).Error
+	require.NoError(t, err)
+	
+	// Test that reorged transactions are never considered confirmed
+	confirmed, err := tracker.IsConfirmed("0x1234567890abcdef", "fast")
+	require.NoError(t, err)
+	assert.False(t, confirmed)
+	
+	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef", "standard")
+	require.NoError(t, err)
+	assert.False(t, confirmed)
+}

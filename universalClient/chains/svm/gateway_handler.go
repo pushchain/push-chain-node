@@ -226,7 +226,12 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					}
 				}
 
-				// Update confirmations for pending transactions
+				// First verify all pending transactions for reorgs (Solana-specific)
+				if err := h.verifyPendingTransactions(ctx); err != nil {
+					h.logger.Error().Err(err).Msg("failed to verify pending transactions for reorgs")
+				}
+
+				// Then update confirmations for remaining valid transactions
 				if err := h.tracker.UpdateConfirmations(h.config.Chain, latestSlot); err != nil {
 					h.logger.Error().Err(err).Msg("failed to update confirmations")
 				}
@@ -374,4 +379,120 @@ func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string, mode st
 // GetConfirmationTracker returns the confirmation tracker
 func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 	return h.tracker
+}
+
+// verifyTransactionExistence checks if a Solana transaction still exists on chain (reorg detection)
+func (h *GatewayHandler) verifyTransactionExistence(
+	ctx context.Context,
+	tx *store.GatewayTransaction,
+) (bool, error) {
+	sig, err := solana.SignatureFromBase58(tx.TxHash)
+	if err != nil {
+		h.logger.Error().
+			Err(err).
+			Str("tx_hash", tx.TxHash).
+			Msg("invalid Solana signature format")
+		return false, err
+	}
+
+	// Get transaction status to check if it still exists
+	statuses, err := h.client.GetSignatureStatuses(ctx, false, sig)
+	if err != nil {
+		// Transaction not found - likely reorganized out
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_slot", tx.BlockNumber).
+			Err(err).
+			Msg("Solana transaction not found on chain - marking as reorged")
+		
+		tx.Status = "reorged"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	// Check if status exists
+	if len(statuses.Value) == 0 || statuses.Value[0] == nil {
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_slot", tx.BlockNumber).
+			Msg("Solana transaction status not found - marking as reorged")
+		
+		tx.Status = "reorged"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	status := statuses.Value[0]
+
+	// Check if transaction has an error (which means it was included but failed)
+	if status.Err != nil {
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_slot", tx.BlockNumber).
+			Interface("error", status.Err).
+			Msg("Solana transaction failed - marking as failed")
+		
+		tx.Status = "failed"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	// Check if transaction moved to a different slot due to reorg
+	if status.Slot != tx.BlockNumber {
+		h.logger.Warn().
+			Str("tx_hash", tx.TxHash).
+			Uint64("original_slot", tx.BlockNumber).
+			Uint64("new_slot", status.Slot).
+			Msg("Solana transaction moved to different slot due to reorg - updating slot number")
+		
+		// Update slot number and reset status
+		tx.BlockNumber = status.Slot
+		tx.Status = "pending"
+		tx.Confirmations = 0
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// verifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs
+func (h *GatewayHandler) verifyPendingTransactions(ctx context.Context) error {
+	var pendingTxs []store.GatewayTransaction
+	
+	// Get all transactions that need verification
+	err := h.database.Client().
+		Where("chain_id = ? AND status IN (?)", h.config.Chain, []string{"pending", "fast_confirmed"}).
+		Find(&pendingTxs).Error
+	if err != nil {
+		return fmt.Errorf("failed to fetch pending transactions for verification: %w", err)
+	}
+
+	h.logger.Debug().
+		Str("chain_id", h.config.Chain).
+		Int("pending_count", len(pendingTxs)).
+		Msg("verifying Solana transactions for reorgs")
+	
+	// Verify each transaction
+	for _, tx := range pendingTxs {
+		exists, err := h.verifyTransactionExistence(ctx, &tx)
+		if err != nil {
+			h.logger.Error().
+				Err(err).
+				Str("tx_hash", tx.TxHash).
+				Msg("failed to verify Solana transaction existence")
+			continue
+		}
+		
+		// If transaction was reorged or moved, save the updated status
+		if !exists {
+			if err := h.database.Client().Save(&tx).Error; err != nil {
+				h.logger.Error().
+					Err(err).
+					Str("tx_hash", tx.TxHash).
+					Msg("failed to update reorged Solana transaction")
+			}
+		}
+	}
+	
+	return nil
 }

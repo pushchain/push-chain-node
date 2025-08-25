@@ -1,0 +1,11 @@
+# Ignore heavy directories that aren't needed for build
+.git/
+build/
+.gitignore
+testnet/
+*.md
+node_modules/
+.env*
+*.log
+tmp/
+.DS_Store

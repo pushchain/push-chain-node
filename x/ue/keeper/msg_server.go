@@ -83,8 +83,8 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	return &types.MsgExecutePayloadResponse{}, nil
 }
 
-// VoteInboundSynthetic implements types.MsgServer.
-func (ms msgServer) VoteInboundSynthetic(ctx context.Context, msg *types.MsgVoteInboundSynthetic) (*types.MsgVoteInboundSyntheticResponse, error) {
+// VoteInbound implements types.MsgServer.
+func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) (*types.MsgVoteInboundResponse, error) {
 	// Get the signer address
 	signerAddr := msg.Signer
 
@@ -106,10 +106,10 @@ func (ms msgServer) VoteInboundSynthetic(ctx context.Context, msg *types.MsgVote
 	}
 
 	// continue with inbound synthetic creation / voting logic here
-	err = ms.k.VoteInboundSynthetic(ctx, signerAddr, *msg.InboundSynthetic)
+	err = ms.k.VoteInbound(ctx, signerAddr, *msg.Inbound)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgVoteInboundSyntheticResponse{}, nil
+	return &types.MsgVoteInboundResponse{}, nil
 }

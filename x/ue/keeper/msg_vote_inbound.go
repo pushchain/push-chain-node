@@ -9,8 +9,8 @@ import (
 	"github.com/rollchains/pchain/x/ue/types"
 )
 
-// voteInboundSynthetic is for uvalidators for voting on synthetic asset inbound bridging
-func (k Keeper) VoteInboundSynthetic(ctx context.Context, universalValidator string, inboundSynthetic types.InboundSynthetic) error {
+// voteInbound is for uvalidators for voting on synthetic asset inbound bridging
+func (k Keeper) VoteInbound(ctx context.Context, universalValidator string, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Step 1: Check if inbound synthetic is there in the UTX
 	// TODO
@@ -23,12 +23,12 @@ func (k Keeper) VoteInboundSynthetic(ctx context.Context, universalValidator str
 	tmpCtx, commit := sdkCtx.CacheContext()
 
 	// Step 2: Add inbound synthetic to pending set - adds if not present, else does nothing
-	if err := k.AddPendingInboundSynthetic(tmpCtx, inboundSynthetic); err != nil {
+	if err := k.AddPendingInbound(tmpCtx, inbound); err != nil {
 		return err
 	}
 
 	// Step 3: Vote on inbound ballot
-	isFinalized, _, err := k.VoteOnInboundSyntheticBallot(tmpCtx, universalValidator, inboundSynthetic)
+	isFinalized, _, err := k.VoteOnInboundBallot(tmpCtx, universalValidator, inbound)
 	if err != nil {
 		return errors.Wrap(err, "failed to vote on inbound ballot")
 	}
@@ -42,13 +42,13 @@ func (k Keeper) VoteInboundSynthetic(ctx context.Context, universalValidator str
 
 	// Voting is finalized
 	utx := types.UniversalTx{
-		InboundTx:       &inboundSynthetic,
+		InboundTx:       &inbound,
 		PcTx:            nil,
 		OutboundTx:      nil,
 		UniversalStatus: types.UniversalTxStatus_PENDING_INBOUND_EXECUTION,
 	}
 
-	universalTxKey := types.GetInboundSyntheticKey(inboundSynthetic)
+	universalTxKey := types.GetInboundKey(inbound)
 
 	// Step 4: If finalized, create the UniversalTx
 	if err := k.CreateUniversalTx(ctx, universalTxKey, utx); err != nil {
@@ -56,7 +56,7 @@ func (k Keeper) VoteInboundSynthetic(ctx context.Context, universalValidator str
 	}
 
 	// Step 5: Remove from pending inbound set
-	if err := k.RemovePendingInboundSynthetic(ctx, inboundSynthetic); err != nil {
+	if err := k.RemovePendingInbound(ctx, inbound); err != nil {
 		return err
 	}
 

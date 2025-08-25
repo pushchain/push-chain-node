@@ -5,7 +5,7 @@ import (
 )
 
 // Stringer method for Params.
-func (p InboundSynthetic) String() string {
+func (p Inbound) String() string {
 	bz, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -16,7 +16,7 @@ func (p InboundSynthetic) String() string {
 
 // TODO: update the validation fn
 // Validate does the sanity check on the params.
-func (p InboundSynthetic) ValidateBasic() error {
+func (p Inbound) ValidateBasic() error {
 	// Validate chain is non-empty and follows CAIP-2 format
 	return nil
 }

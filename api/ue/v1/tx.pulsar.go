@@ -3774,27 +3774,27 @@ func (x *fastReflection_MsgExecutePayloadResponse) ProtoMethods() *protoiface.Me
 }
 
 var (
-	md_MsgVoteInboundSynthetic                   protoreflect.MessageDescriptor
-	fd_MsgVoteInboundSynthetic_signer            protoreflect.FieldDescriptor
-	fd_MsgVoteInboundSynthetic_inbound_synthetic protoreflect.FieldDescriptor
+	md_MsgVoteInbound         protoreflect.MessageDescriptor
+	fd_MsgVoteInbound_signer  protoreflect.FieldDescriptor
+	fd_MsgVoteInbound_inbound protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
-	md_MsgVoteInboundSynthetic = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundSynthetic")
-	fd_MsgVoteInboundSynthetic_signer = md_MsgVoteInboundSynthetic.Fields().ByName("signer")
-	fd_MsgVoteInboundSynthetic_inbound_synthetic = md_MsgVoteInboundSynthetic.Fields().ByName("inbound_synthetic")
+	md_MsgVoteInbound = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInbound")
+	fd_MsgVoteInbound_signer = md_MsgVoteInbound.Fields().ByName("signer")
+	fd_MsgVoteInbound_inbound = md_MsgVoteInbound.Fields().ByName("inbound")
 }
 
-var _ protoreflect.Message = (*fastReflection_MsgVoteInboundSynthetic)(nil)
+var _ protoreflect.Message = (*fastReflection_MsgVoteInbound)(nil)
 
-type fastReflection_MsgVoteInboundSynthetic MsgVoteInboundSynthetic
+type fastReflection_MsgVoteInbound MsgVoteInbound
 
-func (x *MsgVoteInboundSynthetic) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSynthetic)(x)
+func (x *MsgVoteInbound) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteInbound)(x)
 }
 
-func (x *MsgVoteInboundSynthetic) slowProtoReflect() protoreflect.Message {
+func (x *MsgVoteInbound) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_tx_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3806,43 +3806,43 @@ func (x *MsgVoteInboundSynthetic) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_MsgVoteInboundSynthetic_messageType fastReflection_MsgVoteInboundSynthetic_messageType
-var _ protoreflect.MessageType = fastReflection_MsgVoteInboundSynthetic_messageType{}
+var _fastReflection_MsgVoteInbound_messageType fastReflection_MsgVoteInbound_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteInbound_messageType{}
 
-type fastReflection_MsgVoteInboundSynthetic_messageType struct{}
+type fastReflection_MsgVoteInbound_messageType struct{}
 
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSynthetic)(nil)
+func (x fastReflection_MsgVoteInbound_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteInbound)(nil)
 }
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSynthetic)
+func (x fastReflection_MsgVoteInbound_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInbound)
 }
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSynthetic
+func (x fastReflection_MsgVoteInbound_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInbound
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_MsgVoteInboundSynthetic) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSynthetic
+func (x *fastReflection_MsgVoteInbound) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInbound
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_MsgVoteInboundSynthetic) Type() protoreflect.MessageType {
-	return _fastReflection_MsgVoteInboundSynthetic_messageType
+func (x *fastReflection_MsgVoteInbound) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteInbound_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgVoteInboundSynthetic) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSynthetic)
+func (x *fastReflection_MsgVoteInbound) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInbound)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_MsgVoteInboundSynthetic) Interface() protoreflect.ProtoMessage {
-	return (*MsgVoteInboundSynthetic)(x)
+func (x *fastReflection_MsgVoteInbound) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteInbound)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -3850,16 +3850,16 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Interface() protoreflect.ProtoM
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+func (x *fastReflection_MsgVoteInbound) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
 	if x.Signer != "" {
 		value := protoreflect.ValueOfString(x.Signer)
-		if !f(fd_MsgVoteInboundSynthetic_signer, value) {
+		if !f(fd_MsgVoteInbound_signer, value) {
 			return
 		}
 	}
-	if x.InboundSynthetic != nil {
-		value := protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
-		if !f(fd_MsgVoteInboundSynthetic_inbound_synthetic, value) {
+	if x.Inbound != nil {
+		value := protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
+		if !f(fd_MsgVoteInbound_inbound, value) {
 			return
 		}
 	}
@@ -3876,17 +3876,17 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.Field
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_MsgVoteInbound) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		return x.InboundSynthetic != nil
+	case "ue.v1.MsgVoteInbound.inbound":
+		return x.Inbound != nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -3896,17 +3896,17 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescri
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_MsgVoteInbound) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		x.Signer = ""
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		x.InboundSynthetic = nil
+	case "ue.v1.MsgVoteInbound.inbound":
+		x.Inbound = nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -3916,19 +3916,19 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDesc
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInbound) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		value := x.InboundSynthetic
+	case "ue.v1.MsgVoteInbound.inbound":
+		value := x.Inbound
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -3942,17 +3942,17 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.Fie
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_MsgVoteInbound) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		x.InboundSynthetic = value.Message().Interface().(*InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		x.Inbound = value.Message().Interface().(*Inbound)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -3966,48 +3966,48 @@ func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescri
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSynthetic) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInbound) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		if x.InboundSynthetic == nil {
-			x.InboundSynthetic = new(InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		if x.Inbound == nil {
+			x.Inbound = new(Inbound)
 		}
-		return protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
-		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInboundSynthetic is not mutable"))
+		return protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
+	case "ue.v1.MsgVoteInbound.signer":
+		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInbound is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_MsgVoteInboundSynthetic) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInbound) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInboundSynthetic.signer":
+	case "ue.v1.MsgVoteInbound.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInboundSynthetic.inbound_synthetic":
-		m := new(InboundSynthetic)
+	case "ue.v1.MsgVoteInbound.inbound":
+		m := new(Inbound)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSynthetic"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_MsgVoteInboundSynthetic) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_MsgVoteInbound) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundSynthetic", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInbound", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -4015,7 +4015,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) WhichOneof(d protoreflect.Oneof
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_MsgVoteInboundSynthetic) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_MsgVoteInbound) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -4026,7 +4026,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) GetUnknown() protoreflect.RawFi
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSynthetic) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_MsgVoteInbound) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -4038,7 +4038,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) SetUnknown(fields protoreflect.
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_MsgVoteInboundSynthetic) IsValid() bool {
+func (x *fastReflection_MsgVoteInbound) IsValid() bool {
 	return x != nil
 }
 
@@ -4048,9 +4048,9 @@ func (x *fastReflection_MsgVoteInboundSynthetic) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
+		x := input.Message.Interface().(*MsgVoteInbound)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4066,8 +4066,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.InboundSynthetic != nil {
-			l = options.Size(x.InboundSynthetic)
+		if x.Inbound != nil {
+			l = options.Size(x.Inbound)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if x.unknownFields != nil {
@@ -4080,7 +4080,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
+		x := input.Message.Interface().(*MsgVoteInbound)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4099,8 +4099,8 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
-		if x.InboundSynthetic != nil {
-			encoded, err := options.Marshal(x.InboundSynthetic)
+		if x.Inbound != nil {
+			encoded, err := options.Marshal(x.Inbound)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4131,7 +4131,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
+		x := input.Message.Interface().(*MsgVoteInbound)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4163,10 +4163,10 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSynthetic: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSynthetic: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
@@ -4203,7 +4203,7 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field InboundSynthetic", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -4230,10 +4230,10 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.InboundSynthetic == nil {
-					x.InboundSynthetic = &InboundSynthetic{}
+				if x.Inbound == nil {
+					x.Inbound = &Inbound{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.InboundSynthetic); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Inbound); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -4273,23 +4273,23 @@ func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Meth
 }
 
 var (
-	md_MsgVoteInboundSyntheticResponse protoreflect.MessageDescriptor
+	md_MsgVoteInboundResponse protoreflect.MessageDescriptor
 )
 
 func init() {
 	file_ue_v1_tx_proto_init()
-	md_MsgVoteInboundSyntheticResponse = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundSyntheticResponse")
+	md_MsgVoteInboundResponse = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundResponse")
 }
 
-var _ protoreflect.Message = (*fastReflection_MsgVoteInboundSyntheticResponse)(nil)
+var _ protoreflect.Message = (*fastReflection_MsgVoteInboundResponse)(nil)
 
-type fastReflection_MsgVoteInboundSyntheticResponse MsgVoteInboundSyntheticResponse
+type fastReflection_MsgVoteInboundResponse MsgVoteInboundResponse
 
-func (x *MsgVoteInboundSyntheticResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSyntheticResponse)(x)
+func (x *MsgVoteInboundResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteInboundResponse)(x)
 }
 
-func (x *MsgVoteInboundSyntheticResponse) slowProtoReflect() protoreflect.Message {
+func (x *MsgVoteInboundResponse) slowProtoReflect() protoreflect.Message {
 	mi := &file_ue_v1_tx_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -4301,43 +4301,43 @@ func (x *MsgVoteInboundSyntheticResponse) slowProtoReflect() protoreflect.Messag
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_MsgVoteInboundSyntheticResponse_messageType fastReflection_MsgVoteInboundSyntheticResponse_messageType
-var _ protoreflect.MessageType = fastReflection_MsgVoteInboundSyntheticResponse_messageType{}
+var _fastReflection_MsgVoteInboundResponse_messageType fastReflection_MsgVoteInboundResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteInboundResponse_messageType{}
 
-type fastReflection_MsgVoteInboundSyntheticResponse_messageType struct{}
+type fastReflection_MsgVoteInboundResponse_messageType struct{}
 
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSyntheticResponse)(nil)
+func (x fastReflection_MsgVoteInboundResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteInboundResponse)(nil)
 }
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSyntheticResponse)
+func (x fastReflection_MsgVoteInboundResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInboundResponse)
 }
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSyntheticResponse
+func (x fastReflection_MsgVoteInboundResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInboundResponse
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSyntheticResponse
+func (x *fastReflection_MsgVoteInboundResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteInboundResponse
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Type() protoreflect.MessageType {
-	return _fastReflection_MsgVoteInboundSyntheticResponse_messageType
+func (x *fastReflection_MsgVoteInboundResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteInboundResponse_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSyntheticResponse)
+func (x *fastReflection_MsgVoteInboundResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteInboundResponse)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Interface() protoreflect.ProtoMessage {
-	return (*MsgVoteInboundSyntheticResponse)(x)
+func (x *fastReflection_MsgVoteInboundResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteInboundResponse)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -4345,7 +4345,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Interface() protoreflec
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+func (x *fastReflection_MsgVoteInboundResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
 }
 
 // Has reports whether a field is populated.
@@ -4359,13 +4359,13 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Range(f func(protorefle
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_MsgVoteInboundResponse) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4375,13 +4375,13 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Has(fd protoreflect.Fie
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_MsgVoteInboundResponse) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4391,13 +4391,13 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Clear(fd protoreflect.F
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInboundResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -4411,13 +4411,13 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Get(descriptor protoref
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_MsgVoteInboundResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4431,36 +4431,36 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) Set(fd protoreflect.Fie
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInboundResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_MsgVoteInboundResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_MsgVoteInboundResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundSyntheticResponse", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundResponse", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -4468,7 +4468,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) WhichOneof(d protorefle
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_MsgVoteInboundResponse) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -4479,7 +4479,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) GetUnknown() protorefle
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_MsgVoteInboundResponse) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -4491,7 +4491,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) SetUnknown(fields proto
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) IsValid() bool {
+func (x *fastReflection_MsgVoteInboundResponse) IsValid() bool {
 	return x != nil
 }
 
@@ -4501,9 +4501,9 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4525,7 +4525,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) ProtoMethods() *protoif
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4555,7 +4555,7 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) ProtoMethods() *protoif
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
+		x := input.Message.Interface().(*MsgVoteInboundResponse)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4587,10 +4587,10 @@ func (x *fastReflection_MsgVoteInboundSyntheticResponse) ProtoMethods() *protoif
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			default:
@@ -4987,19 +4987,19 @@ func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
-// MsgVoteInboundSynthetic allows a universal validator to vote on an inbound synthetic transfer.
-type MsgVoteInboundSynthetic struct {
+// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+type MsgVoteInbound struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer           string            `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	InboundSynthetic *InboundSynthetic `protobuf:"bytes,2,opt,name=inbound_synthetic,json=inboundSynthetic,proto3" json:"inbound_synthetic,omitempty"`
+	Signer  string   `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	Inbound *Inbound `protobuf:"bytes,2,opt,name=inbound,proto3" json:"inbound,omitempty"`
 }
 
-func (x *MsgVoteInboundSynthetic) Reset() {
-	*x = MsgVoteInboundSynthetic{}
+func (x *MsgVoteInbound) Reset() {
+	*x = MsgVoteInbound{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -5007,40 +5007,40 @@ func (x *MsgVoteInboundSynthetic) Reset() {
 	}
 }
 
-func (x *MsgVoteInboundSynthetic) String() string {
+func (x *MsgVoteInbound) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgVoteInboundSynthetic) ProtoMessage() {}
+func (*MsgVoteInbound) ProtoMessage() {}
 
-// Deprecated: Use MsgVoteInboundSynthetic.ProtoReflect.Descriptor instead.
-func (*MsgVoteInboundSynthetic) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgVoteInbound.ProtoReflect.Descriptor instead.
+func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *MsgVoteInboundSynthetic) GetSigner() string {
+func (x *MsgVoteInbound) GetSigner() string {
 	if x != nil {
 		return x.Signer
 	}
 	return ""
 }
 
-func (x *MsgVoteInboundSynthetic) GetInboundSynthetic() *InboundSynthetic {
+func (x *MsgVoteInbound) GetInbound() *Inbound {
 	if x != nil {
-		return x.InboundSynthetic
+		return x.Inbound
 	}
 	return nil
 }
 
-// MsgVoteInboundSyntheticResponse defines the response for MsgExecutePayload.
-type MsgVoteInboundSyntheticResponse struct {
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+type MsgVoteInboundResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *MsgVoteInboundSyntheticResponse) Reset() {
-	*x = MsgVoteInboundSyntheticResponse{}
+func (x *MsgVoteInboundResponse) Reset() {
+	*x = MsgVoteInboundResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_ue_v1_tx_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -5048,14 +5048,14 @@ func (x *MsgVoteInboundSyntheticResponse) Reset() {
 	}
 }
 
-func (x *MsgVoteInboundSyntheticResponse) String() string {
+func (x *MsgVoteInboundResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MsgVoteInboundSyntheticResponse) ProtoMessage() {}
+func (*MsgVoteInboundResponse) ProtoMessage() {}
 
-// Deprecated: Use MsgVoteInboundSyntheticResponse.ProtoReflect.Descriptor instead.
-func (*MsgVoteInboundSyntheticResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use MsgVoteInboundResponse.ProtoReflect.Descriptor instead.
+func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
@@ -5131,53 +5131,48 @@ var file_ue_v1_tx_proto_rawDesc = []byte{
 	0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x45,
 	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x1b, 0x0a,
 	0x19, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f,
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xbd, 0x01, 0x0a, 0x17, 0x4d,
-	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e,
-	0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d,
-	0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67,
-	0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x44, 0x0a, 0x11, 0x69, 0x6e, 0x62, 0x6f,
-	0x75, 0x6e, 0x64, 0x5f, 0x73, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f,
-	0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x10, 0x69, 0x6e,
-	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x3a, 0x2a,
-	0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1a,
-	0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
-	0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x22, 0x21, 0x0a, 0x1f, 0x4d, 0x73,
-	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74,
-	0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xf7, 0x02,
-	0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
-	0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e,
-	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
-	0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a,
-	0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a,
-	0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f,
-	0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06,
-	0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
-	0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20,
-	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x5e, 0x0a, 0x14, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x1a, 0x26, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
-	0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
-	0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70,
-	0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55,
-	0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c,
-	0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65,
-	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x8f, 0x01, 0x0a, 0x0e, 0x4d,
+	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x30, 0x0a,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2,
+	0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12,
+	0x28, 0x0a, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64,
+	0x52, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x3a, 0x21, 0x82, 0xe7, 0xb0, 0x2a, 0x06,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x11, 0x75, 0x65, 0x2f, 0x4d, 0x73,
+	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x18, 0x0a, 0x16,
+	0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xdc, 0x02, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46,
+	0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16,
+	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79,
+	0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44,
+	0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12,
+	0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50,
+	0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e,
+	0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e,
+	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65,
+	0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
+	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
+	0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x43, 0x0a, 0x0b, 0x56, 0x6f, 0x74,
+	0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x15, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a,
+	0x1d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49,
+	0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05,
+	0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e,
+	0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68,
+	0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
+	0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31,
+	0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61,
+	0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -5194,20 +5189,20 @@ func file_ue_v1_tx_proto_rawDescGZIP() []byte {
 
 var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_ue_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),                 // 0: ue.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),         // 1: ue.v1.MsgUpdateParamsResponse
-	(*MsgDeployUEA)(nil),                    // 2: ue.v1.MsgDeployUEA
-	(*MsgDeployUEAResponse)(nil),            // 3: ue.v1.MsgDeployUEAResponse
-	(*MsgMintPC)(nil),                       // 4: ue.v1.MsgMintPC
-	(*MsgMintPCResponse)(nil),               // 5: ue.v1.MsgMintPCResponse
-	(*MsgExecutePayload)(nil),               // 6: ue.v1.MsgExecutePayload
-	(*MsgExecutePayloadResponse)(nil),       // 7: ue.v1.MsgExecutePayloadResponse
-	(*MsgVoteInboundSynthetic)(nil),         // 8: ue.v1.MsgVoteInboundSynthetic
-	(*MsgVoteInboundSyntheticResponse)(nil), // 9: ue.v1.MsgVoteInboundSyntheticResponse
-	(*Params)(nil),                          // 10: ue.v1.Params
-	(*UniversalAccountId)(nil),              // 11: ue.v1.UniversalAccountId
-	(*UniversalPayload)(nil),                // 12: ue.v1.UniversalPayload
-	(*InboundSynthetic)(nil),                // 13: ue.v1.InboundSynthetic
+	(*MsgUpdateParams)(nil),           // 0: ue.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),   // 1: ue.v1.MsgUpdateParamsResponse
+	(*MsgDeployUEA)(nil),              // 2: ue.v1.MsgDeployUEA
+	(*MsgDeployUEAResponse)(nil),      // 3: ue.v1.MsgDeployUEAResponse
+	(*MsgMintPC)(nil),                 // 4: ue.v1.MsgMintPC
+	(*MsgMintPCResponse)(nil),         // 5: ue.v1.MsgMintPCResponse
+	(*MsgExecutePayload)(nil),         // 6: ue.v1.MsgExecutePayload
+	(*MsgExecutePayloadResponse)(nil), // 7: ue.v1.MsgExecutePayloadResponse
+	(*MsgVoteInbound)(nil),            // 8: ue.v1.MsgVoteInbound
+	(*MsgVoteInboundResponse)(nil),    // 9: ue.v1.MsgVoteInboundResponse
+	(*Params)(nil),                    // 10: ue.v1.Params
+	(*UniversalAccountId)(nil),        // 11: ue.v1.UniversalAccountId
+	(*UniversalPayload)(nil),          // 12: ue.v1.UniversalPayload
+	(*Inbound)(nil),                   // 13: ue.v1.Inbound
 }
 var file_ue_v1_tx_proto_depIdxs = []int32{
 	10, // 0: ue.v1.MsgUpdateParams.params:type_name -> ue.v1.Params
@@ -5215,17 +5210,17 @@ var file_ue_v1_tx_proto_depIdxs = []int32{
 	11, // 2: ue.v1.MsgMintPC.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	11, // 3: ue.v1.MsgExecutePayload.universal_account_id:type_name -> ue.v1.UniversalAccountId
 	12, // 4: ue.v1.MsgExecutePayload.universal_payload:type_name -> ue.v1.UniversalPayload
-	13, // 5: ue.v1.MsgVoteInboundSynthetic.inbound_synthetic:type_name -> ue.v1.InboundSynthetic
+	13, // 5: ue.v1.MsgVoteInbound.inbound:type_name -> ue.v1.Inbound
 	0,  // 6: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
 	2,  // 7: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
 	4,  // 8: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
 	6,  // 9: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
-	8,  // 10: ue.v1.Msg.VoteInboundSynthetic:input_type -> ue.v1.MsgVoteInboundSynthetic
+	8,  // 10: ue.v1.Msg.VoteInbound:input_type -> ue.v1.MsgVoteInbound
 	1,  // 11: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
 	3,  // 12: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
 	5,  // 13: ue.v1.Msg.MintPC:output_type -> ue.v1.MsgMintPCResponse
 	7,  // 14: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
-	9,  // 15: ue.v1.Msg.VoteInboundSynthetic:output_type -> ue.v1.MsgVoteInboundSyntheticResponse
+	9,  // 15: ue.v1.Msg.VoteInbound:output_type -> ue.v1.MsgVoteInboundResponse
 	11, // [11:16] is the sub-list for method output_type
 	6,  // [6:11] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
@@ -5337,7 +5332,7 @@ func file_ue_v1_tx_proto_init() {
 			}
 		}
 		file_ue_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgVoteInboundSynthetic); i {
+			switch v := v.(*MsgVoteInbound); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5349,7 +5344,7 @@ func file_ue_v1_tx_proto_init() {
 			}
 		}
 		file_ue_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgVoteInboundSyntheticResponse); i {
+			switch v := v.(*MsgVoteInboundResponse); i {
 			case 0:
 				return &v.state
 			case 1:

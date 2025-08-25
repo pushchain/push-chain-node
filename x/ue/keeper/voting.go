@@ -8,15 +8,15 @@ import (
 	uvalidatortypes "github.com/rollchains/pchain/x/uvalidator/types"
 )
 
-func (k Keeper) VoteOnInboundSyntheticBallot(
+func (k Keeper) VoteOnInboundBallot(
 	ctx context.Context,
 	universalValidator string,
-	inboundSynthetic types.InboundSynthetic,
+	inbound types.Inbound,
 ) (isFinalized bool,
 	isNew bool,
 	err error) {
 	// Step 1: Check if the inbound is enabled
-	chainEnabled, err := k.uregistryKeeper.IsChainInboundEnabled(ctx, inboundSynthetic.SourceChain)
+	chainEnabled, err := k.uregistryKeeper.IsChainInboundEnabled(ctx, inbound.SourceChain)
 	if err != nil {
 		return false, false, err
 	}
@@ -24,7 +24,7 @@ func (k Keeper) VoteOnInboundSyntheticBallot(
 		return false, false, fmt.Errorf("Inbound tx is not enabled")
 	}
 
-	ballotKey := types.GetInboundSyntheticKey(inboundSynthetic)
+	ballotKey := types.GetInboundKey(inbound)
 
 	universalValidatorSet, err := k.uvalidatorKeeper.GetUniversalValidatorSet(ctx)
 	if err != nil {

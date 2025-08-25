@@ -21,8 +21,8 @@ var (
 	// ChainConfigsName is the name of the chainConfigs collection.
 	ChainConfigsName = "chain_configs"
 
-	InboundSyntheticsKey  = collections.NewPrefix(2)
-	InboundSyntheticsName = "inbound_synthetics"
+	InboundsKey  = collections.NewPrefix(2)
+	InboundsName = "inbound_synthetics"
 
 	UniversalTxKey  = collections.NewPrefix(3)
 	UniversalTxName = "universal_tx"
@@ -36,7 +36,7 @@ const (
 	QuerierRoute = ModuleName
 )
 
-func GetInboundSyntheticKey(inbound InboundSynthetic) string {
+func GetInboundKey(inbound Inbound) string {
 	data := fmt.Sprintf("%s:%s:%s:%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex, inbound.Sender, inbound.Recipient, inbound.Amount)
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte

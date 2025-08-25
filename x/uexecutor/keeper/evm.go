@@ -132,16 +132,13 @@ func (k Keeper) CallPRC20Deposit(
 		return nil, errors.Wrap(err, "failed to parse PRC20 ABI")
 	}
 
-	ueModuleAcc := k.accountKeeper.GetModuleAccount(ctx, types.ModuleName) // "ue"
-	ueModuleAddr := ueModuleAcc.GetAddress()
-	var ethSenderUEAddr common.Address
-	copy(ethSenderUEAddr[:], ueModuleAddr.Bytes())
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
-		ethSenderUEAddr, // who is sending the transaction
-		prc20Address,    // destination: FactoryV1 contract
+		ueModuleAccAddress, // who is sending the transaction
+		prc20Address,       // destination: FactoryV1 contract
 		big.NewInt(0),
 		nil,
 		true,  // commit = true (real tx, not simulation)

@@ -19,6 +19,18 @@ mkdir -p "$TMP_DIR"
 echo "🔐 Generating accounts for multi-validator setup..."
 echo "📁 Output directory: $TMP_DIR"
 
+# Check if accounts already exist to avoid regenerating
+if [ -f "$TMP_DIR/genesis_accounts.json" ] && [ -f "$TMP_DIR/validators.json" ]; then
+  echo "✅ Account files already exist. Skipping generation."
+  echo "📋 Existing files:"
+  echo "  - Genesis accounts: $TMP_DIR/genesis_accounts.json"
+  echo "  - Validator accounts: $TMP_DIR/validators.json"
+  echo ""
+  echo "🗂️  To force regeneration, delete these files first:"
+  echo "  rm -f $TMP_DIR/genesis_accounts.json $TMP_DIR/validators.json"
+  exit 0
+fi
+
 # ---------------------------
 # === GENESIS FUNDING ACCOUNTS ===
 # ---------------------------

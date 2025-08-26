@@ -9,6 +9,7 @@ volumes:
   universal1-data:
   universal2-data:
   universal3-data:
+  push-accounts:
 
 services:
   # Base image builder
@@ -30,7 +31,7 @@ services:
       - push-network
     volumes:
       - ./scripts:/opt/scripts
-      - /tmp/push-accounts:/tmp/push-accounts
+      - push-accounts:/tmp/push-accounts
     command: ["/opt/scripts/generate-accounts.sh"]
     
   # Core Validator 1 (Genesis Validator)
@@ -54,7 +55,7 @@ services:
       - validator1-data:/root/.pchain
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
-      - /tmp/push-accounts:/tmp/push-accounts
+      - push-accounts:/tmp/push-accounts
     environment:
       - VALIDATOR_ID=1
       - VALIDATOR_TYPE=genesis
@@ -95,7 +96,7 @@ services:
       - validator2-data:/root/.pchain
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
-      - /tmp/push-accounts:/tmp/push-accounts
+      - push-accounts:/tmp/push-accounts
     environment:
       - VALIDATOR_ID=2
       - VALIDATOR_TYPE=regular
@@ -137,7 +138,7 @@ services:
       - validator3-data:/root/.pchain
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
-      - /tmp/push-accounts:/tmp/push-accounts
+      - push-accounts:/tmp/push-accounts
     environment:
       - VALIDATOR_ID=3
       - VALIDATOR_TYPE=regular

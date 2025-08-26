@@ -61,6 +61,9 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator string, inbo
 	}
 
 	// Step 6: Execution
+	if err := k.ExecuteInbound(ctx, utx); err != nil {
+		return err
+	}
 
 	return nil
 }

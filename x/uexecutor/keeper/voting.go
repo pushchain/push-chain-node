@@ -39,7 +39,7 @@ func (k Keeper) VoteOnInboundBallot(
 	votesNeeded := (totalValidators*66 + 99) / 100 // ceil(66%)
 
 	// TODO: make it configurable
-	expiryAfterBlocks := 200
+	expiryAfterBlocks := 10000
 
 	// Step 2: Call VoteOnBallot for this inbound synthetic
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(

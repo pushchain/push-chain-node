@@ -148,7 +148,7 @@ func (k Keeper) VoteOnBallot(
 		}
 	}
 
-	return ballot, isFinalized, isNew, nil
+	return ballot, isFinalizing, isNew, nil
 }
 
 func (k Keeper) CheckIfFinalizingVote(ctx context.Context, b types.Ballot) (types.Ballot, bool, error) {

@@ -8,3 +8,4 @@ testnet/*/binary
 web/
 
 .env
+.DS_Store

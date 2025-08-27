@@ -13,9 +13,8 @@ func init() {
 	// Initialize SDK config for tests if not already sealed
 	sdkConfig := sdk.GetConfig()
 	defer func() {
-		if r := recover(); r != nil {
-			// Config already sealed, that's fine
-		}
+		// Config already sealed, that's fine - ignore panic
+		_ = recover()
 	}()
 	sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
 	sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")  

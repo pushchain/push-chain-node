@@ -25,7 +25,7 @@ func TestNewKeysWithKeybase(t *testing.T) {
 	// Create temporary directory for test keyring
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring
 	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
@@ -33,10 +33,8 @@ func TestNewKeysWithKeybase(t *testing.T) {
 
 	// Create basic Keys instance
 	keys := &Keys{
-		signerName:      "test-hotkey",
-		kb:              kb,
-		securityManager: nil, // Skip security manager for basic test
-		passwordManager: nil, // Skip password manager for basic test
+		signerName: "test-hotkey",
+		kb:         kb,
 	}
 
 	require.NotNil(t, keys)
@@ -53,7 +51,7 @@ func TestNewKeys(t *testing.T) {
 	// Create temporary directory for test keyring
 	tempDir, err := os.MkdirTemp("", "test-newkeys")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test config
 	cfg := &config.Config{
@@ -88,7 +86,7 @@ func TestNewKeysWithInvalidOperatorAddress(t *testing.T) {
 	// Create temporary directory for test keyring
 	tempDir, err := os.MkdirTemp("", "test-invalid-addr")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	cfg := &config.Config{
 		AuthzGranter:   "invalid-address", // Invalid bech32 address
@@ -136,7 +134,7 @@ func TestKeyringBackends(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp("", "keyring-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			kb, err := getKeybase(tempDir, nil, tt.backend)
 			if tt.wantErr {
@@ -150,57 +148,13 @@ func TestKeyringBackends(t *testing.T) {
 	}
 }
 
-func TestKeysSecurityManager(t *testing.T) {
-	ksm := NewKeySecurityManager(SecurityLevelMedium, "/tmp/test")
-	assert.NotNil(t, ksm)
-	assert.Equal(t, SecurityLevelMedium, ksm.minSecurityLevel)
-	assert.Equal(t, "/tmp/test", ksm.keyringPath)
-}
 
-// TestGetPrivateKeySecure tests the secure private key access with validation
-func TestGetPrivateKeySecure(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create test keyring and key
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keyName := "test-hotkey"
-	_, err = CreateNewKey(kb, keyName, "", "")
-	require.NoError(t, err)
-
-	// Create keys with security manager
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, tempDir)
-	keys := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: securityManager,
-	}
-
-	// Test successful secure access
-	privKey, err := keys.GetPrivateKeySecure("")
-	assert.NoError(t, err)
-	assert.NotNil(t, privKey)
-
-	// Test with nil security manager
-	keysNoSecurity := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: nil,
-	}
-
-	_, err = keysNoSecurity.GetPrivateKeySecure("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "security manager not initialized")
-}
 
 // TestPasswordFailureScenarios tests various password failure scenarios
 func TestPasswordFailureScenarios(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test with file backend requiring password
 	kb, err := getKeybase(tempDir, nil, KeyringBackendFile)
@@ -234,7 +188,7 @@ func TestPasswordFailureScenarios(t *testing.T) {
 func TestKeyringBackendSwitching(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	tests := []struct {
 		name     string
@@ -276,7 +230,7 @@ func TestKeyringBackendSwitching(t *testing.T) {
 func TestConcurrentKeyAccess(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring and key
 	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
@@ -309,157 +263,9 @@ func TestConcurrentKeyAccess(t *testing.T) {
 	}
 }
 
-// TestValidateKeyIntegrity tests key integrity validation
-func TestValidateKeyIntegrity(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
 
-	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
 
-	keyName := "integrity-test-key"
-	_, err = CreateNewKey(kb, keyName, "", "")
-	require.NoError(t, err)
 
-	// Test with security manager
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, tempDir)
-	keys := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: securityManager,
-	}
-
-	err = keys.ValidateKeyIntegrity()
-	assert.NoError(t, err)
-
-	// Test without security manager
-	keysNoSecurity := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: nil,
-	}
-
-	err = keysNoSecurity.ValidateKeyIntegrity()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "security manager not initialized")
-}
-
-// TestGetKeyFingerprint tests key fingerprint generation
-func TestGetKeyFingerprint(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keyName := "fingerprint-test-key"
-	_, err = CreateNewKey(kb, keyName, "", "")
-	require.NoError(t, err)
-
-	// Test with security manager
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, tempDir)
-	keys := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: securityManager,
-	}
-
-	fingerprint, err := keys.GetKeyFingerprint()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, fingerprint)
-
-	// Test without security manager
-	keysNoSecurity := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: nil,
-	}
-
-	_, err = keysNoSecurity.GetKeyFingerprint()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "security manager not initialized")
-}
-
-// TestGetSecurityRecommendations tests security recommendations
-func TestGetSecurityRecommendations(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keyName := "recommendations-test-key"
-
-	// Test with security manager
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, tempDir)
-	keys := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: securityManager,
-	}
-
-	recommendations := keys.GetSecurityRecommendations()
-	assert.NotNil(t, recommendations)
-
-	// Test without security manager
-	keysNoSecurity := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: nil,
-	}
-
-	recommendations = keysNoSecurity.GetSecurityRecommendations()
-	assert.NotEmpty(t, recommendations)
-	assert.Contains(t, recommendations[0].Issue, "Security manager not initialized")
-	assert.Equal(t, "HIGH", recommendations[0].Level)
-}
-
-// TestSecureKeyAccess tests secure key access validation and auditing
-func TestSecureKeyAccess(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keyName := "access-test-key"
-	_, err = CreateNewKey(kb, keyName, "", "")
-	require.NoError(t, err)
-
-	// Test with security manager
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, tempDir)
-	keys := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: securityManager,
-	}
-
-	// Test valid operations
-	validOps := []string{"create", "access", "sign", "export", "delete"}
-	for _, op := range validOps {
-		err := keys.SecureKeyAccess(op)
-		assert.NoError(t, err, "Operation %s should be allowed", op)
-	}
-
-	// Test without security manager
-	keysNoSecurity := &Keys{
-		signerName:      keyName,
-		kb:              kb,
-		securityManager: nil,
-	}
-
-	err = keysNoSecurity.SecureKeyAccess("sign")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "security manager not initialized")
-}
 
 // TestGetHotkeyKeyName tests the hotkey name utility function
 func TestGetHotkeyKeyName(t *testing.T) {
@@ -476,7 +282,7 @@ func TestGetHotkeyKeyName(t *testing.T) {
 func TestGetSignerInfo(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring and key
 	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
@@ -510,7 +316,7 @@ func TestGetSignerInfo(t *testing.T) {
 func TestErrorConditions(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-keyring")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring
 	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)

@@ -28,8 +28,6 @@ type Keys struct {
 	kb               keyring.Keyring       // Cosmos SDK keyring
 	OperatorAddress  sdk.AccAddress        // Operator (validator) address for reference
 	hotkeyPassword   string               // Password for file backend
-	securityManager  *KeySecurityManager  // Security manager for key operations
-	passwordManager  *PasswordManager     // Password manager for secure input
 }
 
 // NewKeys creates a new instance of Keys from configuration
@@ -55,33 +53,12 @@ func NewKeys(hotkeyName string, cfg *config.Config) (*Keys, error) {
 		keyringBackend = KeyringBackendTest // Default to test backend
 	}
 
-	// Create security manager
-	keyringDir := config.GetKeyringDir(cfg)
-	securityManager := NewKeySecurityManager(SecurityLevelMedium, keyringDir)
-	
-	// Validate keyring directory security
-	if err := securityManager.ValidateKeyringDirectory(); err != nil {
-		return nil, fmt.Errorf("keyring directory validation failed: %w", err)
-	}
-
-	// Create password manager
-	passwordManager := NewPasswordManager(false, "")
-
-	// Get password securely if using file backend
-	var password string
-	if keyringBackend == KeyringBackendFile {
-		password, err = GetSecurePasswordForKeyring(keyringBackend, "access", false)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get secure password: %w", err)
-		}
-	}
-
 	// Create keyring config
 	keyringConfig := KeyringConfig{
-		HomeDir:        keyringDir,
+		HomeDir:        config.GetKeyringDir(cfg),
 		KeyringBackend: keyringBackend,
 		HotkeyName:     hotkeyName,
-		HotkeyPassword: password,
+		HotkeyPassword: "", // No password for simplified version
 		OperatorAddr:   cfg.AuthzGranter,
 	}
 
@@ -91,22 +68,11 @@ func NewKeys(hotkeyName string, cfg *config.Config) (*Keys, error) {
 		return nil, fmt.Errorf("failed to initialize keyring: %w", err)
 	}
 
-	// Validate key integrity
-	if err := securityManager.ValidateKeyIntegrity(kb, hotkeyName); err != nil {
-		return nil, fmt.Errorf("key integrity validation failed: %w", err)
-	}
-
-	// Audit key access
-	auditLog := CreateAuditLog("access", hotkeyName, "key loaded for Universal Validator", true)
-	securityManager.AuditKeyOperation(auditLog)
-
 	return &Keys{
 		signerName:      hotkeyName,
 		kb:              kb,
 		OperatorAddress: operatorAddr,
-		hotkeyPassword:  password,
-		securityManager: securityManager,
-		passwordManager: passwordManager,
+		hotkeyPassword:  "",
 	}, nil
 }
 
@@ -202,65 +168,3 @@ func (k *Keys) GetHotkeyPassword() string {
 	return ""
 }
 
-// ValidateKeyIntegrity validates the integrity of the hot key
-func (k *Keys) ValidateKeyIntegrity() error {
-	if k.securityManager == nil {
-		return fmt.Errorf("security manager not initialized")
-	}
-	return k.securityManager.ValidateKeyIntegrity(k.kb, k.signerName)
-}
-
-// GetKeyFingerprint returns a fingerprint of the hot key for verification
-func (k *Keys) GetKeyFingerprint() (string, error) {
-	if k.securityManager == nil {
-		return "", fmt.Errorf("security manager not initialized")
-	}
-	return k.securityManager.GenerateKeyFingerprint(k.kb, k.signerName)
-}
-
-// GetSecurityRecommendations returns security recommendations for the key setup
-func (k *Keys) GetSecurityRecommendations() []SecurityRecommendation {
-	if k.securityManager == nil {
-		return []SecurityRecommendation{
-			{
-				Level:      "HIGH",
-				Category:   "Security Manager",
-				Issue:      "Security manager not initialized",
-				Resolution: "Reinitialize keys with proper security manager",
-			},
-		}
-	}
-	return k.securityManager.GetSecurityRecommendations()
-}
-
-// SecureKeyAccess validates and audits key access for operations
-func (k *Keys) SecureKeyAccess(operation string) error {
-	if k.securityManager == nil {
-		return fmt.Errorf("security manager not initialized")
-	}
-
-	// Validate key access
-	if err := k.securityManager.ValidateKeyAccess(k.signerName, operation); err != nil {
-		// Audit failed access attempt
-		auditLog := CreateAuditLog(operation, k.signerName, fmt.Sprintf("access denied: %s", err), false)
-		k.securityManager.AuditKeyOperation(auditLog)
-		return err
-	}
-
-	// Audit successful access
-	auditLog := CreateAuditLog(operation, k.signerName, "access granted", true)
-	k.securityManager.AuditKeyOperation(auditLog)
-	
-	return nil
-}
-
-// GetPrivateKeySecure returns the private key with security validation
-func (k *Keys) GetPrivateKeySecure(password string) (cryptotypes.PrivKey, error) {
-	// Validate key access for signing operation
-	if err := k.SecureKeyAccess("sign"); err != nil {
-		return nil, err
-	}
-
-	// Get the private key using existing method
-	return k.GetPrivateKey(password)
-}

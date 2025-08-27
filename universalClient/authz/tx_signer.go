@@ -6,7 +6,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -302,7 +301,7 @@ func (ts *TxSigner) GetAccountInfo(ctx context.Context) (client.Account, error) 
 	}
 
 	// Unpack account
-	var account authtypes.AccountI
+	var account sdk.AccountI
 	if err := ts.clientCtx.InterfaceRegistry.UnpackAny(accountResp.Account, &account); err != nil {
 		return nil, fmt.Errorf("failed to unpack account: %w", err)
 	}
@@ -314,31 +313,6 @@ func (ts *TxSigner) GetAccountInfo(ctx context.Context) (client.Account, error) 
 		Msg("Retrieved account info")
 
 	return account, nil
-}
-
-// getAccountSequence retrieves just the sequence number for the hot key
-func (ts *TxSigner) getAccountSequence(ctx context.Context) (uint64, error) {
-	account, err := ts.GetAccountInfo(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return account.GetSequence(), nil
-}
-
-// signWithHotKey signs transaction bytes with the hot key private key
-func (ts *TxSigner) signWithHotKey(signBytes []byte) ([]byte, cryptotypes.PubKey, error) {
-	password := ts.keys.GetHotkeyPassword()
-	privKey, err := ts.keys.GetPrivateKey(password)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get private key: %w", err)
-	}
-
-	signature, err := privKey.Sign(signBytes)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to sign bytes: %w", err)
-	}
-
-	return signature, privKey.PubKey(), nil
 }
 
 // broadcastTransaction broadcasts a signed transaction to the chain

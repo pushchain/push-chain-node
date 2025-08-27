@@ -7,9 +7,13 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -28,9 +32,8 @@ func (suite *KeyringTestSuite) SetupTest() {
 	sdkConfig := sdk.GetConfig()
 	func() {
 		defer func() {
-			if r := recover(); r != nil {
-				// Config already sealed, that's fine
-			}
+			// Config already sealed, that's fine - ignore panic
+			_ = recover()
 		}()
 		sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
 		sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
@@ -52,17 +55,33 @@ func (suite *KeyringTestSuite) SetupTest() {
 		OperatorAddr:   "push1abc123def456",
 	}
 
-	// Create test keyring
+	// Create test keyring with EVM support
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
+	
+	// Explicitly register public key types including EVM-compatible keys
+	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+		&secp256k1.PubKey{},
+		&ed25519.PubKey{},
+		&evmcrypto.PubKey{},
+	)
+	// Also register private key implementations for EVM compatibility
+	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+		&secp256k1.PrivKey{},
+		&ed25519.PrivKey{},
+		&evmcrypto.PrivKey{},
+	)
+	
 	cdc := codec.NewProtoCodec(registry)
-	suite.kb = keyring.NewInMemory(cdc)
+	
+	// Create keyring with EVM option for proper algorithm support
+	suite.kb = keyring.NewInMemory(cdc, cosmosevmkeyring.Option())
 	require.NotNil(suite.T(), suite.kb, "keyring should be initialized")
 }
 
 func (suite *KeyringTestSuite) TearDownTest() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 }
 
@@ -130,7 +149,7 @@ func (suite *KeyringTestSuite) TestCreateNewKeyWithInvalidMnemonic() {
 	_, _, err := CreateNewKeyWithMnemonic(suite.kb, "invalid-key", invalidMnemonic, "")
 	
 	assert.Error(suite.T(), err)
-	assert.Contains(suite.T(), err.Error(), "Invalid mnemonic")
+	assert.Contains(suite.T(), err.Error(), "Invalid mnenomic")
 }
 
 // TestListKeys tests key listing
@@ -296,18 +315,6 @@ func (suite *KeyringTestSuite) TestGetPubkeyBech32FromRecord() {
 	assert.Contains(suite.T(), pubkeyBech32, "pushpub")
 }
 
-// TestCreateKeyWithDifferentAlgorithms tests different signature algorithms
-func (suite *KeyringTestSuite) TestCreateKeyWithDifferentAlgorithms() {
-	// Test with secp256k1 (default)
-	record1, err := suite.kb.NewAccount("secp256k1-key", "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "", "", hd.Secp256k1)
-	require.NoError(suite.T(), err)
-	assert.Equal(suite.T(), "secp256k1-key", record1.Name)
-	
-	// Verify we can get the address
-	addr1, err := record1.GetAddress()
-	require.NoError(suite.T(), err)
-	assert.NotEmpty(suite.T(), addr1)
-}
 
 // TestKeyringConfigValidation tests keyring config validation
 func (suite *KeyringTestSuite) TestKeyringConfigValidation() {

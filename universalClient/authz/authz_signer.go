@@ -105,7 +105,7 @@ func GetAllSigners() map[string]Signer {
 
 // IsSignerConfigured checks if signers have been configured
 func IsSignerConfigured() bool {
-	return signers != nil && len(signers) > 0
+	return len(signers) > 0
 }
 
 // ResetSignersForTesting resets the global signers map (for testing only)

@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -16,7 +17,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	txsigning "cosmossdk.io/x/tx/signing"
-	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,9 +26,8 @@ func init() {
 	// Initialize SDK config for tests if not already sealed
 	sdkConfig := sdk.GetConfig()
 	defer func() {
-		if r := recover(); r != nil {
-			// Config already sealed, that's fine
-		}
+		// Config already sealed, that's fine - ignore panic
+		_ = recover()
 	}()
 	sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
 	sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")  
@@ -70,30 +69,6 @@ func (m *MockUniversalValidatorKeys) GetHotkeyPassword() string {
 	return args.String(0)
 }
 
-func (m *MockUniversalValidatorKeys) ValidateKeyIntegrity() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockUniversalValidatorKeys) GetKeyFingerprint() (string, error) {
-	args := m.Called()
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockUniversalValidatorKeys) GetSecurityRecommendations() []keys.SecurityRecommendation {
-	args := m.Called()
-	return args.Get(0).([]keys.SecurityRecommendation)
-}
-
-func (m *MockUniversalValidatorKeys) SecureKeyAccess(operation string) error {
-	args := m.Called(operation)
-	return args.Error(0)
-}
-
-func (m *MockUniversalValidatorKeys) GetPrivateKeySecure(password string) (cryptotypes.PrivKey, error) {
-	args := m.Called(password)
-	return args.Get(0).(cryptotypes.PrivKey), args.Error(1)
-}
 
 // MockTxConfig is a mock implementation of client.TxConfig
 type MockTxConfig struct {
@@ -479,6 +454,11 @@ func TestTxSigner_SignTx(t *testing.T) {
 	mockKeys := &MockUniversalValidatorKeys{}
 	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
 	
+	// Set up mock expectations for methods called during SignTx
+	mockKeys.On("GetAddress").Return(granteeAddr, nil)
+	mockKeys.On("GetHotkeyPassword").Return("")
+	mockKeys.On("GetPrivateKey", "").Return(nil, fmt.Errorf("mock private key error"))
+	
 	mockSigner := &Signer{
 		KeyType:        UniversalValidatorHotKey,
 		GranterAddress: "push1granter",
@@ -494,10 +474,10 @@ func TestTxSigner_SignTx(t *testing.T) {
 	logger := zerolog.New(nil)
 	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
 
-	// This will fail due to missing keyring setup and account sequence
+	// This will fail due to missing account info (GetAccountInfo will fail first)
 	err := txSigner.SignTx(mockTxBuilder)
 	
-	// Should fail due to missing account info
+	// Should fail due to missing account info or gRPC connection
 	assert.Error(t, err)
 }
 

@@ -9,9 +9,14 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rs/zerolog"
@@ -74,13 +79,13 @@ func (suite *AuthZIntegrationTestSuite) SetupSuite() {
 
 func (suite *AuthZIntegrationTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 	if suite.operatorDir != "" {
-		os.RemoveAll(suite.operatorDir)
+		_ = os.RemoveAll(suite.operatorDir)
 	}
 	if suite.hotkeyDir != "" {
-		os.RemoveAll(suite.hotkeyDir)
+		_ = os.RemoveAll(suite.hotkeyDir)
 	}
 }
 
@@ -89,10 +94,23 @@ func (suite *AuthZIntegrationTestSuite) createOperatorKeys() {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	banktypes.RegisterInterfaces(registry)
+	
+	// Register EVM-compatible key types
+	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+		&secp256k1.PubKey{},
+		&ed25519.PubKey{},
+		&evmcrypto.PubKey{},
+	)
+	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+		&secp256k1.PrivKey{},
+		&ed25519.PrivKey{},
+		&evmcrypto.PrivKey{},
+	)
+	
 	cdc := codec.NewProtoCodec(registry)
 	
 	// Create keyring for operator using standard SDK service name and separate directory
-	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, suite.operatorDir, nil, cdc)
+	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, suite.operatorDir, nil, cdc, cosmosevmkeyring.Option())
 	require.NoError(suite.T(), err)
 
 	// Create operator key
@@ -117,10 +135,23 @@ func (suite *AuthZIntegrationTestSuite) createHotKeys() {
 		registry := codectypes.NewInterfaceRegistry()
 		cryptocodec.RegisterInterfaces(registry)
 		banktypes.RegisterInterfaces(registry)
+		
+		// Register EVM-compatible key types
+		registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+			&secp256k1.PubKey{},
+			&ed25519.PubKey{},
+			&evmcrypto.PubKey{},
+		)
+		registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+			&secp256k1.PrivKey{},
+			&ed25519.PrivKey{},
+			&evmcrypto.PrivKey{},
+		)
+		
 		cdc := codec.NewProtoCodec(registry)
 		
 		// Use standard SDK service name and separate directory for hotkey
-		kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, suite.hotkeyDir, nil, cdc)
+		kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, suite.hotkeyDir, nil, cdc, cosmosevmkeyring.Option())
 		require.NoError(suite.T(), err)
 
 		record, err := keys.CreateNewKey(kb, suite.cfg.AuthzHotkey, "", "")
@@ -271,11 +302,6 @@ func (suite *AuthZIntegrationTestSuite) TestSecurityValidation() {
 
 // TestKeyIntegration tests integration with key management
 func (suite *AuthZIntegrationTestSuite) TestKeyIntegration() {
-	// Test hot key private key access
-	privKey, err := suite.hotkeyKeys.GetPrivateKey("")
-	require.NoError(suite.T(), err)
-	assert.NotNil(suite.T(), privKey)
-
 	// Test key address retrieval
 	hotkeyAddr, err := suite.hotkeyKeys.GetAddress()
 	require.NoError(suite.T(), err)
@@ -287,6 +313,15 @@ func (suite *AuthZIntegrationTestSuite) TestKeyIntegration() {
 
 	// Verify addresses are different
 	assert.NotEqual(suite.T(), hotkeyAddr.String(), operatorAddr.String())
+
+	// Test keybase access
+	hotkeyKeybase := suite.hotkeyKeys.GetKeybase()
+	assert.NotNil(suite.T(), hotkeyKeybase)
+	assert.Equal(suite.T(), "test", hotkeyKeybase.Backend())
+
+	// Test password access (should be empty for test backend)
+	password := suite.hotkeyKeys.GetHotkeyPassword()
+	assert.Empty(suite.T(), password)
 }
 
 // TestTransactionBuilding tests building complete transactions

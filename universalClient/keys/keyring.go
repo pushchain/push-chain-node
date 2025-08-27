@@ -1,0 +1,182 @@
+package keys
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/rs/zerolog/log"
+)
+
+// KeyringConfig holds configuration for keyring initialization
+type KeyringConfig struct {
+	HomeDir        string
+	KeyringBackend KeyringBackend
+	HotkeyName     string
+	HotkeyPassword string
+	OperatorAddr   string
+}
+
+// GetKeyringKeybase creates and returns keyring and key info
+func GetKeyringKeybase(config KeyringConfig) (keyring.Keyring, string, error) {
+	logger := log.Logger.With().Str("module", "GetKeyringKeybase").Logger()
+	
+	if len(config.HotkeyName) == 0 {
+		return nil, "", fmt.Errorf("hotkey name is empty")
+	}
+
+	if len(config.HomeDir) == 0 {
+		return nil, "", fmt.Errorf("home directory is empty")
+	}
+
+	// Read password from input if using keyring backend file
+	buf := bytes.NewBufferString("")
+	if config.KeyringBackend == KeyringBackendFile {
+		if config.HotkeyPassword == "" {
+			return nil, "", fmt.Errorf("password is required for file backend")
+		}
+		buf.WriteString(config.HotkeyPassword)
+		buf.WriteByte('\n') // the library used by keyring is using ReadLine, which expects a new line
+		buf.WriteString(config.HotkeyPassword)
+		buf.WriteByte('\n')
+	}
+
+	kb, err := getKeybase(config.HomeDir, buf, config.KeyringBackend)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get keybase: %w", err)
+	}
+
+	// Temporarily disable stdin to avoid prompts
+	oldStdIn := os.Stdin
+	defer func() {
+		os.Stdin = oldStdIn
+	}()
+	os.Stdin = nil
+
+	logger.Debug().
+		Msgf("Checking for Hotkey: %s \nFolder: %s\nBackend: %s", 
+			config.HotkeyName, config.HomeDir, kb.Backend())
+			
+	rc, err := kb.Key(config.HotkeyName)
+	if err != nil {
+		return nil, "", fmt.Errorf("key not present in backend %s with name (%s): %w", 
+			kb.Backend(), config.HotkeyName, err)
+	}
+
+	// Get public key in bech32 format
+	pubkeyBech32, err := getPubkeyBech32FromRecord(rc)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get pubkey from record: %w", err)
+	}
+
+	return kb, pubkeyBech32, nil
+}
+
+// CreateNewKey creates a new key in the keyring
+func CreateNewKey(kr keyring.Keyring, name string, mnemonic string, passphrase string) (*keyring.Record, error) {
+	if mnemonic != "" {
+		// Import from mnemonic
+		return kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, hd.Secp256k1)
+	}
+	
+	// Generate new key with mnemonic
+	record, _, err := kr.NewMnemonic(name, keyring.English, "", passphrase, hd.Secp256k1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate new key with mnemonic: %w", err)
+	}
+	
+	// Return the newly created key record
+	return record, nil
+}
+
+// CreateNewKeyWithMnemonic creates a new key in the keyring and returns both the record and generated mnemonic
+func CreateNewKeyWithMnemonic(kr keyring.Keyring, name string, mnemonic string, passphrase string) (*keyring.Record, string, error) {
+	if mnemonic != "" {
+		// Import from mnemonic
+		record, err := kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, hd.Secp256k1)
+		return record, mnemonic, err
+	}
+	
+	// Generate new key with mnemonic
+	record, generatedMnemonic, err := kr.NewMnemonic(name, keyring.English, "", passphrase, hd.Secp256k1)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate new key with mnemonic: %w", err)
+	}
+	
+	// Return the newly created key record and generated mnemonic
+	return record, generatedMnemonic, nil
+}
+
+// ListKeys returns all keys in the keyring
+func ListKeys(keyring keyring.Keyring) ([]*keyring.Record, error) {
+	return keyring.List()
+}
+
+// DeleteKey removes a key from the keyring
+func DeleteKey(keyring keyring.Keyring, name string) error {
+	return keyring.Delete(name)
+}
+
+// ExportKey exports a key in armored format
+func ExportKey(keyring keyring.Keyring, name string, password string) (string, error) {
+	return keyring.ExportPrivKeyArmor(name, password)
+}
+
+// ImportKey imports a key from armored format
+func ImportKey(keyring keyring.Keyring, name string, armor string, password string) error {
+	return keyring.ImportPrivKey(name, armor, password)
+}
+
+// getKeybase creates an instance of Keybase
+func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend) (keyring.Keyring, error) {
+	if len(homeDir) == 0 {
+		return nil, fmt.Errorf("home directory is empty")
+	}
+	
+	// Create interface registry and codec
+	registry := codectypes.NewInterfaceRegistry()
+	cryptocodec.RegisterInterfaces(registry)
+	cdc := codec.NewProtoCodec(registry)
+
+	// Determine backend type
+	var backend string
+	switch keyringBackend {
+	case KeyringBackendFile:
+		backend = "file"
+	case KeyringBackendTest:
+		backend = "test"
+	default:
+		backend = "test" // Default to test backend
+	}
+
+	// Create keyring with appropriate backend
+	return keyring.New(sdk.KeyringServiceName(), backend, homeDir, reader, cdc)
+}
+
+// getPubkeyBech32FromRecord extracts bech32 public key from key record
+func getPubkeyBech32FromRecord(record *keyring.Record) (string, error) {
+	pubkey, err := record.GetPubKey()
+	if err != nil {
+		return "", fmt.Errorf("failed to get public key: %w", err)
+	}
+
+	// For now, return the hex representation of the public key
+	// This can be improved later to use proper bech32 encoding
+	return fmt.Sprintf("pushpub%x", pubkey.Bytes()), nil
+}
+
+// ValidateKeyExists checks if a key exists in the keyring
+func ValidateKeyExists(keyring keyring.Keyring, keyName string) error {
+	_, err := keyring.Key(keyName)
+	if err != nil {
+		return fmt.Errorf("key %s not found: %w", keyName, err)
+	}
+	return nil
+}

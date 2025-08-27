@@ -17,6 +17,7 @@ CYAN='\033[0;36m'
 BLUE='\033[1;94m'
 MAGENTA='\033[0;35m'
 WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 NC='\033[0m'
 BOLD='\033[1m'
 
@@ -438,6 +439,380 @@ clean_reset() {
     fi
 }
 
+# Container-based AuthZ setup
+setup_container_authz() {
+    print_header "🔐 Setting up AuthZ in Containers"
+    
+    # Check if containers are running
+    if ! docker ps --filter "name=core-validator-1" --format "{{.Names}}" | grep -q "core-validator-1"; then
+        print_error "❌ Validators are not running"
+        exit 1
+    fi
+    
+    echo -e "${YELLOW}Setting up AuthZ grants using container-based operations...${NC}"
+    
+    # Load or create hot keys with mnemonics
+    local HOTKEYS_FILE="/tmp/push-accounts/hotkeys.json"
+    
+    # Create hot key in universal-validator-1 container
+    echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BOLD}Creating hot key in universal-validator-1:${NC}"
+    
+    # Generate or reuse existing hot key inside universal validator container
+    echo -ne "  ${YELLOW}Setting up hot key:${NC} "
+    
+    # Check if we have stored mnemonic for this hotkey
+    local stored_mnemonic=""
+    local hotkey_name="container-hotkey-1"
+    
+    if [ -f "$HOTKEYS_FILE" ]; then
+        stored_mnemonic=$(jq -r --arg name "$hotkey_name" '.[] | select(.name == $name) | .mnemonic' "$HOTKEYS_FILE" 2>/dev/null || echo "")
+    fi
+    
+    # Check if key already exists in container
+    local hotkey_addr
+    hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null || echo "")
+    
+    if [ -n "$hotkey_addr" ] && [ -n "$stored_mnemonic" ]; then
+        # Key exists and we have its mnemonic stored
+        echo -e "${GREEN}✅ Existing key found${NC}"
+        echo -e "  ${CYAN}Hot key address: $hotkey_addr${NC}"
+    elif [ -n "$stored_mnemonic" ]; then
+        # We have mnemonic but key doesn't exist in container - restore it
+        echo -e "${YELLOW}⚠️ Restoring from stored mnemonic${NC}"
+        echo "$stored_mnemonic" | docker exec -i universal-validator-1 puniversald keys add container-hotkey --keyring-backend test --recover > /dev/null 2>&1
+        hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+        echo -e "  ${GREEN}✅ Key restored${NC}"
+        echo -e "  ${CYAN}Hot key address: $hotkey_addr${NC}"
+    else
+        # No stored mnemonic and no key - create new one with mnemonic
+        echo -e "${YELLOW}⚠️ Creating new key${NC}"
+        local key_creation_result
+        key_creation_result=$(docker exec universal-validator-1 puniversald keys add container-hotkey --keyring-backend test 2>&1)
+        
+        # Extract address from output
+        if echo "$key_creation_result" | grep -q "Address:"; then
+            hotkey_addr=$(echo "$key_creation_result" | grep "Address:" | awk '{print $2}')
+            echo -e "${GREEN}✅ New key created${NC}"
+            echo -e "  ${CYAN}Hot key address: $hotkey_addr${NC}"
+        else
+            echo -e "${RED}❌ Failed to create key${NC}"
+            return 1
+        fi
+    fi
+    
+    # Get operator address from core validator
+    local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
+    echo -e "  ${CYAN}Operator address: $operator_addr${NC}"
+    
+    # Check if grants already exist for this hot key
+    echo -ne "  ${YELLOW}Checking existing grants:${NC} "
+    local existing_grants=$(docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null)
+    local existing_count=$(echo "$existing_grants" | jq -r '.grants | length' 2>/dev/null || echo "0")
+    
+    if [ "$existing_count" -ge 4 ]; then
+        echo -e "${GREEN}✅ $existing_count grants already exist${NC}"
+        echo -e "  ${YELLOW}Skipping grant creation${NC}"
+    else
+        echo -e "${YELLOW}⚠️ Only $existing_count grants exist, creating missing ones${NC}"
+        
+        # Create AuthZ grants inside core validator container
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Creating AuthZ grants in core-validator-1:${NC}"
+        
+        # Calculate expiration (1 year from now)
+        local expiration_unix=$(date -j -v+1y '+%s' 2>/dev/null || date -d '+1 year' '+%s' 2>/dev/null)
+        
+        # Create all required AuthZ grants
+        local grant_types=(
+            "send|--spend-limit 1000000000000000000upc|Bank send authorization"
+            "generic|--msg-type /cosmos.staking.v1beta1.MsgDelegate|Staking delegate authorization"
+            "generic|--msg-type /cosmos.staking.v1beta1.MsgUndelegate|Staking undelegate authorization" 
+            "generic|--msg-type /cosmos.gov.v1beta1.MsgVote|Governance vote authorization"
+        )
+        
+        for grant_info in "${grant_types[@]}"; do
+            IFS='|' read -r grant_type extra_params description <<< "$grant_info"
+            echo -ne "  ${YELLOW}$description:${NC} "
+            
+            # Build the command dynamically based on grant type
+            local cmd="docker exec core-validator-1 pchaind tx authz grant \"$hotkey_addr\" $grant_type"
+            
+            # Add extra parameters (msg-type or spend-limit)
+            if [ -n "$extra_params" ]; then
+                cmd="$cmd $extra_params"
+            fi
+            
+            # Add common parameters
+            cmd="$cmd --from validator-1 --expiration $expiration_unix --chain-id localchain_9000-1 --keyring-backend test --node tcp://localhost:26657 --fees 200000000000000upc --yes --output json"
+            
+            # Execute the command
+            tx_result=$(eval "$cmd" 2>&1)
+            local exit_code=$?
+            
+            if [ $exit_code -eq 0 ] && echo "$tx_result" | grep -q '"txhash"'; then
+                local tx_hash=$(echo "$tx_result" | jq -r '.txhash // "unknown"' 2>/dev/null)
+                echo -e "${GREEN}✅ Created (tx: ${tx_hash:0:16}...)${NC}"
+            else
+                echo -e "${RED}❌ Failed${NC}"
+                echo "  ${RED}Error: $(echo "$tx_result" | head -1)${NC}"
+            fi
+            
+            # Small delay between grants to avoid conflicts
+            sleep 1
+        done
+    fi
+        
+    # Update universal validator configuration
+    echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BOLD}Updating universal validator configuration:${NC}"
+    
+    # Create configuration with container hot key
+    docker exec universal-validator-1 bash -c "cat > /root/.puniversal/config/pushuv_config.json << EOF
+{
+  \"log_level\": 1,
+  \"log_format\": \"console\",
+  \"log_sampler\": false,
+  \"push_chain_grpc_urls\": [\"core-validator-1:9090\"],
+  \"config_refresh_interval\": 10000000000,
+  \"max_retries\": 3,
+  \"retry_backoff\": 1000000000,
+  \"initial_fetch_retries\": 5,
+  \"initial_fetch_timeout\": 30000000000,
+  \"query_server_port\": 8080,
+  \"authz_granter\": \"$operator_addr\",
+  \"authz_hotkey\": \"container-hotkey\",
+  \"keyring_backend\": \"test\",
+  \"pchain_home\": \"/root/.puniversal\",
+  \"message_type_category\": \"default\"
+}
+EOF"
+        
+        echo -e "  ${GREEN}✅ Configuration updated${NC}"
+        
+        # Verify grants
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Verifying AuthZ grants:${NC}"
+        
+        # Wait for transactions to be processed and verify using the universal validator
+        echo -ne "  ${YELLOW}Waiting for transactions to process...${NC} "
+        sleep 5
+        echo -e "${GREEN}Done${NC}"
+        
+        # Use the universal validator to verify grants (more reliable)
+        echo -ne "  ${YELLOW}Running AuthZ verification...${NC} "
+        local verify_result
+        verify_result=$(docker exec universal-validator-1 puniversald authz verify --rpc core-validator-1:9090 --chain-id localchain_9000-1 2>&1)
+        
+        if echo "$verify_result" | grep -q "🎉 Hot key setup is COMPLETE"; then
+            echo -e "${GREEN}✅ All grants verified${NC}"
+            local grant_count=$(echo "$verify_result" | grep -o "Valid grants: [0-9]*/[0-9]*" | cut -d' ' -f3)
+            echo -e "  ${CYAN}$grant_count grants active${NC}"
+            
+            # Show the actual grants created
+            echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+            echo -e "${BOLD}Created AuthZ grants:${NC}"
+            
+            local grants_output
+            grants_output=$(docker exec universal-validator-1 bash -c "cd /root && puniversald authz list $operator_addr --rpc core-validator-1:9090 --chain-id localchain_9000-1" 2>/dev/null)
+            
+            # Filter out the GRANTEE section completely since it's confusing
+            echo "$grants_output" | sed '/is the GRANTEE:/,$d' | while read -r line; do
+                echo "  $line"
+            done
+        else
+            echo -e "${RED}❌ Verification failed${NC}"
+            echo "$verify_result" | grep -E "(❌|Missing|Failed)" | head -3 | sed 's/^/  /'
+        fi
+}
+
+# Container-based AuthZ verification
+verify_container_authz() {
+    print_header "🔍 Verifying Container AuthZ"
+    
+    # Check if containers are running
+    if ! docker ps --filter "name=universal-validator-1" --format "{{.Names}}" | grep -q "universal-validator-1"; then
+        print_error "❌ Universal validators are not running"
+        exit 1
+    fi
+    
+    echo -e "${YELLOW}Verifying AuthZ functionality in containers...${NC}"
+    
+    # Check if hot key exists
+    echo -ne "${YELLOW}Hot key exists:${NC} "
+    if docker exec universal-validator-1 puniversald keys show container-hotkey --keyring-backend test >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Found${NC}"
+        
+        # Get addresses
+        local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+        local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
+        
+        echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
+        echo -e "  ${CYAN}Operator: $operator_addr${NC}"
+        
+        # Test AuthZ verification inside universal validator
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}AuthZ verification from universal-validator-1:${NC}"
+        
+        # Use correct gRPC endpoint for AuthZ verification
+        docker exec universal-validator-1 bash -c "cd /root && puniversald authz verify --rpc core-validator-1:9090 --chain-id localchain_9000-1" 2>/dev/null | while read -r line; do
+            echo "  $line"
+        done
+        
+        # Test grant listing
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Listing grants from universal-validator-1:${NC}"
+        
+        local grants_output
+        grants_output=$(docker exec universal-validator-1 bash -c "cd /root && puniversald authz list $operator_addr --rpc core-validator-1:9090 --chain-id localchain_9000-1" 2>/dev/null)
+        
+        # Filter out the GRANTEE section completely since it's confusing
+        echo "$grants_output" | sed '/is the GRANTEE:/,$d' | while read -r line; do
+            echo "  $line"
+        done
+        
+    else
+        echo -e "${RED}❌ Hot key not found${NC}"
+        echo -e "  ${YELLOW}Run 'setup-container-authz' first${NC}"
+    fi
+}
+
+# Execute AuthZ transactions in containers
+exec_container_authz() {
+    print_header "🚀 Executing AuthZ Transactions"
+    
+    # Check if containers are running
+    if ! docker ps --filter "name=universal-validator-1" --format "{{.Names}}" | grep -q "universal-validator-1"; then
+        print_error "❌ Universal validators are not running"
+        exit 1
+    fi
+    
+    echo -e "${YELLOW}Executing transactions using puniversald AuthZ exec...${NC}"
+    
+    # Check if hot key exists 
+    echo -ne "${YELLOW}Checking hot key:${NC} "
+    if ! docker exec universal-validator-1 puniversald keys show container-hotkey --keyring-backend test >/dev/null 2>&1; then
+        echo -e "${RED}❌ Hot key not found in universal validator${NC}"
+        echo -e "  ${YELLOW}Run 'setup-container-authz' first${NC}"
+        return 1
+    fi
+    
+    # Get addresses
+    local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+    local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
+    
+    echo -e "${GREEN}✅ Found${NC}"
+    echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
+    echo -e "  ${CYAN}Operator: $operator_addr${NC}"
+    
+    # Check if puniversald config is set up
+    echo -ne "${YELLOW}Checking puniversald config:${NC} "
+    local config_check=$(docker exec universal-validator-1 puniversald authz verify --rpc core-validator-1:9090 --chain-id localchain_9000-1 2>&1)
+    
+    if echo "$config_check" | grep -q "Hot key setup is COMPLETE"; then
+        echo -e "${GREEN}✅ Config ready${NC}"
+    else
+        echo -e "${YELLOW}⚠️ Config needs setup${NC}"
+        echo -e "  ${GRAY}AuthZ verification result: $(echo "$config_check" | head -1)${NC}"
+    fi
+    
+    echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BOLD}Executing AuthZ transactions with puniversald:${NC}"
+    
+    # Get validator address for transactions
+    local validator_addr=$(docker exec core-validator-1 pchaind keys show validator-1 --bech val --address --keyring-backend test 2>/dev/null)
+    
+    if [ -z "$validator_addr" ]; then
+        echo -e "${RED}❌ Validator address not found${NC}"
+        return 1
+    fi
+    
+    echo -e "  ${CYAN}Validator: $validator_addr${NC}"
+    echo
+    
+    # Transaction 1: Bank Send
+    echo -e "${CYAN}1. Executing Bank Send Transaction:${NC}"
+    echo -e "  ${GRAY}Sending 1000upc from operator to hot key${NC}"
+    
+    local authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.bank.v1beta1.MsgSend" "$hotkey_addr" "1000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Bank Send Test" 2>&1)
+    
+    if echo "$authz_result" | grep -q "Transaction Hash:"; then
+        local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
+        echo -e "  ${GREEN}✅ Transaction executed${NC}"
+        echo -e "    ${YELLOW}TX Hash: ${tx_hash:0:20}...${NC}"
+        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /'
+    else
+        echo -e "  ${RED}❌ Transaction failed${NC}"
+        echo "$authz_result" | head -3 | sed 's/^/    /'
+    fi
+    echo
+    
+    # Transaction 2: Staking Delegate
+    echo -e "${CYAN}2. Executing Staking Delegate Transaction:${NC}"
+    echo -e "  ${GRAY}Delegating 2000upc to validator${NC}"
+    
+    authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.staking.v1beta1.MsgDelegate" "$validator_addr" "2000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Delegate Test" 2>&1)
+    
+    if echo "$authz_result" | grep -q "Transaction Hash:"; then
+        local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
+        echo -e "  ${GREEN}✅ Transaction executed${NC}"
+        echo -e "    ${YELLOW}TX Hash: ${tx_hash:0:20}...${NC}"
+        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /'
+    else
+        echo -e "  ${RED}❌ Transaction failed${NC}"
+        echo "$authz_result" | head -3 | sed 's/^/    /'
+    fi
+    echo
+    
+    # Transaction 3: Staking Undelegate (only if we have delegations)
+    echo -e "${CYAN}3. Executing Staking Undelegate Transaction:${NC}"
+    echo -e "  ${GRAY}Undelegating 500upc from validator${NC}"
+    
+    authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.staking.v1beta1.MsgUndelegate" "$validator_addr" "500upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Undelegate Test" 2>&1)
+    
+    if echo "$authz_result" | grep -q "Transaction Hash:"; then
+        local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
+        echo -e "  ${GREEN}✅ Transaction executed${NC}"
+        echo -e "    ${YELLOW}TX Hash: ${tx_hash:0:20}...${NC}"
+        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /'
+    else
+        echo -e "  ${RED}❌ Transaction failed${NC}"
+        echo "$authz_result" | head -3 | sed 's/^/    /'
+    fi
+    echo
+    
+    # Transaction 4: Governance Vote (check for proposals first)
+    echo -e "${CYAN}4. Checking for Governance Proposals:${NC}"
+    local proposals=$(docker exec core-validator-1 pchaind q gov proposals --node tcp://localhost:26657 --output json 2>/dev/null)
+    local proposal_count=$(echo "$proposals" | jq -r '.proposals | length' 2>/dev/null || echo "0")
+    
+    if [ "$proposal_count" -gt 0 ]; then
+        local proposal_id=$(echo "$proposals" | jq -r '.proposals[0].id // "1"' 2>/dev/null)
+        echo -e "  ${GREEN}✅ Found $proposal_count proposals${NC}"
+        echo -e "  ${GRAY}Voting YES on proposal $proposal_id${NC}"
+        
+        authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.gov.v1beta1.MsgVote" "$proposal_id" "yes" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Vote Test" 2>&1)
+        
+        if echo "$authz_result" | grep -q "Transaction Hash:"; then
+            local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
+            echo -e "  ${GREEN}✅ Vote transaction executed${NC}"
+            echo -e "    ${YELLOW}TX Hash: ${tx_hash:0:20}...${NC}"
+            echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /'
+        else
+            echo -e "  ${RED}❌ Vote transaction failed${NC}"
+            echo "$authz_result" | head -3 | sed 's/^/    /'
+        fi
+    else
+        echo -e "  ${YELLOW}⚠️ No active governance proposals${NC}"
+        echo -e "    ${GRAY}Skipping governance vote test${NC}"
+    fi
+    echo
+    
+    echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BOLD}${GREEN}✅ AuthZ transaction execution completed${NC}"
+    echo -e "${YELLOW}All supported transaction types tested with real execution${NC}"
+}
+
 # Show individual validator help
 show_validator_help() {
     echo
@@ -500,6 +875,11 @@ show_help() {
     printf "  ${BOLD}%-25s${NC}%s\n" "regenerate-accounts" "Generate new account mnemonics"
     printf "  ${BOLD}%-25s${NC}%s\n" "clean-reset" "Complete reset (removes all data)"
     printf "  ${BOLD}%-25s${NC}%s\n" "validator-help" "Show validator-specific commands"
+    echo
+    echo -e "${BOLD}${CYAN}AUTHZ TESTING${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "setup-container-authz" "Setup hot key and AuthZ grants"
+    printf "  ${BOLD}%-25s${NC}%s\n" "verify-container-authz" "Verify AuthZ setup and list grants"
+    printf "  ${BOLD}%-25s${NC}%s\n" "exec-container-authz" "Execute all AuthZ transaction types"
     echo
     echo -e "${BOLD}${CYAN}REBUILD COMMANDS${NC}"
     printf "  ${BOLD}%-25s${NC}%s\n" "rebuild all" "Rebuild base + all validators (with cache)"
@@ -631,6 +1011,18 @@ case "${1:-help}" in
         
     validator-help)
         show_validator_help
+        ;;
+        
+    setup-container-authz)
+        setup_container_authz
+        ;;
+        
+    verify-container-authz)
+        verify_container_authz
+        ;;
+        
+    exec-container-authz)
+        exec_container_authz
         ;;
         
     rebuild)

@@ -20,6 +20,8 @@ func InitRootCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(startCmd())
 	rootCmd.AddCommand(queryCmd())
+	rootCmd.AddCommand(keysCmd())
+	rootCmd.AddCommand(authzCmd())
 }
 
 func versionCmd() *cobra.Command {

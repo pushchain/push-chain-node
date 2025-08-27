@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/rollchains/pchain/universalClient/api"
+	"github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/chains"
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/db"
+	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rollchains/pchain/universalClient/registry"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/rs/zerolog"
@@ -27,6 +31,10 @@ type UniversalClient struct {
 	chainRegistry  *chains.ChainRegistry
 	config         *config.Config
 	queryServer    *api.Server
+	
+	// Hot key components
+	keys        keys.UniversalValidatorKeys
+	authzSigner *authz.Signer
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -61,6 +69,32 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		configUpdater:  configUpdater,
 		chainRegistry:  chainRegistry,
 		config:         cfg,
+	}
+	
+	// Initialize hot key components if configured
+	if config.IsHotKeyConfigured(cfg) {
+		log.Info().Msg("Hot key configuration detected, initializing key management...")
+		
+		// Initialize keys
+		keyMgr, err := keys.NewKeys(cfg.AuthzHotkey, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize keys: %w", err)
+		}
+		uc.keys = keyMgr
+		
+		// Initialize AuthZ signer
+		signer := &authz.Signer{
+			KeyType:        authz.UniversalValidatorHotKey,
+			GranterAddress: cfg.AuthzGranter,
+		}
+		uc.authzSigner = signer
+		
+		log.Info().
+			Str("granter", cfg.AuthzGranter).
+			Str("hotkey", cfg.AuthzHotkey).
+			Msg("Hot key management initialized")
+	} else {
+		log.Info().Msg("No hot key configuration found, operating in standard mode")
 	}
 	
 	// Create query server
@@ -151,4 +185,91 @@ func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
 // ForceConfigUpdate triggers an immediate configuration update
 func (uc *UniversalClient) ForceConfigUpdate() error {
 	return uc.configUpdater.ForceUpdate(uc.ctx)
+}
+
+// GetKeys returns the hot key manager if configured
+func (uc *UniversalClient) GetKeys() keys.UniversalValidatorKeys {
+	return uc.keys
+}
+
+// GetAuthzSigner returns the AuthZ signer if configured
+func (uc *UniversalClient) GetAuthzSigner() *authz.Signer {
+	return uc.authzSigner
+}
+
+// IsHotKeyEnabled returns true if hot key management is enabled
+func (uc *UniversalClient) IsHotKeyEnabled() bool {
+	return uc.keys != nil
+}
+
+// CreateTxSigner creates a transaction signer for AuthZ operations
+func (uc *UniversalClient) CreateTxSigner(clientCtx client.Context) (*authz.TxSigner, error) {
+	if !uc.IsHotKeyEnabled() {
+		return nil, fmt.Errorf("hot key management is not enabled")
+	}
+
+	return authz.NewTxSigner(uc.keys, uc.authzSigner, clientCtx, uc.log), nil
+}
+
+// SignAndBroadcastAuthZTx signs and broadcasts an AuthZ transaction using the hot key
+func (uc *UniversalClient) SignAndBroadcastAuthZTx(
+	ctx context.Context,
+	clientCtx client.Context,
+	msgs []sdk.Msg,
+	memo string,
+	gasLimit uint64,
+	feeAmount sdk.Coins,
+) (*sdk.TxResponse, error) {
+	if !uc.IsHotKeyEnabled() {
+		return nil, fmt.Errorf("hot key management is not enabled")
+	}
+
+	txSigner, err := uc.CreateTxSigner(clientCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tx signer: %w", err)
+	}
+
+	return txSigner.SignAndBroadcastAuthZTx(ctx, msgs, memo, gasLimit, feeAmount)
+}
+
+// EstimateAuthZGas estimates gas for an AuthZ transaction
+func (uc *UniversalClient) EstimateAuthZGas(
+	ctx context.Context,
+	clientCtx client.Context,
+	msgs []sdk.Msg,
+	memo string,
+) (uint64, error) {
+	if !uc.IsHotKeyEnabled() {
+		return 0, fmt.Errorf("hot key management is not enabled")
+	}
+
+	txSigner, err := uc.CreateTxSigner(clientCtx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create tx signer: %w", err)
+	}
+
+	return txSigner.EstimateGas(ctx, msgs, memo)
+}
+
+// CreateOperationsHandler creates a high-level operations handler for Universal Validator
+func (uc *UniversalClient) CreateOperationsHandler(clientCtx client.Context) (*authz.UniversalValidatorOperations, error) {
+	if !uc.IsHotKeyEnabled() {
+		return nil, fmt.Errorf("hot key management is not enabled")
+	}
+
+	return authz.NewUniversalValidatorOperations(uc.keys, uc.authzSigner, clientCtx, uc.log), nil
+}
+
+// ValidateHotKeyReadiness checks if the hot key is ready for operations
+func (uc *UniversalClient) ValidateHotKeyReadiness(ctx context.Context, clientCtx client.Context) error {
+	if !uc.IsHotKeyEnabled() {
+		return fmt.Errorf("hot key management is not enabled")
+	}
+
+	ops, err := uc.CreateOperationsHandler(clientCtx)
+	if err != nil {
+		return fmt.Errorf("failed to create operations handler: %w", err)
+	}
+
+	return ops.ValidateOperationalReadiness(ctx)
 }

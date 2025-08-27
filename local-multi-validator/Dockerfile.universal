@@ -26,8 +26,14 @@ FROM alpine:3.21
 # Copy ONLY puniversald binary
 COPY --from=universal-builder /code/build/puniversald /usr/bin/puniversald
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates curl make bash jq sed
+# Install runtime dependencies with retry and fallback
+RUN apk update --no-cache || true && \
+    apk add --no-cache ca-certificates curl make bash jq sed || \
+    (echo "Retrying with different mirror..." && \
+     echo "https://dl-cdn.alpinelinux.org/alpine/v3.21/main" > /etc/apk/repositories && \
+     echo "https://dl-cdn.alpinelinux.org/alpine/v3.21/community" >> /etc/apk/repositories && \
+     apk update --no-cache && \
+     apk add --no-cache ca-certificates curl make bash jq sed)
 
 WORKDIR /opt
 

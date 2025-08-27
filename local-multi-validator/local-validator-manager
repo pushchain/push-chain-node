@@ -464,6 +464,7 @@ setup_container_authz() {
     # Check if we have stored mnemonic for this hotkey
     local stored_mnemonic=""
     local hotkey_name="container-hotkey-1"
+    local container_key_name="container-hotkey"
     
     if [ -f "$HOTKEYS_FILE" ]; then
         stored_mnemonic=$(jq -r --arg name "$hotkey_name" '.[] | select(.name == $name) | .mnemonic' "$HOTKEYS_FILE" 2>/dev/null || echo "")
@@ -471,7 +472,7 @@ setup_container_authz() {
     
     # Check if key already exists in container
     local hotkey_addr
-    hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null || echo "")
+    hotkey_addr=$(docker exec universal-validator-1 puniversald keys show "$container_key_name" --address --keyring-backend test 2>/dev/null || echo "")
     
     if [ -n "$hotkey_addr" ] && [ -n "$stored_mnemonic" ]; then
         # Key exists and we have its mnemonic stored
@@ -480,15 +481,15 @@ setup_container_authz() {
     elif [ -n "$stored_mnemonic" ]; then
         # We have mnemonic but key doesn't exist in container - restore it
         echo -e "${YELLOW}⚠️ Restoring from stored mnemonic${NC}"
-        echo "$stored_mnemonic" | docker exec -i universal-validator-1 puniversald keys add container-hotkey --keyring-backend test --recover > /dev/null 2>&1
-        hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+        echo "$stored_mnemonic" | docker exec -i universal-validator-1 puniversald keys add "$container_key_name" --keyring-backend test --recover > /dev/null 2>&1
+        hotkey_addr=$(docker exec universal-validator-1 puniversald keys show "$container_key_name" --address --keyring-backend test 2>/dev/null)
         echo -e "  ${GREEN}✅ Key restored${NC}"
         echo -e "  ${CYAN}Hot key address: $hotkey_addr${NC}"
     else
         # No stored mnemonic and no key - create new one with mnemonic
         echo -e "${YELLOW}⚠️ Creating new key${NC}"
         local key_creation_result
-        key_creation_result=$(docker exec universal-validator-1 puniversald keys add container-hotkey --keyring-backend test 2>&1)
+        key_creation_result=$(docker exec universal-validator-1 puniversald keys add "$container_key_name" --keyring-backend test 2>&1)
         
         # Extract address from output
         if echo "$key_creation_result" | grep -q "Address:"; then
@@ -581,7 +582,7 @@ setup_container_authz() {
   \"initial_fetch_timeout\": 30000000000,
   \"query_server_port\": 8080,
   \"authz_granter\": \"$operator_addr\",
-  \"authz_hotkey\": \"container-hotkey\",
+  \"authz_hotkey\": \"$container_key_name\",
   \"keyring_backend\": \"test\",
   \"pchain_home\": \"/root/.puniversal\",
   \"message_type_category\": \"default\"
@@ -639,12 +640,13 @@ verify_container_authz() {
     echo -e "${YELLOW}Verifying AuthZ functionality in containers...${NC}"
     
     # Check if hot key exists
+    local container_key_name="container-hotkey"
     echo -ne "${YELLOW}Hot key exists:${NC} "
-    if docker exec universal-validator-1 puniversald keys show container-hotkey --keyring-backend test >/dev/null 2>&1; then
+    if docker exec universal-validator-1 puniversald keys show "$container_key_name" --keyring-backend test >/dev/null 2>&1; then
         echo -e "${GREEN}✅ Found${NC}"
         
         # Get addresses
-        local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+        local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show "$container_key_name" --address --keyring-backend test 2>/dev/null)
         local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
         
         echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
@@ -690,15 +692,16 @@ exec_container_authz() {
     echo -e "${YELLOW}Executing transactions using puniversald AuthZ exec...${NC}"
     
     # Check if hot key exists 
+    local container_key_name="container-hotkey"
     echo -ne "${YELLOW}Checking hot key:${NC} "
-    if ! docker exec universal-validator-1 puniversald keys show container-hotkey --keyring-backend test >/dev/null 2>&1; then
+    if ! docker exec universal-validator-1 puniversald keys show "$container_key_name" --keyring-backend test >/dev/null 2>&1; then
         echo -e "${RED}❌ Hot key not found in universal validator${NC}"
         echo -e "  ${YELLOW}Run 'setup-container-authz' first${NC}"
         return 1
     fi
     
     # Get addresses
-    local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show container-hotkey --address --keyring-backend test 2>/dev/null)
+    local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show "$container_key_name" --address --keyring-backend test 2>/dev/null)
     local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
     
     echo -e "${GREEN}✅ Found${NC}"
@@ -734,7 +737,7 @@ exec_container_authz() {
     echo -e "${CYAN}1. Executing Bank Send Transaction:${NC}"
     echo -e "  ${GRAY}Sending 1000upc from operator to hot key${NC}"
     
-    local authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.bank.v1beta1.MsgSend" "$hotkey_addr" "1000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Bank Send Test" 2>&1)
+    local authz_result=$(docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.bank.v1beta1.MsgSend" "$hotkey_addr" "1000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Bank Send Test" 2>&1)
     
     if echo "$authz_result" | grep -q "Transaction Hash:"; then
         local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
@@ -751,7 +754,7 @@ exec_container_authz() {
     echo -e "${CYAN}2. Executing Staking Delegate Transaction:${NC}"
     echo -e "  ${GRAY}Delegating 2000upc to validator${NC}"
     
-    authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.staking.v1beta1.MsgDelegate" "$validator_addr" "2000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Delegate Test" 2>&1)
+    authz_result=$(docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.staking.v1beta1.MsgDelegate" "$validator_addr" "2000upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Delegate Test" 2>&1)
     
     if echo "$authz_result" | grep -q "Transaction Hash:"; then
         local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
@@ -768,7 +771,7 @@ exec_container_authz() {
     echo -e "${CYAN}3. Executing Staking Undelegate Transaction:${NC}"
     echo -e "  ${GRAY}Undelegating 500upc from validator${NC}"
     
-    authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.staking.v1beta1.MsgUndelegate" "$validator_addr" "500upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Undelegate Test" 2>&1)
+    authz_result=$(docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.staking.v1beta1.MsgUndelegate" "$validator_addr" "500upc" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Undelegate Test" 2>&1)
     
     if echo "$authz_result" | grep -q "Transaction Hash:"; then
         local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')
@@ -791,7 +794,7 @@ exec_container_authz() {
         echo -e "  ${GREEN}✅ Found $proposal_count proposals${NC}"
         echo -e "  ${GRAY}Voting YES on proposal $proposal_id${NC}"
         
-        authz_result=$(docker exec universal-validator-1 puniversald authz exec container-hotkey "/cosmos.gov.v1beta1.MsgVote" "$proposal_id" "yes" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Vote Test" 2>&1)
+        authz_result=$(docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.gov.v1beta1.MsgVote" "$proposal_id" "yes" --rpc core-validator-1:9090 --chain-id localchain_9000-1 --fees "200000000000000upc" --memo "AuthZ Vote Test" 2>&1)
         
         if echo "$authz_result" | grep -q "Transaction Hash:"; then
             local tx_hash=$(echo "$authz_result" | grep "Transaction Hash:" | awk '{print $3}')

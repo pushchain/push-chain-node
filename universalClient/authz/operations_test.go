@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rs/zerolog"
@@ -71,16 +72,16 @@ func (suite *OperationsTestSuite) SetupTest() {
 		GranteeAddress: suite.hotkeyAddr,
 	}
 
-	// Create client context using the proper function to ensure TxConfig is set
-	clientConfig := ClientContextConfig{
-		ChainID: "test-chain",
-		Keys:    suite.keys,
-		Logger:  suite.logger,
-	}
+	// Create TxConfig
+	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 	
-	var err2 error
-	suite.clientCtx, err2 = CreateClientContext(clientConfig)
-	require.NoError(suite.T(), err2)
+	// Create basic client context for testing
+	suite.clientCtx = client.Context{}.
+		WithCodec(cdc).
+		WithInterfaceRegistry(registry).
+		WithChainID("test-chain").
+		WithKeyring(kb).
+		WithTxConfig(txConfig)
 
 	// Create operations
 	suite.operations = NewUniversalValidatorOperations(

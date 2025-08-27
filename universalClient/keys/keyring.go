@@ -10,9 +10,15 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	evmhd "github.com/cosmos/evm/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/rs/zerolog/log"
+	
 )
 
 // KeyringConfig holds configuration for keyring initialization
@@ -82,12 +88,12 @@ func GetKeyringKeybase(config KeyringConfig) (keyring.Keyring, string, error) {
 // CreateNewKey creates a new key in the keyring
 func CreateNewKey(kr keyring.Keyring, name string, mnemonic string, passphrase string) (*keyring.Record, error) {
 	if mnemonic != "" {
-		// Import from mnemonic
-		return kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, hd.Secp256k1)
+		// Import from mnemonic using EVM algorithm
+		return kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, evmhd.EthSecp256k1)
 	}
 	
-	// Generate new key with mnemonic
-	record, _, err := kr.NewMnemonic(name, keyring.English, "", passphrase, hd.Secp256k1)
+	// Generate new key with mnemonic using EVM algorithm
+	record, _, err := kr.NewMnemonic(name, keyring.English, sdk.FullFundraiserPath, passphrase, evmhd.EthSecp256k1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate new key with mnemonic: %w", err)
 	}
@@ -99,13 +105,13 @@ func CreateNewKey(kr keyring.Keyring, name string, mnemonic string, passphrase s
 // CreateNewKeyWithMnemonic creates a new key in the keyring and returns both the record and generated mnemonic
 func CreateNewKeyWithMnemonic(kr keyring.Keyring, name string, mnemonic string, passphrase string) (*keyring.Record, string, error) {
 	if mnemonic != "" {
-		// Import from mnemonic
-		record, err := kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, hd.Secp256k1)
+		// Import from mnemonic using EVM algorithm
+		record, err := kr.NewAccount(name, mnemonic, passphrase, sdk.FullFundraiserPath, evmhd.EthSecp256k1)
 		return record, mnemonic, err
 	}
 	
-	// Generate new key with mnemonic
-	record, generatedMnemonic, err := kr.NewMnemonic(name, keyring.English, "", passphrase, hd.Secp256k1)
+	// Generate new key with mnemonic using EVM algorithm
+	record, generatedMnemonic, err := kr.NewMnemonic(name, keyring.English, sdk.FullFundraiserPath, passphrase, evmhd.EthSecp256k1)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate new key with mnemonic: %w", err)
 	}
@@ -140,9 +146,23 @@ func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend)
 		return nil, fmt.Errorf("home directory is empty")
 	}
 	
-	// Create interface registry and codec
+	// Create interface registry and codec with EVM support
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
+	
+	// Explicitly register public key types including EVM-compatible keys
+	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+		&secp256k1.PubKey{},
+		&ed25519.PubKey{},
+		&evmcrypto.PubKey{},
+	)
+	// Also register private key implementations for EVM compatibility
+	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+		&secp256k1.PrivKey{},
+		&ed25519.PrivKey{},
+		&evmcrypto.PrivKey{},
+	)
+	
 	cdc := codec.NewProtoCodec(registry)
 
 	// Determine backend type
@@ -156,8 +176,8 @@ func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend)
 		backend = "test" // Default to test backend
 	}
 
-	// Create keyring with appropriate backend
-	return keyring.New(sdk.KeyringServiceName(), backend, homeDir, reader, cdc)
+	// Create keyring with appropriate backend and EVM compatibility
+	return keyring.New(sdk.KeyringServiceName(), backend, homeDir, reader, cdc, cosmosevmkeyring.Option())
 }
 
 // getPubkeyBech32FromRecord extracts bech32 public key from key record

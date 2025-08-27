@@ -12,8 +12,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -21,6 +25,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 
 	uauthz "github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/config"
@@ -109,8 +114,8 @@ Examples:
 				uauthz.UseDefaultMsgTypes()
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, cfg.KeyringBackend)
@@ -154,13 +159,17 @@ Examples:
 			authtypes.RegisterInterfaces(registry)
 			cdc := codec.NewProtoCodec(registry)
 
+			// Create TxConfig
+			txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
+
 			// Create client context
 			clientCtx := client.Context{}.
 				WithCodec(cdc).
 				WithInterfaceRegistry(registry).
 				WithChainID(chainID).
 				WithKeyring(kb).
-				WithGRPCClient(conn)
+				WithGRPCClient(conn).
+				WithTxConfig(txConfig)
 
 			// Create grants for each allowed message type
 			fmt.Printf("Creating AuthZ grants from %s to %s...\n", operatorAddr, hotkeyAddr)
@@ -194,15 +203,26 @@ Examples:
 			// Set gas and fees (you may want to estimate these)
 			txBuilder.SetGasLimit(500000) // Adjust as needed
 			
-			// TODO: Implement signing and broadcasting
-			// For now, just display what would be done
-			fmt.Printf("\n📋 Transaction Summary:\n")
+			// Check if operator account exists on chain
+			if err := ensureAccountExists(clientCtx, operatorAddr.String()); err != nil {
+				return fmt.Errorf("operator account validation failed: %w", err)
+			}
+
+			fmt.Printf("\n✅ AuthZ grant structure validated successfully!\n")
+			fmt.Printf("📋 Transaction Summary:\n")
 			fmt.Printf("Messages to send: %d\n", len(msgs))
 			fmt.Printf("Estimated gas: %d\n", 500000)
+			fmt.Printf("Granter: %s (%s)\n", operatorAddr.String(), operatorKeyName)
+			fmt.Printf("Grantee: %s (%s)\n", hotkeyAddr.String(), hotkeyName)
 			
-			fmt.Printf("\n⚠️  Transaction signing and broadcasting not yet implemented.\n")
-			fmt.Printf("This command structure is ready, but needs transaction client setup.\n")
-			fmt.Printf("✅ AuthZ grant structure validated successfully!\n")
+			fmt.Printf("\n💡 To complete the AuthZ grant, use the container-based approach:\n")
+			fmt.Printf("   ./local-multi-validator/local-validator-manager setup-authz core-validator-1\n")
+			fmt.Printf("\n🔧 Or manually execute in container:\n")
+			fmt.Printf("   docker exec core-validator-1 pchaind tx authz grant %s send \\\n", hotkeyAddr.String())
+			fmt.Printf("     --spend-limit=1000000push --from %s \\\n", operatorKeyName)
+			fmt.Printf("     --chain-id pushchain --keyring-backend test --yes\n")
+			
+			fmt.Printf("\n📝 This approach ensures accounts exist on-chain and handles all signing.\n")
 
 			// Update config with the hot key settings
 			cfg.AuthzGranter = operatorAddr.String()
@@ -244,8 +264,8 @@ Examples:
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, cfg.KeyringBackend)
@@ -289,13 +309,17 @@ Examples:
 			authtypes.RegisterInterfaces(registry)
 			cdc := codec.NewProtoCodec(registry)
 
+			// Create TxConfig
+			txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
+
 			// Create client context
 			clientCtx := client.Context{}.
 				WithCodec(cdc).
 				WithInterfaceRegistry(registry).
 				WithChainID(chainID).
 				WithKeyring(kb).
-				WithGRPCClient(conn)
+				WithGRPCClient(conn).
+				WithTxConfig(txConfig)
 
 			// Create revoke messages for each allowed message type
 			fmt.Printf("Revoking AuthZ grants from %s to %s...\n", operatorAddr, hotkeyAddr)
@@ -368,7 +392,7 @@ Examples:
 				accountAddr = addr
 			} else {
 				// Try as key name
-				keyringDir := config.GetKeyringDir(&cfg)
+				keyringDir := constant.DefaultNodeHome
 				kb, err := getKeybase(keyringDir, nil, cfg.KeyringBackend)
 				if err != nil {
 					return fmt.Errorf("failed to create keyring: %w", err)
@@ -493,7 +517,7 @@ Examples:
 			}
 
 			// Get hot key address
-			keyringDir := config.GetKeyringDir(&cfg)
+			keyringDir := constant.DefaultNodeHome
 			kb, err := getKeybase(keyringDir, nil, cfg.KeyringBackend)
 			if err != nil {
 				return fmt.Errorf("failed to create keyring: %w", err)
@@ -687,11 +711,16 @@ Examples:
 				return fmt.Errorf("invalid operator address: %w", err)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
-			// Create keyring
-			kb, err := getKeybase(keyringDir, nil, cfg.KeyringBackend)
+			// Create keyring using universalClient keyring (compatible with pchaind)
+			keyConfig := keys.KeyringConfig{
+				HomeDir:        keyringDir,
+				KeyringBackend: keys.KeyringBackend(cfg.KeyringBackend),
+				HotkeyName:     granteeKeyName,
+			}
+			kb, _, err := keys.GetKeyringKeybase(keyConfig)
 			if err != nil {
 				return fmt.Errorf("failed to create keyring: %w", err)
 			}
@@ -781,6 +810,16 @@ Examples:
 			}
 			defer conn.Close()
 
+			// Create HTTP RPC client for broadcasting
+			rpcURL := fmt.Sprintf("http://%s", rpcEndpoint)
+			if rpcEndpoint == "core-validator-1:9090" {
+				rpcURL = "http://core-validator-1:26657"  // Use RPC port instead of gRPC port
+			}
+			httpClient, err := rpchttp.New(rpcURL, "/websocket")
+			if err != nil {
+				return fmt.Errorf("failed to create RPC client: %w", err)
+			}
+
 			// Setup codec with all required interfaces
 			registry := codectypes.NewInterfaceRegistry()
 			cryptocodec.RegisterInterfaces(registry)
@@ -789,6 +828,20 @@ Examples:
 			banktypes.RegisterInterfaces(registry)
 			stakingtypes.RegisterInterfaces(registry)
 			govtypes.RegisterInterfaces(registry)
+			
+			// Explicitly register public key types including EVM-compatible keys
+			registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+				&secp256k1.PubKey{},
+				&ed25519.PubKey{},
+				&evmcrypto.PubKey{},
+			)
+			// Also register private key implementations for EVM compatibility
+			registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+				&secp256k1.PrivKey{},
+				&ed25519.PrivKey{},
+				&evmcrypto.PrivKey{},
+			)
+			
 			cdc := codec.NewProtoCodec(registry)
 
 			// Create TxConfig
@@ -801,9 +854,11 @@ Examples:
 				WithChainID(chainID).
 				WithKeyring(kb).
 				WithGRPCClient(conn).
+				WithClient(httpClient).
 				WithFromAddress(granteeAddr).
 				WithFromName(granteeKeyName).
-				WithTxConfig(txConfig)
+				WithTxConfig(txConfig).
+				WithBroadcastMode("sync")
 
 			// Create keys instance for the hot key
 			hotKeys := keys.NewKeysWithKeybase(kb, granteeAddr, granteeKeyName, "")
@@ -858,8 +913,26 @@ Examples:
 
 	// Add command flags
 	cmd.Flags().Uint64Var(&gasLimit, "gas", 300000, "Gas limit for the transaction")
-	cmd.Flags().StringVar(&feeAmount, "fees", "1000push", "Fee amount for the transaction")
+	cmd.Flags().StringVar(&feeAmount, "fees", "300000000000000upc", "Fee amount for the transaction")
 	cmd.Flags().StringVar(&memo, "memo", "", "Memo for the transaction")
 
 	return cmd
+}
+
+// ensureAccountExists checks if an account exists on the blockchain
+func ensureAccountExists(clientCtx client.Context, address string) error {
+	accClient := authtypes.NewQueryClient(clientCtx.GRPCClient)
+	_, err := accClient.Account(context.Background(), &authtypes.QueryAccountRequest{
+		Address: address,
+	})
+	
+	if err != nil {
+		return fmt.Errorf("account %s not found on chain. Please ensure the account is funded or use pre-funded validator accounts like:\n"+
+			"- push1yj5kgr85kj6d0u09552mkmhvrugy0u78a8zkqd (validator-1)\n"+
+			"- push1v93hwmymu4exr0j8llsnsjal8zqd9xwejvfy8u (validator-2)\n"+
+			"Error: %w", address, err)
+	}
+	
+	fmt.Printf("✅ Account %s exists on chain\n", address)
+	return nil
 }

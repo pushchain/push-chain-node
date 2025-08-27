@@ -12,7 +12,12 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -99,8 +104,8 @@ Examples:
 				backend = config.KeyringBackendTest
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -194,8 +199,8 @@ func keysListCmd() *cobra.Command {
 				backend = config.KeyringBackend(keyringBackendFlag)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -265,8 +270,8 @@ func keysShowCmd() *cobra.Command {
 				backend = config.KeyringBackend(keyringBackendFlag)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -355,8 +360,8 @@ Make sure you have backed up the key before deletion.
 				backend = config.KeyringBackend(keyringBackendFlag)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -441,8 +446,8 @@ You will need to provide the key's passphrase to export it.
 				backend = config.KeyringBackend(keyringBackendFlag)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -511,8 +516,8 @@ Examples:
 				backend = config.KeyringBackend(keyringBackendFlag)
 			}
 
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 
 			// Create keyring
 			kb, err := getKeybase(keyringDir, nil, backend)
@@ -625,9 +630,23 @@ func getKeybase(homeDir string, reader io.Reader, keyringBackend config.KeyringB
 		return nil, fmt.Errorf("home directory is empty")
 	}
 	
-	// Create interface registry and codec
+	// Create interface registry and codec with EVM support
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
+	
+	// Explicitly register public key types including EVM-compatible keys
+	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+		&secp256k1.PubKey{},
+		&ed25519.PubKey{},
+		&evmcrypto.PubKey{},
+	)
+	// Also register private key implementations for EVM compatibility
+	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+		&secp256k1.PrivKey{},
+		&ed25519.PrivKey{},
+		&evmcrypto.PrivKey{},
+	)
+	
 	cdc := codec.NewProtoCodec(registry)
 
 	// Determine backend type
@@ -641,8 +660,8 @@ func getKeybase(homeDir string, reader io.Reader, keyringBackend config.KeyringB
 		backend = "test" // Default to test backend
 	}
 
-	// Create keyring with appropriate backend
-	return keyring.New(sdk.KeyringServiceName(), backend, homeDir, reader, cdc)
+	// Create keyring with appropriate backend and EVM compatibility
+	return keyring.New(sdk.KeyringServiceName(), backend, homeDir, reader, cdc, cosmosevmkeyring.Option())
 }
 
 // keysSecurityCmd shows security status and recommendations
@@ -684,8 +703,8 @@ Examples:
 			fmt.Printf("✅ Operator Address: %s\n", cfg.AuthzGranter)
 			fmt.Printf("ℹ️  Keyring Backend: %s\n", cfg.KeyringBackend)
 			
-			// Get keyring directory
-			keyringDir := config.GetKeyringDir(&cfg)
+			// Use the same keyring directory as the EVM key commands
+			keyringDir := constant.DefaultNodeHome
 			fmt.Printf("ℹ️  Keyring Directory: %s\n", keyringDir)
 
 			// Create security manager for analysis

@@ -78,6 +78,13 @@ echo "📋 Universal validator config created:"
 cat "$HOME_DIR/config/pushuv_config.json"
 
 # ---------------------------
+# === SETUP AUTHZ ===
+# ---------------------------
+
+echo "🔐 Setting up AuthZ configuration..."
+/opt/scripts/setup-authz.sh
+
+# ---------------------------
 # === START UNIVERSAL VALIDATOR ===
 # ---------------------------
 

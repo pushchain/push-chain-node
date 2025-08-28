@@ -4,6 +4,7 @@ package uvalidator.v1;
 import "google/api/annotations.proto";
 import "uvalidator/v1/genesis.proto";
 import "uvalidator/v1/types.proto";
+import "uvalidator/v1/ballot.proto";
 
 option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
 

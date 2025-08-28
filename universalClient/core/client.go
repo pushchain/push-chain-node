@@ -28,9 +28,9 @@ type UniversalClient struct {
 	chainRegistry  *chains.ChainRegistry
 	config         *config.Config
 	queryServer    *api.Server
-	
+
 	// Hot key components
-	keys        keys.UniversalValidatorKeys
+	keys keys.UniversalValidatorKeys
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -66,14 +66,11 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		chainRegistry:  chainRegistry,
 		config:         cfg,
 	}
-	
-	// Key and AuthZ management is now handled at runtime, not during client initialization
-	log.Info().Msg("UniversalClient initialized in standard mode")
-	
+
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
 	uc.queryServer = api.NewServer(uc, log, cfg.QueryServerPort)
-	
+
 	return uc, nil
 }
 
@@ -84,7 +81,7 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
 	}
-	
+
 	// Start the query server
 	if uc.queryServer != nil {
 		uc.log.Info().Int("port", uc.config.QueryServerPort).Msg("Starting query server...")
@@ -105,7 +102,7 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.queryServer.Stop(); err != nil {
 		uc.log.Error().Err(err).Msg("error stopping query server")
 	}
-	
+
 	// Stop config updater
 	uc.configUpdater.Stop()
 
@@ -159,11 +156,3 @@ func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
 func (uc *UniversalClient) ForceConfigUpdate() error {
 	return uc.configUpdater.ForceUpdate(uc.ctx)
 }
-
-
-
-
-
-
-
-

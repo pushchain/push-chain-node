@@ -81,8 +81,7 @@ cat "$HOME_DIR/config/pushuv_config.json"
 # === SETUP AUTHZ ===
 # ---------------------------
 
-echo "🔐 Setting up AuthZ configuration..."
-/opt/scripts/setup-authz.sh
+echo "🔐 AuthZ configuration will be handled by the local-validator-manager"
 
 # ---------------------------
 # === START UNIVERSAL VALIDATOR ===

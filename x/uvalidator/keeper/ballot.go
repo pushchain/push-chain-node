@@ -153,38 +153,3 @@ func (k Keeper) ExpireBallotsBeforeHeight(ctx context.Context, currentHeight int
 	}
 	return nil
 }
-
-// ExecuteBallot determines pass/fail and finalizes the ballot
-func (k Keeper) ExecuteBallot(ctx context.Context, id string) error {
-	ballot, err := k.Ballots.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
-		return fmt.Errorf("ballot not pending")
-	}
-
-	yesVotes, _ := ballot.CountVotes()
-	if yesVotes >= int(ballot.VotingThreshold) {
-		return k.MarkBallotFinalized(ctx, id, types.BallotStatus_BALLOT_STATUS_PASSED)
-	}
-	if ballot.ShouldReject() {
-		return k.MarkBallotFinalized(ctx, id, types.BallotStatus_BALLOT_STATUS_REJECTED)
-	}
-
-	// TODO
-	// Dispatch based on ballot type
-	// switch ballot.Type {
-	// case types.BallotTypeInbound:
-	//     return k.executeInboundBallot(ctx, ballot)
-	// case types.BallotTypeOutbound:
-	//     return k.executeOutboundBallot(ctx, ballot)
-	// case types.BallotTypeGasPrice:
-	//     return k.executeGasPriceBallot(ctx, ballot)
-	// default:
-	//     return errors.Wrapf(types.ErrInvalidBallotType, "ballotID: %s", ballotID)
-	// }
-
-	return fmt.Errorf("ballot not yet decided")
-}

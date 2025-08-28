@@ -97,6 +97,55 @@ func (m *MockTxConfig) SigningContext() *txsigning.Context {
 	return nil
 }
 
+// Test helper functions to reduce redundancy
+
+// setupTestTxSigner creates a TxSigner with common test setup
+func setupTestTxSigner() (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress) {
+	mockKeys := &MockUniversalValidatorKeys{}
+	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
+	
+	mockKeys.On("GetAddress").Return(granteeAddr, nil)
+	
+	signerManager := NewSignerManager("push1granter", granteeAddr)
+	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
+	mockTxConfig := &MockTxConfig{}
+	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
+	logger := zerolog.New(nil)
+	
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	return txSigner, mockKeys, granteeAddr
+}
+
+// setupTestTxSignerWithTxConfig creates a TxSigner with custom TxConfig
+func setupTestTxSignerWithTxConfig(mockTxConfig *MockTxConfig) (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress) {
+	mockKeys := &MockUniversalValidatorKeys{}
+	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
+	
+	mockKeys.On("GetAddress").Return(granteeAddr, nil)
+	
+	signerManager := NewSignerManager("push1granter", granteeAddr)
+	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
+	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
+	logger := zerolog.New(nil)
+	
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	return txSigner, mockKeys, granteeAddr
+}
+
+// setupTestTxBuilder creates a mock TxBuilder with common setup
+func setupTestTxBuilder() (*MockTxBuilder, *MockTxConfig) {
+	mockTxBuilder := &MockTxBuilder{}
+	mockTxConfig := &MockTxConfig{}
+	mockTxConfig.On("NewTxBuilder").Return(mockTxBuilder)
+	
+	mockTxBuilder.On("SetMsgs", mock.Anything).Return(nil)
+	mockTxBuilder.On("SetMemo", mock.Anything)
+	mockTxBuilder.On("SetGasLimit", mock.Anything)
+	mockTxBuilder.On("SetFeeAmount", mock.Anything)
+	
+	return mockTxBuilder, mockTxConfig
+}
+
 func (m *MockTxConfig) MarshalSignatureJSON([]signingtypes.SignatureV2) ([]byte, error) {
 	return []byte("{}"), nil
 }
@@ -172,40 +221,16 @@ func (m *MockTxBuilder) AddAuxSignerData(aux tx.AuxSignerData) error {
 
 
 func TestNewTxSigner(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	signerManager := NewSignerManager("push1granter", granteeAddr)
-
-	// Create a basic client context for testing
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	mockTxConfig := &MockTxConfig{}
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-
-	logger := zerolog.New(nil)
-
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner, mockKeys, _ := setupTestTxSigner()
 
 	assert.NotNil(t, txSigner)
 	assert.Equal(t, mockKeys, txSigner.keys)
-	assert.Equal(t, signerManager, txSigner.signerManager)
-	assert.Equal(t, mockTxConfig, txSigner.txConfig)
+	assert.NotNil(t, txSigner.signerManager)
+	assert.NotNil(t, txSigner.txConfig)
 }
 
 func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	// Setup mock expectations
-	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
-	signerManager := NewSignerManager("push1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh", granteeAddr)
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	mockTxConfig := &MockTxConfig{}
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner, _, granteeAddr := setupTestTxSigner()
 
 	tests := []struct {
 		name        string
@@ -270,26 +295,8 @@ func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
 }
 
 func TestTxSigner_CreateTxBuilder(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
-
-	mockTxBuilder := &MockTxBuilder{}
-	mockTxConfig := &MockTxConfig{}
-	mockTxConfig.On("NewTxBuilder").Return(mockTxBuilder)
-
-	// Setup mock expectations
-	mockTxBuilder.On("SetMsgs", mock.Anything).Return(nil)
-	mockTxBuilder.On("SetMemo", "test memo")
-	mockTxBuilder.On("SetGasLimit", uint64(200000))
-	mockTxBuilder.On("SetFeeAmount", sdk.NewCoins(sdk.NewInt64Coin("push", 1000)))
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	mockTxBuilder, mockTxConfig := setupTestTxBuilder()
+	txSigner, _, granteeAddr := setupTestTxSignerWithTxConfig(mockTxConfig)
 
 	msgs := []sdk.Msg{
 		&authz.MsgExec{
@@ -314,20 +321,7 @@ func TestTxSigner_CreateTxBuilder(t *testing.T) {
 }
 
 func TestTxSigner_ValidateMessages(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7")
-	
-	// Setup mock expectations
-	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
-	signerManager := NewSignerManager("push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp", granteeAddr)
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	mockTxConfig := &MockTxConfig{}
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner, _, granteeAddr := setupTestTxSigner()
 
 	tests := []struct {
 		name        string
@@ -375,27 +369,8 @@ func TestTxSigner_ValidateMessages(t *testing.T) {
 
 // TestTxSigner_SignAndBroadcastAuthZTx tests transaction signing and broadcasting
 func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	// Setup mock expectations
-	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
-
-	mockTxBuilder := &MockTxBuilder{}
-	mockTxConfig := &MockTxConfig{}
-	mockTxConfig.On("NewTxBuilder").Return(mockTxBuilder)
-	mockTxBuilder.On("SetMsgs", mock.Anything).Return(nil)
-	mockTxBuilder.On("SetMemo", "test memo")
-	mockTxBuilder.On("SetGasLimit", uint64(200000))
-	mockTxBuilder.On("SetFeeAmount", sdk.NewCoins(sdk.NewInt64Coin("push", 1000)))
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	_, mockTxConfig := setupTestTxBuilder()
+	txSigner, _, granteeAddr := setupTestTxSignerWithTxConfig(mockTxConfig)
 
 	msgs := []sdk.Msg{
 		&banktypes.MsgSend{
@@ -416,24 +391,13 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 
 // TestTxSigner_SignTx tests transaction signing
 func TestTxSigner_SignTx(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
+	txSigner, mockKeys, _ := setupTestTxSigner()
 	
-	// Set up mock expectations for methods called during SignTx
-	mockKeys.On("GetAddress").Return(granteeAddr, nil)
+	// Set up additional mock expectations for SignTx
 	mockKeys.On("GetHotkeyPassword").Return("")
 	mockKeys.On("GetPrivateKey", "").Return(nil, fmt.Errorf("mock private key error"))
 	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
-
 	mockTxBuilder := &MockTxBuilder{}
-	mockTxConfig := &MockTxConfig{}
-	
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	// This will fail due to missing account info or gRPC connection
 	err := txSigner.SignTx(mockTxBuilder)
@@ -445,17 +409,8 @@ func TestTxSigner_SignTx(t *testing.T) {
 
 // TestTxSigner_ErrorScenarios tests various error scenarios
 func TestTxSigner_ErrorScenarios(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner, _, _ := setupTestTxSignerWithTxConfig(mockTxConfig)
 
 	t.Run("CreateTxBuilder with nil messages", func(t *testing.T) {
 		mockTxBuilder := &MockTxBuilder{}

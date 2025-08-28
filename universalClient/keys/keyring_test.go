@@ -268,7 +268,7 @@ func (suite *KeyringTestSuite) TestImportInvalidKey() {
 // TestGetKeybase tests keybase creation with different backends
 func (suite *KeyringTestSuite) TestGetKeybase() {
 	// Test with test backend
-	kb, err := getKeybase(suite.tempDir, nil, KeyringBackendTest)
+	kb, err := CreateKeyring(suite.tempDir, nil, KeyringBackendTest)
 	
 	require.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), kb)
@@ -278,7 +278,7 @@ func (suite *KeyringTestSuite) TestGetKeybase() {
 // TestGetKeybaseWithFileBackend tests keybase with file backend
 func (suite *KeyringTestSuite) TestGetKeybaseWithFileBackend() {
 	// Create a mock input reader for password (though it won't be called for test)
-	kb, err := getKeybase(suite.tempDir, nil, KeyringBackendFile)
+	kb, err := CreateKeyring(suite.tempDir, nil, KeyringBackendFile)
 	
 	require.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), kb)

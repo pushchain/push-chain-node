@@ -28,7 +28,7 @@ func TestNewKeysWithKeybase(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
+	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
 	require.NoError(t, err)
 
 	// Create basic Keys instance
@@ -136,7 +136,7 @@ func TestKeyringBackends(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { _ = os.RemoveAll(tempDir) }()
 
-			kb, err := getKeybase(tempDir, nil, tt.backend)
+			kb, err := CreateKeyring(tempDir, nil, tt.backend)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Nil(t, kb)
@@ -157,7 +157,7 @@ func TestPasswordFailureScenarios(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test with file backend requiring password
-	kb, err := getKeybase(tempDir, nil, KeyringBackendFile)
+	kb, err := CreateKeyring(tempDir, nil, KeyringBackendFile)
 	require.NoError(t, err)
 
 	keys := &Keys{
@@ -171,7 +171,7 @@ func TestPasswordFailureScenarios(t *testing.T) {
 	assert.Contains(t, err.Error(), "password is required for file backend")
 
 	// Test with test backend (should not require password)
-	kbTest, err := getKeybase(tempDir, nil, KeyringBackendTest)
+	kbTest, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
 	require.NoError(t, err)
 
 	keysTest := &Keys{
@@ -210,11 +210,11 @@ func TestKeyringBackendSwitching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create keyring with first backend
-			kb1, err := getKeybase(tempDir+"1", nil, tt.backend1)
+			kb1, err := CreateKeyring(tempDir+"1", nil, tt.backend1)
 			require.NoError(t, err)
 
 			// Create keyring with second backend
-			kb2, err := getKeybase(tempDir+"2", nil, tt.backend2)
+			kb2, err := CreateKeyring(tempDir+"2", nil, tt.backend2)
 			require.NoError(t, err)
 
 			// Both should be valid
@@ -233,7 +233,7 @@ func TestConcurrentKeyAccess(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring and key
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
+	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
 	require.NoError(t, err)
 
 	keyName := "concurrent-test-key"
@@ -275,7 +275,7 @@ func TestGetSignerInfo(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring and key
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
+	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
 	require.NoError(t, err)
 
 	keyName := "signer-info-test-key"
@@ -309,7 +309,7 @@ func TestErrorConditions(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test keyring
-	kb, err := getKeybase(tempDir, nil, KeyringBackendTest)
+	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
 	require.NoError(t, err)
 
 	keys := &Keys{

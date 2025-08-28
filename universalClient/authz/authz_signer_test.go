@@ -85,8 +85,8 @@ func TestSignerManagerGetSigner(t *testing.T) {
 	// Create SignerManager
 	sm := NewSignerManager(granter, granteeAddr)
 
-	// Test that GetSigner returns correct signer for each allowed message type
-	for _, msgType := range AllowedMsgTypes {
+	// Test that GetSigner returns correct signer for each default allowed message type
+	for _, msgType := range DefaultAllowedMsgTypes {
 		signer, err := sm.GetSigner(msgType)
 		assert.NoError(t, err, "GetSigner failed for message type: %s", msgType)
 		assert.Equal(t, granter, signer.GranterAddress)
@@ -96,8 +96,6 @@ func TestSignerManagerGetSigner(t *testing.T) {
 
 // TestSignerManagerErrorHandling tests error cases for SignerManager
 func TestSignerManagerErrorHandling(t *testing.T) {
-	// Reset AllowedMsgTypes to default to avoid test pollution
-	UseDefaultMsgTypes()
 	
 	granter := "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp"
 	granteeAddr, err := sdk.AccAddressFromBech32("push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7")

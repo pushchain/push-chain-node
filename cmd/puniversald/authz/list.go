@@ -11,6 +11,7 @@ import (
 
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/constant"
+	"github.com/rollchains/pchain/universalClient/keys"
 )
 
 // ListCmd creates the authz list command
@@ -46,7 +47,7 @@ func runListCommand(account, rpcEndpoint, chainID string) error {
 	keyringDir := constant.DefaultNodeHome
 
 	// Create keyring
-	kb, err := setupKeyring(keyringDir, nil, cfg.KeyringBackend)
+	kb, err := keys.CreateKeyringFromConfig(keyringDir, nil, cfg.KeyringBackend)
 	if err != nil {
 		return fmt.Errorf("failed to create keyring: %w", err)
 	}

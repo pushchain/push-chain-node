@@ -20,39 +20,40 @@ func (a Signer) String() string {
 		a.GranterAddress, a.GranteeAddress.String())
 }
 
-// SignerManager manages AuthZ signers for different message types
+// SignerManager manages AuthZ signers for message validation
 type SignerManager struct {
-	signers        map[string]Signer
-	granterAddress string
-	granteeAddress sdk.AccAddress
+	granterAddress    string
+	granteeAddress    sdk.AccAddress
+	allowedMsgTypes   []string
 }
 
-// NewSignerManager creates a new SignerManager with all allowed message types
+// NewSignerManager creates a new SignerManager with default allowed message types
 func NewSignerManager(granter string, grantee sdk.AccAddress) *SignerManager {
-	sm := &SignerManager{
-		signers:        make(map[string]Signer),
-		granterAddress: granter,
-		granteeAddress: grantee,
+	return &SignerManager{
+		granterAddress:  granter,
+		granteeAddress:  grantee,
+		allowedMsgTypes: DefaultAllowedMsgTypes,
 	}
-
-	// Create a signer for each allowed message type
-	for _, msgType := range AllowedMsgTypes {
-		sm.signers[msgType] = Signer{
-			GranterAddress: granter,
-			GranteeAddress: grantee,
-		}
-	}
-
-	return sm
 }
 
-// GetSigner returns the signer for a given msgURL
+// NewSignerManagerWithMsgTypes creates a new SignerManager with custom allowed message types
+func NewSignerManagerWithMsgTypes(granter string, grantee sdk.AccAddress, allowedMsgTypes []string) *SignerManager {
+	return &SignerManager{
+		granterAddress:  granter,
+		granteeAddress:  grantee,
+		allowedMsgTypes: allowedMsgTypes,
+	}
+}
+
+// GetSigner returns the signer for a given msgURL if it's allowed
 func (sm *SignerManager) GetSigner(msgURL string) (Signer, error) {
-	signer, exists := sm.signers[msgURL]
-	if !exists {
+	if !sm.isAllowedMsgType(msgURL) {
 		return Signer{}, fmt.Errorf("no signer found for message type: %s", msgURL)
 	}
-	return signer, nil
+	return Signer{
+		GranterAddress: sm.granterAddress,
+		GranteeAddress: sm.granteeAddress,
+	}, nil
 }
 
 // GetGranterAddress returns the granter address
@@ -63,5 +64,15 @@ func (sm *SignerManager) GetGranterAddress() string {
 // GetGranteeAddress returns the grantee address
 func (sm *SignerManager) GetGranteeAddress() sdk.AccAddress {
 	return sm.granteeAddress
+}
+
+// isAllowedMsgType checks if a message type is allowed for this SignerManager
+func (sm *SignerManager) isAllowedMsgType(msgType string) bool {
+	for _, allowedType := range sm.allowedMsgTypes {
+		if allowedType == msgType {
+			return true
+		}
+	}
+	return false
 }
 

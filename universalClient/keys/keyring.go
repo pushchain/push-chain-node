@@ -19,6 +19,7 @@ import (
 	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/rs/zerolog/log"
 	
+	"github.com/rollchains/pchain/universalClient/config"
 )
 
 // KeyringConfig holds configuration for keyring initialization
@@ -53,7 +54,7 @@ func GetKeyringKeybase(config KeyringConfig) (keyring.Keyring, string, error) {
 		reader = strings.NewReader(passwordInput)
 	}
 
-	kb, err := getKeybase(config.HomeDir, reader, config.KeyringBackend)
+	kb, err := CreateKeyring(config.HomeDir, reader, config.KeyringBackend)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get keybase: %w", err)
 	}
@@ -139,8 +140,8 @@ func ImportKey(keyring keyring.Keyring, name string, armor string, password stri
 	return keyring.ImportPrivKey(name, armor, password)
 }
 
-// createCodecWithEVMSupport creates a codec with EVM-compatible key types registered
-func createCodecWithEVMSupport() codec.Codec {
+// CreateCodecWithEVMSupport creates a codec with EVM-compatible key types registered
+func CreateCodecWithEVMSupport() codec.Codec {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	
@@ -159,13 +160,33 @@ func createCodecWithEVMSupport() codec.Codec {
 	return codec.NewProtoCodec(registry)
 }
 
-// getKeybase creates an instance of Keybase
-func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend) (keyring.Keyring, error) {
+// CreateInterfaceRegistryWithEVMSupport creates an interface registry with EVM-compatible key types
+func CreateInterfaceRegistryWithEVMSupport() codectypes.InterfaceRegistry {
+	registry := codectypes.NewInterfaceRegistry()
+	cryptocodec.RegisterInterfaces(registry)
+	
+	// Register all key types (both public and private)
+	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
+		&secp256k1.PubKey{},
+		&ed25519.PubKey{},
+		&evmcrypto.PubKey{},
+	)
+	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
+		&secp256k1.PrivKey{},
+		&ed25519.PrivKey{},
+		&evmcrypto.PrivKey{},
+	)
+	
+	return registry
+}
+
+// CreateKeyring creates a keyring with EVM compatibility
+func CreateKeyring(homeDir string, reader io.Reader, keyringBackend KeyringBackend) (keyring.Keyring, error) {
 	if len(homeDir) == 0 {
 		return nil, fmt.Errorf("home directory is empty")
 	}
 	
-	cdc := createCodecWithEVMSupport()
+	cdc := CreateCodecWithEVMSupport()
 
 	// Determine backend type
 	var backend string
@@ -201,4 +222,20 @@ func ValidateKeyExists(keyring keyring.Keyring, keyName string) error {
 		return fmt.Errorf("key %s not found: %w", keyName, err)
 	}
 	return nil
+}
+
+// CreateKeyringFromConfig creates a keyring with EVM compatibility from config backend type
+func CreateKeyringFromConfig(homeDir string, reader io.Reader, configBackend config.KeyringBackend) (keyring.Keyring, error) {
+	// Convert config types to keys types
+	var keysBackend KeyringBackend
+	switch configBackend {
+	case config.KeyringBackendFile:
+		keysBackend = KeyringBackendFile
+	case config.KeyringBackendTest:
+		keysBackend = KeyringBackendTest
+	default:
+		keysBackend = KeyringBackendTest
+	}
+	
+	return CreateKeyring(homeDir, reader, keysBackend)
 }

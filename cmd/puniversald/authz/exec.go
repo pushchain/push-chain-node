@@ -103,8 +103,7 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	}
 
 	// Create the inner message based on type
-	messageFactory := NewMessageFactory()
-	innerMsg, err := messageFactory.ParseMessageFromArgs(msgType, granterAddr, msgArgs)
+	innerMsg, err := ParseMessageFromArgs(msgType, granterAddr, msgArgs)
 	if err != nil {
 		return err
 	}
@@ -118,8 +117,9 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	// Create keys instance for the hot key
 	hotKeys := keys.NewKeysWithKeybase(kb, granteeAddr, granteeKeyName, "")
 
-	// Create SignerManager for AuthZ
-	signerManager := uauthz.NewSignerManager(granterAddr.String(), granteeAddr)
+	// Create SignerManager for AuthZ with configured message types
+	allowedTypes := cfg.GetAllowedMessageTypes()
+	signerManager := uauthz.NewSignerManagerWithMsgTypes(granterAddr.String(), granteeAddr, allowedTypes)
 
 	// Create TxSigner for handling the transaction  
 	logger := zerolog.New(nil).Level(zerolog.InfoLevel)
@@ -131,13 +131,7 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 		return fmt.Errorf("invalid fee amount: %w", err)
 	}
 
-	fmt.Printf("\n🚀 Executing AuthZ Transaction:\n")
-	fmt.Printf("Granter (operator): %s\n", granterAddr)
-	fmt.Printf("Grantee (executor): %s (%s)\n", granteeAddr, granteeKeyName)
-	fmt.Printf("Message Type: %s\n", msgType)
-	fmt.Printf("Gas Limit: %d\n", gasLimit)
-	fmt.Printf("Fee Amount: %s\n", feeCoins)
-	fmt.Printf("Memo: %s\n", memo)
+	fmt.Printf("🚀 AuthZ TX: operator=%s executor=%s(%s) type=%s gas=%d fee=%s memo=%s\n", granterAddr, granteeAddr, granteeKeyName, msgType, gasLimit, feeCoins, memo)
 
 	// Execute the transaction
 	res, err := txSigner.SignAndBroadcastAuthZTx(ctx, []sdk.Msg{innerMsg}, memo, gasLimit, feeCoins)
@@ -146,14 +140,10 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	}
 
 	// Print transaction result
-	fmt.Printf("\n✅ Transaction Successful!\n")
-	fmt.Printf("Transaction Hash: %s\n", res.TxHash)
-	fmt.Printf("Gas Used: %d\n", res.GasUsed)
-	fmt.Printf("Gas Wanted: %d\n", res.GasWanted)
 	if res.Code != 0 {
-		fmt.Printf("⚠️  Transaction failed with code %d: %s\n", res.Code, res.RawLog)
+		fmt.Printf("⚠️ TX Failed (code %d): hash=%s error=%s\n", res.Code, res.TxHash, res.RawLog)
 	} else {
-		fmt.Printf("🎉 Transaction executed successfully!\n")
+		fmt.Printf("✅ TX Success: hash=%s gasUsed=%d/%d\n", res.TxHash, res.GasUsed, res.GasWanted)
 	}
 
 	return nil

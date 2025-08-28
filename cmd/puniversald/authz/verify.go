@@ -11,9 +11,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 
-	uauthz "github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/constant"
+	"github.com/rollchains/pchain/universalClient/keys"
 )
 
 // VerifyCmd creates the authz verify command
@@ -45,20 +45,8 @@ func runVerifyCommand(rpcEndpoint, chainID string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 	
-	// Apply the message type configuration to the authz module
-	category, customTypes, err := config.GetAuthZMessageTypeConfig(&cfg)
-	if err != nil {
-		return fmt.Errorf("failed to get authz message type config: %w", err)
-	}
-	
-	switch category {
-	case "universal-validator":
-		uauthz.UseUniversalValidatorMsgTypes()
-	case "custom":
-		uauthz.SetAllowedMsgTypes(customTypes)
-	case "default":
-		uauthz.UseDefaultMsgTypes()
-	}
+	// Get allowed message types from config
+	allowedTypes := cfg.GetAllowedMessageTypes()
 
 	// Validate hot key configuration
 	if err := config.ValidateHotKeyConfig(&cfg); err != nil {
@@ -68,7 +56,7 @@ func runVerifyCommand(rpcEndpoint, chainID string) error {
 	fmt.Printf("🔍 Verifying hot key setup...\n")
 	fmt.Printf("Operator: %s\n", cfg.AuthzGranter)
 	fmt.Printf("Hot Key: %s\n", cfg.AuthzHotkey)
-	fmt.Printf("Message Type Category: %s\n", uauthz.GetMsgTypeCategory())
+	fmt.Printf("Allowed Message Types: %d configured\n", len(allowedTypes))
 
 	// Parse operator address
 	operatorAddr, err := sdk.AccAddressFromBech32(cfg.AuthzGranter)
@@ -78,7 +66,7 @@ func runVerifyCommand(rpcEndpoint, chainID string) error {
 
 	// Get hot key address
 	keyringDir := constant.DefaultNodeHome
-	kb, err := setupKeyring(keyringDir, nil, cfg.KeyringBackend)
+	kb, err := keys.CreateKeyringFromConfig(keyringDir, nil, cfg.KeyringBackend)
 	if err != nil {
 		return fmt.Errorf("failed to create keyring: %w", err)
 	}
@@ -105,7 +93,7 @@ func runVerifyCommand(rpcEndpoint, chainID string) error {
 	ctx := context.Background()
 
 	// Check each required grant
-	requiredMsgTypes := uauthz.GetAllAllowedMsgTypes()
+	requiredMsgTypes := allowedTypes
 	var missingGrants []string
 	var validGrants []string
 
@@ -140,41 +128,22 @@ func runVerifyCommand(rpcEndpoint, chainID string) error {
 
 	// Summary
 	fmt.Printf("\n📊 Summary:\n")
-	fmt.Printf("Message Type Category: %s\n", uauthz.GetMsgTypeCategory())
+	fmt.Printf("Configured message types: %d\n", len(allowedTypes))
 	fmt.Printf("Valid grants: %d/%d\n", len(validGrants), len(requiredMsgTypes))
 
 	if len(missingGrants) > 0 {
 		fmt.Printf("Missing grants: %d\n", len(missingGrants))
 		fmt.Printf("\n⚠️  Hot key setup is INCOMPLETE\n")
-		
-		category := uauthz.GetMsgTypeCategory()
-		switch category {
-		case "default":
-			fmt.Printf("Currently checking for standard Cosmos SDK message types.\n")
-			fmt.Printf("These are suitable for testing and basic operations.\n")
-		case "universal-validator":
-			fmt.Printf("Currently checking for Universal Validator specific message types.\n")
-			fmt.Printf("These require Universal Validator modules in the chain.\n")
-		case "custom":
-			fmt.Printf("Currently checking for custom configured message types.\n")
+		fmt.Printf("The following message types require grants:\n")
+		for _, msgType := range missingGrants {
+			fmt.Printf("  - %s\n", msgType)
 		}
-		
-		fmt.Printf("Run the following command to fix:\n")
+		fmt.Printf("\nRun the following command to fix:\n")
 		fmt.Printf("  puniversald authz grant <operator-key> %s\n", cfg.AuthzHotkey)
 		return fmt.Errorf("hot key verification failed")
 	}
 
-	categoryDesc := ""
-	switch uauthz.GetMsgTypeCategory() {
-	case "default":
-		categoryDesc = " with standard Cosmos SDK operations"
-	case "universal-validator":
-		categoryDesc = " for Universal Validator operations"
-	case "custom":
-		categoryDesc = " with custom message types"
-	}
-
-	fmt.Printf("\n🎉 Hot key setup is COMPLETE and ready%s!\n", categoryDesc)
+	fmt.Printf("\n🎉 Hot key setup is COMPLETE and ready for transaction execution!\n")
 
 	return nil
 }

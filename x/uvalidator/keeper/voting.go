@@ -123,6 +123,10 @@ func (k Keeper) VoteOnBallot(
 		return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
 	}
 
+	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
+		return ballot, false, false, errors.Wrap(err, "Error while voting, ballot is already finalized or expired")
+	}
+
 	if isNew {
 		err := k.ActiveBallotIDs.Set(ctx, id)
 		if err != nil {

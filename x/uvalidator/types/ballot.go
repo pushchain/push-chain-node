@@ -73,7 +73,8 @@ func (b Ballot) IsExpired(currentHeight int64) bool {
 }
 
 func (b Ballot) IsFinalized() bool {
-	return b.IsFinalized()
+	return b.Status == BallotStatus_BALLOT_STATUS_PASSED ||
+		b.Status == BallotStatus_BALLOT_STATUS_REJECTED
 }
 
 // ShouldPass returns true if the YES votes meet or exceed the stored voting threshold.

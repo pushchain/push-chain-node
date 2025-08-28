@@ -8,7 +8,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -39,16 +38,6 @@ type MockUniversalValidatorKeys struct {
 	mock.Mock
 }
 
-func (m *MockUniversalValidatorKeys) GetSignerInfo() *keyring.Record {
-	args := m.Called()
-	return args.Get(0).(*keyring.Record)
-}
-
-func (m *MockUniversalValidatorKeys) GetOperatorAddress() sdk.AccAddress {
-	args := m.Called()
-	return args.Get(0).(sdk.AccAddress)
-}
-
 func (m *MockUniversalValidatorKeys) GetAddress() (sdk.AccAddress, error) {
 	args := m.Called()
 	return args.Get(0).(sdk.AccAddress), args.Error(1)
@@ -57,11 +46,6 @@ func (m *MockUniversalValidatorKeys) GetAddress() (sdk.AccAddress, error) {
 func (m *MockUniversalValidatorKeys) GetPrivateKey(password string) (cryptotypes.PrivKey, error) {
 	args := m.Called(password)
 	return args.Get(0).(cryptotypes.PrivKey), args.Error(1)
-}
-
-func (m *MockUniversalValidatorKeys) GetKeybase() keyring.Keyring {
-	args := m.Called()
-	return args.Get(0).(keyring.Keyring)
 }
 
 func (m *MockUniversalValidatorKeys) GetHotkeyPassword() string {
@@ -474,76 +458,13 @@ func TestTxSigner_SignTx(t *testing.T) {
 	logger := zerolog.New(nil)
 	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
 
-	// This will fail due to missing account info (GetAccountInfo will fail first)
+	// This will fail due to missing account info or gRPC connection
 	err := txSigner.SignTx(mockTxBuilder)
 	
 	// Should fail due to missing account info or gRPC connection
 	assert.Error(t, err)
 }
 
-// TestTxSigner_EstimateGas tests gas estimation
-func TestTxSigner_EstimateGas(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
-
-	mockTxConfig := &MockTxConfig{}
-	
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
-
-	// This will fail due to missing gRPC connection
-	ctx := context.Background()
-	msgs := []sdk.Msg{
-		&banktypes.MsgSend{
-			FromAddress: "push1granter", 
-			ToAddress:   granteeAddr.String(),
-			Amount:      sdk.NewCoins(sdk.NewInt64Coin("push", 1000)),
-		},
-	}
-	gasEstimate, err := txSigner.EstimateGas(ctx, msgs, "test memo")
-	
-	// Should return default estimate (300000) since no real chain connection
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(300000), gasEstimate)
-}
-
-// TestTxSigner_GetAccountInfo tests account info retrieval
-func TestTxSigner_GetAccountInfo(t *testing.T) {
-	mockKeys := &MockUniversalValidatorKeys{}
-	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
-	// Setup mock expectations
-	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
-
-	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	mockTxConfig := &MockTxConfig{}
-	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
-	
-	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
-
-	// This will fail due to missing gRPC connection
-	ctx := context.Background()
-	_, err := txSigner.GetAccountInfo(ctx)
-	
-	// Should fail due to no real chain connection
-	assert.Error(t, err)
-}
 
 // TestTxSigner_ErrorScenarios tests various error scenarios
 func TestTxSigner_ErrorScenarios(t *testing.T) {

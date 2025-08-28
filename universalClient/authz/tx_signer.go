@@ -115,8 +115,11 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	}
 
 	// Validate that all messages are allowed
-	if err := ts.validateMessages(msgs); err != nil {
-		return nil, err
+	for i, msg := range msgs {
+		msgType := sdk.MsgTypeURL(msg)
+		if !IsAllowedMsgType(msgType) {
+			return nil, fmt.Errorf("message type %s at index %d is not allowed for AuthZ", msgType, i)
+		}
 	}
 
 	// Get hot key address for grantee
@@ -137,16 +140,6 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	return []sdk.Msg{&msgExec}, nil
 }
 
-// validateMessages validates that all messages are allowed for AuthZ execution
-func (ts *TxSigner) validateMessages(msgs []sdk.Msg) error {
-	for i, msg := range msgs {
-		msgType := sdk.MsgTypeURL(msg)
-		if !IsAllowedMsgType(msgType) {
-			return fmt.Errorf("message type %s at index %d is not allowed for AuthZ", msgType, i)
-		}
-	}
-	return nil
-}
 
 // CreateTxBuilder creates a transaction builder with the given parameters
 func (ts *TxSigner) CreateTxBuilder(
@@ -181,7 +174,7 @@ func (ts *TxSigner) SignTx(txBuilder client.TxBuilder) error {
 	ts.log.Debug().Msg("Starting transaction signing process")
 
 	// Get account info for sequence and account number
-	account, err := ts.GetAccountInfo(ctx)
+	account, err := ts.getAccountInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
@@ -256,30 +249,9 @@ func (ts *TxSigner) SignTx(txBuilder client.TxBuilder) error {
 	return nil
 }
 
-// EstimateGas estimates gas for a transaction
-func (ts *TxSigner) EstimateGas(
-	ctx context.Context,
-	msgs []sdk.Msg,
-	memo string,
-) (uint64, error) {
-	// TODO: Implement gas estimation logic
-	// This requires:
-	// 1. Building simulation request
-	// 2. Executing simulation via gRPC
-	// 3. Adding safety margin
-	
-	ts.log.Debug().
-		Int("msg_count", len(msgs)).
-		Str("memo", memo).
-		Msg("Gas estimation requested - using default estimate")
-	
-	// Return a reasonable default estimate for now
-	// Universal Validator operations are typically lightweight
-	return 300000, nil // 300k gas default
-}
 
-// GetAccountInfo retrieves account information for the hot key
-func (ts *TxSigner) GetAccountInfo(ctx context.Context) (client.Account, error) {
+// getAccountInfo retrieves account information for the hot key
+func (ts *TxSigner) getAccountInfo(ctx context.Context) (client.Account, error) {
 	hotKeyAddr, err := ts.keys.GetAddress()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hot key address: %w", err)

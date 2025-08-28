@@ -5,7 +5,6 @@ package authz
 import (
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -55,58 +54,9 @@ func GetSigner(msgURL string) (Signer, error) {
 	return signer, nil
 }
 
-// WrapWithAuthZ wraps a message with MsgExec for AuthZ execution
-func WrapWithAuthZ(msg sdk.Msg, signer Signer) (*authz.MsgExec, error) {
-	// Validate that the message type is allowed
-	msgTypeURL := sdk.MsgTypeURL(msg)
-	if !IsAllowedMsgType(msgTypeURL) {
-		return nil, fmt.Errorf("message type %s is not allowed for AuthZ execution", msgTypeURL)
-	}
-	
-	// Create MsgExec with the grantee address and the message
-	authzMessage := authz.NewMsgExec(signer.GranteeAddress, []sdk.Msg{msg})
-	
-	return &authzMessage, nil
-}
 
-// ValidateSigner checks if the signer is properly configured
-func ValidateSigner(signer Signer) error {
-	if signer.GranterAddress == "" {
-		return fmt.Errorf("granter address cannot be empty")
-	}
-	
-	if signer.GranteeAddress.Empty() {
-		return fmt.Errorf("grantee address cannot be empty")
-	}
-	
-	// Validate granter address format
-	_, err := sdk.AccAddressFromBech32(signer.GranterAddress)
-	if err != nil {
-		return fmt.Errorf("invalid granter address format: %w", err)
-	}
-	
-	return nil
-}
 
-// GetAllSigners returns all configured signers
-func GetAllSigners() map[string]Signer {
-	if signers == nil {
-		return make(map[string]Signer)
-	}
-	
-	// Return a copy to prevent external modification
-	result := make(map[string]Signer)
-	for k, v := range signers {
-		result[k] = v
-	}
-	
-	return result
-}
 
-// IsSignerConfigured checks if signers have been configured
-func IsSignerConfigured() bool {
-	return len(signers) > 0
-}
 
 // ResetSignersForTesting resets the global signers map (for testing only)
 func ResetSignersForTesting() {

@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -24,20 +23,11 @@ func (kb KeyringBackend) String() string {
 
 // UniversalValidatorKeys defines the interface for key management in Universal Validator
 type UniversalValidatorKeys interface {
-	// GetSignerInfo returns the key record for the hot key
-	GetSignerInfo() *keyring.Record
-	
-	// GetOperatorAddress returns the operator (validator) address  
-	GetOperatorAddress() sdk.AccAddress
-	
 	// GetAddress returns the hot key address
 	GetAddress() (sdk.AccAddress, error)
 	
 	// GetPrivateKey returns the hot key private key (requires password)
 	GetPrivateKey(password string) (cryptotypes.PrivKey, error)
-	
-	// GetKeybase returns the underlying keyring
-	GetKeybase() keyring.Keyring
 	
 	// GetHotkeyPassword returns the password for file backend
 	GetHotkeyPassword() string

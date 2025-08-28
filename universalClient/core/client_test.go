@@ -166,14 +166,13 @@ func TestUniversalClientMethods(t *testing.T) {
 	chainClient := client.GetChainClient("test-chain")
 	assert.Nil(t, chainClient) // Should be nil for non-existent chain
 
-	// Test hot key methods
-	assert.False(t, client.IsHotKeyEnabled())
-	assert.Nil(t, client.GetKeys())
-	assert.Nil(t, client.GetAuthzSigner())
+	// Hot key components should be nil for non-hot-key config
+	assert.Nil(t, client.keys)
+	assert.Nil(t, client.authzSigner)
 }
 
 func TestUniversalClientBasicHotKeyMethods(t *testing.T) {
-	// These methods should return errors when hot key is not enabled
+	// Test that hot key components are nil when not configured
 	tempDir, err := os.MkdirTemp("", "client-hotkey-methods-test-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
@@ -195,10 +194,9 @@ func TestUniversalClientBasicHotKeyMethods(t *testing.T) {
 	client, err := NewUniversalClient(ctx, log, database, cfg)
 	require.NoError(t, err)
 
-	// Test hot key status methods
-	assert.False(t, client.IsHotKeyEnabled())
-	assert.Nil(t, client.GetKeys())
-	assert.Nil(t, client.GetAuthzSigner())
+	// Test hot key components are nil
+	assert.Nil(t, client.keys)
+	assert.Nil(t, client.authzSigner)
 }
 
 func TestUniversalClientStart(t *testing.T) {

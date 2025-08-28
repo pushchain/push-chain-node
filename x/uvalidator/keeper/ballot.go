@@ -16,10 +16,14 @@ func (k Keeper) CreateBallot(
 	votingThreshold int64,
 	expiryAfterBlocks int64,
 ) (types.Ballot, error) {
-
 	// Get current block height
 	blockHeight, err := k.GetBlockHeight(ctx)
 	if err != nil {
+		return types.Ballot{}, err
+	}
+
+	// First, expire any old ballots before this height
+	if err := k.ExpireBallotsBeforeHeight(ctx, blockHeight); err != nil {
 		return types.Ballot{}, err
 	}
 

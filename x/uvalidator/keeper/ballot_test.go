@@ -119,26 +119,31 @@ func TestExpireBallotsBeforeHeight(t *testing.T) {
 	f := SetupTest(t)
 	require := require.New(t)
 
-	// Create ballot that expires at +1
+	// Create ballot that expires at +1 block
 	b, err := f.k.CreateBallot(f.ctx, "b6", types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		[]string{"v1"}, 1, 1)
 	require.NoError(err)
 
+	// Sanity check: expiry is after created height
+	require.Equal(b.BlockHeightCreated+1, b.BlockHeightExpiry)
+
 	// Expire with currentHeight past expiry
-	err = f.k.ExpireBallotsBeforeHeight(f.ctx, b.BlockHeightCreated+2)
+	err = f.k.ExpireBallotsBeforeHeight(f.ctx, b.BlockHeightExpiry+1)
 	require.NoError(err)
 
 	got, err := f.k.GetBallot(f.ctx, b.Id)
 	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status)
 
-	// Expire with not yet expired height → no change
+	// Create another ballot with long expiry
 	b2, err := f.k.CreateBallot(f.ctx, "b7", types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		[]string{"v1"}, 1, 10)
 	require.NoError(err)
 
+	// Not yet expired
 	err = f.k.ExpireBallotsBeforeHeight(f.ctx, b2.BlockHeightCreated+1)
 	require.NoError(err)
+
 	got2, err := f.k.GetBallot(f.ctx, "b7")
 	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got2.Status)

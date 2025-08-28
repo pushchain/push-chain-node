@@ -28,6 +28,46 @@ service Query {
   rpc AllUniversalValidators(QueryUniversalValidatorsSetRequest) returns (QueryUniversalValidatorsSetResponse) {
     option (google.api.http).get = "/uvalidator/v1/universal_validators";
   }
+
+  // Ballot queries one ballot by ID.
+  rpc Ballot(QueryBallotRequest) returns (QueryBallotResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/{id}";
+  }
+
+  // Ballots queries all ballots.
+  rpc Ballots(QueryBallotsRequest) returns (QueryBallotsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots";
+  }
+
+  // ActiveBallotIDs queries all active ballot IDs.
+  rpc ActiveBallotIDs(QueryActiveBallotIDsRequest) returns (QueryActiveBallotIDsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/active/ids";
+  }
+
+  // ActiveBallots queries all active ballots with full details.
+  rpc ActiveBallots(QueryActiveBallotsRequest) returns (QueryActiveBallotsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/active";
+  }
+
+  // ExpiredBallotIDs queries all expired ballot IDs.
+  rpc ExpiredBallotIDs(QueryExpiredBallotIDsRequest) returns (QueryExpiredBallotIDsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/expired/ids";
+  }
+
+  // ExpiredBallots queries all expired ballots with full details.
+  rpc ExpiredBallots(QueryExpiredBallotsRequest) returns (QueryExpiredBallotsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/expired";
+  }
+
+  // FinalizedBallotIDs queries all finalized ballot IDs.
+  rpc FinalizedBallotIDs(QueryFinalizedBallotIDsRequest) returns (QueryFinalizedBallotIDsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/finalized/ids";
+  }
+
+  // FinalizedBallots queries all finalized ballots with full details.
+  rpc FinalizedBallots(QueryFinalizedBallotsRequest) returns (QueryFinalizedBallotsResponse) {
+    option (google.api.http).get = "/uvalidator/v1/ballots/finalized";
+  }
 }
 
 // QueryParamsRequest is the request type for the Query/Params RPC method.
@@ -38,12 +78,6 @@ message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
 }
-
-// Add Observer
-// 1. take arguments
-// 2. validate if the validator already has an observer registered
-// 3. check if validator is not jailed
-// 4. Store the observer in the state
 
 // QueryUniversalValidatorByCoreRequest is the request type for the Query/UniversalValidatorByCore RPC method.
 message QueryUniversalValidatorByCoreRequest {
@@ -76,4 +110,51 @@ message QueryUniversalValidatorsSetRequest {}
 message QueryUniversalValidatorsSetResponse {
   // addresses is the list of all universal validator addresses registered in the module.
   repeated string addresses = 1;
+}
+
+// Single ballot
+message QueryBallotRequest {
+  string id = 1;
+}
+message QueryBallotResponse {
+  Ballot ballot = 1;
+}
+
+// All ballots
+message QueryBallotsRequest {}
+message QueryBallotsResponse {
+  repeated Ballot ballots = 1;
+}
+
+// Active ballots
+message QueryActiveBallotIDsRequest {}
+message QueryActiveBallotIDsResponse {
+  repeated string ids = 1;
+}
+
+message QueryActiveBallotsRequest {}
+message QueryActiveBallotsResponse {
+  repeated Ballot ballots = 1;
+}
+
+// Expired ballots
+message QueryExpiredBallotIDsRequest {}
+message QueryExpiredBallotIDsResponse {
+  repeated string ids = 1;
+}
+
+message QueryExpiredBallotsRequest {}
+message QueryExpiredBallotsResponse {
+  repeated Ballot ballots = 1;
+}
+
+// Finalized ballots
+message QueryFinalizedBallotIDsRequest {}
+message QueryFinalizedBallotIDsResponse {
+  repeated string ids = 1;
+}
+
+message QueryFinalizedBallotsRequest {}
+message QueryFinalizedBallotsResponse {
+  repeated Ballot ballots = 1;
 }

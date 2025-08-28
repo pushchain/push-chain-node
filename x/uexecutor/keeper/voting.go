@@ -47,7 +47,7 @@ func (k Keeper) VoteOnInboundBallot(
 		ballotKey,
 		uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		universalValidator,
-		uvalidatortypes.VoteResult_VOTE_RESULT_YES,
+		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
 		universalValidatorSet,
 		int64(votesNeeded),
 		int64(expiryAfterBlocks),

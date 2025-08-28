@@ -17,26 +17,26 @@ import (
 
 // TxSigner handles AuthZ transaction signing for Universal Validator
 type TxSigner struct {
-	keys      keys.UniversalValidatorKeys
-	signer    *Signer
-	clientCtx client.Context
-	txConfig  client.TxConfig
-	log       zerolog.Logger
+	keys          keys.UniversalValidatorKeys
+	signerManager *SignerManager
+	clientCtx     client.Context
+	txConfig      client.TxConfig
+	log           zerolog.Logger
 }
 
 // NewTxSigner creates a new transaction signer
 func NewTxSigner(
 	keys keys.UniversalValidatorKeys,
-	signer *Signer,
+	signerManager *SignerManager,
 	clientCtx client.Context,
 	log zerolog.Logger,
 ) *TxSigner {
 	return &TxSigner{
-		keys:      keys,
-		signer:    signer,
-		clientCtx: clientCtx,
-		txConfig:  clientCtx.TxConfig,
-		log:       log,
+		keys:          keys,
+		signerManager: signerManager,
+		clientCtx:     clientCtx,
+		txConfig:      clientCtx.TxConfig,
+		log:           log,
 	}
 }
 
@@ -52,14 +52,6 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 		Int("msg_count", len(msgs)).
 		Str("memo", memo).
 		Msg("Creating AuthZ transaction")
-
-	// Validate that all messages are allowed
-	for i, msg := range msgs {
-		msgType := sdk.MsgTypeURL(msg)
-		if !IsAllowedMsgType(msgType) {
-			return nil, fmt.Errorf("message type %s at index %d is not allowed for AuthZ", msgType, i)
-		}
-	}
 
 	// Wrap messages with AuthZ
 	authzMsgs, err := ts.WrapMessagesWithAuthZ(msgs)
@@ -129,7 +121,7 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	}
 
 	ts.log.Debug().
-		Str("granter", ts.signer.GranterAddress).
+		Str("granter", ts.signerManager.GetGranterAddress()).
 		Str("grantee", hotKeyAddr.String()).
 		Int("msg_count", len(msgs)).
 		Msg("Wrapping messages with AuthZ")
@@ -288,7 +280,7 @@ func (ts *TxSigner) getAccountInfo(ctx context.Context) (client.Account, error) 
 }
 
 // broadcastTransaction broadcasts a signed transaction to the chain
-func (ts *TxSigner) broadcastTransaction(ctx context.Context, txBytes []byte) (*sdk.TxResponse, error) {
+func (ts *TxSigner) broadcastTransaction(_ context.Context, txBytes []byte) (*sdk.TxResponse, error) {
 	// Use the client context's BroadcastTx method for proper broadcasting
 	res, err := ts.clientCtx.BroadcastTx(txBytes)
 	if err != nil {

@@ -267,16 +267,6 @@ func TestConcurrentKeyAccess(t *testing.T) {
 
 
 
-// TestGetHotkeyKeyName tests the hotkey name utility function
-func TestGetHotkeyKeyName(t *testing.T) {
-	testName := "my-hotkey"
-	result := GetHotkeyKeyName(testName)
-	assert.Equal(t, testName, result)
-
-	// Test with empty string
-	result = GetHotkeyKeyName("")
-	assert.Equal(t, "", result)
-}
 
 // TestGetSignerInfo tests getting signer information
 func TestGetSignerInfo(t *testing.T) {

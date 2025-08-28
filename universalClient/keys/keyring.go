@@ -1,10 +1,10 @@
 package keys
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -42,19 +42,18 @@ func GetKeyringKeybase(config KeyringConfig) (keyring.Keyring, string, error) {
 		return nil, "", fmt.Errorf("home directory is empty")
 	}
 
-	// Read password from input if using keyring backend file
-	buf := bytes.NewBufferString("")
+	// Prepare password reader for file backend
+	var reader io.Reader = strings.NewReader("")
 	if config.KeyringBackend == KeyringBackendFile {
 		if config.HotkeyPassword == "" {
 			return nil, "", fmt.Errorf("password is required for file backend")
 		}
-		buf.WriteString(config.HotkeyPassword)
-		buf.WriteByte('\n') // the library used by keyring is using ReadLine, which expects a new line
-		buf.WriteString(config.HotkeyPassword)
-		buf.WriteByte('\n')
+		// Keyring expects password twice, each followed by newline
+		passwordInput := fmt.Sprintf("%s\n%s\n", config.HotkeyPassword, config.HotkeyPassword)
+		reader = strings.NewReader(passwordInput)
 	}
 
-	kb, err := getKeybase(config.HomeDir, buf, config.KeyringBackend)
+	kb, err := getKeybase(config.HomeDir, reader, config.KeyringBackend)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get keybase: %w", err)
 	}
@@ -140,30 +139,33 @@ func ImportKey(keyring keyring.Keyring, name string, armor string, password stri
 	return keyring.ImportPrivKey(name, armor, password)
 }
 
-// getKeybase creates an instance of Keybase
-func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend) (keyring.Keyring, error) {
-	if len(homeDir) == 0 {
-		return nil, fmt.Errorf("home directory is empty")
-	}
-	
-	// Create interface registry and codec with EVM support
+// createCodecWithEVMSupport creates a codec with EVM-compatible key types registered
+func createCodecWithEVMSupport() codec.Codec {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	
-	// Explicitly register public key types including EVM-compatible keys
+	// Register all key types (both public and private)
 	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
 		&secp256k1.PubKey{},
 		&ed25519.PubKey{},
 		&evmcrypto.PubKey{},
 	)
-	// Also register private key implementations for EVM compatibility
 	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
 		&secp256k1.PrivKey{},
 		&ed25519.PrivKey{},
 		&evmcrypto.PrivKey{},
 	)
 	
-	cdc := codec.NewProtoCodec(registry)
+	return codec.NewProtoCodec(registry)
+}
+
+// getKeybase creates an instance of Keybase
+func getKeybase(homeDir string, reader io.Reader, keyringBackend KeyringBackend) (keyring.Keyring, error) {
+	if len(homeDir) == 0 {
+		return nil, fmt.Errorf("home directory is empty")
+	}
+	
+	cdc := createCodecWithEVMSupport()
 
 	// Determine backend type
 	var backend string

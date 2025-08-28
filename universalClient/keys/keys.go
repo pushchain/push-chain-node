@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/crypto"
@@ -12,13 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	// ErrBech32ifyPubKey is an error when Bech32ifyPubKey fails
-	ErrBech32ifyPubKey = errors.New("Bech32ifyPubKey fail in main")
-
-	// ErrNewPubKey is an error when NewPubKey fails
-	ErrNewPubKey = errors.New("NewPubKey error from string")
-)
 
 var _ UniversalValidatorKeys = &Keys{}
 
@@ -91,17 +83,12 @@ func NewKeysWithKeybase(
 	}
 }
 
-// GetHotkeyKeyName returns the hot key name
-func GetHotkeyKeyName(signerName string) string {
-	return signerName
-}
 
 // GetSignerInfo returns the key record for the hot key
 func (k *Keys) GetSignerInfo() *keyring.Record {
-	signer := GetHotkeyKeyName(k.signerName)
-	info, err := k.kb.Key(signer)
+	info, err := k.kb.Key(k.signerName)
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to get key info for %s", signer)
+		log.Error().Err(err).Msgf("Failed to get key info for %s", k.signerName)
 		return nil
 	}
 	return info
@@ -114,10 +101,9 @@ func (k *Keys) GetOperatorAddress() sdk.AccAddress {
 
 // GetAddress returns the hot key address
 func (k *Keys) GetAddress() (sdk.AccAddress, error) {
-	signer := GetHotkeyKeyName(k.signerName)
-	info, err := k.kb.Key(signer)
+	info, err := k.kb.Key(k.signerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get key %s: %w", signer, err)
+		return nil, fmt.Errorf("failed to get key %s: %w", k.signerName, err)
 	}
 	
 	addr, err := info.GetAddress()
@@ -130,8 +116,6 @@ func (k *Keys) GetAddress() (sdk.AccAddress, error) {
 
 // GetPrivateKey returns the private key (requires password for file backend)
 func (k *Keys) GetPrivateKey(password string) (cryptotypes.PrivKey, error) {
-	signer := GetHotkeyKeyName(k.signerName)
-	
 	// For file backend, use provided password; for test backend, password is ignored
 	var actualPassword string
 	if k.kb.Backend() == keyring.BackendFile {
@@ -141,7 +125,7 @@ func (k *Keys) GetPrivateKey(password string) (cryptotypes.PrivKey, error) {
 		actualPassword = password
 	}
 	
-	privKeyArmor, err := k.kb.ExportPrivKeyArmor(signer, actualPassword)
+	privKeyArmor, err := k.kb.ExportPrivKeyArmor(k.signerName, actualPassword)
 	if err != nil {
 		return nil, fmt.Errorf("failed to export private key: %w", err)
 	}

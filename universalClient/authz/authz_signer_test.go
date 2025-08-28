@@ -22,23 +22,25 @@ func init() {
 
 func TestNewSigner(t *testing.T) {
 	signer := &Signer{
-		KeyType:        UniversalValidatorHotKey,
 		GranterAddress: "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp",
 	}
 
 	assert.NotNil(t, signer)
-	assert.Equal(t, UniversalValidatorHotKey, signer.KeyType)
 	assert.Equal(t, "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp", signer.GranterAddress)
 }
 
-func TestSetupAuthZSignerListSignature(t *testing.T) {
-	// Test that the function has the correct signature
+func TestNewSignerManager(t *testing.T) {
 	granter := "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp"
 	granteeAddr, err := sdk.AccAddressFromBech32("push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp")
 	require.NoError(t, err)
 
-	// This should not panic and should accept the correct parameters
-	SetupAuthZSignerList(granter, granteeAddr)
+	// Create SignerManager
+	sm := NewSignerManager(granter, granteeAddr)
+
+	// Verify it was created properly
+	assert.NotNil(t, sm)
+	assert.Equal(t, granter, sm.GetGranterAddress())
+	assert.Equal(t, granteeAddr, sm.GetGranteeAddress())
 }
 
 func TestSignerValidation(t *testing.T) {
@@ -50,7 +52,6 @@ func TestSignerValidation(t *testing.T) {
 		{
 			name: "valid signer",
 			signer: &Signer{
-				KeyType:        UniversalValidatorHotKey,
 				GranterAddress: "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp",
 			},
 			expectedValid: true,
@@ -58,7 +59,6 @@ func TestSignerValidation(t *testing.T) {
 		{
 			name: "empty granter address",
 			signer: &Signer{
-				KeyType:        UniversalValidatorHotKey,
 				GranterAddress: "",
 			},
 			expectedValid: false,
@@ -75,38 +75,27 @@ func TestSignerValidation(t *testing.T) {
 	}
 }
 
-func TestKeyTypeValidation(t *testing.T) {
-	// Test that KeyType constants are properly defined
-	assert.Equal(t, KeyType(0), UniversalValidatorHotKey)
-	
-	// Test string representation
-	assert.Equal(t, "UniversalValidatorHotKey", UniversalValidatorHotKey.String())
-}
 
-// TestSetupAuthZSignerList tests the signer list setup functionality
-func TestSetupAuthZSignerList(t *testing.T) {
-	ResetSignersForTesting()
+// TestSignerManagerGetSigner tests the signer manager functionality
+func TestSignerManagerGetSigner(t *testing.T) {
 	granter := "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp"
 	granteeAddr, err := sdk.AccAddressFromBech32("push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7")
 	require.NoError(t, err)
 
-	// Setup signers list
-	SetupAuthZSignerList(granter, granteeAddr)
+	// Create SignerManager
+	sm := NewSignerManager(granter, granteeAddr)
 
 	// Test that GetSigner returns correct signer for each allowed message type
 	for _, msgType := range AllowedMsgTypes {
-		signer, err := GetSigner(msgType)
+		signer, err := sm.GetSigner(msgType)
 		assert.NoError(t, err, "GetSigner failed for message type: %s", msgType)
 		assert.Equal(t, granter, signer.GranterAddress)
 		assert.Equal(t, granteeAddr, signer.GranteeAddress)
-		assert.Equal(t, UniversalValidatorHotKey, signer.KeyType)
 	}
 }
 
-// TestGetSigner tests retrieving specific signers
-func TestGetSigner(t *testing.T) {
-	ResetSignersForTesting()
-	
+// TestSignerManagerErrorHandling tests error cases for SignerManager
+func TestSignerManagerErrorHandling(t *testing.T) {
 	// Reset AllowedMsgTypes to default to avoid test pollution
 	UseDefaultMsgTypes()
 	
@@ -114,22 +103,17 @@ func TestGetSigner(t *testing.T) {
 	granteeAddr, err := sdk.AccAddressFromBech32("push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7")
 	require.NoError(t, err)
 
-	// Test without initialization
-	_, err = GetSigner("/cosmos.bank.v1beta1.MsgSend")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "signers not initialized")
-
-	// Setup signers
-	SetupAuthZSignerList(granter, granteeAddr)
+	// Create SignerManager
+	sm := NewSignerManager(granter, granteeAddr)
 
 	// Test valid message type (use a default allowed type)
-	signer, err := GetSigner("/cosmos.bank.v1beta1.MsgSend")
+	signer, err := sm.GetSigner("/cosmos.bank.v1beta1.MsgSend")
 	require.NoError(t, err)
 	assert.Equal(t, granter, signer.GranterAddress)
 	assert.Equal(t, granteeAddr, signer.GranteeAddress)
 
 	// Test invalid message type
-	_, err = GetSigner("/invalid.msg.Type")
+	_, err = sm.GetSigner("/invalid.msg.Type")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no signer found for message type")
 }
@@ -145,11 +129,10 @@ func TestSignerString(t *testing.T) {
 	require.NoError(t, err)
 
 	signer := Signer{
-		KeyType:        UniversalValidatorHotKey,
 		GranterAddress: granter,
 		GranteeAddress: granteeAddr,
 	}
 
-	expected := "UniversalValidatorHotKey granter:push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp grantee:push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7"
+	expected := "granter:push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp grantee:push1wgj7lyup5sn9gy3acwgdjgyw3gumv3r6zgrqv7"
 	assert.Equal(t, expected, signer.String())
 }

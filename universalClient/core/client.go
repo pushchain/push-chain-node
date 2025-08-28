@@ -82,7 +82,6 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		
 		// Initialize AuthZ signer
 		signer := &authz.Signer{
-			KeyType:        authz.UniversalValidatorHotKey,
 			GranterAddress: cfg.AuthzGranter,
 		}
 		uc.authzSigner = signer

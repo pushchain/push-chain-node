@@ -10,55 +10,58 @@ import (
 
 // Signer represents a signer for a grantee key with AuthZ capabilities
 type Signer struct {
-	KeyType        KeyType        // Type of key being used
 	GranterAddress string         // Operator (validator) address
 	GranteeAddress sdk.AccAddress // Hot key address
 }
 
 // String returns a string representation of a Signer
 func (a Signer) String() string {
-	return fmt.Sprintf("%s granter:%s grantee:%s", 
-		a.KeyType.String(), a.GranterAddress, a.GranteeAddress.String())
+	return fmt.Sprintf("granter:%s grantee:%s",
+		a.GranterAddress, a.GranteeAddress.String())
 }
 
-// signers is a map of all the signers for the different tx types
-var signers map[string]Signer
+// SignerManager manages AuthZ signers for different message types
+type SignerManager struct {
+	signers        map[string]Signer
+	granterAddress string
+	granteeAddress sdk.AccAddress
+}
 
-// SetupAuthZSignerList sets the granter and grantee for all the allowed message types
-func SetupAuthZSignerList(granter string, grantee sdk.AccAddress) {
-	signersList := make(map[string]Signer)
-	
+// NewSignerManager creates a new SignerManager with all allowed message types
+func NewSignerManager(granter string, grantee sdk.AccAddress) *SignerManager {
+	sm := &SignerManager{
+		signers:        make(map[string]Signer),
+		granterAddress: granter,
+		granteeAddress: grantee,
+	}
+
 	// Create a signer for each allowed message type
 	for _, msgType := range AllowedMsgTypes {
-		signersList[msgType] = Signer{
-			KeyType:        UniversalValidatorHotKey,
+		sm.signers[msgType] = Signer{
 			GranterAddress: granter,
 			GranteeAddress: grantee,
 		}
 	}
-	
-	signers = signersList
+
+	return sm
 }
 
 // GetSigner returns the signer for a given msgURL
-func GetSigner(msgURL string) (Signer, error) {
-	if signers == nil {
-		return Signer{}, fmt.Errorf("signers not initialized, call SetupAuthZSignerList first")
-	}
-	
-	signer, exists := signers[msgURL]
+func (sm *SignerManager) GetSigner(msgURL string) (Signer, error) {
+	signer, exists := sm.signers[msgURL]
 	if !exists {
 		return Signer{}, fmt.Errorf("no signer found for message type: %s", msgURL)
 	}
-	
 	return signer, nil
 }
 
-
-
-
-
-// ResetSignersForTesting resets the global signers map (for testing only)
-func ResetSignersForTesting() {
-	signers = nil
+// GetGranterAddress returns the granter address
+func (sm *SignerManager) GetGranterAddress() string {
+	return sm.granterAddress
 }
+
+// GetGranteeAddress returns the grantee address
+func (sm *SignerManager) GetGranteeAddress() sdk.AccAddress {
+	return sm.granteeAddress
+}
+

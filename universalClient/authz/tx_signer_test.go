@@ -173,11 +173,8 @@ func (m *MockTxBuilder) AddAuxSignerData(aux tx.AuxSignerData) error {
 
 func TestNewTxSigner(t *testing.T) {
 	mockKeys := &MockUniversalValidatorKeys{}
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw"),
-	}
+	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
+	signerManager := NewSignerManager("push1granter", granteeAddr)
 
 	// Create a basic client context for testing
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
@@ -186,11 +183,11 @@ func TestNewTxSigner(t *testing.T) {
 
 	logger := zerolog.New(nil)
 
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	assert.NotNil(t, txSigner)
 	assert.Equal(t, mockKeys, txSigner.keys)
-	assert.Equal(t, mockSigner, txSigner.signer)
+	assert.Equal(t, signerManager, txSigner.signerManager)
 	assert.Equal(t, mockTxConfig, txSigner.txConfig)
 }
 
@@ -201,18 +198,14 @@ func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
 	// Setup mock expectations
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh", granteeAddr)
 
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	tests := []struct {
 		name        string
@@ -280,11 +273,7 @@ func TestTxSigner_CreateTxBuilder(t *testing.T) {
 	mockKeys := &MockUniversalValidatorKeys{}
 	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1granter", granteeAddr)
 
 	mockTxBuilder := &MockTxBuilder{}
 	mockTxConfig := &MockTxConfig{}
@@ -300,7 +289,7 @@ func TestTxSigner_CreateTxBuilder(t *testing.T) {
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	msgs := []sdk.Msg{
 		&authz.MsgExec{
@@ -331,18 +320,14 @@ func TestTxSigner_ValidateMessages(t *testing.T) {
 	// Setup mock expectations
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp", granteeAddr)
 
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	tests := []struct {
 		name        string
@@ -396,11 +381,7 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 	// Setup mock expectations
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1granter", granteeAddr)
 
 	mockTxBuilder := &MockTxBuilder{}
 	mockTxConfig := &MockTxConfig{}
@@ -414,7 +395,7 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	msgs := []sdk.Msg{
 		&banktypes.MsgSend{
@@ -443,11 +424,7 @@ func TestTxSigner_SignTx(t *testing.T) {
 	mockKeys.On("GetHotkeyPassword").Return("")
 	mockKeys.On("GetPrivateKey", "").Return(nil, fmt.Errorf("mock private key error"))
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1granter", granteeAddr)
 
 	mockTxBuilder := &MockTxBuilder{}
 	mockTxConfig := &MockTxConfig{}
@@ -456,7 +433,7 @@ func TestTxSigner_SignTx(t *testing.T) {
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	// This will fail due to missing account info or gRPC connection
 	err := txSigner.SignTx(mockTxBuilder)
@@ -471,18 +448,14 @@ func TestTxSigner_ErrorScenarios(t *testing.T) {
 	mockKeys := &MockUniversalValidatorKeys{}
 	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
 	
-	mockSigner := &Signer{
-		KeyType:        UniversalValidatorHotKey,
-		GranterAddress: "push1granter",
-		GranteeAddress: granteeAddr,
-	}
+	signerManager := NewSignerManager("push1granter", granteeAddr)
 
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	
 	logger := zerolog.New(nil)
-	txSigner := NewTxSigner(mockKeys, mockSigner, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
 
 	t.Run("CreateTxBuilder with nil messages", func(t *testing.T) {
 		mockTxBuilder := &MockTxBuilder{}

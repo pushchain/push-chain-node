@@ -129,7 +129,7 @@ func TestExecuteBallot(t *testing.T) {
 
 	// Simulate yes vote reaching threshold
 	b.Votes = []types.VoteResult{
-		types.VoteResult_VOTE_RESULT_YES,
+		types.VoteResult_VOTE_RESULT_SUCCESS,
 	}
 
 	err = f.k.SetBallot(f.ctx, b)

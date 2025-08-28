@@ -49,9 +49,9 @@ func (b Ballot) AddVote(address string, vote VoteResult) (Ballot, error) {
 func (b Ballot) CountVotes() (yes, no int) {
 	for _, v := range b.Votes {
 		switch v {
-		case VoteResult_VOTE_RESULT_YES:
+		case VoteResult_VOTE_RESULT_SUCCESS:
 			yes++
-		case VoteResult_VOTE_RESULT_NO:
+		case VoteResult_VOTE_RESULT_FAILURE:
 			no++
 		}
 	}
@@ -141,9 +141,9 @@ func (b Ballot) IsFinalizingVote() (Ballot, bool) {
 	noVotes := 0
 	for _, v := range b.Votes {
 		switch v {
-		case VoteResult_VOTE_RESULT_YES:
+		case VoteResult_VOTE_RESULT_SUCCESS:
 			yesVotes++
-		case VoteResult_VOTE_RESULT_NO:
+		case VoteResult_VOTE_RESULT_FAILURE:
 			noVotes++
 		}
 	}

@@ -28,7 +28,7 @@ func TestGetVoterIndex(t *testing.T) {
 func TestHasVoted(t *testing.T) {
 	b := sampleBallot()
 	require.False(t, b.HasVoted("addr1"))
-	b.Votes[0] = VoteResult_VOTE_RESULT_YES
+	b.Votes[0] = VoteResult_VOTE_RESULT_SUCCESS
 	require.True(t, b.HasVoted("addr1"))
 	require.False(t, b.HasVoted("addrX"))
 }
@@ -37,28 +37,28 @@ func TestAddVote(t *testing.T) {
 	b := sampleBallot()
 
 	// Valid vote
-	err := b.AddVote("addr1", VoteResult_VOTE_RESULT_YES)
+	err := b.AddVote("addr1", VoteResult_VOTE_RESULT_SUCCESS)
 	require.NoError(t, err)
 	require.True(t, b.HasVoted("addr1"))
 
 	// Duplicate vote
-	err = b.AddVote("addr1", VoteResult_VOTE_RESULT_NO)
+	err = b.AddVote("addr1", VoteResult_VOTE_RESULT_FAILURE)
 	require.Error(t, err)
 
 	// Ineligible voter
-	err = b.AddVote("addrX", VoteResult_VOTE_RESULT_YES)
+	err = b.AddVote("addrX", VoteResult_VOTE_RESULT_SUCCESS)
 	require.Error(t, err)
 
 	// Ballot not pending
 	b.Status = BallotStatus_BALLOT_STATUS_EXPIRED
-	err = b.AddVote("addr2", VoteResult_VOTE_RESULT_YES)
+	err = b.AddVote("addr2", VoteResult_VOTE_RESULT_SUCCESS)
 	require.Error(t, err)
 }
 
 func TestCountVotes(t *testing.T) {
 	b := sampleBallot()
-	b.Votes[0] = VoteResult_VOTE_RESULT_YES
-	b.Votes[1] = VoteResult_VOTE_RESULT_NO
+	b.Votes[0] = VoteResult_VOTE_RESULT_SUCCESS
+	b.Votes[1] = VoteResult_VOTE_RESULT_FAILURE
 	yes, no := b.CountVotes()
 	require.Equal(t, 1, yes)
 	require.Equal(t, 1, no)
@@ -72,14 +72,14 @@ func TestShouldPassAndReject(t *testing.T) {
 	require.False(t, b.ShouldReject())
 
 	// Pass condition
-	b.Votes[0] = VoteResult_VOTE_RESULT_YES
-	b.Votes[1] = VoteResult_VOTE_RESULT_YES
+	b.Votes[0] = VoteResult_VOTE_RESULT_SUCCESS
+	b.Votes[1] = VoteResult_VOTE_RESULT_SUCCESS
 	require.True(t, b.ShouldPass())
 
 	// Reject condition
 	b = sampleBallot()
-	b.Votes[0] = VoteResult_VOTE_RESULT_NO
-	b.Votes[1] = VoteResult_VOTE_RESULT_NO
+	b.Votes[0] = VoteResult_VOTE_RESULT_FAILURE
+	b.Votes[1] = VoteResult_VOTE_RESULT_FAILURE
 	require.True(t, b.ShouldReject())
 }
 

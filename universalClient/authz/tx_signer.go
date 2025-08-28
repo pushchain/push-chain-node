@@ -18,7 +18,6 @@ import (
 // TxSigner handles AuthZ transaction signing for Universal Validator
 type TxSigner struct {
 	keys          keys.UniversalValidatorKeys
-	signerManager *SignerManager
 	clientCtx     client.Context
 	txConfig      client.TxConfig
 	log           zerolog.Logger
@@ -27,13 +26,11 @@ type TxSigner struct {
 // NewTxSigner creates a new transaction signer
 func NewTxSigner(
 	keys keys.UniversalValidatorKeys,
-	signerManager *SignerManager,
 	clientCtx client.Context,
 	log zerolog.Logger,
 ) *TxSigner {
 	return &TxSigner{
 		keys:          keys,
-		signerManager: signerManager,
 		clientCtx:     clientCtx,
 		txConfig:      clientCtx.TxConfig,
 		log:           log,
@@ -121,7 +118,6 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	}
 
 	ts.log.Debug().
-		Str("granter", ts.signerManager.GetGranterAddress()).
 		Str("grantee", hotKeyAddr.String()).
 		Int("msg_count", len(msgs)).
 		Msg("Wrapping messages with AuthZ")

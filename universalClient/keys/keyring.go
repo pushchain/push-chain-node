@@ -120,45 +120,7 @@ func CreateNewKeyWithMnemonic(kr keyring.Keyring, name string, mnemonic string, 
 	return record, generatedMnemonic, nil
 }
 
-// ListKeys returns all keys in the keyring
-func ListKeys(keyring keyring.Keyring) ([]*keyring.Record, error) {
-	return keyring.List()
-}
 
-// DeleteKey removes a key from the keyring
-func DeleteKey(keyring keyring.Keyring, name string) error {
-	return keyring.Delete(name)
-}
-
-// ExportKey exports a key in armored format
-func ExportKey(keyring keyring.Keyring, name string, password string) (string, error) {
-	return keyring.ExportPrivKeyArmor(name, password)
-}
-
-// ImportKey imports a key from armored format
-func ImportKey(keyring keyring.Keyring, name string, armor string, password string) error {
-	return keyring.ImportPrivKey(name, armor, password)
-}
-
-// CreateCodecWithEVMSupport creates a codec with EVM-compatible key types registered
-func CreateCodecWithEVMSupport() codec.Codec {
-	registry := codectypes.NewInterfaceRegistry()
-	cryptocodec.RegisterInterfaces(registry)
-	
-	// Register all key types (both public and private)
-	registry.RegisterImplementations((*cryptotypes.PubKey)(nil),
-		&secp256k1.PubKey{},
-		&ed25519.PubKey{},
-		&evmcrypto.PubKey{},
-	)
-	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil),
-		&secp256k1.PrivKey{},
-		&ed25519.PrivKey{},
-		&evmcrypto.PrivKey{},
-	)
-	
-	return codec.NewProtoCodec(registry)
-}
 
 // CreateInterfaceRegistryWithEVMSupport creates an interface registry with EVM-compatible key types
 func CreateInterfaceRegistryWithEVMSupport() codectypes.InterfaceRegistry {
@@ -186,7 +148,9 @@ func CreateKeyring(homeDir string, reader io.Reader, keyringBackend KeyringBacke
 		return nil, fmt.Errorf("home directory is empty")
 	}
 	
-	cdc := CreateCodecWithEVMSupport()
+	// Create codec with EVM-compatible key types directly
+	registry := CreateInterfaceRegistryWithEVMSupport()
+	cdc := codec.NewProtoCodec(registry)
 
 	// Determine backend type
 	var backend string

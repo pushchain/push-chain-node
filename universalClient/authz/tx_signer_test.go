@@ -106,13 +106,12 @@ func setupTestTxSigner() (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress
 	
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
 	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	logger := zerolog.New(nil)
 	
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, clientCtx, logger)
 	return txSigner, mockKeys, granteeAddr
 }
 
@@ -123,12 +122,11 @@ func setupTestTxSignerWithTxConfig(mockTxConfig *MockTxConfig) (*TxSigner, *Mock
 	
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
 	
-	signerManager := NewSignerManager("push1granter", granteeAddr)
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	logger := zerolog.New(nil)
 	
-	txSigner := NewTxSigner(mockKeys, signerManager, clientCtx, logger)
+	txSigner := NewTxSigner(mockKeys, clientCtx, logger)
 	return txSigner, mockKeys, granteeAddr
 }
 
@@ -225,7 +223,6 @@ func TestNewTxSigner(t *testing.T) {
 
 	assert.NotNil(t, txSigner)
 	assert.Equal(t, mockKeys, txSigner.keys)
-	assert.NotNil(t, txSigner.signerManager)
 	assert.NotNil(t, txSigner.txConfig)
 }
 

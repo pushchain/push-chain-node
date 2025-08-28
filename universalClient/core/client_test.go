@@ -59,12 +59,11 @@ func TestNewUniversalClient(t *testing.T) {
 
 	// Hot key components should be nil for non-hot-key config
 	assert.Nil(t, client.keys)
-	assert.Nil(t, client.authzSigner)
 }
 
-func TestNewUniversalClientWithHotKey(t *testing.T) {
+func TestNewUniversalClientWithKeyring(t *testing.T) {
 	// Create temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "client-hotkey-test-*")
+	tempDir, err := os.MkdirTemp("", "client-keyring-test-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
@@ -73,7 +72,7 @@ func TestNewUniversalClientWithHotKey(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	// Create test config with hot key configuration
+	// Create test config with keyring configuration
 	cfg := &config.Config{
 		LogLevel:              1,
 		LogFormat:             "console",
@@ -85,32 +84,30 @@ func TestNewUniversalClientWithHotKey(t *testing.T) {
 		InitialFetchRetries:   5,
 		InitialFetchTimeout:   30 * time.Second,
 		QueryServerPort:       8080,
-		AuthzGranter:          "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		AuthzHotkey:           "test-hotkey",
 		KeyringBackend:        config.KeyringBackendTest,
-		PChainHome:            tempDir,
 	}
 
 	// Initialize logger
 	log := logger.Init(*cfg)
 	ctx := context.Background()
 
-	// This should fail because the hot key doesn't exist yet
-	// In a real scenario, the key would need to be created first
+	// Create UniversalClient - should succeed with keyring config
 	client, err := NewUniversalClient(ctx, log, database, cfg)
-	
-	// We expect an error because the hot key doesn't exist
-	if err != nil {
-		// This is expected in the test environment
-		assert.Contains(t, err.Error(), "failed to initialize keys")
-		return
-	}
+	require.NoError(t, err)
+	require.NotNil(t, client)
 
-	// If somehow it succeeds (shouldn't happen), validate hot key components
-	if client != nil {
-		assert.NotNil(t, client.keys)
-		assert.NotNil(t, client.authzSigner)
-	}
+	// Validate basic fields
+	assert.Equal(t, ctx, client.ctx)
+	assert.Equal(t, database, client.db)
+	assert.Equal(t, cfg, client.config)
+	assert.NotNil(t, client.registryClient)
+	assert.NotNil(t, client.configCache)
+	assert.NotNil(t, client.configUpdater)
+	assert.NotNil(t, client.chainRegistry)
+	assert.NotNil(t, client.queryServer)
+
+	// Keys should be nil since no AuthZ config
+	assert.Nil(t, client.keys)
 }
 
 func TestUniversalClientMethods(t *testing.T) {
@@ -168,7 +165,6 @@ func TestUniversalClientMethods(t *testing.T) {
 
 	// Hot key components should be nil for non-hot-key config
 	assert.Nil(t, client.keys)
-	assert.Nil(t, client.authzSigner)
 }
 
 func TestUniversalClientBasicHotKeyMethods(t *testing.T) {
@@ -196,7 +192,6 @@ func TestUniversalClientBasicHotKeyMethods(t *testing.T) {
 
 	// Test hot key components are nil
 	assert.Nil(t, client.keys)
-	assert.Nil(t, client.authzSigner)
 }
 
 func TestUniversalClientStart(t *testing.T) {

@@ -10,9 +10,6 @@ var DefaultAllowedMsgTypes = []string{
 	// Staking module messages
 	"/cosmos.staking.v1beta1.MsgDelegate",
 	"/cosmos.staking.v1beta1.MsgUndelegate",
-
-	// Governance module messages
-	"/cosmos.gov.v1beta1.MsgVote",
 }
 
 // IsAllowedMsgType checks if a message type is allowed for AuthZ execution

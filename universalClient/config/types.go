@@ -10,7 +10,7 @@ type KeyringBackend string
 const (
 	// KeyringBackendTest is the test Cosmos keyring backend (unencrypted)
 	KeyringBackendTest KeyringBackend = "test"
-	
+
 	// KeyringBackendFile is the file Cosmos keyring backend (encrypted)
 	KeyringBackendFile KeyringBackend = "file"
 )
@@ -33,27 +33,7 @@ type Config struct {
 
 	// Query Server configuration
 	QueryServerPort int `json:"query_server_port"` // Port for HTTP query server (default: 8080)
-	
-	// Hot Key Management
-	AuthzGranter   string         `json:"authz_granter"`    // Operator (validator) address that grants permissions
-	AuthzHotkey    string         `json:"authz_hotkey"`     // Hot key name in keyring  
-	KeyringBackend KeyringBackend `json:"keyring_backend"`  // Keyring backend type (file/test)
-	PChainHome     string         `json:"pchain_home"`      // Directory for keyring storage (default: ~/.pushuv)
-	
-	// Message Type Configuration
-	AllowedMessageTypes []string `json:"allowed_message_types,omitempty"` // List of allowed message types for AuthZ execution
-}
 
-// GetAllowedMessageTypes returns the allowed message types, defaulting to standard Cosmos SDK types if empty
-func (c *Config) GetAllowedMessageTypes() []string {
-	if len(c.AllowedMessageTypes) == 0 {
-		// Default to standard Cosmos SDK message types
-		return []string{
-			"/cosmos.bank.v1beta1.MsgSend",
-			"/cosmos.staking.v1beta1.MsgDelegate", 
-			"/cosmos.staking.v1beta1.MsgUndelegate",
-			"/cosmos.gov.v1beta1.MsgVote",
-		}
-	}
-	return c.AllowedMessageTypes
+	// Keyring configuration
+	KeyringBackend KeyringBackend `json:"keyring_backend"` // Keyring backend type (file/test)
 }

@@ -21,27 +21,25 @@ import (
 // ExecCmd creates the authz exec command
 func ExecCmd(rpcEndpoint, chainID *string) *cobra.Command {
 	var gasLimit uint64 = 300000
-	var feeAmount string = "300000000000000upc"
+	var feeAmount = "300000000000000upc"
 	var memo string
 
 	cmd := &cobra.Command{
 		Use:   "exec <grantee-key> <msg-type> [args...]",
 		Short: "Execute a transaction using AuthZ grants",
 		Long: `
-Execute a transaction on behalf of the granter using AuthZ permissions.
+Execute a transaction using AuthZ permissions.
 The grantee (hot key) must have been granted permission to execute the specified message type.
 
-Supported message types (matching grants created by setup-container-authz):
-  /cosmos.bank.v1beta1.MsgSend           - <to-addr> <amount>
-  /cosmos.staking.v1beta1.MsgDelegate    - <validator> <amount>
-  /cosmos.staking.v1beta1.MsgUndelegate  - <validator> <amount>
-  /cosmos.gov.v1beta1.MsgVote           - <proposal-id> <option>
+Supported message types:
+  /cosmos.bank.v1beta1.MsgSend           - <from-addr> <to-addr> <amount>
+  /cosmos.staking.v1beta1.MsgDelegate    - <delegator-addr> <validator> <amount>
+  /cosmos.staking.v1beta1.MsgUndelegate  - <delegator-addr> <validator> <amount>
 
 Examples:
-  puniversald authz exec container-hotkey /cosmos.bank.v1beta1.MsgSend push1abc... 1000push
-  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgDelegate pushvaloper1abc... 1000000push
-  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgUndelegate pushvaloper1abc... 1000000push
-  puniversald authz exec container-hotkey /cosmos.gov.v1beta1.MsgVote 1 yes
+  puniversald authz exec container-hotkey /cosmos.bank.v1beta1.MsgSend push1sender... push1recipient... 1000push
+  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgDelegate push1delegator... pushvaloper1abc... 1000000push
+  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgUndelegate push1delegator... pushvaloper1abc... 1000000push
 `,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,21 +58,10 @@ Examples:
 func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoint, chainID string, gasLimit uint64, feeAmount, memo string) error {
 	ctx := context.Background()
 
-	// Load config
+	// Load config for keyring settings
 	cfg, err := config.Load(constant.DefaultNodeHome)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Validate hot key configuration
-	if err := config.ValidateHotKeyConfig(&cfg); err != nil {
-		return fmt.Errorf("hot key configuration is invalid: %w", err)
-	}
-
-	// Parse operator address
-	granterAddr, err := sdk.AccAddressFromBech32(cfg.AuthzGranter)
-	if err != nil {
-		return fmt.Errorf("invalid operator address: %w", err)
 	}
 
 	// Use the same keyring directory as the EVM key commands
@@ -103,13 +90,13 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	}
 
 	// Create the inner message based on type
-	innerMsg, err := ParseMessageFromArgs(msgType, granterAddr, msgArgs)
+	innerMsg, err := ParseMessageFromArgs(msgType, msgArgs)
 	if err != nil {
 		return err
 	}
 
 	// Setup client context
-	clientCtx, err := setupClientContextForExec(keyringDir, kb, cfg.KeyringBackend, chainID, rpcEndpoint, granteeAddr, granteeKeyName)
+	clientCtx, err := setupClientContextForExec(kb, chainID, rpcEndpoint, granteeAddr, granteeKeyName)
 	if err != nil {
 		return fmt.Errorf("failed to setup client context: %w", err)
 	}
@@ -117,13 +104,9 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	// Create keys instance for the hot key
 	hotKeys := keys.NewKeysWithKeybase(kb, granteeAddr, granteeKeyName, "")
 
-	// Create SignerManager for AuthZ with configured message types
-	allowedTypes := cfg.GetAllowedMessageTypes()
-	signerManager := uauthz.NewSignerManagerWithMsgTypes(granterAddr.String(), granteeAddr, allowedTypes)
-
 	// Create TxSigner for handling the transaction  
 	logger := zerolog.New(nil).Level(zerolog.InfoLevel)
-	txSigner := uauthz.NewTxSigner(hotKeys, signerManager, clientCtx, logger)
+	txSigner := uauthz.NewTxSigner(hotKeys, clientCtx, logger)
 
 	// Parse fee amount
 	feeCoins, err := sdk.ParseCoinsNormalized(feeAmount)
@@ -131,7 +114,7 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 		return fmt.Errorf("invalid fee amount: %w", err)
 	}
 
-	fmt.Printf("🚀 AuthZ TX: operator=%s executor=%s(%s) type=%s gas=%d fee=%s memo=%s\n", granterAddr, granteeAddr, granteeKeyName, msgType, gasLimit, feeCoins, memo)
+	fmt.Printf("🚀 AuthZ TX: executor=%s(%s) type=%s gas=%d fee=%s memo=%s\n", granteeAddr, granteeKeyName, msgType, gasLimit, feeCoins, memo)
 
 	// Execute the transaction
 	res, err := txSigner.SignAndBroadcastAuthZTx(ctx, []sdk.Msg{innerMsg}, memo, gasLimit, feeCoins)
@@ -150,18 +133,17 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 }
 
 // setupClientContextForExec creates a client context specifically for exec command with HTTP client
-func setupClientContextForExec(keyringDir string, kb keyring.Keyring, keyringBackend config.KeyringBackend, chainID, rpcEndpoint string, granteeAddr sdk.AccAddress, granteeKeyName string) (client.Context, error) {
-	// Setup basic client context
-	clientCtx, err := setupClientContext(keyringDir, kb, keyringBackend, chainID, rpcEndpoint)
+func setupClientContextForExec(kb keyring.Keyring, chainID, rpcEndpoint string, granteeAddr sdk.AccAddress, granteeKeyName string) (client.Context, error) {
+	// Assume rpcEndpoint is a clean base URL, append standard ports
+	// Setup basic client context with gRPC (standard port 9090)
+	grpcEndpoint := rpcEndpoint + ":9090"
+	clientCtx, err := setupClientContext(kb, chainID, grpcEndpoint)
 	if err != nil {
 		return client.Context{}, err
 	}
 
-	// Create HTTP RPC client for broadcasting
-	rpcURL := fmt.Sprintf("http://%s", rpcEndpoint)
-	if rpcEndpoint == "core-validator-1:9090" {
-		rpcURL = "http://core-validator-1:26657"  // Use RPC port instead of gRPC port
-	}
+	// Create HTTP RPC client for broadcasting (standard port 26657)
+	rpcURL := "http://" + rpcEndpoint + ":26657"
 	httpClient, err := rpchttp.New(rpcURL, "/websocket")
 	if err != nil {
 		return client.Context{}, fmt.Errorf("failed to create RPC client: %w", err)

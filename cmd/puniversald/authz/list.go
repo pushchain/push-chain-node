@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/cosmos/cosmos-sdk/x/authz"
 
@@ -29,14 +30,14 @@ Examples:
 `,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runListCommand(args[0], *rpcEndpoint, *chainID)
+			return runListCommand(args[0], *rpcEndpoint)
 		},
 	}
 
 	return cmd
 }
 
-func runListCommand(account, rpcEndpoint, chainID string) error {
+func runListCommand(account, rpcEndpoint string) error {
 	// Load config
 	cfg, err := config.Load(constant.DefaultNodeHome)
 	if err != nil {
@@ -58,12 +59,19 @@ func runListCommand(account, rpcEndpoint, chainID string) error {
 		return err
 	}
 
+	// Ensure endpoint has gRPC port
+	grpcEndpoint := ensureGRPCPort(rpcEndpoint)
+
 	// Create gRPC connection
-	conn, err := grpc.Dial(rpcEndpoint, grpc.WithInsecure())
+	conn, err := grpc.NewClient(grpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			fmt.Printf("Warning: failed to close gRPC connection: %v\n", err)
+		}
+	}()
 
 	// Create authz query client
 	authzClient := authz.NewQueryClient(conn)

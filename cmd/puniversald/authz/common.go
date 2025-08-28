@@ -1,7 +1,6 @@
 package authz
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -16,16 +15,16 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/keys"
 )
 
 
 // setupClientContext creates a client context with all required interfaces registered
-func setupClientContext(keyringDir string, kb keyring.Keyring, keyringBackend config.KeyringBackend, chainID, rpcEndpoint string) (client.Context, error) {
+func setupClientContext(kb keyring.Keyring, chainID, rpcEndpoint string) (client.Context, error) {
 	// Create gRPC connection
-	conn, err := grpc.Dial(rpcEndpoint, grpc.WithInsecure())
+	conn, err := grpc.NewClient(rpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return client.Context{}, fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
@@ -54,23 +53,6 @@ func setupClientContext(keyringDir string, kb keyring.Keyring, keyringBackend co
 }
 
 
-// ensureAccountExists checks if an account exists on the blockchain
-func ensureAccountExists(clientCtx client.Context, address string) error {
-	accClient := authtypes.NewQueryClient(clientCtx.GRPCClient)
-	_, err := accClient.Account(context.Background(), &authtypes.QueryAccountRequest{
-		Address: address,
-	})
-	
-	if err != nil {
-		return fmt.Errorf("account %s not found on chain. Please ensure the account is funded or use pre-funded validator accounts like:\n"+
-			"- push1yj5kgr85kj6d0u09552mkmhvrugy0u78a8zkqd (validator-1)\n"+
-			"- push1v93hwmymu4exr0j8llsnsjal8zqd9xwejvfy8u (validator-2)\n"+
-			"Error: %w", address, err)
-	}
-	
-	fmt.Printf("✅ Account %s exists on chain\n", address)
-	return nil
-}
 
 // resolveAccountAddress resolves account string to address (can be address or key name)
 func resolveAccountAddress(account string, kb keyring.Keyring) (sdk.AccAddress, error) {
@@ -86,4 +68,10 @@ func resolveAccountAddress(account string, kb keyring.Keyring) (sdk.AccAddress, 
 	}
 
 	return record.GetAddress()
+}
+
+// ensureGRPCPort appends the standard gRPC port to the base URL
+func ensureGRPCPort(endpoint string) string {
+	// Config contains clean base URLs, append standard gRPC port
+	return endpoint + ":9090"
 }

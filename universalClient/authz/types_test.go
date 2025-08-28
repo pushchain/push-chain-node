@@ -24,11 +24,6 @@ func TestIsAllowedMsgType(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "allowed gov vote message (default)",
-			msgType:  "/cosmos.gov.v1beta1.MsgVote",
-			expected: true,
-		},
-		{
 			name:     "not allowed universal validator message (default config)",
 			msgType:  "/push.observer.MsgVoteOnObservedEvent",
 			expected: false,
@@ -59,7 +54,6 @@ func TestDefaultAllowedMsgTypes(t *testing.T) {
 		"/cosmos.bank.v1beta1.MsgSend",
 		"/cosmos.staking.v1beta1.MsgDelegate",
 		"/cosmos.staking.v1beta1.MsgUndelegate",
-		"/cosmos.gov.v1beta1.MsgVote",
 	}
 
 	assert.Equal(t, len(expectedTypes), len(DefaultAllowedMsgTypes))
@@ -78,7 +72,6 @@ func TestDefaultAllowedMsgTypesFormat(t *testing.T) {
 		"/cosmos.bank.v1beta1.MsgSend":          true,
 		"/cosmos.staking.v1beta1.MsgDelegate":   true,
 		"/cosmos.staking.v1beta1.MsgUndelegate": true,
-		"/cosmos.gov.v1beta1.MsgVote":           true,
 	}
 
 	for _, msgType := range DefaultAllowedMsgTypes {

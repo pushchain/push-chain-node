@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/rollchains/pchain/universalClient/api"
-	"github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/chains"
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
@@ -32,7 +31,6 @@ type UniversalClient struct {
 	
 	// Hot key components
 	keys        keys.UniversalValidatorKeys
-	authzSigner *authz.Signer
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -69,30 +67,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		config:         cfg,
 	}
 	
-	// Initialize hot key components if configured
-	if config.IsHotKeyConfigured(cfg) {
-		log.Info().Msg("Hot key configuration detected, initializing key management...")
-		
-		// Initialize keys
-		keyMgr, err := keys.NewKeys(cfg.AuthzHotkey, cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize keys: %w", err)
-		}
-		uc.keys = keyMgr
-		
-		// Initialize AuthZ signer
-		signer := &authz.Signer{
-			GranterAddress: cfg.AuthzGranter,
-		}
-		uc.authzSigner = signer
-		
-		log.Info().
-			Str("granter", cfg.AuthzGranter).
-			Str("hotkey", cfg.AuthzHotkey).
-			Msg("Hot key management initialized")
-	} else {
-		log.Info().Msg("No hot key configuration found, operating in standard mode")
-	}
+	// Key and AuthZ management is now handled at runtime, not during client initialization
+	log.Info().Msg("UniversalClient initialized in standard mode")
 	
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")

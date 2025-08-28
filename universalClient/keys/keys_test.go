@@ -1,13 +1,12 @@
 package keys
 
 import (
-	"testing"
 	"os"
-	
+	"testing"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -17,7 +16,7 @@ func TestMain(m *testing.M) {
 	config.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
 	config.SetBech32PrefixForConsensusNode("pushvalcons", "pushvalconspub")
 	config.Seal()
-	
+
 	os.Exit(m.Run())
 }
 
@@ -40,77 +39,13 @@ func TestNewKeysWithKeybase(t *testing.T) {
 	require.NotNil(t, keys)
 	require.Equal(t, "test-hotkey", keys.signerName)
 	require.NotNil(t, keys.kb)
-	
+
 	// Test methods that should work without requiring actual key
-	assert.NotNil(t, keys.GetKeybase())
+	assert.NotNil(t, keys.kb)
 	assert.Equal(t, "", keys.GetHotkeyPassword()) // Should be empty for test
 }
 
-// TestNewKeys tests the NewKeys constructor
-func TestNewKeys(t *testing.T) {
-	// Create temporary directory for test keyring
-	tempDir, err := os.MkdirTemp("", "test-newkeys")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Create test config
-	cfg := &config.Config{
-		AuthzGranter:   "push1abc123def456", // Valid bech32 address
-		AuthzHotkey:    "test-hotkey",
-		KeyringBackend: config.KeyringBackendTest,
-		PChainHome:     tempDir,
-	}
-
-	// This will fail because the key doesn't exist yet, but tests the validation logic
-	_, err = NewKeys(cfg.AuthzHotkey, cfg)
-	assert.Error(t, err) // Should fail because hotkey doesn't exist in keyring yet
-	assert.Contains(t, err.Error(), "invalid operator address")
-}
-
-// TestNewKeysWithInvalidConfig tests NewKeys with invalid configurations
-func TestNewKeysWithInvalidConfig(t *testing.T) {
-	// Test with empty hotkey name
-	cfg := &config.Config{
-		AuthzGranter:   "push1abc123def456",
-		AuthzHotkey:    "",
-		KeyringBackend: config.KeyringBackendTest,
-	}
-
-	_, err := NewKeys("", cfg)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "hotkey name is required")
-}
-
-// TestNewKeysWithInvalidOperatorAddress tests NewKeys with invalid operator address
-func TestNewKeysWithInvalidOperatorAddress(t *testing.T) {
-	// Create temporary directory for test keyring
-	tempDir, err := os.MkdirTemp("", "test-invalid-addr")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	cfg := &config.Config{
-		AuthzGranter:   "invalid-address", // Invalid bech32 address
-		AuthzHotkey:    "test-hotkey",
-		KeyringBackend: config.KeyringBackendTest,
-		PChainHome:     tempDir,
-	}
-
-	_, err = NewKeys(cfg.AuthzHotkey, cfg)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid operator address")
-}
-
-func TestKeysWithNilKeyring(t *testing.T) {
-	// Test that keys with nil keyring handle gracefully
-	keys := &Keys{
-		signerName: "test-key",
-		kb:         nil, // nil keyring
-	}
-
-	// Should return empty address for GetOperatorAddress
-	operatorAddr := keys.GetOperatorAddress()
-	require.Empty(t, operatorAddr)
-}
 
 func TestKeyringBackends(t *testing.T) {
 	tests := []struct {
@@ -124,7 +59,7 @@ func TestKeyringBackends(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "file backend", 
+			name:    "file backend",
 			backend: KeyringBackendFile,
 			wantErr: false,
 		},
@@ -147,8 +82,6 @@ func TestKeyringBackends(t *testing.T) {
 		})
 	}
 }
-
-
 
 // TestPasswordFailureScenarios tests various password failure scenarios
 func TestPasswordFailureScenarios(t *testing.T) {
@@ -263,44 +196,6 @@ func TestConcurrentKeyAccess(t *testing.T) {
 	}
 }
 
-
-
-
-
-
-// TestGetSignerInfo tests getting signer information
-func TestGetSignerInfo(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test keyring and key
-	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keyName := "signer-info-test-key"
-	_, err = CreateNewKey(kb, keyName, "", "")
-	require.NoError(t, err)
-
-	keys := &Keys{
-		signerName: keyName,
-		kb:         kb,
-	}
-
-	// Test successful retrieval
-	info := keys.GetSignerInfo()
-	assert.NotNil(t, info)
-	assert.Equal(t, keyName, info.Name)
-
-	// Test with non-existent key
-	keysInvalid := &Keys{
-		signerName: "non-existent-key",
-		kb:         kb,
-	}
-
-	info = keysInvalid.GetSignerInfo()
-	assert.Nil(t, info)
-}
 
 // TestErrorConditions tests various error conditions
 func TestErrorConditions(t *testing.T) {

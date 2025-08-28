@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/rollchains/pchain/universalClient/constant"
 )
 
 const (
@@ -45,14 +47,26 @@ func validateConfig(cfg *Config) error {
 
 	// Validate registry config
 	if len(cfg.PushChainGRPCURLs) == 0 {
-		// Default to localhost:9090 if no URLs provided
-		cfg.PushChainGRPCURLs = []string{"localhost:9090"}
+		// Default to localhost (clean base URL without port) if no URLs provided
+		cfg.PushChainGRPCURLs = []string{"localhost"}
 	}
 
 	// Set defaults for query server
 	if cfg.QueryServerPort == 0 {
 		cfg.QueryServerPort = 8080
 	}
+
+	// Set defaults and validate hot key management config
+	if cfg.KeyringBackend == "" {
+		cfg.KeyringBackend = KeyringBackendFile // Default to secure file backend
+	}
+	
+	// Validate keyring backend
+	if cfg.KeyringBackend != KeyringBackendFile && cfg.KeyringBackend != KeyringBackendTest {
+		return fmt.Errorf("keyring backend must be 'file' or 'test'")
+	}
+	
+	
 
 	return nil
 }
@@ -93,4 +107,10 @@ func Load(basePath string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 	return cfg, nil
+}
+
+
+// GetKeyringDir returns the full path to the keyring directory
+func GetKeyringDir(cfg *Config) string {
+	return filepath.Join(constant.DefaultNodeHome, "keys")
 }

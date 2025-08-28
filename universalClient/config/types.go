@@ -1,6 +1,19 @@
 package config
 
-import "time"
+import (
+	"time"
+)
+
+// KeyringBackend represents the type of keyring backend to use
+type KeyringBackend string
+
+const (
+	// KeyringBackendTest is the test Cosmos keyring backend (unencrypted)
+	KeyringBackendTest KeyringBackend = "test"
+
+	// KeyringBackendFile is the file Cosmos keyring backend (encrypted)
+	KeyringBackendFile KeyringBackend = "file"
+)
 
 type Config struct {
 	// Log Config
@@ -20,4 +33,7 @@ type Config struct {
 
 	// Query Server configuration
 	QueryServerPort int `json:"query_server_port"` // Port for HTTP query server (default: 8080)
+
+	// Keyring configuration
+	KeyringBackend KeyringBackend `json:"keyring_backend"` // Keyring backend type (file/test)
 }

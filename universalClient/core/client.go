@@ -10,6 +10,7 @@ import (
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/db"
+	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rollchains/pchain/universalClient/registry"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/rs/zerolog"
@@ -27,6 +28,9 @@ type UniversalClient struct {
 	chainRegistry  *chains.ChainRegistry
 	config         *config.Config
 	queryServer    *api.Server
+
+	// Hot key components
+	keys keys.UniversalValidatorKeys
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -62,11 +66,11 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		chainRegistry:  chainRegistry,
 		config:         cfg,
 	}
-	
+
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
 	uc.queryServer = api.NewServer(uc, log, cfg.QueryServerPort)
-	
+
 	return uc, nil
 }
 
@@ -77,7 +81,7 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
 	}
-	
+
 	// Start the query server
 	if uc.queryServer != nil {
 		uc.log.Info().Int("port", uc.config.QueryServerPort).Msg("Starting query server...")
@@ -98,7 +102,7 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.queryServer.Stop(); err != nil {
 		uc.log.Error().Err(err).Msg("error stopping query server")
 	}
-	
+
 	// Stop config updater
 	uc.configUpdater.Stop()
 

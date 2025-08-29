@@ -125,7 +125,7 @@ func (k Querier) Ballot(goCtx context.Context, req *types.QueryBallotRequest) (*
 }
 
 // AllBallots implements types.QueryServer.
-func (k Keeper) AllBallots(goCtx context.Context, req *types.QueryBallotsRequest) (*types.QueryBallotsResponse, error) {
+func (k Querier) AllBallots(goCtx context.Context, req *types.QueryBallotsRequest) (*types.QueryBallotsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -170,7 +170,7 @@ func (k Keeper) AllActiveBallotIDs(goCtx context.Context, req *types.QueryActive
 }
 
 // ActiveBallots implements types.QueryServer.
-func (k Keeper) AllActiveBallots(goCtx context.Context, req *types.QueryActiveBallotsRequest) (*types.QueryActiveBallotsResponse, error) {
+func (k Querier) AllActiveBallots(goCtx context.Context, req *types.QueryActiveBallotsRequest) (*types.QueryActiveBallotsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -196,7 +196,7 @@ func (k Keeper) AllActiveBallots(goCtx context.Context, req *types.QueryActiveBa
 }
 
 // AllExpiredBallotIDs implements types.QueryServer.
-func (k Keeper) AllExpiredBallotIDs(goCtx context.Context, req *types.QueryExpiredBallotIDsRequest) (*types.QueryExpiredBallotIDsResponse, error) {
+func (k Querier) AllExpiredBallotIDs(goCtx context.Context, req *types.QueryExpiredBallotIDsRequest) (*types.QueryExpiredBallotIDsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -217,7 +217,7 @@ func (k Keeper) AllExpiredBallotIDs(goCtx context.Context, req *types.QueryExpir
 }
 
 // AllExpiredBallots implements types.QueryServer.
-func (k Keeper) AllExpiredBallots(goCtx context.Context, req *types.QueryExpiredBallotsRequest) (*types.QueryExpiredBallotsResponse, error) {
+func (k Querier) AllExpiredBallots(goCtx context.Context, req *types.QueryExpiredBallotsRequest) (*types.QueryExpiredBallotsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -243,7 +243,7 @@ func (k Keeper) AllExpiredBallots(goCtx context.Context, req *types.QueryExpired
 }
 
 // FinalizedBallotIDs implements types.QueryServer.
-func (k Keeper) AllFinalizedBallotIDs(goCtx context.Context, req *types.QueryFinalizedBallotIDsRequest) (*types.QueryFinalizedBallotIDsResponse, error) {
+func (k Querier) AllFinalizedBallotIDs(goCtx context.Context, req *types.QueryFinalizedBallotIDsRequest) (*types.QueryFinalizedBallotIDsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -264,7 +264,7 @@ func (k Keeper) AllFinalizedBallotIDs(goCtx context.Context, req *types.QueryFin
 }
 
 // FinalizedBallots implements types.QueryServer.
-func (k Keeper) AllFinalizedBallots(goCtx context.Context, req *types.QueryFinalizedBallotsRequest) (*types.QueryFinalizedBallotsResponse, error) {
+func (k Querier) AllFinalizedBallots(goCtx context.Context, req *types.QueryFinalizedBallotsRequest) (*types.QueryFinalizedBallotsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}

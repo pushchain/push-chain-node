@@ -22,9 +22,10 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 		},
 		GatewayMethods: []*types.GatewayMethods{
 			{
-				Name:            "mint",
-				Identifier:      "aabbccdd",
-				EventIdentifier: "eeff1122",
+				Name:             "mint",
+				Identifier:       "aabbccdd",
+				EventIdentifier:  "eeff1122",
+				ConfirmationType: types.ConfirmationType_CONFIRMATION_TYPE_STANDARD,
 			},
 		},
 		Enabled: &types.ChainEnabled{

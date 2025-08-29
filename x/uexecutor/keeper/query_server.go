@@ -35,7 +35,7 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 }
 
 // GetUniversalTx implements types.QueryServer.
-func (k Keeper) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniversalTxRequest) (*types.QueryGetUniversalTxResponse, error) {
+func (k Querier) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniversalTxRequest) (*types.QueryGetUniversalTxResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -78,5 +78,24 @@ func (k Querier) AllUniversalTx(goCtx context.Context, req *types.QueryAllUniver
 	return &types.QueryAllUniversalTxResponse{
 		UniversalTxs: txs,
 		Pagination:   pageRes,
+	}, nil
+}
+
+// AllPendingInbounds implements types.QueryServer.
+func (k Keeper) AllPendingInbounds(goCtx context.Context, req *types.QueryAllPendingInboundsRequest) (*types.QueryAllPendingInboundsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	inbounds, pageRes, err := query.CollectionPaginate(ctx, k.PendingInbounds, req.Pagination, func(key string, _ collections.NoValue) (string, error) {
+		return key, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryAllPendingInboundsResponse{
+		InboundIds: inbounds,
+		Pagination: pageRes,
 	}, nil
 }

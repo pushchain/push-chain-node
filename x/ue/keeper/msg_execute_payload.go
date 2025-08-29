@@ -25,7 +25,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
 	}
 
-	if !chainConfig.Enabled {
+	if !chainConfig.Enabled.IsInboundEnabled {
 		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
 	}
 

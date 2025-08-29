@@ -108,3 +108,32 @@ func (k Keeper) CallUEAExecutePayload(
 		verificationData,
 	)
 }
+
+// TODO: call HANDLER contracts for minting of synthetic instead of PRC20 contract
+// @dev: need to figure out if deposit fn will be implemented in the handler contracts or need to use depositAndCall itself
+func (k Keeper) CallPRC20Deposit(
+	ctx sdk.Context,
+	prc20Address, to common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	abi, err := types.ParsePRC20ABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse PRC20 ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // who is sending the transaction
+		prc20Address,       // destination: FactoryV1 contract
+		big.NewInt(0),
+		nil,
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		"deposit",
+		to,
+		amount,
+	)
+}

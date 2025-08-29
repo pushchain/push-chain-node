@@ -11,8 +11,12 @@
     {
       "name": "add_funds",
       "identifier": "84ed4c39500ab38a",
-      "event_identifier": "7f1f6cffbb134644"
+      "event_identifier": "7f1f6cffbb134644",
+      "confirmation_type": 1
     }
   ],
-  "enabled": true
+  "enabled": {
+    "isInboundEnabled": true,
+    "isOutboundEnabled": true
+  }
 }

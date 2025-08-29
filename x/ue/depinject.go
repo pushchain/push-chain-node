@@ -43,14 +43,15 @@ type ModuleInputs struct {
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
 
-	StakingKeeper   stakingkeeper.Keeper
-	SlashingKeeper  slashingkeeper.Keeper
-	EVMKeeper       types.EVMKeeper
-	FeeMarketKeeper types.FeeMarketKeeper
-	BankKeeper      types.BankKeeper
-	AccountKeeper   types.AccountKeeper
-	UregistryKeeper types.UregistryKeeper
-	UtvKeeper       types.UtvKeeper
+	StakingKeeper    stakingkeeper.Keeper
+	SlashingKeeper   slashingkeeper.Keeper
+	EVMKeeper        types.EVMKeeper
+	FeeMarketKeeper  types.FeeMarketKeeper
+	BankKeeper       types.BankKeeper
+	AccountKeeper    types.AccountKeeper
+	UregistryKeeper  types.UregistryKeeper
+	UtvKeeper        types.UtvKeeper
+	UValidatorKeeper types.UValidatorKeeper
 }
 
 type ModuleOutputs struct {
@@ -63,8 +64,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UregistryKeeper, in.UtvKeeper)
-	m := NewAppModule(in.Cdc, k, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UregistryKeeper, in.UtvKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UregistryKeeper, in.UtvKeeper, in.UValidatorKeeper)
+	m := NewAppModule(in.Cdc, k, in.EVMKeeper, in.FeeMarketKeeper, in.BankKeeper, in.AccountKeeper, in.UregistryKeeper, in.UtvKeeper, in.UValidatorKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

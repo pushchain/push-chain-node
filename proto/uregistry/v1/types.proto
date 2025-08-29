@@ -43,6 +43,13 @@ enum TokenType {
   SPL = 4;
 }
 
+// ConfirmationType defines which type of block confirmation to use
+enum ConfirmationType {
+  CONFIRMATION_UNKNOWN = 0;
+  CONFIRMATION_TYPE_STANDARD = 1; // default standard confirmation
+  CONFIRMATION_TYPE_FAST = 2;     // fast confirmation
+}
+
 // GatewayMethods defines the configuration for a method that can be used for universal operations
 message GatewayMethods {
   option (amino.name) = "uregistry/gateway_methods";
@@ -52,6 +59,7 @@ message GatewayMethods {
   string name = 1;                // Human-readable method name (e.g. "add_funds")
   string identifier = 2;          // Hex-encoded selector or discriminator for the method
   string event_identifier = 3;    // Hex-encoded topic or identifier for emitted event
+  ConfirmationType confirmation_type = 4; // Which block confirmation to use for this method
 }
 
 // BlockConfirmation defines the number of blocks to wait for confirmation on the external chain
@@ -62,6 +70,16 @@ message BlockConfirmation {
 
 	uint32 fast_inbound = 1; // fast number of confirmations, for faster executions in inbound
 	uint32 standard_inbound = 2; // standard confirmations, for secure executions
+}
+
+// ChainEnabled defines if chain is enabled for inbound as well as outbound
+message ChainEnabled {
+  option (amino.name) = "uregistry/chain_enabled";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  bool isInboundEnabled = 1;
+  bool isOutboundEnabled = 2;
 }
 
 // ChainConfig defines the configuration for a supported source or destination chain
@@ -79,7 +97,7 @@ message ChainConfig {
   
   repeated GatewayMethods gateway_methods = 6; // List of methods that can be used for universal operations
 
-  bool enabled = 7; // Whether this chain is currently enabled or not
+  ChainEnabled enabled = 7; // Whether this chain is currently enabled or not
 }
 
 message NativeRepresentation {

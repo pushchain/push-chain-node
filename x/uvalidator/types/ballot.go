@@ -27,31 +27,31 @@ func (b Ballot) HasVoted(address string) bool {
 
 // AddVote records a vote for the given voter.
 // Ensures the voter is eligible, hasn't already voted, and ballot is pending.
-func (b *Ballot) AddVote(address string, vote VoteResult) error {
+func (b Ballot) AddVote(address string, vote VoteResult) (Ballot, error) {
 	if b.Status != BallotStatus_BALLOT_STATUS_PENDING {
-		return fmt.Errorf("cannot vote on ballot %s: not pending", b.Id)
+		return b, fmt.Errorf("cannot vote on ballot %s: not pending", b.Id)
 	}
 
 	idx := b.GetVoterIndex(address)
 	if idx == -1 {
-		return fmt.Errorf("voter %s not eligible", address)
+		return b, fmt.Errorf("voter %s not eligible", address)
 	}
 
 	if b.HasVoted(address) {
-		return fmt.Errorf("voter %s already voted", address)
+		return b, fmt.Errorf("voter %s already voted", address)
 	}
 
 	b.Votes[idx] = vote
-	return nil
+	return b, nil
 }
 
 // CountVotes counts the YES and NO votes in the ballot.
 func (b Ballot) CountVotes() (yes, no int) {
 	for _, v := range b.Votes {
 		switch v {
-		case VoteResult_VOTE_RESULT_YES:
+		case VoteResult_VOTE_RESULT_SUCCESS:
 			yes++
-		case VoteResult_VOTE_RESULT_NO:
+		case VoteResult_VOTE_RESULT_FAILURE:
 			no++
 		}
 	}
@@ -70,6 +70,11 @@ func (b *Ballot) InitEmptyVotes() {
 // IsExpired checks if the ballot has passed its expiry height.
 func (b Ballot) IsExpired(currentHeight int64) bool {
 	return currentHeight >= b.BlockHeightExpiry
+}
+
+func (b Ballot) IsFinalized() bool {
+	return b.Status == BallotStatus_BALLOT_STATUS_PASSED ||
+		b.Status == BallotStatus_BALLOT_STATUS_REJECTED
 }
 
 // ShouldPass returns true if the YES votes meet or exceed the stored voting threshold.
@@ -123,4 +128,36 @@ func (b Ballot) Age(currentHeight int64) int64 {
 // ExpiryTime estimates the wall-clock time at expiry given an average block time.
 func (b Ballot) ExpiryTime(avgBlockTime time.Duration) time.Time {
 	return time.Now().Add(avgBlockTime * time.Duration(b.BlockHeightExpiry-b.BlockHeightCreated))
+}
+
+// IsFinalizingVote checks if the ballot is reaching the finalization in this tx
+func (b Ballot) IsFinalizingVote() (Ballot, bool) {
+	// Only pending ballots can still be finalized
+	if b.Status != BallotStatus_BALLOT_STATUS_PENDING {
+		return b, false
+	}
+
+	// Count votes
+	yesVotes := 0
+	noVotes := 0
+	for _, v := range b.Votes {
+		switch v {
+		case VoteResult_VOTE_RESULT_SUCCESS:
+			yesVotes++
+		case VoteResult_VOTE_RESULT_FAILURE:
+			noVotes++
+		}
+	}
+
+	// If YES or NO has reached/exceeded threshold → finalizing
+	if int64(yesVotes) >= b.VotingThreshold {
+		b.Status = BallotStatus_BALLOT_STATUS_PASSED
+		return b, true
+	}
+	if int64(noVotes) >= b.VotingThreshold {
+		b.Status = BallotStatus_BALLOT_STATUS_REJECTED
+		return b, true
+	}
+
+	return b, false
 }

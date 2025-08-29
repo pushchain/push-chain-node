@@ -27,7 +27,10 @@ func TestMsgAddChainConfig_ValidateBasic(t *testing.T) {
 				EventIdentifier: "eeff1122",
 			},
 		},
-		Enabled: true,
+		Enabled: &types.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 
 	invalidChainConfig := types.ChainConfig{

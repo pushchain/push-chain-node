@@ -452,7 +452,7 @@ func (m *MsgExecutePayloadResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgExecutePayloadResponse proto.InternalMessageInfo
 
-// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
 type MsgVoteInbound struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
 	Signer  string   `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`

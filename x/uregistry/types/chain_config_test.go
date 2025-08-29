@@ -33,7 +33,10 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 				GatewayAddress:    "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
 				BlockConfirmation: validBlockConfirmation,
 				GatewayMethods:    []*types.GatewayMethods{validMethod},
-				Enabled:           true,
+				Enabled: &types.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 			expectErr: false,
 		},

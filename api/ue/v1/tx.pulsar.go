@@ -4987,7 +4987,7 @@ func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
 	return file_ue_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
-// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
 type MsgVoteInbound struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

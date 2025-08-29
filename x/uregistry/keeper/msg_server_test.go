@@ -69,7 +69,10 @@ func TestMsgServer_AddChainConfig(t *testing.T) {
 			StandardInbound: 6,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
-		Enabled:        true,
+		Enabled: &types.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 	t.Run("Failed to get params", func(t *testing.T) {
 		msg := &types.MsgAddChainConfig{
@@ -117,7 +120,10 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 			StandardInbound: 6,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
-		Enabled:        true,
+		Enabled: &types.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 
 	updatedChainConfigTest := types.ChainConfig{
@@ -130,7 +136,10 @@ func TestMsgServer_UpdateChainConfig(t *testing.T) {
 			StandardInbound: 8,
 		},
 		GatewayMethods: []*types.GatewayMethods{},
-		Enabled:        true,
+		Enabled: &types.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 	t.Run("Failed to get params", func(t *testing.T) {
 		msg := &types.MsgUpdateChainConfig{

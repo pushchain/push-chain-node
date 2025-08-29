@@ -2,7 +2,9 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
+	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 
@@ -30,6 +32,28 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 	}
 
 	return &types.QueryParamsResponse{Params: &p}, nil
+}
+
+// GetUniversalTx implements types.QueryServer.
+func (k Keeper) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniversalTxRequest) (*types.QueryGetUniversalTxResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Fetch from the collection
+	tx, err := k.UniversalTx.Get(ctx, req.Id) // req.Id is the string key
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, "UniversalTx not found")
+		}
+		return nil, err
+	}
+
+	return &types.QueryGetUniversalTxResponse{
+		UniversalTx: &tx,
+	}, nil
 }
 
 // AllUniversalTx implements types.QueryServer.

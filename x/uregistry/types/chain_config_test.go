@@ -9,9 +9,10 @@ import (
 
 func TestChainConfig_ValidateBasic(t *testing.T) {
 	validMethod := &types.GatewayMethods{
-		Name:            "add_funds",
-		Identifier:      "84ed4c39500ab38a",
-		EventIdentifier: "7f1f6cffbb134644",
+		Name:             "add_funds",
+		Identifier:       "84ed4c39500ab38a",
+		EventIdentifier:  "7f1f6cffbb134644",
+		ConfirmationType: types.ConfirmationType_CONFIRMATION_TYPE_STANDARD,
 	}
 	validBlockConfirmation := &types.BlockConfirmation{
 		FastInbound:     3,

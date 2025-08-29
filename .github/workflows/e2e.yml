@@ -13,6 +13,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Clean Go cache
+        run: |
+        go clean -modcache
+        rm -rf ~/go/pkg/mod
 
       - name: Install Foundry (Forge)
         run: |

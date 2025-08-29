@@ -1,0 +1,15 @@
+{
+  "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+  "public_rpc_url": "http://host.docker.internal:8899",
+  "vm_type": 1,
+  "gateway_address": "FCmb3oVYsAhim21YDeGVtxvfoj97chs6voP4ABSAkvV6",
+  "block_confirmation": 0,
+  "gateway_methods": [
+    {
+      "name": "add_funds",
+      "identifier": "84ed4c39500ab38a",
+      "event_identifier": "7f1f6cffbb134644"
+    }
+  ],
+  "enabled": true
+}

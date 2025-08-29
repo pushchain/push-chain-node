@@ -394,8 +394,10 @@ CHAIN_ID=localchain_9000-1
 CONTRACTS_DIR := contracts-tmp
 INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
 CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
+SDK_REPO := https://github.com/AryaLanjewar3005/push-chain-sdk.git
+E2E_DIR := e2e
 
-e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core
+e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana-interop-deployment e2e-solana-chain-config e2e-run-test
 
 # Wait for services to start up
 wait-for-services:
@@ -414,23 +416,7 @@ fund-acc1:
 
 # Deploy the interop contract and capture address
 deploy-interop:
-	@echo "Deploying interop contract..."
-	@rm -rf $(CONTRACTS_DIR) && mkdir $(CONTRACTS_DIR)
-	cd $(CONTRACTS_DIR) && git clone $(INTEROP_REPO)
-	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && forge install
-	cd $(CONTRACTS_DIR)/push-chain-interop-contracts && \
-		forge install OpenZeppelin/openzeppelin-foundry-upgrades && \
-		cd contracts/evm-gateway && mkdir -p lib && \
-		ln -s ../../../lib/openzeppelin-foundry-upgrades lib/openzeppelin-foundry-upgrades
-	@echo "Make sure your foundry.toml has the required remappings for OpenZeppelin upgrades."
-	cd $(CONTRACTS_DIR)/push-chain-interop-contracts/contracts/evm-gateway && \
-		ADDR=$$(forge create ./src/UniversalGateway.sol:UniversalGateway \
-			--rpc-url $(ANVIL_URL) \
-			--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-			--broadcast \
-			| grep "Deployed to:" | awk '{print $$3}'); \
-		echo $$ADDR > ../../../interop_address.txt && \
-		echo "Interop contract deployed at $$ADDR" && \
+		echo "Adding Sepolia config to push-chain" && \
 		docker exec -it push-chain-node pchaind tx uexecutor add-chain-config \
 			--chain-config "{\"chain\":\"eip155:11155111\",\"public_rpc_url\":\"http://anvil:9545\",\"vm_type\":0,\"gateway_address\":\"0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe\",\"block_confirmation\":0,\"gateway_methods\":[{\"name\":\"addFunds\",\"identifier\":\"0xf9bfe8a7\",\"event_identifier\":\"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd\"}],\"enabled\":true}" \
 			--from acc1 \
@@ -439,6 +425,7 @@ deploy-interop:
 # Deploy push-core-contracts using forge script
 deploy-core:
 	@echo "Deploying Push Core Contracts..."
+	@rm -rf $(CONTRACTS_DIR) && mkdir $(CONTRACTS_DIR)
 	cd $(CONTRACTS_DIR) && git clone $(CORE_REPO)
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && git submodule update --init --recursive
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge install && forge build
@@ -449,3 +436,33 @@ deploy-core:
 		--slow
 
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
+
+e2e-solana-chain-config:
+	echo "Adding Solana config to push-chain"
+	docker exec -it push-chain-node pchaind tx uexecutor add-chain-config --chain-config "$$(cat e2e/solana_localchain_chain_config.json)" --from acc1 --gas-prices 100000000000upc -y
+	
+e2e-solana-interop-deployment:
+	@echo "Setting Solana CLI to local validator..."
+	cd $(E2E_DIR) && rm -rf push-chain-interop-contracts
+	solana config set --url http://127.0.0.1:8899
+	@echo "Deploying svm_gateway contract on solana-test-validator"
+	cd $(E2E_DIR) && git clone $(INTEROP_REPO)
+	cp $(E2E_DIR)/deploy.sh $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/deploy.sh
+	cd $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway && ./deploy.sh localnet
+	
+	@echo "Initializing account and funding vault..."
+	cd $(E2E_DIR)/solana-setup && npm install
+	  
+	@cd $(E2E_DIR)/solana-setup && VAULT=$$(npx ts-node --compiler-options '{"module":"commonjs"}' ./index.ts | grep 'vaultbalance' | awk '{print $$2}'); \
+	echo "Vault PDA is $$VAULT"; \
+	solana airdrop 10 $$VAULT --url http://127.0.0.1:8899
+	
+
+e2e-run-test:
+	@echo "Cloning e2e repository..."
+	@rm -rf $(CONTRACTS_DIR)/push-chain-sdk
+	cd $(CONTRACTS_DIR) && git clone $(SDK_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout push-node-e2e && yarn install
+	cp $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/target/idl/pushsolanalocker.json $(CONTRACTS_DIR)/push-chain-sdk/packages/core/src/lib/constants/abi/feeLocker.json
+	cp $(E2E_DIR)/.env $(CONTRACTS_DIR)/push-chain-sdk/packages/core/.env
+	cd $(CONTRACTS_DIR)/push-chain-sdk && npx jest core/__e2e__/pushchain.spec.ts --runInBand --detectOpenHandles

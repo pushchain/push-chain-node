@@ -455,6 +455,7 @@ var xxx_messageInfo_MsgExecutePayloadResponse proto.InternalMessageInfo
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 <<<<<<< HEAD:x/uexecutor/types/tx.pb.go
+<<<<<<< HEAD:x/uexecutor/types/tx.pb.go
 // MsgAddChainConfig defines a message to add a new ChainConfig.
 type MsgAddChainConfig struct {
 	// signer is the address authorized to add a chain config
@@ -480,6 +481,9 @@ func (m *MsgAddChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 type MsgVoteInboundSynthetic struct {
 =======
 // MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+=======
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
+>>>>>>> 02d0c51 (fix: fixed broken test cases of uregistry module):x/ue/types/tx.pb.go
 type MsgVoteInbound struct {
 >>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):x/ue/types/tx.pb.go
 	// signer is the Cosmos address initiating the tx (used for tx signing)

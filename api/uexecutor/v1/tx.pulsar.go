@@ -6813,6 +6813,7 @@ func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 <<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
+<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 // MsgAddChainConfig defines a message to add a new ChainConfig.
 type MsgAddChainConfig struct {
 	state         protoimpl.MessageState
@@ -6823,6 +6824,9 @@ type MsgAddChainConfig struct {
 type MsgVoteInboundSynthetic struct {
 =======
 // MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
+=======
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
+>>>>>>> 02d0c51 (fix: fixed broken test cases of uregistry module):api/ue/v1/tx.pulsar.go
 type MsgVoteInbound struct {
 >>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	state         protoimpl.MessageState

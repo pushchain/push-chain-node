@@ -109,6 +109,8 @@ func (k Keeper) CallUEAExecutePayload(
 	)
 }
 
+// TODO: call HANDLER contracts for minting of synthetic instead of PRC20 contract
+// @dev: need to figure out if deposit fn will be implemented in the handler contracts or need to use depositAndCall itself
 func (k Keeper) CallPRC20Deposit(
 	ctx sdk.Context,
 	prc20Address, to common.Address,

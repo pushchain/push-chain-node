@@ -31,6 +31,7 @@ func (k Keeper) ExecuteInboundSynthetic(ctx context.Context, utx types.Universal
 
 	receipt, err := k.CallPRC20Deposit(sdkCtx, prc20AddressHex, recipient, amount)
 	if err != nil {
+		// TODO: update status to PendingRevert and add revert mechanism here
 		return err
 	}
 

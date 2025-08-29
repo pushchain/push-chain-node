@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	errors "cosmossdk.io/errors"
 
@@ -13,11 +14,14 @@ import (
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator string, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Step 1: Check if inbound synthetic is there in the UTX
-	// TODO
-	// isPending, err := k.IsInUTX
-	// if err != nil {
-	// 	return err
-	// }
+	key := types.GetInboundKey(inbound)
+	found, err := k.HasUniversalTx(ctx, key)
+	if err != nil {
+		return errors.Wrap(err, "failed to check UniversalTx")
+	}
+	if found {
+		return fmt.Errorf("universal tx with key %s already exists", key)
+	}
 
 	// use a temporary context to not commit any ballot state change in case of error
 	tmpCtx, commit := sdkCtx.CacheContext()

@@ -21,7 +21,7 @@ func (k Keeper) VoteOnInboundBallot(
 		return false, false, err
 	}
 	if !chainEnabled {
-		return false, false, fmt.Errorf("Inbound tx is not enabled")
+		return false, false, fmt.Errorf("inbound tx is not enabled")
 	}
 
 	ballotKey := types.GetInboundKey(inbound)
@@ -34,12 +34,9 @@ func (k Keeper) VoteOnInboundBallot(
 	// number of validators
 	totalValidators := len(universalValidatorSet)
 
-	// TODO: make it configurable
-	// 66% threshold (round up to ensure quorum requirement is strict)
-	votesNeeded := (totalValidators*66 + 99) / 100 // ceil(66%)
-
-	// TODO: make it configurable
-	expiryAfterBlocks := 10000
+	// votesNeeded = ceil(2/3 * totalValidators)
+	// >2/3 quorum similar to tendermint
+	votesNeeded := (totalValidators*types.VotesThresholdNumerator + types.VotesThresholdDenominator - 1) / types.VotesThresholdDenominator
 
 	// Step 2: Call VoteOnBallot for this inbound synthetic
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
@@ -50,7 +47,7 @@ func (k Keeper) VoteOnInboundBallot(
 		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
 		universalValidatorSet,
 		int64(votesNeeded),
-		int64(expiryAfterBlocks),
+		int64(types.DefaultExpiryAfterBlocks),
 	)
 	if err != nil {
 		return false, false, err

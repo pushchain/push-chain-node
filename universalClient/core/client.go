@@ -27,6 +27,9 @@ type UniversalClient struct {
 	chainRegistry  *chains.ChainRegistry
 	config         *config.Config
 	queryServer    *api.Server
+
+	// Transaction cleanup
+	transactionCleaner *TransactionCleaner
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
@@ -52,16 +55,24 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		log,
 	)
 
+	// Create transaction cleaner
+	transactionCleaner := NewTransactionCleaner(
+		db,
+		cfg,
+		log,
+	)
+
 	// Create the client
 	uc := &UniversalClient{
-		ctx:            ctx,
-		log:            log,
-		db:             db,
-		registryClient: registryClient,
-		configCache:    configCache,
-		configUpdater:  configUpdater,
-		chainRegistry:  chainRegistry,
-		config:         cfg,
+		ctx:                ctx,
+		log:                log,
+		db:                 db,
+		registryClient:     registryClient,
+		configCache:        configCache,
+		configUpdater:      configUpdater,
+		chainRegistry:      chainRegistry,
+		config:             cfg,
+		transactionCleaner: transactionCleaner,
 	}
 	
 	// Create query server
@@ -77,6 +88,11 @@ func (uc *UniversalClient) Start() error {
 	// Start the config updater
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
+	}
+
+	// Start the transaction cleaner
+	if err := uc.transactionCleaner.Start(uc.ctx); err != nil {
+		return fmt.Errorf("failed to start transaction cleaner: %w", err)
 	}
 	
 	// Start the query server
@@ -102,6 +118,9 @@ func (uc *UniversalClient) Start() error {
 	
 	// Stop config updater
 	uc.configUpdater.Stop()
+
+	// Stop transaction cleaner
+	uc.transactionCleaner.Stop()
 
 	// Stop all chain clients
 	uc.chainRegistry.StopAll()

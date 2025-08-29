@@ -20,18 +20,18 @@ import (
 
 // GatewayHandler handles gateway operations for Solana chains
 type GatewayHandler struct {
-	client      *rpc.Client
-	config      *uregistrytypes.ChainConfig
-	appConfig   *config.Config
-	logger      zerolog.Logger
-	tracker     *common.ConfirmationTracker
-	gatewayAddr solana.PublicKey
-	database    *db.DB
+	parentClient *Client // Reference to parent client for RPC pool access
+	config       *uregistrytypes.ChainConfig
+	appConfig    *config.Config
+	logger       zerolog.Logger
+	tracker      *common.ConfirmationTracker
+	gatewayAddr  solana.PublicKey
+	database     *db.DB
 }
 
 // NewGatewayHandler creates a new Solana gateway handler
 func NewGatewayHandler(
-	client *rpc.Client,
+	parentClient *Client,
 	config *uregistrytypes.ChainConfig,
 	database *db.DB,
 	appConfig *config.Config,
@@ -55,19 +55,24 @@ func NewGatewayHandler(
 	)
 
 	return &GatewayHandler{
-		client:      client,
-		config:      config,
-		appConfig:   appConfig,
-		logger:      logger.With().Str("component", "solana_gateway_handler").Logger(),
-		tracker:     tracker,
-		gatewayAddr: gatewayAddr,
-		database:    database,
+		parentClient: parentClient,
+		config:       config,
+		appConfig:    appConfig,
+		logger:       logger.With().Str("component", "solana_gateway_handler").Logger(),
+		tracker:      tracker,
+		gatewayAddr:  gatewayAddr,
+		database:     database,
 	}, nil
 }
 
 // GetLatestBlock returns the latest slot number
 func (h *GatewayHandler) GetLatestBlock(ctx context.Context) (uint64, error) {
-	slot, err := h.client.GetSlot(ctx, rpc.CommitmentFinalized)
+	var slot uint64
+	err := h.parentClient.executeWithFailover(ctx, "get_latest_slot", func(client *rpc.Client) error {
+		var innerErr error
+		slot, innerErr = client.GetSlot(ctx, rpc.CommitmentFinalized)
+		return innerErr
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get slot: %w", err)
 	}
@@ -159,7 +164,12 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 				return
 			case <-ticker.C:
 				// Get latest slot
-				latestSlot, err := h.client.GetSlot(ctx, rpc.CommitmentFinalized)
+				var latestSlot uint64
+				err := h.parentClient.executeWithFailover(ctx, "get_latest_slot", func(client *rpc.Client) error {
+					var innerErr error
+					latestSlot, innerErr = client.GetSlot(ctx, rpc.CommitmentFinalized)
+					return innerErr
+				})
 				if err != nil {
 					h.logger.Error().Err(err).Msg("failed to get latest slot")
 					continue
@@ -170,10 +180,15 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 				}
 
 				// Get signatures for the gateway program
-				signatures, err := h.client.GetSignaturesForAddress(
-					ctx,
-					h.gatewayAddr,
-				)
+				var signatures []*rpc.TransactionSignature
+				err = h.parentClient.executeWithFailover(ctx, "get_signatures_for_address", func(client *rpc.Client) error {
+					var innerErr error
+					signatures, innerErr = client.GetSignaturesForAddress(
+						ctx,
+						h.gatewayAddr,
+					)
+					return innerErr
+				})
 				if err != nil {
 					h.logger.Error().Err(err).Msg("failed to get signatures")
 					continue
@@ -186,13 +201,18 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					}
 
 					// Get transaction details
-					tx, err := h.client.GetTransaction(
-						ctx,
-						sig.Signature,
-						&rpc.GetTransactionOpts{
-							Encoding: solana.EncodingBase64,
-						},
-					)
+					var tx *rpc.GetTransactionResult
+					err = h.parentClient.executeWithFailover(ctx, "get_transaction", func(client *rpc.Client) error {
+						var innerErr error
+						tx, innerErr = client.GetTransaction(
+							ctx,
+							sig.Signature,
+							&rpc.GetTransactionOpts{
+								Encoding: solana.EncodingBase64,
+							},
+						)
+						return innerErr
+					})
 					if err != nil {
 						h.logger.Error().
 							Err(err).
@@ -333,7 +353,12 @@ func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash
 	}
 
 	// Get transaction status
-	statuses, err := h.client.GetSignatureStatuses(ctx, false, sig)
+	var statuses *rpc.GetSignatureStatusesResult
+	err = h.parentClient.executeWithFailover(ctx, "get_signature_statuses", func(client *rpc.Client) error {
+		var innerErr error
+		statuses, innerErr = client.GetSignatureStatuses(ctx, false, sig)
+		return innerErr
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get signature status: %w", err)
 	}
@@ -396,7 +421,12 @@ func (h *GatewayHandler) verifyTransactionExistence(
 	}
 
 	// Get transaction status to check if it still exists
-	statuses, err := h.client.GetSignatureStatuses(ctx, false, sig)
+	var statuses *rpc.GetSignatureStatusesResult
+	err = h.parentClient.executeWithFailover(ctx, "get_signature_statuses", func(client *rpc.Client) error {
+		var innerErr error
+		statuses, innerErr = client.GetSignatureStatuses(ctx, false, sig)
+		return innerErr
+	})
 	if err != nil {
 		// Transaction not found - likely reorganized out
 		h.logger.Warn().

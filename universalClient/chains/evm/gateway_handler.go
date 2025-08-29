@@ -22,7 +22,7 @@ import (
 
 // GatewayHandler handles gateway operations for EVM chains
 type GatewayHandler struct {
-	client        *ethclient.Client
+	parentClient  *Client // Reference to parent client for RPC pool access
 	config        *uregistrytypes.ChainConfig
 	appConfig     *config.Config
 	logger        zerolog.Logger
@@ -35,7 +35,7 @@ type GatewayHandler struct {
 
 // NewGatewayHandler creates a new EVM gateway handler
 func NewGatewayHandler(
-	client *ethclient.Client,
+	parentClient *Client,
 	config *uregistrytypes.ChainConfig,
 	database *db.DB,
 	appConfig *config.Config,
@@ -78,20 +78,25 @@ func NewGatewayHandler(
 	}
 
 	return &GatewayHandler{
-		client:      client,
-		config:      config,
-		appConfig:   appConfig,
-		logger:      logger.With().Str("component", "evm_gateway_handler").Logger(),
-		tracker:     tracker,
-		gatewayAddr: gatewayAddr,
-		eventTopics: eventTopics,
-		database:    database,
+		parentClient: parentClient,
+		config:       config,
+		appConfig:    appConfig,
+		logger:       logger.With().Str("component", "evm_gateway_handler").Logger(),
+		tracker:      tracker,
+		gatewayAddr:  gatewayAddr,
+		eventTopics:  eventTopics,
+		database:     database,
 	}, nil
 }
 
 // GetLatestBlock returns the latest block number
 func (h *GatewayHandler) GetLatestBlock(ctx context.Context) (uint64, error) {
-	blockNum, err := h.client.BlockNumber(ctx)
+	var blockNum uint64
+	err := h.parentClient.executeWithFailover(ctx, "get_latest_block", func(client *ethclient.Client) error {
+		var innerErr error
+		blockNum, innerErr = client.BlockNumber(ctx)
+		return innerErr
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get block number: %w", err)
 	}
@@ -203,7 +208,12 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromBlock uint6
 				return
 			case <-ticker.C:
 				// Get latest block
-				latestBlock, err := h.client.BlockNumber(ctx)
+				var latestBlock uint64
+				err := h.parentClient.executeWithFailover(ctx, "get_latest_block", func(client *ethclient.Client) error {
+					var innerErr error
+					latestBlock, innerErr = client.BlockNumber(ctx)
+					return innerErr
+				})
 				if err != nil {
 					h.logger.Error().Err(err).Msg("failed to get latest block")
 					continue
@@ -223,7 +233,12 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromBlock uint6
 				}
 
 				// Get logs
-				logs, err := h.client.FilterLogs(ctx, query)
+				var logs []types.Log
+				err = h.parentClient.executeWithFailover(ctx, "filter_logs", func(client *ethclient.Client) error {
+					var innerErr error
+					logs, innerErr = client.FilterLogs(ctx, query)
+					return innerErr
+				})
 				if err != nil {
 					h.logger.Error().Err(err).Msg("failed to filter logs")
 					continue
@@ -347,13 +362,23 @@ func (h *GatewayHandler) parseGatewayEvent(log *types.Log) *common.GatewayEvent 
 func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
 	// Get transaction receipt
 	hash := ethcommon.HexToHash(txHash)
-	receipt, err := h.client.TransactionReceipt(ctx, hash)
+	var receipt *types.Receipt
+	err := h.parentClient.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
+		var innerErr error
+		receipt, innerErr = client.TransactionReceipt(ctx, hash)
+		return innerErr
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
 
 	// Get current block
-	currentBlock, err := h.client.BlockNumber(ctx)
+	var currentBlock uint64
+	err = h.parentClient.executeWithFailover(ctx, "get_block_number", func(client *ethclient.Client) error {
+		var innerErr error
+		currentBlock, innerErr = client.BlockNumber(ctx)
+		return innerErr
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get current block: %w", err)
 	}
@@ -394,7 +419,12 @@ func (h *GatewayHandler) verifyTransactionExistence(
 	tx *store.GatewayTransaction,
 ) (bool, error) {
 	hash := ethcommon.HexToHash(tx.TxHash)
-	receipt, err := h.client.TransactionReceipt(ctx, hash)
+	var receipt *types.Receipt
+	err := h.parentClient.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
+		var innerErr error
+		receipt, innerErr = client.TransactionReceipt(ctx, hash)
+		return innerErr
+	})
 	if err != nil {
 		// Transaction not found - likely reorganized out
 		h.logger.Warn().

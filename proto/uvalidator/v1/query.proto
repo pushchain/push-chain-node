@@ -6,6 +6,8 @@ import "uvalidator/v1/genesis.proto";
 import "uvalidator/v1/types.proto";
 import "uvalidator/v1/ballot.proto";
 
+import "cosmos/base/query/v1beta1/pagination.proto";
+
 option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
 
 // Query provides defines the gRPC querier service.
@@ -36,12 +38,12 @@ service Query {
   }
 
   // Ballots queries all ballots.
-  rpc Ballots(QueryBallotsRequest) returns (QueryBallotsResponse) {
+  rpc AllBallots(QueryBallotsRequest) returns (QueryBallotsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots";
   }
 
   // ActiveBallotIDs queries all active ballot IDs.
-  rpc ActiveBallotIDs(QueryActiveBallotIDsRequest) returns (QueryActiveBallotIDsResponse) {
+  rpc AllActiveBallotIDs(QueryActiveBallotIDsRequest) returns (QueryActiveBallotIDsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/active/ids";
   }
 
@@ -51,7 +53,7 @@ service Query {
   }
 
   // ExpiredBallotIDs queries all expired ballot IDs.
-  rpc ExpiredBallotIDs(QueryExpiredBallotIDsRequest) returns (QueryExpiredBallotIDsResponse) {
+  rpc AllExpiredBallotIDs(QueryExpiredBallotIDsRequest) returns (QueryExpiredBallotIDsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/expired/ids";
   }
 
@@ -61,7 +63,7 @@ service Query {
   }
 
   // FinalizedBallotIDs queries all finalized ballot IDs.
-  rpc FinalizedBallotIDs(QueryFinalizedBallotIDsRequest) returns (QueryFinalizedBallotIDsResponse) {
+  rpc AllFinalizedBallotIDs(QueryFinalizedBallotIDsRequest) returns (QueryFinalizedBallotIDsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/finalized/ids";
   }
 
@@ -122,40 +124,61 @@ message QueryBallotResponse {
 }
 
 // All ballots
-message QueryBallotsRequest {}
+message QueryBallotsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryBallotsResponse {
   repeated Ballot ballots = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // Active ballots
-message QueryActiveBallotIDsRequest {}
+message QueryActiveBallotIDsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryActiveBallotIDsResponse {
   repeated string ids = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-message QueryActiveBallotsRequest {}
+message QueryActiveBallotsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryActiveBallotsResponse {
   repeated Ballot ballots = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // Expired ballots
-message QueryExpiredBallotIDsRequest {}
+message QueryExpiredBallotIDsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryExpiredBallotIDsResponse {
   repeated string ids = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-message QueryExpiredBallotsRequest {}
+message QueryExpiredBallotsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryExpiredBallotsResponse {
   repeated Ballot ballots = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // Finalized ballots
-message QueryFinalizedBallotIDsRequest {}
+message QueryFinalizedBallotIDsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryFinalizedBallotIDsResponse {
   repeated string ids = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-message QueryFinalizedBallotsRequest {}
+message QueryFinalizedBallotsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryFinalizedBallotsResponse {
   repeated Ballot ballots = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

@@ -9,6 +9,7 @@ import (
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -98,5 +99,51 @@ func (k Querier) AllUniversalValidators(goCtx context.Context, req *types.QueryU
 
 	return &types.QueryUniversalValidatorsSetResponse{
 		Addresses: validators,
+	}, nil
+}
+
+// Ballot implements types.QueryServer.
+func (k Querier) Ballot(goCtx context.Context, req *types.QueryBallotRequest) (*types.QueryBallotResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Fetch ballot by ID from collections
+	ballot, err := k.Keeper.Ballots.Get(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "ballot %s not found", req.Id)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get ballot: %v", err)
+	}
+
+	return &types.QueryBallotResponse{
+		Ballot: &ballot,
+	}, nil
+}
+
+// AllBallots implements types.QueryServer.
+func (k Keeper) AllBallots(goCtx context.Context, req *types.QueryBallotsRequest) (*types.QueryBallotsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Use CollectionPaginate
+	ballots, pageRes, err := query.CollectionPaginate(ctx, k.Ballots, req.Pagination,
+		func(key string, ballot types.Ballot) (*types.Ballot, error) {
+			return &ballot, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryBallotsResponse{
+		Ballots:    ballots,
+		Pagination: pageRes,
 	}, nil
 }

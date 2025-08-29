@@ -147,3 +147,50 @@ func (k Keeper) AllBallots(goCtx context.Context, req *types.QueryBallotsRequest
 		Pagination: pageRes,
 	}, nil
 }
+
+// AllActiveBallotIDs implements types.QueryServer.
+func (k Keeper) AllActiveBallotIDs(goCtx context.Context, req *types.QueryActiveBallotIDsRequest) (*types.QueryActiveBallotIDsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	ids, pageRes, err := query.CollectionPaginate(ctx, k.ActiveBallotIDs, req.Pagination,
+		func(id string, _ collections.NoValue) (string, error) {
+			return id, nil
+		})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryActiveBallotIDsResponse{
+		Ids:        ids,     // []string
+		Pagination: pageRes, // PageResponse
+	}, nil
+}
+
+// ActiveBallots implements types.QueryServer.
+func (k Keeper) AllActiveBallots(goCtx context.Context, req *types.QueryActiveBallotsRequest) (*types.QueryActiveBallotsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Paginate over ActiveBallotIDs and resolve full Ballot objects
+	res, pageRes, err := query.CollectionPaginate(ctx, k.ActiveBallotIDs, req.Pagination,
+		func(id string, _ collections.NoValue) (*types.Ballot, error) {
+			ballot, err := k.Ballots.Get(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return &ballot, nil
+		})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryActiveBallotsResponse{
+		Ballots:    res,     // []*types.Ballot
+		Pagination: pageRes, // PageResponse
+	}, nil
+}

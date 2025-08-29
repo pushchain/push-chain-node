@@ -2,6 +2,7 @@
 package uvalidatorv1
 
 import (
+	v1beta1 "cosmossdk.io/api/cosmos/base/query/v1beta1"
 	fmt "fmt"
 	runtime "github.com/cosmos/cosmos-proto/runtime"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
@@ -4176,12 +4177,14 @@ func (x *fastReflection_QueryBallotResponse) ProtoMethods() *protoiface.Methods 
 }
 
 var (
-	md_QueryBallotsRequest protoreflect.MessageDescriptor
+	md_QueryBallotsRequest            protoreflect.MessageDescriptor
+	fd_QueryBallotsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryBallotsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryBallotsRequest")
+	fd_QueryBallotsRequest_pagination = md_QueryBallotsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryBallotsRequest)(nil)
@@ -4249,6 +4252,12 @@ func (x *fastReflection_QueryBallotsRequest) Interface() protoreflect.ProtoMessa
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryBallotsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryBallotsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -4264,6 +4273,8 @@ func (x *fastReflection_QueryBallotsRequest) Range(f func(protoreflect.FieldDesc
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryBallotsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4280,6 +4291,8 @@ func (x *fastReflection_QueryBallotsRequest) Has(fd protoreflect.FieldDescriptor
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryBallotsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4296,6 +4309,9 @@ func (x *fastReflection_QueryBallotsRequest) Clear(fd protoreflect.FieldDescript
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryBallotsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4316,6 +4332,8 @@ func (x *fastReflection_QueryBallotsRequest) Get(descriptor protoreflect.FieldDe
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryBallotsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4336,6 +4354,11 @@ func (x *fastReflection_QueryBallotsRequest) Set(fd protoreflect.FieldDescriptor
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryBallotsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4349,6 +4372,9 @@ func (x *fastReflection_QueryBallotsRequest) Mutable(fd protoreflect.FieldDescri
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryBallotsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryBallotsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsRequest"))
@@ -4418,6 +4444,10 @@ func (x *fastReflection_QueryBallotsRequest) ProtoMethods() *protoiface.Methods 
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -4446,6 +4476,20 @@ func (x *fastReflection_QueryBallotsRequest) ProtoMethods() *protoiface.Methods 
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -4496,6 +4540,42 @@ func (x *fastReflection_QueryBallotsRequest) ProtoMethods() *protoiface.Methods 
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryBallotsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -4583,14 +4663,16 @@ func (x *_QueryBallotsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryBallotsResponse         protoreflect.MessageDescriptor
-	fd_QueryBallotsResponse_ballots protoreflect.FieldDescriptor
+	md_QueryBallotsResponse            protoreflect.MessageDescriptor
+	fd_QueryBallotsResponse_ballots    protoreflect.FieldDescriptor
+	fd_QueryBallotsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryBallotsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryBallotsResponse")
 	fd_QueryBallotsResponse_ballots = md_QueryBallotsResponse.Fields().ByName("ballots")
+	fd_QueryBallotsResponse_pagination = md_QueryBallotsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryBallotsResponse)(nil)
@@ -4664,6 +4746,12 @@ func (x *fastReflection_QueryBallotsResponse) Range(f func(protoreflect.FieldDes
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryBallotsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -4681,6 +4769,8 @@ func (x *fastReflection_QueryBallotsResponse) Has(fd protoreflect.FieldDescripto
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryBallotsResponse.ballots":
 		return len(x.Ballots) != 0
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4699,6 +4789,8 @@ func (x *fastReflection_QueryBallotsResponse) Clear(fd protoreflect.FieldDescrip
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryBallotsResponse.ballots":
 		x.Ballots = nil
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4721,6 +4813,9 @@ func (x *fastReflection_QueryBallotsResponse) Get(descriptor protoreflect.FieldD
 		}
 		listValue := &_QueryBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4745,6 +4840,8 @@ func (x *fastReflection_QueryBallotsResponse) Set(fd protoreflect.FieldDescripto
 		lv := value.List()
 		clv := lv.(*_QueryBallotsResponse_1_list)
 		x.Ballots = *clv.list
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4771,6 +4868,11 @@ func (x *fastReflection_QueryBallotsResponse) Mutable(fd protoreflect.FieldDescr
 		}
 		value := &_QueryBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4787,6 +4889,9 @@ func (x *fastReflection_QueryBallotsResponse) NewField(fd protoreflect.FieldDesc
 	case "uvalidator.v1.QueryBallotsResponse.ballots":
 		list := []*Ballot{}
 		return protoreflect.ValueOfList(&_QueryBallotsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryBallotsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryBallotsResponse"))
@@ -4862,6 +4967,10 @@ func (x *fastReflection_QueryBallotsResponse) ProtoMethods() *protoiface.Methods
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -4890,6 +4999,20 @@ func (x *fastReflection_QueryBallotsResponse) ProtoMethods() *protoiface.Methods
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ballots) > 0 {
 			for iNdEx := len(x.Ballots) - 1; iNdEx >= 0; iNdEx-- {
@@ -4990,6 +5113,42 @@ func (x *fastReflection_QueryBallotsResponse) ProtoMethods() *protoiface.Methods
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -5026,12 +5185,14 @@ func (x *fastReflection_QueryBallotsResponse) ProtoMethods() *protoiface.Methods
 }
 
 var (
-	md_QueryActiveBallotIDsRequest protoreflect.MessageDescriptor
+	md_QueryActiveBallotIDsRequest            protoreflect.MessageDescriptor
+	fd_QueryActiveBallotIDsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryActiveBallotIDsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryActiveBallotIDsRequest")
+	fd_QueryActiveBallotIDsRequest_pagination = md_QueryActiveBallotIDsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryActiveBallotIDsRequest)(nil)
@@ -5099,6 +5260,12 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Interface() protoreflect.Pr
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryActiveBallotIDsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -5114,6 +5281,8 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Range(f func(protoreflect.F
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5130,6 +5299,8 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Has(fd protoreflect.FieldDe
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5146,6 +5317,9 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Clear(fd protoreflect.Field
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5166,6 +5340,8 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Get(descriptor protoreflect
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5186,6 +5362,11 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Set(fd protoreflect.FieldDe
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotIDsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5199,6 +5380,9 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) Mutable(fd protoreflect.Fie
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryActiveBallotIDsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotIDsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsRequest"))
@@ -5268,6 +5452,10 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) ProtoMethods() *protoiface.
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -5296,6 +5484,20 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) ProtoMethods() *protoiface.
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -5346,6 +5548,42 @@ func (x *fastReflection_QueryActiveBallotIDsRequest) ProtoMethods() *protoiface.
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveBallotIDsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -5428,14 +5666,16 @@ func (x *_QueryActiveBallotIDsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryActiveBallotIDsResponse     protoreflect.MessageDescriptor
-	fd_QueryActiveBallotIDsResponse_ids protoreflect.FieldDescriptor
+	md_QueryActiveBallotIDsResponse            protoreflect.MessageDescriptor
+	fd_QueryActiveBallotIDsResponse_ids        protoreflect.FieldDescriptor
+	fd_QueryActiveBallotIDsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryActiveBallotIDsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryActiveBallotIDsResponse")
 	fd_QueryActiveBallotIDsResponse_ids = md_QueryActiveBallotIDsResponse.Fields().ByName("ids")
+	fd_QueryActiveBallotIDsResponse_pagination = md_QueryActiveBallotIDsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryActiveBallotIDsResponse)(nil)
@@ -5509,6 +5749,12 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Range(f func(protoreflect.
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryActiveBallotIDsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -5526,6 +5772,8 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Has(fd protoreflect.FieldD
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryActiveBallotIDsResponse.ids":
 		return len(x.Ids) != 0
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5544,6 +5792,8 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Clear(fd protoreflect.Fiel
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryActiveBallotIDsResponse.ids":
 		x.Ids = nil
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5566,6 +5816,9 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Get(descriptor protoreflec
 		}
 		listValue := &_QueryActiveBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5590,6 +5843,8 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Set(fd protoreflect.FieldD
 		lv := value.List()
 		clv := lv.(*_QueryActiveBallotIDsResponse_1_list)
 		x.Ids = *clv.list
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5616,6 +5871,11 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) Mutable(fd protoreflect.Fi
 		}
 		value := &_QueryActiveBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5632,6 +5892,9 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) NewField(fd protoreflect.F
 	case "uvalidator.v1.QueryActiveBallotIDsResponse.ids":
 		list := []string{}
 		return protoreflect.ValueOfList(&_QueryActiveBallotIDsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryActiveBallotIDsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotIDsResponse"))
@@ -5707,6 +5970,10 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) ProtoMethods() *protoiface
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -5735,6 +6002,20 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) ProtoMethods() *protoiface
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ids) > 0 {
 			for iNdEx := len(x.Ids) - 1; iNdEx >= 0; iNdEx-- {
@@ -5826,6 +6107,42 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) ProtoMethods() *protoiface
 				}
 				x.Ids = append(x.Ids, string(dAtA[iNdEx:postIndex]))
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -5862,12 +6179,14 @@ func (x *fastReflection_QueryActiveBallotIDsResponse) ProtoMethods() *protoiface
 }
 
 var (
-	md_QueryActiveBallotsRequest protoreflect.MessageDescriptor
+	md_QueryActiveBallotsRequest            protoreflect.MessageDescriptor
+	fd_QueryActiveBallotsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryActiveBallotsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryActiveBallotsRequest")
+	fd_QueryActiveBallotsRequest_pagination = md_QueryActiveBallotsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryActiveBallotsRequest)(nil)
@@ -5935,6 +6254,12 @@ func (x *fastReflection_QueryActiveBallotsRequest) Interface() protoreflect.Prot
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryActiveBallotsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryActiveBallotsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -5950,6 +6275,8 @@ func (x *fastReflection_QueryActiveBallotsRequest) Range(f func(protoreflect.Fie
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryActiveBallotsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -5966,6 +6293,8 @@ func (x *fastReflection_QueryActiveBallotsRequest) Has(fd protoreflect.FieldDesc
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -5982,6 +6311,9 @@ func (x *fastReflection_QueryActiveBallotsRequest) Clear(fd protoreflect.FieldDe
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryActiveBallotsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -6002,6 +6334,8 @@ func (x *fastReflection_QueryActiveBallotsRequest) Get(descriptor protoreflect.F
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -6022,6 +6356,11 @@ func (x *fastReflection_QueryActiveBallotsRequest) Set(fd protoreflect.FieldDesc
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryActiveBallotsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -6035,6 +6374,9 @@ func (x *fastReflection_QueryActiveBallotsRequest) Mutable(fd protoreflect.Field
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryActiveBallotsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryActiveBallotsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsRequest"))
@@ -6104,6 +6446,10 @@ func (x *fastReflection_QueryActiveBallotsRequest) ProtoMethods() *protoiface.Me
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -6132,6 +6478,20 @@ func (x *fastReflection_QueryActiveBallotsRequest) ProtoMethods() *protoiface.Me
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -6182,6 +6542,42 @@ func (x *fastReflection_QueryActiveBallotsRequest) ProtoMethods() *protoiface.Me
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveBallotsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -6269,14 +6665,16 @@ func (x *_QueryActiveBallotsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryActiveBallotsResponse         protoreflect.MessageDescriptor
-	fd_QueryActiveBallotsResponse_ballots protoreflect.FieldDescriptor
+	md_QueryActiveBallotsResponse            protoreflect.MessageDescriptor
+	fd_QueryActiveBallotsResponse_ballots    protoreflect.FieldDescriptor
+	fd_QueryActiveBallotsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryActiveBallotsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryActiveBallotsResponse")
 	fd_QueryActiveBallotsResponse_ballots = md_QueryActiveBallotsResponse.Fields().ByName("ballots")
+	fd_QueryActiveBallotsResponse_pagination = md_QueryActiveBallotsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryActiveBallotsResponse)(nil)
@@ -6350,6 +6748,12 @@ func (x *fastReflection_QueryActiveBallotsResponse) Range(f func(protoreflect.Fi
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryActiveBallotsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -6367,6 +6771,8 @@ func (x *fastReflection_QueryActiveBallotsResponse) Has(fd protoreflect.FieldDes
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryActiveBallotsResponse.ballots":
 		return len(x.Ballots) != 0
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6385,6 +6791,8 @@ func (x *fastReflection_QueryActiveBallotsResponse) Clear(fd protoreflect.FieldD
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryActiveBallotsResponse.ballots":
 		x.Ballots = nil
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6407,6 +6815,9 @@ func (x *fastReflection_QueryActiveBallotsResponse) Get(descriptor protoreflect.
 		}
 		listValue := &_QueryActiveBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6431,6 +6842,8 @@ func (x *fastReflection_QueryActiveBallotsResponse) Set(fd protoreflect.FieldDes
 		lv := value.List()
 		clv := lv.(*_QueryActiveBallotsResponse_1_list)
 		x.Ballots = *clv.list
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6457,6 +6870,11 @@ func (x *fastReflection_QueryActiveBallotsResponse) Mutable(fd protoreflect.Fiel
 		}
 		value := &_QueryActiveBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6473,6 +6891,9 @@ func (x *fastReflection_QueryActiveBallotsResponse) NewField(fd protoreflect.Fie
 	case "uvalidator.v1.QueryActiveBallotsResponse.ballots":
 		list := []*Ballot{}
 		return protoreflect.ValueOfList(&_QueryActiveBallotsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryActiveBallotsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryActiveBallotsResponse"))
@@ -6548,6 +6969,10 @@ func (x *fastReflection_QueryActiveBallotsResponse) ProtoMethods() *protoiface.M
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -6576,6 +7001,20 @@ func (x *fastReflection_QueryActiveBallotsResponse) ProtoMethods() *protoiface.M
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ballots) > 0 {
 			for iNdEx := len(x.Ballots) - 1; iNdEx >= 0; iNdEx-- {
@@ -6676,6 +7115,42 @@ func (x *fastReflection_QueryActiveBallotsResponse) ProtoMethods() *protoiface.M
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -6712,12 +7187,14 @@ func (x *fastReflection_QueryActiveBallotsResponse) ProtoMethods() *protoiface.M
 }
 
 var (
-	md_QueryExpiredBallotIDsRequest protoreflect.MessageDescriptor
+	md_QueryExpiredBallotIDsRequest            protoreflect.MessageDescriptor
+	fd_QueryExpiredBallotIDsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryExpiredBallotIDsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryExpiredBallotIDsRequest")
+	fd_QueryExpiredBallotIDsRequest_pagination = md_QueryExpiredBallotIDsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryExpiredBallotIDsRequest)(nil)
@@ -6785,6 +7262,12 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Interface() protoreflect.P
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryExpiredBallotIDsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -6800,6 +7283,8 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Range(f func(protoreflect.
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6816,6 +7301,8 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Has(fd protoreflect.FieldD
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6832,6 +7319,9 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Clear(fd protoreflect.Fiel
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6852,6 +7342,8 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Get(descriptor protoreflec
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6872,6 +7364,11 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Set(fd protoreflect.FieldD
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6885,6 +7382,9 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) Mutable(fd protoreflect.Fi
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryExpiredBallotIDsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotIDsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsRequest"))
@@ -6954,6 +7454,10 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) ProtoMethods() *protoiface
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -6982,6 +7486,20 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) ProtoMethods() *protoiface
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -7032,6 +7550,42 @@ func (x *fastReflection_QueryExpiredBallotIDsRequest) ProtoMethods() *protoiface
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryExpiredBallotIDsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -7114,14 +7668,16 @@ func (x *_QueryExpiredBallotIDsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryExpiredBallotIDsResponse     protoreflect.MessageDescriptor
-	fd_QueryExpiredBallotIDsResponse_ids protoreflect.FieldDescriptor
+	md_QueryExpiredBallotIDsResponse            protoreflect.MessageDescriptor
+	fd_QueryExpiredBallotIDsResponse_ids        protoreflect.FieldDescriptor
+	fd_QueryExpiredBallotIDsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryExpiredBallotIDsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryExpiredBallotIDsResponse")
 	fd_QueryExpiredBallotIDsResponse_ids = md_QueryExpiredBallotIDsResponse.Fields().ByName("ids")
+	fd_QueryExpiredBallotIDsResponse_pagination = md_QueryExpiredBallotIDsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryExpiredBallotIDsResponse)(nil)
@@ -7195,6 +7751,12 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Range(f func(protoreflect
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryExpiredBallotIDsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -7212,6 +7774,8 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Has(fd protoreflect.Field
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryExpiredBallotIDsResponse.ids":
 		return len(x.Ids) != 0
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7230,6 +7794,8 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Clear(fd protoreflect.Fie
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryExpiredBallotIDsResponse.ids":
 		x.Ids = nil
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7252,6 +7818,9 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Get(descriptor protorefle
 		}
 		listValue := &_QueryExpiredBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7276,6 +7845,8 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Set(fd protoreflect.Field
 		lv := value.List()
 		clv := lv.(*_QueryExpiredBallotIDsResponse_1_list)
 		x.Ids = *clv.list
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7302,6 +7873,11 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) Mutable(fd protoreflect.F
 		}
 		value := &_QueryExpiredBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7318,6 +7894,9 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) NewField(fd protoreflect.
 	case "uvalidator.v1.QueryExpiredBallotIDsResponse.ids":
 		list := []string{}
 		return protoreflect.ValueOfList(&_QueryExpiredBallotIDsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryExpiredBallotIDsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotIDsResponse"))
@@ -7393,6 +7972,10 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) ProtoMethods() *protoifac
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -7421,6 +8004,20 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) ProtoMethods() *protoifac
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ids) > 0 {
 			for iNdEx := len(x.Ids) - 1; iNdEx >= 0; iNdEx-- {
@@ -7512,6 +8109,42 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) ProtoMethods() *protoifac
 				}
 				x.Ids = append(x.Ids, string(dAtA[iNdEx:postIndex]))
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -7548,12 +8181,14 @@ func (x *fastReflection_QueryExpiredBallotIDsResponse) ProtoMethods() *protoifac
 }
 
 var (
-	md_QueryExpiredBallotsRequest protoreflect.MessageDescriptor
+	md_QueryExpiredBallotsRequest            protoreflect.MessageDescriptor
+	fd_QueryExpiredBallotsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryExpiredBallotsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryExpiredBallotsRequest")
+	fd_QueryExpiredBallotsRequest_pagination = md_QueryExpiredBallotsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryExpiredBallotsRequest)(nil)
@@ -7621,6 +8256,12 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Interface() protoreflect.Pro
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryExpiredBallotsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryExpiredBallotsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -7636,6 +8277,8 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Range(f func(protoreflect.Fi
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryExpiredBallotsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7652,6 +8295,8 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Has(fd protoreflect.FieldDes
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7668,6 +8313,9 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Clear(fd protoreflect.FieldD
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryExpiredBallotsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7688,6 +8336,8 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Get(descriptor protoreflect.
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7708,6 +8358,11 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Set(fd protoreflect.FieldDes
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryExpiredBallotsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7721,6 +8376,9 @@ func (x *fastReflection_QueryExpiredBallotsRequest) Mutable(fd protoreflect.Fiel
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryExpiredBallotsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryExpiredBallotsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsRequest"))
@@ -7790,6 +8448,10 @@ func (x *fastReflection_QueryExpiredBallotsRequest) ProtoMethods() *protoiface.M
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -7818,6 +8480,20 @@ func (x *fastReflection_QueryExpiredBallotsRequest) ProtoMethods() *protoiface.M
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -7868,6 +8544,42 @@ func (x *fastReflection_QueryExpiredBallotsRequest) ProtoMethods() *protoiface.M
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryExpiredBallotsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -7955,14 +8667,16 @@ func (x *_QueryExpiredBallotsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryExpiredBallotsResponse         protoreflect.MessageDescriptor
-	fd_QueryExpiredBallotsResponse_ballots protoreflect.FieldDescriptor
+	md_QueryExpiredBallotsResponse            protoreflect.MessageDescriptor
+	fd_QueryExpiredBallotsResponse_ballots    protoreflect.FieldDescriptor
+	fd_QueryExpiredBallotsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryExpiredBallotsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryExpiredBallotsResponse")
 	fd_QueryExpiredBallotsResponse_ballots = md_QueryExpiredBallotsResponse.Fields().ByName("ballots")
+	fd_QueryExpiredBallotsResponse_pagination = md_QueryExpiredBallotsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryExpiredBallotsResponse)(nil)
@@ -8036,6 +8750,12 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Range(f func(protoreflect.F
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryExpiredBallotsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -8053,6 +8773,8 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Has(fd protoreflect.FieldDe
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryExpiredBallotsResponse.ballots":
 		return len(x.Ballots) != 0
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8071,6 +8793,8 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Clear(fd protoreflect.Field
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryExpiredBallotsResponse.ballots":
 		x.Ballots = nil
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8093,6 +8817,9 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Get(descriptor protoreflect
 		}
 		listValue := &_QueryExpiredBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8117,6 +8844,8 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Set(fd protoreflect.FieldDe
 		lv := value.List()
 		clv := lv.(*_QueryExpiredBallotsResponse_1_list)
 		x.Ballots = *clv.list
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8143,6 +8872,11 @@ func (x *fastReflection_QueryExpiredBallotsResponse) Mutable(fd protoreflect.Fie
 		}
 		value := &_QueryExpiredBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8159,6 +8893,9 @@ func (x *fastReflection_QueryExpiredBallotsResponse) NewField(fd protoreflect.Fi
 	case "uvalidator.v1.QueryExpiredBallotsResponse.ballots":
 		list := []*Ballot{}
 		return protoreflect.ValueOfList(&_QueryExpiredBallotsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryExpiredBallotsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryExpiredBallotsResponse"))
@@ -8234,6 +8971,10 @@ func (x *fastReflection_QueryExpiredBallotsResponse) ProtoMethods() *protoiface.
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -8262,6 +9003,20 @@ func (x *fastReflection_QueryExpiredBallotsResponse) ProtoMethods() *protoiface.
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ballots) > 0 {
 			for iNdEx := len(x.Ballots) - 1; iNdEx >= 0; iNdEx-- {
@@ -8362,6 +9117,42 @@ func (x *fastReflection_QueryExpiredBallotsResponse) ProtoMethods() *protoiface.
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -8398,12 +9189,14 @@ func (x *fastReflection_QueryExpiredBallotsResponse) ProtoMethods() *protoiface.
 }
 
 var (
-	md_QueryFinalizedBallotIDsRequest protoreflect.MessageDescriptor
+	md_QueryFinalizedBallotIDsRequest            protoreflect.MessageDescriptor
+	fd_QueryFinalizedBallotIDsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryFinalizedBallotIDsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryFinalizedBallotIDsRequest")
+	fd_QueryFinalizedBallotIDsRequest_pagination = md_QueryFinalizedBallotIDsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryFinalizedBallotIDsRequest)(nil)
@@ -8471,6 +9264,12 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Interface() protoreflect
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryFinalizedBallotIDsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -8486,6 +9285,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Range(f func(protoreflec
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8502,6 +9303,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Has(fd protoreflect.Fiel
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8518,6 +9321,9 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Clear(fd protoreflect.Fi
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8538,6 +9344,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Get(descriptor protorefl
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8558,6 +9366,11 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Set(fd protoreflect.Fiel
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8571,6 +9384,9 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) Mutable(fd protoreflect.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryFinalizedBallotIDsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsRequest"))
@@ -8640,6 +9456,10 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) ProtoMethods() *protoifa
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -8668,6 +9488,20 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) ProtoMethods() *protoifa
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -8718,6 +9552,42 @@ func (x *fastReflection_QueryFinalizedBallotIDsRequest) ProtoMethods() *protoifa
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryFinalizedBallotIDsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -8800,14 +9670,16 @@ func (x *_QueryFinalizedBallotIDsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryFinalizedBallotIDsResponse     protoreflect.MessageDescriptor
-	fd_QueryFinalizedBallotIDsResponse_ids protoreflect.FieldDescriptor
+	md_QueryFinalizedBallotIDsResponse            protoreflect.MessageDescriptor
+	fd_QueryFinalizedBallotIDsResponse_ids        protoreflect.FieldDescriptor
+	fd_QueryFinalizedBallotIDsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryFinalizedBallotIDsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryFinalizedBallotIDsResponse")
 	fd_QueryFinalizedBallotIDsResponse_ids = md_QueryFinalizedBallotIDsResponse.Fields().ByName("ids")
+	fd_QueryFinalizedBallotIDsResponse_pagination = md_QueryFinalizedBallotIDsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryFinalizedBallotIDsResponse)(nil)
@@ -8881,6 +9753,12 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Range(f func(protorefle
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryFinalizedBallotIDsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -8898,6 +9776,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Has(fd protoreflect.Fie
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.ids":
 		return len(x.Ids) != 0
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -8916,6 +9796,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Clear(fd protoreflect.F
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.ids":
 		x.Ids = nil
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -8938,6 +9820,9 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Get(descriptor protoref
 		}
 		listValue := &_QueryFinalizedBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -8962,6 +9847,8 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Set(fd protoreflect.Fie
 		lv := value.List()
 		clv := lv.(*_QueryFinalizedBallotIDsResponse_1_list)
 		x.Ids = *clv.list
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -8988,6 +9875,11 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) Mutable(fd protoreflect
 		}
 		value := &_QueryFinalizedBallotIDsResponse_1_list{list: &x.Ids}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -9004,6 +9896,9 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) NewField(fd protoreflec
 	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.ids":
 		list := []string{}
 		return protoreflect.ValueOfList(&_QueryFinalizedBallotIDsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotIDsResponse"))
@@ -9079,6 +9974,10 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) ProtoMethods() *protoif
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -9107,6 +10006,20 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) ProtoMethods() *protoif
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ids) > 0 {
 			for iNdEx := len(x.Ids) - 1; iNdEx >= 0; iNdEx-- {
@@ -9198,6 +10111,42 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) ProtoMethods() *protoif
 				}
 				x.Ids = append(x.Ids, string(dAtA[iNdEx:postIndex]))
 				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -9234,12 +10183,14 @@ func (x *fastReflection_QueryFinalizedBallotIDsResponse) ProtoMethods() *protoif
 }
 
 var (
-	md_QueryFinalizedBallotsRequest protoreflect.MessageDescriptor
+	md_QueryFinalizedBallotsRequest            protoreflect.MessageDescriptor
+	fd_QueryFinalizedBallotsRequest_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryFinalizedBallotsRequest = File_uvalidator_v1_query_proto.Messages().ByName("QueryFinalizedBallotsRequest")
+	fd_QueryFinalizedBallotsRequest_pagination = md_QueryFinalizedBallotsRequest.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryFinalizedBallotsRequest)(nil)
@@ -9307,6 +10258,12 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Interface() protoreflect.P
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryFinalizedBallotsRequest_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -9322,6 +10279,8 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Range(f func(protoreflect.
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9338,6 +10297,8 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Has(fd protoreflect.FieldD
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9354,6 +10315,9 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Clear(fd protoreflect.Fiel
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9374,6 +10338,8 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Get(descriptor protoreflec
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9394,6 +10360,11 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Set(fd protoreflect.FieldD
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_QueryFinalizedBallotsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9407,6 +10378,9 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) Mutable(fd protoreflect.Fi
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_QueryFinalizedBallotsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "uvalidator.v1.QueryFinalizedBallotsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsRequest"))
@@ -9476,6 +10450,10 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) ProtoMethods() *protoiface
 		var n int
 		var l int
 		_ = l
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -9504,6 +10482,20 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) ProtoMethods() *protoiface
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -9554,6 +10546,42 @@ func (x *fastReflection_QueryFinalizedBallotsRequest) ProtoMethods() *protoiface
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryFinalizedBallotsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageRequest{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -9641,14 +10669,16 @@ func (x *_QueryFinalizedBallotsResponse_1_list) IsValid() bool {
 }
 
 var (
-	md_QueryFinalizedBallotsResponse         protoreflect.MessageDescriptor
-	fd_QueryFinalizedBallotsResponse_ballots protoreflect.FieldDescriptor
+	md_QueryFinalizedBallotsResponse            protoreflect.MessageDescriptor
+	fd_QueryFinalizedBallotsResponse_ballots    protoreflect.FieldDescriptor
+	fd_QueryFinalizedBallotsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_uvalidator_v1_query_proto_init()
 	md_QueryFinalizedBallotsResponse = File_uvalidator_v1_query_proto.Messages().ByName("QueryFinalizedBallotsResponse")
 	fd_QueryFinalizedBallotsResponse_ballots = md_QueryFinalizedBallotsResponse.Fields().ByName("ballots")
+	fd_QueryFinalizedBallotsResponse_pagination = md_QueryFinalizedBallotsResponse.Fields().ByName("pagination")
 }
 
 var _ protoreflect.Message = (*fastReflection_QueryFinalizedBallotsResponse)(nil)
@@ -9722,6 +10752,12 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Range(f func(protoreflect
 			return
 		}
 	}
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryFinalizedBallotsResponse_pagination, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -9739,6 +10775,8 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Has(fd protoreflect.Field
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryFinalizedBallotsResponse.ballots":
 		return len(x.Ballots) != 0
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9757,6 +10795,8 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Clear(fd protoreflect.Fie
 	switch fd.FullName() {
 	case "uvalidator.v1.QueryFinalizedBallotsResponse.ballots":
 		x.Ballots = nil
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9779,6 +10819,9 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Get(descriptor protorefle
 		}
 		listValue := &_QueryFinalizedBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(listValue)
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9803,6 +10846,8 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Set(fd protoreflect.Field
 		lv := value.List()
 		clv := lv.(*_QueryFinalizedBallotsResponse_1_list)
 		x.Ballots = *clv.list
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9829,6 +10874,11 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) Mutable(fd protoreflect.F
 		}
 		value := &_QueryFinalizedBallotsResponse_1_list{list: &x.Ballots}
 		return protoreflect.ValueOfList(value)
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageResponse)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9845,6 +10895,9 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) NewField(fd protoreflect.
 	case "uvalidator.v1.QueryFinalizedBallotsResponse.ballots":
 		list := []*Ballot{}
 		return protoreflect.ValueOfList(&_QueryFinalizedBallotsResponse_1_list{list: &list})
+	case "uvalidator.v1.QueryFinalizedBallotsResponse.pagination":
+		m := new(v1beta1.PageResponse)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.QueryFinalizedBallotsResponse"))
@@ -9920,6 +10973,10 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) ProtoMethods() *protoifac
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
+		if x.Pagination != nil {
+			l = options.Size(x.Pagination)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -9948,6 +11005,20 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) ProtoMethods() *protoifac
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Pagination != nil {
+			encoded, err := options.Marshal(x.Pagination)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
 		}
 		if len(x.Ballots) > 0 {
 			for iNdEx := len(x.Ballots) - 1; iNdEx >= 0; iNdEx-- {
@@ -10045,6 +11116,42 @@ func (x *fastReflection_QueryFinalizedBallotsResponse) ProtoMethods() *protoifac
 				}
 				x.Ballots = append(x.Ballots, &Ballot{})
 				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Ballots[len(x.Ballots)-1]); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Pagination == nil {
+					x.Pagination = &v1beta1.PageResponse{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Pagination); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -10448,6 +11555,8 @@ type QueryBallotsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryBallotsRequest) Reset() {
@@ -10470,12 +11579,20 @@ func (*QueryBallotsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{10}
 }
 
+func (x *QueryBallotsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryBallotsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ballots []*Ballot `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Ballots    []*Ballot             `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryBallotsResponse) Reset() {
@@ -10505,11 +11622,20 @@ func (x *QueryBallotsResponse) GetBallots() []*Ballot {
 	return nil
 }
 
+func (x *QueryBallotsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 // Active ballots
 type QueryActiveBallotIDsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryActiveBallotIDsRequest) Reset() {
@@ -10532,12 +11658,20 @@ func (*QueryActiveBallotIDsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{12}
 }
 
+func (x *QueryActiveBallotIDsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryActiveBallotIDsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ids []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Ids        []string              `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryActiveBallotIDsResponse) Reset() {
@@ -10567,10 +11701,19 @@ func (x *QueryActiveBallotIDsResponse) GetIds() []string {
 	return nil
 }
 
+func (x *QueryActiveBallotIDsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryActiveBallotsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryActiveBallotsRequest) Reset() {
@@ -10593,12 +11736,20 @@ func (*QueryActiveBallotsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{14}
 }
 
+func (x *QueryActiveBallotsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryActiveBallotsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ballots []*Ballot `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Ballots    []*Ballot             `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryActiveBallotsResponse) Reset() {
@@ -10628,11 +11779,20 @@ func (x *QueryActiveBallotsResponse) GetBallots() []*Ballot {
 	return nil
 }
 
+func (x *QueryActiveBallotsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 // Expired ballots
 type QueryExpiredBallotIDsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryExpiredBallotIDsRequest) Reset() {
@@ -10655,12 +11815,20 @@ func (*QueryExpiredBallotIDsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{16}
 }
 
+func (x *QueryExpiredBallotIDsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryExpiredBallotIDsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ids []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Ids        []string              `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryExpiredBallotIDsResponse) Reset() {
@@ -10690,10 +11858,19 @@ func (x *QueryExpiredBallotIDsResponse) GetIds() []string {
 	return nil
 }
 
+func (x *QueryExpiredBallotIDsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryExpiredBallotsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryExpiredBallotsRequest) Reset() {
@@ -10716,12 +11893,20 @@ func (*QueryExpiredBallotsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{18}
 }
 
+func (x *QueryExpiredBallotsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryExpiredBallotsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ballots []*Ballot `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Ballots    []*Ballot             `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryExpiredBallotsResponse) Reset() {
@@ -10751,11 +11936,20 @@ func (x *QueryExpiredBallotsResponse) GetBallots() []*Ballot {
 	return nil
 }
 
+func (x *QueryExpiredBallotsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 // Finalized ballots
 type QueryFinalizedBallotIDsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryFinalizedBallotIDsRequest) Reset() {
@@ -10778,12 +11972,20 @@ func (*QueryFinalizedBallotIDsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{20}
 }
 
+func (x *QueryFinalizedBallotIDsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryFinalizedBallotIDsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ids []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Ids        []string              `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryFinalizedBallotIDsResponse) Reset() {
@@ -10813,10 +12015,19 @@ func (x *QueryFinalizedBallotIDsResponse) GetIds() []string {
 	return nil
 }
 
+func (x *QueryFinalizedBallotIDsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryFinalizedBallotsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryFinalizedBallotsRequest) Reset() {
@@ -10839,12 +12050,20 @@ func (*QueryFinalizedBallotsRequest) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_query_proto_rawDescGZIP(), []int{22}
 }
 
+func (x *QueryFinalizedBallotsRequest) GetPagination() *v1beta1.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryFinalizedBallotsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ballots []*Ballot `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Ballots    []*Ballot             `protobuf:"bytes,1,rep,name=ballots,proto3" json:"ballots,omitempty"`
+	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (x *QueryFinalizedBallotsResponse) Reset() {
@@ -10874,6 +12093,13 @@ func (x *QueryFinalizedBallotsResponse) GetBallots() []*Ballot {
 	return nil
 }
 
+func (x *QueryFinalizedBallotsResponse) GetPagination() *v1beta1.PageResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 var File_uvalidator_v1_query_proto protoreflect.FileDescriptor
 
 var file_uvalidator_v1_query_proto_rawDesc = []byte{
@@ -10886,173 +12112,240 @@ var file_uvalidator_v1_query_proto_rawDesc = []byte{
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x19, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
 	0x72, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x1a, 0x1a, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f,
-	0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x14, 0x0a, 0x12,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x22, 0x44, 0x0a, 0x13, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d,
-	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72,
-	0x61, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
-	0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0x5c, 0x0a, 0x24, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61,
-	0x74, 0x6f, 0x72, 0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x34, 0x0a, 0x16, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x14, 0x63, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41,
-	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x58, 0x0a, 0x25, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55,
-	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
-	0x72, 0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x2f, 0x0a, 0x13, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x12, 0x75, 0x6e,
-	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
-	0x22, 0x66, 0x0a, 0x24, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x3e, 0x0a, 0x1b, 0x75, 0x6e, 0x69, 0x76,
-	0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f,
-	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x19, 0x75,
-	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
-	0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x5d, 0x0a, 0x25, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79,
-	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x34, 0x0a, 0x16, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
-	0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x14, 0x63, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
-	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x24, 0x0a, 0x22, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x6f, 0x72, 0x73, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x43, 0x0a,
-	0x23, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x53, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x65,
-	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
-	0x65, 0x73, 0x22, 0x24, 0x0a, 0x12, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f,
-	0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x44, 0x0a, 0x13, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x2d, 0x0a, 0x06, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
-	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x06, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x22, 0x15,
-	0x0a, 0x13, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x47, 0x0a, 0x14, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a,
-	0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15,
-	0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42,
-	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x22, 0x1d,
-	0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x30, 0x0a,
-	0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c,
-	0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a,
-	0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03, 0x69, 0x64, 0x73, 0x22,
-	0x1b, 0x0a, 0x19, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x4d, 0x0a, 0x1a,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f,
-	0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c,
-	0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x22, 0x1e, 0x0a, 0x1c, 0x51,
-	0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f,
-	0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x31, 0x0a, 0x1d, 0x51,
-	0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f,
-	0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a, 0x03,
-	0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03, 0x69, 0x64, 0x73, 0x22, 0x1c,
-	0x0a, 0x1a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x4e, 0x0a, 0x1b,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c,
-	0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62,
-	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x22, 0x20, 0x0a, 0x1e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x33,
-	0x0a, 0x1f, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64,
-	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x10, 0x0a, 0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03,
-	0x69, 0x64, 0x73, 0x22, 0x1e, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61,
-	0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x22, 0x50, 0x0a, 0x1d, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61,
-	0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18,
-	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61,
-	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x32, 0xe1, 0x0e, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12,
-	0x6e, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x21, 0x2e, 0x75, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50,
-	0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
-	0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x1d, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x17, 0x12, 0x15, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12,
-	0xda, 0x01, 0x0a, 0x18, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x12, 0x33, 0x2e, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
-	0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x34, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
-	0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x53, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x4d, 0x12,
-	0x4b, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f,
-	0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x2f,
-	0x7b, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f,
-	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
-	0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0xdf, 0x01, 0x0a,
-	0x18, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79,
-	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x12, 0x33, 0x2e, 0x75, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43,
-	0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e,
-	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x34,
-	0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51,
-	0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
-	0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x58, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x52, 0x12, 0x50, 0x2f, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x75, 0x6e, 0x69,
-	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
-	0x73, 0x2f, 0x7b, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x2f,
-	0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0xac,
-	0x01, 0x0a, 0x16, 0x41, 0x6c, 0x6c, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x12, 0x31, 0x2e, 0x75, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55,
-	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
-	0x72, 0x73, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x32, 0x2e, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
+	0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x2a, 0x63, 0x6f,
+	0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x62, 0x61, 0x73, 0x65, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2f,
+	0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2f, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x14, 0x0a, 0x12, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x44,
+	0x0a, 0x13, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x06, 0x70, 0x61,
+	0x72, 0x61, 0x6d, 0x73, 0x22, 0x5c, 0x0a, 0x24, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69,
+	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42,
+	0x79, 0x43, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x34, 0x0a, 0x16,
+	0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x14, 0x63, 0x6f,
+	0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x22, 0x58, 0x0a, 0x25, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43,
+	0x6f, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x13, 0x75,
+	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x12, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x22, 0x66, 0x0a, 0x24,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x3e, 0x0a, 0x1b, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
+	0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72,
+	0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x19, 0x75, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64,
+	0x72, 0x65, 0x73, 0x73, 0x22, 0x5d, 0x0a, 0x25, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72,
+	0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a,
+	0x16, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f,
+	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x14, 0x63,
+	0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72,
+	0x65, 0x73, 0x73, 0x22, 0x24, 0x0a, 0x22, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x53,
+	0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x43, 0x0a, 0x23, 0x51, 0x75, 0x65,
 	0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64,
 	0x61, 0x74, 0x6f, 0x72, 0x73, 0x53, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
-	0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x12, 0x74, 0x0a,
-	0x06, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x12, 0x21, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x75, 0x76, 0x61,
-	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
-	0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x2f, 0x7b,
-	0x69, 0x64, 0x7d, 0x12, 0x72, 0x0a, 0x07, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x22,
+	0x12, 0x1c, 0x0a, 0x09, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x09, 0x52, 0x09, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x22, 0x24,
+	0x0a, 0x12, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x02, 0x69, 0x64, 0x22, 0x44, 0x0a, 0x13, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c,
+	0x6c, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x62,
+	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x52, 0x06, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x22, 0x5d, 0x0a, 0x13, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62,
+	0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61,
+	0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70,
+	0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x90, 0x01, 0x0a, 0x14, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65,
+	0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x65, 0x0a, 0x1b,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f,
+	0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70,
+	0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75,
+	0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x22, 0x79, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69,
+	0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09,
+	0x52, 0x03, 0x69, 0x64, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31,
+	0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x63,
+	0x0a, 0x19, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c,
+	0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70,
+	0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75,
+	0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x22, 0x96, 0x01, 0x0a, 0x1a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74,
+	0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65,
+	0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x66, 0x0a, 0x1c,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a,
+	0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71,
+	0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x22, 0x7a, 0x0a, 0x1d, 0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70,
+	0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x09, 0x52, 0x03, 0x69, 0x64, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f,
+	0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e,
+	0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x22, 0x64, 0x0a, 0x1a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64,
+	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46,
+	0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65,
+	0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50,
+	0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69,
+	0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x97, 0x01, 0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
+	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07,
+	0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f,
+	0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e,
+	0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x22, 0x68, 0x0a, 0x1e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a,
+	0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e,
+	0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74,
+	0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a,
+	0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x7c, 0x0a, 0x1f, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a,
+	0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03, 0x69, 0x64, 0x73, 0x12,
+	0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73,
+	0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e,
+	0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x0a, 0x70, 0x61,
+	0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x66, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69,
+	0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63,
+	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79,
+	0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x22, 0x99, 0x01, 0x0a, 0x1d, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69,
+	0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x07, 0x62, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65,
+	0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x32, 0xed, 0x0e, 0x0a,
+	0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x6e, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
+	0x12, 0x21, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1d, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x17, 0x12,
+	0x15, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f,
+	0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0xda, 0x01, 0x0a, 0x18, 0x55, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43,
+	0x6f, 0x72, 0x65, 0x12, 0x33, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x43, 0x6f, 0x72,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x34, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e,
+	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x42, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x53,
+	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x4d, 0x12, 0x4b, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
+	0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x7b, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x2f,
+	0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
+	0x74, 0x6f, 0x72, 0x12, 0xdf, 0x01, 0x0a, 0x18, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
+	0x12, 0x33, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61,
+	0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x34, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x72, 0x65, 0x56,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x58, 0x82, 0xd3, 0xe4,
+	0x93, 0x02, 0x52, 0x12, 0x50, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2f, 0x76, 0x31, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x7b, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0xac, 0x01, 0x0a, 0x16, 0x41, 0x6c, 0x6c, 0x55, 0x6e, 0x69,
+	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73,
+	0x12, 0x31, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x32, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73,
+	0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x73, 0x53, 0x65, 0x74, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12,
+	0x23, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f,
+	0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
+	0x74, 0x6f, 0x72, 0x73, 0x12, 0x74, 0x0a, 0x06, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x12, 0x21,
 	0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51,
-	0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x23, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x18, 0x12,
-	0x16, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f,
-	0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x95, 0x01, 0x0a, 0x0f, 0x41, 0x63, 0x74, 0x69,
-	0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x12, 0x2a, 0x2e, 0x75, 0x76,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74,
-	0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x29, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x23, 0x12, 0x21, 0x2f, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x73, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x2f, 0x69, 0x64, 0x73, 0x12,
-	0x8b, 0x01, 0x0a, 0x0d, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
-	0x73, 0x12, 0x28, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x75, 0x76,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x25, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1f, 0x12, 0x1d,
-	0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62,
-	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x12, 0x99, 0x01,
-	0x0a, 0x10, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49,
+	0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x22, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f,
+	0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61,
+	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x12, 0x75, 0x0a, 0x0a, 0x41, 0x6c,
+	0x6c, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x22, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61,
+	0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x75,
+	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x1e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x18, 0x12, 0x16, 0x2f, 0x75, 0x76, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
+	0x73, 0x12, 0x98, 0x01, 0x0a, 0x12, 0x41, 0x6c, 0x6c, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42,
+	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x12, 0x2a, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63,
+	0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65,
+	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x29, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x23, 0x12, 0x21, 0x2f, 0x75, 0x76, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
+	0x73, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x2f, 0x69, 0x64, 0x73, 0x12, 0x8b, 0x01, 0x0a,
+	0x0d, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x28,
+	0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63,
+	0x74, 0x69, 0x76, 0x65, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x25, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1f, 0x12, 0x1d, 0x2f, 0x75, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x73, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x12, 0x9c, 0x01, 0x0a, 0x13, 0x41,
+	0x6c, 0x6c, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49,
 	0x44, 0x73, 0x12, 0x2b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e,
 	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x45, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x42,
 	0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
@@ -11070,39 +12363,39 @@ var file_uvalidator_v1_query_proto_rawDesc = []byte{
 	0x69, 0x72, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
 	0x6e, 0x73, 0x65, 0x22, 0x26, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x20, 0x12, 0x1e, 0x2f, 0x75, 0x76,
 	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c,
-	0x6f, 0x74, 0x73, 0x2f, 0x65, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x12, 0xa1, 0x01, 0x0a, 0x12,
-	0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49,
-	0x44, 0x73, 0x12, 0x2d, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65,
-	0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x2e, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64,
-	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x2c, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x26, 0x12, 0x24, 0x2f, 0x75, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74,
-	0x73, 0x2f, 0x66, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x2f, 0x69, 0x64, 0x73, 0x12,
-	0x97, 0x01, 0x0a, 0x10, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c,
-	0x6c, 0x6f, 0x74, 0x73, 0x12, 0x2b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x6f, 0x74, 0x73, 0x2f, 0x65, 0x78, 0x70, 0x69, 0x72, 0x65, 0x64, 0x12, 0xa4, 0x01, 0x0a, 0x15,
+	0x41, 0x6c, 0x6c, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c,
+	0x6f, 0x74, 0x49, 0x44, 0x73, 0x12, 0x2d, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c,
+	0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2e, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
 	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69,
-	0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x2c, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64,
-	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x28, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x2f,
-	0x66, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0xb1, 0x01, 0x0a, 0x11, 0x63, 0x6f,
-	0x6d, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42,
-	0x0a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x3b, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f,
-	0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x76,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
-	0xaa, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31,
-	0xca, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
-	0xe2, 0x02, 0x19, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
-	0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0e, 0x55,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x49, 0x44, 0x73, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2c, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x26, 0x12, 0x24, 0x2f, 0x75,
+	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c,
+	0x6c, 0x6f, 0x74, 0x73, 0x2f, 0x66, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x2f, 0x69,
+	0x64, 0x73, 0x12, 0x97, 0x01, 0x0a, 0x10, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64,
+	0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x12, 0x2b, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
+	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e,
+	0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x46, 0x69, 0x6e, 0x61, 0x6c, 0x69,
+	0x7a, 0x65, 0x64, 0x42, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x28, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20, 0x2f, 0x75, 0x76, 0x61,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x6c, 0x6f,
+	0x74, 0x73, 0x2f, 0x66, 0x69, 0x6e, 0x61, 0x6c, 0x69, 0x7a, 0x65, 0x64, 0x42, 0xb1, 0x01, 0x0a,
+	0x11, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e,
+	0x76, 0x31, 0x42, 0x0a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01,
+	0x5a, 0x3b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c,
+	0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31,
+	0x3b, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03,
+	0x55, 0x58, 0x58, 0xaa, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x2e, 0x56, 0x31, 0xca, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x5c, 0x56, 0x31, 0xe2, 0x02, 0x19, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea,
+	0x02, 0x0e, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -11145,43 +12438,59 @@ var file_uvalidator_v1_query_proto_goTypes = []interface{}{
 	(*QueryFinalizedBallotsResponse)(nil),         // 23: uvalidator.v1.QueryFinalizedBallotsResponse
 	(*Params)(nil),                                // 24: uvalidator.v1.Params
 	(*Ballot)(nil),                                // 25: uvalidator.v1.Ballot
+	(*v1beta1.PageRequest)(nil),                   // 26: cosmos.base.query.v1beta1.PageRequest
+	(*v1beta1.PageResponse)(nil),                  // 27: cosmos.base.query.v1beta1.PageResponse
 }
 var file_uvalidator_v1_query_proto_depIdxs = []int32{
 	24, // 0: uvalidator.v1.QueryParamsResponse.params:type_name -> uvalidator.v1.Params
 	25, // 1: uvalidator.v1.QueryBallotResponse.ballot:type_name -> uvalidator.v1.Ballot
-	25, // 2: uvalidator.v1.QueryBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
-	25, // 3: uvalidator.v1.QueryActiveBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
-	25, // 4: uvalidator.v1.QueryExpiredBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
-	25, // 5: uvalidator.v1.QueryFinalizedBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
-	0,  // 6: uvalidator.v1.Query.Params:input_type -> uvalidator.v1.QueryParamsRequest
-	2,  // 7: uvalidator.v1.Query.UniversalValidatorByCore:input_type -> uvalidator.v1.QueryUniversalValidatorByCoreRequest
-	4,  // 8: uvalidator.v1.Query.CoreValidatorByUniversal:input_type -> uvalidator.v1.QueryCoreValidatorByUniversalRequest
-	6,  // 9: uvalidator.v1.Query.AllUniversalValidators:input_type -> uvalidator.v1.QueryUniversalValidatorsSetRequest
-	8,  // 10: uvalidator.v1.Query.Ballot:input_type -> uvalidator.v1.QueryBallotRequest
-	10, // 11: uvalidator.v1.Query.Ballots:input_type -> uvalidator.v1.QueryBallotsRequest
-	12, // 12: uvalidator.v1.Query.ActiveBallotIDs:input_type -> uvalidator.v1.QueryActiveBallotIDsRequest
-	14, // 13: uvalidator.v1.Query.ActiveBallots:input_type -> uvalidator.v1.QueryActiveBallotsRequest
-	16, // 14: uvalidator.v1.Query.ExpiredBallotIDs:input_type -> uvalidator.v1.QueryExpiredBallotIDsRequest
-	18, // 15: uvalidator.v1.Query.ExpiredBallots:input_type -> uvalidator.v1.QueryExpiredBallotsRequest
-	20, // 16: uvalidator.v1.Query.FinalizedBallotIDs:input_type -> uvalidator.v1.QueryFinalizedBallotIDsRequest
-	22, // 17: uvalidator.v1.Query.FinalizedBallots:input_type -> uvalidator.v1.QueryFinalizedBallotsRequest
-	1,  // 18: uvalidator.v1.Query.Params:output_type -> uvalidator.v1.QueryParamsResponse
-	3,  // 19: uvalidator.v1.Query.UniversalValidatorByCore:output_type -> uvalidator.v1.QueryUniversalValidatorByCoreResponse
-	5,  // 20: uvalidator.v1.Query.CoreValidatorByUniversal:output_type -> uvalidator.v1.QueryCoreValidatorByUniversalResponse
-	7,  // 21: uvalidator.v1.Query.AllUniversalValidators:output_type -> uvalidator.v1.QueryUniversalValidatorsSetResponse
-	9,  // 22: uvalidator.v1.Query.Ballot:output_type -> uvalidator.v1.QueryBallotResponse
-	11, // 23: uvalidator.v1.Query.Ballots:output_type -> uvalidator.v1.QueryBallotsResponse
-	13, // 24: uvalidator.v1.Query.ActiveBallotIDs:output_type -> uvalidator.v1.QueryActiveBallotIDsResponse
-	15, // 25: uvalidator.v1.Query.ActiveBallots:output_type -> uvalidator.v1.QueryActiveBallotsResponse
-	17, // 26: uvalidator.v1.Query.ExpiredBallotIDs:output_type -> uvalidator.v1.QueryExpiredBallotIDsResponse
-	19, // 27: uvalidator.v1.Query.ExpiredBallots:output_type -> uvalidator.v1.QueryExpiredBallotsResponse
-	21, // 28: uvalidator.v1.Query.FinalizedBallotIDs:output_type -> uvalidator.v1.QueryFinalizedBallotIDsResponse
-	23, // 29: uvalidator.v1.Query.FinalizedBallots:output_type -> uvalidator.v1.QueryFinalizedBallotsResponse
-	18, // [18:30] is the sub-list for method output_type
-	6,  // [6:18] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	26, // 2: uvalidator.v1.QueryBallotsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	25, // 3: uvalidator.v1.QueryBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
+	27, // 4: uvalidator.v1.QueryBallotsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 5: uvalidator.v1.QueryActiveBallotIDsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	27, // 6: uvalidator.v1.QueryActiveBallotIDsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 7: uvalidator.v1.QueryActiveBallotsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	25, // 8: uvalidator.v1.QueryActiveBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
+	27, // 9: uvalidator.v1.QueryActiveBallotsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 10: uvalidator.v1.QueryExpiredBallotIDsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	27, // 11: uvalidator.v1.QueryExpiredBallotIDsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 12: uvalidator.v1.QueryExpiredBallotsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	25, // 13: uvalidator.v1.QueryExpiredBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
+	27, // 14: uvalidator.v1.QueryExpiredBallotsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 15: uvalidator.v1.QueryFinalizedBallotIDsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	27, // 16: uvalidator.v1.QueryFinalizedBallotIDsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 17: uvalidator.v1.QueryFinalizedBallotsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	25, // 18: uvalidator.v1.QueryFinalizedBallotsResponse.ballots:type_name -> uvalidator.v1.Ballot
+	27, // 19: uvalidator.v1.QueryFinalizedBallotsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	0,  // 20: uvalidator.v1.Query.Params:input_type -> uvalidator.v1.QueryParamsRequest
+	2,  // 21: uvalidator.v1.Query.UniversalValidatorByCore:input_type -> uvalidator.v1.QueryUniversalValidatorByCoreRequest
+	4,  // 22: uvalidator.v1.Query.CoreValidatorByUniversal:input_type -> uvalidator.v1.QueryCoreValidatorByUniversalRequest
+	6,  // 23: uvalidator.v1.Query.AllUniversalValidators:input_type -> uvalidator.v1.QueryUniversalValidatorsSetRequest
+	8,  // 24: uvalidator.v1.Query.Ballot:input_type -> uvalidator.v1.QueryBallotRequest
+	10, // 25: uvalidator.v1.Query.AllBallots:input_type -> uvalidator.v1.QueryBallotsRequest
+	12, // 26: uvalidator.v1.Query.AllActiveBallotIDs:input_type -> uvalidator.v1.QueryActiveBallotIDsRequest
+	14, // 27: uvalidator.v1.Query.ActiveBallots:input_type -> uvalidator.v1.QueryActiveBallotsRequest
+	16, // 28: uvalidator.v1.Query.AllExpiredBallotIDs:input_type -> uvalidator.v1.QueryExpiredBallotIDsRequest
+	18, // 29: uvalidator.v1.Query.ExpiredBallots:input_type -> uvalidator.v1.QueryExpiredBallotsRequest
+	20, // 30: uvalidator.v1.Query.AllFinalizedBallotIDs:input_type -> uvalidator.v1.QueryFinalizedBallotIDsRequest
+	22, // 31: uvalidator.v1.Query.FinalizedBallots:input_type -> uvalidator.v1.QueryFinalizedBallotsRequest
+	1,  // 32: uvalidator.v1.Query.Params:output_type -> uvalidator.v1.QueryParamsResponse
+	3,  // 33: uvalidator.v1.Query.UniversalValidatorByCore:output_type -> uvalidator.v1.QueryUniversalValidatorByCoreResponse
+	5,  // 34: uvalidator.v1.Query.CoreValidatorByUniversal:output_type -> uvalidator.v1.QueryCoreValidatorByUniversalResponse
+	7,  // 35: uvalidator.v1.Query.AllUniversalValidators:output_type -> uvalidator.v1.QueryUniversalValidatorsSetResponse
+	9,  // 36: uvalidator.v1.Query.Ballot:output_type -> uvalidator.v1.QueryBallotResponse
+	11, // 37: uvalidator.v1.Query.AllBallots:output_type -> uvalidator.v1.QueryBallotsResponse
+	13, // 38: uvalidator.v1.Query.AllActiveBallotIDs:output_type -> uvalidator.v1.QueryActiveBallotIDsResponse
+	15, // 39: uvalidator.v1.Query.ActiveBallots:output_type -> uvalidator.v1.QueryActiveBallotsResponse
+	17, // 40: uvalidator.v1.Query.AllExpiredBallotIDs:output_type -> uvalidator.v1.QueryExpiredBallotIDsResponse
+	19, // 41: uvalidator.v1.Query.ExpiredBallots:output_type -> uvalidator.v1.QueryExpiredBallotsResponse
+	21, // 42: uvalidator.v1.Query.AllFinalizedBallotIDs:output_type -> uvalidator.v1.QueryFinalizedBallotIDsResponse
+	23, // 43: uvalidator.v1.Query.FinalizedBallots:output_type -> uvalidator.v1.QueryFinalizedBallotsResponse
+	32, // [32:44] is the sub-list for method output_type
+	20, // [20:32] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_uvalidator_v1_query_proto_init() }

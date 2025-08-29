@@ -446,6 +446,7 @@ e2e-solana-interop-deployment:
 	cd $(E2E_DIR) && rm -rf push-chain-interop-contracts
 	solana config set --url http://127.0.0.1:8899
 	@echo "Deploying svm_gateway contract on solana-test-validator"
+	cp $(E2E_DIR)/.env.sample $(E2E_DIR)/.env 
 	cd $(E2E_DIR) && git clone $(INTEROP_REPO)
 	cp $(E2E_DIR)/deploy.sh $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/deploy.sh
 	cd $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway && ./deploy.sh localnet

@@ -1,0 +1,74 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry (Forge)
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source ~/.foundry/bin/foundryup
+          forge --version
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          solana --version
+
+      - name: Setup Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Verify Yarn
+        run: yarn --version
+
+      - name: Configure Solana Keypair
+        run: |
+          mkdir -p ~/.config/solana
+          cp .github/workflow/id.json ~/.config/solana/id.json
+          solana config set --keypair ~/.config/solana/id.json
+          solana address
+
+      - name: Start Solana Test Validator
+        run: |
+          solana-test-validator \
+            --reset \
+            --rpc-port 8899 \
+            --limit-ledger-size 50000000 \
+            --url https://api.devnet.solana.com \
+            --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
+            7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE \
+            > validator.log 2>&1 &
+          echo "Waiting for Solana test validator to start..."
+          sleep 15
+          solana cluster-version --url http://127.0.0.1:8899
+
+      - name: Run E2E Tests
+        env:
+          ANVIL_URL: http://localhost:9545
+          PUSH_EVM_URL: http://localhost:8545
+          CHAIN_RPC: http://localhost:26657
+          CHAIN_ID: localchain_9000-1
+        run: |
+          source ~/.foundry/bin/init.sh || true
+          make e2e
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validator-log
+          path: validator.log

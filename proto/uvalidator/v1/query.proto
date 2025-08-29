@@ -48,7 +48,7 @@ service Query {
   }
 
   // ActiveBallots queries all active ballots with full details.
-  rpc ActiveBallots(QueryActiveBallotsRequest) returns (QueryActiveBallotsResponse) {
+  rpc AllActiveBallots(QueryActiveBallotsRequest) returns (QueryActiveBallotsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/active";
   }
 
@@ -58,7 +58,7 @@ service Query {
   }
 
   // ExpiredBallots queries all expired ballots with full details.
-  rpc ExpiredBallots(QueryExpiredBallotsRequest) returns (QueryExpiredBallotsResponse) {
+  rpc AllExpiredBallots(QueryExpiredBallotsRequest) returns (QueryExpiredBallotsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/expired";
   }
 
@@ -68,7 +68,7 @@ service Query {
   }
 
   // FinalizedBallots queries all finalized ballots with full details.
-  rpc FinalizedBallots(QueryFinalizedBallotsRequest) returns (QueryFinalizedBallotsResponse) {
+  rpc AllFinalizedBallots(QueryFinalizedBallotsRequest) returns (QueryFinalizedBallotsResponse) {
     option (google.api.http).get = "/uvalidator/v1/ballots/finalized";
   }
 }

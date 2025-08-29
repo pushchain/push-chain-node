@@ -24,12 +24,12 @@ const (
 	Query_CoreValidatorByUniversal_FullMethodName = "/uvalidator.v1.Query/CoreValidatorByUniversal"
 	Query_AllUniversalValidators_FullMethodName   = "/uvalidator.v1.Query/AllUniversalValidators"
 	Query_Ballot_FullMethodName                   = "/uvalidator.v1.Query/Ballot"
-	Query_Ballots_FullMethodName                  = "/uvalidator.v1.Query/Ballots"
-	Query_ActiveBallotIDs_FullMethodName          = "/uvalidator.v1.Query/ActiveBallotIDs"
+	Query_AllBallots_FullMethodName               = "/uvalidator.v1.Query/AllBallots"
+	Query_AllActiveBallotIDs_FullMethodName       = "/uvalidator.v1.Query/AllActiveBallotIDs"
 	Query_ActiveBallots_FullMethodName            = "/uvalidator.v1.Query/ActiveBallots"
-	Query_ExpiredBallotIDs_FullMethodName         = "/uvalidator.v1.Query/ExpiredBallotIDs"
+	Query_AllExpiredBallotIDs_FullMethodName      = "/uvalidator.v1.Query/AllExpiredBallotIDs"
 	Query_ExpiredBallots_FullMethodName           = "/uvalidator.v1.Query/ExpiredBallots"
-	Query_FinalizedBallotIDs_FullMethodName       = "/uvalidator.v1.Query/FinalizedBallotIDs"
+	Query_AllFinalizedBallotIDs_FullMethodName    = "/uvalidator.v1.Query/AllFinalizedBallotIDs"
 	Query_FinalizedBallots_FullMethodName         = "/uvalidator.v1.Query/FinalizedBallots"
 )
 
@@ -48,17 +48,17 @@ type QueryClient interface {
 	// Ballot queries one ballot by ID.
 	Ballot(ctx context.Context, in *QueryBallotRequest, opts ...grpc.CallOption) (*QueryBallotResponse, error)
 	// Ballots queries all ballots.
-	Ballots(ctx context.Context, in *QueryBallotsRequest, opts ...grpc.CallOption) (*QueryBallotsResponse, error)
+	AllBallots(ctx context.Context, in *QueryBallotsRequest, opts ...grpc.CallOption) (*QueryBallotsResponse, error)
 	// ActiveBallotIDs queries all active ballot IDs.
-	ActiveBallotIDs(ctx context.Context, in *QueryActiveBallotIDsRequest, opts ...grpc.CallOption) (*QueryActiveBallotIDsResponse, error)
+	AllActiveBallotIDs(ctx context.Context, in *QueryActiveBallotIDsRequest, opts ...grpc.CallOption) (*QueryActiveBallotIDsResponse, error)
 	// ActiveBallots queries all active ballots with full details.
 	ActiveBallots(ctx context.Context, in *QueryActiveBallotsRequest, opts ...grpc.CallOption) (*QueryActiveBallotsResponse, error)
 	// ExpiredBallotIDs queries all expired ballot IDs.
-	ExpiredBallotIDs(ctx context.Context, in *QueryExpiredBallotIDsRequest, opts ...grpc.CallOption) (*QueryExpiredBallotIDsResponse, error)
+	AllExpiredBallotIDs(ctx context.Context, in *QueryExpiredBallotIDsRequest, opts ...grpc.CallOption) (*QueryExpiredBallotIDsResponse, error)
 	// ExpiredBallots queries all expired ballots with full details.
 	ExpiredBallots(ctx context.Context, in *QueryExpiredBallotsRequest, opts ...grpc.CallOption) (*QueryExpiredBallotsResponse, error)
 	// FinalizedBallotIDs queries all finalized ballot IDs.
-	FinalizedBallotIDs(ctx context.Context, in *QueryFinalizedBallotIDsRequest, opts ...grpc.CallOption) (*QueryFinalizedBallotIDsResponse, error)
+	AllFinalizedBallotIDs(ctx context.Context, in *QueryFinalizedBallotIDsRequest, opts ...grpc.CallOption) (*QueryFinalizedBallotIDsResponse, error)
 	// FinalizedBallots queries all finalized ballots with full details.
 	FinalizedBallots(ctx context.Context, in *QueryFinalizedBallotsRequest, opts ...grpc.CallOption) (*QueryFinalizedBallotsResponse, error)
 }
@@ -116,18 +116,18 @@ func (c *queryClient) Ballot(ctx context.Context, in *QueryBallotRequest, opts .
 	return out, nil
 }
 
-func (c *queryClient) Ballots(ctx context.Context, in *QueryBallotsRequest, opts ...grpc.CallOption) (*QueryBallotsResponse, error) {
+func (c *queryClient) AllBallots(ctx context.Context, in *QueryBallotsRequest, opts ...grpc.CallOption) (*QueryBallotsResponse, error) {
 	out := new(QueryBallotsResponse)
-	err := c.cc.Invoke(ctx, Query_Ballots_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Query_AllBallots_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *queryClient) ActiveBallotIDs(ctx context.Context, in *QueryActiveBallotIDsRequest, opts ...grpc.CallOption) (*QueryActiveBallotIDsResponse, error) {
+func (c *queryClient) AllActiveBallotIDs(ctx context.Context, in *QueryActiveBallotIDsRequest, opts ...grpc.CallOption) (*QueryActiveBallotIDsResponse, error) {
 	out := new(QueryActiveBallotIDsResponse)
-	err := c.cc.Invoke(ctx, Query_ActiveBallotIDs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Query_AllActiveBallotIDs_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +143,9 @@ func (c *queryClient) ActiveBallots(ctx context.Context, in *QueryActiveBallotsR
 	return out, nil
 }
 
-func (c *queryClient) ExpiredBallotIDs(ctx context.Context, in *QueryExpiredBallotIDsRequest, opts ...grpc.CallOption) (*QueryExpiredBallotIDsResponse, error) {
+func (c *queryClient) AllExpiredBallotIDs(ctx context.Context, in *QueryExpiredBallotIDsRequest, opts ...grpc.CallOption) (*QueryExpiredBallotIDsResponse, error) {
 	out := new(QueryExpiredBallotIDsResponse)
-	err := c.cc.Invoke(ctx, Query_ExpiredBallotIDs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Query_AllExpiredBallotIDs_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,9 +161,9 @@ func (c *queryClient) ExpiredBallots(ctx context.Context, in *QueryExpiredBallot
 	return out, nil
 }
 
-func (c *queryClient) FinalizedBallotIDs(ctx context.Context, in *QueryFinalizedBallotIDsRequest, opts ...grpc.CallOption) (*QueryFinalizedBallotIDsResponse, error) {
+func (c *queryClient) AllFinalizedBallotIDs(ctx context.Context, in *QueryFinalizedBallotIDsRequest, opts ...grpc.CallOption) (*QueryFinalizedBallotIDsResponse, error) {
 	out := new(QueryFinalizedBallotIDsResponse)
-	err := c.cc.Invoke(ctx, Query_FinalizedBallotIDs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Query_AllFinalizedBallotIDs_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -194,17 +194,17 @@ type QueryServer interface {
 	// Ballot queries one ballot by ID.
 	Ballot(context.Context, *QueryBallotRequest) (*QueryBallotResponse, error)
 	// Ballots queries all ballots.
-	Ballots(context.Context, *QueryBallotsRequest) (*QueryBallotsResponse, error)
+	AllBallots(context.Context, *QueryBallotsRequest) (*QueryBallotsResponse, error)
 	// ActiveBallotIDs queries all active ballot IDs.
-	ActiveBallotIDs(context.Context, *QueryActiveBallotIDsRequest) (*QueryActiveBallotIDsResponse, error)
+	AllActiveBallotIDs(context.Context, *QueryActiveBallotIDsRequest) (*QueryActiveBallotIDsResponse, error)
 	// ActiveBallots queries all active ballots with full details.
 	ActiveBallots(context.Context, *QueryActiveBallotsRequest) (*QueryActiveBallotsResponse, error)
 	// ExpiredBallotIDs queries all expired ballot IDs.
-	ExpiredBallotIDs(context.Context, *QueryExpiredBallotIDsRequest) (*QueryExpiredBallotIDsResponse, error)
+	AllExpiredBallotIDs(context.Context, *QueryExpiredBallotIDsRequest) (*QueryExpiredBallotIDsResponse, error)
 	// ExpiredBallots queries all expired ballots with full details.
 	ExpiredBallots(context.Context, *QueryExpiredBallotsRequest) (*QueryExpiredBallotsResponse, error)
 	// FinalizedBallotIDs queries all finalized ballot IDs.
-	FinalizedBallotIDs(context.Context, *QueryFinalizedBallotIDsRequest) (*QueryFinalizedBallotIDsResponse, error)
+	AllFinalizedBallotIDs(context.Context, *QueryFinalizedBallotIDsRequest) (*QueryFinalizedBallotIDsResponse, error)
 	// FinalizedBallots queries all finalized ballots with full details.
 	FinalizedBallots(context.Context, *QueryFinalizedBallotsRequest) (*QueryFinalizedBallotsResponse, error)
 	mustEmbedUnimplementedQueryServer()
@@ -229,23 +229,23 @@ func (UnimplementedQueryServer) AllUniversalValidators(context.Context, *QueryUn
 func (UnimplementedQueryServer) Ballot(context.Context, *QueryBallotRequest) (*QueryBallotResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ballot not implemented")
 }
-func (UnimplementedQueryServer) Ballots(context.Context, *QueryBallotsRequest) (*QueryBallotsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ballots not implemented")
+func (UnimplementedQueryServer) AllBallots(context.Context, *QueryBallotsRequest) (*QueryBallotsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllBallots not implemented")
 }
-func (UnimplementedQueryServer) ActiveBallotIDs(context.Context, *QueryActiveBallotIDsRequest) (*QueryActiveBallotIDsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ActiveBallotIDs not implemented")
+func (UnimplementedQueryServer) AllActiveBallotIDs(context.Context, *QueryActiveBallotIDsRequest) (*QueryActiveBallotIDsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllActiveBallotIDs not implemented")
 }
 func (UnimplementedQueryServer) ActiveBallots(context.Context, *QueryActiveBallotsRequest) (*QueryActiveBallotsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActiveBallots not implemented")
 }
-func (UnimplementedQueryServer) ExpiredBallotIDs(context.Context, *QueryExpiredBallotIDsRequest) (*QueryExpiredBallotIDsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExpiredBallotIDs not implemented")
+func (UnimplementedQueryServer) AllExpiredBallotIDs(context.Context, *QueryExpiredBallotIDsRequest) (*QueryExpiredBallotIDsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllExpiredBallotIDs not implemented")
 }
 func (UnimplementedQueryServer) ExpiredBallots(context.Context, *QueryExpiredBallotsRequest) (*QueryExpiredBallotsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExpiredBallots not implemented")
 }
-func (UnimplementedQueryServer) FinalizedBallotIDs(context.Context, *QueryFinalizedBallotIDsRequest) (*QueryFinalizedBallotIDsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FinalizedBallotIDs not implemented")
+func (UnimplementedQueryServer) AllFinalizedBallotIDs(context.Context, *QueryFinalizedBallotIDsRequest) (*QueryFinalizedBallotIDsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllFinalizedBallotIDs not implemented")
 }
 func (UnimplementedQueryServer) FinalizedBallots(context.Context, *QueryFinalizedBallotsRequest) (*QueryFinalizedBallotsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FinalizedBallots not implemented")
@@ -353,38 +353,38 @@ func _Query_Ballot_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_Ballots_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Query_AllBallots_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryBallotsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).Ballots(ctx, in)
+		return srv.(QueryServer).AllBallots(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_Ballots_FullMethodName,
+		FullMethod: Query_AllBallots_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).Ballots(ctx, req.(*QueryBallotsRequest))
+		return srv.(QueryServer).AllBallots(ctx, req.(*QueryBallotsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ActiveBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Query_AllActiveBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryActiveBallotIDsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).ActiveBallotIDs(ctx, in)
+		return srv.(QueryServer).AllActiveBallotIDs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_ActiveBallotIDs_FullMethodName,
+		FullMethod: Query_AllActiveBallotIDs_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ActiveBallotIDs(ctx, req.(*QueryActiveBallotIDsRequest))
+		return srv.(QueryServer).AllActiveBallotIDs(ctx, req.(*QueryActiveBallotIDsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -407,20 +407,20 @@ func _Query_ActiveBallots_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ExpiredBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Query_AllExpiredBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryExpiredBallotIDsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).ExpiredBallotIDs(ctx, in)
+		return srv.(QueryServer).AllExpiredBallotIDs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_ExpiredBallotIDs_FullMethodName,
+		FullMethod: Query_AllExpiredBallotIDs_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ExpiredBallotIDs(ctx, req.(*QueryExpiredBallotIDsRequest))
+		return srv.(QueryServer).AllExpiredBallotIDs(ctx, req.(*QueryExpiredBallotIDsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -443,20 +443,20 @@ func _Query_ExpiredBallots_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_FinalizedBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Query_AllFinalizedBallotIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryFinalizedBallotIDsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).FinalizedBallotIDs(ctx, in)
+		return srv.(QueryServer).AllFinalizedBallotIDs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_FinalizedBallotIDs_FullMethodName,
+		FullMethod: Query_AllFinalizedBallotIDs_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).FinalizedBallotIDs(ctx, req.(*QueryFinalizedBallotIDsRequest))
+		return srv.(QueryServer).AllFinalizedBallotIDs(ctx, req.(*QueryFinalizedBallotIDsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -507,28 +507,28 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Query_Ballot_Handler,
 		},
 		{
-			MethodName: "Ballots",
-			Handler:    _Query_Ballots_Handler,
+			MethodName: "AllBallots",
+			Handler:    _Query_AllBallots_Handler,
 		},
 		{
-			MethodName: "ActiveBallotIDs",
-			Handler:    _Query_ActiveBallotIDs_Handler,
+			MethodName: "AllActiveBallotIDs",
+			Handler:    _Query_AllActiveBallotIDs_Handler,
 		},
 		{
 			MethodName: "ActiveBallots",
 			Handler:    _Query_ActiveBallots_Handler,
 		},
 		{
-			MethodName: "ExpiredBallotIDs",
-			Handler:    _Query_ExpiredBallotIDs_Handler,
+			MethodName: "AllExpiredBallotIDs",
+			Handler:    _Query_AllExpiredBallotIDs_Handler,
 		},
 		{
 			MethodName: "ExpiredBallots",
 			Handler:    _Query_ExpiredBallots_Handler,
 		},
 		{
-			MethodName: "FinalizedBallotIDs",
-			Handler:    _Query_FinalizedBallotIDs_Handler,
+			MethodName: "AllFinalizedBallotIDs",
+			Handler:    _Query_AllFinalizedBallotIDs_Handler,
 		},
 		{
 			MethodName: "FinalizedBallots",

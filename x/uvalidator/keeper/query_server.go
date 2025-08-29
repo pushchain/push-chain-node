@@ -194,3 +194,50 @@ func (k Keeper) AllActiveBallots(goCtx context.Context, req *types.QueryActiveBa
 		Pagination: pageRes, // PageResponse
 	}, nil
 }
+
+// AllExpiredBallotIDs implements types.QueryServer.
+func (k Keeper) AllExpiredBallotIDs(goCtx context.Context, req *types.QueryExpiredBallotIDsRequest) (*types.QueryExpiredBallotIDsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	ids, pageRes, err := query.CollectionPaginate(ctx, k.ExpiredBallotIDs, req.Pagination,
+		func(id string, _ collections.NoValue) (string, error) {
+			return id, nil
+		})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryExpiredBallotIDsResponse{
+		Ids:        ids,     // []string
+		Pagination: pageRes, // PageResponse
+	}, nil
+}
+
+// AllExpiredBallots implements types.QueryServer.
+func (k Keeper) AllExpiredBallots(goCtx context.Context, req *types.QueryExpiredBallotsRequest) (*types.QueryExpiredBallotsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Paginate over ExpiredBallotIDs and resolve full Ballot objects
+	res, pageRes, err := query.CollectionPaginate(ctx, k.ExpiredBallotIDs, req.Pagination,
+		func(id string, _ collections.NoValue) (*types.Ballot, error) {
+			ballot, err := k.Ballots.Get(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return &ballot, nil
+		})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryExpiredBallotsResponse{
+		Ballots:    res,     // []*types.Ballot
+		Pagination: pageRes, // PageResponse
+	}, nil
+}

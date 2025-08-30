@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rollchains/pchain/universalClient/config"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
@@ -159,7 +160,7 @@ func TestClientStartStop(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:          "solana:devnet",
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   server.URL,
@@ -167,7 +168,14 @@ func TestClientStartStop(t *testing.T) {
 			Enabled:        true,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with RPC URLs
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {server.URL},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -182,14 +190,21 @@ func TestClientStartStop(t *testing.T) {
 	})
 
 	t.Run("Start with invalid URL", func(t *testing.T) {
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:          "solana:devnet",
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "http://invalid.localhost:99999",
 			GatewayAddress: "Sol123...",
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with invalid RPC URL
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {"http://invalid.localhost:99999"},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -205,14 +220,15 @@ func TestClientStartStop(t *testing.T) {
 			PublicRpcUrl: "",
 		}
 
+		// Don't provide any RPC URLs in appConfig
 		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
 		err = client.Start(ctx)
 		assert.Error(t, err)
-		// The error will come from the RPC library when it tries to connect
-		assert.Contains(t, err.Error(), "failed to get health status")
+		// Should get error about no RPC URLs configured
+		assert.Contains(t, err.Error(), "no RPC URLs configured")
 	})
 }
 
@@ -233,13 +249,20 @@ func TestClientIsHealthy(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:        "solana:devnet",
 			VmType:       uregistrytypes.VmType_SVM,
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with RPC URL
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {server.URL},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -275,13 +298,20 @@ func TestClientIsHealthy(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:        "solana:devnet",
 			VmType:       uregistrytypes.VmType_SVM,
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with RPC URL pointing to error server
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {server.URL},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client - should fail because getHealth returns error
@@ -370,13 +400,20 @@ func TestClientGetSlot(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:        "solana:devnet",
 			VmType:       uregistrytypes.VmType_SVM,
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with RPC URL
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {server.URL},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -439,13 +476,20 @@ func TestClientGetSlot(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &uregistrytypes.ChainConfig{
+		chainConfig := &uregistrytypes.ChainConfig{
 			Chain:        "solana:devnet",
 			VmType:       uregistrytypes.VmType_SVM,
 			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Create appConfig with RPC URL
+		appConfig := &config.Config{
+			ChainRPCURLs: map[string][]string{
+				"solana:devnet": {server.URL},
+			},
+		}
+
+		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -479,13 +523,20 @@ func TestClientConcurrency(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := &uregistrytypes.ChainConfig{
+	chainConfig := &uregistrytypes.ChainConfig{
 		Chain:        "solana:devnet",
 		VmType:       uregistrytypes.VmType_SVM,
 		PublicRpcUrl: server.URL,
 	}
 
-	client, err := NewClient(config, nil, nil, logger)
+	// Create appConfig with RPC URL
+	appConfig := &config.Config{
+		ChainRPCURLs: map[string][]string{
+			"solana:devnet": {server.URL},
+		},
+	}
+
+	client, err := NewClient(chainConfig, nil, appConfig, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()

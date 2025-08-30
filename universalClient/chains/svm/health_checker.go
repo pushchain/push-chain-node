@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rollchains/pchain/universalClient/chains/common"
 )
 
 // SVMHealthChecker implements health checking for Solana endpoints
@@ -63,6 +62,3 @@ func (h *SVMHealthChecker) CheckHealth(ctx context.Context, client interface{}) 
 
 	return nil
 }
-
-// Verify that SVMHealthChecker implements HealthChecker interface
-var _ common.HealthChecker = (*SVMHealthChecker)(nil)

@@ -12,6 +12,7 @@ import (
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/db"
+	"github.com/rollchains/pchain/universalClient/rpcpool"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
@@ -19,8 +20,8 @@ import (
 type Client struct {
 	*common.BaseChainClient
 	logger         zerolog.Logger
-	genesisHash    string                   // Genesis hash extracted from CAIP-2
-	rpcPool        *common.RPCPoolManager   // Pool manager for multiple RPC endpoints
+	genesisHash    string           // Genesis hash extracted from CAIP-2
+	rpcPool        *rpcpool.Manager // Pool manager for multiple RPC endpoints
 	rpcURL         string                   // Fallback single RPC URL (legacy)
 	rpcClient      *rpc.Client              // Fallback single client (legacy)
 	gatewayHandler *GatewayHandler
@@ -79,12 +80,14 @@ func (c *Client) getRPCURLs() []string {
 	}
 
 	// Only use local config ChainRPCURLs - no fallback to registry
-	if urls, ok := c.appConfig.ChainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
-		c.logger.Info().
-			Str("chain", chainConfig.Chain).
-			Int("url_count", len(urls)).
-			Msg("using RPC URLs from local configuration")
-		return urls
+	if c.appConfig != nil && c.appConfig.ChainRPCURLs != nil {
+		if urls, ok := c.appConfig.ChainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+			c.logger.Info().
+				Str("chain", chainConfig.Chain).
+				Int("url_count", len(urls)).
+				Msg("using RPC URLs from local configuration")
+			return urls
+		}
 	}
 
 	c.logger.Warn().
@@ -93,11 +96,6 @@ func (c *Client) getRPCURLs() []string {
 	return []string{}
 }
 
-// createRPCClient creates a Solana RPC client for the given URL
-func (c *Client) createRPCClient(url string) (interface{}, error) {
-	client := rpc.New(url)
-	return client, nil
-}
 
 // getRPCClient returns an RPC client, either from pool or fallback
 func (c *Client) getRPCClient() (*rpc.Client, error) {
@@ -107,13 +105,8 @@ func (c *Client) getRPCClient() (*rpc.Client, error) {
 			return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
 		}
 		
-		client := endpoint.GetClient()
-		rpcClient, ok := client.(*rpc.Client)
-		if !ok {
-			return nil, fmt.Errorf("invalid client type in pool: %T", client)
-		}
-		
-		return rpcClient, nil
+		// Use the helper function from pool_adapter.go
+		return GetSolanaClientFromPool(endpoint)
 	}
 
 	// Fallback to single client
@@ -136,13 +129,14 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 				return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
 			}
 			
-			client := endpoint.GetClient()
-			rpcClient, ok := client.(*rpc.Client)
-			if !ok {
+			// Use the helper function from pool_adapter.go
+			rpcClient, err := GetSolanaClientFromPool(endpoint)
+			if err != nil {
 				c.logger.Error().
 					Str("operation", operation).
 					Str("url", endpoint.URL).
-					Msg("invalid client type in endpoint")
+					Err(err).
+					Msg("failed to get Solana client from endpoint")
 				continue
 			}
 			
@@ -361,12 +355,16 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 		Int("url_count", len(rpcURLs)).
 		Msg("initializing Solana RPC pool")
 
-	// Create pool manager
-	c.rpcPool = common.NewRPCPoolManager(
+	// Create pool manager using the new rpcpool module
+	var poolConfig *config.RPCPoolConfig
+	if c.appConfig != nil {
+		poolConfig = &c.appConfig.RPCPoolConfig
+	}
+	c.rpcPool = rpcpool.NewManager(
 		c.GetConfig().Chain,
 		rpcURLs,
-		&c.appConfig.RPCPoolConfig,
-		c.createRPCClient,
+		poolConfig,
+		CreateSVMClientFactory(),
 		c.logger,
 	)
 
@@ -375,7 +373,7 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	}
 
 	// Set up health checker
-	healthChecker := NewSVMHealthChecker(c.genesisHash)
+	healthChecker := CreateSVMHealthChecker(c.genesisHash)
 	c.rpcPool.HealthMonitor.SetHealthChecker(healthChecker)
 
 	// Start the pool

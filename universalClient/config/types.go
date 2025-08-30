@@ -23,6 +23,9 @@ type Config struct {
 	// Event monitoring configuration
 	EventPollingInterval time.Duration `json:"event_polling_interval"`   // How often to poll for new events (default: 5s)
 
+	// Database configuration
+	DatabaseBaseDir string `json:"database_base_dir"` // Base directory for chain databases (default: ~/.puniversal/databases)
+
 	// Transaction cleanup configuration
 	TransactionCleanupInterval  time.Duration `json:"transaction_cleanup_interval"`  // How often to run cleanup (default: 1h)
 	TransactionRetentionPeriod  time.Duration `json:"transaction_retention_period"`  // How long to keep confirmed transactions (default: 24h)

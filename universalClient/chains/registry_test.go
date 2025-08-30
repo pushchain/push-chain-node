@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rollchains/pchain/universalClient/chains/common"
+	"github.com/rollchains/pchain/universalClient/db"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
@@ -107,7 +108,9 @@ func (m *MockChainClient) IsConfirmed(ctx context.Context, txHash string, mode s
 func TestChainRegistryInitialization(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	
-	registry := NewChainRegistry(nil, logger)
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
+	registry := NewChainRegistry(dbManager, logger)
 	
 	assert.NotNil(t, registry)
 	assert.NotNil(t, registry.chains)
@@ -118,7 +121,10 @@ func TestChainRegistryInitialization(t *testing.T) {
 // TestChainRegistryCreateChainClient tests chain client creation
 func TestChainRegistryCreateChainClient(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	registry := NewChainRegistry(nil, logger)
+	
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
+	registry := NewChainRegistry(dbManager, logger)
 	
 	t.Run("Create EVM client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{

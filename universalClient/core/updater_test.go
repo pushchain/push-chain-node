@@ -13,6 +13,7 @@ import (
 
 	"github.com/rollchains/pchain/universalClient/chains"
 	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/registry"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
@@ -82,7 +83,9 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 	
 	t.Run("Successful update", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
-		chainReg := chains.NewChainRegistry(nil, logger)
+		dbManager := db.NewInMemoryChainDBManager(logger, nil)
+		defer dbManager.CloseAll()
+		chainReg := chains.NewChainRegistry(dbManager, logger)
 		
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			{
@@ -141,7 +144,9 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 	
 	t.Run("Chain config fetch error", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
-		chainReg := chains.NewChainRegistry(nil, logger)
+		dbManager := db.NewInMemoryChainDBManager(logger, nil)
+		defer dbManager.CloseAll()
+		chainReg := chains.NewChainRegistry(dbManager, logger)
 		
 		mockRegistry := &MockedRegistryClient{
 			getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
@@ -226,7 +231,19 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
-	chainReg := chains.NewChainRegistry(nil, logger)
+	
+	// Create an in-memory database manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	chainReg := chains.NewChainRegistry(dbManager, logger)
+	
+	// Create a test appConfig with RPC URLs
+	appConfig := &config.Config{
+		ChainRPCURLs: map[string][]string{
+			"eip155:11155111": {"https://eth-sepolia.example.com"},
+			"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {"https://api.devnet.solana.com"},
+		},
+	}
+	chainReg.SetAppConfig(appConfig)
 	
 	updater := &ConfigUpdater{
 		cache:    cache,
@@ -304,7 +321,18 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 func TestConfigUpdaterForceUpdate(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
-	chainReg := chains.NewChainRegistry(nil, logger)
+	
+	// Create an in-memory database manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	chainReg := chains.NewChainRegistry(dbManager, logger)
+	
+	// Create a test appConfig with RPC URLs
+	appConfig := &config.Config{
+		ChainRPCURLs: map[string][]string{
+			"eip155:11155111": {"https://eth-sepolia.example.com"},
+		},
+	}
+	chainReg.SetAppConfig(appConfig)
 	
 	forceUpdateCalled := false
 	mockRegistry := &MockedRegistryClient{
@@ -516,7 +544,18 @@ func TestConfigUpdaterStartFailure(t *testing.T) {
 func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
-	chainReg := chains.NewChainRegistry(nil, logger)
+	
+	// Create an in-memory database manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	chainReg := chains.NewChainRegistry(dbManager, logger)
+	
+	// Create a test appConfig with RPC URLs
+	appConfig := &config.Config{
+		ChainRPCURLs: map[string][]string{
+			"eip155:11155111": {"https://eth-sepolia.example.com"},
+		},
+	}
+	chainReg.SetAppConfig(appConfig)
 	
 	attemptCount := 0
 	mockRegistry := &MockedRegistryClient{
@@ -570,7 +609,16 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
-	chainReg := chains.NewChainRegistry(nil, logger)
+	
+	// Create an in-memory database manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	chainReg := chains.NewChainRegistry(dbManager, logger)
+	
+	// Create a test appConfig
+	appConfig := &config.Config{
+		ChainRPCURLs: map[string][]string{},
+	}
+	chainReg.SetAppConfig(appConfig)
 	
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {

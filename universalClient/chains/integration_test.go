@@ -16,12 +16,13 @@ import (
 // TestGatewayIntegration tests the integration of gateway methods across the system
 func TestGatewayIntegration(t *testing.T) {
 	logger := zerolog.Nop()
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	defer database.Close()
+	
+	// Create an in-memory chain DB manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
 
-	// Create chain registry
-	registry := NewChainRegistry(database, logger)
+	// Create chain registry with the DB manager
+	registry := NewChainRegistry(dbManager, logger)
 
 	t.Run("EVM Chain Gateway Configuration", func(t *testing.T) {
 		// Create EVM chain config with gateway
@@ -255,11 +256,12 @@ func TestGatewayMethodRegistry(t *testing.T) {
 // TestDynamicConfigurationUpdate tests that configuration can be updated dynamically
 func TestDynamicConfigurationUpdate(t *testing.T) {
 	logger := zerolog.Nop()
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	defer database.Close()
+	
+	// Create an in-memory chain DB manager for testing
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
 
-	registry := NewChainRegistry(database, logger)
+	registry := NewChainRegistry(dbManager, logger)
 
 	// Simulate dynamic configuration update scenarios
 	scenarios := []struct {

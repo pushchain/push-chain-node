@@ -17,19 +17,19 @@ import (
 
 // ChainRegistry manages chain clients based on their configurations
 type ChainRegistry struct {
-	mu        sync.RWMutex
-	chains    map[string]common.ChainClient // key: CAIP-2 chain ID
-	logger    zerolog.Logger
-	database  *db.DB
-	appConfig *config.Config
+	mu           sync.RWMutex
+	chains       map[string]common.ChainClient // key: CAIP-2 chain ID
+	logger       zerolog.Logger
+	dbManager    *db.ChainDBManager
+	appConfig    *config.Config
 }
 
 // NewChainRegistry creates a new chain registry
-func NewChainRegistry(database *db.DB, logger zerolog.Logger) *ChainRegistry {
+func NewChainRegistry(dbManager *db.ChainDBManager, logger zerolog.Logger) *ChainRegistry {
 	return &ChainRegistry{
-		chains:   make(map[string]common.ChainClient),
-		logger:   logger.With().Str("component", "chain_registry").Logger(),
-		database: database,
+		chains:    make(map[string]common.ChainClient),
+		logger:    logger.With().Str("component", "chain_registry").Logger(),
+		dbManager: dbManager,
 	}
 }
 
@@ -51,11 +51,17 @@ func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (c
 		Int32("vm_type", int32(config.VmType)).
 		Msg("creating chain client")
 
+	// Get chain-specific database
+	chainDB, err := r.dbManager.GetChainDB(config.Chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database for chain %s: %w", config.Chain, err)
+	}
+
 	switch config.VmType {
 	case uregistrytypes.VmType_EVM:
-		return evm.NewClient(config, r.database, r.appConfig, r.logger)
+		return evm.NewClient(config, chainDB, r.appConfig, r.logger)
 	case uregistrytypes.VmType_SVM:
-		return svm.NewClient(config, r.database, r.appConfig, r.logger)
+		return svm.NewClient(config, chainDB, r.appConfig, r.logger)
 	default:
 		return nil, fmt.Errorf("unsupported VM type: %v", config.VmType)
 	}
@@ -194,6 +200,14 @@ func (r *ChainRegistry) GetHealthStatus() map[string]bool {
 	}
 
 	return status
+}
+
+// GetDatabaseStats returns statistics about all managed databases
+func (r *ChainRegistry) GetDatabaseStats() map[string]interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	return r.dbManager.GetDatabaseStats()
 }
 
 // configsEqual compares two chain configurations

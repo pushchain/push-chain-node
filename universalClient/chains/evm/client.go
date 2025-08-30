@@ -13,6 +13,7 @@ import (
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/db"
+	"github.com/rollchains/pchain/universalClient/rpcpool"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
@@ -21,9 +22,9 @@ type Client struct {
 	*common.BaseChainClient
 	logger         zerolog.Logger
 	chainID        int64 // Numeric chain ID extracted from CAIP-2
-	rpcPool        *common.RPCPoolManager // Pool manager for multiple RPC endpoints
-	rpcURL         string                 // Fallback single RPC URL (legacy)
-	ethClient      *ethclient.Client      // Fallback single client (legacy)
+	rpcPool        *rpcpool.Manager // Pool manager for multiple RPC endpoints
+	rpcURL         string           // Fallback single RPC URL (legacy)
+	ethClient      *ethclient.Client // Fallback single client (legacy)
 	gatewayHandler *GatewayHandler
 	database       *db.DB
 	appConfig      *config.Config
@@ -80,28 +81,31 @@ func (c *Client) getRPCURLs() []string {
 	}
 
 	// Only use local config ChainRPCURLs - no fallback to registry
-	if urls, ok := c.appConfig.ChainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+	if c.appConfig != nil {
+		if urls, ok := c.appConfig.ChainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+			c.logger.Info().
+				Str("chain", chainConfig.Chain).
+				Int("url_count", len(urls)).
+				Msg("using RPC URLs from local configuration")
+			return urls
+		}
+	}
+
+	// Fallback to PublicRpcUrl from chain config if available
+	if chainConfig.PublicRpcUrl != "" {
 		c.logger.Info().
 			Str("chain", chainConfig.Chain).
-			Int("url_count", len(urls)).
-			Msg("using RPC URLs from local configuration")
-		return urls
+			Str("url", chainConfig.PublicRpcUrl).
+			Msg("using PublicRpcUrl from chain config as fallback")
+		return []string{chainConfig.PublicRpcUrl}
 	}
 
 	c.logger.Warn().
 		Str("chain", chainConfig.Chain).
-		Msg("no RPC URLs configured for chain in local config")
+		Msg("no RPC URLs configured for chain")
 	return []string{}
 }
 
-// createEthClient creates an ethclient.Client for the given URL
-func (c *Client) createEthClient(url string) (interface{}, error) {
-	client, err := ethclient.Dial(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create eth client for %s: %w", url, err)
-	}
-	return client, nil
-}
 
 // getEthClient returns an eth client, either from pool or fallback
 func (c *Client) getEthClient() (*ethclient.Client, error) {
@@ -111,10 +115,9 @@ func (c *Client) getEthClient() (*ethclient.Client, error) {
 			return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
 		}
 		
-		client := endpoint.GetClient()
-		ethClient, ok := client.(*ethclient.Client)
-		if !ok {
-			return nil, fmt.Errorf("invalid client type in pool: %T", client)
+		ethClient, err := GetEthClientFromPool(endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get eth client from pool: %w", err)
 		}
 		
 		return ethClient, nil
@@ -140,13 +143,13 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 				return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
 			}
 			
-			client := endpoint.GetClient()
-			ethClient, ok := client.(*ethclient.Client)
-			if !ok {
+			ethClient, err := GetEthClientFromPool(endpoint)
+			if err != nil {
 				c.logger.Error().
+					Err(err).
 					Str("operation", operation).
 					Str("url", endpoint.URL).
-					Msg("invalid client type in endpoint")
+					Msg("failed to get eth client from endpoint")
 				continue
 			}
 			
@@ -363,12 +366,12 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 		Int("url_count", len(rpcURLs)).
 		Msg("initializing EVM RPC pool")
 
-	// Create pool manager
-	c.rpcPool = common.NewRPCPoolManager(
+	// Create pool manager using the new rpcpool module
+	c.rpcPool = rpcpool.NewManager(
 		c.GetConfig().Chain,
 		rpcURLs,
 		&c.appConfig.RPCPoolConfig,
-		c.createEthClient,
+		CreateEVMClientFactory(),
 		c.logger,
 	)
 
@@ -377,7 +380,7 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	}
 
 	// Set up health checker
-	healthChecker := NewEVMHealthChecker(c.chainID)
+	healthChecker := CreateEVMHealthChecker(c.chainID)
 	c.rpcPool.HealthMonitor.SetHealthChecker(healthChecker)
 
 	// Start the pool

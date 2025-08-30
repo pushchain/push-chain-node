@@ -1,4 +1,4 @@
-package common
+package rpcpool
 
 import (
 	"context"
@@ -10,14 +10,9 @@ import (
 	"github.com/rollchains/pchain/universalClient/config"
 )
 
-// HealthChecker defines the interface for checking endpoint health
-type HealthChecker interface {
-	CheckHealth(ctx context.Context, client interface{}) error
-}
-
 // HealthMonitor monitors the health of RPC endpoints and manages recovery
 type HealthMonitor struct {
-	pool          *RPCPoolManager
+	manager       *Manager
 	config        *config.RPCPoolConfig
 	logger        zerolog.Logger
 	healthChecker HealthChecker
@@ -25,12 +20,12 @@ type HealthMonitor struct {
 }
 
 // NewHealthMonitor creates a new health monitor
-func NewHealthMonitor(pool *RPCPoolManager, config *config.RPCPoolConfig, logger zerolog.Logger) *HealthMonitor {
+func NewHealthMonitor(manager *Manager, config *config.RPCPoolConfig, logger zerolog.Logger) *HealthMonitor {
 	return &HealthMonitor{
-		pool:   pool,
-		config: config,
-		logger: logger.With().Str("component", "health_monitor").Logger(),
-		stopCh: make(chan struct{}),
+		manager: manager,
+		config:  config,
+		logger:  logger.With().Str("component", "health_monitor").Logger(),
+		stopCh:  make(chan struct{}),
 	}
 }
 
@@ -76,15 +71,12 @@ func (h *HealthMonitor) Stop() {
 func (h *HealthMonitor) performHealthChecks(ctx context.Context) {
 	h.logger.Debug().Msg("performing health checks on all endpoints")
 
-	h.pool.mu.RLock()
-	endpoints := make([]*RPCEndpoint, len(h.pool.endpoints))
-	copy(endpoints, h.pool.endpoints)
-	h.pool.mu.RUnlock()
+	endpoints := h.manager.GetEndpoints()
 
 	var wg sync.WaitGroup
 	for _, endpoint := range endpoints {
 		wg.Add(1)
-		go func(ep *RPCEndpoint) {
+		go func(ep *Endpoint) {
 			defer wg.Done()
 			h.checkEndpointHealth(ctx, ep)
 		}(endpoint)
@@ -95,7 +87,7 @@ func (h *HealthMonitor) performHealthChecks(ctx context.Context) {
 }
 
 // checkEndpointHealth performs a health check on a single endpoint
-func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *RPCEndpoint) {
+func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *Endpoint) {
 	// Create timeout context for this specific health check
 	checkCtx, cancel := context.WithTimeout(ctx, h.config.RequestTimeout)
 	defer cancel()
@@ -132,7 +124,7 @@ func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *RPCEn
 
 	// Update metrics based on health check result
 	success := err == nil
-	h.pool.UpdateEndpointMetrics(endpoint, success, latency, err)
+	h.manager.UpdateEndpointMetrics(endpoint, success, latency, err)
 
 	if success {
 		h.logger.Debug().
@@ -151,7 +143,7 @@ func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *RPCEn
 }
 
 // handleExcludedEndpointCheck handles health checking for excluded endpoints
-func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *RPCEndpoint, success bool, latency time.Duration, err error) {
+func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *Endpoint, success bool, latency time.Duration, err error) {
 	// Check if enough time has passed since exclusion for recovery attempt
 	endpoint.mu.RLock()
 	excludedAt := endpoint.ExcludedAt
@@ -193,9 +185,8 @@ func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *RPCEndpoint, succe
 
 // GetHealthStatus returns a summary of endpoint health
 func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
-	h.pool.mu.RLock()
-	defer h.pool.mu.RUnlock()
-
+	endpoints := h.manager.GetEndpoints()
+	
 	status := make(map[string]interface{})
 	
 	healthyCount := 0
@@ -203,9 +194,9 @@ func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
 	unhealthyCount := 0
 	excludedCount := 0
 	
-	endpointStatus := make([]map[string]interface{}, len(h.pool.endpoints))
+	endpointStatus := make([]map[string]interface{}, len(endpoints))
 	
-	for i, endpoint := range h.pool.endpoints {
+	for i, endpoint := range endpoints {
 		state := endpoint.GetState()
 		
 		switch state {
@@ -242,7 +233,7 @@ func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
 	status["degraded_count"] = degradedCount  
 	status["unhealthy_count"] = unhealthyCount
 	status["excluded_count"] = excludedCount
-	status["total_count"] = len(h.pool.endpoints)
+	status["total_count"] = len(endpoints)
 	status["min_healthy_required"] = h.config.MinHealthyEndpoints
 	status["health_check_interval"] = h.config.HealthCheckInterval.String()
 	status["recovery_interval"] = h.config.RecoveryInterval.String()
@@ -263,10 +254,9 @@ func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
 
 // ForceExcludeEndpoint manually excludes an endpoint (useful for testing or manual intervention)
 func (h *HealthMonitor) ForceExcludeEndpoint(url string) error {
-	h.pool.mu.RLock()
-	defer h.pool.mu.RUnlock()
+	endpoints := h.manager.GetEndpoints()
 
-	for _, endpoint := range h.pool.endpoints {
+	for _, endpoint := range endpoints {
 		if endpoint.URL == url {
 			endpoint.UpdateState(StateExcluded)
 			h.logger.Info().
@@ -281,10 +271,9 @@ func (h *HealthMonitor) ForceExcludeEndpoint(url string) error {
 
 // ForceRecoverEndpoint manually recovers an excluded endpoint (useful for testing or manual intervention)
 func (h *HealthMonitor) ForceRecoverEndpoint(url string) error {
-	h.pool.mu.RLock()
-	defer h.pool.mu.RUnlock()
+	endpoints := h.manager.GetEndpoints()
 
-	for _, endpoint := range h.pool.endpoints {
+	for _, endpoint := range endpoints {
 		if endpoint.URL == url && endpoint.GetState() == StateExcluded {
 			// Reset metrics and promote to degraded for monitoring
 			endpoint.Metrics = &EndpointMetrics{HealthScore: 70.0}

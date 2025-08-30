@@ -13,11 +13,6 @@ import (
 )
 
 func TestTransactionCleaner(t *testing.T) {
-	// Setup test database
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	defer database.Close()
-
 	// Setup test config
 	cfg := &config.Config{
 		TransactionCleanupInterval: 100 * time.Millisecond,
@@ -29,12 +24,21 @@ func TestTransactionCleaner(t *testing.T) {
 	// Setup logger
 	log := logger.Init(*cfg)
 
+	// Setup ChainDBManager
+	dbManager := db.NewInMemoryChainDBManager(log, cfg)
+	defer dbManager.CloseAll()
+
+	// Get database for test chain
+	chainID := "eip155:1"
+	database, err := dbManager.GetChainDB(chainID)
+	require.NoError(t, err)
+
 	// Create test transactions
 	now := time.Now()
 	
 	// Old confirmed transaction (should be deleted)
 	oldConfirmed := &store.GatewayTransaction{
-		ChainID:         "eip155:1",
+		ChainID:         chainID,
 		TxHash:          "0x111",
 		BlockNumber:     100,
 		Method:          "deposit",
@@ -47,7 +51,7 @@ func TestTransactionCleaner(t *testing.T) {
 	
 	// Recent confirmed transaction (should NOT be deleted)
 	recentConfirmed := &store.GatewayTransaction{
-		ChainID:         "eip155:1",
+		ChainID:         chainID,
 		TxHash:          "0x222",
 		BlockNumber:     200,
 		Method:          "deposit",
@@ -60,7 +64,7 @@ func TestTransactionCleaner(t *testing.T) {
 	
 	// Old pending transaction (should NOT be deleted regardless of age)
 	oldPending := &store.GatewayTransaction{
-		ChainID:         "eip155:1",
+		ChainID:         chainID,
 		TxHash:          "0x333",
 		BlockNumber:     150,
 		Method:          "deposit",
@@ -120,7 +124,7 @@ func TestTransactionCleaner(t *testing.T) {
 
 	t.Run("TransactionCleanerService", func(t *testing.T) {
 		// Create transaction cleaner
-		cleaner := NewTransactionCleaner(database, cfg, log)
+		cleaner := NewTransactionCleaner(dbManager, cfg, log)
 		
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -153,11 +157,6 @@ func TestTransactionCleaner(t *testing.T) {
 }
 
 func TestTransactionCleanerEdgeCases(t *testing.T) {
-	// Setup test database
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	defer database.Close()
-
 	// Setup test config
 	cfg := &config.Config{
 		TransactionCleanupInterval: 50 * time.Millisecond,
@@ -166,7 +165,16 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		LogFormat:                  "console",
 	}
 
-	_ = logger.Init(*cfg)
+	log := logger.Init(*cfg)
+
+	// Setup ChainDBManager
+	dbManager := db.NewInMemoryChainDBManager(log, cfg)
+	defer dbManager.CloseAll()
+
+	// Get database for test chain
+	chainID := "eip155:1"
+	database, err := dbManager.GetChainDB(chainID)
+	require.NoError(t, err)
 
 	t.Run("EmptyDatabase", func(t *testing.T) {
 		// Test cleanup with no transactions
@@ -178,7 +186,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 	t.Run("OnlyRecentTransactions", func(t *testing.T) {
 		// Create only recent transactions
 		recent := &store.GatewayTransaction{
-			ChainID:         "eip155:1",
+			ChainID:         chainID,
 			TxHash:          "0x456",
 			BlockNumber:     300,
 			Method:          "withdraw",
@@ -210,7 +218,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		
 		for i, status := range statuses {
 			tx := &store.GatewayTransaction{
-				ChainID:         "eip155:1",
+				ChainID:         chainID,
 				TxHash:          string(rune('a' + i)) + "00",
 				BlockNumber:     uint64(400 + i),
 				Method:          "test",
@@ -239,10 +247,6 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 }
 
 func TestTransactionCleanerConfiguration(t *testing.T) {
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	defer database.Close()
-
 	cfg := &config.Config{
 		TransactionCleanupInterval: 200 * time.Millisecond,
 		TransactionRetentionPeriod: 30 * time.Minute, // Shorter retention period
@@ -252,7 +256,10 @@ func TestTransactionCleanerConfiguration(t *testing.T) {
 
 	log := logger.Init(*cfg)
 
-	cleaner := NewTransactionCleaner(database, cfg, log)
+	dbManager := db.NewInMemoryChainDBManager(log, cfg)
+	defer dbManager.CloseAll()
+
+	cleaner := NewTransactionCleaner(dbManager, cfg, log)
 
 	// Verify configuration is properly set
 	require.Equal(t, cfg.TransactionCleanupInterval, cleaner.cleanupInterval)

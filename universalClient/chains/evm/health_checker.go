@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rollchains/pchain/universalClient/chains/common"
+	"github.com/rollchains/pchain/universalClient/rpcpool"
 )
 
 // EVMHealthChecker implements health checking for EVM endpoints
@@ -21,11 +20,13 @@ func NewEVMHealthChecker(expectedChainID int64) *EVMHealthChecker {
 }
 
 // CheckHealth performs a health check on an EVM client
-func (h *EVMHealthChecker) CheckHealth(ctx context.Context, client interface{}) error {
-	ethClient, ok := client.(*ethclient.Client)
+func (h *EVMHealthChecker) CheckHealth(ctx context.Context, client rpcpool.Client) error {
+	// Extract the underlying ethclient from the adapter
+	adapter, ok := client.(*evmClientAdapter)
 	if !ok {
 		return fmt.Errorf("invalid client type for EVM health check: %T", client)
 	}
+	ethClient := adapter.client
 
 	// Check 1: Get current block number (tests basic connectivity)
 	blockNumber, err := ethClient.BlockNumber(ctx)
@@ -53,4 +54,4 @@ func (h *EVMHealthChecker) CheckHealth(ctx context.Context, client interface{}) 
 }
 
 // Verify that EVMHealthChecker implements HealthChecker interface
-var _ common.HealthChecker = (*EVMHealthChecker)(nil)
+var _ rpcpool.HealthChecker = (*EVMHealthChecker)(nil)

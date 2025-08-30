@@ -2,6 +2,8 @@ package svm
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"strings"
 	"time"
@@ -18,6 +20,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// MethodExtractionInfo caches discovered positions for each method
+type MethodExtractionInfo struct {
+	ReceiverInstructionIndex int
+	AmountEventPosition      int
+	LastVerified            time.Time
+}
+
 // GatewayHandler handles gateway operations for Solana chains
 type GatewayHandler struct {
 	parentClient *Client // Reference to parent client for RPC pool access
@@ -27,6 +36,7 @@ type GatewayHandler struct {
 	tracker      *common.ConfirmationTracker
 	gatewayAddr  solana.PublicKey
 	database     *db.DB
+	methodCache  map[string]*MethodExtractionInfo // Cache for discovered positions
 }
 
 // NewGatewayHandler creates a new Solana gateway handler
@@ -62,6 +72,7 @@ func NewGatewayHandler(
 		tracker:      tracker,
 		gatewayAddr:  gatewayAddr,
 		database:     database,
+		methodCache:  make(map[string]*MethodExtractionInfo),
 	}, nil
 }
 
@@ -311,35 +322,36 @@ func (h *GatewayHandler) parseGatewayEvent(tx *rpc.GetTransactionResult, signatu
 		return nil
 	}
 
+	// Use the new dynamic extraction method to get sender, receiver, and amount
+	sender, receiver, amount, err := h.extractTransactionDetails(tx)
+	if err != nil {
+		h.logger.Debug().
+			Err(err).
+			Str("tx_hash", signature).
+			Msg("failed to extract transaction details")
+		// Don't return nil here - we can still create an event with partial data
+	}
+
 	event := &common.GatewayEvent{
 		ChainID:     h.config.Chain,
 		TxHash:      signature,
 		BlockNumber: slot,
 		Method:      methodName,
 		EventID:     methodID,
+		Sender:      sender,
+		Receiver:    receiver,
+		Amount:      amount,
 	}
 
-	// Try to extract additional info from logs
-	for _, log := range tx.Meta.LogMessages {
-		// Look for sender/receiver/amount patterns in logs
-		// This is simplified - actual parsing would depend on program's log format
-		if strings.Contains(log, "sender:") {
-			parts := strings.Split(log, "sender:")
-			if len(parts) > 1 {
-				event.Sender = strings.TrimSpace(parts[1])
-			}
-		}
-		if strings.Contains(log, "amount:") {
-			parts := strings.Split(log, "amount:")
-			if len(parts) > 1 {
-				event.Amount = strings.TrimSpace(parts[1])
-			}
-		}
-	}
-
-	// Store transaction data if available
-	// Note: Transaction data would need to be extracted from the actual transaction
-	// For now, we'll leave the payload empty
+	// Log the extracted information with more detail
+	h.logger.Info().
+		Str("tx_hash", signature).
+		Str("method", methodName).
+		Str("sender", sender).
+		Str("receiver", receiver).
+		Str("amount", amount).
+		Uint64("slot", slot).
+		Msg("successfully parsed Solana gateway event")
 
 	return event
 }
@@ -483,6 +495,252 @@ func (h *GatewayHandler) verifyTransactionExistence(
 	}
 
 	return true, nil
+}
+
+// extractTransactionDetails extracts sender, receiver, and amount from a transaction
+func (h *GatewayHandler) extractTransactionDetails(tx *rpc.GetTransactionResult) (sender, receiver, amount string, err error) {
+	if tx == nil || tx.Meta == nil {
+		return "", "", "", fmt.Errorf("invalid transaction result")
+	}
+
+	parsedTx, err := tx.Transaction.GetTransaction()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to parse transaction: %w", err)
+	}
+
+	// Extract sender - always first account (fee payer in Solana)
+	if len(parsedTx.Message.AccountKeys) > 0 {
+		sender = parsedTx.Message.AccountKeys[0].String()
+	}
+
+	// First, analyze balance changes to understand the transaction
+	actualAmount, receiverAddr := h.analyzeTransactionFlow(tx.Meta, parsedTx.Message.AccountKeys)
+
+	// Identify the method being called
+	methodID := h.identifyMethod(tx.Meta.LogMessages)
+	if methodID == "" {
+		// If no method identified, return what we have from balance analysis
+		return sender, receiverAddr, fmt.Sprintf("%d", actualAmount), nil
+	}
+
+	// Extract receiver dynamically using discovered position
+	receiver = h.extractReceiverDynamically(parsedTx, receiverAddr, methodID)
+	if receiver == "" {
+		receiver = receiverAddr // Fallback to balance-based receiver
+	}
+
+	// Extract amount dynamically from event data
+	amount = h.extractAmountDynamically(tx.Meta.LogMessages, actualAmount, methodID)
+	if amount == "" && actualAmount > 0 {
+		amount = fmt.Sprintf("%d", actualAmount) // Fallback to balance-based amount
+	}
+
+	return sender, receiver, amount, nil
+}
+
+// analyzeTransactionFlow analyzes balance changes to understand the transaction
+func (h *GatewayHandler) analyzeTransactionFlow(meta *rpc.TransactionMeta, accountKeys []solana.PublicKey) (amount uint64, receiver string) {
+	if meta.PreBalances == nil || meta.PostBalances == nil {
+		return 0, ""
+	}
+
+	// Calculate actual transfer amount (excluding fee)
+	if len(meta.PreBalances) > 0 && len(meta.PostBalances) > 0 {
+		senderPre := meta.PreBalances[0]
+		senderPost := meta.PostBalances[0]
+		totalDecrease := senderPre - senderPost
+		actualTransfer := totalDecrease - meta.Fee
+		
+		if actualTransfer > 0 {
+			amount = actualTransfer
+		}
+	}
+
+	// Find receiver (account with increase matching the transfer)
+	for i := 1; i < len(meta.PreBalances) && i < len(meta.PostBalances); i++ {
+		pre := meta.PreBalances[i]
+		post := meta.PostBalances[i]
+		
+		if post > pre {
+			increase := post - pre
+			if increase == amount && i < len(accountKeys) {
+				receiver = accountKeys[i].String()
+				break
+			}
+		}
+	}
+
+	return amount, receiver
+}
+
+// identifyMethod identifies which gateway method was called
+func (h *GatewayHandler) identifyMethod(logs []string) string {
+	for _, log := range logs {
+		// Check for add_funds method
+		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
+			return "add_funds"
+		}
+		// Add more methods as needed
+	}
+	return ""
+}
+
+// extractReceiverDynamically finds receiver using dynamic discovery
+func (h *GatewayHandler) extractReceiverDynamically(tx *solana.Transaction, expectedReceiver string, methodID string) string {
+	// Check cache first
+	if cached, ok := h.methodCache[methodID]; ok && cached.ReceiverInstructionIndex >= 0 {
+		// Use cached position
+		for _, instruction := range tx.Message.Instructions {
+			programIDIndex := instruction.ProgramIDIndex
+			if int(programIDIndex) >= len(tx.Message.AccountKeys) {
+				continue
+			}
+			
+			programID := tx.Message.AccountKeys[programIDIndex]
+			if !programID.Equals(h.gatewayAddr) {
+				continue
+			}
+			
+			if cached.ReceiverInstructionIndex < len(instruction.Accounts) {
+				accountIndex := instruction.Accounts[cached.ReceiverInstructionIndex]
+				if int(accountIndex) < len(tx.Message.AccountKeys) {
+					return tx.Message.AccountKeys[accountIndex].String()
+				}
+			}
+		}
+	}
+
+	// Discover position by finding the expected receiver in instruction accounts
+	for _, instruction := range tx.Message.Instructions {
+		programIDIndex := instruction.ProgramIDIndex
+		if int(programIDIndex) >= len(tx.Message.AccountKeys) {
+			continue
+		}
+		
+		programID := tx.Message.AccountKeys[programIDIndex]
+		if !programID.Equals(h.gatewayAddr) {
+			continue
+		}
+		
+		// Find which position has our expected receiver
+		for i, accountIdx := range instruction.Accounts {
+			if int(accountIdx) < len(tx.Message.AccountKeys) {
+				if tx.Message.AccountKeys[accountIdx].String() == expectedReceiver {
+					// Found it! Cache this position
+					if h.methodCache[methodID] == nil {
+						h.methodCache[methodID] = &MethodExtractionInfo{}
+					}
+					h.methodCache[methodID].ReceiverInstructionIndex = i
+					h.methodCache[methodID].LastVerified = time.Now()
+					
+					h.logger.Debug().
+						Str("method", methodID).
+						Int("position", i).
+						Msg("discovered receiver position in instruction")
+					
+					return expectedReceiver
+				}
+			}
+		}
+	}
+	
+	return ""
+}
+
+// extractAmountDynamically finds amount using dynamic discovery
+func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount uint64, methodID string) string {
+	// Check cache first
+	if cached, ok := h.methodCache[methodID]; ok && cached.AmountEventPosition > 0 {
+		// Use cached position
+		for _, method := range h.config.GatewayMethods {
+			if method.EventIdentifier == "" {
+				continue
+			}
+			
+			for _, log := range logs {
+				if !strings.HasPrefix(log, "Program data: ") {
+					continue
+				}
+				
+				base64Data := strings.TrimPrefix(log, "Program data: ")
+				decoded, err := base64.StdEncoding.DecodeString(base64Data)
+				if err != nil {
+					continue
+				}
+				
+				// Verify event identifier
+				if len(decoded) < 8 {
+					continue
+				}
+				
+				eventID := fmt.Sprintf("%x", decoded[0:8])
+				if eventID != method.EventIdentifier {
+					continue
+				}
+				
+				// Use cached position
+				if len(decoded) >= cached.AmountEventPosition+8 {
+					amountValue := binary.LittleEndian.Uint64(decoded[cached.AmountEventPosition:cached.AmountEventPosition+8])
+					if amountValue > 0 && amountValue < 1000000000000000 {
+						return fmt.Sprintf("%d", amountValue)
+					}
+				}
+			}
+		}
+	}
+
+	// Discover position by scanning for expected amount
+	for _, method := range h.config.GatewayMethods {
+		if method.EventIdentifier == "" {
+			continue
+		}
+
+		for _, log := range logs {
+			if !strings.HasPrefix(log, "Program data: ") {
+				continue
+			}
+
+			base64Data := strings.TrimPrefix(log, "Program data: ")
+			decoded, err := base64.StdEncoding.DecodeString(base64Data)
+			if err != nil {
+				continue
+			}
+
+			// Verify this is the right event
+			if len(decoded) < 8 {
+				continue
+			}
+
+			eventID := fmt.Sprintf("%x", decoded[0:8])
+			if eventID != method.EventIdentifier {
+				continue
+			}
+
+			// Scan for the expected amount
+			for pos := 8; pos <= len(decoded)-8; pos += 8 {
+				testValue := binary.LittleEndian.Uint64(decoded[pos:pos+8])
+				
+				if testValue == expectedAmount {
+					// Found it! Cache this position
+					if h.methodCache[methodID] == nil {
+						h.methodCache[methodID] = &MethodExtractionInfo{}
+					}
+					h.methodCache[methodID].AmountEventPosition = pos
+					h.methodCache[methodID].LastVerified = time.Now()
+					
+					h.logger.Debug().
+						Str("method", methodID).
+						Int("position", pos).
+						Uint64("amount", testValue).
+						Msg("discovered amount position in event data")
+					
+					return fmt.Sprintf("%d", testValue)
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 // verifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs

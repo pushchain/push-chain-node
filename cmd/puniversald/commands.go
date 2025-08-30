@@ -78,16 +78,17 @@ func startCmd() *cobra.Command {
 			// --- Step 2: Setup logger ---
 			log := logger.Init(loadedCfg)
 
-			// --- Step 3: Setup DB ---
-			// TODO: Change db setup - Each chain will have its own DB
-			database, err := db.OpenFileDB(constant.DefaultNodeHome+"/data", "pushuv.db", true)
-			if err != nil {
-				return fmt.Errorf("failed to load db: %w", err)
+			// --- Step 3: Setup ChainDBManager ---
+			// Set default database base directory if not configured
+			if loadedCfg.DatabaseBaseDir == "" {
+				loadedCfg.DatabaseBaseDir = filepath.Join(constant.DefaultNodeHome, "databases")
 			}
+			
+			dbManager := db.NewChainDBManager(loadedCfg.DatabaseBaseDir, log, &loadedCfg)
 
 			// --- Step 4: Start client ---
 			ctx := context.Background()
-			client, err := core.NewUniversalClient(ctx, log, database, &loadedCfg)
+			client, err := core.NewUniversalClient(ctx, log, dbManager, &loadedCfg)
 			if err != nil {
 				return fmt.Errorf("failed to create universal client: %w", err)
 			}
@@ -109,32 +110,49 @@ func setblockCmd() *cobra.Command {
 		Use:   "setblock",
 		Short: "Set or list last observed blocks for chains",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Open database
-			dbPath := filepath.Join(constant.DefaultNodeHome, "data", "pushuv.db")
-			database, err := db.OpenFileDB(filepath.Dir(dbPath), filepath.Base(dbPath), false)
+			// Load config to get database base directory
+			loadedCfg, err := config.Load(constant.DefaultNodeHome)
 			if err != nil {
-				return fmt.Errorf("failed to open database: %w", err)
+				return fmt.Errorf("failed to load config: %w", err)
 			}
-			defer database.Close()
+
+			// Set default database base directory if not configured
+			if loadedCfg.DatabaseBaseDir == "" {
+				loadedCfg.DatabaseBaseDir = filepath.Join(constant.DefaultNodeHome, "databases")
+			}
+
+			// Setup logger (minimal for CLI)
+			log := logger.Init(loadedCfg)
+			
+			// Create ChainDBManager
+			dbManager := db.NewChainDBManager(loadedCfg.DatabaseBaseDir, log, &loadedCfg)
+			defer dbManager.CloseAll()
 
 			// List mode
 			if list {
-				var blocks []store.LastObservedBlock
-				if err := database.Client().Find(&blocks).Error; err != nil {
-					return fmt.Errorf("failed to list blocks: %w", err)
+				databases := dbManager.GetAllDatabases()
+				if len(databases) == 0 {
+					fmt.Println("No chain databases found")
+					return nil
 				}
-				
+
 				fmt.Println("\nCurrent last observed blocks:")
 				fmt.Println("================================")
-				for _, block := range blocks {
-					fmt.Printf("Chain: %s\n", block.ChainID)
-					fmt.Printf("Block: %d\n", block.Block)
-					fmt.Printf("Updated: %v\n", block.UpdatedAt)
-					fmt.Println("--------------------------------")
-				}
 				
-				if len(blocks) == 0 {
-					fmt.Println("No records found")
+				for chainID, chainDB := range databases {
+					var blocks []store.LastObservedBlock
+					if err := chainDB.Client().Where("chain_id = ?", chainID).Find(&blocks).Error; err != nil {
+						fmt.Printf("Error reading chain %s: %v\n", chainID, err)
+						continue
+					}
+					
+					for _, block := range blocks {
+						fmt.Printf("Chain: %s\n", block.ChainID)
+						fmt.Printf("Block: %d\n", block.Block)
+						fmt.Printf("Updated: %v\n", block.UpdatedAt)
+						fmt.Printf("Database: %s\n", chainID)
+						fmt.Println("--------------------------------")
+					}
 				}
 				return nil
 			}
@@ -145,6 +163,12 @@ func setblockCmd() *cobra.Command {
 			// Set mode
 			if chainID == "" || !blockSet {
 				return fmt.Errorf("--chain and --block are required when not using --list")
+			}
+
+			// Get chain-specific database
+			database, err := dbManager.GetChainDB(chainID)
+			if err != nil {
+				return fmt.Errorf("failed to get database for chain %s: %w", chainID, err)
 			}
 
 			var lastBlock store.LastObservedBlock

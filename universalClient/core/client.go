@@ -18,7 +18,7 @@ import (
 type UniversalClient struct {
 	ctx context.Context
 	log zerolog.Logger
-	db  *db.DB
+	dbManager *db.ChainDBManager
 
 	// Registry components
 	registryClient *registry.RegistryClient
@@ -32,7 +32,7 @@ type UniversalClient struct {
 	transactionCleaner *TransactionCleaner
 }
 
-func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
+func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
 	// Create registry client
 	registryClient, err := registry.NewRegistryClient(cfg.PushChainGRPCURLs, log)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	configCache := registry.NewConfigCache(log)
 
 	// Create chain registry
-	chainRegistry := chains.NewChainRegistry(db, log)
+	chainRegistry := chains.NewChainRegistry(dbManager, log)
 	chainRegistry.SetAppConfig(cfg)
 
 	// Create config updater
@@ -57,7 +57,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 
 	// Create transaction cleaner
 	transactionCleaner := NewTransactionCleaner(
-		db,
+		dbManager,
 		cfg,
 		log,
 	)
@@ -66,7 +66,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	uc := &UniversalClient{
 		ctx:                ctx,
 		log:                log,
-		db:                 db,
+		dbManager:          dbManager,
 		registryClient:     registryClient,
 		configCache:        configCache,
 		configUpdater:      configUpdater,
@@ -130,7 +130,13 @@ func (uc *UniversalClient) Start() error {
 		uc.log.Error().Err(err).Msg("error closing registry client")
 	}
 
-	return uc.db.Close()
+	// Close all database connections
+	if err := uc.dbManager.CloseAll(); err != nil {
+		uc.log.Error().Err(err).Msg("error closing database connections")
+		return err
+	}
+
+	return nil
 }
 
 // GetChainConfig returns the cached configuration for a specific chain

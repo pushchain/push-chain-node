@@ -1,6 +1,10 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	fmt "fmt"
+
 	"cosmossdk.io/collections"
 )
 
@@ -16,6 +20,12 @@ var (
 
 	// ChainConfigsName is the name of the chainConfigs collection.
 	ChainConfigsName = "chain_configs"
+
+	InboundsKey  = collections.NewPrefix(2)
+	InboundsName = "inbound_synthetics"
+
+	UniversalTxKey  = collections.NewPrefix(3)
+	UniversalTxName = "universal_tx"
 )
 
 const (
@@ -25,3 +35,9 @@ const (
 
 	QuerierRoute = ModuleName
 )
+
+func GetInboundKey(inbound Inbound) string {
+	data := fmt.Sprintf("%s:%s:%s:%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex, inbound.Sender, inbound.Recipient, inbound.Amount)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte
+}

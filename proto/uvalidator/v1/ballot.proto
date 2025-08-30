@@ -37,8 +37,8 @@ enum VoteResult {
   option (gogoproto.goproto_enum_stringer) = true;
 
   VOTE_RESULT_NOT_YET_VOTED = 0; // Default state before a vote is cast
-  VOTE_RESULT_YES = 1;           // Positive vote
-  VOTE_RESULT_NO = 2;            // Negative vote
+  VOTE_RESULT_SUCCESS = 1;           // Positive vote
+  VOTE_RESULT_FAILURE = 2;            // Negative vote
 }
 
 // ---------------------------

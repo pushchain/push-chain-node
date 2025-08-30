@@ -10,22 +10,26 @@ import (
 // CreateBallot creates a new ballot with the given parameters, stores it, and marks it as active.
 func (k Keeper) CreateBallot(
 	ctx context.Context,
-	proposalID string,
+	id string,
 	ballotType types.BallotObservationType,
 	eligibleVoters []string,
 	votingThreshold int64,
 	expiryAfterBlocks int64,
 ) (types.Ballot, error) {
-
 	// Get current block height
 	blockHeight, err := k.GetBlockHeight(ctx)
 	if err != nil {
 		return types.Ballot{}, err
 	}
 
+	// First, expire any old ballots before this height
+	if err := k.ExpireBallotsBeforeHeight(ctx, blockHeight); err != nil {
+		return types.Ballot{}, err
+	}
+
 	// Create ballot
 	ballot := types.NewBallot(
-		proposalID,
+		id,
 		ballotType,
 		eligibleVoters,
 		votingThreshold,
@@ -54,13 +58,15 @@ func (k Keeper) GetOrCreateBallot(
 	voters []string,
 	votesNeeded int64,
 	expiryAfterBlocks int64,
-) (types.Ballot, error) {
+) (types.Ballot, bool, error) {
 
 	if ballot, err := k.Ballots.Get(ctx, id); err == nil {
-		return ballot, nil
+		return ballot, false, nil
 	}
 
-	return k.CreateBallot(ctx, id, ballotType, voters, votesNeeded, expiryAfterBlocks)
+	newBallot, err := k.CreateBallot(ctx, id, ballotType, voters, votesNeeded, expiryAfterBlocks)
+
+	return newBallot, true, err
 }
 
 // GetBallot retrieves a ballot by ID
@@ -150,39 +156,4 @@ func (k Keeper) ExpireBallotsBeforeHeight(ctx context.Context, currentHeight int
 		}
 	}
 	return nil
-}
-
-// ExecuteBallot determines pass/fail and finalizes the ballot
-func (k Keeper) ExecuteBallot(ctx context.Context, id string) error {
-	ballot, err := k.Ballots.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
-		return fmt.Errorf("ballot not pending")
-	}
-
-	yesVotes, _ := ballot.CountVotes()
-	if yesVotes >= int(ballot.VotingThreshold) {
-		return k.MarkBallotFinalized(ctx, id, types.BallotStatus_BALLOT_STATUS_PASSED)
-	}
-	if ballot.ShouldReject() {
-		return k.MarkBallotFinalized(ctx, id, types.BallotStatus_BALLOT_STATUS_REJECTED)
-	}
-
-	// TODO
-	// Dispatch based on ballot type
-	// switch ballot.Type {
-	// case types.BallotTypeInbound:
-	//     return k.executeInboundBallot(ctx, ballot)
-	// case types.BallotTypeOutbound:
-	//     return k.executeOutboundBallot(ctx, ballot)
-	// case types.BallotTypeGasPrice:
-	//     return k.executeGasPriceBallot(ctx, ballot)
-	// default:
-	//     return errors.Wrapf(types.ErrInvalidBallotType, "ballotID: %s", ballotID)
-	// }
-
-	return fmt.Errorf("ballot not yet decided")
 }

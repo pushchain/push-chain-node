@@ -43,8 +43,9 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper        keeper.Keeper
-	stakingKeeper types.StakingKeeper
+	keeper         keeper.Keeper
+	stakingKeeper  types.StakingKeeper
+	slashingKeeper types.SlashingKeeper
 }
 
 // NewAppModule constructor
@@ -52,11 +53,13 @@ func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
 	stakingKeeper types.StakingKeeper,
+	slashingKeeper types.SlashingKeeper,
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic: AppModuleBasic{cdc: cdc},
 		keeper:         keeper,
 		stakingKeeper:  stakingKeeper,
+		slashingKeeper: slashingKeeper,
 	}
 }
 

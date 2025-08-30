@@ -387,7 +387,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 				StandardInbound: 10,
 			},
 			GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
@@ -423,7 +426,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 				StandardInbound: 10,
 			},
 			GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		// f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
@@ -473,7 +479,10 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 				StandardInbound: 10,
 			},
 			GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)

@@ -49,3 +49,48 @@ func (mr *MockUregistryKeeperMockRecorder) GetChainConfig(ctx, chain interface{}
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChainConfig", reflect.TypeOf((*MockUregistryKeeper)(nil).GetChainConfig), ctx, chain)
 }
+
+// GetTokenConfig mocks base method.
+func (m *MockUregistryKeeper) GetTokenConfig(ctx context.Context, chain, address string) (uregistrytypes.TokenConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTokenConfig", ctx, chain, address)
+	ret0, _ := ret[0].(uregistrytypes.TokenConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTokenConfig indicates an expected call of GetTokenConfig.
+func (mr *MockUregistryKeeperMockRecorder) GetTokenConfig(ctx, chain, address interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTokenConfig", reflect.TypeOf((*MockUregistryKeeper)(nil).GetTokenConfig), ctx, chain, address)
+}
+
+// IsChainInboundEnabled mocks base method.
+func (m *MockUregistryKeeper) IsChainInboundEnabled(ctx context.Context, chain string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsChainInboundEnabled", ctx, chain)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsChainInboundEnabled indicates an expected call of IsChainInboundEnabled.
+func (mr *MockUregistryKeeperMockRecorder) IsChainInboundEnabled(ctx, chain interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsChainInboundEnabled", reflect.TypeOf((*MockUregistryKeeper)(nil).IsChainInboundEnabled), ctx, chain)
+}
+
+// IsChainOutboundEnabled mocks base method.
+func (m *MockUregistryKeeper) IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsChainOutboundEnabled", ctx, chain)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsChainOutboundEnabled indicates an expected call of IsChainOutboundEnabled.
+func (mr *MockUregistryKeeperMockRecorder) IsChainOutboundEnabled(ctx, chain interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsChainOutboundEnabled", reflect.TypeOf((*MockUregistryKeeper)(nil).IsChainOutboundEnabled), ctx, chain)
+}

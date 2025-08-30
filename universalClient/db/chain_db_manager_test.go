@@ -64,7 +64,7 @@ func TestChainDBManager(t *testing.T) {
 		require.NotNil(t, db1)
 
 		// Test that database file was created
-		expectedPath := filepath.Join(tempDir, "chains", "eip155_1", "gateway_transactions.db")
+		expectedPath := filepath.Join(tempDir, "chains", "eip155_1", "chain_data.db")
 		require.FileExists(t, expectedPath)
 
 		// Test special characters in chain ID
@@ -107,8 +107,7 @@ func TestChainDBManager(t *testing.T) {
 		require.NoError(t, err)
 
 		// Test basic database operations
-		tx := &store.GatewayTransaction{
-			ChainID:         chainID,
+		tx := &store.ChainTransaction{
 			TxHash:          "0x123",
 			BlockNumber:     1000,
 			Method:          "deposit",
@@ -122,10 +121,9 @@ func TestChainDBManager(t *testing.T) {
 		require.NoError(t, err)
 
 		// Query transaction
-		var retrieved store.GatewayTransaction
+		var retrieved store.ChainTransaction
 		err = db.Client().Where("tx_hash = ?", "0x123").First(&retrieved).Error
 		require.NoError(t, err)
-		require.Equal(t, chainID, retrieved.ChainID)
 		require.Equal(t, "0x123", retrieved.TxHash)
 	})
 
@@ -170,8 +168,7 @@ func TestChainDBManagerConcurrency(t *testing.T) {
 			require.NotNil(t, db)
 
 			// Perform some database operation
-			tx := &store.GatewayTransaction{
-				ChainID:         chainID,
+			tx := &store.ChainTransaction{
 				TxHash:          string(rune('a'+id)) + "123",
 				BlockNumber:     uint64(1000 + id),
 				Method:          "deposit",
@@ -195,7 +192,7 @@ func TestChainDBManagerConcurrency(t *testing.T) {
 	require.NoError(t, err)
 
 	var count int64
-	err = db.Client().Model(&store.GatewayTransaction{}).Count(&count).Error
+	err = db.Client().Model(&store.ChainTransaction{}).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, int64(10), count)
 

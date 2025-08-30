@@ -17,7 +17,7 @@ func TestNewBaseChainClient(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		client := NewBaseChainClient(config)
@@ -62,7 +62,7 @@ func TestGetConfig(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.mainnet-beta.solana.com",
 			GatewayAddress: "Sol123",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		client := NewBaseChainClient(config)
 		

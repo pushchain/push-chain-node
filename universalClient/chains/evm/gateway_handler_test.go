@@ -105,7 +105,6 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	
 	// Test confirmation tracking
 	err = tracker.TrackTransaction(
-		config.Chain,
 		mockLog.TxHash.Hex(),
 		mockLog.BlockNumber,
 		"addFunds",
@@ -117,7 +116,7 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	// Verify transaction was tracked
 	tx, err := tracker.GetGatewayTransaction(mockLog.TxHash.Hex())
 	require.NoError(t, err)
-	assert.Equal(t, config.Chain, tx.ChainID)
+	// ChainID no longer exists in ChainTransaction
 	assert.Equal(t, uint64(100), tx.BlockNumber)
 	assert.Equal(t, "addFunds", tx.Method)
 }
@@ -147,7 +146,6 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	// Track a transaction
 	err = tracker.TrackTransaction(
-		config.Chain,
 		txHash,
 		blockNumber,
 		"addFunds",
@@ -158,7 +156,7 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	// Test fast confirmation (5 blocks)
 	currentBlock := blockNumber + 4
-	err = tracker.UpdateConfirmations(config.Chain, currentBlock)
+	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
 	confirmed, err := tracker.IsConfirmed(txHash, "fast")
@@ -167,7 +165,7 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	// Update to 5 confirmations
 	currentBlock = blockNumber + 5
-	err = tracker.UpdateConfirmations(config.Chain, currentBlock)
+	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
 	confirmed, err = tracker.IsConfirmed(txHash, "fast")
@@ -181,7 +179,7 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	// Update to 12 confirmations
 	currentBlock = blockNumber + 12
-	err = tracker.UpdateConfirmations(config.Chain, currentBlock)
+	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
 	confirmed, err = tracker.IsConfirmed(txHash, "standard")
@@ -476,7 +474,6 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 
 	for _, tx := range transactions {
 		err := tracker.TrackTransaction(
-			config.Chain,
 			tx.hash,
 			tx.block,
 			"addFunds",
@@ -488,7 +485,7 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 
 	// Update to block 115 (all should have at least 5 confirmations)
 	currentBlock := uint64(115)
-	err = tracker.UpdateConfirmations(config.Chain, currentBlock)
+	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
 	// Check fast confirmations
@@ -567,7 +564,6 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 
 	// Track transaction
 	err = tracker.TrackTransaction(
-		config.Chain,
 		txHash,
 		blockNumber,
 		"addFunds",
@@ -577,7 +573,7 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	require.NoError(t, err)
 
 	// Confirm it
-	err = tracker.UpdateConfirmations(config.Chain, blockNumber+12)
+	err = tracker.UpdateConfirmations(blockNumber+12)
 	require.NoError(t, err)
 
 	tx, err := tracker.GetGatewayTransaction(txHash)
@@ -587,7 +583,6 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	// Simulate reorg - track same transaction at different block
 	newBlockNumber := uint64(1002)
 	err = tracker.TrackTransaction(
-		config.Chain,
 		txHash,
 		newBlockNumber,
 		"addFunds",

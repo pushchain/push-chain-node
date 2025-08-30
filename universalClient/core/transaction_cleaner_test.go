@@ -37,8 +37,7 @@ func TestTransactionCleaner(t *testing.T) {
 	now := time.Now()
 	
 	// Old confirmed transaction (should be deleted)
-	oldConfirmed := &store.GatewayTransaction{
-		ChainID:         chainID,
+	oldConfirmed := &store.ChainTransaction{
 		TxHash:          "0x111",
 		BlockNumber:     100,
 		Method:          "deposit",
@@ -50,8 +49,7 @@ func TestTransactionCleaner(t *testing.T) {
 	oldTime := now.Add(-25 * time.Hour)
 	
 	// Recent confirmed transaction (should NOT be deleted)
-	recentConfirmed := &store.GatewayTransaction{
-		ChainID:         chainID,
+	recentConfirmed := &store.ChainTransaction{
 		TxHash:          "0x222",
 		BlockNumber:     200,
 		Method:          "deposit",
@@ -63,8 +61,7 @@ func TestTransactionCleaner(t *testing.T) {
 	recentTime := now.Add(-30 * time.Minute)
 	
 	// Old pending transaction (should NOT be deleted regardless of age)
-	oldPending := &store.GatewayTransaction{
-		ChainID:         chainID,
+	oldPending := &store.ChainTransaction{
 		TxHash:          "0x333",
 		BlockNumber:     150,
 		Method:          "deposit",
@@ -85,7 +82,7 @@ func TestTransactionCleaner(t *testing.T) {
 
 	// Verify initial state
 	var count int64
-	require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&count).Error)
+	require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&count).Error)
 	require.Equal(t, int64(3), count)
 
 	t.Run("DeleteOldConfirmedTransactions", func(t *testing.T) {
@@ -95,7 +92,7 @@ func TestTransactionCleaner(t *testing.T) {
 		require.Equal(t, int64(1), deletedCount) // Only old confirmed should be deleted
 
 		// Verify remaining transactions
-		var remaining []store.GatewayTransaction
+		var remaining []store.ChainTransaction
 		require.NoError(t, database.Client().Find(&remaining).Error)
 		require.Len(t, remaining, 2)
 
@@ -110,8 +107,8 @@ func TestTransactionCleaner(t *testing.T) {
 	})
 
 	// Create a new old confirmed transaction for the cleaner service test
-	newOldConfirmed := &store.GatewayTransaction{
-		ChainID:         "eip155:1",
+	newOldConfirmed := &store.ChainTransaction{
+		
 		TxHash:          "0x111_new", // Use different hash to avoid constraint violation
 		BlockNumber:     100,
 		Method:          "deposit",
@@ -140,11 +137,11 @@ func TestTransactionCleaner(t *testing.T) {
 
 		// Verify cleanup occurred
 		var finalCount int64
-		require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&finalCount).Error)
+		require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&finalCount).Error)
 		require.Equal(t, int64(2), finalCount) // Should have 2 transactions left
 
 		// Verify the correct transactions remain
-		var final []store.GatewayTransaction
+		var final []store.ChainTransaction
 		require.NoError(t, database.Client().Find(&final).Error)
 		
 		txHashes := make(map[string]bool)
@@ -185,8 +182,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 
 	t.Run("OnlyRecentTransactions", func(t *testing.T) {
 		// Create only recent transactions
-		recent := &store.GatewayTransaction{
-			ChainID:         chainID,
+		recent := &store.ChainTransaction{
 			TxHash:          "0x456",
 			BlockNumber:     300,
 			Method:          "withdraw",
@@ -202,13 +198,13 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 
 		// Verify transaction still exists
 		var count int64
-		require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&count).Error)
+		require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&count).Error)
 		require.Equal(t, int64(1), count)
 	})
 
 	t.Run("DifferentStatuses", func(t *testing.T) {
 		// Clean up from previous test
-		database.Client().Exec("DELETE FROM gateway_transactions")
+		database.Client().Exec("DELETE FROM chain_transactions")
 
 		now := time.Now()
 		oldTime := now.Add(-25 * time.Hour)
@@ -217,8 +213,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		statuses := []string{"pending", "fast_confirmed", "confirmed", "failed", "reorged"}
 		
 		for i, status := range statuses {
-			tx := &store.GatewayTransaction{
-				ChainID:         chainID,
+			tx := &store.ChainTransaction{
 				TxHash:          string(rune('a' + i)) + "00",
 				BlockNumber:     uint64(400 + i),
 				Method:          "test",
@@ -236,7 +231,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		require.Equal(t, int64(1), deletedCount) // Only the "confirmed" one
 
 		// Verify remaining transactions
-		var remaining []store.GatewayTransaction
+		var remaining []store.ChainTransaction
 		require.NoError(t, database.Client().Find(&remaining).Error)
 		require.Len(t, remaining, 4) // All except "confirmed"
 

@@ -93,14 +93,14 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 				VmType:         uregistrytypes.VmType_EVM,
 				PublicRpcUrl:   "https://eth-sepolia.example.com",
 				GatewayAddress: "0x123...",
-				Enabled:        true,
+				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:         uregistrytypes.VmType_SVM,
 				PublicRpcUrl:   "https://api.devnet.solana.com",
 				GatewayAddress: "Sol123...",
-				Enabled:        true,
+				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 		
@@ -258,13 +258,13 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 				Chain:        "eip155:11155111",
 				VmType:       uregistrytypes.VmType_EVM,
 				PublicRpcUrl: "https://eth-sepolia.example.com",
-				Enabled:      true,
+				Enabled:      &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:        "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:       uregistrytypes.VmType_SVM,
 				PublicRpcUrl: "https://api.devnet.solana.com",
-				Enabled:      true,
+				Enabled:      &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 		
@@ -284,7 +284,7 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 			{
 				Chain:   "eip155:11155111",
 				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: false, // Disabled
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false}, // Disabled
 			},
 		}
 		
@@ -303,7 +303,7 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 			{
 				Chain:   "", // Empty chain ID
 				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 		
@@ -342,7 +342,7 @@ func TestConfigUpdaterForceUpdate(t *testing.T) {
 				{
 					Chain:   "eip155:11155111",
 					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 				},
 			}, nil
 		},
@@ -570,7 +570,7 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 				{
 					Chain:   "eip155:11155111",
 					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 				},
 			}, nil
 		},

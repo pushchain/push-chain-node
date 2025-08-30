@@ -209,7 +209,7 @@ func (u *ConfigUpdater) updateChainClients(ctx context.Context, chainConfigs []*
 
 		seenChains[config.Chain] = true
 
-		if !config.Enabled {
+		if config.Enabled == nil || (!config.Enabled.IsInboundEnabled && !config.Enabled.IsOutboundEnabled) {
 			u.logger.Debug().
 				Str("chain", config.Chain).
 				Msg("chain is disabled, removing if exists")

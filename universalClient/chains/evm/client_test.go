@@ -25,7 +25,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := NewClient(config, nil, nil, logger)
@@ -164,7 +164,7 @@ func TestClientStartStop(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   server.URL,
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := NewClient(config, nil, nil, logger)
@@ -292,7 +292,7 @@ func TestClientGetMethods(t *testing.T) {
 		VmType:         uregistrytypes.VmType_EVM,
 		PublicRpcUrl:   "https://eth-sepolia.example.com",
 		GatewayAddress: "0x123...",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	client, err := NewClient(config, nil, nil, logger)

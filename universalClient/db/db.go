@@ -32,8 +32,8 @@ var (
 
 	// schemaModels lists the structs to be auto-migrated into the database.
 	schemaModels = []any{
-		&store.LastObservedBlock{},
-		&store.GatewayTransaction{},
+		&store.ChainState{},
+		&store.ChainTransaction{},
 		// Add additional models here as needed.
 	}
 )
@@ -171,7 +171,7 @@ func (d *DB) DeleteOldConfirmedTransactions(retentionPeriod time.Duration) (int6
 	cutoffTime := time.Now().Add(-retentionPeriod)
 	
 	result := d.client.Where("status = ? AND updated_at < ?", "confirmed", cutoffTime).
-		Delete(&store.GatewayTransaction{})
+		Delete(&store.ChainTransaction{})
 	
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "failed to delete old confirmed transactions")

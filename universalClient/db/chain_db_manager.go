@@ -77,7 +77,7 @@ func (m *ChainDBManager) GetChainDB(chainID string) (*DB, error) {
 	} else {
 		// Create chain-specific directory and database file
 		chainDir := filepath.Join(m.baseDir, "chains", sanitizeChainID(chainID))
-		dbFilename := "gateway_transactions.db"
+		dbFilename := "chain_data.db"
 		
 		db, err = OpenFileDB(chainDir, dbFilename, true)
 		if err != nil {

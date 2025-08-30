@@ -132,7 +132,7 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		client, err := registry.CreateChainClient(config)
@@ -147,7 +147,7 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.mainnet-beta.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		client, err := registry.CreateChainClient(config)
@@ -265,7 +265,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://test.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		err := registry.AddOrUpdateChain(ctx, config)
@@ -288,7 +288,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://test.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		// Add initial client
@@ -316,7 +316,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://old.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		newConfig := &uregistrytypes.ChainConfig{
@@ -324,7 +324,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://new.example.com",
 			GatewayAddress: "0x456...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		// Add initial client
@@ -627,7 +627,7 @@ func TestConfigsEqual(t *testing.T) {
 		VmType:         uregistrytypes.VmType_EVM,
 		PublicRpcUrl:   "https://test.com",
 		GatewayAddress: "0x123",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 	
 	config2 := &uregistrytypes.ChainConfig{
@@ -635,7 +635,7 @@ func TestConfigsEqual(t *testing.T) {
 		VmType:         uregistrytypes.VmType_EVM,
 		PublicRpcUrl:   "https://test.com",
 		GatewayAddress: "0x123",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 	
 	config3 := &uregistrytypes.ChainConfig{
@@ -643,7 +643,7 @@ func TestConfigsEqual(t *testing.T) {
 		VmType:         uregistrytypes.VmType_EVM,
 		PublicRpcUrl:   "https://different.com",
 		GatewayAddress: "0x123",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 	
 	t.Run("Equal configs", func(t *testing.T) {

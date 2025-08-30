@@ -42,7 +42,7 @@ func TestGatewayIntegration(t *testing.T) {
 					EventIdentifier: "0xevent123",
 				},
 			},
-			Enabled: true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Create chain client
@@ -71,7 +71,7 @@ func TestGatewayIntegration(t *testing.T) {
 					EventIdentifier: "funds_added",
 				},
 			},
-			Enabled: true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Create chain client
@@ -91,7 +91,7 @@ func TestGatewayIntegration(t *testing.T) {
 			Chain:        "eip155:1",
 			VmType:       uregistrytypes.VmType_EVM,
 			PublicRpcUrl: "https://eth.example.com",
-			Enabled:      true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Note: This would fail without a real RPC connection
@@ -119,7 +119,7 @@ func TestGatewayIntegration(t *testing.T) {
 					EventIdentifier: "0xevent456",
 				},
 			},
-			Enabled: true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Create updated client
@@ -142,7 +142,7 @@ func TestGatewayIntegration(t *testing.T) {
 					FastInbound:     1,
 					StandardInbound: 6,
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:          "eip155:137",
@@ -153,7 +153,7 @@ func TestGatewayIntegration(t *testing.T) {
 					FastInbound:     10,
 					StandardInbound: 30,
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:          "eip155:42161",
@@ -164,7 +164,7 @@ func TestGatewayIntegration(t *testing.T) {
 					FastInbound:     2,
 					StandardInbound: 10,
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 
@@ -286,7 +286,7 @@ func TestDynamicConfigurationUpdate(t *testing.T) {
 						EventIdentifier: "0xevent789",
 					},
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		},
 		{
@@ -307,7 +307,7 @@ func TestDynamicConfigurationUpdate(t *testing.T) {
 						EventIdentifier: "0xevent789",
 					},
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		},
 		{
@@ -333,7 +333,7 @@ func TestDynamicConfigurationUpdate(t *testing.T) {
 						EventIdentifier: "0xeventabc",
 					},
 				},
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		},
 	}

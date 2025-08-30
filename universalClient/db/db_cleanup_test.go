@@ -70,10 +70,10 @@ func TestDeleteOldConfirmedTransactions(t *testing.T) {
 	}
 
 	// Insert test transactions
-	var insertedTransactions []*store.GatewayTransaction
+	var insertedTransactions []*store.ChainTransaction
 	for i, tc := range testCases {
-		tx := &store.GatewayTransaction{
-			ChainID:         "eip155:1",
+		tx := &store.ChainTransaction{
+			
 			TxHash:          tc.txHash,
 			BlockNumber:     uint64(100 + i),
 			Method:          "deposit",
@@ -93,7 +93,7 @@ func TestDeleteOldConfirmedTransactions(t *testing.T) {
 
 	// Verify initial count
 	var initialCount int64
-	require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&initialCount).Error)
+	require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&initialCount).Error)
 	require.Equal(t, int64(len(testCases)), initialCount)
 
 	t.Run("DeleteOldConfirmedTransactions", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestDeleteOldConfirmedTransactions(t *testing.T) {
 		require.Equal(t, int64(expectedDeleted), deletedCount)
 
 		// Verify remaining transactions
-		var remaining []store.GatewayTransaction
+		var remaining []store.ChainTransaction
 		require.NoError(t, database.Client().Find(&remaining).Error)
 
 		expectedRemaining := len(testCases) - expectedDeleted
@@ -146,8 +146,8 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 
 	t.Run("NoMatchingTransactions", func(t *testing.T) {
 		// Insert only recent or non-confirmed transactions
-		recentConfirmed := &store.GatewayTransaction{
-			ChainID:         "eip155:1",
+		recentConfirmed := &store.ChainTransaction{
+			
 			TxHash:          "0x7777",
 			BlockNumber:     500,
 			Method:          "test",
@@ -157,8 +157,8 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 		}
 		require.NoError(t, database.Client().Create(recentConfirmed).Error)
 
-		oldPending := &store.GatewayTransaction{
-			ChainID:         "eip155:1", 
+		oldPending := &store.ChainTransaction{
+			 
 			TxHash:          "0x8888",
 			BlockNumber:     501,
 			Method:          "test",
@@ -179,17 +179,17 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 
 		// Verify both transactions still exist
 		var count int64
-		require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&count).Error)
+		require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&count).Error)
 		require.Equal(t, int64(2), count)
 	})
 
 	t.Run("ZeroRetentionPeriod", func(t *testing.T) {
 		// Clean up
-		database.Client().Exec("DELETE FROM gateway_transactions")
+		database.Client().Exec("DELETE FROM chain_transactions")
 
 		// Create a confirmed transaction
-		confirmedTx := &store.GatewayTransaction{
-			ChainID:         "eip155:1",
+		confirmedTx := &store.ChainTransaction{
+			
 			TxHash:          "0x9999",
 			BlockNumber:     600,
 			Method:          "test",
@@ -206,14 +206,14 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 
 		// Verify database is empty
 		var count int64
-		require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&count).Error)
+		require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&count).Error)
 		require.Equal(t, int64(0), count)
 	})
 
 	t.Run("VeryLongRetentionPeriod", func(t *testing.T) {
 		// Create an old confirmed transaction
-		oldConfirmed := &store.GatewayTransaction{
-			ChainID:         "eip155:1",
+		oldConfirmed := &store.ChainTransaction{
+			
 			TxHash:          "0xAAAA",
 			BlockNumber:     700,
 			Method:          "test",
@@ -234,7 +234,7 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 
 		// Verify transaction still exists
 		var count int64
-		require.NoError(t, database.Client().Model(&store.GatewayTransaction{}).Count(&count).Error)
+		require.NoError(t, database.Client().Model(&store.ChainTransaction{}).Count(&count).Error)
 		require.Equal(t, int64(1), count)
 	})
 }

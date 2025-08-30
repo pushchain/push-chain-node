@@ -56,9 +56,8 @@ func TestDB_OpenModes(t *testing.T) {
 
 func runSampleInsertSelectTest(t *testing.T, db *DB) {
 	// Given a sample row
-	entry := store.LastObservedBlock{
-		ChainID: "testnet",
-		Block:   10101,
+	entry := store.ChainState{
+		LastBlock: 10101,
 	}
 
 	// ACT: Insert
@@ -66,8 +65,8 @@ func runSampleInsertSelectTest(t *testing.T, db *DB) {
 	require.NoError(t, err)
 
 	// ACT: Select
-	var result store.LastObservedBlock
-	err = db.Client().Where("chain_id = ?", "testnet").First(&result).Error
+	var result store.ChainState
+	err = db.Client().First(&result).Error
 	require.NoError(t, err)
-	assert.Equal(t, int64(10101), result.Block)
+	assert.Equal(t, int64(10101), result.LastBlock)
 }

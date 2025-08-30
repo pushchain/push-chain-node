@@ -46,7 +46,7 @@ func NewConfirmationTracker(
 
 // TrackTransaction starts tracking a new transaction for confirmations
 func (ct *ConfirmationTracker) TrackTransaction(
-	chainID, txHash string,
+	txHash string,
 	blockNumber uint64,
 	method, eventID string,
 	data []byte,
@@ -61,7 +61,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	}()
 	
 	// Check if transaction already exists using FOR UPDATE to prevent race conditions
-	var existing store.GatewayTransaction
+	var existing store.ChainTransaction
 	err := dbTx.Set("gorm:query_option", "FOR UPDATE").
 		Where("tx_hash = ?", txHash).
 		First(&existing).Error
@@ -80,7 +80,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 			ct.logger.Error().
 				Err(err).
 				Str("tx_hash", txHash).
-				Str("chain_id", chainID).
 				Msg("failed to update existing transaction")
 			return fmt.Errorf("failed to update transaction: %w", err)
 		}
@@ -91,7 +90,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		
 		ct.logger.Debug().
 			Str("tx_hash", txHash).
-			Str("chain_id", chainID).
 			Uint64("block", blockNumber).
 			Msg("updated existing transaction")
 		
@@ -99,8 +97,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	}
 	
 	// Create new transaction record
-	tx := &store.GatewayTransaction{
-		ChainID:         chainID,
+	tx := &store.ChainTransaction{
 		TxHash:          txHash,
 		BlockNumber:     blockNumber,
 		Method:          method,
@@ -115,7 +112,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		ct.logger.Error().
 			Err(err).
 			Str("tx_hash", txHash).
-			Str("chain_id", chainID).
 			Msg("failed to create transaction")
 		return fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -126,7 +122,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
-		Str("chain_id", chainID).
 		Uint64("block", blockNumber).
 		Msg("tracking new transaction")
 	
@@ -135,14 +130,13 @@ func (ct *ConfirmationTracker) TrackTransaction(
 
 // UpdateConfirmations updates confirmation counts for all pending transactions
 func (ct *ConfirmationTracker) UpdateConfirmations(
-	chainID string,
 	currentBlock uint64,
 ) error {
-	var pendingTxs []store.GatewayTransaction
+	var pendingTxs []store.ChainTransaction
 	
-	// Get all transactions that are not yet fully confirmed for this chain
+	// Get all transactions that are not yet fully confirmed
 	err := ct.db.Client().
-		Where("chain_id = ? AND status IN (?)", chainID, []string{"pending", "fast_confirmed"}).
+		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions: %w", err)
@@ -153,7 +147,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	}
 	
 	ct.logger.Debug().
-		Str("chain_id", chainID).
 		Uint64("current_block", currentBlock).
 		Int("pending_count", len(pendingTxs)).
 		Msg("updating confirmations")
@@ -221,7 +214,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	}
 	
 	ct.logger.Debug().
-		Str("chain_id", chainID).
 		Int("updated_count", updatedCount).
 		Int("fast_confirmed_count", fastConfirmedCount).
 		Int("confirmed_count", confirmedCount).
@@ -235,7 +227,7 @@ func (ct *ConfirmationTracker) IsConfirmed(
 	txHash string,
 	mode string,
 ) (bool, error) {
-	var tx store.GatewayTransaction
+	var tx store.ChainTransaction
 	err := ct.db.Client().Where("tx_hash = ?", txHash).First(&tx).Error
 	if err != nil {
 		return false, fmt.Errorf("transaction not found: %w", err)
@@ -278,8 +270,8 @@ func (ct *ConfirmationTracker) GetRequiredConfirmations(mode string) uint64 {
 }
 
 // GetGatewayTransaction retrieves a gateway transaction by hash
-func (ct *ConfirmationTracker) GetGatewayTransaction(txHash string) (*store.GatewayTransaction, error) {
-	var tx store.GatewayTransaction
+func (ct *ConfirmationTracker) GetGatewayTransaction(txHash string) (*store.ChainTransaction, error) {
+	var tx store.ChainTransaction
 	err := ct.db.Client().Where("tx_hash = ?", txHash).First(&tx).Error
 	if err != nil {
 		return nil, fmt.Errorf("transaction not found: %w", err)
@@ -288,10 +280,10 @@ func (ct *ConfirmationTracker) GetGatewayTransaction(txHash string) (*store.Gate
 }
 
 // GetConfirmedTransactions returns all confirmed transactions for a chain
-func (ct *ConfirmationTracker) GetConfirmedTransactions(chainID string) ([]store.GatewayTransaction, error) {
-	var txs []store.GatewayTransaction
+func (ct *ConfirmationTracker) GetConfirmedTransactions(chainID string) ([]store.ChainTransaction, error) {
+	var txs []store.ChainTransaction
 	err := ct.db.Client().
-		Where("chain_id = ? AND status = ?", chainID, "confirmed").
+		Where("status = ?", "confirmed").
 		Find(&txs).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch confirmed transactions: %w", err)
@@ -302,7 +294,7 @@ func (ct *ConfirmationTracker) GetConfirmedTransactions(chainID string) ([]store
 // MarkTransactionFailed marks a transaction as failed
 func (ct *ConfirmationTracker) MarkTransactionFailed(txHash string) error {
 	return ct.db.Client().
-		Model(&store.GatewayTransaction{}).
+		Model(&store.ChainTransaction{}).
 		Where("tx_hash = ?", txHash).
 		Update("status", "failed").Error
 }

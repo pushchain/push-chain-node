@@ -93,8 +93,8 @@ func (h *GatewayHandler) GetLatestBlock(ctx context.Context) (uint64, error) {
 // GetStartSlot returns the slot to start watching from
 func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 	// Check database for last processed slot
-	var lastBlock store.LastObservedBlock
-	result := h.database.Client().Where("chain_id = ?", h.config.Chain).First(&lastBlock)
+	var chainState store.ChainState
+	result := h.database.Client().First(&chainState)
 	
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
@@ -106,23 +106,23 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 	}
 	
 	// Found a record, use it
-	if lastBlock.Block < 0 {
+	if chainState.LastBlock < 0 {
 		return h.GetLatestBlock(ctx)
 	}
 	
 	h.logger.Info().
-		Int64("slot", lastBlock.Block).
+		Int64("slot", chainState.LastBlock).
 		Msg("resuming from last processed slot")
 	
-	return uint64(lastBlock.Block), nil
+	return uint64(chainState.LastBlock), nil
 }
 
 // UpdateLastProcessedSlot updates the last processed slot in the database
 func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
-	var lastBlock store.LastObservedBlock
+	var chainState store.ChainState
 	
 	// Try to find existing record
-	result := h.database.Client().Where("chain_id = ?", h.config.Chain).First(&lastBlock)
+	result := h.database.Client().First(&chainState)
 	
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to query last processed slot: %w", result.Error)
@@ -130,18 +130,17 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 	
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
-		lastBlock = store.LastObservedBlock{
-			ChainID: h.config.Chain,
-			Block:   int64(slotNumber),
+		chainState = store.ChainState{
+			LastBlock: int64(slotNumber),
 		}
-		if err := h.database.Client().Create(&lastBlock).Error; err != nil {
+		if err := h.database.Client().Create(&chainState).Error; err != nil {
 			return fmt.Errorf("failed to create last processed slot record: %w", err)
 		}
 	} else {
 		// Update existing record only if new slot is higher
-		if int64(slotNumber) > lastBlock.Block {
-			lastBlock.Block = int64(slotNumber)
-			if err := h.database.Client().Save(&lastBlock).Error; err != nil {
+		if int64(slotNumber) > chainState.LastBlock {
+			chainState.LastBlock = int64(slotNumber)
+			if err := h.database.Client().Save(&chainState).Error; err != nil {
 				return fmt.Errorf("failed to update last processed slot: %w", err)
 			}
 		}
@@ -237,7 +236,6 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					if event != nil {
 						// Track transaction for confirmations
 						if err := h.tracker.TrackTransaction(
-							h.config.Chain,
 							event.TxHash,
 							event.BlockNumber,
 							event.Method,
@@ -263,7 +261,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 				}
 
 				// Then update confirmations for remaining valid transactions
-				if err := h.tracker.UpdateConfirmations(h.config.Chain, latestSlot); err != nil {
+				if err := h.tracker.UpdateConfirmations(latestSlot); err != nil {
 					h.logger.Error().Err(err).Msg("failed to update confirmations")
 				}
 
@@ -421,7 +419,7 @@ func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 // verifyTransactionExistence checks if a Solana transaction still exists on chain (reorg detection)
 func (h *GatewayHandler) verifyTransactionExistence(
 	ctx context.Context,
-	tx *store.GatewayTransaction,
+	tx *store.ChainTransaction,
 ) (bool, error) {
 	sig, err := solana.SignatureFromBase58(tx.TxHash)
 	if err != nil {
@@ -745,11 +743,11 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 
 // verifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs
 func (h *GatewayHandler) verifyPendingTransactions(ctx context.Context) error {
-	var pendingTxs []store.GatewayTransaction
+	var pendingTxs []store.ChainTransaction
 	
 	// Get all transactions that need verification
 	err := h.database.Client().
-		Where("chain_id = ? AND status IN (?)", h.config.Chain, []string{"pending", "fast_confirmed"}).
+		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions for verification: %w", err)

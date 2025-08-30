@@ -47,7 +47,6 @@ func TestTrackTransaction(t *testing.T) {
 	
 	// Track a new transaction
 	err = tracker.TrackTransaction(
-		"eip155:11155111",
 		"0x1234567890abcdef",
 		100,
 		"addFunds",
@@ -59,7 +58,7 @@ func TestTrackTransaction(t *testing.T) {
 	// Verify transaction was stored
 	tx, err := tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
-	assert.Equal(t, "eip155:11155111", tx.ChainID)
+	// ChainID no longer exists in ChainTransaction
 	assert.Equal(t, "0x1234567890abcdef", tx.TxHash)
 	assert.Equal(t, uint64(100), tx.BlockNumber)
 	assert.Equal(t, "addFunds", tx.Method)
@@ -68,7 +67,6 @@ func TestTrackTransaction(t *testing.T) {
 	
 	// Track the same transaction again (should update)
 	err = tracker.TrackTransaction(
-		"eip155:11155111",
 		"0x1234567890abcdef",
 		100,
 		"addFunds",
@@ -88,7 +86,6 @@ func TestUpdateConfirmations(t *testing.T) {
 	
 	// Track a transaction at block 100
 	err = tracker.TrackTransaction(
-		"eip155:11155111",
 		"0x1234567890abcdef",
 		100,
 		"addFunds",
@@ -98,7 +95,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	require.NoError(t, err)
 	
 	// Update confirmations with current block at 105
-	err = tracker.UpdateConfirmations("eip155:11155111", 105)
+	err = tracker.UpdateConfirmations(105)
 	require.NoError(t, err)
 	
 	// Check confirmations
@@ -108,7 +105,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	assert.Equal(t, "fast_confirmed", tx.Status) // Fast confirmed at 5 confirmations
 	
 	// Update confirmations with current block at 112
-	err = tracker.UpdateConfirmations("eip155:11155111", 112)
+	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
 	// Check confirmations
@@ -128,7 +125,6 @@ func TestIsConfirmed(t *testing.T) {
 	
 	// Track a transaction
 	err = tracker.TrackTransaction(
-		"eip155:11155111",
 		"0x1234567890abcdef",
 		100,
 		"addFunds",
@@ -143,7 +139,7 @@ func TestIsConfirmed(t *testing.T) {
 	assert.False(t, confirmed)
 	
 	// Update to 5 confirmations
-	err = tracker.UpdateConfirmations("eip155:11155111", 105)
+	err = tracker.UpdateConfirmations(105)
 	require.NoError(t, err)
 	
 	// Now confirmed for fast mode
@@ -157,7 +153,7 @@ func TestIsConfirmed(t *testing.T) {
 	assert.False(t, confirmed)
 	
 	// Update to 12 confirmations
-	err = tracker.UpdateConfirmations("eip155:11155111", 112)
+	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
 	// Now confirmed for both modes
@@ -178,7 +174,6 @@ func TestGetConfirmedTransactions(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		txHash := fmt.Sprintf("0x%d", i)
 		err = tracker.TrackTransaction(
-			"eip155:11155111",
 			txHash,
 			uint64(100+i),
 			"addFunds",
@@ -189,7 +184,7 @@ func TestGetConfirmedTransactions(t *testing.T) {
 	}
 	
 	// Confirm only the first one (needs 12 confirmations with standardInbound)
-	err = tracker.UpdateConfirmations("eip155:11155111", 112)
+	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
 	// Mark the third as failed
@@ -212,7 +207,6 @@ func TestMarkTransactionFailed(t *testing.T) {
 	
 	// Track a transaction
 	err = tracker.TrackTransaction(
-		"eip155:11155111",
 		"0x1234567890abcdef",
 		100,
 		"addFunds",
@@ -226,7 +220,7 @@ func TestMarkTransactionFailed(t *testing.T) {
 	require.NoError(t, err)
 	
 	// Verify status
-	var tx store.GatewayTransaction
+	var tx store.ChainTransaction
 	err = database.Client().Where("tx_hash = ?", "0x1234567890abcdef").First(&tx).Error
 	require.NoError(t, err)
 	assert.Equal(t, "failed", tx.Status)
@@ -241,8 +235,8 @@ func TestIsConfirmedWithReorgedStatus(t *testing.T) {
 	tracker := NewConfirmationTracker(database, nil, logger)
 	
 	// Create a transaction and manually set it to reorged status
-	tx := &store.GatewayTransaction{
-		ChainID:         "eip155:11155111",
+	tx := &store.ChainTransaction{
+		
 		TxHash:          "0x1234567890abcdef",
 		BlockNumber:     100,
 		Method:          "addFunds",

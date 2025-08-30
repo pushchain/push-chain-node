@@ -26,7 +26,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := NewClient(config, nil, nil, logger)
@@ -165,7 +165,7 @@ func TestClientStartStop(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   server.URL,
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Create appConfig with RPC URLs
@@ -334,7 +334,7 @@ func TestClientGetMethods(t *testing.T) {
 		VmType:         uregistrytypes.VmType_SVM,
 		PublicRpcUrl:   "https://api.devnet.solana.com",
 		GatewayAddress: "Sol123...",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	client, err := NewClient(config, nil, nil, logger)

@@ -77,7 +77,7 @@ func TestValidateConfig(t *testing.T) {
 			},
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 10*time.Second, cfg.ConfigRefreshInterval)
+				assert.Equal(t, 60*time.Second, cfg.ConfigRefreshInterval)
 				assert.Equal(t, 3, cfg.MaxRetries)
 				assert.Equal(t, time.Second, cfg.RetryBackoff)
 				assert.Equal(t, 5, cfg.InitialFetchRetries)

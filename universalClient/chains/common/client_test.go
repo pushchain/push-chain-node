@@ -174,6 +174,23 @@ func (tc *TestChainClient) IsHealthy() bool {
 	return tc.healthy
 }
 
+// Implement GatewayOperations interface
+func (tc *TestChainClient) GetLatestBlock(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
+func (tc *TestChainClient) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *GatewayEvent, error) {
+	return nil, nil
+}
+
+func (tc *TestChainClient) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
+	return 0, nil
+}
+
+func (tc *TestChainClient) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
+	return false, nil
+}
+
 func TestChainClientInterface(t *testing.T) {
 	// This test verifies that BaseChainClient can be embedded in a struct
 	// that implements the ChainClient interface

@@ -26,7 +26,7 @@ func validateConfig(cfg *Config) error {
 
 	// Set defaults for registry config
 	if cfg.ConfigRefreshInterval == 0 {
-		cfg.ConfigRefreshInterval = 10 * time.Second
+		cfg.ConfigRefreshInterval = 60 * time.Second
 	}
 	if cfg.MaxRetries == 0 {
 		cfg.MaxRetries = 3
@@ -52,6 +52,50 @@ func validateConfig(cfg *Config) error {
 	// Set defaults for query server
 	if cfg.QueryServerPort == 0 {
 		cfg.QueryServerPort = 8080
+	}
+
+	// Set defaults for event monitoring
+	if cfg.EventPollingInterval == 0 {
+		cfg.EventPollingInterval = 5 * time.Second
+	}
+
+	// Set defaults for transaction cleanup
+	if cfg.TransactionCleanupInterval == 0 {
+		cfg.TransactionCleanupInterval = time.Hour
+	}
+	if cfg.TransactionRetentionPeriod == 0 {
+		cfg.TransactionRetentionPeriod = 24 * time.Hour
+	}
+
+	// Initialize ChainRPCURLs if nil
+	if cfg.ChainRPCURLs == nil {
+		cfg.ChainRPCURLs = make(map[string][]string)
+	}
+
+	// Set defaults for RPC pool config
+	if cfg.RPCPoolConfig.HealthCheckInterval == 0 {
+		cfg.RPCPoolConfig.HealthCheckInterval = 30 * time.Second
+	}
+	if cfg.RPCPoolConfig.UnhealthyThreshold == 0 {
+		cfg.RPCPoolConfig.UnhealthyThreshold = 3
+	}
+	if cfg.RPCPoolConfig.RecoveryInterval == 0 {
+		cfg.RPCPoolConfig.RecoveryInterval = 5 * time.Minute
+	}
+	if cfg.RPCPoolConfig.MinHealthyEndpoints == 0 {
+		cfg.RPCPoolConfig.MinHealthyEndpoints = 1
+	}
+	if cfg.RPCPoolConfig.RequestTimeout == 0 {
+		cfg.RPCPoolConfig.RequestTimeout = 10 * time.Second
+	}
+	if cfg.RPCPoolConfig.LoadBalancingStrategy == "" {
+		cfg.RPCPoolConfig.LoadBalancingStrategy = "round-robin"
+	}
+
+	// Validate load balancing strategy
+	if cfg.RPCPoolConfig.LoadBalancingStrategy != "round-robin" && 
+		cfg.RPCPoolConfig.LoadBalancingStrategy != "weighted" {
+		return fmt.Errorf("load balancing strategy must be 'round-robin' or 'weighted'")
 	}
 
 	return nil

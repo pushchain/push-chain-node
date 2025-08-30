@@ -374,7 +374,8 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 	// Verify handler integration with parent client
 	assert.Equal(t, client, handler.parentClient, "Gateway handler should reference parent client for RPC pool access")
 	assert.NotNil(t, handler.tracker, "Gateway handler should have confirmation tracker")
-	assert.Equal(t, len(chainConfig.GatewayMethods), len(handler.eventTopics), "Event topics should be configured from gateway methods")
+	assert.NotNil(t, handler.eventParser, "Gateway handler should have event parser")
+	assert.NotNil(t, handler.eventWatcher, "Gateway handler should have event watcher")
 
 	// Verify that gateway handler uses executeWithFailover pattern in its code
 	// This is verified by the fact that all gateway handler methods call

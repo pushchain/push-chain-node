@@ -232,54 +232,31 @@ func (m *Manager) UpdateEndpointMetrics(endpoint *Endpoint, success bool, latenc
 }
 
 // GetEndpointStats returns statistics about all endpoints
-func (m *Manager) GetEndpointStats() map[string]interface{} {
+func (m *Manager) GetEndpointStats() *EndpointStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
-	stats := make(map[string]interface{})
-	endpoints := make([]map[string]interface{}, len(m.endpoints))
-	
-	healthyCount := 0
-	degradedCount := 0
-	unhealthyCount := 0
-	excludedCount := 0
+	endpoints := make([]EndpointInfo, len(m.endpoints))
 	
 	for i, endpoint := range m.endpoints {
-		state := endpoint.GetState()
-		switch state {
-		case StateHealthy:
-			healthyCount++
-		case StateDegraded:
-			degradedCount++
-		case StateUnhealthy:
-			unhealthyCount++
-		case StateExcluded:
-			excludedCount++
-		}
-		
-		endpoints[i] = map[string]interface{}{
-			"url":                 endpoint.URL,
-			"state":               state.String(),
-			"health_score":        endpoint.Metrics.GetHealthScore(),
-			"total_requests":      endpoint.Metrics.TotalRequests,
-			"successful_requests": endpoint.Metrics.SuccessfulRequests,
-			"failed_requests":     endpoint.Metrics.FailedRequests,
-			"success_rate":        endpoint.Metrics.GetSuccessRate(),
-			"consecutive_failures": endpoint.Metrics.GetConsecutiveFailures(),
-			"average_latency":     endpoint.Metrics.AverageLatency.String(),
-			"last_used":          endpoint.LastUsed,
+		endpoints[i] = EndpointInfo{
+			URL:            endpoint.URL,
+			State:          endpoint.GetState().String(),
+			HealthScore:    endpoint.Metrics.GetHealthScore(),
+			LastUsed:       endpoint.LastUsed,
+			RequestCount:   endpoint.Metrics.TotalRequests,
+			FailureCount:   endpoint.Metrics.FailedRequests,
+			TotalLatency:   endpoint.Metrics.AverageLatency.Milliseconds() * int64(endpoint.Metrics.TotalRequests),
+			AverageLatency: float64(endpoint.Metrics.AverageLatency.Milliseconds()),
 		}
 	}
 	
-	stats["strategy"] = string(m.selector.GetStrategy())
-	stats["total_endpoints"] = len(m.endpoints)
-	stats["healthy_endpoints"] = healthyCount
-	stats["degraded_endpoints"] = degradedCount
-	stats["unhealthy_endpoints"] = unhealthyCount
-	stats["excluded_endpoints"] = excludedCount
-	stats["endpoints"] = endpoints
-	
-	return stats
+	return &EndpointStats{
+		ChainID:        m.chainID,
+		TotalEndpoints: len(m.endpoints),
+		Strategy:       string(m.selector.GetStrategy()),
+		Endpoints:      endpoints,
+	}
 }
 
 // GetEndpoints returns all endpoints (for health monitor access)

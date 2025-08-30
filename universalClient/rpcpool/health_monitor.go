@@ -184,17 +184,15 @@ func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *Endpoint, success 
 }
 
 // GetHealthStatus returns a summary of endpoint health
-func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
+func (h *HealthMonitor) GetHealthStatus() *HealthStatus {
 	endpoints := h.manager.GetEndpoints()
-	
-	status := make(map[string]interface{})
 	
 	healthyCount := 0
 	degradedCount := 0
 	unhealthyCount := 0
 	excludedCount := 0
 	
-	endpointStatus := make([]map[string]interface{}, len(endpoints))
+	endpointStatuses := make([]EndpointStatus, len(endpoints))
 	
 	for i, endpoint := range endpoints {
 		state := endpoint.GetState()
@@ -210,46 +208,31 @@ func (h *HealthMonitor) GetHealthStatus() map[string]interface{} {
 			excludedCount++
 		}
 		
-		endpointStatus[i] = map[string]interface{}{
-			"url":           endpoint.URL,
-			"state":         state.String(),
-			"health_score":  endpoint.Metrics.GetHealthScore(),
-			"success_rate":  endpoint.Metrics.GetSuccessRate(),
-			"last_used":     endpoint.LastUsed,
+		var lastError string
+		if endpoint.Metrics.LastError != nil {
+			lastError = endpoint.Metrics.LastError.Error()
 		}
 		
-		if state == StateExcluded {
-			endpoint.mu.RLock()
-			nextRecovery := endpoint.ExcludedAt.Add(h.config.RecoveryInterval)
-			endpoint.mu.RUnlock()
-			
-			endpointStatus[i]["excluded_at"] = endpoint.ExcludedAt
-			endpointStatus[i]["next_recovery_attempt"] = nextRecovery
-			endpointStatus[i]["recovery_in"] = time.Until(nextRecovery).String()
+		endpointStatuses[i] = EndpointStatus{
+			URL:          endpoint.URL,
+			State:        state.String(),
+			HealthScore:  endpoint.Metrics.GetHealthScore(),
+			ResponseTime: endpoint.Metrics.AverageLatency.Milliseconds(),
+			LastChecked:  endpoint.LastUsed,
+			LastError:    lastError,
 		}
 	}
 	
-	status["healthy_count"] = healthyCount
-	status["degraded_count"] = degradedCount  
-	status["unhealthy_count"] = unhealthyCount
-	status["excluded_count"] = excludedCount
-	status["total_count"] = len(endpoints)
-	status["min_healthy_required"] = h.config.MinHealthyEndpoints
-	status["health_check_interval"] = h.config.HealthCheckInterval.String()
-	status["recovery_interval"] = h.config.RecoveryInterval.String()
-	status["endpoints"] = endpointStatus
-	
-	// Overall pool health assessment
-	availableCount := healthyCount + degradedCount
-	if availableCount >= h.config.MinHealthyEndpoints {
-		status["pool_status"] = "healthy"
-	} else if availableCount > 0 {
-		status["pool_status"] = "degraded"
-	} else {
-		status["pool_status"] = "unhealthy"
+	return &HealthStatus{
+		ChainID:        h.manager.chainID,
+		TotalEndpoints: len(endpoints),
+		HealthyCount:   healthyCount,
+		UnhealthyCount: unhealthyCount,
+		DegradedCount:  degradedCount,
+		ExcludedCount:  excludedCount,
+		Strategy:       string(h.manager.selector.GetStrategy()),
+		Endpoints:      endpointStatuses,
 	}
-	
-	return status
 }
 
 // ForceExcludeEndpoint manually excludes an endpoint (useful for testing or manual intervention)

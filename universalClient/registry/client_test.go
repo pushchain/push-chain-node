@@ -49,7 +49,7 @@ func TestRegistryClientMethods(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		mockClient.EXPECT().
@@ -77,12 +77,12 @@ func TestRegistryClientMethods(t *testing.T) {
 			{
 				Chain:   "eip155:11155111",
 				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:   "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:  uregistrytypes.VmType_SVM,
-				Enabled: true,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 

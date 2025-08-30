@@ -23,14 +23,14 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		},
 		{
 			Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		},
 	}
 
@@ -129,7 +129,7 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-sepolia-new.example.com",
 			GatewayAddress: "0x999...",
-			Enabled:        true,
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain})
@@ -149,7 +149,7 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-mainnet.example.com",
 			GatewayAddress: "0x456...",
-			Enabled:        true,
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain, newChain})
@@ -230,7 +230,7 @@ func TestConfigCacheConcurrency(t *testing.T) {
 		{
 			Chain:   "eip155:11155111",
 			VmType:  uregistrytypes.VmType_EVM,
-			Enabled: true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		},
 	}
 
@@ -275,7 +275,7 @@ func TestConfigCacheConcurrency(t *testing.T) {
 				newChain := &uregistrytypes.ChainConfig{
 					Chain:   "test:chain" + string(rune(id)),
 					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 				}
 				cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{newChain})
 
@@ -342,13 +342,13 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
 				PublicRpcUrl:   "https://old.example.com",
-				Enabled:        false,
+				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false},
 			},
 			{
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
 				PublicRpcUrl:   "https://new.example.com",
-				Enabled:        true,
+				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 
@@ -357,7 +357,7 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
 		assert.Equal(t, "https://new.example.com", config.PublicRpcUrl)
-		assert.True(t, config.Enabled)
+		assert.True(t, config.Enabled.IsInboundEnabled || config.Enabled.IsOutboundEnabled)
 	})
 
 	t.Run("DuplicateTokens", func(t *testing.T) {

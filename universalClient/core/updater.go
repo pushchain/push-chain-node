@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -22,6 +23,7 @@ type ConfigUpdater struct {
 	ticker       *time.Ticker
 	logger       zerolog.Logger
 	stopCh       chan struct{}
+	stopOnce     sync.Once
 	updatePeriod time.Duration
 }
 
@@ -121,12 +123,14 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 
 // Stop halts the periodic update process
 func (u *ConfigUpdater) Stop() {
-	u.logger.Info().Msg("stopping config updater")
+	u.stopOnce.Do(func() {
+		u.logger.Info().Msg("stopping config updater")
 
-	if u.ticker != nil {
-		u.ticker.Stop()
-	}
-	close(u.stopCh)
+		if u.ticker != nil {
+			u.ticker.Stop()
+		}
+		close(u.stopCh)
+	})
 }
 
 // runUpdateLoop runs the periodic update loop

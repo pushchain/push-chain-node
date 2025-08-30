@@ -271,19 +271,15 @@ func TestManager_GetEndpointStats(t *testing.T) {
 	
 	stats := manager.GetEndpointStats()
 	
-	assert.Equal(t, "round-robin", stats["strategy"])
-	assert.Equal(t, 2, stats["total_endpoints"])
-	assert.Equal(t, 2, stats["healthy_endpoints"])
-	assert.Equal(t, 0, stats["degraded_endpoints"])
-	assert.Equal(t, 0, stats["unhealthy_endpoints"])
-	assert.Equal(t, 0, stats["excluded_endpoints"])
+	assert.Equal(t, "round-robin", stats.Strategy)
+	assert.Equal(t, 2, stats.TotalEndpoints)
 	
-	endpoints := stats["endpoints"].([]map[string]interface{})
+	endpoints := stats.Endpoints
 	assert.Len(t, endpoints, 2)
 	
 	endpoint1 := endpoints[0]
-	assert.Contains(t, []string{"http://test1.com", "http://test2.com"}, endpoint1["url"])
-	assert.Equal(t, "healthy", endpoint1["state"])
+	assert.Contains(t, []string{"http://test1.com", "http://test2.com"}, endpoint1.URL)
+	assert.Equal(t, "healthy", endpoint1.State)
 }
 
 func TestManager_Stop(t *testing.T) {

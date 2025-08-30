@@ -28,7 +28,6 @@ type Client struct {
 	gatewayHandler *GatewayHandler
 	database       *db.DB
 	appConfig      *config.Config
-	connMonitor    *common.ConnectionMonitor
 	retryManager   *common.RetryManager
 	stopCh         chan struct{}
 }
@@ -63,28 +62,19 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 		stopCh:       make(chan struct{}),
 	}
 
-	// Create connection monitor with reconnect handler
-	client.connMonitor = common.NewConnectionMonitor(
-		30*time.Second,
-		client.reconnect,
-		logger,
-	)
 
 	return client, nil
 }
 
 // getRPCURLs returns the list of RPC URLs to use for this chain
 func (c *Client) getRPCURLs() []string {
-	chainConfig := c.GetConfig()
-	if chainConfig == nil {
-		return []string{}
-	}
-
-	// Only use local config ChainRPCURLs - no fallback to registry
+	// Only check common config if appConfig is not nil
 	if c.appConfig != nil {
-		if urls, ok := c.appConfig.ChainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
+		
+		if len(urls) > 0 {
 			c.logger.Info().
-				Str("chain", chainConfig.Chain).
+				Str("chain", c.GetConfig().Chain).
 				Int("url_count", len(urls)).
 				Msg("using RPC URLs from local configuration")
 			return urls
@@ -92,7 +82,8 @@ func (c *Client) getRPCURLs() []string {
 	}
 
 	// Fallback to PublicRpcUrl from chain config if available
-	if chainConfig.PublicRpcUrl != "" {
+	chainConfig := c.GetConfig()
+	if chainConfig != nil && chainConfig.PublicRpcUrl != "" {
 		c.logger.Info().
 			Str("chain", chainConfig.Chain).
 			Str("url", chainConfig.PublicRpcUrl).
@@ -100,8 +91,12 @@ func (c *Client) getRPCURLs() []string {
 		return []string{chainConfig.PublicRpcUrl}
 	}
 
+	chainName := ""
+	if c.GetConfig() != nil {
+		chainName = c.GetConfig().Chain
+	}
 	c.logger.Warn().
-		Str("chain", chainConfig.Chain).
+		Str("chain", chainName).
 		Msg("no RPC URLs configured for chain")
 	return []string{}
 }
@@ -218,10 +213,7 @@ func (c *Client) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to establish initial connection: %w", err)
 	}
 
-	// Start connection monitoring (only if using single client fallback)
-	if c.rpcPool == nil {
-		c.connMonitor.Start(clientCtx, c.healthCheck)
-	}
+	// RPCPool handles all connection monitoring now
 
 	// Initialize gateway handler if gateway is configured
 	if c.GetConfig() != nil && c.GetConfig().GatewayAddress != "" {
@@ -272,11 +264,21 @@ func (c *Client) watchGatewayEvents() {
 			c.logger.Info().Msg("stopping gateway event watcher: stop signal")
 			return
 		default:
-			// Check if connected
-			if !c.connMonitor.IsConnected() {
+			// Check if we have available endpoints
+			if c.rpcPool != nil && c.rpcPool.GetHealthyEndpointCount() == 0 {
+				c.logger.Debug().Msg("waiting for healthy endpoints")
+				time.Sleep(5 * time.Second)
+				continue
+			} else if c.rpcPool == nil && c.ethClient == nil {
 				c.logger.Debug().Msg("waiting for connection to be established")
 				time.Sleep(5 * time.Second)
 				continue
+			}
+
+			// Check if gateway handler is available
+			if c.gatewayHandler == nil {
+				c.logger.Error().Msg("gateway handler is not initialized")
+				return
 			}
 
 			// Get the starting block from database
@@ -296,7 +298,6 @@ func (c *Client) watchGatewayEvents() {
 			eventChan, err := c.WatchGatewayEvents(ctx, startBlock)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
-				c.connMonitor.SetDisconnected()
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -309,7 +310,6 @@ func (c *Client) watchGatewayEvents() {
 			watchErr := c.processGatewayEvents(ctx, eventChan)
 			if watchErr != nil {
 				c.logger.Error().Err(watchErr).Msg("gateway event processing error")
-				c.connMonitor.SetDisconnected()
 				time.Sleep(5 * time.Second)
 			}
 		}
@@ -422,7 +422,6 @@ func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) erro
 	}
 
 	c.ethClient = ethClient
-	c.connMonitor.SetConnected()
 	
 	c.logger.Info().
 		Int64("chain_id", chainID.Int64()).
@@ -431,46 +430,6 @@ func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) erro
 	return nil
 }
 
-// reconnect attempts to reconnect to the EVM RPC endpoint
-func (c *Client) reconnect() error {
-	c.logger.Info().Msg("attempting to reconnect to EVM RPC")
-
-	// Close existing connection if any
-	if c.ethClient != nil {
-		c.ethClient.Close()
-		c.ethClient = nil
-	}
-
-	// Use a fresh context for reconnection
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Attempt to connect
-	if err := c.connect(ctx); err != nil {
-		return fmt.Errorf("reconnection failed: %w", err)
-	}
-
-	// Reinitialize gateway handler if needed
-	if c.gatewayHandler != nil && c.GetConfig() != nil && c.GetConfig().GatewayAddress != "" {
-		c.logger.Info().Msg("reinitializing gateway handler after reconnection")
-		
-		handler, err := NewGatewayHandler(
-			c, // Pass the client instance for RPC pool access
-			c.GetConfig(),
-			c.database,
-			c.appConfig,
-			c.logger,
-		)
-		if err != nil {
-			c.logger.Warn().Err(err).Msg("failed to recreate gateway handler after reconnection")
-		} else {
-			c.gatewayHandler = handler
-			c.logger.Info().Msg("gateway handler reinitialized successfully")
-		}
-	}
-
-	return nil
-}
 
 // healthCheck performs a health check on the connection
 func (c *Client) healthCheck() error {
@@ -500,11 +459,6 @@ func (c *Client) Stop() error {
 	if c.rpcPool != nil {
 		c.rpcPool.Stop()
 		c.rpcPool = nil
-	}
-
-	// Stop connection monitor (for single client mode)
-	if c.connMonitor != nil {
-		c.connMonitor.Stop()
 	}
 
 	// Cancel context

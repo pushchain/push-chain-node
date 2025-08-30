@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -38,9 +39,24 @@ func (s *Server) Start() error {
 		return fmt.Errorf("query server is nil")
 	}
 
+	// Channel to signal server startup result
+	startupChan := make(chan error, 1)
+
 	// Start server in goroutine
 	go func() {
-		err := s.server.ListenAndServe()
+		// Create a test listener to verify the port is available
+		ln, err := net.Listen("tcp", s.server.Addr)
+		if err != nil {
+			startupChan <- fmt.Errorf("failed to bind to address %s: %w", s.server.Addr, err)
+			return
+		}
+		ln.Close()
+		
+		// Signal successful startup check
+		startupChan <- nil
+		
+		// Now start the actual server
+		err = s.server.ListenAndServe()
 		switch err {
 		case nil:
 			s.logger.Info().Msg("Query server stopped normally")
@@ -51,10 +67,16 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	// Give the server time to start
-	time.Sleep(100 * time.Millisecond)
-
-	return nil
+	// Wait for startup result with timeout
+	select {
+	case err := <-startupChan:
+		if err != nil {
+			return err
+		}
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("server startup timeout")
+	}
 }
 
 // Stop gracefully shuts down the HTTP server

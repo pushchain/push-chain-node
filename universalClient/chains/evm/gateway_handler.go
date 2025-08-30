@@ -3,10 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"time"
 
-	"github.com/ethereum/go-ethereum"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -29,8 +26,11 @@ type GatewayHandler struct {
 	tracker       *common.ConfirmationTracker
 	gatewayAddr   ethcommon.Address
 	contractABI   interface{} // Will hold minimal ABI when available
-	eventTopics   map[string]ethcommon.Hash
 	database      *db.DB
+	
+	// Extracted components
+	eventParser   *EventParser
+	eventWatcher  *EventWatcher
 }
 
 // NewGatewayHandler creates a new EVM gateway handler
@@ -55,27 +55,9 @@ func NewGatewayHandler(
 		logger,
 	)
 
-	// Build event topics from config methods
-	eventTopics := make(map[string]ethcommon.Hash)
-	logger.Info().
-		Int("gateway_methods_count", len(config.GatewayMethods)).
-		Str("gateway_address", config.GatewayAddress).
-		Msg("building event topics")
-	for _, method := range config.GatewayMethods {
-		if method.EventIdentifier != "" {
-			eventTopics[method.Identifier] = ethcommon.HexToHash(method.EventIdentifier)
-			logger.Info().
-				Str("method", method.Name).
-				Str("event_identifier", method.EventIdentifier).
-				Str("method_id", method.Identifier).
-				Msg("registered event topic from config")
-		} else {
-			logger.Warn().
-				Str("method", method.Name).
-				Str("method_id", method.Identifier).
-				Msg("no event identifier provided in config for method")
-		}
-	}
+	// Create extracted components
+	eventParser := NewEventParser(gatewayAddr, config, logger)
+	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, appConfig, logger)
 
 	return &GatewayHandler{
 		parentClient: parentClient,
@@ -84,8 +66,9 @@ func NewGatewayHandler(
 		logger:       logger.With().Str("component", "evm_gateway_handler").Logger(),
 		tracker:      tracker,
 		gatewayAddr:  gatewayAddr,
-		eventTopics:  eventTopics,
 		database:     database,
+		eventParser:  eventParser,
+		eventWatcher: eventWatcher,
 	}, nil
 }
 
@@ -162,199 +145,16 @@ func (h *GatewayHandler) UpdateLastProcessedBlock(blockNumber uint64) error {
 	return nil
 }
 
-// WatchGatewayEvents starts watching for gateway events from a specific block
+// WatchGatewayEvents delegates to event watcher
 func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
-	eventChan := make(chan *common.GatewayEvent)
-
-	// Create topics filter
-	var topics []ethcommon.Hash
-	for methodID, topic := range h.eventTopics {
-		topics = append(topics, topic)
-		h.logger.Debug().
-			Str("method_id", methodID).
-			Str("topic", topic.Hex()).
-			Msg("adding topic to filter")
-	}
-
-	if len(topics) == 0 {
-		close(eventChan)
-		return eventChan, fmt.Errorf("no event topics configured")
-	}
-	
-	h.logger.Info().
-		Int("topic_count", len(topics)).
-		Interface("topics", topics).
-		Msg("configured event topics for watching")
-
-	go func() {
-		defer close(eventChan)
-
-		// Use configured polling interval or default to 5 seconds
-		pollingInterval := 5 * time.Second
-		if h.appConfig != nil && h.appConfig.EventPollingInterval > 0 {
-			pollingInterval = h.appConfig.EventPollingInterval
-		}
-		
-		// Create subscription for new blocks
-		ticker := time.NewTicker(pollingInterval)
-		defer ticker.Stop()
-
-		currentBlock := fromBlock
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Get latest block
-				var latestBlock uint64
-				err := h.parentClient.executeWithFailover(ctx, "get_latest_block", func(client *ethclient.Client) error {
-					var innerErr error
-					latestBlock, innerErr = client.BlockNumber(ctx)
-					return innerErr
-				})
-				if err != nil {
-					h.logger.Error().Err(err).Msg("failed to get latest block")
-					continue
-				}
-
-				if currentBlock >= latestBlock {
-					continue
-				}
-
-				// Create filter query
-				// Topics should be in the first position (topic[0])
-				query := ethereum.FilterQuery{
-					FromBlock: big.NewInt(int64(currentBlock)),
-					ToBlock:   big.NewInt(int64(latestBlock)),
-					Addresses: []ethcommon.Address{h.gatewayAddr},
-					Topics:    [][]ethcommon.Hash{topics}, // This filters for any of the topics in position 0
-				}
-
-				// Get logs
-				var logs []types.Log
-				err = h.parentClient.executeWithFailover(ctx, "filter_logs", func(client *ethclient.Client) error {
-					var innerErr error
-					logs, innerErr = client.FilterLogs(ctx, query)
-					return innerErr
-				})
-				if err != nil {
-					h.logger.Error().Err(err).Msg("failed to filter logs")
-					continue
-				}
-
-				// Log when events are found
-				if len(logs) > 0 {
-					h.logger.Info().
-						Uint64("from_block", currentBlock).
-						Uint64("to_block", latestBlock).
-						Int("logs_found", len(logs)).
-						Str("gateway_address", h.gatewayAddr.Hex()).
-						Msg("found gateway events")
-				}
-
-				// Process logs
-				for _, log := range logs {
-					event := h.parseGatewayEvent(&log)
-					if event != nil {
-						// Track transaction for confirmations
-						if err := h.tracker.TrackTransaction(
-							event.TxHash,
-							event.BlockNumber,
-							event.Method,
-							event.EventID,
-							nil,
-						); err != nil {
-							h.logger.Error().Err(err).
-								Str("tx_hash", event.TxHash).
-								Msg("failed to track transaction")
-						}
-
-						select {
-						case eventChan <- event:
-						case <-ctx.Done():
-							return
-						}
-					}
-				}
-
-				// First verify all pending transactions for reorgs (EVM-specific)
-				if err := h.verifyPendingTransactions(ctx); err != nil {
-					h.logger.Error().Err(err).Msg("failed to verify pending transactions for reorgs")
-				}
-
-				// Then update confirmations for remaining valid transactions
-				if err := h.tracker.UpdateConfirmations(latestBlock); err != nil {
-					h.logger.Error().Err(err).Msg("failed to update confirmations")
-				}
-
-				// Update last processed block in database
-				if err := h.UpdateLastProcessedBlock(latestBlock); err != nil {
-					h.logger.Error().Err(err).Msg("failed to update last processed block")
-				}
-
-				currentBlock = latestBlock + 1
-			}
-		}
-	}()
-
-	return eventChan, nil
+	return h.eventWatcher.WatchEvents(
+		ctx,
+		fromBlock,
+		h.UpdateLastProcessedBlock,
+		h.verifyPendingTransactions,
+	)
 }
 
-// parseGatewayEvent parses a log into a GatewayEvent
-func (h *GatewayHandler) parseGatewayEvent(log *types.Log) *common.GatewayEvent {
-	if len(log.Topics) == 0 {
-		return nil
-	}
-
-	// Find matching method by event topic
-	var methodID, methodName string
-	for id, topic := range h.eventTopics {
-		if log.Topics[0] == topic {
-			methodID = id
-			// Find method name from config
-			for _, method := range h.config.GatewayMethods {
-				if method.Identifier == id {
-					methodName = method.Name
-					break
-				}
-			}
-			break
-		}
-	}
-
-	if methodID == "" {
-		return nil
-	}
-
-	event := &common.GatewayEvent{
-		ChainID:     h.config.Chain,
-		TxHash:      log.TxHash.Hex(),
-		BlockNumber: log.BlockNumber,
-		Method:      methodName,
-		EventID:     methodID,
-		Payload:     log.Data,
-	}
-
-	// Parse event data based on method
-	if methodName == "addFunds" && len(log.Topics) >= 3 {
-		// FundsAdded event typically has:
-		// topics[0] = event signature
-		// topics[1] = indexed sender address
-		// topics[2] = indexed token address
-		// data contains amount and payload
-		
-		event.Sender = ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex()
-		
-		// Parse amount from data if available
-		if len(log.Data) >= 32 {
-			amount := new(big.Int).SetBytes(log.Data[:32])
-			event.Amount = amount.String()
-		}
-	}
-
-	return event
-}
 
 // GetTransactionConfirmations returns the number of confirmations for a transaction
 func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {

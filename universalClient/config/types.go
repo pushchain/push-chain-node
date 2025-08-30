@@ -44,3 +44,8 @@ type RPCPoolConfig struct {
 	RequestTimeout        time.Duration `json:"request_timeout"`         // Timeout for individual RPC requests (default: 10s)
 	LoadBalancingStrategy string        `json:"load_balancing_strategy"` // "round-robin" or "weighted" (default: "round-robin")
 }
+
+// GetChainRPCURLs returns the map of chain RPC URLs
+func (c *Config) GetChainRPCURLs() map[string][]string {
+	return c.ChainRPCURLs
+}

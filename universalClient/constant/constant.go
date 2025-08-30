@@ -3,7 +3,6 @@ package constant
 import "os"
 
 const (
-	appName = "puniversal"
 	NodeDir = ".puniversal"
 )
 

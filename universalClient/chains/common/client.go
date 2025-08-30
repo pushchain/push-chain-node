@@ -41,6 +41,24 @@ func NewBaseChainClient(config *uregistrytypes.ChainConfig) *BaseChainClient {
 	}
 }
 
+// GetRPCURLs returns the list of RPC URLs to use for this chain
+// This common implementation can be used by all chain clients
+func GetRPCURLs(chainConfig *uregistrytypes.ChainConfig, appConfig interface{ GetChainRPCURLs() map[string][]string }) []string {
+	if chainConfig == nil {
+		return []string{}
+	}
+
+	// Only use local config ChainRPCURLs - no fallback to registry
+	if appConfig != nil {
+		chainRPCURLs := appConfig.GetChainRPCURLs()
+		if urls, ok := chainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+			return urls
+		}
+	}
+
+	return []string{}
+}
+
 // ChainID returns the CAIP-2 format chain identifier
 func (b *BaseChainClient) ChainID() string {
 	if b.config != nil {

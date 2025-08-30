@@ -207,7 +207,10 @@ func TestClientStartStop(t *testing.T) {
 		client, err := NewClient(chainConfig, nil, appConfig, logger)
 		require.NoError(t, err)
 
-		ctx := context.Background()
+		// Use a timeout context to prevent hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		
 		err = client.Start(ctx)
 		assert.Error(t, err)
 	})
@@ -224,7 +227,10 @@ func TestClientStartStop(t *testing.T) {
 		client, err := NewClient(config, nil, nil, logger)
 		require.NoError(t, err)
 
-		ctx := context.Background()
+		// Use a timeout context to prevent hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		
 		err = client.Start(ctx)
 		assert.Error(t, err)
 		// Should get error about no RPC URLs configured

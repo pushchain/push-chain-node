@@ -29,10 +29,15 @@ type UniversalClient struct {
 	queryServer    *api.Server
 
 	// Transaction cleanup
-	transactionCleaner *TransactionCleaner
+	transactionCleaner *db.TransactionCleaner
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
+	// Validate config
+	if cfg == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	
 	// Create registry client
 	registryClient, err := registry.NewRegistryClient(cfg.PushChainGRPCURLs, log)
 	if err != nil {
@@ -56,7 +61,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	)
 
 	// Create transaction cleaner
-	transactionCleaner := NewTransactionCleaner(
+	transactionCleaner := db.NewTransactionCleaner(
 		dbManager,
 		cfg,
 		log,
@@ -85,14 +90,21 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 func (uc *UniversalClient) Start() error {
 	uc.log.Info().Msg("🚀 Starting universal client...")
 
+	// Check for required components
+	if uc.configUpdater == nil {
+		return fmt.Errorf("config updater is not initialized")
+	}
+
 	// Start the config updater
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
 	}
 
 	// Start the transaction cleaner
-	if err := uc.transactionCleaner.Start(uc.ctx); err != nil {
-		return fmt.Errorf("failed to start transaction cleaner: %w", err)
+	if uc.transactionCleaner != nil {
+		if err := uc.transactionCleaner.Start(uc.ctx); err != nil {
+			return fmt.Errorf("failed to start transaction cleaner: %w", err)
+		}
 	}
 	
 	// Start the query server
@@ -176,5 +188,8 @@ func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
 
 // ForceConfigUpdate triggers an immediate configuration update
 func (uc *UniversalClient) ForceConfigUpdate() error {
+	if uc.configUpdater == nil {
+		return fmt.Errorf("config updater is not initialized")
+	}
 	return uc.configUpdater.ForceUpdate(uc.ctx)
 }

@@ -50,19 +50,23 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	blockNumber uint64,
 	method, eventID string,
 	data []byte,
-) error {
+) (err error) {
 	// Start database transaction to avoid race conditions and improve performance
 	dbTx := ct.db.Client().Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			dbTx.Rollback()
-			panic(r)
+			ct.logger.Error().
+				Str("tx_hash", txHash).
+				Interface("panic", r).
+				Msg("panic recovered in TrackTransaction")
+			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
 	
 	// Check if transaction already exists using FOR UPDATE to prevent race conditions
 	var existing store.ChainTransaction
-	err := dbTx.Set("gorm:query_option", "FOR UPDATE").
+	err = dbTx.Set("gorm:query_option", "FOR UPDATE").
 		Where("tx_hash = ?", txHash).
 		First(&existing).Error
 	
@@ -131,11 +135,11 @@ func (ct *ConfirmationTracker) TrackTransaction(
 // UpdateConfirmations updates confirmation counts for all pending transactions
 func (ct *ConfirmationTracker) UpdateConfirmations(
 	currentBlock uint64,
-) error {
+) (err error) {
 	var pendingTxs []store.ChainTransaction
 	
 	// Get all transactions that are not yet fully confirmed
-	err := ct.db.Client().
+	err = ct.db.Client().
 		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
 		Find(&pendingTxs).Error
 	if err != nil {
@@ -156,7 +160,11 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	defer func() {
 		if r := recover(); r != nil {
 			dbTx.Rollback()
-			panic(r)
+			ct.logger.Error().
+				Uint64("current_block", currentBlock).
+				Interface("panic", r).
+				Msg("panic recovered in UpdateConfirmations")
+			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
 	

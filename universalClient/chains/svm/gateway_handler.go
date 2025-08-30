@@ -37,6 +37,11 @@ type GatewayHandler struct {
 	gatewayAddr  solana.PublicKey
 	database     *db.DB
 	methodCache  map[string]*MethodExtractionInfo // Cache for discovered positions
+	
+	// Extracted components
+	txBuilder    *TransactionBuilder
+	eventParser  *EventParser
+	txVerifier   *TransactionVerifier
 }
 
 // NewGatewayHandler creates a new Solana gateway handler
@@ -64,6 +69,11 @@ func NewGatewayHandler(
 		logger,
 	)
 
+	// Create extracted components
+	txBuilder := NewTransactionBuilder(parentClient, gatewayAddr, logger)
+	eventParser := NewEventParser(gatewayAddr, config, logger)
+	txVerifier := NewTransactionVerifier(parentClient, config, database, tracker, logger)
+
 	return &GatewayHandler{
 		parentClient: parentClient,
 		config:       config,
@@ -73,6 +83,9 @@ func NewGatewayHandler(
 		gatewayAddr:  gatewayAddr,
 		database:     database,
 		methodCache:  make(map[string]*MethodExtractionInfo),
+		txBuilder:    txBuilder,
+		eventParser:  eventParser,
+		txVerifier:   txVerifier,
 	}, nil
 }
 
@@ -151,7 +164,8 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 
 // WatchGatewayEvents starts watching for gateway events from a specific slot
 func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64) (<-chan *common.GatewayEvent, error) {
-	eventChan := make(chan *common.GatewayEvent)
+	// Use buffered channel to prevent blocking producers
+	eventChan := make(chan *common.GatewayEvent, 100)
 
 	go func() {
 		defer close(eventChan)
@@ -231,8 +245,8 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 						continue
 					}
 
-					// Parse gateway event from transaction
-					event := h.parseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
+					// Parse gateway event from transaction using event parser
+					event := h.eventParser.ParseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
 					if event != nil {
 						// Track transaction for confirmations
 						if err := h.tracker.TrackTransaction(
@@ -256,7 +270,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 				}
 
 				// First verify all pending transactions for reorgs (Solana-specific)
-				if err := h.verifyPendingTransactions(ctx); err != nil {
+				if err := h.txVerifier.VerifyPendingTransactions(ctx); err != nil {
 					h.logger.Error().Err(err).Msg("failed to verify pending transactions for reorgs")
 				}
 
@@ -278,137 +292,15 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 	return eventChan, nil
 }
 
-// parseGatewayEvent parses a transaction into a GatewayEvent
-func (h *GatewayHandler) parseGatewayEvent(tx *rpc.GetTransactionResult, signature string, slot uint64) *common.GatewayEvent {
-	if tx == nil || tx.Meta == nil {
-		return nil
-	}
+// GetTransactionConfirmations delegates to transaction verifier
 
-	// Check if transaction involves gateway program
-	foundGateway := false
-	for _, log := range tx.Meta.LogMessages {
-		if strings.Contains(log, h.gatewayAddr.String()) {
-			foundGateway = true
-			break
-		}
-	}
-
-	if !foundGateway {
-		return nil
-	}
-
-	// Look for known method calls in logs
-	var methodName string
-	var methodID string
-	
-	for _, log := range tx.Meta.LogMessages {
-		// Check for add_funds method
-		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
-			methodID = "84ed4c39500ab38a" // Solana add_funds identifier
-			// Find method name from config
-			for _, method := range h.config.GatewayMethods {
-				if method.Identifier == methodID {
-					methodName = method.Name
-					break
-				}
-			}
-			break
-		}
-	}
-
-	if methodID == "" {
-		return nil
-	}
-
-	// Use the new dynamic extraction method to get sender, receiver, and amount
-	sender, receiver, amount, err := h.extractTransactionDetails(tx)
-	if err != nil {
-		h.logger.Debug().
-			Err(err).
-			Str("tx_hash", signature).
-			Msg("failed to extract transaction details")
-		// Don't return nil here - we can still create an event with partial data
-	}
-
-	event := &common.GatewayEvent{
-		ChainID:     h.config.Chain,
-		TxHash:      signature,
-		BlockNumber: slot,
-		Method:      methodName,
-		EventID:     methodID,
-		Sender:      sender,
-		Receiver:    receiver,
-		Amount:      amount,
-	}
-
-	// Log the extracted information with more detail
-	h.logger.Info().
-		Str("tx_hash", signature).
-		Str("method", methodName).
-		Str("sender", sender).
-		Str("receiver", receiver).
-		Str("amount", amount).
-		Uint64("slot", slot).
-		Msg("successfully parsed Solana gateway event")
-
-	return event
-}
-
-// GetTransactionConfirmations returns the number of confirmations for a transaction
 func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
-	// Parse signature
-	sig, err := solana.SignatureFromBase58(txHash)
-	if err != nil {
-		return 0, fmt.Errorf("invalid transaction hash: %w", err)
-	}
-
-	// Get transaction status
-	var statuses *rpc.GetSignatureStatusesResult
-	err = h.parentClient.executeWithFailover(ctx, "get_signature_statuses", func(client *rpc.Client) error {
-		var innerErr error
-		statuses, innerErr = client.GetSignatureStatuses(ctx, false, sig)
-		return innerErr
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get signature status: %w", err)
-	}
-
-	if len(statuses.Value) == 0 || statuses.Value[0] == nil {
-		return 0, fmt.Errorf("transaction not found")
-	}
-
-	status := statuses.Value[0]
-	
-	// Map Solana confirmation status to confirmation count
-	// Solana uses different confirmation levels rather than counts
-	switch status.ConfirmationStatus {
-	case rpc.ConfirmationStatusProcessed:
-		return 1, nil
-	case rpc.ConfirmationStatusConfirmed:
-		return 5, nil // Approximately equivalent to "fast" confirmations
-	case rpc.ConfirmationStatusFinalized:
-		return 12, nil // Approximately equivalent to "standard" confirmations
-	default:
-		return 0, nil
-	}
+	return h.txVerifier.GetTransactionConfirmations(ctx, txHash)
 }
 
-// IsConfirmed checks if a transaction has enough confirmations
+// IsConfirmed delegates to transaction verifier
 func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
-	// Check in tracker first
-	confirmed, err := h.tracker.IsConfirmed(txHash, mode)
-	if err == nil {
-		return confirmed, nil
-	}
-
-	// Fallback to chain query
-	confirmations, err := h.GetTransactionConfirmations(ctx, txHash)
-	if err != nil {
-		return false, err
-	}
-
-	required := h.tracker.GetRequiredConfirmations(mode)
-	return confirmations >= required, nil
+	return h.txVerifier.IsConfirmed(ctx, txHash, mode)
 }
 
 // GetConfirmationTracker returns the confirmation tracker
@@ -416,83 +308,21 @@ func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 	return h.tracker
 }
 
-// verifyTransactionExistence checks if a Solana transaction still exists on chain (reorg detection)
-func (h *GatewayHandler) verifyTransactionExistence(
+// BuildGatewayTransaction delegates to transaction builder
+func (h *GatewayHandler) BuildGatewayTransaction(
 	ctx context.Context,
-	tx *store.ChainTransaction,
-) (bool, error) {
-	sig, err := solana.SignatureFromBase58(tx.TxHash)
-	if err != nil {
-		h.logger.Error().
-			Err(err).
-			Str("tx_hash", tx.TxHash).
-			Msg("invalid Solana signature format")
-		return false, err
-	}
+	from solana.PrivateKey,
+	instruction solana.Instruction,
+) (*solana.Transaction, error) {
+	return h.txBuilder.BuildGatewayTransaction(ctx, from, instruction)
+}
 
-	// Get transaction status to check if it still exists
-	var statuses *rpc.GetSignatureStatusesResult
-	err = h.parentClient.executeWithFailover(ctx, "get_signature_statuses", func(client *rpc.Client) error {
-		var innerErr error
-		statuses, innerErr = client.GetSignatureStatuses(ctx, false, sig)
-		return innerErr
-	})
-	if err != nil {
-		// Transaction not found - likely reorganized out
-		h.logger.Warn().
-			Str("tx_hash", tx.TxHash).
-			Uint64("original_slot", tx.BlockNumber).
-			Err(err).
-			Msg("Solana transaction not found on chain - marking as reorged")
-		
-		tx.Status = "reorged"
-		tx.Confirmations = 0
-		return false, nil
-	}
-
-	// Check if status exists
-	if len(statuses.Value) == 0 || statuses.Value[0] == nil {
-		h.logger.Warn().
-			Str("tx_hash", tx.TxHash).
-			Uint64("original_slot", tx.BlockNumber).
-			Msg("Solana transaction status not found - marking as reorged")
-		
-		tx.Status = "reorged"
-		tx.Confirmations = 0
-		return false, nil
-	}
-
-	status := statuses.Value[0]
-
-	// Check if transaction has an error (which means it was included but failed)
-	if status.Err != nil {
-		h.logger.Warn().
-			Str("tx_hash", tx.TxHash).
-			Uint64("original_slot", tx.BlockNumber).
-			Interface("error", status.Err).
-			Msg("Solana transaction failed - marking as failed")
-		
-		tx.Status = "failed"
-		tx.Confirmations = 0
-		return false, nil
-	}
-
-	// Check if transaction moved to a different slot due to reorg
-	if status.Slot != tx.BlockNumber {
-		h.logger.Warn().
-			Str("tx_hash", tx.TxHash).
-			Uint64("original_slot", tx.BlockNumber).
-			Uint64("new_slot", status.Slot).
-			Msg("Solana transaction moved to different slot due to reorg - updating slot number")
-		
-		// Update slot number and reset status
-		tx.BlockNumber = status.Slot
-		tx.Status = "pending"
-		tx.Confirmations = 0
-		return false, nil
-	}
-
-	return true, nil
+// SendTransaction delegates to transaction builder
+func (h *GatewayHandler) SendTransaction(
+	ctx context.Context,
+	tx *solana.Transaction,
+) (solana.Signature, error) {
+	return h.txBuilder.SendTransaction(ctx, tx)
 }
 
 // extractTransactionDetails extracts sender, receiver, and amount from a transaction
@@ -741,44 +571,3 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 	return ""
 }
 
-// verifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs
-func (h *GatewayHandler) verifyPendingTransactions(ctx context.Context) error {
-	var pendingTxs []store.ChainTransaction
-	
-	// Get all transactions that need verification
-	err := h.database.Client().
-		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
-		Find(&pendingTxs).Error
-	if err != nil {
-		return fmt.Errorf("failed to fetch pending transactions for verification: %w", err)
-	}
-
-	h.logger.Debug().
-		Str("chain_id", h.config.Chain).
-		Int("pending_count", len(pendingTxs)).
-		Msg("verifying Solana transactions for reorgs")
-	
-	// Verify each transaction
-	for _, tx := range pendingTxs {
-		exists, err := h.verifyTransactionExistence(ctx, &tx)
-		if err != nil {
-			h.logger.Error().
-				Err(err).
-				Str("tx_hash", tx.TxHash).
-				Msg("failed to verify Solana transaction existence")
-			continue
-		}
-		
-		// If transaction was reorged or moved, save the updated status
-		if !exists {
-			if err := h.database.Client().Save(&tx).Error; err != nil {
-				h.logger.Error().
-					Err(err).
-					Str("tx_hash", tx.TxHash).
-					Msg("failed to update reorged Solana transaction")
-			}
-		}
-	}
-	
-	return nil
-}

@@ -38,11 +38,17 @@ func (h *HealthMonitor) SetHealthChecker(checker HealthChecker) {
 func (h *HealthMonitor) Start(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	// Default to 30 seconds if not configured
+	intervalSeconds := h.config.HealthCheckIntervalSeconds
+	if intervalSeconds <= 0 {
+		intervalSeconds = 30
+	}
+
 	h.logger.Info().
-		Dur("interval", time.Duration(h.config.HealthCheckIntervalSeconds)*time.Second).
+		Dur("interval", time.Duration(intervalSeconds)*time.Second).
 		Msg("starting health monitor")
 
-	ticker := time.NewTicker(time.Duration(h.config.HealthCheckIntervalSeconds) * time.Second)
+	ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
 	defer ticker.Stop()
 
 	// Immediate health check
@@ -88,8 +94,14 @@ func (h *HealthMonitor) performHealthChecks(ctx context.Context) {
 
 // checkEndpointHealth performs a health check on a single endpoint
 func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *Endpoint) {
+	// Default to 10 seconds if not configured
+	timeoutSeconds := h.config.RequestTimeoutSeconds
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 10
+	}
+	
 	// Create timeout context for this specific health check
-	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(h.config.RequestTimeoutSeconds)*time.Second)
+	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
 	client := endpoint.GetClient()
@@ -144,12 +156,18 @@ func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *Endpo
 
 // handleExcludedEndpointCheck handles health checking for excluded endpoints
 func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *Endpoint, success bool, latency time.Duration, err error) {
+	// Default to 5 minutes if not configured
+	recoverySeconds := h.config.RecoveryIntervalSeconds
+	if recoverySeconds <= 0 {
+		recoverySeconds = 300
+	}
+
 	// Check if enough time has passed since exclusion for recovery attempt
 	endpoint.mu.RLock()
 	excludedAt := endpoint.ExcludedAt
 	endpoint.mu.RUnlock()
 
-	if time.Since(excludedAt) < time.Duration(h.config.RecoveryIntervalSeconds)*time.Second {
+	if time.Since(excludedAt) < time.Duration(recoverySeconds)*time.Second {
 		// Not enough time has passed, skip recovery attempt
 		return
 	}

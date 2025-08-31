@@ -29,7 +29,7 @@ type UniversalClient struct {
 	queryServer    *api.Server
 
 	// Transaction cleanup
-	transactionCleaner *db.TransactionCleaner
+	transactionCleaner *db.PerChainTransactionCleaner
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
@@ -60,8 +60,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		log,
 	)
 
-	// Create transaction cleaner
-	transactionCleaner := db.NewTransactionCleaner(
+	// Create per-chain transaction cleaner
+	transactionCleaner := db.NewPerChainTransactionCleaner(
 		dbManager,
 		cfg,
 		log,

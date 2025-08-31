@@ -25,11 +25,11 @@ func mockClientFactory(shouldFail bool) ClientFactory {
 func TestNewManager(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -78,11 +78,11 @@ func TestNewManager(t *testing.T) {
 func TestManager_Start_Success(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -109,11 +109,11 @@ func TestManager_Start_Success(t *testing.T) {
 func TestManager_Start_InsufficientHealthyEndpoints(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   2, // Require 2 healthy endpoints
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          2, // Require 2 healthy endpoints
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -135,11 +135,11 @@ func TestManager_Start_InsufficientHealthyEndpoints(t *testing.T) {
 func TestManager_SelectEndpoint(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -170,11 +170,11 @@ func TestManager_SelectEndpoint(t *testing.T) {
 func TestManager_SelectEndpoint_NoHealthyEndpoints(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -205,11 +205,11 @@ func TestManager_SelectEndpoint_NoHealthyEndpoints(t *testing.T) {
 func TestManager_UpdateEndpointMetrics(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -247,11 +247,11 @@ func TestManager_UpdateEndpointMetrics(t *testing.T) {
 func TestManager_GetEndpointStats(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	
@@ -285,11 +285,11 @@ func TestManager_GetEndpointStats(t *testing.T) {
 func TestManager_Stop(t *testing.T) {
 	logger := zerolog.Nop()
 	poolConfig := &config.RPCPoolConfig{
-		HealthCheckInterval:   30 * time.Second,
-		UnhealthyThreshold:    3,
-		RecoveryInterval:      5 * time.Minute,
-		MinHealthyEndpoints:   1,
-		RequestTimeout:        10 * time.Second,
+		HealthCheckIntervalSeconds:   30,
+		UnhealthyThreshold:           3,
+		RecoveryIntervalSeconds:      300,
+		MinHealthyEndpoints:          1,
+		RequestTimeoutSeconds:        10,
 		LoadBalancingStrategy: "round-robin",
 	}
 	

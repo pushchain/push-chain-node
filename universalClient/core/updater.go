@@ -35,12 +35,18 @@ func NewConfigUpdater(
 	cfg *config.Config,
 	logger zerolog.Logger,
 ) *ConfigUpdater {
+	// Default to 60 seconds if not configured
+	updateSeconds := cfg.ConfigRefreshIntervalSeconds
+	if updateSeconds <= 0 {
+		updateSeconds = 60
+	}
+	
 	return &ConfigUpdater{
 		registry:     registryClient,
 		cache:        cache,
 		chainReg:     chainRegistry,
 		config:       cfg,
-		updatePeriod: time.Duration(cfg.ConfigRefreshIntervalSeconds) * time.Second,
+		updatePeriod: time.Duration(updateSeconds) * time.Second,
 		logger:       logger.With().Str("component", "config_updater").Logger(),
 		stopCh:       make(chan struct{}),
 	}

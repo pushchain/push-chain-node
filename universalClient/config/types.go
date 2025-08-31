@@ -24,13 +24,27 @@ type Config struct {
 	// Database configuration
 	DatabaseBaseDir string `json:"database_base_dir"` // Base directory for chain databases (default: ~/.puniversal/databases)
 
-	// Transaction cleanup configuration
-	TransactionCleanupIntervalSeconds int `json:"transaction_cleanup_interval_seconds"` // How often to run cleanup in seconds (default: 3600)
-	TransactionRetentionPeriodSeconds int `json:"transaction_retention_period_seconds"` // How long to keep confirmed transactions in seconds (default: 86400)
+	// Transaction cleanup configuration (global defaults)
+	TransactionCleanupIntervalSeconds int `json:"transaction_cleanup_interval_seconds"` // Global default: How often to run cleanup in seconds (default: 3600)
+	TransactionRetentionPeriodSeconds int `json:"transaction_retention_period_seconds"` // Global default: How long to keep confirmed transactions in seconds (default: 86400)
 
 	// RPC Pool configuration
-	ChainRPCURLs  map[string][]string `json:"chain_rpc_urls"`  // Map of chain ID to array of RPC URLs
-	RPCPoolConfig RPCPoolConfig       `json:"rpc_pool_config"` // RPC pool configuration
+	RPCPoolConfig RPCPoolConfig `json:"rpc_pool_config"` // RPC pool configuration
+
+	// Unified per-chain configuration
+	ChainConfigs map[string]ChainSpecificConfig `json:"chain_configs"` // Map of chain ID to all chain-specific settings
+}
+
+// ChainSpecificConfig holds all chain-specific configuration in one place
+type ChainSpecificConfig struct {
+	// RPC Configuration
+	RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
+	
+	// Transaction Cleanup Configuration
+	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
+	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (optional, uses global default if not set)
+	
+	// Future chain-specific settings can be added here
 }
 
 // RPCPoolConfig holds configuration for RPC endpoint pooling
@@ -43,7 +57,49 @@ type RPCPoolConfig struct {
 	LoadBalancingStrategy      string `json:"load_balancing_strategy"`       // "round-robin" or "weighted" (default: "round-robin")
 }
 
-// GetChainRPCURLs returns the map of chain RPC URLs
+// GetChainRPCURLs returns the map of chain RPC URLs extracted from unified config
 func (c *Config) GetChainRPCURLs() map[string][]string {
-	return c.ChainRPCURLs
+	result := make(map[string][]string)
+	if c.ChainConfigs != nil {
+		for chainID, config := range c.ChainConfigs {
+			if len(config.RPCURLs) > 0 {
+				result[chainID] = config.RPCURLs
+			}
+		}
+	}
+	return result
+}
+
+// GetChainCleanupSettings returns cleanup settings for a specific chain
+// Falls back to global defaults if no chain-specific settings exist
+func (c *Config) GetChainCleanupSettings(chainID string) (cleanupInterval, retentionPeriod int) {
+	// Start with global defaults
+	cleanupInterval = c.TransactionCleanupIntervalSeconds
+	retentionPeriod = c.TransactionRetentionPeriodSeconds
+	
+	// Check for chain-specific overrides in unified config
+	if c.ChainConfigs != nil {
+		if config, ok := c.ChainConfigs[chainID]; ok {
+			// Override with chain-specific values if provided
+			if config.CleanupIntervalSeconds != nil {
+				cleanupInterval = *config.CleanupIntervalSeconds
+			}
+			if config.RetentionPeriodSeconds != nil {
+				retentionPeriod = *config.RetentionPeriodSeconds
+			}
+		}
+	}
+	
+	return cleanupInterval, retentionPeriod
+}
+
+// GetChainConfig returns the complete configuration for a specific chain
+func (c *Config) GetChainConfig(chainID string) *ChainSpecificConfig {
+	if c.ChainConfigs != nil {
+		if config, ok := c.ChainConfigs[chainID]; ok {
+			return &config
+		}
+	}
+	// Return empty config if not found
+	return &ChainSpecificConfig{}
 }

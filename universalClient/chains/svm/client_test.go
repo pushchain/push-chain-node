@@ -19,8 +19,15 @@ import (
 // TestClientInitialization tests the creation of Solana client
 // Helper function to create a test appConfig with RPCPoolConfig
 func createTestAppConfig(rpcURLs map[string][]string) *configPkg.Config {
+	// Convert map to new format
+	chainConfigs := make(map[string]configPkg.ChainSpecificConfig)
+	for chainID, urls := range rpcURLs {
+		chainConfigs[chainID] = configPkg.ChainSpecificConfig{
+			RPCURLs: urls,
+		}
+	}
 	return &configPkg.Config{
-		ChainRPCURLs: rpcURLs,
+		ChainConfigs: chainConfigs,
 		RPCPoolConfig: configPkg.RPCPoolConfig{
 			HealthCheckIntervalSeconds: 30,
 			UnhealthyThreshold:         3,
@@ -211,8 +218,10 @@ func TestClientStartStop(t *testing.T) {
 
 		// Create appConfig with invalid RPC URL and fast health check
 		appConfig := &configPkg.Config{
-			ChainRPCURLs: map[string][]string{
-				"solana:devnet": {"http://invalid.localhost:99999"},
+			ChainConfigs: map[string]configPkg.ChainSpecificConfig{
+				"solana:devnet": {
+					RPCURLs: []string{"http://invalid.localhost:99999"},
+				},
 			},
 			RPCPoolConfig: configPkg.RPCPoolConfig{
 				HealthCheckIntervalSeconds: 1,  // Fast health check
@@ -338,8 +347,10 @@ func TestClientIsHealthy(t *testing.T) {
 		// Create appConfig with RPC URL pointing to error server
 		// Use a shorter health check interval and lower threshold for faster test
 		appConfig := &configPkg.Config{
-			ChainRPCURLs: map[string][]string{
-				"solana:devnet": {server.URL},
+			ChainConfigs: map[string]configPkg.ChainSpecificConfig{
+				"solana:devnet": {
+					RPCURLs: []string{server.URL},
+				},
 			},
 			RPCPoolConfig: configPkg.RPCPoolConfig{
 				HealthCheckIntervalSeconds: 1,  // Check every second

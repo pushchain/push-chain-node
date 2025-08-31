@@ -5,7 +5,6 @@ import (
 	"errors"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -291,16 +290,18 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 
 	// Test with multiple RPC URLs
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"http://rpc1.test", "http://rpc2.test", "http://rpc3.test"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"http://rpc1.test", "http://rpc2.test", "http://rpc3.test"},
+			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckInterval:  30 * time.Second,
-			UnhealthyThreshold:   3,
-			RecoveryInterval:     5 * time.Minute,
-			MinHealthyEndpoints:  1,
-			RequestTimeout:       10 * time.Second,
-			LoadBalancingStrategy: "round_robin",
+			HealthCheckIntervalSeconds:  30,
+			UnhealthyThreshold:          3,
+			RecoveryIntervalSeconds:     300,
+			MinHealthyEndpoints:         1,
+			RequestTimeoutSeconds:       10,
+			LoadBalancingStrategy:       "round_robin",
 		},
 	}
 
@@ -322,8 +323,10 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 
 	// Test single URL fallback to legacy mode configuration
 	appConfigSingle := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"http://single-rpc.test"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"http://single-rpc.test"},
+			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
 			LoadBalancingStrategy: "round_robin",
@@ -365,18 +368,20 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 	}
 
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"http://rpc1.test", "http://rpc2.test"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"http://rpc1.test", "http://rpc2.test"},
+			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckInterval:  100 * time.Millisecond,
-			UnhealthyThreshold:   2,
-			RecoveryInterval:     500 * time.Millisecond,
-			MinHealthyEndpoints:  1,
-			RequestTimeout:       1 * time.Second,
-			LoadBalancingStrategy: "round_robin",
+			HealthCheckIntervalSeconds:  1,
+			UnhealthyThreshold:          2,
+			RecoveryIntervalSeconds:     1,
+			MinHealthyEndpoints:         1,
+			RequestTimeoutSeconds:       1,
+			LoadBalancingStrategy:       "round_robin",
 		},
-		EventPollingInterval: 100 * time.Millisecond,
+		EventPollingIntervalSeconds: 1,
 	}
 
 	// Create client (RPC pool created during Start(), not NewClient())
@@ -427,16 +432,18 @@ func TestEVMGatewayHandler_ExecuteWithFailoverPattern(t *testing.T) {
 	}
 
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"http://rpc1.test", "http://rpc2.test"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"http://rpc1.test", "http://rpc2.test"},
+			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckInterval:  100 * time.Millisecond,
-			UnhealthyThreshold:   2,
-			RecoveryInterval:     500 * time.Millisecond,
-			MinHealthyEndpoints:  1,
-			RequestTimeout:       1 * time.Second,
-			LoadBalancingStrategy: "round_robin",
+			HealthCheckIntervalSeconds:  1,
+			UnhealthyThreshold:          2,
+			RecoveryIntervalSeconds:     1,
+			MinHealthyEndpoints:         1,
+			RequestTimeoutSeconds:       1,
+			LoadBalancingStrategy:       "round_robin",
 		},
 	}
 

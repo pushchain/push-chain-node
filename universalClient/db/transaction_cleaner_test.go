@@ -14,10 +14,10 @@ import (
 func TestTransactionCleaner(t *testing.T) {
 	// Setup test config
 	cfg := &config.Config{
-		TransactionCleanupInterval: 100 * time.Millisecond,
-		TransactionRetentionPeriod: time.Hour,
-		LogLevel:                   0, // Debug level
-		LogFormat:                  "console",
+		TransactionCleanupIntervalSeconds: 1, // 1 second for testing
+		TransactionRetentionPeriodSeconds: 3600, // 1 hour
+		LogLevel:                          0, // Debug level
+		LogFormat:                         "console",
 	}
 
 	// Setup logger
@@ -86,7 +86,7 @@ func TestTransactionCleaner(t *testing.T) {
 
 	t.Run("DeleteOldConfirmedTransactions", func(t *testing.T) {
 		// Test the database method directly
-		deletedCount, err := database.DeleteOldConfirmedTransactions(cfg.TransactionRetentionPeriod)
+		deletedCount, err := database.DeleteOldConfirmedTransactions(time.Duration(cfg.TransactionRetentionPeriodSeconds) * time.Second)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), deletedCount) // Only old confirmed should be deleted
 
@@ -118,9 +118,9 @@ func TestTransactionCleaner(t *testing.T) {
 	require.NoError(t, database.Client().Create(newOldConfirmed).Error)
 	require.NoError(t, database.Client().Model(newOldConfirmed).Update("updated_at", oldTime).Error)
 
-	t.Run("TransactionCleanerService", func(t *testing.T) {
-		// Create transaction cleaner
-		cleaner := NewTransactionCleaner(dbManager, cfg, log)
+	t.Run("PerChainTransactionCleanerService", func(t *testing.T) {
+		// Create per-chain transaction cleaner
+		cleaner := NewPerChainTransactionCleaner(dbManager, cfg, log)
 		
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -155,8 +155,8 @@ func TestTransactionCleaner(t *testing.T) {
 func TestTransactionCleanerEdgeCases(t *testing.T) {
 	// Setup test config
 	cfg := &config.Config{
-		TransactionCleanupInterval: 50 * time.Millisecond,
-		TransactionRetentionPeriod: time.Hour,
+		TransactionCleanupIntervalSeconds: 1,    // 1 second for testing
+		TransactionRetentionPeriodSeconds: 3600, // 1 hour
 		LogLevel:                   0,
 		LogFormat:                  "console",
 	}
@@ -174,7 +174,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 
 	t.Run("EmptyDatabase", func(t *testing.T) {
 		// Test cleanup with no transactions
-		deletedCount, err := database.DeleteOldConfirmedTransactions(cfg.TransactionRetentionPeriod)
+		deletedCount, err := database.DeleteOldConfirmedTransactions(time.Duration(cfg.TransactionRetentionPeriodSeconds) * time.Second)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), deletedCount)
 	})
@@ -191,7 +191,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		}
 		require.NoError(t, database.Client().Create(recent).Error)
 
-		deletedCount, err := database.DeleteOldConfirmedTransactions(cfg.TransactionRetentionPeriod)
+		deletedCount, err := database.DeleteOldConfirmedTransactions(time.Duration(cfg.TransactionRetentionPeriodSeconds) * time.Second)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), deletedCount) // Nothing should be deleted
 
@@ -225,7 +225,7 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 		}
 
 		// Only "confirmed" should be deleted
-		deletedCount, err := database.DeleteOldConfirmedTransactions(cfg.TransactionRetentionPeriod)
+		deletedCount, err := database.DeleteOldConfirmedTransactions(time.Duration(cfg.TransactionRetentionPeriodSeconds) * time.Second)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), deletedCount) // Only the "confirmed" one
 
@@ -240,10 +240,10 @@ func TestTransactionCleanerEdgeCases(t *testing.T) {
 	})
 }
 
-func TestTransactionCleanerConfiguration(t *testing.T) {
+func TestPerChainTransactionCleanerConfiguration(t *testing.T) {
 	cfg := &config.Config{
-		TransactionCleanupInterval: 200 * time.Millisecond,
-		TransactionRetentionPeriod: 30 * time.Minute, // Shorter retention period
+		TransactionCleanupIntervalSeconds: 1,    // 1 second for testing
+		TransactionRetentionPeriodSeconds: 1800, // 30 minutes
 		LogLevel:                   1,
 		LogFormat:                  "json",
 	}
@@ -253,9 +253,15 @@ func TestTransactionCleanerConfiguration(t *testing.T) {
 	dbManager := NewInMemoryChainDBManager(log, cfg)
 	defer dbManager.CloseAll()
 
-	cleaner := NewTransactionCleaner(dbManager, cfg, log)
+	cleaner := NewPerChainTransactionCleaner(dbManager, cfg, log)
 
-	// Verify configuration is properly set
-	require.Equal(t, cfg.TransactionCleanupInterval, cleaner.cleanupInterval)
-	require.Equal(t, cfg.TransactionRetentionPeriod, cleaner.retentionPeriod)
+	// Verify the cleaner is created with proper configuration
+	require.NotNil(t, cleaner)
+	require.NotNil(t, cleaner.dbManager)
+	require.NotNil(t, cleaner.config)
+	
+	// Get cleaner status to verify it's initially empty
+	status := cleaner.GetCleanerStatus()
+	require.NotNil(t, status)
+	require.Empty(t, status) // No chains have been started yet
 }

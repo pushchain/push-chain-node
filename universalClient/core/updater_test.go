@@ -27,10 +27,10 @@ type MockedRegistryClient struct {
 // getTestConfig returns a test configuration
 func getTestConfig(updatePeriod time.Duration) *config.Config {
 	return &config.Config{
-		ConfigRefreshInterval: updatePeriod,
-		InitialFetchRetries:   3,
-		InitialFetchTimeout:   5 * time.Second,
-		RetryBackoff:          100 * time.Millisecond,
+		ConfigRefreshIntervalSeconds: int(updatePeriod.Seconds()),
+		InitialFetchRetries:          3,
+		InitialFetchTimeoutSeconds:   5,
+		RetryBackoffSeconds:          1,
 	}
 }
 
@@ -169,7 +169,7 @@ func TestConfigUpdater_PerformInitialUpdate_WithRetries(t *testing.T) {
 	cache := registry.NewConfigCache(logger)
 	cfg := getTestConfig(30 * time.Second)
 	cfg.InitialFetchRetries = 5
-	cfg.RetryBackoff = 10 * time.Millisecond
+	cfg.RetryBackoffSeconds = 1
 	dbManager := db.NewInMemoryChainDBManager(logger, cfg)
 	chainRegistry := chains.NewChainRegistry(dbManager, logger)
 	chainRegistry.SetAppConfig(cfg)
@@ -198,7 +198,7 @@ func TestConfigUpdater_PerformInitialUpdate_ExhaustedRetries(t *testing.T) {
 	chainRegistry := chains.NewChainRegistry(dbManager, logger)
 	chainRegistry.SetAppConfig(cfg)
 	cfg.InitialFetchRetries = 2
-	cfg.RetryBackoff = 10 * time.Millisecond
+	cfg.RetryBackoffSeconds = 1
 	
 	updater := NewConfigUpdater(mockRegistry, cache, chainRegistry, cfg, logger)
 	
@@ -281,10 +281,10 @@ func TestConfigUpdaterInitialization(t *testing.T) {
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(nil, logger)
 	cfg := &config.Config{
-		ConfigRefreshInterval: 5 * time.Minute,
-		InitialFetchRetries:   5,
-		InitialFetchTimeout:   30 * time.Second,
-		RetryBackoff:          time.Second,
+		ConfigRefreshIntervalSeconds: 300,
+		InitialFetchRetries:          5,
+		InitialFetchTimeoutSeconds:   30,
+		RetryBackoffSeconds:          1,
 	}
 	
 	updater := NewConfigUpdater(
@@ -467,9 +467,20 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 	
 	// Create a test appConfig with RPC URLs
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"https://eth-sepolia.example.com"},
-			"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {"https://api.devnet.solana.com"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"https://eth-sepolia.example.com"},
+			},
+			"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {
+				RPCURLs: []string{"https://api.devnet.solana.com"},
+			},
+		},
+		RPCPoolConfig: config.RPCPoolConfig{
+			HealthCheckIntervalSeconds: 30,
+			UnhealthyThreshold:         3,
+			RecoveryIntervalSeconds:    300,
+			MinHealthyEndpoints:        1,
+			RequestTimeoutSeconds:      10,
 		},
 	}
 	chainReg.SetAppConfig(appConfig)
@@ -557,8 +568,10 @@ func TestConfigUpdaterForceUpdate(t *testing.T) {
 	
 	// Create a test appConfig with RPC URLs
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"https://eth-sepolia.example.com"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"https://eth-sepolia.example.com"},
+			},
 		},
 	}
 	chainReg.SetAppConfig(appConfig)
@@ -616,13 +629,14 @@ func TestConfigUpdaterPeriodicUpdates(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(100 * time.Millisecond) // Increased period for more reliable timing
+	testCfg := getTestConfig(1 * time.Second) // Use 1 second for testing
+	// Set a short update period directly for testing
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 100 * time.Millisecond, // Short period for fast testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
@@ -657,13 +671,13 @@ func TestConfigUpdaterStartStop(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(50 * time.Millisecond)
+	testCfg := getTestConfig(1 * time.Second)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 50 * time.Millisecond, // Use short period directly for testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
@@ -707,13 +721,13 @@ func TestConfigUpdaterContextCancellation(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(50 * time.Millisecond)
+	testCfg := getTestConfig(1 * time.Second)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 50 * time.Millisecond, // Use short period directly for testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
@@ -750,13 +764,13 @@ func TestConfigUpdaterStartFailure(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(50 * time.Millisecond)
+	testCfg := getTestConfig(1 * time.Second)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 50 * time.Millisecond, // Use short period directly for testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
@@ -782,8 +796,10 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 	
 	// Create a test appConfig with RPC URLs
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{
-			"eip155:11155111": {"https://eth-sepolia.example.com"},
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			"eip155:11155111": {
+				RPCURLs: []string{"https://eth-sepolia.example.com"},
+			},
 		},
 	}
 	chainReg.SetAppConfig(appConfig)
@@ -810,13 +826,13 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(50 * time.Millisecond)
+	testCfg := getTestConfig(1 * time.Second)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 50 * time.Millisecond, // Use short period directly for testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
@@ -849,7 +865,7 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 	
 	// Create a test appConfig
 	appConfig := &config.Config{
-		ChainRPCURLs: map[string][]string{},
+		ChainConfigs: map[string]config.ChainSpecificConfig{},
 	}
 	chainReg.SetAppConfig(appConfig)
 	
@@ -865,8 +881,8 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 		},
 	}
 	
-	testCfg := getTestConfig(50 * time.Millisecond)
-	testCfg.InitialFetchTimeout = 100 * time.Millisecond // Very short timeout
+	testCfg := getTestConfig(1 * time.Second)
+	testCfg.InitialFetchTimeoutSeconds = 1 // Very short timeout
 	testCfg.InitialFetchRetries = 1 // Single attempt
 	
 	updater := &ConfigUpdater{
@@ -874,7 +890,7 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 		cache:        cache,
 		chainReg:     chainReg,
 		config:       testCfg,
-		updatePeriod: testCfg.ConfigRefreshInterval,
+		updatePeriod: 50 * time.Millisecond, // Use short period directly for testing
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}

@@ -19,8 +19,10 @@ import (
 // testAppConfig creates a test app config with RPC URLs
 func testAppConfig(chainID string, rpcURLs []string) *config.Config {
 	return &config.Config{
-		ChainRPCURLs: map[string][]string{
-			chainID: rpcURLs,
+		ChainConfigs: map[string]config.ChainSpecificConfig{
+			chainID: {
+				RPCURLs: rpcURLs,
+			},
 		},
 	}
 }

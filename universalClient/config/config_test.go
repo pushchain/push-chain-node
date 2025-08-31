@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,15 +21,15 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "Valid config with all fields",
 			config: &Config{
-				LogLevel:              2,
-				LogFormat:             "json",
-				ConfigRefreshInterval: 30 * time.Second,
-				MaxRetries:            5,
-				RetryBackoff:          2 * time.Second,
-				InitialFetchRetries:   3,
-				InitialFetchTimeout:   20 * time.Second,
-				PushChainGRPCURLs:     []string{"localhost:9090"},
-				QueryServerPort:       8080,
+				LogLevel:                       2,
+				LogFormat:                      "json",
+				ConfigRefreshIntervalSeconds:   30,
+				MaxRetries:                     5,
+				RetryBackoffSeconds:            2,
+				InitialFetchRetries:            3,
+				InitialFetchTimeoutSeconds:     20,
+				PushChainGRPCURLs:              []string{"localhost:9090"},
+				QueryServerPort:                8080,
 			},
 			expectError: false,
 		},
@@ -77,11 +76,11 @@ func TestValidateConfig(t *testing.T) {
 			},
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 60*time.Second, cfg.ConfigRefreshInterval)
+				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds)
 				assert.Equal(t, 3, cfg.MaxRetries)
-				assert.Equal(t, time.Second, cfg.RetryBackoff)
+				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
 				assert.Equal(t, 5, cfg.InitialFetchRetries)
-				assert.Equal(t, 30*time.Second, cfg.InitialFetchTimeout)
+				assert.Equal(t, 30, cfg.InitialFetchTimeoutSeconds)
 				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
 				assert.Equal(t, 8080, cfg.QueryServerPort)
 			},
@@ -139,15 +138,15 @@ func TestSaveAndLoad(t *testing.T) {
 
 	t.Run("Save and load valid config", func(t *testing.T) {
 		cfg := &Config{
-			LogLevel:              3,
-			LogFormat:             "json",
-			ConfigRefreshInterval: 20 * time.Second,
-			MaxRetries:            5,
-			RetryBackoff:          2 * time.Second,
-			InitialFetchRetries:   10,
-			InitialFetchTimeout:   60 * time.Second,
-			PushChainGRPCURLs:     []string{"localhost:9090", "localhost:9091"},
-			QueryServerPort:       8888,
+			LogLevel:                     3,
+			LogFormat:                    "json",
+			ConfigRefreshIntervalSeconds: 20,
+			MaxRetries:                   5,
+			RetryBackoffSeconds:          2,
+			InitialFetchRetries:          10,
+			InitialFetchTimeoutSeconds:   60,
+			PushChainGRPCURLs:            []string{"localhost:9090", "localhost:9091"},
+			QueryServerPort:              8888,
 		}
 
 		// Save config
@@ -166,11 +165,11 @@ func TestSaveAndLoad(t *testing.T) {
 		// Verify loaded config matches saved config
 		assert.Equal(t, cfg.LogLevel, loadedCfg.LogLevel)
 		assert.Equal(t, cfg.LogFormat, loadedCfg.LogFormat)
-		assert.Equal(t, cfg.ConfigRefreshInterval, loadedCfg.ConfigRefreshInterval)
+		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, loadedCfg.ConfigRefreshIntervalSeconds)
 		assert.Equal(t, cfg.MaxRetries, loadedCfg.MaxRetries)
-		assert.Equal(t, cfg.RetryBackoff, loadedCfg.RetryBackoff)
+		assert.Equal(t, cfg.RetryBackoffSeconds, loadedCfg.RetryBackoffSeconds)
 		assert.Equal(t, cfg.InitialFetchRetries, loadedCfg.InitialFetchRetries)
-		assert.Equal(t, cfg.InitialFetchTimeout, loadedCfg.InitialFetchTimeout)
+		assert.Equal(t, cfg.InitialFetchTimeoutSeconds, loadedCfg.InitialFetchTimeoutSeconds)
 		assert.Equal(t, cfg.PushChainGRPCURLs, loadedCfg.PushChainGRPCURLs)
 		assert.Equal(t, cfg.QueryServerPort, loadedCfg.QueryServerPort)
 	})
@@ -229,15 +228,15 @@ func TestSaveAndLoad(t *testing.T) {
 func TestConfigJSONMarshaling(t *testing.T) {
 	t.Run("Marshal and unmarshal config", func(t *testing.T) {
 		cfg := &Config{
-			LogLevel:              2,
-			LogFormat:             "console",
-			ConfigRefreshInterval: 15 * time.Second,
-			MaxRetries:            3,
-			RetryBackoff:          500 * time.Millisecond,
-			InitialFetchRetries:   5,
-			InitialFetchTimeout:   30 * time.Second,
-			PushChainGRPCURLs:     []string{"host1:9090", "host2:9090"},
-			QueryServerPort:       8080,
+			LogLevel:                     2,
+			LogFormat:                    "console",
+			ConfigRefreshIntervalSeconds: 15,
+			MaxRetries:                   3,
+			RetryBackoffSeconds:          1,
+			InitialFetchRetries:          5,
+			InitialFetchTimeoutSeconds:   30,
+			PushChainGRPCURLs:            []string{"host1:9090", "host2:9090"},
+			QueryServerPort:              8080,
 		}
 
 		// Marshal to JSON
@@ -252,11 +251,11 @@ func TestConfigJSONMarshaling(t *testing.T) {
 		// Compare
 		assert.Equal(t, cfg.LogLevel, unmarshaledCfg.LogLevel)
 		assert.Equal(t, cfg.LogFormat, unmarshaledCfg.LogFormat)
-		assert.Equal(t, cfg.ConfigRefreshInterval, unmarshaledCfg.ConfigRefreshInterval)
+		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, unmarshaledCfg.ConfigRefreshIntervalSeconds)
 		assert.Equal(t, cfg.MaxRetries, unmarshaledCfg.MaxRetries)
-		assert.Equal(t, cfg.RetryBackoff, unmarshaledCfg.RetryBackoff)
+		assert.Equal(t, cfg.RetryBackoffSeconds, unmarshaledCfg.RetryBackoffSeconds)
 		assert.Equal(t, cfg.InitialFetchRetries, unmarshaledCfg.InitialFetchRetries)
-		assert.Equal(t, cfg.InitialFetchTimeout, unmarshaledCfg.InitialFetchTimeout)
+		assert.Equal(t, cfg.InitialFetchTimeoutSeconds, unmarshaledCfg.InitialFetchTimeoutSeconds)
 		assert.Equal(t, cfg.PushChainGRPCURLs, unmarshaledCfg.PushChainGRPCURLs)
 		assert.Equal(t, cfg.QueryServerPort, unmarshaledCfg.QueryServerPort)
 	})

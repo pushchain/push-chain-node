@@ -70,14 +70,14 @@ func validateConfig(cfg *Config) error {
 		cfg.TransactionRetentionPeriodSeconds = 86400
 	}
 
-	// Initialize ChainRPCURLs if nil or empty
-	if cfg.ChainRPCURLs == nil || len(cfg.ChainRPCURLs) == 0 {
+	// Initialize ChainConfigs if nil or empty
+	if cfg.ChainConfigs == nil || len(cfg.ChainConfigs) == 0 {
 		// Load defaults from embedded config
 		var defaultCfg Config
 		if err := json.Unmarshal(defaultConfigJSON, &defaultCfg); err == nil {
-			cfg.ChainRPCURLs = defaultCfg.ChainRPCURLs
+			cfg.ChainConfigs = defaultCfg.ChainConfigs
 		} else {
-			cfg.ChainRPCURLs = make(map[string][]string)
+			cfg.ChainConfigs = make(map[string]ChainSpecificConfig)
 		}
 	}
 

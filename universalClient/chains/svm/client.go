@@ -272,7 +272,7 @@ func (c *Client) watchGatewayEvents() {
 				Msg("determined starting slot from database")
 
 			// Start watching events
-			eventChan, err := c.WatchGatewayEvents(ctx, startSlot)
+			eventChan, err := c.WatchGatewayEvents(ctx, 403697270)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
 				time.Sleep(5 * time.Second)

@@ -53,10 +53,11 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	// Extract transaction details
 	sender, receiver, amount, err := ep.extractTransactionDetails(tx)
 	if err != nil {
-		ep.logger.Debug().
+		ep.logger.Warn().
 			Err(err).
 			Str("tx_hash", signature).
-			Msg("failed to extract transaction details")
+			Uint64("slot", slot).
+			Msg("failed to extract transaction details - some fields may be empty")
 		// Don't return nil - we can still create an event with partial data
 	}
 
@@ -155,6 +156,9 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 		if programID.Equals(ep.gatewayAddr) {
 			// Parse gateway instruction
 			if parsedData := ep.parseGatewayInstruction(instruction, decodedTx.Message.AccountKeys); parsedData != nil {
+				if parsedData.sender != "" {
+					sender = parsedData.sender
+				}
 				if parsedData.receiver != "" {
 					receiver = parsedData.receiver
 				}
@@ -211,6 +215,13 @@ func (ep *EventParser) decodeTransaction(encodedTx interface{}) (*solana.Transac
 			return nil, fmt.Errorf("failed to decode base64: %w", err)
 		}
 		txData = data
+	case *rpc.TransactionResultEnvelope:
+		// Handle versioned transaction envelope
+		txBytes := v.GetBinary()
+		if len(txBytes) == 0 {
+			return nil, fmt.Errorf("empty transaction data in envelope")
+		}
+		txData = txBytes
 	default:
 		return nil, fmt.Errorf("unsupported transaction encoding type: %T", encodedTx)
 	}
@@ -230,6 +241,7 @@ func (ep *EventParser) decodeTransaction(encodedTx interface{}) (*solana.Transac
 
 // instructionData holds parsed instruction data
 type instructionData struct {
+	sender   string
 	receiver string
 	amount   string
 }
@@ -263,7 +275,15 @@ func (ep *EventParser) parseGatewayInstruction(
 		result.amount = fmt.Sprintf("%d", amount)
 	}
 
-	// Get receiver from instruction accounts
+	// Get sender from instruction accounts (typically first account)
+	if len(instruction.Accounts) > 0 {
+		senderIdx := instruction.Accounts[0]
+		if int(senderIdx) < len(accountKeys) {
+			result.sender = accountKeys[senderIdx].String()
+		}
+	}
+
+	// Get receiver from instruction accounts (typically second account)
 	if len(instruction.Accounts) > 1 {
 		receiverIdx := instruction.Accounts[1]
 		if int(receiverIdx) < len(accountKeys) {

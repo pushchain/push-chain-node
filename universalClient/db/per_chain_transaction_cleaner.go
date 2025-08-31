@@ -103,8 +103,8 @@ func (tc *PerChainTransactionCleaner) startChainCleaner(chainID string, database
 
 	tc.logger.Info().
 		Str("chain_id", chainID).
-		Dur("cleanup_interval", cleaner.cleanupInterval).
-		Dur("retention_period", cleaner.retentionPeriod).
+		Str("cleanup_interval", cleaner.cleanupInterval.String()).
+		Str("retention_period", cleaner.retentionPeriod.String()).
 		Msg("starting cleaner for chain")
 
 	// Perform initial cleanup
@@ -143,7 +143,7 @@ func (tc *PerChainTransactionCleaner) performChainCleanup(cleaner *chainCleaner)
 	start := time.Now()
 	
 	cleaner.logger.Debug().
-		Dur("retention_period", cleaner.retentionPeriod).
+		Str("retention_period", cleaner.retentionPeriod.String()).
 		Msg("performing transaction cleanup for chain")
 
 	deletedCount, err := cleaner.database.DeleteOldConfirmedTransactions(cleaner.retentionPeriod)
@@ -156,14 +156,14 @@ func (tc *PerChainTransactionCleaner) performChainCleanup(cleaner *chainCleaner)
 	if deletedCount > 0 {
 		cleaner.logger.Info().
 			Int64("deleted_count", deletedCount).
-			Dur("duration", duration).
+			Str("duration", duration.String()).
 			Msg("transaction cleanup completed for chain")
 		
 		// Checkpoint WAL after cleanup
 		tc.checkpointWALForDB(cleaner.database, cleaner.chainID)
 	} else {
 		cleaner.logger.Debug().
-			Dur("duration", duration).
+			Str("duration", duration.String()).
 			Msg("transaction cleanup completed - no transactions to delete")
 	}
 
@@ -255,10 +255,10 @@ func (tc *PerChainTransactionCleaner) UpdateChainConfig(chainID string) {
 
 	tc.logger.Info().
 		Str("chain_id", chainID).
-		Dur("old_cleanup_interval", cleaner.cleanupInterval).
-		Dur("new_cleanup_interval", time.Duration(newCleanupInterval)*time.Second).
-		Dur("old_retention_period", cleaner.retentionPeriod).
-		Dur("new_retention_period", time.Duration(newRetentionPeriod)*time.Second).
+		Str("old_cleanup_interval", cleaner.cleanupInterval.String()).
+		Str("new_cleanup_interval", (time.Duration(newCleanupInterval) * time.Second).String()).
+		Str("old_retention_period", cleaner.retentionPeriod.String()).
+		Str("new_retention_period", (time.Duration(newRetentionPeriod) * time.Second).String()).
 		Msg("updating cleaner configuration for chain")
 
 	// Stop the old cleaner

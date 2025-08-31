@@ -55,7 +55,7 @@ func NewConfigUpdater(
 // Start begins the periodic update process
 func (u *ConfigUpdater) Start(ctx context.Context) error {
 	u.logger.Info().
-		Dur("update_period", u.updatePeriod).
+		Str("update_period", u.updatePeriod.String()).
 		Msg("starting config updater")
 
 	// Perform initial update with retries
@@ -75,7 +75,7 @@ func (u *ConfigUpdater) Start(ctx context.Context) error {
 func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 	u.logger.Info().
 		Int("max_retries", u.config.InitialFetchRetries).
-		Dur("timeout", time.Duration(u.config.InitialFetchTimeoutSeconds)*time.Second).
+		Str("timeout", (time.Duration(u.config.InitialFetchTimeoutSeconds) * time.Second).String()).
 		Msg("performing initial configuration fetch")
 
 	backoff := time.Duration(u.config.RetryBackoffSeconds) * time.Second
@@ -103,7 +103,7 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 			Err(err).
 			Int("attempt", attempt).
 			Int("max_attempts", u.config.InitialFetchRetries).
-			Dur("next_retry_in", backoff).
+			Str("next_retry_in", backoff.String()).
 			Msg("initial config fetch failed")
 		
 		// Check if this was the last attempt

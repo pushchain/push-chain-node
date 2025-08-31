@@ -45,7 +45,7 @@ func (h *HealthMonitor) Start(ctx context.Context, wg *sync.WaitGroup) {
 	}
 
 	h.logger.Info().
-		Dur("interval", time.Duration(intervalSeconds)*time.Second).
+		Str("interval", (time.Duration(intervalSeconds) * time.Second).String()).
 		Msg("starting health monitor")
 
 	ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)

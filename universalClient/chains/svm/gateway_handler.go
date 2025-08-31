@@ -232,11 +232,13 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					var tx *rpc.GetTransactionResult
 					err = h.parentClient.executeWithFailover(ctx, "get_transaction", func(client *rpc.Client) error {
 						var innerErr error
+						maxVersion := uint64(0)
 						tx, innerErr = client.GetTransaction(
 							ctx,
 							sig.Signature,
 							&rpc.GetTransactionOpts{
-								Encoding: solana.EncodingBase64,
+								Encoding:                       solana.EncodingBase64,
+								MaxSupportedTransactionVersion: &maxVersion,
 							},
 						)
 						return innerErr

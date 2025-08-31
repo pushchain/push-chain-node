@@ -273,8 +273,6 @@ func TestGetAllChainConfigsHandler(t *testing.T) {
 	})
 }
 
-// Test for individual chain config doesn't exist - removed
-
 func TestGetAllTokenConfigsHandler(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	mockClient := NewMockUniversalClient()
@@ -428,8 +426,6 @@ func TestGetTokenConfigHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
-
-// Removed tests for non-existent handlers (cache status, force update)
 
 func TestInvalidMethods(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))

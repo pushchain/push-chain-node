@@ -194,7 +194,7 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 }
 
 // Mock ethclient for RPC pool testing
-type mockEthClient struct {
+type mockRPCClient struct {
 	blockNumber     func() (uint64, error)
 	transactionReceipt func(txHash ethcommon.Hash) (*types.Receipt, error)
 	filterLogs      func(query interface{}) ([]types.Log, error)
@@ -202,14 +202,14 @@ type mockEthClient struct {
 	callCount       *int
 }
 
-func newMockEthClient(shouldFail bool, callCount *int) *mockEthClient {
-	return &mockEthClient{
+func newMockRPCClient(shouldFail bool, callCount *int) *mockRPCClient {
+	return &mockRPCClient{
 		shouldFail: shouldFail,
 		callCount:  callCount,
 	}
 }
 
-func (m *mockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
+func (m *mockRPCClient) BlockNumber(ctx context.Context) (uint64, error) {
 	if m.callCount != nil {
 		*m.callCount++
 	}
@@ -222,7 +222,7 @@ func (m *mockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	return 1000, nil
 }
 
-func (m *mockEthClient) TransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*types.Receipt, error) {
+func (m *mockRPCClient) TransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*types.Receipt, error) {
 	if m.callCount != nil {
 		*m.callCount++
 	}
@@ -237,7 +237,7 @@ func (m *mockEthClient) TransactionReceipt(ctx context.Context, txHash ethcommon
 	}, nil
 }
 
-func (m *mockEthClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+func (m *mockRPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	if m.callCount != nil {
 		*m.callCount++
 	}
@@ -252,7 +252,7 @@ func (m *mockEthClient) FilterLogs(ctx context.Context, query ethereum.FilterQue
 
 // Mock client factory for testing
 func mockClientFactory(url string, shouldFail bool, callCount *int) interface{} {
-	return newMockEthClient(shouldFail, callCount)
+	return newMockRPCClient(shouldFail, callCount)
 }
 
 // TestEVMClient_RPCPoolConfiguration tests RPC pool configuration setup

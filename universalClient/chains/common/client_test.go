@@ -15,7 +15,6 @@ func TestNewBaseChainClient(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123",
 			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
@@ -60,7 +59,6 @@ func TestGetConfig(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "solana:mainnet",
 			VmType:         uregistrytypes.VmType_SVM,
-			PublicRpcUrl:   "https://api.mainnet-beta.solana.com",
 			GatewayAddress: "Sol123",
 			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
@@ -187,7 +185,7 @@ func (tc *TestChainClient) GetTransactionConfirmations(ctx context.Context, txHa
 	return 0, nil
 }
 
-func (tc *TestChainClient) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
+func (tc *TestChainClient) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
 	return false, nil
 }
 

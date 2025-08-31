@@ -51,6 +51,7 @@ func TestTrackTransaction(t *testing.T) {
 		100,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		[]byte("test data"),
 	)
 	require.NoError(t, err)
@@ -71,6 +72,7 @@ func TestTrackTransaction(t *testing.T) {
 		100,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		[]byte("updated data"),
 	)
 	require.NoError(t, err)
@@ -90,6 +92,7 @@ func TestUpdateConfirmations(t *testing.T) {
 		100,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -98,17 +101,17 @@ func TestUpdateConfirmations(t *testing.T) {
 	err = tracker.UpdateConfirmations(105)
 	require.NoError(t, err)
 	
-	// Check confirmations
+	// Check confirmations - still pending since STANDARD requires 12
 	tx, err := tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(5), tx.Confirmations)
-	assert.Equal(t, "fast_confirmed", tx.Status) // Fast confirmed at 5 confirmations
+	assert.Equal(t, "pending", tx.Status) // Still pending (STANDARD requires 12)
 	
 	// Update confirmations with current block at 112
 	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
-	// Check confirmations
+	// Check confirmations - now confirmed
 	tx, err = tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(12), tx.Confirmations)
@@ -123,41 +126,53 @@ func TestIsConfirmed(t *testing.T) {
 	
 	tracker := NewConfirmationTracker(database, nil, logger)
 	
-	// Track a transaction
+	// Test FAST confirmation type
 	err = tracker.TrackTransaction(
-		"0x1234567890abcdef",
+		"0xfast",
 		100,
 		"addFunds",
 		"0xf9bfe8a7",
+		"FAST",
 		nil,
 	)
 	require.NoError(t, err)
 	
 	// Initially not confirmed
-	confirmed, err := tracker.IsConfirmed("0x1234567890abcdef", "fast")
+	confirmed, err := tracker.IsConfirmed("0xfast")
 	require.NoError(t, err)
 	assert.False(t, confirmed)
 	
-	// Update to 5 confirmations
+	// Update to 5 confirmations (fast threshold)
 	err = tracker.UpdateConfirmations(105)
 	require.NoError(t, err)
 	
-	// Now confirmed for fast mode
-	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef", "fast")
+	// Now confirmed for FAST type
+	confirmed, err = tracker.IsConfirmed("0xfast")
 	require.NoError(t, err)
 	assert.True(t, confirmed)
 	
-	// But not confirmed for standard mode
-	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef", "standard")
+	// Test STANDARD confirmation type
+	err = tracker.TrackTransaction(
+		"0xstandard",
+		100,
+		"addFunds",
+		"0xf9bfe8a7",
+		"STANDARD",
+		nil,
+	)
+	require.NoError(t, err)
+	
+	// Not confirmed at 5 confirmations
+	confirmed, err = tracker.IsConfirmed("0xstandard")
 	require.NoError(t, err)
 	assert.False(t, confirmed)
 	
-	// Update to 12 confirmations
+	// Update to 12 confirmations (standard threshold)
 	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
-	// Now confirmed for both modes
-	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef", "standard")
+	// Now confirmed for STANDARD type
+	confirmed, err = tracker.IsConfirmed("0xstandard")
 	require.NoError(t, err)
 	assert.True(t, confirmed)
 }
@@ -178,6 +193,7 @@ func TestGetConfirmedTransactions(t *testing.T) {
 			uint64(100+i),
 			"addFunds",
 			"0xf9bfe8a7",
+			"STANDARD",
 			nil,
 		)
 		require.NoError(t, err)
@@ -211,6 +227,7 @@ func TestMarkTransactionFailed(t *testing.T) {
 		100,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -248,11 +265,11 @@ func TestIsConfirmedWithReorgedStatus(t *testing.T) {
 	require.NoError(t, err)
 	
 	// Test that reorged transactions are never considered confirmed
-	confirmed, err := tracker.IsConfirmed("0x1234567890abcdef", "fast")
+	confirmed, err := tracker.IsConfirmed("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.False(t, confirmed)
 	
-	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef", "standard")
+	confirmed, err = tracker.IsConfirmed("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.False(t, confirmed)
 }

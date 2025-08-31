@@ -30,8 +30,8 @@ func NewTransactionCleaner(
 	return &TransactionCleaner{
 		dbManager:        dbManager,
 		config:           cfg,
-		cleanupInterval:  cfg.TransactionCleanupInterval,
-		retentionPeriod:  cfg.TransactionRetentionPeriod,
+		cleanupInterval:  time.Duration(cfg.TransactionCleanupIntervalSeconds) * time.Second,
+		retentionPeriod:  time.Duration(cfg.TransactionRetentionPeriodSeconds) * time.Second,
 		logger:           logger.With().Str("component", "transaction_cleaner").Logger(),
 		stopCh:           make(chan struct{}),
 	}

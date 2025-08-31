@@ -1,17 +1,20 @@
 package config
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 const (
 	configSubdir   = "config"
 	configFileName = "pushuv_config.json"
 )
+
+//go:embed default_config.json
+var defaultConfigJSON []byte
 
 func validateConfig(cfg *Config) error {
 	// Validate log level
@@ -25,22 +28,22 @@ func validateConfig(cfg *Config) error {
 	}
 
 	// Set defaults for registry config
-	if cfg.ConfigRefreshInterval == 0 {
-		cfg.ConfigRefreshInterval = 60 * time.Second
+	if cfg.ConfigRefreshIntervalSeconds == 0 {
+		cfg.ConfigRefreshIntervalSeconds = 60
 	}
 	if cfg.MaxRetries == 0 {
 		cfg.MaxRetries = 3
 	}
-	if cfg.RetryBackoff == 0 {
-		cfg.RetryBackoff = time.Second
+	if cfg.RetryBackoffSeconds == 0 {
+		cfg.RetryBackoffSeconds = 1
 	}
 
 	// Set defaults for startup config
 	if cfg.InitialFetchRetries == 0 {
 		cfg.InitialFetchRetries = 5
 	}
-	if cfg.InitialFetchTimeout == 0 {
-		cfg.InitialFetchTimeout = 30 * time.Second
+	if cfg.InitialFetchTimeoutSeconds == 0 {
+		cfg.InitialFetchTimeoutSeconds = 30
 	}
 
 	// Validate registry config
@@ -55,38 +58,44 @@ func validateConfig(cfg *Config) error {
 	}
 
 	// Set defaults for event monitoring
-	if cfg.EventPollingInterval == 0 {
-		cfg.EventPollingInterval = 5 * time.Second
+	if cfg.EventPollingIntervalSeconds == 0 {
+		cfg.EventPollingIntervalSeconds = 5
 	}
 
 	// Set defaults for transaction cleanup
-	if cfg.TransactionCleanupInterval == 0 {
-		cfg.TransactionCleanupInterval = time.Hour
+	if cfg.TransactionCleanupIntervalSeconds == 0 {
+		cfg.TransactionCleanupIntervalSeconds = 3600
 	}
-	if cfg.TransactionRetentionPeriod == 0 {
-		cfg.TransactionRetentionPeriod = 24 * time.Hour
+	if cfg.TransactionRetentionPeriodSeconds == 0 {
+		cfg.TransactionRetentionPeriodSeconds = 86400
 	}
 
-	// Initialize ChainRPCURLs if nil
-	if cfg.ChainRPCURLs == nil {
-		cfg.ChainRPCURLs = make(map[string][]string)
+	// Initialize ChainRPCURLs if nil or empty
+	if cfg.ChainRPCURLs == nil || len(cfg.ChainRPCURLs) == 0 {
+		// Load defaults from embedded config
+		var defaultCfg Config
+		if err := json.Unmarshal(defaultConfigJSON, &defaultCfg); err == nil {
+			cfg.ChainRPCURLs = defaultCfg.ChainRPCURLs
+		} else {
+			cfg.ChainRPCURLs = make(map[string][]string)
+		}
 	}
 
 	// Set defaults for RPC pool config
-	if cfg.RPCPoolConfig.HealthCheckInterval == 0 {
-		cfg.RPCPoolConfig.HealthCheckInterval = 30 * time.Second
+	if cfg.RPCPoolConfig.HealthCheckIntervalSeconds == 0 {
+		cfg.RPCPoolConfig.HealthCheckIntervalSeconds = 30
 	}
 	if cfg.RPCPoolConfig.UnhealthyThreshold == 0 {
 		cfg.RPCPoolConfig.UnhealthyThreshold = 3
 	}
-	if cfg.RPCPoolConfig.RecoveryInterval == 0 {
-		cfg.RPCPoolConfig.RecoveryInterval = 5 * time.Minute
+	if cfg.RPCPoolConfig.RecoveryIntervalSeconds == 0 {
+		cfg.RPCPoolConfig.RecoveryIntervalSeconds = 300
 	}
 	if cfg.RPCPoolConfig.MinHealthyEndpoints == 0 {
 		cfg.RPCPoolConfig.MinHealthyEndpoints = 1
 	}
-	if cfg.RPCPoolConfig.RequestTimeout == 0 {
-		cfg.RPCPoolConfig.RequestTimeout = 10 * time.Second
+	if cfg.RPCPoolConfig.RequestTimeoutSeconds == 0 {
+		cfg.RPCPoolConfig.RequestTimeoutSeconds = 10
 	}
 	if cfg.RPCPoolConfig.LoadBalancingStrategy == "" {
 		cfg.RPCPoolConfig.LoadBalancingStrategy = "round-robin"
@@ -137,4 +146,13 @@ func Load(basePath string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 	return cfg, nil
+}
+
+// LoadDefaultConfig loads the default configuration from embedded JSON
+func LoadDefaultConfig() (*Config, error) {
+	var cfg Config
+	if err := json.Unmarshal(defaultConfigJSON, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
+	}
+	return &cfg, nil
 }

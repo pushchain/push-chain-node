@@ -226,7 +226,7 @@ func TestExtractMethodInfo(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, method := parser.extractMethodInfo(tt.tx)
+			id, method, _ := parser.extractMethodInfo(tt.tx)
 			assert.Equal(t, tt.expectedID, id)
 			assert.Equal(t, tt.expectedMethod, method)
 		})

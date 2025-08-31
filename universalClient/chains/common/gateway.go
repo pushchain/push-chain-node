@@ -6,16 +6,17 @@ import (
 
 // GatewayEvent represents a cross-chain gateway event
 type GatewayEvent struct {
-	ChainID       string
-	TxHash        string
-	BlockNumber   uint64
-	Method        string
-	EventID       string
-	Sender        string
-	Receiver      string
-	Amount        string
-	Payload       []byte
-	Confirmations uint64
+	ChainID          string
+	TxHash           string
+	BlockNumber      uint64
+	Method           string
+	EventID          string
+	Sender           string
+	Receiver         string
+	Amount           string
+	Payload          []byte
+	Confirmations    uint64
+	ConfirmationType string // "STANDARD" or "FAST" - from gateway method config
 }
 
 // GatewayOperations defines gateway-specific operations for chain clients
@@ -30,6 +31,5 @@ type GatewayOperations interface {
 	GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error)
 	
 	// IsConfirmed checks if a transaction has enough confirmations
-	// mode can be "fast" or "standard"
-	IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error)
+	IsConfirmed(ctx context.Context, txHash string) (bool, error)
 }

@@ -81,21 +81,9 @@ func (tv *TransactionVerifier) GetTransactionConfirmations(ctx context.Context, 
 }
 
 // IsConfirmed checks if a transaction has enough confirmations
-func (tv *TransactionVerifier) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
-	// Check in tracker first
-	confirmed, err := tv.tracker.IsConfirmed(txHash, mode)
-	if err == nil {
-		return confirmed, nil
-	}
-
-	// Fallback to chain query
-	confirmations, err := tv.GetTransactionConfirmations(ctx, txHash)
-	if err != nil {
-		return false, err
-	}
-
-	required := tv.tracker.GetRequiredConfirmations(mode)
-	return confirmations >= required, nil
+func (tv *TransactionVerifier) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	// Check in tracker
+	return tv.tracker.IsConfirmed(txHash)
 }
 
 // VerifyTransactionExistence checks if a Solana transaction still exists on chain
@@ -303,7 +291,7 @@ func (tv *TransactionVerifier) WaitForTransaction(
 			return ctx.Err()
 		default:
 			// Check confirmation status
-			confirmed, err := tv.IsConfirmed(ctx, txHash, confirmationLevel)
+			confirmed, err := tv.IsConfirmed(ctx, txHash)
 			if err != nil {
 				tv.logger.Debug().
 					Err(err).
@@ -315,7 +303,6 @@ func (tv *TransactionVerifier) WaitForTransaction(
 			if confirmed {
 				tv.logger.Info().
 					Str("tx_hash", txHash).
-					Str("level", confirmationLevel).
 					Msg("transaction confirmed")
 				return nil
 			}

@@ -47,7 +47,6 @@ func TestRegistryClientMethods(t *testing.T) {
 		expectedConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:11155111",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
 			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}

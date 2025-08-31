@@ -40,7 +40,7 @@ func NewConfigUpdater(
 		cache:        cache,
 		chainReg:     chainRegistry,
 		config:       cfg,
-		updatePeriod: cfg.ConfigRefreshInterval,
+		updatePeriod: time.Duration(cfg.ConfigRefreshIntervalSeconds) * time.Second,
 		logger:       logger.With().Str("component", "config_updater").Logger(),
 		stopCh:       make(chan struct{}),
 	}
@@ -69,14 +69,14 @@ func (u *ConfigUpdater) Start(ctx context.Context) error {
 func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 	u.logger.Info().
 		Int("max_retries", u.config.InitialFetchRetries).
-		Dur("timeout", u.config.InitialFetchTimeout).
+		Dur("timeout", time.Duration(u.config.InitialFetchTimeoutSeconds)*time.Second).
 		Msg("performing initial configuration fetch")
 
-	backoff := u.config.RetryBackoff
+	backoff := time.Duration(u.config.RetryBackoffSeconds) * time.Second
 	
 	for attempt := 1; attempt <= u.config.InitialFetchRetries; attempt++ {
 		// Create timeout context for this attempt
-		attemptCtx, cancel := context.WithTimeout(ctx, u.config.InitialFetchTimeout)
+		attemptCtx, cancel := context.WithTimeout(ctx, time.Duration(u.config.InitialFetchTimeoutSeconds)*time.Second)
 		
 		u.logger.Info().
 			Int("attempt", attempt).

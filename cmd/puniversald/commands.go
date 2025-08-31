@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -41,14 +42,32 @@ func versionCmd() *cobra.Command {
 }
 
 func initCmd() *cobra.Command {
-	var cfg config.Config
-
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Create initial config file via flags",
+		Short: "Create initial config file with default values",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Load default config
+			cfg, err := config.LoadDefaultConfig()
+			if err != nil {
+				return fmt.Errorf("failed to load default config: %w", err)
+			}
+
+			// Override with flags if provided
+			if cmd.Flags().Changed("log-level") {
+				logLevel, _ := cmd.Flags().GetInt("log-level")
+				cfg.LogLevel = logLevel
+			}
+			if cmd.Flags().Changed("log-format") {
+				logFormat, _ := cmd.Flags().GetString("log-format")
+				cfg.LogFormat = logFormat
+			}
+			if cmd.Flags().Changed("log-sampler") {
+				logSampler, _ := cmd.Flags().GetBool("log-sampler")
+				cfg.LogSampler = logSampler
+			}
+
 			// Save config
-			if err := config.Save(&cfg, constant.DefaultNodeHome); err != nil {
+			if err := config.Save(cfg, constant.DefaultNodeHome); err != nil {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 			fmt.Printf("✅ Config saved to %s/config/pushuv_config.json\n", constant.DefaultNodeHome)
@@ -56,10 +75,10 @@ func initCmd() *cobra.Command {
 		},
 	}
 
-	// Bind flags to cfg fields
-	cmd.Flags().IntVar(&cfg.LogLevel, "log-level", 1, "Log level (0=debug, 1=info, ..., 5=panic)")
-	cmd.Flags().StringVar(&cfg.LogFormat, "log-format", "console", "Log format: json or console")
-	cmd.Flags().BoolVar(&cfg.LogSampler, "log-sampler", false, "Enable log sampling")
+	// Define flags (not bound to a specific cfg instance)
+	cmd.Flags().Int("log-level", 1, "Log level (0=debug, 1=info, ..., 5=panic)")
+	cmd.Flags().String("log-format", "console", "Log format: json or console")
+	cmd.Flags().Bool("log-sampler", false, "Enable log sampling")
 
 	return cmd
 }
@@ -74,6 +93,13 @@ func startCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
+
+			// Print loaded config as JSON
+			configJSON, err := json.MarshalIndent(loadedCfg, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal config: %w", err)
+			}
+			fmt.Printf("\n=== Loaded Configuration ===\n%s\n===========================\n\n", string(configJSON))
 
 			// --- Step 2: Setup logger ---
 			log := logger.Init(loadedCfg)
@@ -140,19 +166,20 @@ func setblockCmd() *cobra.Command {
 				fmt.Println("================================")
 				
 				for chainID, chainDB := range databases {
-					var blocks []store.LastObservedBlock
-					if err := chainDB.Client().Where("chain_id = ?", chainID).Find(&blocks).Error; err != nil {
-						fmt.Printf("Error reading chain %s: %v\n", chainID, err)
+					var chainState store.ChainState
+					if err := chainDB.Client().First(&chainState).Error; err != nil {
+						if err == gorm.ErrRecordNotFound {
+							fmt.Printf("No state found for chain %s\n", chainID)
+						} else {
+							fmt.Printf("Error reading chain %s: %v\n", chainID, err)
+						}
 						continue
 					}
 					
-					for _, block := range blocks {
-						fmt.Printf("Chain: %s\n", block.ChainID)
-						fmt.Printf("Block: %d\n", block.Block)
-						fmt.Printf("Updated: %v\n", block.UpdatedAt)
-						fmt.Printf("Database: %s\n", chainID)
-						fmt.Println("--------------------------------")
-					}
+					fmt.Printf("Chain: %s\n", chainID)
+					fmt.Printf("Last Block: %d\n", chainState.LastBlock)
+					fmt.Printf("Updated: %v\n", chainState.UpdatedAt)
+					fmt.Println("--------------------------------")
 				}
 				return nil
 			}
@@ -171,29 +198,28 @@ func setblockCmd() *cobra.Command {
 				return fmt.Errorf("failed to get database for chain %s: %w", chainID, err)
 			}
 
-			var lastBlock store.LastObservedBlock
-			result := database.Client().Where("chain_id = ?", chainID).First(&lastBlock)
+			var chainState store.ChainState
+			result := database.Client().First(&chainState)
 			
 			if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-				return fmt.Errorf("failed to query last observed block: %w", result.Error)
+				return fmt.Errorf("failed to query chain state: %w", result.Error)
 			}
 			
 			if result.Error == gorm.ErrRecordNotFound {
 				// Create new record
-				lastBlock = store.LastObservedBlock{
-					ChainID: chainID,
-					Block:   block,
+				chainState = store.ChainState{
+					LastBlock: block,
 				}
-				if err := database.Client().Create(&lastBlock).Error; err != nil {
-					return fmt.Errorf("failed to create last observed block record: %w", err)
+				if err := database.Client().Create(&chainState).Error; err != nil {
+					return fmt.Errorf("failed to create chain state record: %w", err)
 				}
 				fmt.Printf("Created new record for chain %s at block %d\n", chainID, block)
 			} else {
 				// Update existing record
-				oldBlock := lastBlock.Block
-				lastBlock.Block = block
-				if err := database.Client().Save(&lastBlock).Error; err != nil {
-					return fmt.Errorf("failed to update last observed block: %w", err)
+				oldBlock := chainState.LastBlock
+				chainState.LastBlock = block
+				if err := database.Client().Save(&chainState).Error; err != nil {
+					return fmt.Errorf("failed to update chain state: %w", err)
 				}
 				fmt.Printf("Updated block from %d to %d for chain %s\n", oldBlock, block, chainID)
 			}

@@ -39,10 +39,10 @@ func (h *HealthMonitor) Start(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	h.logger.Info().
-		Dur("interval", h.config.HealthCheckInterval).
+		Dur("interval", time.Duration(h.config.HealthCheckIntervalSeconds)*time.Second).
 		Msg("starting health monitor")
 
-	ticker := time.NewTicker(h.config.HealthCheckInterval)
+	ticker := time.NewTicker(time.Duration(h.config.HealthCheckIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
 	// Immediate health check
@@ -89,7 +89,7 @@ func (h *HealthMonitor) performHealthChecks(ctx context.Context) {
 // checkEndpointHealth performs a health check on a single endpoint
 func (h *HealthMonitor) checkEndpointHealth(ctx context.Context, endpoint *Endpoint) {
 	// Create timeout context for this specific health check
-	checkCtx, cancel := context.WithTimeout(ctx, h.config.RequestTimeout)
+	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(h.config.RequestTimeoutSeconds)*time.Second)
 	defer cancel()
 
 	client := endpoint.GetClient()
@@ -149,7 +149,7 @@ func (h *HealthMonitor) handleExcludedEndpointCheck(endpoint *Endpoint, success 
 	excludedAt := endpoint.ExcludedAt
 	endpoint.mu.RUnlock()
 
-	if time.Since(excludedAt) < h.config.RecoveryInterval {
+	if time.Since(excludedAt) < time.Duration(h.config.RecoveryIntervalSeconds)*time.Second {
 		// Not enough time has passed, skip recovery attempt
 		return
 	}

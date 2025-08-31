@@ -49,6 +49,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	txHash string,
 	blockNumber uint64,
 	method, eventID string,
+	confirmationType string,
 	data []byte,
 ) (err error) {
 	// Start database transaction to avoid race conditions and improve performance
@@ -77,6 +78,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		existing.BlockNumber = blockNumber // Update block number in case of reorg
 		existing.Method = method
 		existing.EventIdentifier = eventID
+		existing.ConfirmationType = confirmationType
 		existing.Data = data
 		
 		if err := dbTx.Save(&existing).Error; err != nil {
@@ -102,13 +104,14 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	
 	// Create new transaction record
 	tx := &store.ChainTransaction{
-		TxHash:          txHash,
-		BlockNumber:     blockNumber,
-		Method:          method,
-		EventIdentifier: eventID,
-		Status:          "pending",
-		Confirmations:   0,
-		Data:            data,
+		TxHash:           txHash,
+		BlockNumber:      blockNumber,
+		Method:           method,
+		EventIdentifier:  eventID,
+		Status:           "pending",
+		Confirmations:    0,
+		ConfirmationType: confirmationType,
+		Data:             data,
 	}
 	
 	if err := dbTx.Create(tx).Error; err != nil {
@@ -140,7 +143,7 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	
 	// Get all transactions that are not yet fully confirmed
 	err = ct.db.Client().
-		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
+		Where("status = ?", "pending").
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions: %w", err)
@@ -169,7 +172,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	}()
 	
 	updatedCount := 0
-	fastConfirmedCount := 0
 	confirmedCount := 0
 	
 	// Update each transaction within the database transaction
@@ -182,26 +184,25 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 		confirmations := currentBlock - tx.BlockNumber
 		tx.Confirmations = confirmations
 		
-		// Check if transaction meets fast threshold and is still pending
-		if confirmations >= ct.fastInbound && tx.Status == "pending" {
-			tx.Status = "fast_confirmed"
-			fastConfirmedCount++
-			ct.logger.Info().
-				Str("tx_hash", tx.TxHash).
-				Uint64("confirmations", confirmations).
-				Uint64("fast_threshold", ct.fastInbound).
-				Msg("transaction fast confirmed")
+		// Determine required confirmations based on transaction's confirmation type
+		var requiredConfirmations uint64
+		if tx.ConfirmationType == "FAST" {
+			requiredConfirmations = ct.fastInbound
+		} else {
+			// Default to STANDARD for any unspecified or STANDARD type
+			requiredConfirmations = ct.standardInbound
 		}
 		
-		// Check if transaction meets standard threshold and is not already confirmed
-		if confirmations >= ct.standardInbound && tx.Status != "confirmed" {
+		// Check if transaction meets its required confirmation threshold
+		if confirmations >= requiredConfirmations && tx.Status != "confirmed" {
 			tx.Status = "confirmed"
 			confirmedCount++
 			ct.logger.Info().
 				Str("tx_hash", tx.TxHash).
+				Str("confirmation_type", tx.ConfirmationType).
 				Uint64("confirmations", confirmations).
-				Uint64("standard_threshold", ct.standardInbound).
-				Msg("transaction confirmed (standard)")
+				Uint64("required_confirmations", requiredConfirmations).
+				Msg("transaction confirmed")
 		}
 		
 		// Save within the transaction
@@ -223,7 +224,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	
 	ct.logger.Debug().
 		Int("updated_count", updatedCount).
-		Int("fast_confirmed_count", fastConfirmedCount).
 		Int("confirmed_count", confirmedCount).
 		Msg("confirmation updates committed")
 	
@@ -233,7 +233,6 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 // IsConfirmed checks if a transaction has enough confirmations
 func (ct *ConfirmationTracker) IsConfirmed(
 	txHash string,
-	mode string,
 ) (bool, error) {
 	var tx store.ChainTransaction
 	err := ct.db.Client().Where("tx_hash = ?", txHash).First(&tx).Error
@@ -241,27 +240,20 @@ func (ct *ConfirmationTracker) IsConfirmed(
 		return false, fmt.Errorf("transaction not found: %w", err)
 	}
 	
-	var confirmed bool
-	if mode == "fast" {
-		// For fast mode, accept both fast_confirmed and confirmed status
-		confirmed = tx.Status == "fast_confirmed" || tx.Status == "confirmed"
-	} else {
-		// For standard mode, only accept confirmed status
-		confirmed = tx.Status == "confirmed"
-	}
+	// Transaction is confirmed when status is "confirmed"
+	confirmed := tx.Status == "confirmed"
 	
 	// Log when checking reorged transactions for visibility
 	if tx.Status == "reorged" {
 		ct.logger.Debug().
 			Str("tx_hash", txHash).
-			Str("mode", mode).
 			Msg("transaction was reorganized out - returning false")
 	}
 	
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
-		Str("mode", mode).
 		Str("status", tx.Status).
+		Str("confirmation_type", tx.ConfirmationType).
 		Uint64("confirmations", tx.Confirmations).
 		Bool("confirmed", confirmed).
 		Msg("checking confirmation status")

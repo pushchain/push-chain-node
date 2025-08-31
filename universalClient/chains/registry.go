@@ -219,7 +219,6 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	// Compare relevant fields
 	equal := a.Chain == b.Chain &&
 		a.VmType == b.VmType &&
-		a.PublicRpcUrl == b.PublicRpcUrl &&
 		a.GatewayAddress == b.GatewayAddress
 	
 	// Compare Enabled field values (not pointers)

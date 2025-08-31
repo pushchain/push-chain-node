@@ -21,14 +21,12 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		{
 			Chain:          "eip155:11155111",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
 			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		},
 		{
 			Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 			VmType:         uregistrytypes.VmType_SVM,
-			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
 			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		},
@@ -127,7 +125,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		updatedChain := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:11155111",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth-sepolia-new.example.com",
 			GatewayAddress: "0x999...",
 			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
@@ -137,7 +134,7 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		// Verify chain was updated
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
-		assert.Equal(t, "https://eth-sepolia-new.example.com", config.PublicRpcUrl)
+		assert.Equal(t, "0x999...", config.GatewayAddress)
 
 		// Verify tokens were preserved
 		tokens = cache.GetTokenConfigsByChain("eip155:11155111")
@@ -147,7 +144,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		newChain := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth-mainnet.example.com",
 			GatewayAddress: "0x456...",
 			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
@@ -341,13 +337,13 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 			{
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://old.example.com",
+				GatewayAddress: "0xOld...",
 				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false},
 			},
 			{
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://new.example.com",
+				GatewayAddress: "0xNew...",
 				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
@@ -356,7 +352,7 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
-		assert.Equal(t, "https://new.example.com", config.PublicRpcUrl)
+		assert.Equal(t, "0xNew...", config.GatewayAddress)
 		assert.True(t, config.Enabled.IsInboundEnabled || config.Enabled.IsOutboundEnabled)
 	})
 

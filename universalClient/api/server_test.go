@@ -34,14 +34,12 @@ func NewMockUniversalClient() *MockUniversalClient {
 			{
 				Chain:          "eip155:1",
 				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://eth.example.com",
 				GatewayAddress: "0x123",
 				Enabled:        enabled,
 			},
 			{
 				Chain:          "solana:mainnet",
 				VmType:         uregistrytypes.VmType_SVM,
-				PublicRpcUrl:   "https://sol.example.com",
 				GatewayAddress: "11111111111111111111111111111111",
 				Enabled:        enabled,
 			},

@@ -21,9 +21,7 @@ type Client struct {
 	*common.BaseChainClient
 	logger         zerolog.Logger
 	genesisHash    string           // Genesis hash extracted from CAIP-2
-	rpcPool        *rpcpool.Manager // Pool manager for multiple RPC endpoints
-	rpcURL         string                   // Fallback single RPC URL (legacy)
-	rpcClient      *rpc.Client              // Fallback single client (legacy)
+	rpcPool        *rpcpool.Manager // Pool manager for RPC endpoints
 	gatewayHandler *GatewayHandler
 	database       *db.DB
 	appConfig      *config.Config
@@ -54,7 +52,6 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 			Str("chain", config.Chain).
 			Logger(),
 		genesisHash:  genesisHash,
-		rpcURL:       config.PublicRpcUrl,
 		database:     database,
 		appConfig:    appConfig,
 		retryManager: common.NewRetryManager(nil, logger),
@@ -67,7 +64,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 
 // getRPCURLs returns the list of RPC URLs to use for this chain
 func (c *Client) getRPCURLs() []string {
-	// Only check common config if appConfig is not nil
+	// Only use RPC URLs from local config - no fallback to registry
 	if c.appConfig != nil {
 		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
 		
@@ -80,106 +77,86 @@ func (c *Client) getRPCURLs() []string {
 		}
 	}
 
-	// Fallback to PublicRpcUrl from chain config if available
-	chainConfig := c.GetConfig()
-	if chainConfig != nil && chainConfig.PublicRpcUrl != "" {
-		c.logger.Info().
-			Str("chain", chainConfig.Chain).
-			Str("url", chainConfig.PublicRpcUrl).
-			Msg("using PublicRpcUrl from chain config as fallback")
-		return []string{chainConfig.PublicRpcUrl}
-	}
-
 	chainName := ""
 	if c.GetConfig() != nil {
 		chainName = c.GetConfig().Chain
 	}
 	c.logger.Warn().
 		Str("chain", chainName).
-		Msg("no RPC URLs configured for chain")
+		Msg("no RPC URLs configured for chain in local config")
 	return []string{}
 }
 
 
-// getRPCClient returns an RPC client, either from pool or fallback
+// getRPCClient returns an RPC client from the pool
 func (c *Client) getRPCClient() (*rpc.Client, error) {
-	if c.rpcPool != nil {
-		endpoint, err := c.rpcPool.SelectEndpoint()
-		if err != nil {
-			return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
-		}
-		
-		// Use the helper function from pool_adapter.go
-		return GetSolanaClientFromPool(endpoint)
-	}
-
-	// Fallback to single client
-	if c.rpcClient == nil {
-		return nil, fmt.Errorf("no RPC client available")
+	if c.rpcPool == nil {
+		return nil, fmt.Errorf("RPC pool not initialized")
 	}
 	
-	return c.rpcClient, nil
+	endpoint, err := c.rpcPool.SelectEndpoint()
+	if err != nil {
+		return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
+	}
+	
+	// Use the helper function from pool_adapter.go
+	return GetSolanaClientFromPool(endpoint)
 }
 
 // executeWithFailover executes a function with automatic failover across RPC endpoints
 func (c *Client) executeWithFailover(ctx context.Context, operation string, fn func(*rpc.Client) error) error {
-	if c.rpcPool != nil {
-		// Use pool with automatic failover
-		maxAttempts := 3 // Limit attempts to avoid infinite loops
+	if c.rpcPool == nil {
+		return fmt.Errorf("RPC pool not initialized for %s", operation)
+	}
+	
+	// Use pool with automatic failover
+	maxAttempts := 3 // Limit attempts to avoid infinite loops
+	
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		endpoint, err := c.rpcPool.SelectEndpoint()
+		if err != nil {
+			return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
+		}
 		
-		for attempt := 0; attempt < maxAttempts; attempt++ {
-			endpoint, err := c.rpcPool.SelectEndpoint()
-			if err != nil {
-				return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
-			}
-			
-			// Use the helper function from pool_adapter.go
-			rpcClient, err := GetSolanaClientFromPool(endpoint)
-			if err != nil {
-				c.logger.Error().
-					Str("operation", operation).
-					Str("url", endpoint.URL).
-					Err(err).
-					Msg("failed to get Solana client from endpoint")
-				continue
-			}
-			
-			start := time.Now()
-			err = fn(rpcClient)
-			latency := time.Since(start)
-			
-			if err == nil {
-				// Success - update metrics and return
-				c.rpcPool.UpdateEndpointMetrics(endpoint, true, latency, nil)
-				c.logger.Debug().
-					Str("operation", operation).
-					Str("url", endpoint.URL).
-					Dur("latency", latency).
-					Int("attempt", attempt+1).
-					Msg("operation completed successfully")
-				return nil
-			}
-			
-			// Failure - update metrics and try next endpoint
-			c.rpcPool.UpdateEndpointMetrics(endpoint, false, latency, err)
-			c.logger.Warn().
+		// Use the helper function from pool_adapter.go
+		rpcClient, err := GetSolanaClientFromPool(endpoint)
+		if err != nil {
+			c.logger.Error().
+				Str("operation", operation).
+				Str("url", endpoint.URL).
+				Err(err).
+				Msg("failed to get Solana client from endpoint")
+			continue
+		}
+		
+		start := time.Now()
+		err = fn(rpcClient)
+		latency := time.Since(start)
+		
+		if err == nil {
+			// Success - update metrics and return
+			c.rpcPool.UpdateEndpointMetrics(endpoint, true, latency, nil)
+			c.logger.Debug().
 				Str("operation", operation).
 				Str("url", endpoint.URL).
 				Dur("latency", latency).
 				Int("attempt", attempt+1).
-				Err(err).
-				Msg("operation failed, trying next endpoint")
+				Msg("operation completed successfully")
+			return nil
 		}
 		
-		return fmt.Errorf("operation %s failed after %d attempts", operation, maxAttempts)
-	}
-
-	// Fallback to single client
-	if c.rpcClient == nil {
-		return fmt.Errorf("no RPC client available for %s", operation)
+		// Failure - update metrics and try next endpoint
+		c.rpcPool.UpdateEndpointMetrics(endpoint, false, latency, err)
+		c.logger.Warn().
+			Str("operation", operation).
+			Str("url", endpoint.URL).
+			Dur("latency", latency).
+			Int("attempt", attempt+1).
+			Err(err).
+			Msg("operation failed, trying next endpoint")
 	}
 	
-	return fn(c.rpcClient)
+	return fmt.Errorf("operation %s failed after %d attempts", operation, maxAttempts)
 }
 
 // Start initializes and starts the Solana chain client
@@ -201,9 +178,9 @@ func (c *Client) Start(ctx context.Context) error {
 		Strs("rpc_urls", rpcURLs).
 		Msg("starting Solana chain client")
 
-	// Connect with retry logic
+	// Connect with retry logic - use clientCtx for long-lived operations
 	err := c.retryManager.ExecuteWithRetry(ctx, "initial_connection", func() error {
-		return c.connect(ctx)
+		return c.connect(clientCtx)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to establish initial connection: %w", err)
@@ -263,12 +240,14 @@ func (c *Client) watchGatewayEvents() {
 			return
 		default:
 			// Check if we have available endpoints
-			if c.rpcPool != nil && c.rpcPool.GetHealthyEndpointCount() == 0 {
-				c.logger.Debug().Msg("waiting for healthy endpoints")
+			if c.rpcPool == nil {
+				c.logger.Debug().Msg("waiting for RPC pool to be initialized")
 				time.Sleep(5 * time.Second)
 				continue
-			} else if c.rpcPool == nil && c.rpcClient == nil {
-				c.logger.Debug().Msg("waiting for connection to be established")
+			}
+			
+			if c.rpcPool.GetHealthyEndpointCount() == 0 {
+				c.logger.Debug().Msg("waiting for healthy endpoints")
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -347,15 +326,13 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 func (c *Client) connect(ctx context.Context) error {
 	rpcURLs := c.getRPCURLs()
 	
-	if len(rpcURLs) > 1 {
-		// Multiple URLs - use pool manager
-		return c.initializeRPCPool(ctx, rpcURLs)
-	} else if len(rpcURLs) == 1 {
-		// Single URL - use traditional client
-		return c.initializeSingleClient(ctx, rpcURLs[0])
+	if len(rpcURLs) == 0 {
+		return fmt.Errorf("no RPC URLs configured")
 	}
 	
-	return fmt.Errorf("no RPC URLs configured")
+	// Always use pool manager for consistency
+	// Note: ctx here should be the long-lived clientCtx passed from Start()
+	return c.initializeRPCPool(ctx, rpcURLs)
 }
 
 // initializeRPCPool creates and initializes the RPC pool manager
@@ -385,7 +362,8 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	healthChecker := CreateSVMHealthChecker(c.genesisHash)
 	c.rpcPool.HealthMonitor.SetHealthChecker(healthChecker)
 
-	// Start the pool
+	// Start the pool with the long-lived context
+	// Note: ctx here should be the long-lived clientCtx passed from Start() -> connect()
 	if err := c.rpcPool.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start RPC pool: %w", err)
 	}
@@ -397,56 +375,7 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	return nil
 }
 
-// initializeSingleClient creates a traditional single client (legacy mode)
-func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) error {
-	c.logger.Info().
-		Str("rpc_url", rpcURL).
-		Msg("initializing single Solana RPC client (legacy mode)")
 
-	c.rpcURL = rpcURL
-
-	// Create Solana RPC client
-	c.rpcClient = rpc.New(rpcURL)
-
-	// Verify connection by getting health status
-	health, err := c.rpcClient.GetHealth(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get health status: %w", err)
-	}
-
-	if health != "ok" {
-		return fmt.Errorf("node is not healthy: %s", health)
-	}
-
-	
-	c.logger.Info().
-		Str("health", health).
-		Msg("successfully connected to Solana RPC")
-
-	return nil
-}
-
-
-// healthCheck performs a health check on the connection
-func (c *Client) healthCheck() error {
-	if c.rpcClient == nil {
-		return fmt.Errorf("client not connected")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	health, err := c.rpcClient.GetHealth(ctx)
-	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
-	}
-
-	if health != "ok" {
-		return fmt.Errorf("node unhealthy: %s", health)
-	}
-
-	return nil
-}
 
 // Stop gracefully shuts down the Solana chain client
 func (c *Client) Stop() error {
@@ -455,18 +384,14 @@ func (c *Client) Stop() error {
 	// Signal stop to all components
 	close(c.stopCh)
 
-	// Stop RPC pool if using it
+	// Stop RPC pool
 	if c.rpcPool != nil {
 		c.rpcPool.Stop()
 		c.rpcPool = nil
 	}
 
-
 	// Cancel context
 	c.Cancel()
-
-	// Solana RPC client doesn't need explicit close (legacy mode)
-	c.rpcClient = nil
 
 	c.logger.Info().Msg("Solana chain client stopped")
 	return nil
@@ -482,26 +407,17 @@ func (c *Client) IsHealthy() bool {
 	case <-c.Context().Done():
 		return false
 	default:
-		// Check if we have healthy endpoints or a working single client
-		if c.rpcPool != nil {
-			healthyCount := c.rpcPool.GetHealthyEndpointCount()
-			return healthyCount >= c.appConfig.RPCPoolConfig.MinHealthyEndpoints
-		}
-		
-		// Fallback to single client health check
-		if c.rpcClient == nil {
+		// Check if we have healthy endpoints in the pool
+		if c.rpcPool == nil {
 			return false
 		}
 		
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		
-		health, err := c.rpcClient.GetHealth(ctx)
-		if err != nil {
-			c.logger.Warn().Err(err).Msg("health check failed")
-			return false
+		healthyCount := c.rpcPool.GetHealthyEndpointCount()
+		minHealthy := 1 // Default minimum
+		if c.appConfig != nil {
+			minHealthy = c.appConfig.RPCPoolConfig.MinHealthyEndpoints
 		}
-		return health == "ok"
+		return healthyCount >= minHealthy
 	}
 }
 
@@ -510,13 +426,16 @@ func (c *Client) GetGenesisHash() string {
 	return c.genesisHash
 }
 
-// GetSlot returns the current slot (placeholder for future use)
+// GetSlot returns the current slot
 func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
-	if c.rpcClient == nil {
-		return 0, fmt.Errorf("client not connected")
-	}
+	var slot uint64
 	
-	slot, err := c.rpcClient.GetSlot(ctx, rpc.CommitmentFinalized)
+	err := c.executeWithFailover(ctx, "get_slot", func(client *rpc.Client) error {
+		var err error
+		slot, err = client.GetSlot(ctx, rpc.CommitmentFinalized)
+		return err
+	})
+	
 	if err != nil {
 		return 0, fmt.Errorf("failed to get slot: %w", err)
 	}
@@ -524,9 +443,13 @@ func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
 	return slot, nil
 }
 
-// GetRPCURL returns the RPC endpoint URL
+// GetRPCURL returns the first RPC endpoint URL from config or empty string
 func (c *Client) GetRPCURL() string {
-	return c.rpcURL
+	urls := c.getRPCURLs()
+	if len(urls) > 0 {
+		return urls[0]
+	}
+	return ""
 }
 
 // parseSolanaChainID extracts the genesis hash from CAIP-2 format
@@ -578,9 +501,9 @@ func (c *Client) GetTransactionConfirmations(ctx context.Context, txHash string)
 }
 
 // IsConfirmed checks if a transaction has enough confirmations
-func (c *Client) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
+func (c *Client) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
 	if c.gatewayHandler == nil {
 		return false, fmt.Errorf("gateway handler not initialized")
 	}
-	return c.gatewayHandler.IsConfirmed(ctx, txHash, mode)
+	return c.gatewayHandler.IsConfirmed(ctx, txHash)
 }

@@ -45,7 +45,7 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	}
 
 	// Extract method information
-	methodID, methodName := ep.extractMethodInfo(tx)
+	methodID, methodName, confirmationType := ep.extractMethodInfo(tx)
 	if methodID == "" {
 		return nil
 	}
@@ -61,14 +61,15 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	}
 
 	event := &common.GatewayEvent{
-		ChainID:     ep.config.Chain,
-		TxHash:      signature,
-		BlockNumber: slot,
-		Method:      methodName,
-		EventID:     methodID,
-		Sender:      sender,
-		Receiver:    receiver,
-		Amount:      amount,
+		ChainID:          ep.config.Chain,
+		TxHash:           signature,
+		BlockNumber:      slot,
+		Method:           methodName,
+		EventID:          methodID,
+		Sender:           sender,
+		Receiver:         receiver,
+		Amount:           amount,
+		ConfirmationType: confirmationType,
 	}
 
 	ep.logger.Info().
@@ -93,18 +94,24 @@ func (ep *EventParser) isGatewayTransaction(tx *rpc.GetTransactionResult) bool {
 	return false
 }
 
-// extractMethodInfo extracts method ID and name from transaction logs
-func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, string) {
-	var methodID, methodName string
+// extractMethodInfo extracts method ID, name and confirmation type from transaction logs
+func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, string, string) {
+	var methodID, methodName, confirmationType string
 	
 	for _, log := range tx.Meta.LogMessages {
 		// Check for add_funds method
 		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
 			methodID = "84ed4c39500ab38a" // Solana add_funds identifier
-			// Find method name from config
+			// Find method name and confirmation type from config
 			for _, method := range ep.config.GatewayMethods {
 				if method.Identifier == methodID {
 					methodName = method.Name
+					// Map confirmation type enum to string
+					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
+						confirmationType = "FAST"
+					} else {
+						confirmationType = "STANDARD" // Default to STANDARD
+					}
 					break
 				}
 			}
@@ -113,7 +120,7 @@ func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, 
 		// Add more method checks here as needed
 	}
 
-	return methodID, methodName
+	return methodID, methodName, confirmationType
 }
 
 // extractTransactionDetails extracts sender, receiver and amount from transaction

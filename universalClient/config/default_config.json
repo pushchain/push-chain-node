@@ -1,0 +1,35 @@
+{
+  "log_level": 1,
+  "log_format": "console",
+  "log_sampler": false,
+  "push_chain_grpc_urls": [
+    "localhost:9090"
+  ],
+  "config_refresh_interval_seconds": 60,
+  "max_retries": 3,
+  "retry_backoff_seconds": 1,
+  "initial_fetch_retries": 5,
+  "initial_fetch_timeout_seconds": 30,
+  "query_server_port": 8080,
+  "event_polling_interval_seconds": 5,
+  "database_base_dir": "",
+  "transaction_cleanup_interval_seconds": 3600,
+  "transaction_retention_period_seconds": 86400,
+  "chain_rpc_urls": {
+    "eip155:11155111": [
+      "https://sepolia.drpc.org",
+      "https://0xrpc.io/sep"
+    ],
+    "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": [
+      "https://api.devnet.solana.com"
+    ]
+  },
+  "rpc_pool_config": {
+    "health_check_interval_seconds": 30,
+    "unhealthy_threshold": 3,
+    "recovery_interval_seconds": 300,
+    "min_healthy_endpoints": 1,
+    "request_timeout_seconds": 10,
+    "load_balancing_strategy": "round-robin"
+  }
+}

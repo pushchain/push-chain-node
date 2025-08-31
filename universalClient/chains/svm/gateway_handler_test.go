@@ -56,6 +56,7 @@ func TestSolanaGatewayHandler_SlotConfirmations(t *testing.T) {
 		slotNumber,
 		"add_funds",
 		"84ed4c39500ab38a",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -90,62 +91,76 @@ func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
 		logger,
 	)
 
-	// Solana uses slots instead of blocks
-	txSignature := "testSignature123"
-	startSlot := uint64(150000000)
+	// Test FAST confirmation type (5 blocks)
+	fastTxSig := "fastTxSignature123"
+	fastStartSlot := uint64(150000000)
 
-	// Track transaction
 	err = tracker.TrackTransaction(
-		txSignature,
-		startSlot,
+		fastTxSig,
+		fastStartSlot,
 		"add_funds",
 		"84ed4c39500ab38a",
+		"FAST",
 		nil,
 	)
 	require.NoError(t, err)
 
-	// Test Solana confirmation levels
-	// In Solana: processed=1, confirmed=5, finalized=12 (mapped values)
-	
-	// Simulate "processed" level (1 confirmation)
-	currentSlot := startSlot + 1
+	// Check not confirmed with 4 slots
+	currentSlot := fastStartSlot + 4
 	err = tracker.UpdateConfirmations(currentSlot)
 	require.NoError(t, err)
 
-	tx, err := tracker.GetGatewayTransaction(txSignature)
+	confirmed, err := tracker.IsConfirmed(fastTxSig)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(1), tx.Confirmations)
-	
-	// Not yet "confirmed" in Solana terms (needs 5)
-	confirmed, err := tracker.IsConfirmed(txSignature, "fast")
-	require.NoError(t, err)
-	assert.False(t, confirmed)
+	assert.False(t, confirmed, "FAST transaction should not be confirmed with 4 slots")
 
-	// Simulate "confirmed" level (5 confirmations)
-	currentSlot = startSlot + 5
+	// Check confirmed with 5 slots
+	currentSlot = fastStartSlot + 5
 	err = tracker.UpdateConfirmations(currentSlot)
 	require.NoError(t, err)
 
-	confirmed, err = tracker.IsConfirmed(txSignature, "fast")
+	confirmed, err = tracker.IsConfirmed(fastTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Should be confirmed at Solana 'confirmed' level")
+	assert.True(t, confirmed, "FAST transaction should be confirmed with 5 slots")
 
-	// But not "finalized" yet
-	confirmed, err = tracker.IsConfirmed(txSignature, "standard")
+	tx, err := tracker.GetGatewayTransaction(fastTxSig)
 	require.NoError(t, err)
-	assert.False(t, confirmed, "Should not be finalized yet")
+	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, uint64(5), tx.Confirmations)
 
-	// Simulate "finalized" level (12 confirmations)
-	currentSlot = startSlot + 12
+	// Test STANDARD confirmation type (12 blocks)
+	standardTxSig := "standardTxSignature456"
+	standardStartSlot := uint64(150001000)
+
+	err = tracker.TrackTransaction(
+		standardTxSig,
+		standardStartSlot,
+		"add_funds",
+		"84ed4c39500ab38a",
+		"STANDARD",
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Check not confirmed with 11 slots
+	currentSlot = standardStartSlot + 11
 	err = tracker.UpdateConfirmations(currentSlot)
 	require.NoError(t, err)
 
-	confirmed, err = tracker.IsConfirmed(txSignature, "standard")
+	confirmed, err = tracker.IsConfirmed(standardTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Should be finalized")
+	assert.False(t, confirmed, "STANDARD transaction should not be confirmed with 11 slots")
 
-	// Verify status in database
-	tx, err = tracker.GetGatewayTransaction(txSignature)
+	// Check confirmed with 12 slots
+	currentSlot = standardStartSlot + 12
+	err = tracker.UpdateConfirmations(currentSlot)
+	require.NoError(t, err)
+
+	confirmed, err = tracker.IsConfirmed(standardTxSig)
+	require.NoError(t, err)
+	assert.True(t, confirmed, "STANDARD transaction should be confirmed with 12 slots")
+
+	tx, err = tracker.GetGatewayTransaction(standardTxSig)
 	require.NoError(t, err)
 	assert.Equal(t, "confirmed", tx.Status)
 	assert.Equal(t, uint64(12), tx.Confirmations)
@@ -171,15 +186,16 @@ func TestSolanaGatewayHandler_MultipleTransactions(t *testing.T) {
 		logger,
 	)
 
-	// Track multiple Solana transactions at different slots
+	// Track multiple Solana transactions at different slots with mixed confirmation types
 	transactions := []struct {
-		signature string
-		slot      uint64
+		signature        string
+		slot             uint64
+		confirmationType string
 	}{
-		{"sig1_5wHu1qwD7q5ifaN5nwdcDqNFo53GJqa7tkAMzRc", 150000000},
-		{"sig2_6xIu2rwE8r6jgbO6oxedErOGp64HKrb8ulBNaSD", 150000002},
-		{"sig3_7yJv3sxF9s7khcP7pyfeF5PHq75ILsc9vmCObTE", 150000005},
-		{"sig4_8zKw4tyG0t8lidQ8qzgfG6QIr86JMtd0wnDPcUF", 150000010},
+		{"sig1_5wHu1qwD7q5ifaN5nwdcDqNFo53GJqa7tkAMzRc", 150000000, "STANDARD"}, // Will have 15 confirmations
+		{"sig2_6xIu2rwE8r6jgbO6oxedErOGp64HKrb8ulBNaSD", 150000002, "STANDARD"}, // Will have 13 confirmations
+		{"sig3_7yJv3sxF9s7khcP7pyfeF5PHq75ILsc9vmCObTE", 150000005, "FAST"},     // Will have 10 confirmations
+		{"sig4_8zKw4tyG0t8lidQ8qzgfG6QIr86JMtd0wnDPcUF", 150000010, "FAST"},     // Will have 5 confirmations
 	}
 
 	for _, tx := range transactions {
@@ -188,37 +204,45 @@ func TestSolanaGatewayHandler_MultipleTransactions(t *testing.T) {
 			tx.slot,
 			"add_funds",
 			"84ed4c39500ab38a",
+			tx.confirmationType,
 			nil,
 		)
 		require.NoError(t, err)
 	}
 
-	// Update to slot 150000015 (all should have at least 5 confirmations)
+	// Update to slot 150000015
 	currentSlot := uint64(150000015)
 	err = tracker.UpdateConfirmations(currentSlot)
 	require.NoError(t, err)
 
-	// Check fast confirmations (Solana "confirmed" level)
-	for _, tx := range transactions {
-		confirmed, err := tracker.IsConfirmed(tx.signature, "fast")
-		require.NoError(t, err)
-		assert.True(t, confirmed, "Transaction %s should be fast confirmed", tx.signature)
+	// Check confirmations based on type
+	expectedResults := []struct {
+		signature        string
+		confirmations    uint64
+		shouldBeConfirmed bool
+	}{
+		{"sig1_5wHu1qwD7q5ifaN5nwdcDqNFo53GJqa7tkAMzRc", 15, true},  // STANDARD with 15 > 12
+		{"sig2_6xIu2rwE8r6jgbO6oxedErOGp64HKrb8ulBNaSD", 13, true},  // STANDARD with 13 > 12
+		{"sig3_7yJv3sxF9s7khcP7pyfeF5PHq75ILsc9vmCObTE", 10, true},  // FAST with 10 > 5
+		{"sig4_8zKw4tyG0t8lidQ8qzgfG6QIr86JMtd0wnDPcUF", 5, true},   // FAST with 5 = 5
 	}
 
-	// Check standard confirmations (Solana "finalized" level)
-	for i, tx := range transactions {
-		confirmed, err := tracker.IsConfirmed(tx.signature, "standard")
+	for i, expected := range expectedResults {
+		tx, err := tracker.GetGatewayTransaction(expected.signature)
 		require.NoError(t, err)
-		
-		expectedConfirmed := currentSlot-tx.slot >= 12
-		assert.Equal(t, expectedConfirmed, confirmed, 
-			"Transaction %s (index %d) standard confirmation mismatch", tx.signature, i)
+		assert.Equal(t, expected.confirmations, tx.Confirmations, 
+			"Transaction %s (index %d) confirmations mismatch", expected.signature, i)
+
+		confirmed, err := tracker.IsConfirmed(expected.signature)
+		require.NoError(t, err)
+		assert.Equal(t, expected.shouldBeConfirmed, confirmed, 
+			"Transaction %s (index %d) confirmation status mismatch", expected.signature, i)
 	}
 
 	// Get all confirmed transactions
 	confirmedTxs, err := tracker.GetConfirmedTransactions(config.Chain)
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(confirmedTxs), "Should have 2 fully finalized transactions")
+	assert.Equal(t, 4, len(confirmedTxs), "Should have 4 confirmed transactions (2 STANDARD, 2 FAST)")
 }
 
 func TestSolanaGatewayHandler_Methods(t *testing.T) {
@@ -276,6 +300,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 		slotNumber,
 		"add_funds",
 		"84ed4c39500ab38a",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -295,6 +320,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 		newSlotNumber,
 		"add_funds",
 		"84ed4c39500ab38a",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -307,7 +333,8 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 }
 
 func TestCrossChainConfirmations(t *testing.T) {
-	// Test that EVM and Solana chains can have different confirmation requirements
+	// Test that EVM and Solana chains use confirmation types correctly
+	// Both chains use the same requirements: FAST=5, STANDARD=12
 	logger := zerolog.Nop()
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
@@ -322,12 +349,12 @@ func TestCrossChainConfirmations(t *testing.T) {
 		},
 	}
 
-	// Solana config with different requirements
+	// Solana config with same requirements (as per business logic)
 	solanaConfig := &uregistrytypes.ChainConfig{
 		Chain: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
-			FastInbound:     3,  // Different from EVM
-			StandardInbound: 10, // Different from EVM
+			FastInbound:     5,
+			StandardInbound: 12,
 		},
 	}
 
@@ -335,52 +362,82 @@ func TestCrossChainConfirmations(t *testing.T) {
 	evmTracker := chaincommon.NewConfirmationTracker(database, evmConfig.BlockConfirmation, logger)
 	solanaTracker := chaincommon.NewConfirmationTracker(database, solanaConfig.BlockConfirmation, logger)
 
-	// Track EVM transaction
-	evmTxHash := "0xevm123"
-	err = evmTracker.TrackTransaction(evmTxHash, 1000, "addFunds", "0xf9bfe8a7", nil)
+	// Track EVM transaction with FAST type
+	evmFastTxHash := "0xevmfast123"
+	err = evmTracker.TrackTransaction(evmFastTxHash, 1000, "addFunds", "0xf9bfe8a7", "FAST", nil)
 	require.NoError(t, err)
 
-	// Track Solana transaction
-	solanaTxSig := "solana456"
-	err = solanaTracker.TrackTransaction(solanaTxSig, 2000, "add_funds", "84ed4c39500ab38a", nil)
+	// Track EVM transaction with STANDARD type
+	evmStandardTxHash := "0xevmstandard456"
+	err = evmTracker.TrackTransaction(evmStandardTxHash, 1000, "addFunds", "0xf9bfe8a7", "STANDARD", nil)
 	require.NoError(t, err)
 
-	// Update confirmations for EVM (needs 5 for fast)
-	err = evmTracker.UpdateConfirmations(1004)
+	// Track Solana transaction with FAST type
+	solanaFastTxSig := "solanafast789"
+	err = solanaTracker.TrackTransaction(solanaFastTxSig, 2000, "add_funds", "84ed4c39500ab38a", "FAST", nil)
 	require.NoError(t, err)
-	
-	confirmed, err := evmTracker.IsConfirmed(evmTxHash, "fast")
-	require.NoError(t, err)
-	assert.False(t, confirmed, "EVM should not be fast confirmed with 4 confirmations")
 
-	// Update confirmations for Solana (needs only 3 for fast)
-	err = solanaTracker.UpdateConfirmations(2003)
+	// Track Solana transaction with STANDARD type
+	solanaStandardTxSig := "solanastandard012"
+	err = solanaTracker.TrackTransaction(solanaStandardTxSig, 2000, "add_funds", "84ed4c39500ab38a", "STANDARD", nil)
 	require.NoError(t, err)
-	
-	confirmed, err = solanaTracker.IsConfirmed(solanaTxSig, "fast")
-	require.NoError(t, err)
-	assert.True(t, confirmed, "Solana should be fast confirmed with 3 confirmations")
 
+	// Test FAST confirmations (5 blocks for both chains)
 	// Update EVM to 5 confirmations
 	err = evmTracker.UpdateConfirmations(1005)
 	require.NoError(t, err)
 	
-	confirmed, err = evmTracker.IsConfirmed(evmTxHash, "fast")
+	confirmed, err := evmTracker.IsConfirmed(evmFastTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "EVM should now be fast confirmed with 5 confirmations")
+	assert.True(t, confirmed, "EVM FAST should be confirmed with 5 blocks")
 
-	// Check standard confirmations
+	confirmed, err = evmTracker.IsConfirmed(evmStandardTxHash)
+	require.NoError(t, err)
+	assert.False(t, confirmed, "EVM STANDARD should not be confirmed with 5 blocks")
+
+	// Update Solana to 5 confirmations
+	err = solanaTracker.UpdateConfirmations(2005)
+	require.NoError(t, err)
+	
+	confirmed, err = solanaTracker.IsConfirmed(solanaFastTxSig)
+	require.NoError(t, err)
+	assert.True(t, confirmed, "Solana FAST should be confirmed with 5 slots")
+
+	confirmed, err = solanaTracker.IsConfirmed(solanaStandardTxSig)
+	require.NoError(t, err)
+	assert.False(t, confirmed, "Solana STANDARD should not be confirmed with 5 slots")
+
+	// Test STANDARD confirmations (12 blocks for both chains)
+	// Update EVM to 12 confirmations
 	err = evmTracker.UpdateConfirmations(1012)
 	require.NoError(t, err)
 	
-	confirmed, err = evmTracker.IsConfirmed(evmTxHash, "standard")
+	confirmed, err = evmTracker.IsConfirmed(evmStandardTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "EVM should be standard confirmed with 12 confirmations")
+	assert.True(t, confirmed, "EVM STANDARD should be confirmed with 12 blocks")
 
-	err = solanaTracker.UpdateConfirmations(2010)
+	// Update Solana to 12 confirmations
+	err = solanaTracker.UpdateConfirmations(2012)
 	require.NoError(t, err)
 	
-	confirmed, err = solanaTracker.IsConfirmed(solanaTxSig, "standard")
+	confirmed, err = solanaTracker.IsConfirmed(solanaStandardTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Solana should be standard confirmed with 10 confirmations")
+	assert.True(t, confirmed, "Solana STANDARD should be confirmed with 12 slots")
+
+	// Verify all transactions are confirmed
+	tx, err := evmTracker.GetGatewayTransaction(evmFastTxHash)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", tx.Status)
+
+	tx, err = evmTracker.GetGatewayTransaction(evmStandardTxHash)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", tx.Status)
+
+	tx, err = solanaTracker.GetGatewayTransaction(solanaFastTxSig)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", tx.Status)
+
+	tx, err = solanaTracker.GetGatewayTransaction(solanaStandardTxSig)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", tx.Status)
 }

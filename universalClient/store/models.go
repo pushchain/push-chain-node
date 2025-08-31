@@ -17,11 +17,12 @@ type ChainState struct {
 // Since each chain has its own database, ChainID is not needed.
 type ChainTransaction struct {
 	gorm.Model
-	TxHash          string `gorm:"uniqueIndex"`
-	BlockNumber     uint64
-	Method          string
-	EventIdentifier string
-	Status          string `gorm:"index"` // "pending", "fast_confirmed", "confirmed", "failed", "reorged"
-	Confirmations   uint64
-	Data            []byte // Store raw event data
+	TxHash           string `gorm:"uniqueIndex"`
+	BlockNumber      uint64
+	Method           string
+	EventIdentifier  string
+	Status           string `gorm:"index"` // "pending", "fast_confirmed", "confirmed", "failed", "reorged"
+	Confirmations    uint64
+	ConfirmationType string // "STANDARD" or "FAST" - which confirmation type this tx requires
+	Data             []byte // Store raw event data
 }

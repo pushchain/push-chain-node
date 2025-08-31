@@ -109,6 +109,7 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 		mockLog.BlockNumber,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		mockLog.Data,
 	)
 	require.NoError(t, err)
@@ -141,53 +142,69 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 		logger,
 	)
 
-	txHash := "0xabc123def456"
+	// Test FAST confirmation type (5 blocks)
+	fastTxHash := "0xfast123"
 	blockNumber := uint64(1000)
 
-	// Track a transaction
 	err = tracker.TrackTransaction(
-		txHash,
+		fastTxHash,
 		blockNumber,
 		"addFunds",
 		"0xf9bfe8a7",
+		"FAST",
 		nil,
 	)
 	require.NoError(t, err)
 
-	// Test fast confirmation (5 blocks)
+	// Test with 4 confirmations - should not be confirmed
 	currentBlock := blockNumber + 4
 	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
-	confirmed, err := tracker.IsConfirmed(txHash, "fast")
+	confirmed, err := tracker.IsConfirmed(fastTxHash)
 	require.NoError(t, err)
-	assert.False(t, confirmed, "Should not be confirmed with only 4 confirmations")
+	assert.False(t, confirmed, "FAST transaction should not be confirmed with only 4 confirmations")
 
-	// Update to 5 confirmations
+	// Update to 5 confirmations - should be confirmed for FAST
 	currentBlock = blockNumber + 5
 	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
-	confirmed, err = tracker.IsConfirmed(txHash, "fast")
+	confirmed, err = tracker.IsConfirmed(fastTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Should be confirmed with 5 confirmations for fast mode")
+	assert.True(t, confirmed, "FAST transaction should be confirmed with 5 confirmations")
 
-	// Test standard confirmation (12 blocks)
-	confirmed, err = tracker.IsConfirmed(txHash, "standard")
+	// Test STANDARD confirmation type (12 blocks)
+	standardTxHash := "0xstandard456"
+	err = tracker.TrackTransaction(
+		standardTxHash,
+		blockNumber,
+		"addFunds",
+		"0xf9bfe8a7",
+		"STANDARD",
+		nil,
+	)
 	require.NoError(t, err)
-	assert.False(t, confirmed, "Should not be confirmed for standard mode with only 5 confirmations")
 
-	// Update to 12 confirmations
+	// With 5 confirmations - should not be confirmed for STANDARD
+	err = tracker.UpdateConfirmations(currentBlock)
+	require.NoError(t, err)
+
+	confirmed, err = tracker.IsConfirmed(standardTxHash)
+	require.NoError(t, err)
+	assert.False(t, confirmed, "STANDARD transaction should not be confirmed with only 5 confirmations")
+
+	// Update to 12 confirmations - should be confirmed for STANDARD
 	currentBlock = blockNumber + 12
 	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
-	confirmed, err = tracker.IsConfirmed(txHash, "standard")
+	confirmed, err = tracker.IsConfirmed(standardTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Should be confirmed with 12 confirmations for standard mode")
+	assert.True(t, confirmed, "STANDARD transaction should be confirmed with 12 confirmations")
 
-	// Verify the transaction is marked as confirmed in database
-	tx, err := tracker.GetGatewayTransaction(txHash)
+	// Verify the STANDARD transaction is marked as confirmed in database
+	tx, err := tracker.GetGatewayTransaction(standardTxHash)
 	require.NoError(t, err)
 	assert.Equal(t, "confirmed", tx.Status)
 	assert.Equal(t, uint64(12), tx.Confirmations)
@@ -462,15 +479,16 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 		logger,
 	)
 
-	// Track multiple transactions at different blocks
+	// Track multiple transactions at different blocks with different confirmation types
 	transactions := []struct {
-		hash  string
-		block uint64
+		hash             string
+		block            uint64
+		confirmationType string
 	}{
-		{"0x111", 100},
-		{"0x222", 102},
-		{"0x333", 105},
-		{"0x444", 110},
+		{"0x111", 100, "STANDARD"}, // Will have 15 confirmations
+		{"0x222", 102, "STANDARD"}, // Will have 13 confirmations
+		{"0x333", 105, "FAST"},     // Will have 10 confirmations
+		{"0x444", 110, "FAST"},     // Will have 5 confirmations
 	}
 
 	for _, tx := range transactions {
@@ -479,38 +497,41 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 			tx.block,
 			"addFunds",
 			"0xf9bfe8a7",
+			tx.confirmationType,
 			nil,
 		)
 		require.NoError(t, err)
 	}
 
-	// Update to block 115 (all should have at least 5 confirmations)
+	// Update to block 115
 	currentBlock := uint64(115)
 	err = tracker.UpdateConfirmations(currentBlock)
 	require.NoError(t, err)
 
-	// Check fast confirmations
-	for _, tx := range transactions {
-		confirmed, err := tracker.IsConfirmed(tx.hash, "fast")
+	// Check FAST transactions (need 5 confirmations)
+	// 0x333 has 10 confirmations - should be confirmed
+	// 0x444 has 5 confirmations - should be confirmed
+	fastTxs := []string{"0x333", "0x444"}
+	for _, hash := range fastTxs {
+		confirmed, err := tracker.IsConfirmed(hash)
 		require.NoError(t, err)
-		assert.True(t, confirmed, "Transaction %s should be fast confirmed", tx.hash)
+		assert.True(t, confirmed, "FAST transaction %s should be confirmed", hash)
 	}
 
-	// Check standard confirmations
-	// Only first two should have 12+ confirmations
-	for i, tx := range transactions {
-		confirmed, err := tracker.IsConfirmed(tx.hash, "standard")
+	// Check STANDARD transactions (need 12 confirmations)
+	// 0x111 has 15 confirmations - should be confirmed
+	// 0x222 has 13 confirmations - should be confirmed
+	standardTxs := []string{"0x111", "0x222"}
+	for _, hash := range standardTxs {
+		confirmed, err := tracker.IsConfirmed(hash)
 		require.NoError(t, err)
-		
-		expectedConfirmed := currentBlock-tx.block >= 12
-		assert.Equal(t, expectedConfirmed, confirmed, 
-			"Transaction %s (index %d) standard confirmation mismatch", tx.hash, i)
+		assert.True(t, confirmed, "STANDARD transaction %s should be confirmed", hash)
 	}
 
-	// Get all confirmed transactions
+	// Get all confirmed transactions - all 4 should be confirmed
 	confirmedTxs, err := tracker.GetConfirmedTransactions(config.Chain)
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(confirmedTxs), "Should have 2 fully confirmed transactions")
+	assert.Equal(t, 4, len(confirmedTxs), "Should have 4 confirmed transactions (2 STANDARD, 2 FAST)")
 }
 
 func TestEVMGatewayHandler_EventTopics(t *testing.T) {
@@ -569,6 +590,7 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 		blockNumber,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)
@@ -588,6 +610,7 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 		newBlockNumber,
 		"addFunds",
 		"0xf9bfe8a7",
+		"STANDARD",
 		nil,
 	)
 	require.NoError(t, err)

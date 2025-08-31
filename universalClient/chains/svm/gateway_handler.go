@@ -118,8 +118,12 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("failed to get last processed slot: %w", result.Error)
 	}
 	
-	// Found a record, use it
-	if chainState.LastBlock < 0 {
+	// Found a record, check if it has a valid slot number
+	if chainState.LastBlock <= 0 {
+		// If LastBlock is 0 or negative, start from latest slot
+		h.logger.Info().
+			Int64("stored_slot", chainState.LastBlock).
+			Msg("invalid or zero last slot, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
 	
@@ -172,8 +176,8 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 
 		// Use configured polling interval or default to 5 seconds
 		pollingInterval := 5 * time.Second
-		if h.appConfig != nil && h.appConfig.EventPollingInterval > 0 {
-			pollingInterval = h.appConfig.EventPollingInterval
+		if h.appConfig != nil && h.appConfig.EventPollingIntervalSeconds > 0 {
+			pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
 		}
 
 		// Poll for new transactions periodically
@@ -254,6 +258,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 							event.BlockNumber,
 							event.Method,
 							event.EventID,
+							event.ConfirmationType,
 							nil,
 						); err != nil {
 							h.logger.Error().Err(err).
@@ -299,8 +304,8 @@ func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash
 }
 
 // IsConfirmed delegates to transaction verifier
-func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
-	return h.txVerifier.IsConfirmed(ctx, txHash, mode)
+func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	return h.txVerifier.IsConfirmed(ctx, txHash)
 }
 
 // GetConfirmationTracker returns the confirmation tracker

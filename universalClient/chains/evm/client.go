@@ -23,7 +23,6 @@ type Client struct {
 	logger         zerolog.Logger
 	chainID        int64 // Numeric chain ID extracted from CAIP-2
 	rpcPool        *rpcpool.Manager // Pool manager for multiple RPC endpoints
-	rpcURL         string           // Fallback single RPC URL (legacy)
 	ethClient      *ethclient.Client // Fallback single client (legacy)
 	gatewayHandler *GatewayHandler
 	database       *db.DB
@@ -55,7 +54,6 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 			Str("chain", config.Chain).
 			Logger(),
 		chainID:      chainID,
-		rpcURL:       config.PublicRpcUrl,
 		database:     database,
 		appConfig:    appConfig,
 		retryManager: common.NewRetryManager(nil, logger),
@@ -68,7 +66,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 
 // getRPCURLs returns the list of RPC URLs to use for this chain
 func (c *Client) getRPCURLs() []string {
-	// Only check common config if appConfig is not nil
+	// Only use RPC URLs from local config - no fallback to registry
 	if c.appConfig != nil {
 		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
 		
@@ -81,23 +79,13 @@ func (c *Client) getRPCURLs() []string {
 		}
 	}
 
-	// Fallback to PublicRpcUrl from chain config if available
-	chainConfig := c.GetConfig()
-	if chainConfig != nil && chainConfig.PublicRpcUrl != "" {
-		c.logger.Info().
-			Str("chain", chainConfig.Chain).
-			Str("url", chainConfig.PublicRpcUrl).
-			Msg("using PublicRpcUrl from chain config as fallback")
-		return []string{chainConfig.PublicRpcUrl}
-	}
-
 	chainName := ""
 	if c.GetConfig() != nil {
 		chainName = c.GetConfig().Chain
 	}
 	c.logger.Warn().
 		Str("chain", chainName).
-		Msg("no RPC URLs configured for chain")
+		Msg("no RPC URLs configured for chain in local config")
 	return []string{}
 }
 
@@ -205,9 +193,9 @@ func (c *Client) Start(ctx context.Context) error {
 		Strs("rpc_urls", rpcURLs).
 		Msg("starting EVM chain client")
 
-	// Connect with retry logic
+	// Connect with retry logic - use clientCtx for long-lived operations
 	err := c.retryManager.ExecuteWithRetry(ctx, "initial_connection", func() error {
-		return c.connect(ctx)
+		return c.connect(clientCtx)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to establish initial connection: %w", err)
@@ -383,7 +371,8 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	healthChecker := CreateEVMHealthChecker(c.chainID)
 	c.rpcPool.HealthMonitor.SetHealthChecker(healthChecker)
 
-	// Start the pool
+	// Start the pool with the long-lived context
+	// Note: ctx here should be the long-lived clientCtx passed from Start() -> connect()
 	if err := c.rpcPool.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start RPC pool: %w", err)
 	}
@@ -400,8 +389,6 @@ func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) erro
 	c.logger.Info().
 		Str("rpc_url", rpcURL).
 		Msg("initializing single EVM RPC client (legacy mode)")
-
-	c.rpcURL = rpcURL
 
 	ethClient, err := ethclient.DialContext(ctx, rpcURL)
 	if err != nil {
@@ -529,9 +516,13 @@ func (c *Client) GetLatestBlockNumber(ctx context.Context) (*big.Int, error) {
 	return new(big.Int).SetUint64(blockNumber), nil
 }
 
-// GetRPCURL returns the RPC endpoint URL
+// GetRPCURL returns the first RPC endpoint URL from config or empty string
 func (c *Client) GetRPCURL() string {
-	return c.rpcURL
+	urls := c.getRPCURLs()
+	if len(urls) > 0 {
+		return urls[0]
+	}
+	return ""
 }
 
 // parseEVMChainID extracts the numeric chain ID from CAIP-2 format
@@ -586,9 +577,9 @@ func (c *Client) GetTransactionConfirmations(ctx context.Context, txHash string)
 }
 
 // IsConfirmed checks if a transaction has enough confirmations
-func (c *Client) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
+func (c *Client) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
 	if c.gatewayHandler == nil {
 		return false, fmt.Errorf("gateway handler not initialized")
 	}
-	return c.gatewayHandler.IsConfirmed(ctx, txHash, mode)
+	return c.gatewayHandler.IsConfirmed(ctx, txHash)
 }

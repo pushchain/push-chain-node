@@ -12,8 +12,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rollchains/pchain/universalClient/config"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
+
+// testAppConfig creates a test app config with RPC URLs
+func testAppConfig(chainID string, rpcURLs []string) *config.Config {
+	return &config.Config{
+		ChainRPCURLs: map[string][]string{
+			chainID: rpcURLs,
+		},
+	}
+}
 
 // TestClientInitialization tests the creation of EVM client
 func TestClientInitialization(t *testing.T) {
@@ -23,7 +33,6 @@ func TestClientInitialization(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123...",
 			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
@@ -32,7 +41,6 @@ func TestClientInitialization(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.Equal(t, int64(1), client.chainID)
-		assert.Equal(t, "https://eth.example.com", client.rpcURL)
 		assert.Equal(t, config, client.GetConfig())
 		assert.Equal(t, "eip155:1", client.ChainID())
 	})
@@ -162,12 +170,12 @@ func TestClientStartStop(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   server.URL,
 			GatewayAddress: "0x123...",
 			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		appConfig := testAppConfig("eip155:1", []string{server.URL})
+		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -185,11 +193,11 @@ func TestClientStartStop(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "http://invalid.localhost:99999",
 			GatewayAddress: "0x123...",
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		appConfig := testAppConfig("eip155:1", []string{"http://invalid.localhost:99999"})
+		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -201,11 +209,11 @@ func TestClientStartStop(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:  "eip155:1",
 			VmType: uregistrytypes.VmType_EVM,
-			// Empty URL will cause connection to fail
-			PublicRpcUrl: "",
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		// Empty URL will cause connection to fail
+		appConfig := testAppConfig("eip155:1", []string{})
+		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -250,10 +258,10 @@ func TestClientIsHealthy(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:        "eip155:1",
 			VmType:       uregistrytypes.VmType_EVM,
-			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		appConfig := testAppConfig("eip155:1", []string{server.URL})
+		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -290,12 +298,12 @@ func TestClientGetMethods(t *testing.T) {
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:11155111",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://eth-sepolia.example.com",
 		GatewayAddress: "0x123...",
 		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
-	client, err := NewClient(config, nil, nil, logger)
+	appConfig := testAppConfig("eip155:11155111", []string{"https://eth-sepolia.example.com"})
+	client, err := NewClient(config, nil, appConfig, logger)
 	require.NoError(t, err)
 
 	t.Run("GetChainID", func(t *testing.T) {
@@ -347,10 +355,10 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:        "eip155:1",
 			VmType:       uregistrytypes.VmType_EVM,
-			PublicRpcUrl: server.URL,
 		}
 
-		client, err := NewClient(config, nil, nil, logger)
+		appConfig := testAppConfig("eip155:1", []string{server.URL})
+		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -400,10 +408,10 @@ func TestClientConcurrency(t *testing.T) {
 	config := &uregistrytypes.ChainConfig{
 		Chain:        "eip155:1",
 		VmType:       uregistrytypes.VmType_EVM,
-		PublicRpcUrl: server.URL,
 	}
 
-	client, err := NewClient(config, nil, nil, logger)
+	appConfig := testAppConfig("eip155:1", []string{server.URL})
+	client, err := NewClient(config, nil, appConfig, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()

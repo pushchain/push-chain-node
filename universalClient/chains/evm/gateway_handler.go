@@ -101,8 +101,12 @@ func (h *GatewayHandler) GetStartBlock(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("failed to get last processed block: %w", result.Error)
 	}
 	
-	// Found a record, use it
-	if chainState.LastBlock < 0 {
+	// Found a record, check if it has a valid block number
+	if chainState.LastBlock <= 0 {
+		// If LastBlock is 0 or negative, start from latest block
+		h.logger.Info().
+			Int64("stored_block", chainState.LastBlock).
+			Msg("invalid or zero last block, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
 	
@@ -189,21 +193,9 @@ func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash
 }
 
 // IsConfirmed checks if a transaction has enough confirmations
-func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string, mode string) (bool, error) {
-	// Check in tracker first
-	confirmed, err := h.tracker.IsConfirmed(txHash, mode)
-	if err == nil {
-		return confirmed, nil
-	}
-
-	// Fallback to chain query
-	confirmations, err := h.GetTransactionConfirmations(ctx, txHash)
-	if err != nil {
-		return false, err
-	}
-
-	required := h.tracker.GetRequiredConfirmations(mode)
-	return confirmations >= required, nil
+func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	// Check in tracker
+	return h.tracker.IsConfirmed(txHash)
 }
 
 // GetConfirmationTracker returns the confirmation tracker

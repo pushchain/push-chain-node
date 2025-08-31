@@ -54,7 +54,14 @@ func (h *SVMHealthChecker) CheckHealth(ctx context.Context, client interface{}) 
 			return fmt.Errorf("failed to get genesis hash: %w", err)
 		}
 
-		if genesisHash.String() != h.expectedGenesisHash {
+		actualHash := genesisHash.String()
+		// CAIP-2 standard uses truncated genesis hash (first 32 chars)
+		// so we need to compare only the truncated portion
+		if len(actualHash) > len(h.expectedGenesisHash) {
+			actualHash = actualHash[:len(h.expectedGenesisHash)]
+		}
+
+		if actualHash != h.expectedGenesisHash {
 			return fmt.Errorf("genesis hash mismatch: expected %s, got %s", 
 				h.expectedGenesisHash, genesisHash.String())
 		}

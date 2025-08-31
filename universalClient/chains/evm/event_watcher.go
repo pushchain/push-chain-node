@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -72,8 +73,8 @@ func (ew *EventWatcher) WatchEvents(
 
 		// Use configured polling interval or default to 5 seconds
 		pollingInterval := 5 * time.Second
-		if ew.appConfig != nil && ew.appConfig.EventPollingInterval > 0 {
-			pollingInterval = ew.appConfig.EventPollingInterval
+		if ew.appConfig != nil && ew.appConfig.EventPollingIntervalSeconds > 0 {
+			pollingInterval = time.Duration(ew.appConfig.EventPollingIntervalSeconds) * time.Second
 		}
 		
 		// Create ticker for polling
@@ -147,59 +148,85 @@ func (ew *EventWatcher) processBlockRange(
 	topics []ethcommon.Hash,
 	eventChan chan<- *common.GatewayEvent,
 ) error {
-	// Create filter query
-	// Topics should be in the first position (topic[0])
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(fromBlock)),
-		ToBlock:   big.NewInt(int64(toBlock)),
-		Addresses: []ethcommon.Address{ew.gatewayAddr},
-		Topics:    [][]ethcommon.Hash{topics}, // This filters for any of the topics in position 0
-	}
+	// Define max block range to prevent RPC errors (use 9000 to be safe under the 10000 limit)
+	const maxBlockRange uint64 = 9000
+	
+	currentFrom := fromBlock
+	
+	// Process in chunks if the range is too large
+	for currentFrom <= toBlock {
+		currentTo := currentFrom + maxBlockRange - 1
+		if currentTo > toBlock {
+			currentTo = toBlock
+		}
+		
+		// Log chunk processing for large ranges
+		blockRange := currentTo - currentFrom + 1
+		if blockRange > 1000 {
+			ew.logger.Debug().
+				Uint64("from_block", currentFrom).
+				Uint64("to_block", currentTo).
+				Uint64("range_size", blockRange).
+				Msg("processing block chunk")
+		}
+		
+		// Create filter query for this chunk
+		query := ethereum.FilterQuery{
+			FromBlock: big.NewInt(int64(currentFrom)),
+			ToBlock:   big.NewInt(int64(currentTo)),
+			Addresses: []ethcommon.Address{ew.gatewayAddr},
+			Topics:    [][]ethcommon.Hash{topics}, // This filters for any of the topics in position 0
+		}
 
-	// Get logs
-	var logs []types.Log
-	err := ew.parentClient.executeWithFailover(ctx, "filter_logs", func(client *ethclient.Client) error {
-		var innerErr error
-		logs, innerErr = client.FilterLogs(ctx, query)
-		return innerErr
-	})
-	if err != nil {
-		return err
-	}
+		// Get logs for this chunk
+		var logs []types.Log
+		err := ew.parentClient.executeWithFailover(ctx, "filter_logs", func(client *ethclient.Client) error {
+			var innerErr error
+			logs, innerErr = client.FilterLogs(ctx, query)
+			return innerErr
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get logs for blocks %d-%d: %w", currentFrom, currentTo, err)
+		}
 
-	// Log when events are found
-	if len(logs) > 0 {
-		ew.logger.Info().
-			Uint64("from_block", fromBlock).
-			Uint64("to_block", toBlock).
-			Int("logs_found", len(logs)).
-			Str("gateway_address", ew.gatewayAddr.Hex()).
-			Msg("found gateway events")
-	}
+		// Log when events are found
+		if len(logs) > 0 {
+			ew.logger.Info().
+				Uint64("from_block", currentFrom).
+				Uint64("to_block", currentTo).
+				Int("logs_found", len(logs)).
+				Str("gateway_address", ew.gatewayAddr.Hex()).
+				Msg("found gateway events")
+		}
 
-	// Process logs
-	for _, log := range logs {
-		event := ew.eventParser.ParseGatewayEvent(&log)
-		if event != nil {
-			// Track transaction for confirmations
-			if err := ew.tracker.TrackTransaction(
-				event.TxHash,
-				event.BlockNumber,
-				event.Method,
-				event.EventID,
-				nil,
-			); err != nil {
-				ew.logger.Error().Err(err).
-					Str("tx_hash", event.TxHash).
-					Msg("failed to track transaction")
-			}
+		// Process logs
+		for _, log := range logs {
+			event := ew.eventParser.ParseGatewayEvent(&log)
+			if event != nil {
+				// Track transaction for confirmations
+				if err := ew.tracker.TrackTransaction(
+					event.TxHash,
+					event.BlockNumber,
+					event.Method,
+					event.EventID,
+					event.ConfirmationType,
+					nil,
+				); err != nil {
+					ew.logger.Error().Err(err).
+						Str("tx_hash", event.TxHash).
+						Msg("failed to track transaction")
+				}
 
-			select {
-			case eventChan <- event:
-			case <-ctx.Done():
-				return ctx.Err()
+				select {
+				case eventChan <- event:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 		}
+		
+		// Move to next chunk
+		currentFrom = currentTo + 1
 	}
 
 	return nil

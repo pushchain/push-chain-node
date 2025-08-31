@@ -318,14 +318,12 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 			{
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://eth-sepolia.example.com",
 				GatewayAddress: "0x123...",
 				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:         uregistrytypes.VmType_SVM,
-				PublicRpcUrl:   "https://api.devnet.solana.com",
 				GatewayAddress: "Sol123...",
 				Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
@@ -488,13 +486,11 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 			{
 				Chain:        "eip155:11155111",
 				VmType:       uregistrytypes.VmType_EVM,
-				PublicRpcUrl: "https://eth-sepolia.example.com",
 				Enabled:      &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
 				Chain:        "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:       uregistrytypes.VmType_SVM,
-				PublicRpcUrl: "https://api.devnet.solana.com",
 				Enabled:      &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}

@@ -48,3 +48,83 @@ message UniversalAccountId {
   string chain_id = 2; // chain_id is the chain ID of the chain where the owner is located
   string owner = 3; // Owner's public key bytes or address in hex format
 }
+
+enum UniversalTxStatus {
+  UNIVERSAL_TX_STATUS_UNSPECIFIED = 0;
+  INBOUND_SUCCESS = 1;             // inbound vote finalized successfully
+  PENDING_INBOUND_EXECUTION = 2;   // created after inbound vote finalization, waiting PC execution
+  PC_EXECUTED_SUCCESS = 3;         // executed successfully on Push Chain
+  PC_EXECUTED_FAILED = 4;          // failed execution on Push Chain
+  PC_PENDING_REVERT = 5;           // execution failed and pending revert
+  OUTBOUND_PENDING = 6;            // outbound tx triggered but not confirmed
+  OUTBOUND_SUCCESS = 7;            // outbound succeeded
+  OUTBOUND_FAILED = 8;             // outbound failed
+  CANCELED = 9;
+}
+
+enum Status {
+  UNSPECIFIED = 0;
+  PENDING = 1;
+  FINALIZED = 2;
+}
+
+message InboundStatus {
+  Status status = 1;
+}
+
+enum InboundTxType {
+  UNSPECIFIED_TX = 0;
+  SYNTHETIC = 1;
+  FEE_ABSTRACTION = 2;
+}
+
+message Inbound {
+  option (amino.name) = "ue/inbound";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string source_chain = 1;  // origin chain caip2 id (e.g. eip155:11155111)
+  string tx_hash        = 2;  // unique tx hash / identifier from source chain
+  string sender = 3; // sender address on source chain
+  string recipient    = 4;  // recipient address on destination chain
+  string amount = 5; // synthetic token amount bridged in
+  string asset_addr        = 6;  // address of erc20 token address on source chain
+  string log_index = 7; // log index that originated the cross chain tx
+  InboundTxType tx_type = 8; // inbound tx type
+}
+
+message PCTx {
+  option (amino.name) = "ue/pc_tx";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string tx_hash      = 1; // hash of the execution on Push Chain
+  string sender       = 2; // who executed it
+  uint64 gas_used     = 3; // gas consumed by this tx
+  uint64 block_height = 4; // block number on Push Chain
+  string status       = 6; // "SUCCESS" or "FAILED"
+  string error_msg    = 7; // optional error info if failed
+}
+
+message OutboundTx {
+  option (amino.name) = "ue/outbound_tx";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string destination_chain = 1;    // chain where this outbound is sent
+  string tx_hash           = 2;    // outbound tx hash on destination chain
+  string recipient         = 3;    // recipient on destination chain
+  string amount            = 4;    // token amount or payload
+  string asset_addr        = 5;    // token contract if applicable
+}
+
+message UniversalTx {
+  option (amino.name) = "ue/universal_tx";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+  
+  Inbound inbound_tx = 1;    // Full inbound tx data
+  PCTx pc_tx = 2;               // Execution details on Push Chain
+  OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
+  UniversalTxStatus universal_status = 4;       // Current status
+}

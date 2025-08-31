@@ -42,5 +42,14 @@ func (p GatewayMethods) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "method event_identifier must be valid hex: %s", err.Error())
 	}
 
+	// ConfirmationType must be known
+	switch p.ConfirmationType {
+	case ConfirmationType_CONFIRMATION_TYPE_STANDARD,
+		ConfirmationType_CONFIRMATION_TYPE_FAST:
+		// valid
+	default:
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid confirmation type: %v", p.ConfirmationType)
+	}
+
 	return nil
 }

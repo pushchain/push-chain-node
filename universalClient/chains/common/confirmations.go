@@ -175,7 +175,8 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	confirmedCount := 0
 	
 	// Update each transaction within the database transaction
-	for _, tx := range pendingTxs {
+	for i := range pendingTxs {
+		tx := &pendingTxs[i]
 		if currentBlock < tx.BlockNumber {
 			// Current block is before transaction block (shouldn't happen)
 			continue
@@ -206,7 +207,7 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 		}
 		
 		// Save within the transaction
-		if err := dbTx.Save(&tx).Error; err != nil {
+		if err := dbTx.Save(tx).Error; err != nil {
 			ct.logger.Error().
 				Err(err).
 				Str("tx_hash", tx.TxHash).

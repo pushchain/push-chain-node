@@ -2,7 +2,6 @@ package rpcpool
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -253,39 +252,3 @@ func (h *HealthMonitor) GetHealthStatus() *HealthStatus {
 	}
 }
 
-// ForceExcludeEndpoint manually excludes an endpoint (useful for testing or manual intervention)
-func (h *HealthMonitor) ForceExcludeEndpoint(url string) error {
-	endpoints := h.manager.GetEndpoints()
-
-	for _, endpoint := range endpoints {
-		if endpoint.URL == url {
-			endpoint.UpdateState(StateExcluded)
-			h.logger.Info().
-				Str("url", url).
-				Msg("endpoint manually excluded")
-			return nil
-		}
-	}
-	
-	return fmt.Errorf("endpoint not found: %s", url)
-}
-
-// ForceRecoverEndpoint manually recovers an excluded endpoint (useful for testing or manual intervention)
-func (h *HealthMonitor) ForceRecoverEndpoint(url string) error {
-	endpoints := h.manager.GetEndpoints()
-
-	for _, endpoint := range endpoints {
-		if endpoint.URL == url && endpoint.GetState() == StateExcluded {
-			// Reset metrics and promote to degraded for monitoring
-			endpoint.Metrics = &EndpointMetrics{HealthScore: 70.0}
-			endpoint.UpdateState(StateDegraded)
-			
-			h.logger.Info().
-				Str("url", url).
-				Msg("endpoint manually recovered")
-			return nil
-		}
-	}
-	
-	return fmt.Errorf("excluded endpoint not found: %s", url)
-}

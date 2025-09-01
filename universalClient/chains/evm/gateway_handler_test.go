@@ -1,12 +1,8 @@
 package evm
 
 import (
-	"context"
-	"errors"
-	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
@@ -22,32 +18,23 @@ import (
 func TestEVMGatewayHandler_GetLatestBlock(t *testing.T) {
 	// This test would require a mock ethclient or actual connection
 	// For now, we'll test the structure and initialization
-	
+
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
 	defer database.Close()
 
 	config := &uregistrytypes.ChainConfig{
-		Chain:          "eip155:11155111",
-		VmType:         uregistrytypes.VmType_EVM,
 		GatewayAddress: "0x1234567890123456789012345678901234567890",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
-		},
-		GatewayMethods: []*uregistrytypes.GatewayMethods{
-			{
-				Name:            "addFunds",
-				Identifier:      "0xf9bfe8a7",
-				EventIdentifier: "0xevent123",
-			},
 		},
 	}
 
 	// Note: This would fail without a real ethclient connection
 	// handler, err := NewGatewayHandler(nil, config, database, logger)
 	// For testing purposes, we can verify the configuration is correct
-	
+
 	assert.Equal(t, "0x1234567890123456789012345678901234567890", config.GatewayAddress)
 	assert.Equal(t, uint32(5), config.BlockConfirmation.FastInbound)
 	assert.Equal(t, uint32(12), config.BlockConfirmation.StandardInbound)
@@ -59,18 +46,7 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	config := &uregistrytypes.ChainConfig{
-		Chain:          "eip155:11155111",
-		VmType:         uregistrytypes.VmType_EVM,
-		GatewayAddress: "0x1234567890123456789012345678901234567890",
-		GatewayMethods: []*uregistrytypes.GatewayMethods{
-			{
-				Name:            "addFunds",
-				Identifier:      "0xf9bfe8a7",
-				EventIdentifier: "0xevent123",
-			},
-		},
-	}
+	config := &uregistrytypes.ChainConfig{}
 
 	// Create tracker directly for testing
 	tracker := chaincommon.NewConfirmationTracker(
@@ -87,7 +63,6 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 
 	// Create a mock log that would be parsed
 	mockLog := &types.Log{
-		Address: ethcommon.HexToAddress(config.GatewayAddress),
 		Topics: []ethcommon.Hash{
 			ethcommon.HexToHash(topic),
 			ethcommon.HexToHash("0x0000000000000000000000001234567890123456789012345678901234567890"), // sender
@@ -101,7 +76,7 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	// Verify log structure
 	assert.Equal(t, uint64(100), mockLog.BlockNumber)
 	assert.Equal(t, 3, len(mockLog.Topics))
-	
+
 	// Test confirmation tracking
 	err = tracker.TrackTransaction(
 		mockLog.TxHash.Hex(),
@@ -128,7 +103,6 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 	defer database.Close()
 
 	config := &uregistrytypes.ChainConfig{
-		Chain: "eip155:11155111",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
@@ -209,68 +183,6 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 	assert.Equal(t, uint64(12), tx.Confirmations)
 }
 
-// Mock ethclient for RPC pool testing
-type mockRPCClient struct {
-	blockNumber     func() (uint64, error)
-	transactionReceipt func(txHash ethcommon.Hash) (*types.Receipt, error)
-	filterLogs      func(query interface{}) ([]types.Log, error)
-	shouldFail      bool
-	callCount       *int
-}
-
-func newMockRPCClient(shouldFail bool, callCount *int) *mockRPCClient {
-	return &mockRPCClient{
-		shouldFail: shouldFail,
-		callCount:  callCount,
-	}
-}
-
-func (m *mockRPCClient) BlockNumber(ctx context.Context) (uint64, error) {
-	if m.callCount != nil {
-		*m.callCount++
-	}
-	if m.shouldFail {
-		return 0, errors.New("mock RPC error")
-	}
-	if m.blockNumber != nil {
-		return m.blockNumber()
-	}
-	return 1000, nil
-}
-
-func (m *mockRPCClient) TransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*types.Receipt, error) {
-	if m.callCount != nil {
-		*m.callCount++
-	}
-	if m.shouldFail {
-		return nil, errors.New("mock transaction not found")
-	}
-	if m.transactionReceipt != nil {
-		return m.transactionReceipt(txHash)
-	}
-	return &types.Receipt{
-		BlockNumber: big.NewInt(999),
-	}, nil
-}
-
-func (m *mockRPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
-	if m.callCount != nil {
-		*m.callCount++
-	}
-	if m.shouldFail {
-		return nil, errors.New("mock filter logs error")
-	}
-	if m.filterLogs != nil {
-		return m.filterLogs(query)
-	}
-	return []types.Log{}, nil
-}
-
-// Mock client factory for testing
-func mockClientFactory(url string, shouldFail bool, callCount *int) interface{} {
-	return newMockRPCClient(shouldFail, callCount)
-}
-
 // TestEVMClient_RPCPoolConfiguration tests RPC pool configuration setup
 func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
@@ -279,9 +191,9 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 	defer database.Close()
 
 	chainConfig := &uregistrytypes.ChainConfig{
-		Chain:           "eip155:11155111",
-		VmType:          uregistrytypes.VmType_EVM,
-		GatewayAddress:  "0x1234567890123456789012345678901234567890",
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		GatewayAddress: "0x1234567890123456789012345678901234567890",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
@@ -296,12 +208,12 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckIntervalSeconds:  30,
-			UnhealthyThreshold:          3,
-			RecoveryIntervalSeconds:     300,
-			MinHealthyEndpoints:         1,
-			RequestTimeoutSeconds:       10,
-			LoadBalancingStrategy:       "round_robin",
+			HealthCheckIntervalSeconds: 30,
+			UnhealthyThreshold:         3,
+			RecoveryIntervalSeconds:    300,
+			MinHealthyEndpoints:        1,
+			RequestTimeoutSeconds:      10,
+			LoadBalancingStrategy:      "round_robin",
 		},
 	}
 
@@ -309,11 +221,11 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 	client, err := NewClient(chainConfig, database, appConfig, logger)
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	
+
 	// RPC pool is initialized during Start(), not during NewClient()
 	// This is expected behavior - pool is created when client connects
 	require.Nil(t, client.rpcPool, "RPC pool should be nil before Start() is called")
-	
+
 	// Verify configuration is set up correctly
 	urls := client.getRPCURLs()
 	assert.Equal(t, 3, len(urls), "Should have 3 configured URLs")
@@ -336,7 +248,7 @@ func TestEVMClient_RPCPoolConfiguration(t *testing.T) {
 	clientSingle, err := NewClient(chainConfig, database, appConfigSingle, logger)
 	require.NoError(t, err)
 	require.NotNil(t, clientSingle)
-	
+
 	// Single URL configuration
 	urlsSingle := clientSingle.getRPCURLs()
 	assert.Equal(t, 1, len(urlsSingle), "Should have 1 configured URL")
@@ -351,9 +263,9 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 	defer database.Close()
 
 	chainConfig := &uregistrytypes.ChainConfig{
-		Chain:           "eip155:11155111",
-		VmType:          uregistrytypes.VmType_EVM,
-		GatewayAddress:  "0x1234567890123456789012345678901234567890",
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		GatewayAddress: "0x1234567890123456789012345678901234567890",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
@@ -374,12 +286,12 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckIntervalSeconds:  1,
-			UnhealthyThreshold:          2,
-			RecoveryIntervalSeconds:     1,
-			MinHealthyEndpoints:         1,
-			RequestTimeoutSeconds:       1,
-			LoadBalancingStrategy:       "round_robin",
+			HealthCheckIntervalSeconds: 1,
+			UnhealthyThreshold:         2,
+			RecoveryIntervalSeconds:    1,
+			MinHealthyEndpoints:        1,
+			RequestTimeoutSeconds:      1,
+			LoadBalancingStrategy:      "round_robin",
 		},
 		EventPollingIntervalSeconds: 1,
 	}
@@ -392,7 +304,7 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 	handler, err := NewGatewayHandler(client, chainConfig, database, appConfig, logger)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
-	
+
 	// Verify handler integration with parent client
 	assert.Equal(t, client, handler.parentClient, "Gateway handler should reference parent client for RPC pool access")
 	assert.NotNil(t, handler.tracker, "Gateway handler should have confirmation tracker")
@@ -408,16 +320,16 @@ func TestEVMGatewayHandler_Integration(t *testing.T) {
 func TestEVMGatewayHandler_ExecuteWithFailoverPattern(t *testing.T) {
 	// This test verifies the integration pattern is correct by testing structure
 	// The actual failover behavior is tested in the RPC pool tests
-	
+
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
 	defer database.Close()
 
 	chainConfig := &uregistrytypes.ChainConfig{
-		Chain:           "eip155:11155111",
-		VmType:          uregistrytypes.VmType_EVM,
-		GatewayAddress:  "0x1234567890123456789012345678901234567890",
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		GatewayAddress: "0x1234567890123456789012345678901234567890",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
@@ -438,12 +350,12 @@ func TestEVMGatewayHandler_ExecuteWithFailoverPattern(t *testing.T) {
 			},
 		},
 		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckIntervalSeconds:  1,
-			UnhealthyThreshold:          2,
-			RecoveryIntervalSeconds:     1,
-			MinHealthyEndpoints:         1,
-			RequestTimeoutSeconds:       1,
-			LoadBalancingStrategy:       "round_robin",
+			HealthCheckIntervalSeconds: 1,
+			UnhealthyThreshold:         2,
+			RecoveryIntervalSeconds:    1,
+			MinHealthyEndpoints:        1,
+			RequestTimeoutSeconds:      1,
+			LoadBalancingStrategy:      "round_robin",
 		},
 	}
 
@@ -456,13 +368,13 @@ func TestEVMGatewayHandler_ExecuteWithFailoverPattern(t *testing.T) {
 	// Verify integration structure
 	assert.NotNil(t, handler.parentClient, "Gateway handler should have parent client reference")
 	assert.Equal(t, client, handler.parentClient, "Parent client should be the same client instance")
-	
+
 	// The key integration point is that gateway handler methods like:
 	// - GetLatestBlock() calls h.parentClient.executeWithFailover()
 	// - GetTransactionConfirmations() calls h.parentClient.executeWithFailover()
 	// - WatchGatewayEvents() calls h.parentClient.executeWithFailover()
 	// This ensures RPC pool failover is used for all gateway operations
-	
+
 	t.Log("Gateway handler successfully integrated with RPC pool via executeWithFailover pattern")
 }
 
@@ -545,10 +457,8 @@ func TestEVMGatewayHandler_EventTopics(t *testing.T) {
 	// Test that event topics are properly registered from config
 	// This test verifies that we now use EventIdentifier from config directly
 	// instead of calculating from method signatures
-	
+
 	config := &uregistrytypes.ChainConfig{
-		Chain:          "eip155:1",
-		GatewayAddress: "0x1234567890123456789012345678901234567890",
 		GatewayMethods: []*uregistrytypes.GatewayMethods{
 			{
 				Name:            "addFunds",
@@ -561,10 +471,10 @@ func TestEVMGatewayHandler_EventTopics(t *testing.T) {
 	// Note: With the removal of KnownGatewayMethods, we now rely entirely on
 	// EventIdentifier from the config. If it's not provided, the method
 	// will log a warning but won't fail initialization.
-	
+
 	// Verify config has event identifier
 	assert.NotEmpty(t, config.GatewayMethods[0].EventIdentifier)
-	assert.Equal(t, "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd", 
+	assert.Equal(t, "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
 		config.GatewayMethods[0].EventIdentifier)
 }
 
@@ -575,7 +485,6 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	defer database.Close()
 
 	config := &uregistrytypes.ChainConfig{
-		Chain: "eip155:11155111",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
 			StandardInbound: 12,
@@ -603,7 +512,7 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	require.NoError(t, err)
 
 	// Confirm it
-	err = tracker.UpdateConfirmations(blockNumber+12)
+	err = tracker.UpdateConfirmations(blockNumber + 12)
 	require.NoError(t, err)
 
 	tx, err := tracker.GetGatewayTransaction(txHash)

@@ -21,8 +21,8 @@ import (
 type Client struct {
 	*common.BaseChainClient
 	logger         zerolog.Logger
-	chainID        int64 // Numeric chain ID extracted from CAIP-2
-	rpcPool        *rpcpool.Manager // Pool manager for multiple RPC endpoints
+	chainID        int64             // Numeric chain ID extracted from CAIP-2
+	rpcPool        *rpcpool.Manager  // Pool manager for multiple RPC endpoints
 	ethClient      *ethclient.Client // Fallback single client (legacy)
 	gatewayHandler *GatewayHandler
 	database       *db.DB
@@ -60,7 +60,6 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 		stopCh:       make(chan struct{}),
 	}
 
-
 	return client, nil
 }
 
@@ -69,7 +68,7 @@ func (c *Client) getRPCURLs() []string {
 	// Only use RPC URLs from local config - no fallback to registry
 	if c.appConfig != nil {
 		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
-		
+
 		if len(urls) > 0 {
 			c.logger.Info().
 				Str("chain", c.GetConfig().Chain).
@@ -89,43 +88,26 @@ func (c *Client) getRPCURLs() []string {
 	return []string{}
 }
 
-
-// getEthClient returns an eth client, either from pool or fallback
-func (c *Client) getEthClient() (*ethclient.Client, error) {
-	if c.rpcPool != nil {
-		endpoint, err := c.rpcPool.SelectEndpoint()
-		if err != nil {
-			return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
-		}
-		
-		ethClient, err := GetEthClientFromPool(endpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get eth client from pool: %w", err)
-		}
-		
-		return ethClient, nil
-	}
-
-	// Fallback to single client
-	if c.ethClient == nil {
-		return nil, fmt.Errorf("no eth client available")
-	}
-	
-	return c.ethClient, nil
-}
-
 // executeWithFailover executes a function with automatic failover across RPC endpoints
 func (c *Client) executeWithFailover(ctx context.Context, operation string, fn func(*ethclient.Client) error) error {
 	if c.rpcPool != nil {
 		// Use pool with automatic failover
 		maxAttempts := 3 // Limit attempts to avoid infinite loops
-		
+
 		for attempt := 0; attempt < maxAttempts; attempt++ {
+			// Respect context cancellation between attempts
+			if ctx != nil {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+			}
 			endpoint, err := c.rpcPool.SelectEndpoint()
 			if err != nil {
 				return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
 			}
-			
+
 			ethClient, err := GetEthClientFromPool(endpoint)
 			if err != nil {
 				c.logger.Error().
@@ -135,11 +117,11 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 					Msg("failed to get eth client from endpoint")
 				continue
 			}
-			
+
 			start := time.Now()
 			err = fn(ethClient)
 			latency := time.Since(start)
-			
+
 			if err == nil {
 				// Success - update metrics and return
 				c.rpcPool.UpdateEndpointMetrics(endpoint, true, latency, nil)
@@ -151,7 +133,7 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 					Msg("operation completed successfully")
 				return nil
 			}
-			
+
 			// Failure - update metrics and try next endpoint
 			c.rpcPool.UpdateEndpointMetrics(endpoint, false, latency, err)
 			c.logger.Warn().
@@ -162,15 +144,23 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 				Err(err).
 				Msg("operation failed, trying next endpoint")
 		}
-		
+
 		return fmt.Errorf("operation %s failed after %d attempts", operation, maxAttempts)
 	}
 
 	// Fallback to single client
+	// Respect context cancellation
+	if ctx != nil {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+	}
 	if c.ethClient == nil {
 		return fmt.Errorf("no eth client available for %s", operation)
 	}
-	
+
 	return fn(c.ethClient)
 }
 
@@ -221,7 +211,7 @@ func (c *Client) Start(ctx context.Context) error {
 			c.logger.Info().
 				Str("gateway_address", c.GetConfig().GatewayAddress).
 				Msg("gateway handler initialized")
-			
+
 			// Start watching for gateway events in background
 			go c.watchGatewayEvents()
 		}
@@ -276,7 +266,7 @@ func (c *Client) watchGatewayEvents() {
 				time.Sleep(5 * time.Second)
 				continue
 			}
-			
+
 			// Log the starting point
 			c.logger.Info().
 				Uint64("start_block", startBlock).
@@ -325,7 +315,7 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 					Str("receiver", event.Receiver).
 					Str("amount", event.Amount).
 					Msg("received gateway event")
-				
+
 				// TODO: Process the event - e.g., send to a queue, update state, etc.
 				// For now, we're just logging it
 			}
@@ -336,7 +326,7 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 // connect establishes connection to the EVM RPC endpoint(s)
 func (c *Client) connect(ctx context.Context) error {
 	rpcURLs := c.getRPCURLs()
-	
+
 	if len(rpcURLs) > 1 {
 		// Multiple URLs - use pool manager
 		return c.initializeRPCPool(ctx, rpcURLs)
@@ -344,7 +334,7 @@ func (c *Client) connect(ctx context.Context) error {
 		// Single URL - use traditional client
 		return c.initializeSingleClient(ctx, rpcURLs[0])
 	}
-	
+
 	return fmt.Errorf("no RPC URLs configured")
 }
 
@@ -409,28 +399,10 @@ func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) erro
 	}
 
 	c.ethClient = ethClient
-	
+
 	c.logger.Info().
 		Int64("chain_id", chainID.Int64()).
 		Msg("successfully connected to EVM RPC")
-
-	return nil
-}
-
-
-// healthCheck performs a health check on the connection
-func (c *Client) healthCheck() error {
-	if c.ethClient == nil {
-		return fmt.Errorf("client not connected")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := c.ethClient.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
-	}
 
 	return nil
 }
@@ -476,15 +448,15 @@ func (c *Client) IsHealthy() bool {
 			healthyCount := c.rpcPool.GetHealthyEndpointCount()
 			return healthyCount >= c.appConfig.RPCPoolConfig.MinHealthyEndpoints
 		}
-		
+
 		// Fallback to single client health check
 		if c.ethClient == nil {
 			return false
 		}
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		_, err := c.ethClient.BlockNumber(ctx)
 		if err != nil {
 			c.logger.Warn().Err(err).Msg("health check failed")
@@ -503,16 +475,16 @@ func (c *Client) GetChainID() int64 {
 func (c *Client) GetLatestBlockNumber(ctx context.Context) (*big.Int, error) {
 	var blockNumber uint64
 	var err error
-	
+
 	err = c.executeWithFailover(ctx, "get_block_number", func(client *ethclient.Client) error {
 		blockNumber, err = client.BlockNumber(ctx)
 		return err
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
-	
+
 	return new(big.Int).SetUint64(blockNumber), nil
 }
 
@@ -552,7 +524,7 @@ func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
 	if c.gatewayHandler != nil {
 		return c.gatewayHandler.GetLatestBlock(ctx)
 	}
-	
+
 	// Fallback to direct client call
 	if c.ethClient == nil {
 		return 0, fmt.Errorf("client not connected")

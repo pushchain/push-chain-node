@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rollchains/pchain/universalClient/rpcpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -38,7 +37,6 @@ func (m *mockHealthEthClient) Close() {
 // Mock rpcpool.Client for testing
 type mockRPCPoolClient struct {
 	mock.Mock
-	ethClient *ethclient.Client
 }
 
 func (m *mockRPCPoolClient) Ping(ctx context.Context) error {
@@ -54,7 +52,7 @@ func (m *mockRPCPoolClient) Close() error {
 func TestNewEVMHealthChecker(t *testing.T) {
 	expectedChainID := int64(1)
 	checker := NewEVMHealthChecker(expectedChainID)
-	
+
 	assert.NotNil(t, checker)
 	assert.Equal(t, expectedChainID, checker.expectedChainID)
 }
@@ -124,18 +122,18 @@ func TestEVMHealthChecker_CheckHealth(t *testing.T) {
 			if tt.setupMocks != nil {
 				tt.setupMocks(mockEth)
 			}
-			
+
 			// Create health checker
 			_ = NewEVMHealthChecker(tt.expectedChainID)
-			
+
 			// Skip actual health check test since we can't easily mock ethclient.Client
 			// The health check logic is simple enough and tested through integration tests
 			// Here we just verify interface compliance
 			var _ rpcpool.HealthChecker = (*EVMHealthChecker)(nil)
-			
+
 			// Verify expectations were met if mocks were set up
 			if tt.setupMocks != nil {
-				// Note: Since we're not actually calling the methods, 
+				// Note: Since we're not actually calling the methods,
 				// we should not assert expectations
 				// mockEth.AssertExpectations(t)
 			}
@@ -145,13 +143,13 @@ func TestEVMHealthChecker_CheckHealth(t *testing.T) {
 
 func TestEVMHealthChecker_InvalidClientType(t *testing.T) {
 	checker := NewEVMHealthChecker(1)
-	
+
 	// Create a non-evmClientAdapter client
 	invalidClient := &mockRPCPoolClient{}
-	
+
 	ctx := context.Background()
 	err := checker.CheckHealth(ctx, invalidClient)
-	
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid client type for EVM health check")
 }
@@ -159,7 +157,7 @@ func TestEVMHealthChecker_InvalidClientType(t *testing.T) {
 func TestEVMHealthChecker_InterfaceCompliance(t *testing.T) {
 	// Verify that EVMHealthChecker implements rpcpool.HealthChecker
 	var _ rpcpool.HealthChecker = (*EVMHealthChecker)(nil)
-	
+
 	// This compilation will fail if the interface is not satisfied
 	t.Log("EVMHealthChecker correctly implements rpcpool.HealthChecker interface")
 }
@@ -195,7 +193,7 @@ func TestEVMHealthChecker_EdgeCases(t *testing.T) {
 			expectError:     false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := NewEVMHealthChecker(tt.expectedChainID)
@@ -204,4 +202,3 @@ func TestEVMHealthChecker_EdgeCases(t *testing.T) {
 		})
 	}
 }
-

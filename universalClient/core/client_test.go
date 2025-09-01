@@ -100,7 +100,7 @@ func TestNewUniversalClient(t *testing.T) {
 				QueryServerPort:   8080,
 			},
 			wantErr: true,
-			errMsg:  "failed to create registry client",
+			errMsg:  "PushChainGRPCURLs is required but not configured",
 		},
 		{
 			name:    "nil config",

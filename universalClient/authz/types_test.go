@@ -14,22 +14,12 @@ func TestIsAllowedMsgType(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "allowed bank send message (default)",
-			msgType:  "/cosmos.bank.v1beta1.MsgSend",
-			expected: true,
-		},
-		{
-			name:     "allowed staking delegate message (default)",
-			msgType:  "/cosmos.staking.v1beta1.MsgDelegate",
-			expected: true,
-		},
-		{
-			name:     "allowed UE vote inbound message (default)",
+			name:     "allowed UE vote inbound message",
 			msgType:  "/ue.v1.MsgVoteInbound",
 			expected: true,
 		},
 		{
-			name:     "not allowed universal validator message (default config)",
+			name:     "not allowed observer message",
 			msgType:  "/push.observer.MsgVoteOnObservedEvent",
 			expected: false,
 		},
@@ -56,9 +46,6 @@ func TestIsAllowedMsgType(t *testing.T) {
 func TestDefaultAllowedMsgTypes(t *testing.T) {
 	// Should contain expected default message types
 	expectedTypes := []string{
-		"/cosmos.bank.v1beta1.MsgSend",
-		"/cosmos.staking.v1beta1.MsgDelegate",
-		"/cosmos.staking.v1beta1.MsgUndelegate",
 		"/ue.v1.MsgVoteInbound",
 	}
 
@@ -75,16 +62,13 @@ func TestDefaultAllowedMsgTypesFormat(t *testing.T) {
 
 	// Check for specific expected default message types
 	expectedTypes := map[string]bool{
-		"/cosmos.bank.v1beta1.MsgSend":          true,
-		"/cosmos.staking.v1beta1.MsgDelegate":   true,
-		"/cosmos.staking.v1beta1.MsgUndelegate": true,
-		"/ue.v1.MsgVoteInbound":                 true,
+		"/ue.v1.MsgVoteInbound": true,
 	}
 
 	for _, msgType := range DefaultAllowedMsgTypes {
 		// Each message type should be properly formatted
 		assert.NotEmpty(t, msgType)
-		// Check for cosmos or ue module messages
+		// Check for ue module messages
 		assert.True(t, msgType[:1] == "/", "Message type should start with /")
 		
 		// Remove from expected types if found

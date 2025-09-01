@@ -157,13 +157,13 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 	return true, nil
 }
 
-// VerifyPendingTransactions checks all pending/fast_confirmed transactions for reorgs
+// VerifyPendingTransactions checks all pending transactions for reorgs
 func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) error {
 	var pendingTxs []store.ChainTransaction
 	
 	// Get all transactions that need verification
 	err := tv.database.Client().
-		Where("status IN (?)", []string{"pending", "fast_confirmed"}).
+		Where("status IN (?)", []string{"confirmation_pending", "awaiting_vote"}).
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions for verification: %w", err)

@@ -59,6 +59,9 @@ type ChainSpecificConfig struct {
 	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
 	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (optional, uses global default if not set)
 
+	// Gas Price Configuration
+	GasPriceIntervalSeconds *int `json:"gas_price_interval_seconds,omitempty"` // How often to fetch gas price for this chain (optional, defaults to 60 seconds if not set)
+
 	// Future chain-specific settings can be added here
 }
 
@@ -117,4 +120,22 @@ func (c *Config) GetChainConfig(chainID string) *ChainSpecificConfig {
 	}
 	// Return empty config if not found
 	return &ChainSpecificConfig{}
+}
+
+// GetChainGasPriceInterval returns the gas price fetch interval for a specific chain
+// Defaults to 60 seconds if not configured
+func (c *Config) GetChainGasPriceInterval(chainID string) int {
+	// Default to 60 seconds
+	defaultInterval := 60
+
+	// Check for chain-specific override in unified config
+	if c.ChainConfigs != nil {
+		if config, ok := c.ChainConfigs[chainID]; ok {
+			if config.GasPriceIntervalSeconds != nil {
+				return *config.GasPriceIntervalSeconds
+			}
+		}
+	}
+
+	return defaultInterval
 }

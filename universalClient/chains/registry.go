@@ -22,15 +22,16 @@ type ChainRegistry struct {
 	logger       zerolog.Logger
 	dbManager    *db.ChainDBManager
 	appConfig    *config.Config
-	voteHandler  common.VoteHandler // Optional vote handler for all chains
+	voteHandlers map[string]common.VoteHandler // Per-chain vote handlers (chainID -> VoteHandler)
 }
 
 // NewChainRegistry creates a new chain registry
 func NewChainRegistry(dbManager *db.ChainDBManager, logger zerolog.Logger) *ChainRegistry {
 	return &ChainRegistry{
-		chains:    make(map[string]common.ChainClient),
-		logger:    logger.With().Str("component", "chain_registry").Logger(),
-		dbManager: dbManager,
+		chains:       make(map[string]common.ChainClient),
+		voteHandlers: make(map[string]common.VoteHandler),
+		logger:       logger.With().Str("component", "chain_registry").Logger(),
+		dbManager:    dbManager,
 	}
 }
 
@@ -41,12 +42,42 @@ func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
 	r.appConfig = cfg
 }
 
-// SetVoteHandler sets the vote handler for all chains
+// SetVoteHandlers sets per-chain vote handlers
+func (r *ChainRegistry) SetVoteHandlers(handlers map[string]common.VoteHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	if handlers == nil {
+		r.voteHandlers = make(map[string]common.VoteHandler)
+	} else {
+		r.voteHandlers = handlers
+	}
+	
+	// Set vote handler on all existing chains
+	for chainID, client := range r.chains {
+		if handler, exists := r.voteHandlers[chainID]; exists && handler != nil {
+			client.SetVoteHandler(handler)
+			r.logger.Info().
+				Str("chain", chainID).
+				Msg("vote handler set on existing chain")
+		} else {
+			client.SetVoteHandler(nil)
+			r.logger.Warn().
+				Str("chain", chainID).
+				Msg("no vote handler available for chain")
+		}
+	}
+}
+
+// SetVoteHandler sets the vote handler for all chains (backward compatibility)
 func (r *ChainRegistry) SetVoteHandler(handler common.VoteHandler) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	
-	r.voteHandler = handler
+	// Set the same handler for all chains
+	for chainID := range r.chains {
+		r.voteHandlers[chainID] = handler
+	}
 	
 	// Set vote handler on all existing chains
 	for chainID, client := range r.chains {
@@ -126,16 +157,16 @@ func (r *ChainRegistry) AddOrUpdateChain(ctx context.Context, config *uregistryt
 		return fmt.Errorf("failed to create chain client for %s: %w", chainID, err)
 	}
 
-	// Set vote handler if available
-	if r.voteHandler != nil {
-		client.SetVoteHandler(r.voteHandler)
+	// Set vote handler if available for this chain
+	if handler, exists := r.voteHandlers[chainID]; exists && handler != nil {
+		client.SetVoteHandler(handler)
 		r.logger.Info().
 			Str("chain", chainID).
 			Msg("vote handler set for chain")
 	} else {
 		r.logger.Warn().
 			Str("chain", chainID).
-			Msg("no vote handler available - chain will not vote on transactions")
+			Msg("no vote handler available for chain - chain will not vote on transactions")
 	}
 
 	// Start the chain client

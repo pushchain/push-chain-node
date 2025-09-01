@@ -3,33 +3,16 @@ package core
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	
 	"github.com/rollchains/pchain/universalClient/api"
-	uauthz "github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/chains"
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
 	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rollchains/pchain/universalClient/registry"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	"github.com/rollchains/pchain/universalClient/store"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 	"github.com/rs/zerolog"
 )
@@ -48,18 +31,24 @@ type UniversalClient struct {
 	queryServer    *api.Server
 
 	// Hot key components
-	keys        keys.UniversalValidatorKeys
-	voteHandler *VoteHandler
-	keyMonitor  *KeyMonitor // Monitors keys and permissions dynamically
-	universalDB *db.DB // Database for universal validator state (voting, etc)
+	keys         keys.UniversalValidatorKeys
+	voteHandlers map[string]*VoteHandler // Per-chain vote handlers (chainID -> VoteHandler)
+	keyMonitor   *KeyMonitor // Monitors keys and permissions dynamically
 	// Transaction cleanup
 	transactionCleaner *db.PerChainTransactionCleaner
+	// Gas price fetcher
+	gasPriceFetcher *GasPriceFetcher
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
 	// Validate config
 	if cfg == nil {
 		return nil, fmt.Errorf("config is nil")
+	}
+	
+	// PushChainGRPCURLs is a hard requirement
+	if len(cfg.PushChainGRPCURLs) == 0 {
+		return nil, fmt.Errorf("PushChainGRPCURLs is required but not configured")
 	}
 
 	// Create registry client
@@ -91,11 +80,13 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		log,
 	)
 
-	// Create universal DB for validator state
-	universalDB, err := dbManager.GetChainDB("universal-validator")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create universal validator database: %w", err)
-	}
+
+	// Create gas price fetcher
+	gasPriceFetcher := NewGasPriceFetcher(
+		chainRegistry,
+		cfg,
+		log,
+	)
 
 	// Create the client
 	uc := &UniversalClient{
@@ -107,40 +98,42 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		configUpdater:      configUpdater,
 		chainRegistry:      chainRegistry,
 		config:             cfg,
-		universalDB:        universalDB,
+		voteHandlers:       make(map[string]*VoteHandler),
 		transactionCleaner: transactionCleaner,
+		gasPriceFetcher:    gasPriceFetcher,
 	}
 
 	// Create key monitor for dynamic key detection
-	if len(cfg.PushChainGRPCURLs) > 0 {
-		keyCheckInterval := 30 * time.Second // Default to 30 seconds
-		if cfg.KeyCheckInterval > 0 {
-			keyCheckInterval = time.Duration(cfg.KeyCheckInterval) * time.Second
-		}
-		
-		uc.keyMonitor = NewKeyMonitor(
-			ctx,
-			log,
-			cfg,
-			universalDB,
-			cfg.PushChainGRPCURLs[0],
-			keyCheckInterval,
-		)
-		
-		// Set callbacks for when keys change
-		uc.keyMonitor.SetCallbacks(
-			func(keys keys.UniversalValidatorKeys, voteHandler *VoteHandler) {
-				uc.keys = keys
-				uc.voteHandler = voteHandler
-				uc.chainRegistry.SetVoteHandler(voteHandler)
-			},
-			func() {
-				uc.keys = nil
-				uc.voteHandler = nil
-				uc.chainRegistry.SetVoteHandler(nil)
-			},
-		)
+	// PushChainGRPCURLs is guaranteed to exist at this point
+	keyCheckInterval := 30 * time.Second // Default to 30 seconds
+	if cfg.KeyCheckInterval > 0 {
+		keyCheckInterval = time.Duration(cfg.KeyCheckInterval) * time.Second
 	}
+	
+	uc.keyMonitor = NewKeyMonitor(
+		ctx,
+		log,
+		cfg,
+		cfg.PushChainGRPCURLs[0],
+		keyCheckInterval,
+	)
+	
+	// Set callbacks for when keys change
+	uc.keyMonitor.SetCallbacks(
+		func(keys keys.UniversalValidatorKeys) {
+			uc.keys = keys
+			// Create per-chain vote handlers
+			uc.createVoteHandlersForAllChains(keys)
+			
+			// Process any transactions awaiting votes
+			go uc.processAwaitingVoteTransactions()
+		},
+		func() {
+			uc.keys = nil
+			uc.voteHandlers = make(map[string]*VoteHandler)
+			uc.chainRegistry.SetVoteHandlers(nil)
+		},
+	)
 
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
@@ -159,13 +152,6 @@ func (uc *UniversalClient) Start() error {
 				Err(err).
 				Msg("Failed to start key monitor - voting will be disabled")
 		}
-	} else {
-		// Fallback to old method if key monitor is not available
-		if err := uc.loadKeysAndSetupVoting(); err != nil {
-			uc.log.Warn().
-				Err(err).
-				Msg("Failed to load hot keys - will run in non-voting mode. To enable voting, configure hot keys")
-		}
 	}
 
 	// Check for required components
@@ -182,6 +168,16 @@ func (uc *UniversalClient) Start() error {
 	if uc.transactionCleaner != nil {
 		if err := uc.transactionCleaner.Start(uc.ctx); err != nil {
 			return fmt.Errorf("failed to start transaction cleaner: %w", err)
+		}
+	}
+
+	// Start the gas price fetcher
+	if uc.gasPriceFetcher != nil {
+		if err := uc.gasPriceFetcher.Start(uc.ctx); err != nil {
+			uc.log.Error().
+				Err(err).
+				Msg("Failed to start gas price fetcher - gas prices will not be tracked")
+			// Don't fail startup, just log the error
 		}
 	}
 
@@ -216,6 +212,11 @@ func (uc *UniversalClient) Start() error {
 
 	// Stop transaction cleaner
 	uc.transactionCleaner.Stop()
+
+	// Stop gas price fetcher
+	if uc.gasPriceFetcher != nil {
+		uc.gasPriceFetcher.Stop()
+	}
 
 	// Stop all chain clients
 	uc.chainRegistry.StopAll()
@@ -277,170 +278,181 @@ func (uc *UniversalClient) ForceConfigUpdate() error {
 	return uc.configUpdater.ForceUpdate(uc.ctx)
 }
 
-// GetVoteHandler returns the vote handler (may be nil if keys not configured)
-func (uc *UniversalClient) GetVoteHandler() *VoteHandler {
-	return uc.voteHandler
+// GetVoteHandler returns the vote handler for a specific chain (may be nil if keys not configured)
+func (uc *UniversalClient) GetVoteHandler(chainID string) *VoteHandler {
+	return uc.voteHandlers[chainID]
 }
 
-// loadKeysAndSetupVoting loads hot keys and sets up voting infrastructure
-func (uc *UniversalClient) loadKeysAndSetupVoting() error {
-	uc.log.Info().Msg("Loading hot keys and setting up voting...")
+// GetAllVoteHandlers returns all vote handlers
+func (uc *UniversalClient) GetAllVoteHandlers() map[string]*VoteHandler {
+	return uc.voteHandlers
+}
 
-	// Setup keyring
-	var kr keyring.Keyring
-	var err error
-	
-	// Use the home directory as the keyring path (not a subdirectory)
-	// The keyring backend will create the appropriate subdirectory (keyring-test or keyring-file)
-	keyringPath := constant.DefaultNodeHome
-	
-	switch uc.config.KeyringBackend {
-	case config.KeyringBackendTest:
-		kr, err = keyring.New("puniversald", keyring.BackendTest, keyringPath, nil, nil)
-	case config.KeyringBackendFile:
-		kr, err = keyring.New("puniversald", keyring.BackendFile, keyringPath, nil, nil)
-	default:
-		return fmt.Errorf("unsupported keyring backend: %s", uc.config.KeyringBackend)
+// createVoteHandlersForAllChains creates vote handlers for all existing chain databases
+func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalValidatorKeys) {
+	if uc.keyMonitor == nil {
+		uc.log.Error().Msg("Key monitor is nil, cannot create vote handlers")
+		return
 	}
 	
-	if err != nil {
-		return fmt.Errorf("failed to create keyring: %w", err)
+	chainDatabases := uc.dbManager.GetAllDatabases()
+	
+	// Get granter from key monitor (assuming it's stored in the keys or accessible somehow)
+	// For now, we'll need to get this from the key monitor
+	granter := uc.keyMonitor.GetCurrentGranter()
+	if granter == "" {
+		uc.log.Error().Msg("No granter found, cannot create vote handlers")
+		return
 	}
-
-	// List all keys to find operator and hot keys
-	uc.log.Info().
-		Str("keyring_backend", string(uc.config.KeyringBackend)).
-		Str("keyring_path", keyringPath).
-		Msg("Attempting to list keys from keyring")
+	
+	voteHandlers := make(map[string]*VoteHandler)
+	for chainID, db := range chainDatabases {
+		// Skip the universal validator database as it doesn't store chain transactions
+		if chainID == "universal-validator" {
+			continue
+		}
 		
-	keyInfos, err := kr.List()
-	if err != nil {
-		return fmt.Errorf("failed to list keys: %w", err)
-	}
-
-	uc.log.Info().
-		Int("key_count", len(keyInfos)).
-		Msg("Successfully listed keys from keyring")
-
-	if len(keyInfos) == 0 {
-		return fmt.Errorf("no keys found in keyring")
-	}
-
-	// For now, we'll use the first key as both operator and hot key
-	// In production, these should be configured separately
-	var operatorKey *keyring.Record
-	var hotkeyName string
-	
-	for _, keyInfo := range keyInfos {
+		// Create TxSigner (we'll need to extract this from key monitor or create interface)
+		txSigner := uc.keyMonitor.GetCurrentTxSigner()
+		if txSigner == nil {
+			uc.log.Error().
+				Str("chain_id", chainID).
+				Msg("No tx signer available, cannot create vote handler for chain")
+			continue
+		}
+		
+		// Create vote handler for this chain
+		voteHandler := NewVoteHandler(
+			txSigner,
+			db,
+			uc.log,
+			keys,
+			granter,
+		)
+		
+		voteHandlers[chainID] = voteHandler
+		
 		uc.log.Info().
-			Str("key_name", keyInfo.Name).
-			Str("key_type", keyInfo.GetType().String()).
-			Msg("Found key in keyring")
-		
-		// Use the first key we find
-		if operatorKey == nil {
-			operatorKey = keyInfo
-			hotkeyName = keyInfo.Name
-		}
+			Str("chain_id", chainID).
+			Msg("Created vote handler for chain")
 	}
-
-	if operatorKey == nil {
-		return fmt.Errorf("no suitable keys found in keyring")
+	
+	uc.voteHandlers = voteHandlers
+	
+	// Update chain registry with the new vote handlers (convert to interface type)
+	interfaceHandlers := make(map[string]common.VoteHandler)
+	for chainID, handler := range voteHandlers {
+		interfaceHandlers[chainID] = handler
 	}
-
-	// Get operator address
-	operatorAddr, err := operatorKey.GetAddress()
-	if err != nil {
-		return fmt.Errorf("failed to get operator address: %w", err)
-	}
-
+	uc.chainRegistry.SetVoteHandlers(interfaceHandlers)
+	
 	uc.log.Info().
-		Str("operator_address", operatorAddr.String()).
-		Str("hotkey_name", hotkeyName).
-		Msg("Keys loaded successfully")
+		Int("vote_handlers", len(voteHandlers)).
+		Msg("Successfully created per-chain vote handlers")
+}
 
-	// Create Keys instance
-	uc.keys = keys.NewKeysWithKeybase(
-		kr,
-		operatorAddr,
-		hotkeyName,
-		"", // Password will be prompted if needed for file backend
-	)
-
-	// Create client.Context for AuthZ TxSigner
-	// Use the first gRPC URL from config
-	if len(uc.config.PushChainGRPCURLs) == 0 {
-		return fmt.Errorf("no PushChain gRPC URLs configured")
-	}
-	grpcURL := uc.config.PushChainGRPCURLs[0] + ":9090" // Add standard gRPC port
+// processAwaitingVoteTransactions processes transactions that are awaiting votes
+func (uc *UniversalClient) processAwaitingVoteTransactions() {
+	// Get all chain databases to check for awaiting vote transactions
+	chainDatabases := uc.dbManager.GetAllDatabases()
 	
-	// Create gRPC connection
-	conn, err := grpc.NewClient(grpcURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
+	if len(chainDatabases) == 0 {
+		uc.log.Debug().Msg("no chain databases available for processing awaiting vote transactions")
+		return
 	}
 	
-	// Create HTTP RPC client for broadcasting (standard port 26657)
-	// Extract base endpoint without port
-	rpcEndpoint := uc.config.PushChainGRPCURLs[0]
-	colonIndex := strings.LastIndex(rpcEndpoint, ":")
-	if colonIndex > 0 {
-		// Check if it's a port number after the colon
-		afterColon := rpcEndpoint[colonIndex+1:]
-		if _, err := fmt.Sscanf(afterColon, "%d", new(int)); err == nil {
-			// It's a port, remove it
-			rpcEndpoint = rpcEndpoint[:colonIndex]
+	// Structure to track transactions with their chain context
+	type chainTransaction struct {
+		store.ChainTransaction
+		ChainID string
+	}
+	
+	var allAwaitingTxsWithChain []chainTransaction
+	totalCount := 0
+	
+	// Query each chain database for awaiting vote transactions
+	for chainID, db := range chainDatabases {
+		// Skip the universal validator database as it doesn't store chain transactions
+		if chainID == "universal-validator" {
+			continue
+		}
+		
+		var awaitingTxs []store.ChainTransaction
+		err := db.Client().
+			Where("status = ?", "awaiting_vote").
+			Find(&awaitingTxs).Error
+		
+		if err != nil {
+			uc.log.Error().
+				Err(err).
+				Str("chain_id", chainID).
+				Msg("failed to fetch transactions awaiting votes from chain database")
+			continue
+		}
+		
+		if len(awaitingTxs) > 0 {
+			uc.log.Debug().
+				Str("chain_id", chainID).
+				Int("count", len(awaitingTxs)).
+				Msg("found transactions awaiting votes in chain database")
+			
+			// Add chain context to transactions
+			for _, tx := range awaitingTxs {
+				allAwaitingTxsWithChain = append(allAwaitingTxsWithChain, chainTransaction{
+					ChainTransaction: tx,
+					ChainID:         chainID,
+				})
+			}
+			
+			totalCount += len(awaitingTxs)
 		}
 	}
 	
-	rpcURL := "http://" + rpcEndpoint + ":26657"
-	httpClient, err := rpchttp.New(rpcURL, "/websocket")
-	if err != nil {
-		return fmt.Errorf("failed to create RPC client: %w", err)
+	if totalCount == 0 {
+		uc.log.Debug().Msg("no transactions awaiting votes found across all chain databases")
+		return
 	}
 	
-	// Setup codec with all required interfaces
-	interfaceRegistry := keys.CreateInterfaceRegistryWithEVMSupport()
-	authz.RegisterInterfaces(interfaceRegistry)
-	authtypes.RegisterInterfaces(interfaceRegistry)
-	banktypes.RegisterInterfaces(interfaceRegistry)
-	stakingtypes.RegisterInterfaces(interfaceRegistry)
-	govtypes.RegisterInterfaces(interfaceRegistry)
-	uetypes.RegisterInterfaces(interfaceRegistry)
+	uc.log.Info().
+		Int("count", totalCount).
+		Int("chains_checked", len(chainDatabases)-1). // -1 to exclude universal-validator
+		Msg("processing backlog of transactions awaiting votes")
 	
-	cdc := codec.NewProtoCodec(interfaceRegistry)
-	txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
+	// Vote on each transaction using the appropriate chain's vote handler
+	ctx := context.Background()
+	successCount := 0
+	for _, txWithChain := range allAwaitingTxsWithChain {
+		// Get the vote handler for this chain
+		voteHandler, exists := uc.voteHandlers[txWithChain.ChainID]
+		if !exists || voteHandler == nil {
+			uc.log.Error().
+				Str("tx_hash", txWithChain.TxHash).
+				Str("chain_id", txWithChain.ChainID).
+				Msg("no vote handler available for chain - skipping transaction")
+			continue
+		}
+		
+		// Make a copy to pass by reference
+		txCopy := txWithChain.ChainTransaction
+		if err := voteHandler.VoteAndConfirm(ctx, &txCopy); err != nil {
+			uc.log.Error().
+				Str("tx_hash", txWithChain.TxHash).
+				Str("chain_id", txWithChain.ChainID).
+				Err(err).
+				Msg("failed to vote on backlog transaction")
+			// Transaction remains in awaiting_vote for next retry
+		} else {
+			uc.log.Debug().
+				Str("tx_hash", txWithChain.TxHash).
+				Str("chain_id", txWithChain.ChainID).
+				Msg("successfully voted on backlog transaction")
+			successCount++
+		}
+	}
 	
-	// Create client context
-	clientCtx := client.Context{}.
-		WithCodec(cdc).
-		WithInterfaceRegistry(interfaceRegistry).
-		WithChainID("localchain_9000-1"). // TODO: Make this configurable
-		WithKeyring(kr).
-		WithGRPCClient(conn).
-		WithTxConfig(txConfig).
-		WithBroadcastMode("sync").
-		WithClient(httpClient)
-
-	// Create AuthZ TxSigner
-	txSigner := uauthz.NewTxSigner(
-		uc.keys,
-		clientCtx,
-		uc.log,
-	)
-
-	// Create VoteHandler
-	uc.voteHandler = NewVoteHandler(
-		txSigner,
-		uc.universalDB, // Use universal DB for vote tracking
-		uc.log,
-		uc.keys,
-		operatorAddr.String(), // Granter is the operator
-	)
-
-	// Set vote handler on chain registry
-	uc.chainRegistry.SetVoteHandler(uc.voteHandler)
-
-	uc.log.Info().Msg("Voting infrastructure setup complete")
-	return nil
+	uc.log.Info().
+		Int("processed", successCount).
+		Int("total", totalCount).
+		Msg("completed processing backlog transactions")
 }
+

@@ -32,15 +32,9 @@ Execute a transaction using AuthZ permissions.
 The grantee (hot key) must have been granted permission to execute the specified message type.
 
 Supported message types:
-  /cosmos.bank.v1beta1.MsgSend           - <from-addr> <to-addr> <amount>
-  /cosmos.staking.v1beta1.MsgDelegate    - <delegator-addr> <validator> <amount>
-  /cosmos.staking.v1beta1.MsgUndelegate  - <delegator-addr> <validator> <amount>
-  /ue.v1.MsgVoteInbound                  - <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>
+  /ue.v1.MsgVoteInbound - <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>
 
-Examples:
-  puniversald authz exec container-hotkey /cosmos.bank.v1beta1.MsgSend push1sender... push1recipient... 1000push
-  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgDelegate push1delegator... pushvaloper1abc... 1000000push
-  puniversald authz exec container-hotkey /cosmos.staking.v1beta1.MsgUndelegate push1delegator... pushvaloper1abc... 1000000push
+Example:
   puniversald authz exec container-hotkey /ue.v1.MsgVoteInbound push1signer... eip155:11155111 0x123abc 0xsender 0xrecipient 1000 0xasset 1 1
 `,
 		Args: cobra.MinimumNArgs(2),

@@ -24,7 +24,6 @@ import (
 	uauthz "github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/config"
 	"github.com/rollchains/pchain/universalClient/constant"
-	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/keys"
 	uetypes "github.com/rollchains/pchain/x/ue/types"
 	"github.com/rs/zerolog"
@@ -35,19 +34,19 @@ type KeyMonitor struct {
 	ctx           context.Context
 	log           zerolog.Logger
 	config        *config.Config
-	universalDB   *db.DB
 	grpcURL       string
 	checkInterval time.Duration
 	
 	// Callbacks for when keys change
-	onValidKeyFound func(keys.UniversalValidatorKeys, *VoteHandler)
+	onValidKeyFound func(keys.UniversalValidatorKeys)
 	onNoValidKey    func()
 	
 	// State
-	mu                sync.RWMutex
-	currentVoteHandler *VoteHandler
-	lastValidKey      string
-	stopCh            chan struct{}
+	mu           sync.RWMutex
+	currentTxSigner TxSignerInterface
+	lastValidKey    string
+	lastGranter     string // Track last granter to detect changes
+	stopCh          chan struct{}
 }
 
 // NewKeyMonitor creates a new key monitor
@@ -55,7 +54,6 @@ func NewKeyMonitor(
 	ctx context.Context,
 	log zerolog.Logger,
 	config *config.Config,
-	universalDB *db.DB,
 	grpcURL string,
 	checkInterval time.Duration,
 ) *KeyMonitor {
@@ -63,7 +61,6 @@ func NewKeyMonitor(
 		ctx:           ctx,
 		log:           log.With().Str("component", "key_monitor").Logger(),
 		config:        config,
-		universalDB:   universalDB,
 		grpcURL:       grpcURL,
 		checkInterval: checkInterval,
 		stopCh:        make(chan struct{}),
@@ -72,7 +69,7 @@ func NewKeyMonitor(
 
 // SetCallbacks sets the callbacks for key state changes
 func (km *KeyMonitor) SetCallbacks(
-	onValidKeyFound func(keys.UniversalValidatorKeys, *VoteHandler),
+	onValidKeyFound func(keys.UniversalValidatorKeys),
 	onNoValidKey func(),
 ) {
 	km.onValidKeyFound = onValidKeyFound
@@ -129,7 +126,7 @@ func (km *KeyMonitor) monitorLoop() {
 
 // checkKeys checks for valid keys with MsgVoteInbound permission
 func (km *KeyMonitor) checkKeys() error {
-	km.log.Info().Msg("Checking keyring for valid keys with MsgVoteInbound permission")
+	km.log.Debug().Msg("Checking keyring for valid keys with MsgVoteInbound permission")
 	
 	// Setup keyring
 	keyringPath := constant.DefaultNodeHome
@@ -149,15 +146,15 @@ func (km *KeyMonitor) checkKeys() error {
 		return fmt.Errorf("failed to list keys: %w", err)
 	}
 	
-	km.log.Info().
-		Int("key_count", len(keyInfos)).
-		Msg("Found keys in keyring")
-	
 	if len(keyInfos) == 0 {
 		km.log.Warn().Msg("No keys found in keyring")
 		km.handleNoValidKey()
 		return nil
 	}
+	
+	km.log.Info().
+		Int("key_count", len(keyInfos)).
+		Msg("Found keys in keyring")
 	
 	// Create gRPC connection for AuthZ queries
 	// Ensure proper port handling
@@ -204,7 +201,7 @@ func (km *KeyMonitor) checkKeys() error {
 			continue
 		}
 		
-		km.log.Info().
+		km.log.Debug().
 			Str("key_name", keyInfo.Name).
 			Str("key_address", keyAddr.String()).
 			Msg("Checking key for MsgVoteInbound permission")
@@ -214,15 +211,22 @@ func (km *KeyMonitor) checkKeys() error {
 		hasPermission, granter := km.checkMsgVoteInboundPermission(authzClient, keyAddr.String())
 		
 		if hasPermission {
-			km.log.Info().
-				Str("key_name", keyInfo.Name).
-				Str("key_address", keyAddr.String()).
-				Str("granter", granter).
-				Msg("✅ Found key with MsgVoteInbound permission")
-			
-			// Create vote handler if we don't have one or if the key changed
+			// Check if this is a state change
 			km.mu.Lock()
-			if km.lastValidKey != keyInfo.Name {
+			isNewKey := km.lastValidKey != keyInfo.Name
+			isNewGranter := km.lastGranter != granter
+			stateChanged := isNewKey || isNewGranter
+			
+			if stateChanged {
+				// Log at Info level for state changes
+				km.log.Info().
+					Str("key_name", keyInfo.Name).
+					Str("key_address", keyAddr.String()).
+					Str("granter", granter).
+					Str("previous_key", km.lastValidKey).
+					Str("previous_granter", km.lastGranter).
+					Msg("✅ Key state changed - found key with MsgVoteInbound permission")
+				
 				if err := km.setupVoteHandler(kr, keyInfo, granter); err != nil {
 					km.log.Error().
 						Str("key_name", keyInfo.Name).
@@ -232,6 +236,13 @@ func (km *KeyMonitor) checkKeys() error {
 					continue
 				}
 				km.lastValidKey = keyInfo.Name
+				km.lastGranter = granter
+			} else {
+				// Log at Debug level for unchanged state
+				km.log.Debug().
+					Str("key_name", keyInfo.Name).
+					Str("granter", granter).
+					Msg("Key with MsgVoteInbound permission unchanged")
 			}
 			km.mu.Unlock()
 			
@@ -278,7 +289,7 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 		return false, ""
 	}
 	
-	km.log.Info().
+	km.log.Debug().
 		Str("grantee", granteeAddr).
 		Int("grant_count", len(grantResp.Grants)).
 		Msg("Retrieved grants for grantee")
@@ -292,7 +303,7 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 			continue
 		}
 		
-		km.log.Info().
+		km.log.Debug().
 			Int("grant_index", i).
 			Str("granter", grant.Granter).
 			Str("grantee", grant.Grantee).
@@ -321,7 +332,7 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 				continue
 			}
 			
-			km.log.Info().
+			km.log.Debug().
 				Int("grant_index", i).
 				Str("msg_type", genericAuth.Msg).
 				Msg("Generic authorization message type")
@@ -337,10 +348,10 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 					continue
 				}
 				
-				km.log.Info().
+				km.log.Debug().
 					Str("granter", grant.Granter).
 					Str("grantee", granteeAddr).
-					Msg("✅ Found valid MsgVoteInbound grant")
+					Msg("Found valid MsgVoteInbound grant")
 				
 				return true, grant.Granter
 			}
@@ -442,25 +453,18 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 		km.log,
 	)
 	
-	// Create VoteHandler
-	voteHandler := NewVoteHandler(
-		txSigner,
-		km.universalDB,
-		km.log,
-		universalKeys,
-		granter, // Use the actual granter address
-	)
+	// Store the tx signer for use by the client
+	km.currentTxSigner = txSigner
 	
-	km.currentVoteHandler = voteHandler
-	
-	// Notify callback
+	// Notify callback - client will create per-chain vote handlers
 	if km.onValidKeyFound != nil {
-		km.onValidKeyFound(universalKeys, voteHandler)
+		km.onValidKeyFound(universalKeys)
 	}
 	
 	km.log.Info().
 		Str("key_name", keyInfo.Name).
-		Msg("✅ Voting enabled - key with MsgVoteInbound permission detected")
+		Str("granter", granter).
+		Msg("✅ Voting handler configured successfully")
 	
 	return nil
 }
@@ -470,22 +474,35 @@ func (km *KeyMonitor) handleNoValidKey() {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 	
-	if km.lastValidKey != "" {
+	if km.lastValidKey != "" || km.lastGranter != "" {
 		km.log.Warn().
-			Msg("No keys with MsgVoteInbound permission found - voting disabled")
+			Str("previous_key", km.lastValidKey).
+			Str("previous_granter", km.lastGranter).
+			Msg("Key state changed - no keys with MsgVoteInbound permission found, voting disabled")
 		
 		km.lastValidKey = ""
-		km.currentVoteHandler = nil
+		km.lastGranter = ""
+		km.currentTxSigner = nil
 		
 		if km.onNoValidKey != nil {
 			km.onNoValidKey()
 		}
+	} else {
+		// No change - still no valid key
+		km.log.Debug().Msg("No keys with MsgVoteInbound permission - state unchanged")
 	}
 }
 
-// GetCurrentVoteHandler returns the current vote handler (may be nil)
-func (km *KeyMonitor) GetCurrentVoteHandler() *VoteHandler {
+// GetCurrentTxSigner returns the current tx signer (may be nil)
+func (km *KeyMonitor) GetCurrentTxSigner() TxSignerInterface {
 	km.mu.RLock()
 	defer km.mu.RUnlock()
-	return km.currentVoteHandler
+	return km.currentTxSigner
+}
+
+// GetCurrentGranter returns the current granter address (may be empty)
+func (km *KeyMonitor) GetCurrentGranter() string {
+	km.mu.RLock()
+	defer km.mu.RUnlock()
+	return km.lastGranter
 }

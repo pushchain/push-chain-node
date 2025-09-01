@@ -131,6 +131,12 @@ func (d *DB) Client() *gorm.DB {
 	return d.client
 }
 
+// SetupDBForTesting sets the internal GORM client for testing purposes.
+// This should only be used in test files.
+func (d *DB) SetupDBForTesting(client *gorm.DB) {
+	d.client = client
+}
+
 // Close safely closes the underlying database connection.
 func (d *DB) Close() error {
 	sqlDB, err := d.client.DB()

@@ -87,7 +87,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	if err == nil {
 		// Transaction already exists, update it within the transaction
 		existing.Confirmations = 0
-		existing.Status = "pending"
+		existing.Status = "confirmation_pending"
 		existing.BlockNumber = blockNumber // Update block number in case of reorg
 		existing.Method = method
 		existing.EventIdentifier = eventID
@@ -121,7 +121,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		BlockNumber:      blockNumber,
 		Method:           method,
 		EventIdentifier:  eventID,
-		Status:           "pending",
+		Status:           "confirmation_pending",
 		Confirmations:    0,
 		ConfirmationType: confirmationType,
 		Data:             data,
@@ -156,7 +156,7 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	
 	// Get all transactions that are not yet fully confirmed
 	err = ct.db.Client().
-		Where("status = ?", "pending").
+		Where("status IN (?)", []string{"confirmation_pending", "awaiting_vote"}).
 		Find(&pendingTxs).Error
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions: %w", err)
@@ -230,15 +230,15 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 					Uint64("required_confirmations", requiredConfirmations).
 					Msg("transaction voted and confirmed")
 			} else {
-				// No vote handler, just mark as confirmed
-				tx.Status = "confirmed"
-				confirmedCount++
+				// No vote handler, mark as awaiting_vote
+				tx.Status = "awaiting_vote"
+				updatedCount++
 				ct.logger.Warn().
 					Str("tx_hash", tx.TxHash).
 					Str("confirmation_type", tx.ConfirmationType).
 					Uint64("confirmations", confirmations).
 					Uint64("required_confirmations", requiredConfirmations).
-					Msg("No vote handler configured - marking as confirmed without voting (hot keys not configured)")
+					Msg("Transaction has sufficient confirmations but no vote handler configured - marking as awaiting_vote")
 			}
 		}
 		

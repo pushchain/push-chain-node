@@ -32,14 +32,16 @@
         "https://0xrpc.io/sep"
       ],
       "cleanup_interval_seconds": 1800,
-      "retention_period_seconds": 43200
+      "retention_period_seconds": 43200,
+      "gas_price_interval_seconds": 60
     },
     "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {
       "rpc_urls": [
         "https://api.devnet.solana.com"
       ],
       "cleanup_interval_seconds": 7200,
-      "retention_period_seconds": 172800
+      "retention_period_seconds": 172800,
+      "gas_price_interval_seconds": 30
     }
   }
 }

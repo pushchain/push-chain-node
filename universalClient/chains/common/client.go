@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"math/big"
 
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
@@ -25,6 +26,9 @@ type ChainClient interface {
 
 	// SetVoteHandler sets the vote handler for confirmed transactions
 	SetVoteHandler(handler VoteHandler)
+
+	// GetGasPrice fetches the current gas price from the chain
+	GetGasPrice(ctx context.Context) (*big.Int, error)
 
 	// Gateway operations (optional - clients can implement GatewayOperations)
 	GatewayOperations

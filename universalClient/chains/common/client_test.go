@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -153,9 +154,10 @@ func TestContextManagement(t *testing.T) {
 // TestChainClient is a mock implementation for testing
 type TestChainClient struct {
 	*BaseChainClient
-	started bool
-	stopped bool
-	healthy bool
+	started     bool
+	stopped     bool
+	healthy     bool
+	voteHandler VoteHandler
 }
 
 func (tc *TestChainClient) Start(ctx context.Context) error {
@@ -170,6 +172,16 @@ func (tc *TestChainClient) Stop() error {
 
 func (tc *TestChainClient) IsHealthy() bool {
 	return tc.healthy
+}
+
+// SetVoteHandler sets the vote handler for confirmed transactions
+func (tc *TestChainClient) SetVoteHandler(handler VoteHandler) {
+	tc.voteHandler = handler
+}
+
+// GetGasPrice returns a mock gas price
+func (tc *TestChainClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(1000000), nil
 }
 
 // Implement GatewayOperations interface

@@ -61,15 +61,12 @@ Verify that the specified hot key has all required permissions to execute
 transactions on behalf of the granter. This validates that AuthZ grants
 are properly set up for the specified message types.
 
-If no message types are specified, checks default Cosmos SDK message types:
-  /cosmos.bank.v1beta1.MsgSend
-  /cosmos.staking.v1beta1.MsgDelegate
-  /cosmos.staking.v1beta1.MsgUndelegate
+If no message types are specified, checks default message type:
+  /ue.v1.MsgVoteInbound
 
 Examples:
   puniversald authz verify container-hotkey push1granter...
-  puniversald authz verify container-hotkey push1granter... /cosmos.bank.v1beta1.MsgSend
-  puniversald authz verify container-hotkey push1granter... /cosmos.bank.v1beta1.MsgSend /cosmos.staking.v1beta1.MsgDelegate
+  puniversald authz verify container-hotkey push1granter... /ue.v1.MsgVoteInbound
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVerifyCommand(*rpcEndpoint, args)
@@ -89,12 +86,9 @@ func runVerifyCommand(rpcEndpoint string, args []string) error {
 	if len(args) > 2 {
 		msgTypes = args[2:]
 	} else {
-		// Use default message types from authz package
+		// Use default message type for universal validator voting
 		msgTypes = []string{
-			"/cosmos.bank.v1beta1.MsgSend",
-			"/cosmos.staking.v1beta1.MsgDelegate",
-			"/cosmos.staking.v1beta1.MsgUndelegate",
-			"/ue.v1.MsgVoteInbound", // Required for universal validator voting
+			"/ue.v1.MsgVoteInbound",
 		}
 	}
 

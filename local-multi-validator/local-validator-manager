@@ -476,8 +476,8 @@ test_authz() {
     
     echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
     echo -e "${BOLD}${GREEN}✅ Complete AuthZ test completed successfully!${NC}"
-    echo -e "${YELLOW}AuthZ setup verified and all transaction types tested${NC}"
-    echo -e "${CYAN}Successfully tested: Bank Send, Delegate, Undelegate, Vote Inbound${NC}"
+    echo -e "${YELLOW}AuthZ setup verified and transaction type tested${NC}"
+    echo -e "${CYAN}Successfully tested: Vote Inbound${NC}"
 }
 
 # AuthZ setup only
@@ -588,11 +588,11 @@ _perform_authz_setup() {
     local existing_grants=$(docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null)
     local existing_count=$(echo "$existing_grants" | jq -r '.grants | length' 2>/dev/null || echo "0")
     
-    if [ "$existing_count" -ge 3 ]; then
-        echo -e "${GREEN}✅ $existing_count grants already exist${NC}"
+    if [ "$existing_count" -ge 1 ]; then
+        echo -e "${GREEN}✅ $existing_count grant(s) already exist${NC}"
         echo -e "  ${YELLOW}Skipping grant creation${NC}"
     else
-        echo -e "${YELLOW}⚠️ Only $existing_count grants exist, creating missing ones${NC}"
+        echo -e "${YELLOW}⚠️ No grants exist, creating required grant${NC}"
         
         # Create AuthZ grants inside core validator container
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
@@ -604,11 +604,8 @@ _perform_authz_setup() {
         # Get validator address for allowed-validators parameter
         local validator_addr=$(docker exec core-validator-1 pchaind keys show validator-1 --bech val --address --keyring-backend test 2>/dev/null)
         
-        # Create all required AuthZ grants
+        # Create required AuthZ grant
         local grant_types=(
-            "send|--spend-limit 1000000000000000000upc|Bank send authorization"
-            "generic|--msg-type /cosmos.staking.v1beta1.MsgDelegate --allowed-validators $validator_addr|Staking delegate authorization"
-            "generic|--msg-type /cosmos.staking.v1beta1.MsgUndelegate --allowed-validators $validator_addr|Staking undelegate authorization"
             "generic|--msg-type /ue.v1.MsgVoteInbound|UE vote inbound authorization"
         )
         
@@ -684,8 +681,8 @@ EOF"
         echo -ne "  ${YELLOW}Verifying grant creation...${NC} "
         local grants_count=$(docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
         
-        if [ "$grants_count" -ge 3 ]; then
-            echo -e "${GREEN}✅ All $grants_count grants verified${NC}"
+        if [ "$grants_count" -ge 1 ]; then
+            echo -e "${GREEN}✅ Grant verified${NC}"
             
             # Show the grants for this hot key only
             echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
@@ -693,7 +690,7 @@ EOF"
             docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.type + " (expires: " + .expiration + ")"' 2>/dev/null || echo "  ${YELLOW}Could not display grant details${NC}"
             
         else
-            echo -e "${RED}❌ Only $grants_count grants created (expected 3)${NC}"
+            echo -e "${RED}❌ No grants created (expected 1)${NC}"
         fi
     
     echo -e "${GREEN}✅ AuthZ setup completed successfully!${NC}"
@@ -727,63 +724,8 @@ _execute_authz_transactions() {
     fi
     echo
     
-    # Transaction 1: Bank Send
-    echo -e "${CYAN}1. Executing Bank Send Transaction:${NC}"
-    echo -e "  ${GRAY}Sending 1000upc from operator to hot key${NC}"
-    
-    local authz_result=$(timeout 30 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.bank.v1beta1.MsgSend" "$operator_addr" "$hotkey_addr" "1000upc" --node core-validator-1 --chain-id localchain_9000-1 --fees "300000000000000upc" --memo "AuthZ Bank Send Test" 2>&1)
-    
-    if echo "$authz_result" | grep -q "TX Success:"; then
-        local tx_hash=$(echo "$authz_result" | grep "TX Success:" | sed 's/.*hash=//' | cut -d' ' -f1)
-        echo -e "  ${GREEN}✅ Transaction executed${NC}"
-        echo -e "    ${YELLOW}TX Hash: $tx_hash${NC}"
-        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /' || true
-    else
-        echo -e "  ${RED}❌ Transaction failed${NC}"
-        echo "$authz_result" | head -3 | sed 's/^/    /'
-    fi
-    echo
-    
-    # Transaction 2: Staking Delegate (using direct pchaind authz exec)
-    echo -e "${CYAN}2. Executing Staking Delegate Transaction:${NC}"
-    echo -e "  ${GRAY}Delegating 2000upc to validator via AuthZ${NC}"
-    
-    # Wait for previous transaction to process to avoid sequence mismatch
-    sleep 3
-    authz_result=$(timeout 10 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.staking.v1beta1.MsgDelegate" "$operator_addr" "$validator_addr" "2000upc" --node core-validator-1 --chain-id localchain_9000-1 --fees "300000000000000upc" --memo "AuthZ Delegate Test" 2>&1)
-    
-    if echo "$authz_result" | grep -q "TX Success:"; then
-        local tx_hash=$(echo "$authz_result" | grep "TX Success:" | sed 's/.*hash=//' | cut -d' ' -f1)
-        echo -e "  ${GREEN}✅ Transaction executed${NC}"
-        echo -e "    ${YELLOW}TX Hash: $tx_hash${NC}"
-        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /' || true
-    else
-        echo -e "  ${RED}❌ Transaction failed${NC}"
-        echo "$authz_result" | head -2 | sed 's/^/    /'
-    fi
-    echo
-    
-    # Transaction 3: Staking Undelegate (only if we have delegations)
-    echo -e "${CYAN}3. Executing Staking Undelegate Transaction:${NC}"
-    echo -e "  ${GRAY}Undelegating 500upc from validator${NC}"
-    
-    # Wait for previous transaction to process to avoid sequence mismatch
-    sleep 3
-    authz_result=$(timeout 10 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/cosmos.staking.v1beta1.MsgUndelegate" "$operator_addr" "$validator_addr" "500upc" --node core-validator-1 --chain-id localchain_9000-1 --fees "300000000000000upc" --memo "AuthZ Undelegate Test" 2>&1)
-    
-    if echo "$authz_result" | grep -q "TX Success:"; then
-        local tx_hash=$(echo "$authz_result" | grep "TX Success:" | sed 's/.*hash=//' | cut -d' ' -f1)
-        echo -e "  ${GREEN}✅ Transaction executed${NC}"
-        echo -e "    ${YELLOW}TX Hash: $tx_hash${NC}"
-        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /' || true
-    else
-        echo -e "  ${RED}❌ Transaction failed${NC}"
-        echo "$authz_result" | head -2 | sed 's/^/    /'
-    fi
-    echo
-    
-    # Transaction 4: MsgVoteInbound (UE module vote on inbound transaction)
-    echo -e "${CYAN}4. Executing MsgVoteInbound Transaction:${NC}"
+    # MsgVoteInbound (UE module vote on inbound transaction)
+    echo -e "${CYAN}Executing MsgVoteInbound Transaction:${NC}"
     echo -e "  ${GRAY}Voting on inbound cross-chain transaction${NC}"
     
     # Wait for previous transaction to process
@@ -913,8 +855,8 @@ exec_authz() {
     
     echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
     echo -e "${BOLD}${GREEN}✅ AuthZ transaction execution completed${NC}"
-    echo -e "${YELLOW}All supported transaction types tested with real execution${NC}"
-    echo -e "${CYAN}Tested: Bank Send, Delegate, Undelegate, Vote Inbound${NC}"
+    echo -e "${YELLOW}Transaction type tested with real execution${NC}"
+    echo -e "${CYAN}Tested: Vote Inbound${NC}"
 }
 
 # Setup registry with chains and tokens

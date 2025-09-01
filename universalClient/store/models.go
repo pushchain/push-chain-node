@@ -21,7 +21,7 @@ type ChainTransaction struct {
 	BlockNumber      uint64
 	Method           string
 	EventIdentifier  string
-	Status           string `gorm:"index"` // "pending", "fast_confirmed", "confirmed", "failed", "reorged"
+	Status           string `gorm:"index"` // "confirmation_pending", "awaiting_vote", "confirmed", "failed", "reorged"
 	Confirmations    uint64
 	ConfirmationType string // "STANDARD" or "FAST" - which confirmation type this tx requires
 	Data             []byte // Store raw event data

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rollchains/pchain/universalClient/authz"
 	"github.com/rollchains/pchain/universalClient/db"
 	"github.com/rollchains/pchain/universalClient/keys"
 	"github.com/rollchains/pchain/universalClient/store"
@@ -15,9 +14,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// TxSignerInterface defines the interface for transaction signing
+type TxSignerInterface interface {
+	SignAndBroadcastAuthZTx(ctx context.Context, msgs []sdk.Msg, memo string, gasLimit uint64, feeAmount sdk.Coins) (*sdk.TxResponse, error)
+}
+
 // VoteHandler handles voting on confirmed inbound transactions
 type VoteHandler struct {
-	txSigner *authz.TxSigner
+	txSigner TxSignerInterface
 	db       *db.DB
 	log      zerolog.Logger
 	keys     keys.UniversalValidatorKeys
@@ -26,7 +30,7 @@ type VoteHandler struct {
 
 // NewVoteHandler creates a new vote handler
 func NewVoteHandler(
-	txSigner *authz.TxSigner,
+	txSigner TxSignerInterface,
 	db *db.DB,
 	log zerolog.Logger,
 	keys keys.UniversalValidatorKeys,
@@ -214,7 +218,7 @@ func (vh *VoteHandler) GetPendingTransactions(minConfirmations uint64) ([]store.
 	var pendingTxs []store.ChainTransaction
 	
 	err := vh.db.Client().
-		Where("status = ? AND confirmations >= ?", "pending", minConfirmations).
+		Where("status IN (?) AND confirmations >= ?", []string{"confirmation_pending", "awaiting_vote"}, minConfirmations).
 		Find(&pendingTxs).Error
 		
 	return pendingTxs, err

@@ -22,6 +22,9 @@ type ChainClient interface {
 
 	// GetConfig returns the chain configuration
 	GetConfig() *uregistrytypes.ChainConfig
+
+	// Gateway operations (optional - clients can implement GatewayOperations)
+	GatewayOperations
 }
 
 // BaseChainClient provides common functionality for all chain implementations
@@ -36,6 +39,24 @@ func NewBaseChainClient(config *uregistrytypes.ChainConfig) *BaseChainClient {
 	return &BaseChainClient{
 		config: config,
 	}
+}
+
+// GetRPCURLs returns the list of RPC URLs to use for this chain
+// This common implementation can be used by all chain clients
+func GetRPCURLs(chainConfig *uregistrytypes.ChainConfig, appConfig interface{ GetChainRPCURLs() map[string][]string }) []string {
+	if chainConfig == nil {
+		return []string{}
+	}
+
+	// Only use local config ChainRPCURLs - no fallback to registry
+	if appConfig != nil {
+		chainRPCURLs := appConfig.GetChainRPCURLs()
+		if urls, ok := chainRPCURLs[chainConfig.Chain]; ok && len(urls) > 0 {
+			return urls
+		}
+	}
+
+	return []string{}
 }
 
 // ChainID returns the CAIP-2 format chain identifier

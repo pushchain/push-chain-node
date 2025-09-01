@@ -15,9 +15,8 @@ func TestNewBaseChainClient(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		
 		client := NewBaseChainClient(config)
@@ -60,9 +59,8 @@ func TestGetConfig(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "solana:mainnet",
 			VmType:         uregistrytypes.VmType_SVM,
-			PublicRpcUrl:   "https://api.mainnet-beta.solana.com",
 			GatewayAddress: "Sol123",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 		client := NewBaseChainClient(config)
 		
@@ -172,6 +170,23 @@ func (tc *TestChainClient) Stop() error {
 
 func (tc *TestChainClient) IsHealthy() bool {
 	return tc.healthy
+}
+
+// Implement GatewayOperations interface
+func (tc *TestChainClient) GetLatestBlock(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
+func (tc *TestChainClient) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *GatewayEvent, error) {
+	return nil, nil
+}
+
+func (tc *TestChainClient) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
+	return 0, nil
+}
+
+func (tc *TestChainClient) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	return false, nil
 }
 
 func TestChainClientInterface(t *testing.T) {

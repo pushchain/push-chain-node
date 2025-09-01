@@ -10,22 +10,34 @@ import (
 	"github.com/rollchains/pchain/universalClient/chains/common"
 	"github.com/rollchains/pchain/universalClient/chains/evm"
 	"github.com/rollchains/pchain/universalClient/chains/svm"
+	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/rollchains/pchain/universalClient/db"
 	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // ChainRegistry manages chain clients based on their configurations
 type ChainRegistry struct {
-	mu     sync.RWMutex
-	chains map[string]common.ChainClient // key: CAIP-2 chain ID
-	logger zerolog.Logger
+	mu           sync.RWMutex
+	chains       map[string]common.ChainClient // key: CAIP-2 chain ID
+	logger       zerolog.Logger
+	dbManager    *db.ChainDBManager
+	appConfig    *config.Config
 }
 
 // NewChainRegistry creates a new chain registry
-func NewChainRegistry(logger zerolog.Logger) *ChainRegistry {
+func NewChainRegistry(dbManager *db.ChainDBManager, logger zerolog.Logger) *ChainRegistry {
 	return &ChainRegistry{
-		chains: make(map[string]common.ChainClient),
-		logger: logger.With().Str("component", "chain_registry").Logger(),
+		chains:    make(map[string]common.ChainClient),
+		logger:    logger.With().Str("component", "chain_registry").Logger(),
+		dbManager: dbManager,
 	}
+}
+
+// SetAppConfig sets the application config for the registry
+func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.appConfig = cfg
 }
 
 // CreateChainClient creates a chain client based on VM type
@@ -39,11 +51,17 @@ func (r *ChainRegistry) CreateChainClient(config *uregistrytypes.ChainConfig) (c
 		Int32("vm_type", int32(config.VmType)).
 		Msg("creating chain client")
 
+	// Get chain-specific database
+	chainDB, err := r.dbManager.GetChainDB(config.Chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database for chain %s: %w", config.Chain, err)
+	}
+
 	switch config.VmType {
 	case uregistrytypes.VmType_EVM:
-		return evm.NewClient(config, r.logger)
+		return evm.NewClient(config, chainDB, r.appConfig, r.logger)
 	case uregistrytypes.VmType_SVM:
-		return svm.NewClient(config, r.logger)
+		return svm.NewClient(config, chainDB, r.appConfig, r.logger)
 	default:
 		return nil, fmt.Errorf("unsupported VM type: %v", config.VmType)
 	}
@@ -184,6 +202,14 @@ func (r *ChainRegistry) GetHealthStatus() map[string]bool {
 	return status
 }
 
+// GetDatabaseStats returns statistics about all managed databases
+func (r *ChainRegistry) GetDatabaseStats() map[string]interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	return r.dbManager.GetDatabaseStats()
+}
+
 // configsEqual compares two chain configurations
 func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	if a == nil || b == nil {
@@ -191,9 +217,18 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	}
 
 	// Compare relevant fields
-	return a.Chain == b.Chain &&
+	equal := a.Chain == b.Chain &&
 		a.VmType == b.VmType &&
-		a.PublicRpcUrl == b.PublicRpcUrl &&
-		a.GatewayAddress == b.GatewayAddress &&
-		a.Enabled == b.Enabled
+		a.GatewayAddress == b.GatewayAddress
+	
+	// Compare Enabled field values (not pointers)
+	if a.Enabled == nil && b.Enabled == nil {
+		return equal
+	}
+	if a.Enabled == nil || b.Enabled == nil {
+		return false
+	}
+	return equal && 
+		a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
+		a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
 }

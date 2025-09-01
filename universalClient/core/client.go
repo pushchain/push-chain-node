@@ -17,9 +17,9 @@ import (
 )
 
 type UniversalClient struct {
-	ctx context.Context
-	log zerolog.Logger
-	db  *db.DB
+	ctx       context.Context
+	log       zerolog.Logger
+	dbManager *db.ChainDBManager
 
 	// Registry components
 	registryClient *registry.RegistryClient
@@ -31,9 +31,16 @@ type UniversalClient struct {
 
 	// Hot key components
 	keys keys.UniversalValidatorKeys
+	// Transaction cleanup
+	transactionCleaner *db.PerChainTransactionCleaner
 }
 
-func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg *config.Config) (*UniversalClient, error) {
+func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
+	// Validate config
+	if cfg == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+
 	// Create registry client
 	registryClient, err := registry.NewRegistryClient(cfg.PushChainGRPCURLs, log)
 	if err != nil {
@@ -44,7 +51,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 	configCache := registry.NewConfigCache(log)
 
 	// Create chain registry
-	chainRegistry := chains.NewChainRegistry(log)
+	chainRegistry := chains.NewChainRegistry(dbManager, log)
+	chainRegistry.SetAppConfig(cfg)
 
 	// Create config updater
 	configUpdater := NewConfigUpdater(
@@ -55,16 +63,24 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		log,
 	)
 
+	// Create per-chain transaction cleaner
+	transactionCleaner := db.NewPerChainTransactionCleaner(
+		dbManager,
+		cfg,
+		log,
+	)
+
 	// Create the client
 	uc := &UniversalClient{
-		ctx:            ctx,
-		log:            log,
-		db:             db,
-		registryClient: registryClient,
-		configCache:    configCache,
-		configUpdater:  configUpdater,
-		chainRegistry:  chainRegistry,
-		config:         cfg,
+		ctx:                ctx,
+		log:                log,
+		dbManager:          dbManager,
+		registryClient:     registryClient,
+		configCache:        configCache,
+		configUpdater:      configUpdater,
+		chainRegistry:      chainRegistry,
+		config:             cfg,
+		transactionCleaner: transactionCleaner,
 	}
 
 	// Create query server
@@ -77,9 +93,21 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 func (uc *UniversalClient) Start() error {
 	uc.log.Info().Msg("🚀 Starting universal client...")
 
+	// Check for required components
+	if uc.configUpdater == nil {
+		return fmt.Errorf("config updater is not initialized")
+	}
+
 	// Start the config updater
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
+	}
+
+	// Start the transaction cleaner
+	if uc.transactionCleaner != nil {
+		if err := uc.transactionCleaner.Start(uc.ctx); err != nil {
+			return fmt.Errorf("failed to start transaction cleaner: %w", err)
+		}
 	}
 
 	// Start the query server
@@ -106,6 +134,9 @@ func (uc *UniversalClient) Start() error {
 	// Stop config updater
 	uc.configUpdater.Stop()
 
+	// Stop transaction cleaner
+	uc.transactionCleaner.Stop()
+
 	// Stop all chain clients
 	uc.chainRegistry.StopAll()
 
@@ -114,7 +145,13 @@ func (uc *UniversalClient) Start() error {
 		uc.log.Error().Err(err).Msg("error closing registry client")
 	}
 
-	return uc.db.Close()
+	// Close all database connections
+	if err := uc.dbManager.CloseAll(); err != nil {
+		uc.log.Error().Err(err).Msg("error closing database connections")
+		return err
+	}
+
+	return nil
 }
 
 // GetChainConfig returns the cached configuration for a specific chain
@@ -154,5 +191,8 @@ func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
 
 // ForceConfigUpdate triggers an immediate configuration update
 func (uc *UniversalClient) ForceConfigUpdate() error {
+	if uc.configUpdater == nil {
+		return fmt.Errorf("config updater is not initialized")
+	}
 	return uc.configUpdater.ForceUpdate(uc.ctx)
 }

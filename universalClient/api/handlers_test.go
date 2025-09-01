@@ -59,7 +59,7 @@ func TestHandleChainConfigs(t *testing.T) {
 		// Verify the data is an array
 		data, ok := response["data"].([]interface{})
 		assert.True(t, ok)
-		assert.Len(t, data, 1)
+		assert.Len(t, data, 2)
 	})
 	
 	t.Run("Non-GET method not allowed", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestHandleTokenConfigs(t *testing.T) {
 		// Verify the data is an array
 		data, ok := response["data"].([]interface{})
 		assert.True(t, ok)
-		assert.Len(t, data, 1)
+		assert.Len(t, data, 3) // We have 3 token configs
 	})
 	
 	t.Run("Non-GET method not allowed", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestHandleTokenConfigsByChain(t *testing.T) {
 		// Verify the data is an array with one item
 		data, ok := response["data"].([]interface{})
 		assert.True(t, ok)
-		assert.Len(t, data, 1)
+		assert.Len(t, data, 2)
 	})
 	
 	t.Run("Missing chain parameter", func(t *testing.T) {
@@ -250,7 +250,7 @@ func TestHandleTokenConfig(t *testing.T) {
 	})
 	
 	t.Run("Token config not found", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-config?chain=eip155:1&address=0xBBB", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-config?chain=eip155:1&address=0xCCC", nil)
 		w := httptest.NewRecorder()
 		
 		server.handleTokenConfig(w, req)
@@ -260,7 +260,7 @@ func TestHandleTokenConfig(t *testing.T) {
 		var response ErrorResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Equal(t, "token config not found for chain eip155:1 and address 0xBBB", response.Error)
+		assert.Equal(t, "token config not found for chain eip155:1 and address 0xCCC", response.Error)
 	})
 	
 	t.Run("Non-GET method not allowed", func(t *testing.T) {

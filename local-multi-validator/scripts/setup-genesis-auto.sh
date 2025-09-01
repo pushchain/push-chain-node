@@ -203,6 +203,9 @@ update_genesis '.consensus["params"]["abci"]["vote_extensions_enable_height"]="1
 update_genesis '.app_state["tokenfactory"]["params"]["denom_creation_fee"]=[]'
 update_genesis '.app_state["tokenfactory"]["params"]["denom_creation_gas_consume"]=100000'
 
+# Uregistry - Set admin to genesis-acc-1
+update_genesis ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
+
 # ---------------------------
 # === CONFIG PATCHING ===
 # ---------------------------

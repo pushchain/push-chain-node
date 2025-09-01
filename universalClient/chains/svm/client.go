@@ -26,6 +26,7 @@ type Client struct {
 	database       *db.DB
 	appConfig      *config.Config
 	retryManager   *common.RetryManager
+	voteHandler    common.VoteHandler // Optional vote handler
 	stopCh         chan struct{}
 }
 
@@ -58,7 +59,6 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 		stopCh:       make(chan struct{}),
 	}
 
-
 	return client, nil
 }
 
@@ -67,7 +67,7 @@ func (c *Client) getRPCURLs() []string {
 	// Only use RPC URLs from local config - no fallback to registry
 	if c.appConfig != nil {
 		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
-		
+
 		if len(urls) > 0 {
 			c.logger.Info().
 				Str("chain", c.GetConfig().Chain).
@@ -87,18 +87,17 @@ func (c *Client) getRPCURLs() []string {
 	return []string{}
 }
 
-
 // getRPCClient returns an RPC client from the pool
 func (c *Client) getRPCClient() (*rpc.Client, error) {
 	if c.rpcPool == nil {
 		return nil, fmt.Errorf("RPC pool not initialized")
 	}
-	
+
 	endpoint, err := c.rpcPool.SelectEndpoint()
 	if err != nil {
 		return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
 	}
-	
+
 	// Use the helper function from pool_adapter.go
 	return GetSolanaClientFromPool(endpoint)
 }
@@ -108,16 +107,16 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 	if c.rpcPool == nil {
 		return fmt.Errorf("RPC pool not initialized for %s", operation)
 	}
-	
+
 	// Use pool with automatic failover
 	maxAttempts := 3 // Limit attempts to avoid infinite loops
-	
+
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		endpoint, err := c.rpcPool.SelectEndpoint()
 		if err != nil {
 			return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
 		}
-		
+
 		// Use the helper function from pool_adapter.go
 		rpcClient, err := GetSolanaClientFromPool(endpoint)
 		if err != nil {
@@ -128,11 +127,11 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 				Msg("failed to get Solana client from endpoint")
 			continue
 		}
-		
+
 		start := time.Now()
 		err = fn(rpcClient)
 		latency := time.Since(start)
-		
+
 		if err == nil {
 			// Success - update metrics and return
 			c.rpcPool.UpdateEndpointMetrics(endpoint, true, latency, nil)
@@ -144,7 +143,7 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 				Msg("operation completed successfully")
 			return nil
 		}
-		
+
 		// Failure - update metrics and try next endpoint
 		c.rpcPool.UpdateEndpointMetrics(endpoint, false, latency, err)
 		c.logger.Warn().
@@ -155,7 +154,7 @@ func (c *Client) executeWithFailover(ctx context.Context, operation string, fn f
 			Err(err).
 			Msg("operation failed, trying next endpoint")
 	}
-	
+
 	return fmt.Errorf("operation %s failed after %d attempts", operation, maxAttempts)
 }
 
@@ -205,10 +204,16 @@ func (c *Client) Start(ctx context.Context) error {
 			// Not a fatal error - continue without gateway support
 		} else {
 			c.gatewayHandler = handler
+			
+			// Set vote handler if available
+			if c.voteHandler != nil {
+				c.gatewayHandler.SetVoteHandler(c.voteHandler)
+				c.logger.Info().Msg("vote handler set on gateway handler during initialization")
+			}
 			c.logger.Info().
 				Str("gateway_address", c.GetConfig().GatewayAddress).
 				Msg("gateway handler initialized")
-			
+
 			// Start watching for gateway events in background
 			go c.watchGatewayEvents()
 		}
@@ -245,7 +250,7 @@ func (c *Client) watchGatewayEvents() {
 				time.Sleep(5 * time.Second)
 				continue
 			}
-			
+
 			if c.rpcPool.GetHealthyEndpointCount() == 0 {
 				c.logger.Debug().Msg("waiting for healthy endpoints")
 				time.Sleep(5 * time.Second)
@@ -265,14 +270,14 @@ func (c *Client) watchGatewayEvents() {
 				time.Sleep(5 * time.Second)
 				continue
 			}
-			
+
 			// Log the starting point
 			c.logger.Info().
 				Uint64("start_slot", startSlot).
 				Msg("determined starting slot from database")
 
 			// Start watching events
-			eventChan, err := c.WatchGatewayEvents(ctx, startSlot)
+			eventChan, err := c.WatchGatewayEvents(ctx, 403697270)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
 				time.Sleep(5 * time.Second)
@@ -314,7 +319,7 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 					Str("receiver", event.Receiver).
 					Str("amount", event.Amount).
 					Msg("received gateway event")
-				
+
 				// TODO: Process the event - e.g., send to a queue, update state, etc.
 				// For now, we're just logging it
 			}
@@ -325,11 +330,11 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 // connect establishes connection to the Solana RPC endpoint(s)
 func (c *Client) connect(ctx context.Context) error {
 	rpcURLs := c.getRPCURLs()
-	
+
 	if len(rpcURLs) == 0 {
 		return fmt.Errorf("no RPC URLs configured")
 	}
-	
+
 	// Always use pool manager for consistency
 	// Note: ctx here should be the long-lived clientCtx passed from Start()
 	return c.initializeRPCPool(ctx, rpcURLs)
@@ -375,7 +380,16 @@ func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error 
 	return nil
 }
 
-
+// SetVoteHandler sets the vote handler for confirmed transactions
+func (c *Client) SetVoteHandler(handler common.VoteHandler) {
+	c.voteHandler = handler
+	if c.gatewayHandler != nil {
+		c.gatewayHandler.SetVoteHandler(handler)
+		c.logger.Info().Msg("vote handler set on Solana client and gateway handler")
+	} else {
+		c.logger.Debug().Msg("vote handler stored, will be set on gateway handler during start")
+	}
+}
 
 // Stop gracefully shuts down the Solana chain client
 func (c *Client) Stop() error {
@@ -411,7 +425,7 @@ func (c *Client) IsHealthy() bool {
 		if c.rpcPool == nil {
 			return false
 		}
-		
+
 		healthyCount := c.rpcPool.GetHealthyEndpointCount()
 		minHealthy := 1 // Default minimum
 		if c.appConfig != nil {
@@ -429,17 +443,17 @@ func (c *Client) GetGenesisHash() string {
 // GetSlot returns the current slot
 func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
 	var slot uint64
-	
+
 	err := c.executeWithFailover(ctx, "get_slot", func(client *rpc.Client) error {
 		var err error
 		slot, err = client.GetSlot(ctx, rpc.CommitmentFinalized)
 		return err
 	})
-	
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to get slot: %w", err)
 	}
-	
+
 	return slot, nil
 }
 
@@ -479,7 +493,7 @@ func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
 	if c.gatewayHandler != nil {
 		return c.gatewayHandler.GetLatestBlock(ctx)
 	}
-	
+
 	// Fallback to direct client call
 	return c.GetSlot(ctx)
 }

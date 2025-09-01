@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -87,6 +88,14 @@ func NewGatewayHandler(
 		eventParser:  eventParser,
 		txVerifier:   txVerifier,
 	}, nil
+}
+
+// SetVoteHandler sets the vote handler on the confirmation tracker
+func (h *GatewayHandler) SetVoteHandler(handler common.VoteHandler) {
+	if h.tracker != nil {
+		h.tracker.SetVoteHandler(handler)
+		h.logger.Info().Msg("vote handler set on confirmation tracker")
+	}
 }
 
 // GetLatestBlock returns the latest slot number
@@ -254,6 +263,20 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					// Parse gateway event from transaction using event parser
 					event := h.eventParser.ParseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
 					if event != nil {
+						// Create event data JSON for vote handler
+						eventData := map[string]interface{}{
+							"chain_id":       event.ChainID,
+							"source_chain":   event.ChainID,
+							"sender":         event.Sender,
+							"recipient":      event.Receiver,
+							"amount":         event.Amount,
+							"asset_address":  "", // Can be populated if needed
+							"log_index":      "0", // Solana doesn't have log index like EVM
+							"tx_type":        "SYNTHETIC",
+						}
+						
+						dataBytes, _ := json.Marshal(eventData)
+						
 						// Track transaction for confirmations
 						if err := h.tracker.TrackTransaction(
 							event.TxHash,
@@ -261,7 +284,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 							event.Method,
 							event.EventID,
 							event.ConfirmationType,
-							nil,
+							dataBytes,
 						); err != nil {
 							h.logger.Error().Err(err).
 								Str("tx_hash", event.TxHash).

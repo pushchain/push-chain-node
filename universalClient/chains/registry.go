@@ -22,6 +22,7 @@ type ChainRegistry struct {
 	logger       zerolog.Logger
 	dbManager    *db.ChainDBManager
 	appConfig    *config.Config
+	voteHandler  common.VoteHandler // Optional vote handler for all chains
 }
 
 // NewChainRegistry creates a new chain registry
@@ -38,6 +39,22 @@ func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.appConfig = cfg
+}
+
+// SetVoteHandler sets the vote handler for all chains
+func (r *ChainRegistry) SetVoteHandler(handler common.VoteHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	r.voteHandler = handler
+	
+	// Set vote handler on all existing chains
+	for chainID, client := range r.chains {
+		client.SetVoteHandler(handler)
+		r.logger.Info().
+			Str("chain", chainID).
+			Msg("vote handler set on existing chain")
+	}
 }
 
 // CreateChainClient creates a chain client based on VM type
@@ -107,6 +124,18 @@ func (r *ChainRegistry) AddOrUpdateChain(ctx context.Context, config *uregistryt
 	client, err := r.CreateChainClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create chain client for %s: %w", chainID, err)
+	}
+
+	// Set vote handler if available
+	if r.voteHandler != nil {
+		client.SetVoteHandler(r.voteHandler)
+		r.logger.Info().
+			Str("chain", chainID).
+			Msg("vote handler set for chain")
+	} else {
+		r.logger.Warn().
+			Str("chain", chainID).
+			Msg("no vote handler available - chain will not vote on transactions")
 	}
 
 	// Start the chain client

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rollchains/pchain/universalClient/db"
@@ -9,12 +10,18 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// VoteHandler interface for voting on confirmed transactions
+type VoteHandler interface {
+	VoteAndConfirm(ctx context.Context, tx *store.ChainTransaction) error
+}
+
 // ConfirmationTracker tracks transaction confirmations for gateway events
 type ConfirmationTracker struct {
 	db              *db.DB
 	fastInbound     uint64
 	standardInbound uint64
 	logger          zerolog.Logger
+	voteHandler     VoteHandler // Optional vote handler for confirmed transactions
 }
 
 // NewConfirmationTracker creates a new confirmation tracker
@@ -41,7 +48,13 @@ func NewConfirmationTracker(
 		fastInbound:     fastConf,
 		standardInbound: standardConf,
 		logger:          logger.With().Str("component", "confirmation_tracker").Logger(),
+		voteHandler:     nil, // Initialize without vote handler
 	}
+}
+
+// SetVoteHandler sets the vote handler for the confirmation tracker
+func (ct *ConfirmationTracker) SetVoteHandler(handler VoteHandler) {
+	ct.voteHandler = handler
 }
 
 // TrackTransaction starts tracking a new transaction for confirmations
@@ -196,14 +209,37 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 		
 		// Check if transaction meets its required confirmation threshold
 		if confirmations >= requiredConfirmations && tx.Status != "confirmed" {
-			tx.Status = "confirmed"
-			confirmedCount++
-			ct.logger.Info().
-				Str("tx_hash", tx.TxHash).
-				Str("confirmation_type", tx.ConfirmationType).
-				Uint64("confirmations", confirmations).
-				Uint64("required_confirmations", requiredConfirmations).
-				Msg("transaction confirmed")
+			// If we have a vote handler, use it to vote before confirming
+			if ct.voteHandler != nil {
+				ctx := context.Background()
+				if err := ct.voteHandler.VoteAndConfirm(ctx, tx); err != nil {
+					ct.logger.Error().
+						Str("tx_hash", tx.TxHash).
+						Err(err).
+						Msg("failed to vote on transaction, will retry")
+					// Transaction stays pending for retry
+					updatedCount++
+					continue
+				}
+				// VoteAndConfirm updates the status to confirmed
+				confirmedCount++
+				ct.logger.Info().
+					Str("tx_hash", tx.TxHash).
+					Str("confirmation_type", tx.ConfirmationType).
+					Uint64("confirmations", confirmations).
+					Uint64("required_confirmations", requiredConfirmations).
+					Msg("transaction voted and confirmed")
+			} else {
+				// No vote handler, just mark as confirmed
+				tx.Status = "confirmed"
+				confirmedCount++
+				ct.logger.Warn().
+					Str("tx_hash", tx.TxHash).
+					Str("confirmation_type", tx.ConfirmationType).
+					Uint64("confirmations", confirmations).
+					Uint64("required_confirmations", requiredConfirmations).
+					Msg("No vote handler configured - marking as confirmed without voting (hot keys not configured)")
+			}
 		}
 		
 		// Save within the transaction

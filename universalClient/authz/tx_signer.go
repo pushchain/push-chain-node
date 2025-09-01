@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -21,6 +22,8 @@ type TxSigner struct {
 	clientCtx     client.Context
 	txConfig      client.TxConfig
 	log           zerolog.Logger
+	sequenceMutex sync.Mutex  // Mutex to synchronize transaction signing
+	lastSequence  uint64      // Track the last used sequence
 }
 
 // NewTxSigner creates a new transaction signer
@@ -45,6 +48,10 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 	gasLimit uint64,
 	feeAmount sdk.Coins,
 ) (*sdk.TxResponse, error) {
+	// Lock to prevent concurrent sequence issues
+	ts.sequenceMutex.Lock()
+	defer ts.sequenceMutex.Unlock()
+	
 	ts.log.Info().
 		Int("msg_count", len(msgs)).
 		Str("memo", memo).
@@ -62,8 +69,8 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 		return nil, fmt.Errorf("failed to create tx builder: %w", err)
 	}
 
-	// Sign the transaction
-	if err := ts.SignTx(txBuilder); err != nil {
+	// Sign the transaction with sequence management
+	if err := ts.SignTxWithSequence(ctx, txBuilder); err != nil {
 		return nil, fmt.Errorf("failed to sign transaction: %w", err)
 	}
 
@@ -88,6 +95,9 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 			Msg("Transaction failed on chain")
 		return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
 	}
+
+	// Update our cached sequence for next transaction
+	ts.lastSequence++
 
 	ts.log.Info().
 		Str("tx_hash", res.TxHash).
@@ -155,7 +165,7 @@ func (ts *TxSigner) CreateTxBuilder(
 	return txBuilder, nil
 }
 
-// SignTx signs a transaction using the hot key
+// SignTx signs a transaction using the hot key (deprecated - use SignTxWithSequence)
 func (ts *TxSigner) SignTx(txBuilder client.TxBuilder) error {
 	ctx := context.Background()
 
@@ -233,6 +243,97 @@ func (ts *TxSigner) SignTx(txBuilder client.TxBuilder) error {
 	ts.log.Info().
 		Str("signer", hotKeyAddr.String()).
 		Msg("Transaction signed successfully")
+
+	return nil
+}
+
+// SignTxWithSequence signs a transaction with proper sequence management
+func (ts *TxSigner) SignTxWithSequence(ctx context.Context, txBuilder client.TxBuilder) error {
+	ts.log.Debug().Msg("Starting transaction signing with sequence management")
+
+	// Get account info to refresh sequence if needed
+	account, err := ts.getAccountInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get account info: %w", err)
+	}
+
+	// Update our cached sequence if it's behind the chain's sequence
+	chainSequence := account.GetSequence()
+	if ts.lastSequence < chainSequence {
+		ts.lastSequence = chainSequence
+		ts.log.Debug().
+			Uint64("chain_sequence", chainSequence).
+			Uint64("cached_sequence", ts.lastSequence).
+			Msg("Updated cached sequence from chain")
+	}
+
+	// Get hot key address
+	hotKeyAddr, err := ts.keys.GetAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get hot key address: %w", err)
+	}
+
+	// Get private key
+	password := ts.keys.GetHotkeyPassword()
+	privKey, err := ts.keys.GetPrivateKey(password)
+	if err != nil {
+		return fmt.Errorf("failed to get private key: %w", err)
+	}
+
+	ts.log.Debug().
+		Str("signer", hotKeyAddr.String()).
+		Uint64("account_number", account.GetAccountNumber()).
+		Uint64("sequence", ts.lastSequence).
+		Msg("Signing transaction with managed sequence")
+
+	// Create signature data
+	sigData := signing.SingleSignatureData{
+		SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+		Signature: nil,
+	}
+
+	sig := signing.SignatureV2{
+		PubKey:   privKey.PubKey(),
+		Data:     &sigData,
+		Sequence: ts.lastSequence,
+	}
+
+	// Set empty signature first to populate SignerInfos
+	if err := txBuilder.SetSignatures(sig); err != nil {
+		return fmt.Errorf("failed to set signatures: %w", err)
+	}
+
+	// Use SDK's SignWithPrivKey helper function for proper signing
+	signerData := authsigning.SignerData{
+		Address:       hotKeyAddr.String(),
+		ChainID:       ts.clientCtx.ChainID,
+		AccountNumber: account.GetAccountNumber(),
+		Sequence:      ts.lastSequence,
+		PubKey:        privKey.PubKey(),
+	}
+
+	signV2, err := tx.SignWithPrivKey(
+		ctx,
+		signing.SignMode_SIGN_MODE_DIRECT,
+		signerData,
+		txBuilder,
+		privKey,
+		ts.clientCtx.TxConfig,
+		ts.lastSequence,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to sign with private key: %w", err)
+	}
+
+	// Set the final signature
+	if err := txBuilder.SetSignatures(signV2); err != nil {
+		return fmt.Errorf("failed to set final signatures: %w", err)
+	}
+
+	ts.log.Info().
+		Str("signer", hotKeyAddr.String()).
+		Uint64("sequence", ts.lastSequence).
+		Msg("Transaction signed successfully with managed sequence")
 
 	return nil
 }

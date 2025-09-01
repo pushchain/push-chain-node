@@ -71,7 +71,7 @@ func initCmd() *cobra.Command {
 			}
 
 			// Save config
-			if err := config.Save(cfg, constant.DefaultNodeHome); err != nil {
+			if err := config.Save(&cfg, constant.DefaultNodeHome); err != nil {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 			fmt.Printf("✅ Config saved to %s/config/pushuv_config.json\n", constant.DefaultNodeHome)

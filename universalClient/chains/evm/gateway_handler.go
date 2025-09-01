@@ -72,6 +72,14 @@ func NewGatewayHandler(
 	}, nil
 }
 
+// SetVoteHandler sets the vote handler on the confirmation tracker
+func (h *GatewayHandler) SetVoteHandler(handler common.VoteHandler) {
+	if h.tracker != nil {
+		h.tracker.SetVoteHandler(handler)
+		h.logger.Info().Msg("vote handler set on confirmation tracker")
+	}
+}
+
 // GetLatestBlock returns the latest block number
 func (h *GatewayHandler) GetLatestBlock(ctx context.Context) (uint64, error) {
 	var blockNum uint64

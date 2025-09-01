@@ -24,6 +24,11 @@ func TestIsAllowedMsgType(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "allowed UE vote inbound message (default)",
+			msgType:  "/ue.v1.MsgVoteInbound",
+			expected: true,
+		},
+		{
 			name:     "not allowed universal validator message (default config)",
 			msgType:  "/push.observer.MsgVoteOnObservedEvent",
 			expected: false,
@@ -54,6 +59,7 @@ func TestDefaultAllowedMsgTypes(t *testing.T) {
 		"/cosmos.bank.v1beta1.MsgSend",
 		"/cosmos.staking.v1beta1.MsgDelegate",
 		"/cosmos.staking.v1beta1.MsgUndelegate",
+		"/ue.v1.MsgVoteInbound",
 	}
 
 	assert.Equal(t, len(expectedTypes), len(DefaultAllowedMsgTypes))
@@ -72,12 +78,14 @@ func TestDefaultAllowedMsgTypesFormat(t *testing.T) {
 		"/cosmos.bank.v1beta1.MsgSend":          true,
 		"/cosmos.staking.v1beta1.MsgDelegate":   true,
 		"/cosmos.staking.v1beta1.MsgUndelegate": true,
+		"/ue.v1.MsgVoteInbound":                 true,
 	}
 
 	for _, msgType := range DefaultAllowedMsgTypes {
 		// Each message type should be properly formatted
 		assert.NotEmpty(t, msgType)
-		assert.Contains(t, msgType, "/cosmos.")
+		// Check for cosmos or ue module messages
+		assert.True(t, msgType[:1] == "/", "Message type should start with /")
 		
 		// Remove from expected types if found
 		delete(expectedTypes, msgType)

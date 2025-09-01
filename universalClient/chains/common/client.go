@@ -23,6 +23,9 @@ type ChainClient interface {
 	// GetConfig returns the chain configuration
 	GetConfig() *uregistrytypes.ChainConfig
 
+	// SetVoteHandler sets the vote handler for confirmed transactions
+	SetVoteHandler(handler VoteHandler)
+
 	// Gateway operations (optional - clients can implement GatewayOperations)
 	GatewayOperations
 }

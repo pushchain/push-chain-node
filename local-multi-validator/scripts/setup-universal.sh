@@ -58,21 +58,21 @@ echo "🔧 Initializing universal validator..."
 # Initialize puniversald (creates config directory and default config)
 $BINARY init
 
-# Create/update universal validator configuration
-cat > "$HOME_DIR/config/pushuv_config.json" <<EOF
-{
-  "log_level": 1,
-  "log_format": "console",
-  "log_sampler": false,
-  "push_chain_grpc_urls": ["$CORE_VALIDATOR_GRPC"],
-  "config_refresh_interval": 10000000000,
-  "max_retries": 3,
-  "retry_backoff": 1000000000,
-  "initial_fetch_retries": 5,
-  "initial_fetch_timeout": 30000000000,
-  "query_server_port": $QUERY_PORT
-}
-EOF
+# Update the gRPC URL and keyring backend in the config
+# The CORE_VALIDATOR_GRPC env var is already set correctly in docker-compose.yml:
+# - universal-validator-1 uses core-validator-1:9090
+# - universal-validator-2 uses core-validator-2:9090  
+# - universal-validator-3 uses core-validator-3:9090
+jq '.push_chain_grpc_urls = ["'$CORE_VALIDATOR_GRPC'"] | .keyring_backend = "test"' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+# Also update the query server port if different from default
+if [ "$QUERY_PORT" != "8080" ]; then
+  jq '.query_server_port = '$QUERY_PORT \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
 
 echo "📋 Universal validator config created:"
 cat "$HOME_DIR/config/pushuv_config.json"

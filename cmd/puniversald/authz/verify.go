@@ -94,6 +94,7 @@ func runVerifyCommand(rpcEndpoint string, args []string) error {
 			"/cosmos.bank.v1beta1.MsgSend",
 			"/cosmos.staking.v1beta1.MsgDelegate",
 			"/cosmos.staking.v1beta1.MsgUndelegate",
+			"/ue.v1.MsgVoteInbound", // Required for universal validator voting
 		}
 	}
 

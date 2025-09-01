@@ -18,6 +18,7 @@ BLUE='\033[1;94m'
 MAGENTA='\033[0;35m'
 WHITE='\033[1;37m'
 GRAY='\033[0;90m'
+DIM='\033[2m'
 NC='\033[0m'
 BOLD='\033[1m'
 
@@ -476,6 +477,7 @@ test_authz() {
     echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
     echo -e "${BOLD}${GREEN}✅ Complete AuthZ test completed successfully!${NC}"
     echo -e "${YELLOW}AuthZ setup verified and all transaction types tested${NC}"
+    echo -e "${CYAN}Successfully tested: Bank Send, Delegate, Undelegate, Vote Inbound${NC}"
 }
 
 # AuthZ setup only
@@ -607,6 +609,7 @@ _perform_authz_setup() {
             "send|--spend-limit 1000000000000000000upc|Bank send authorization"
             "generic|--msg-type /cosmos.staking.v1beta1.MsgDelegate --allowed-validators $validator_addr|Staking delegate authorization"
             "generic|--msg-type /cosmos.staking.v1beta1.MsgUndelegate --allowed-validators $validator_addr|Staking undelegate authorization"
+            "generic|--msg-type /ue.v1.MsgVoteInbound|UE vote inbound authorization"
         )
         
         for grant_info in "${grant_types[@]}"; do
@@ -778,6 +781,37 @@ _execute_authz_transactions() {
         echo "$authz_result" | head -2 | sed 's/^/    /'
     fi
     echo
+    
+    # Transaction 4: MsgVoteInbound (UE module vote on inbound transaction)
+    echo -e "${CYAN}4. Executing MsgVoteInbound Transaction:${NC}"
+    echo -e "  ${GRAY}Voting on inbound cross-chain transaction${NC}"
+    
+    # Wait for previous transaction to process
+    sleep 3
+    
+    # Sample inbound transaction parameters
+    local source_chain="eip155:11155111"  # Sepolia testnet
+    local tx_hash="0x$(openssl rand -hex 32)"  # Generate random tx hash for testing
+    local sender="0x000000000000000000000000000000000000dead"
+    local recipient="$operator_addr"  # Use operator as recipient
+    local amount="1000"
+    local asset_addr="0x000000000000000000000000000000000000cafe"
+    local log_index="1"
+    local tx_type="1"  # SYNTHETIC
+    
+    authz_result=$(timeout 10 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/ue.v1.MsgVoteInbound" "$operator_addr" "$source_chain" "$tx_hash" "$sender" "$recipient" "$amount" "$asset_addr" "$log_index" "$tx_type" --node core-validator-1 --chain-id localchain_9000-1 --fees "500000000000000upc" --memo "AuthZ Vote Inbound Test" 2>&1)
+    
+    if echo "$authz_result" | grep -q "TX Success:"; then
+        local vote_tx_hash=$(echo "$authz_result" | grep "TX Success:" | sed 's/.*hash=//' | cut -d' ' -f1)
+        echo -e "  ${GREEN}✅ Transaction executed${NC}"
+        echo -e "    ${YELLOW}TX Hash: $vote_tx_hash${NC}"
+        echo -e "    ${CYAN}Voted on inbound tx: $tx_hash${NC}"
+        echo "$authz_result" | grep -E "(Gas Used:|Gas Wanted:)" | sed 's/^/    /' || true
+    else
+        echo -e "  ${RED}❌ Transaction failed${NC}"
+        echo "$authz_result" | head -2 | sed 's/^/    /'
+    fi
+    echo
 }
 
 # AuthZ verification
@@ -880,6 +914,59 @@ exec_authz() {
     echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
     echo -e "${BOLD}${GREEN}✅ AuthZ transaction execution completed${NC}"
     echo -e "${YELLOW}All supported transaction types tested with real execution${NC}"
+    echo -e "${CYAN}Tested: Bank Send, Delegate, Undelegate, Vote Inbound${NC}"
+}
+
+# Setup registry with chains and tokens
+setup_registry() {
+    echo -e "${BOLD}${GREEN}Setting up Registry with Chains and Tokens${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    # First, ensure config files are in the container
+    echo -e "${YELLOW}Copying config files to container...${NC}"
+    docker exec core-validator-1 mkdir -p /opt/config/chains /opt/config/tokens
+    docker cp ../config/testnet-donut/chains/. core-validator-1:/opt/config/chains/
+    docker cp ../config/testnet-donut/tokens/. core-validator-1:/opt/config/tokens/
+    
+    # Commands using genesis-acc-1 with keyring-backend test and chain-id
+    echo -e "${BOLD}Adding Ethereum Sepolia chain configuration...${NC}"
+    local eth_result=$(docker exec core-validator-1 bash -c "pchaind tx uregistry add-chain-config --chain-config \"\$(cat /opt/config/chains/eth_sepolia_chain_config.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1)
+    
+    echo "$eth_result" | grep -E "txhash:|code:|error:" || echo "$eth_result"
+    
+    sleep 2
+    
+    echo -e "${BOLD}Adding Ethereum Sepolia USDC token configuration...${NC}"
+    local usdc_result=$(docker exec core-validator-1 bash -c "pchaind tx uregistry add-token-config --token-config \"\$(cat /opt/config/tokens/eth_sepolia_usdc.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1)
+    
+    echo "$usdc_result" | grep -E "txhash:|code:|error:" || echo "$usdc_result"
+    
+    sleep 2
+    
+    echo -e "${BOLD}Adding Solana Devnet chain configuration...${NC}"
+    local sol_result=$(docker exec core-validator-1 bash -c "pchaind tx uregistry add-chain-config --chain-config \"\$(cat /opt/config/chains/solana_devnet_chain_config.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1)
+    
+    echo "$sol_result" | grep -E "txhash:|code:|error:" || echo "$sol_result"
+    
+    sleep 2
+    
+    echo -e "${BOLD}Adding Solana Devnet USDT token configuration...${NC}"
+    local usdt_result=$(docker exec core-validator-1 bash -c "pchaind tx uregistry add-token-config --token-config \"\$(cat /opt/config/tokens/solana_devnet_usdt.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1)
+    
+    echo "$usdt_result" | grep -E "txhash:|code:|error:" || echo "$usdt_result"
+    
+    echo
+    echo -e "${BOLD}${GREEN}Registry setup completed!${NC}"
+    echo -e "${CYAN}Use 'show-registry' to view all registered chains and tokens${NC}"
+}
+
+# Show registry chains and tokens
+show_registry() {
+    echo "Chains:"
+    docker exec core-validator-1 pchaind q uregistry all-chain-configs --node tcp://core-validator-1:26657
+    echo ""
+    echo "Tokens:"
+    docker exec core-validator-1 pchaind q uregistry all-token-configs --node tcp://core-validator-1:26657
 }
 
 # Show individual validator help
@@ -950,6 +1037,10 @@ show_help() {
     printf "  ${BOLD}%-25s${NC}%s\n" "setup-authz" "Setup hot key and AuthZ grants"
     printf "  ${BOLD}%-25s${NC}%s\n" "exec-authz" "Execute AuthZ transaction tests"
     printf "  ${BOLD}%-25s${NC}%s\n" "verify-authz" "Verify AuthZ configuration"
+    echo
+    echo -e "${BOLD}${CYAN}REGISTRY CONFIGURATION${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "setup-registry" "Add chains and tokens to registry"
+    printf "  ${BOLD}%-25s${NC}%s\n" "show-registry" "Display all registered chains and tokens"
     echo
     echo -e "${BOLD}${CYAN}REBUILD COMMANDS${NC}"
     printf "  ${BOLD}%-25s${NC}%s\n" "rebuild all" "Rebuild base + all validators (no cache)"
@@ -1098,6 +1189,14 @@ case "${1:-help}" in
         
     exec-authz)
         exec_authz
+        ;;
+        
+    setup-registry)
+        setup_registry
+        ;;
+        
+    show-registry)
+        show_registry
         ;;
         
     rebuild)

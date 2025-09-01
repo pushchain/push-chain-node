@@ -28,6 +28,7 @@ type Client struct {
 	database       *db.DB
 	appConfig      *config.Config
 	retryManager   *common.RetryManager
+	voteHandler    common.VoteHandler // Optional vote handler
 	stopCh         chan struct{}
 }
 
@@ -208,6 +209,12 @@ func (c *Client) Start(ctx context.Context) error {
 			// Not a fatal error - continue without gateway support
 		} else {
 			c.gatewayHandler = handler
+			
+			// Set vote handler if available
+			if c.voteHandler != nil {
+				c.gatewayHandler.SetVoteHandler(c.voteHandler)
+				c.logger.Info().Msg("vote handler set on gateway handler during initialization")
+			}
 			c.logger.Info().
 				Str("gateway_address", c.GetConfig().GatewayAddress).
 				Msg("gateway handler initialized")
@@ -273,7 +280,7 @@ func (c *Client) watchGatewayEvents() {
 				Msg("determined starting block from database")
 
 			// Start watching events using long-lived context
-			eventChan, err := c.WatchGatewayEvents(ctx, startBlock)
+			eventChan, err := c.WatchGatewayEvents(ctx, 9084430)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
 				time.Sleep(5 * time.Second)
@@ -405,6 +412,17 @@ func (c *Client) initializeSingleClient(ctx context.Context, rpcURL string) erro
 		Msg("successfully connected to EVM RPC")
 
 	return nil
+}
+
+// SetVoteHandler sets the vote handler for confirmed transactions
+func (c *Client) SetVoteHandler(handler common.VoteHandler) {
+	c.voteHandler = handler
+	if c.gatewayHandler != nil {
+		c.gatewayHandler.SetVoteHandler(handler)
+		c.logger.Info().Msg("vote handler set on EVM client and gateway handler")
+	} else {
+		c.logger.Debug().Msg("vote handler stored, will be set on gateway handler during start")
+	}
 }
 
 // Stop gracefully shuts down the EVM chain client

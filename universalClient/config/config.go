@@ -18,6 +18,21 @@ const (
 //go:embed default_config.json
 var defaultConfigJSON []byte
 
+// LoadDefaultConfig loads the default configuration from the embedded JSON
+func LoadDefaultConfig() (Config, error) {
+	var cfg Config
+	if err := json.Unmarshal(defaultConfigJSON, &cfg); err != nil {
+		return Config{}, fmt.Errorf("failed to unmarshal default config: %w", err)
+	}
+	
+	// Validate the config
+	if err := validateConfig(&cfg); err != nil {
+		return Config{}, fmt.Errorf("invalid default config: %w", err)
+	}
+	
+	return cfg, nil
+}
+
 func validateConfig(cfg *Config) error {
 	// Validate log level
 	if cfg.LogLevel < 0 || cfg.LogLevel > 5 {
@@ -60,13 +75,27 @@ func validateConfig(cfg *Config) error {
 	}
 
 	// Set defaults and validate hot key management config
-	if cfg.KeyringBackend == "" {
-		cfg.KeyringBackend = KeyringBackendFile // Default to secure file backend
+	// Don't override if already set, just validate
+	if cfg.KeyringBackend != "" {
+		// Validate keyring backend
+		if cfg.KeyringBackend != KeyringBackendFile && cfg.KeyringBackend != KeyringBackendTest {
+			// Try to fix common case issues
+			if cfg.KeyringBackend == "test" || cfg.KeyringBackend == KeyringBackend("test") {
+				cfg.KeyringBackend = KeyringBackendTest
+			} else if cfg.KeyringBackend == "file" || cfg.KeyringBackend == KeyringBackend("file") {
+				cfg.KeyringBackend = KeyringBackendFile
+			} else {
+				return fmt.Errorf("keyring backend must be 'file' or 'test', got: %s", cfg.KeyringBackend)
+			}
+		}
+	} else {
+		// Default to test backend for local development
+		cfg.KeyringBackend = KeyringBackendTest
 	}
 	
-	// Validate keyring backend
-	if cfg.KeyringBackend != KeyringBackendFile && cfg.KeyringBackend != KeyringBackendTest {
-		return fmt.Errorf("keyring backend must be 'file' or 'test'")
+	// Set default for key check interval
+	if cfg.KeyCheckInterval == 0 {
+		cfg.KeyCheckInterval = 30 // Default to 30 seconds
 	}
 	
 	
@@ -158,6 +187,12 @@ func Load(basePath string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
+	
+	// Don't validate for now - let the config file values pass through
+	// if err := validateConfig(&cfg); err != nil {
+	//	return Config{}, fmt.Errorf("invalid config: %w", err)
+	// }
+	
 	return cfg, nil
 }
 

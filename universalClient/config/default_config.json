@@ -11,6 +11,8 @@
   "initial_fetch_retries": 5,
   "initial_fetch_timeout_seconds": 30,
   "query_server_port": 8080,
+  "keyring_backend": "test",
+  "key_check_interval": 30,
   "event_polling_interval_seconds": 5,
   "database_base_dir": "",
   "transaction_cleanup_interval_seconds": 3600,

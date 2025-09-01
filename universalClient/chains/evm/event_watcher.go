@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -203,6 +204,20 @@ func (ew *EventWatcher) processBlockRange(
 		for _, log := range logs {
 			event := ew.eventParser.ParseGatewayEvent(&log)
 			if event != nil {
+				// Create event data JSON for vote handler
+				eventData := map[string]interface{}{
+					"chain_id":       event.ChainID,
+					"source_chain":   event.ChainID,
+					"sender":         event.Sender,
+					"recipient":      event.Receiver,
+					"amount":         event.Amount,
+					"asset_address":  "", // Can be populated if needed
+					"log_index":      fmt.Sprintf("%d", log.Index),
+					"tx_type":        "SYNTHETIC",
+				}
+				
+				dataBytes, _ := json.Marshal(eventData)
+				
 				// Track transaction for confirmations
 				if err := ew.tracker.TrackTransaction(
 					event.TxHash,
@@ -210,7 +225,7 @@ func (ew *EventWatcher) processBlockRange(
 					event.Method,
 					event.EventID,
 					event.ConfirmationType,
-					nil,
+					dataBytes,
 				); err != nil {
 					ew.logger.Error().Err(err).
 						Str("tx_hash", event.TxHash).

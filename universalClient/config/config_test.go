@@ -1,9 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 
@@ -28,25 +32,25 @@ func TestConfigValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that defaults were set
-	assert.NotZero(t, cfg.ConfigRefreshInterval)
+	assert.NotZero(t, cfg.ConfigRefreshIntervalSeconds)
 	assert.NotZero(t, cfg.MaxRetries)
-	assert.NotZero(t, cfg.RetryBackoff)
+	assert.NotZero(t, cfg.RetryBackoffSeconds)
 	assert.NotZero(t, cfg.InitialFetchRetries)
-	assert.NotZero(t, cfg.InitialFetchTimeout)
+	assert.NotZero(t, cfg.InitialFetchTimeoutSeconds)
 	assert.NotZero(t, cfg.QueryServerPort)
 	assert.Equal(t, KeyringBackendFile, cfg.KeyringBackend)
 	assert.NotEmpty(t, cfg.PushChainGRPCURLs)
 }
 
-func TestInvalidConfigValidation(t *testing.T) {
+func TestValidConfigScenarios(t *testing.T) {
 	tests := []struct {
-		name   string
-		config Config
-		errMsg string
+		name     string
+		config   Config
+		validate func(t *testing.T, cfg *Config)
 	}{
 		{
 			name: "Valid config with all fields",
-			config: &Config{
+			config: Config{
 				LogLevel:                       2,
 				LogFormat:                      "json",
 				ConfigRefreshIntervalSeconds:   30,
@@ -57,16 +61,80 @@ func TestInvalidConfigValidation(t *testing.T) {
 				PushChainGRPCURLs:              []string{"localhost:9090"},
 				QueryServerPort:                8080,
 			},
-			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 2, cfg.LogLevel)
+				assert.Equal(t, "json", cfg.LogFormat)
+			},
 		},
 		{
 			name: "Valid config with console log format",
-			config: &Config{
+			config: Config{
 				LogLevel:  1,
 				LogFormat: "console",
 			},
-			errMsg: "log level must be between 0 and 5",
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 1, cfg.LogLevel)
+				assert.Equal(t, "console", cfg.LogFormat)
+			},
 		},
+		{
+			name: "Config with defaults applied",
+			config: Config{
+				LogLevel:  2,
+				LogFormat: "json",
+			},
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds)
+				assert.Equal(t, 3, cfg.MaxRetries)
+				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
+				assert.Equal(t, 5, cfg.InitialFetchRetries)
+				assert.Equal(t, 30, cfg.InitialFetchTimeoutSeconds)
+				assert.Equal(t, []string{"localhost"}, cfg.PushChainGRPCURLs)
+				assert.Equal(t, 8080, cfg.QueryServerPort)
+			},
+		},
+		{
+			name: "Empty PushChainGRPCURLs gets default",
+			config: Config{
+				LogLevel:          2,
+				LogFormat:         "json",
+				PushChainGRPCURLs: []string{},
+			},
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, []string{"localhost"}, cfg.PushChainGRPCURLs)
+			},
+		},
+		{
+			name: "Zero QueryServerPort gets default",
+			config: Config{
+				LogLevel:        2,
+				LogFormat:       "json",
+				QueryServerPort: 0,
+			},
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 8080, cfg.QueryServerPort)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := tt.config
+			err := validateConfig(&cfg)
+			assert.NoError(t, err)
+			if tt.validate != nil {
+				tt.validate(t, &cfg)
+			}
+		})
+	}
+}
+
+func TestInvalidConfigValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		errMsg string
+	}{
 		{
 			name: "invalid log format",
 			config: Config{
@@ -81,70 +149,39 @@ func TestInvalidConfigValidation(t *testing.T) {
 				LogLevel:       1,
 				LogFormat:      "console",
 				KeyringBackend: "invalid",
+			},
+			errMsg: "keyring backend must be 'file' or 'test'",
+		},
+		{
 			name: "Invalid log level (too high)",
-			config: &Config{
+			config: Config{
 				LogLevel:  6,
 				LogFormat: "json",
 			},
-			expectError: true,
-			errorMsg:    "log level must be between 0 and 5",
+			errMsg: "log level must be between 0 and 5",
 		},
 		{
-			name: "Invalid log format",
-			config: &Config{
+			name: "Invalid log level (negative)",
+			config: Config{
+				LogLevel:  -1,
+				LogFormat: "json",
+			},
+			errMsg: "log level must be between 0 and 5",
+		},
+		{
+			name: "Invalid log format xml",
+			config: Config{
 				LogLevel:  2,
 				LogFormat: "xml",
 			},
-			expectError: true,
-			errorMsg:    "log format must be 'json' or 'console'",
-		},
-		{
-			name: "Config with defaults applied",
-			config: &Config{
-				LogLevel:  2,
-				LogFormat: "json",
-			},
-			expectError: false,
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds)
-				assert.Equal(t, 3, cfg.MaxRetries)
-				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
-				assert.Equal(t, 5, cfg.InitialFetchRetries)
-				assert.Equal(t, 30, cfg.InitialFetchTimeoutSeconds)
-				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
-				assert.Equal(t, 8080, cfg.QueryServerPort)
-			},
-		},
-		{
-			name: "Empty PushChainGRPCURLs gets default",
-			config: &Config{
-				LogLevel:          2,
-				LogFormat:         "json",
-				PushChainGRPCURLs: []string{},
-			},
-			expectError: false,
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
-			},
-		},
-		{
-			name: "Zero QueryServerPort gets default",
-			config: &Config{
-				LogLevel:        2,
-				LogFormat:       "json",
-				QueryServerPort: 0,
-			},
-			expectError: false,
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 8080, cfg.QueryServerPort)
-			},
-			errMsg: "keyring backend must be 'file' or 'test'",
+			errMsg: "log format must be 'json' or 'console'",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateConfig(&tt.config)
+			cfg := tt.config
+			err := validateConfig(&cfg)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 		})

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/rollchains/pchain/universalClient/constant"
 )
@@ -166,4 +165,4 @@ func Load(basePath string) (Config, error) {
 // GetKeyringDir returns the full path to the keyring directory
 func GetKeyringDir(cfg *Config) string {
 	return filepath.Join(constant.DefaultNodeHome, "keys")
-// LoadDefaultConfig loads the default configuration from embedded JSON
+}

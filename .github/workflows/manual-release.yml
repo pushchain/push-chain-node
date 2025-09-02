@@ -158,11 +158,24 @@ jobs:
           mv new_changelog.md CHANGELOG.md
           rm temp_changelog.md changelog_content.md
 
-      - name: Create version tag
+      - name: Create and push version tag
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          
+          # Check if tag already exists
+          if git tag --list | grep -q "^${{ github.event.inputs.version }}$"; then
+            echo "Tag ${{ github.event.inputs.version }} already exists, deleting it first"
+            git tag -d ${{ github.event.inputs.version }} || true
+            git push --delete origin ${{ github.event.inputs.version }} || true
+          fi
+          
+          # Create and push new tag
           git tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}"
+          git push origin ${{ github.event.inputs.version }}
+          
+          # Verify tag was created
+          echo "Created tag: $(git describe --tags --exact-match HEAD)"
 
       - name: Build with GoReleaser
         uses: goreleaser/goreleaser-action@v5
@@ -171,7 +184,6 @@ jobs:
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ github.event.inputs.version }}
 
       - name: Update Release Notes
         uses: softprops/action-gh-release@v1

@@ -19,15 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-<<<<<<< HEAD:api/uexecutor/v1/query_grpc.pb.go
-	Query_Params_FullMethodName      = "/uexecutor.v1.Query/Params"
-	Query_ChainConfig_FullMethodName = "/uexecutor.v1.Query/ChainConfig"
-=======
-	Query_Params_FullMethodName             = "/ue.v1.Query/Params"
-	Query_AllPendingInbounds_FullMethodName = "/ue.v1.Query/AllPendingInbounds"
-	Query_GetUniversalTx_FullMethodName     = "/ue.v1.Query/GetUniversalTx"
-	Query_AllUniversalTx_FullMethodName     = "/ue.v1.Query/AllUniversalTx"
->>>>>>> d2d892a (refactor: added generated protobuf):api/ue/v1/query_grpc.pb.go
+	Query_Params_FullMethodName             = "/uexecutor.v1.Query/Params"
+	Query_AllPendingInbounds_FullMethodName = "/uexecutor.v1.Query/AllPendingInbounds"
+	Query_GetUniversalTx_FullMethodName     = "/uexecutor.v1.Query/GetUniversalTx"
+	Query_AllUniversalTx_FullMethodName     = "/uexecutor.v1.Query/AllUniversalTx"
 )
 
 // QueryClient is the client API for Query service.

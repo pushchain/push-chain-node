@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 type msgServer struct {

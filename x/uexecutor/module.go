@@ -50,6 +50,7 @@ type AppModule struct {
 	accountKeeper     types.AccountKeeper
 	uregistryKeeper   types.UregistryKeeper
 	utxverifierKeeper types.UtxverifierKeeper
+	uvalidatorKeeper  types.UValidatorKeeper
 }
 
 // NewAppModule constructor
@@ -62,6 +63,7 @@ func NewAppModule(
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
 	utxverifierKeeper types.UtxverifierKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic:    AppModuleBasic{cdc: cdc},
@@ -72,6 +74,7 @@ func NewAppModule(
 		accountKeeper:     accountKeeper,
 		uregistryKeeper:   uregistryKeeper,
 		utxverifierKeeper: utxverifierKeeper,
+		uvalidatorKeeper:  uvalidatorKeeper,
 	}
 }
 

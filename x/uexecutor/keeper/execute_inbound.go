@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 func (k Keeper) ExecuteInbound(ctx context.Context, utx types.UniversalTx) error {

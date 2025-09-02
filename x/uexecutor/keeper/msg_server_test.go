@@ -13,12 +13,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/common"
-	pchaintypes "github.com/rollchains/pchain/types"
-	"github.com/rollchains/pchain/utils"
-	uekeeper "github.com/rollchains/pchain/x/ue/keeper"
-	"github.com/rollchains/pchain/x/ue/types"
-	ue "github.com/rollchains/pchain/x/ue/types"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
+	"github.com/pushchain/push-chain-node/utils"
+	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	ue "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 func TestParams(t *testing.T) {
@@ -123,7 +123,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(receipt, errors.New("unable to deploy UEA"))
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)

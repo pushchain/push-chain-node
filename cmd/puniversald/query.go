@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -22,16 +22,16 @@ const (
 
 // ChainConfigOutput represents the output format for chain configs
 type ChainConfigOutput struct {
-	Config      *uregistrytypes.ChainConfig `yaml:"config,omitempty" json:"config,omitempty"`
+	Config      *uregistrytypes.ChainConfig   `yaml:"config,omitempty" json:"config,omitempty"`
 	Configs     []*uregistrytypes.ChainConfig `yaml:"configs,omitempty" json:"configs,omitempty"`
-	LastFetched time.Time `yaml:"last_fetched" json:"last_fetched"`
+	LastFetched time.Time                     `yaml:"last_fetched" json:"last_fetched"`
 }
 
 // TokenConfigOutput represents the output format for token configs
 type TokenConfigOutput struct {
-	Config      *uregistrytypes.TokenConfig `yaml:"config,omitempty" json:"config,omitempty"`
+	Config      *uregistrytypes.TokenConfig   `yaml:"config,omitempty" json:"config,omitempty"`
 	Configs     []*uregistrytypes.TokenConfig `yaml:"configs,omitempty" json:"configs,omitempty"`
-	LastFetched time.Time `yaml:"last_fetched" json:"last_fetched"`
+	LastFetched time.Time                     `yaml:"last_fetched" json:"last_fetched"`
 }
 
 // QueryResponse represents the standard query response format from HTTP API
@@ -47,9 +47,9 @@ type ErrorResponse struct {
 
 func queryCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "query",
+		Use:     "query",
 		Aliases: []string{"q"},
-		Short: "Querying commands",
+		Short:   "Querying commands",
 	}
 
 	cmd.AddCommand(uregistryCmd())

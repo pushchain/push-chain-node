@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // MockUregistryKeeper is a mock of UregistryKeeper interface.

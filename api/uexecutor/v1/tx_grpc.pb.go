@@ -19,34 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
-<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
-<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
-	Msg_UpdateParams_FullMethodName      = "/uexecutor.v1.Msg/UpdateParams"
-	Msg_DeployUEA_FullMethodName         = "/uexecutor.v1.Msg/DeployUEA"
-	Msg_MintPC_FullMethodName            = "/uexecutor.v1.Msg/MintPC"
-	Msg_ExecutePayload_FullMethodName    = "/uexecutor.v1.Msg/ExecutePayload"
-	Msg_AddChainConfig_FullMethodName    = "/uexecutor.v1.Msg/AddChainConfig"
-	Msg_UpdateChainConfig_FullMethodName = "/uexecutor.v1.Msg/UpdateChainConfig"
-=======
-=======
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx_grpc.pb.go
-	Msg_UpdateParams_FullMethodName   = "/ue.v1.Msg/UpdateParams"
-	Msg_DeployUEA_FullMethodName      = "/ue.v1.Msg/DeployUEA"
-	Msg_MintPC_FullMethodName         = "/ue.v1.Msg/MintPC"
-	Msg_ExecutePayload_FullMethodName = "/ue.v1.Msg/ExecutePayload"
-<<<<<<< HEAD:api/uexecutor/v1/tx_grpc.pb.go
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx_grpc.pb.go
-=======
-	Msg_UpdateParams_FullMethodName         = "/ue.v1.Msg/UpdateParams"
-	Msg_DeployUEA_FullMethodName            = "/ue.v1.Msg/DeployUEA"
-	Msg_MintPC_FullMethodName               = "/ue.v1.Msg/MintPC"
-	Msg_ExecutePayload_FullMethodName       = "/ue.v1.Msg/ExecutePayload"
-	Msg_VoteInboundSynthetic_FullMethodName = "/ue.v1.Msg/VoteInboundSynthetic"
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx_grpc.pb.go
-=======
-	Msg_VoteInbound_FullMethodName    = "/ue.v1.Msg/VoteInbound"
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx_grpc.pb.go
+	Msg_UpdateParams_FullMethodName   = "/uexecutor.v1.Msg/UpdateParams"
+	Msg_DeployUEA_FullMethodName      = "/uexecutor.v1.Msg/DeployUEA"
+	Msg_MintPC_FullMethodName         = "/uexecutor.v1.Msg/MintPC"
+	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
+	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
 )
 
 // MsgClient is the client API for Msg service.

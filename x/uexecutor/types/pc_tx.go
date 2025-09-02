@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/rollchains/pchain/utils"
+	"github.com/pushchain/push-chain-node/utils"
 )
 
 // Stringer method for Params.

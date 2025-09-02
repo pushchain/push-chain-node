@@ -3,7 +3,7 @@ package keeper
 import (
 	"context"
 
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // AddPendingInbound adds an inbound synthetic to the pending set if not already present

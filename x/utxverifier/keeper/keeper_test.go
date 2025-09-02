@@ -31,7 +31,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	"github.com/pushchain/push-chain-node/x/utxverifier/types"
 
-	uregistryKeeper "github.com/rollchains/pchain/x/uregistry/keeper"
+	uregistryKeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
 )
 
 var maccPerms = map[string][]string{

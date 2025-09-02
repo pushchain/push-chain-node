@@ -7,7 +7,7 @@ import (
 
 	// sdk "github.com/cosmos/cosmos-sdk/types"
 	"cosmossdk.io/collections"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // CreateUniversalTx stores a new UniversalTx

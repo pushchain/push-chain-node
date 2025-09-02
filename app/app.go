@@ -169,15 +169,15 @@ import (
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistry "github.com/pushchain/push-chain-node/x/uregistry"
+	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
-	uregistry "github.com/rollchains/pchain/x/uregistry"
-	uregistrykeeper "github.com/rollchains/pchain/x/uregistry/keeper"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	uvalidator "github.com/rollchains/pchain/x/uvalidator"
-	uvalidatorkeeper "github.com/rollchains/pchain/x/uvalidator/keeper"
-	uvalidatortypes "github.com/rollchains/pchain/x/uvalidator/types"
+	uvalidator "github.com/pushchain/push-chain-node/x/uvalidator"
+	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -726,7 +726,7 @@ func NewChainApp(
 	// Create the uregistry Keeper
 	app.UregistryKeeper = uregistrykeeper.NewKeeper(
 		appCodec,
-u		runtime.NewKVStoreService(keys[uu.StoreKey]),
+		runtime.NewKVStoreService(keys[uregistrytypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)

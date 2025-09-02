@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 func NormalizeTxHash(txHash string, vmType uregistrytypes.VmType) (string, error) {

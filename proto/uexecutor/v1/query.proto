@@ -3,9 +3,6 @@ package uexecutor.v1;
 
 import "google/api/annotations.proto";
 import "uexecutor/v1/types.proto";
-
-
-
 import "cosmos/base/query/v1beta1/pagination.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";

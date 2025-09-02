@@ -9,10 +9,10 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/rollchains/pchain/utils/rpc"
-	evmrpc "github.com/rollchains/pchain/utils/rpc/evm"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	utxverifiertypes "github.com/rollchains/pchain/x/utxverifier/types"
+	"github.com/pushchain/push-chain-node/utils/rpc"
+	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 // isValidEVMGateway checks if tx.To equals gateway address

@@ -41,7 +41,7 @@ import (
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	uvalidatorKeeper "github.com/rollchains/pchain/x/uvalidator/keeper"
+	uvalidatorKeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
 
 var maccPerms = map[string][]string{

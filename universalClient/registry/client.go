@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // connectionInfo holds information about a gRPC connection
@@ -25,15 +25,15 @@ type connectionInfo struct {
 
 // RegistryClient handles communication with Push Chain's uregistry module
 type RegistryClient struct {
-	connections  []*connectionInfo
-	currentIdx   int
-	mu           sync.RWMutex
-	logger       zerolog.Logger
+	connections []*connectionInfo
+	currentIdx  int
+	mu          sync.RWMutex
+	logger      zerolog.Logger
 
 	// Retry configuration
 	maxRetries   int
 	retryBackoff time.Duration
-	
+
 	// Health check configuration
 	healthCheckInterval time.Duration
 	unhealthyCooldown   time.Duration
@@ -159,13 +159,13 @@ func (c *RegistryClient) checkAllConnections() {
 		// Check connection state
 		state := connInfo.conn.GetState()
 		wasHealthy := connInfo.healthy
-		
+
 		if state == connectivity.Ready || state == connectivity.Idle {
 			// Try a simple query to verify it actually works
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			_, err := connInfo.queryClient.AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
 			cancel()
-			
+
 			connInfo.healthy = err == nil
 			if err != nil {
 				c.logger.Debug().
@@ -353,7 +353,7 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Err(err).
 				Str("query", queryName).
 				Msg("no healthy connections available")
-			
+
 			// If no healthy connections, try to trigger failover
 			if connectionAttempts < maxConnectionAttempts {
 				connectionAttempts++
@@ -395,7 +395,7 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Msg("marking connection unhealthy due to error")
 			c.selectNextHealthy()
 			c.mu.Unlock()
-			
+
 			// Don't count connection failures against retry limit
 			if connectionAttempts < maxConnectionAttempts {
 				connectionAttempts++
@@ -423,7 +423,7 @@ func isConnectionError(err error) bool {
 
 // contains checks if a string contains a substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr || 
+	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr ||
 		len(s) >= len(substr) && s[:len(substr)] == substr ||
 		len(s) > len(substr) && containsMiddle(s, substr)
 }

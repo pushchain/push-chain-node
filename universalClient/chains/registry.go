@@ -7,10 +7,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/chains/evm"
-	"github.com/rollchains/pchain/universalClient/chains/svm"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/chains/evm"
+	"github.com/pushchain/push-chain-node/universalClient/chains/svm"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // ChainRegistry manages chain clients based on their configurations

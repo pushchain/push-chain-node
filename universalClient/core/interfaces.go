@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // RegistryInterface defines the interface for registry operations

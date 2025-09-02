@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/x/ue/types"
-	uvalidatortypes "github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 func (k Keeper) VoteOnInboundBallot(

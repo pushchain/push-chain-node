@@ -3773,32 +3773,6 @@ func (x *fastReflection_MsgExecutePayloadResponse) ProtoMethods() *protoiface.Me
 	}
 }
 
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-var (
-	md_MsgAddChainConfig              protoreflect.MessageDescriptor
-	fd_MsgAddChainConfig_signer       protoreflect.FieldDescriptor
-	fd_MsgAddChainConfig_chain_config protoreflect.FieldDescriptor
-)
-
-func init() {
-	file_uexecutor_v1_tx_proto_init()
-	md_MsgAddChainConfig = File_uexecutor_v1_tx_proto.Messages().ByName("MsgAddChainConfig")
-	fd_MsgAddChainConfig_signer = md_MsgAddChainConfig.Fields().ByName("signer")
-	fd_MsgAddChainConfig_chain_config = md_MsgAddChainConfig.Fields().ByName("chain_config")
-}
-
-var _ protoreflect.Message = (*fastReflection_MsgAddChainConfig)(nil)
-
-type fastReflection_MsgAddChainConfig MsgAddChainConfig
-
-func (x *MsgAddChainConfig) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgAddChainConfig)(x)
-}
-
-func (x *MsgAddChainConfig) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
-=======
 var (
 	md_MsgVoteInbound         protoreflect.MessageDescriptor
 	fd_MsgVoteInbound_signer  protoreflect.FieldDescriptor
@@ -3806,8 +3780,8 @@ var (
 )
 
 func init() {
-	file_ue_v1_tx_proto_init()
-	md_MsgVoteInbound = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInbound")
+	file_uexecutor_v1_tx_proto_init()
+	md_MsgVoteInbound = File_uexecutor_v1_tx_proto.Messages().ByName("MsgVoteInbound")
 	fd_MsgVoteInbound_signer = md_MsgVoteInbound.Fields().ByName("signer")
 	fd_MsgVoteInbound_inbound = md_MsgVoteInbound.Fields().ByName("inbound")
 }
@@ -3821,8 +3795,7 @@ func (x *MsgVoteInbound) ProtoReflect() protoreflect.Message {
 }
 
 func (x *MsgVoteInbound) slowProtoReflect() protoreflect.Message {
-	mi := &file_ue_v1_tx_proto_msgTypes[8]
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3833,28 +3806,8 @@ func (x *MsgVoteInbound) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-var _fastReflection_MsgAddChainConfig_messageType fastReflection_MsgAddChainConfig_messageType
-var _ protoreflect.MessageType = fastReflection_MsgAddChainConfig_messageType{}
-
-type fastReflection_MsgAddChainConfig_messageType struct{}
-
-func (x fastReflection_MsgAddChainConfig_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgAddChainConfig)(nil)
-}
-func (x fastReflection_MsgAddChainConfig_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgAddChainConfig)
-}
-func (x fastReflection_MsgAddChainConfig_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgAddChainConfig
-=======
-var _fastReflection_MsgVoteInboundSynthetic_messageType fastReflection_MsgVoteInboundSynthetic_messageType
-var _ protoreflect.MessageType = fastReflection_MsgVoteInboundSynthetic_messageType{}
-=======
 var _fastReflection_MsgVoteInbound_messageType fastReflection_MsgVoteInbound_messageType
 var _ protoreflect.MessageType = fastReflection_MsgVoteInbound_messageType{}
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 
 type fastReflection_MsgVoteInbound_messageType struct{}
 
@@ -3864,54 +3817,19 @@ func (x fastReflection_MsgVoteInbound_messageType) Zero() protoreflect.Message {
 func (x fastReflection_MsgVoteInbound_messageType) New() protoreflect.Message {
 	return new(fastReflection_MsgVoteInbound)
 }
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x fastReflection_MsgVoteInboundSynthetic_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSynthetic
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x fastReflection_MsgVoteInbound_messageType) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInbound
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgAddChainConfig
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSynthetic
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInbound
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Type() protoreflect.MessageType {
-	return _fastReflection_MsgAddChainConfig_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgAddChainConfig) New() protoreflect.Message {
-	return new(fastReflection_MsgAddChainConfig)
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Type() protoreflect.MessageType {
-	return _fastReflection_MsgVoteInboundSynthetic_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgVoteInboundSynthetic) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSynthetic)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) Type() protoreflect.MessageType {
 	return _fastReflection_MsgVoteInbound_messageType
 }
@@ -3919,23 +3837,12 @@ func (x *fastReflection_MsgVoteInbound) Type() protoreflect.MessageType {
 // New returns a newly allocated and mutable empty message.
 func (x *fastReflection_MsgVoteInbound) New() protoreflect.Message {
 	return new(fastReflection_MsgVoteInbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Interface() protoreflect.ProtoMessage {
-	return (*MsgAddChainConfig)(x)
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Interface() protoreflect.ProtoMessage {
-	return (*MsgVoteInboundSynthetic)(x)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) Interface() protoreflect.ProtoMessage {
 	return (*MsgVoteInbound)(x)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -3943,75 +3850,16 @@ func (x *fastReflection_MsgVoteInbound) Interface() protoreflect.ProtoMessage {
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Signer != "" {
-		value := protoreflect.ValueOfString(x.Signer)
-		if !f(fd_MsgAddChainConfig_signer, value) {
-			return
-		}
-	}
-	if x.ChainConfig != nil {
-		value := protoreflect.ValueOfMessage(x.ChainConfig.ProtoReflect())
-		if !f(fd_MsgAddChainConfig_chain_config, value) {
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-=======
 func (x *fastReflection_MsgVoteInbound) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	if x.Signer != "" {
 		value := protoreflect.ValueOfString(x.Signer)
 		if !f(fd_MsgVoteInbound_signer, value) {
 			return
 		}
 	}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	if x.SourceChain != "" {
-		value := protoreflect.ValueOfString(x.SourceChain)
-		if !f(fd_MsgVoteInboundSynthetic_source_chain, value) {
-			return
-		}
-	}
-	if x.TxHash != "" {
-		value := protoreflect.ValueOfString(x.TxHash)
-		if !f(fd_MsgVoteInboundSynthetic_tx_hash, value) {
-			return
-		}
-	}
-	if x.Sender != "" {
-		value := protoreflect.ValueOfString(x.Sender)
-		if !f(fd_MsgVoteInboundSynthetic_sender, value) {
-			return
-		}
-	}
-	if x.Recipient != "" {
-		value := protoreflect.ValueOfString(x.Recipient)
-		if !f(fd_MsgVoteInboundSynthetic_recipient, value) {
-			return
-		}
-	}
-	if x.Amount != "" {
-		value := protoreflect.ValueOfString(x.Amount)
-		if !f(fd_MsgVoteInboundSynthetic_amount, value) {
-			return
-		}
-	}
-	if x.AssetAddr != "" {
-		value := protoreflect.ValueOfString(x.AssetAddr)
-		if !f(fd_MsgVoteInboundSynthetic_asset_addr, value) {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-	if x.InboundSynthetic != nil {
-		value := protoreflect.ValueOfMessage(x.InboundSynthetic.ProtoReflect())
-		if !f(fd_MsgVoteInboundSynthetic_inbound_synthetic, value) {
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-=======
 	if x.Inbound != nil {
 		value := protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
 		if !f(fd_MsgVoteInbound_inbound, value) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			return
 		}
 	}
@@ -4028,39 +3876,17 @@ func (x *fastReflection_MsgVoteInbound) Range(f func(protoreflect.FieldDescripto
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		return x.Signer != ""
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		return x.ChainConfig != nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Has(fd protoreflect.FieldDescriptor) bool {
-=======
 func (x *fastReflection_MsgVoteInbound) Has(fd protoreflect.FieldDescriptor) bool {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInbound.signer":
+	case "uexecutor.v1.MsgVoteInbound.signer":
 		return x.Signer != ""
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		return x.Inbound != nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4070,39 +3896,17 @@ func (x *fastReflection_MsgVoteInbound) Has(fd protoreflect.FieldDescriptor) boo
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		x.Signer = ""
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		x.ChainConfig = nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Clear(fd protoreflect.FieldDescriptor) {
-=======
 func (x *fastReflection_MsgVoteInbound) Clear(fd protoreflect.FieldDescriptor) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInbound.signer":
+	case "uexecutor.v1.MsgVoteInbound.signer":
 		x.Signer = ""
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		x.Inbound = nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4112,43 +3916,19 @@ func (x *fastReflection_MsgVoteInbound) Clear(fd protoreflect.FieldDescriptor) {
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		value := x.Signer
-		return protoreflect.ValueOfString(value)
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		value := x.ChainConfig
-		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", descriptor.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-=======
 func (x *fastReflection_MsgVoteInbound) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch descriptor.FullName() {
-	case "ue.v1.MsgVoteInbound.signer":
+	case "uexecutor.v1.MsgVoteInbound.signer":
 		value := x.Signer
 		return protoreflect.ValueOfString(value)
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		value := x.Inbound
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", descriptor.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", descriptor.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -4162,39 +3942,17 @@ func (x *fastReflection_MsgVoteInbound) Get(descriptor protoreflect.FieldDescrip
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		x.Signer = value.Interface().(string)
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		x.ChainConfig = value.Message().Interface().(*ChainConfig)
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-=======
 func (x *fastReflection_MsgVoteInbound) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInbound.signer":
+	case "uexecutor.v1.MsgVoteInbound.signer":
 		x.Signer = value.Interface().(string)
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		x.Inbound = value.Message().Interface().(*Inbound)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4208,110 +3966,48 @@ func (x *fastReflection_MsgVoteInbound) Set(fd protoreflect.FieldDescriptor, val
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		if x.ChainConfig == nil {
-			x.ChainConfig = new(ChainConfig)
-		}
-		return protoreflect.ValueOfMessage(x.ChainConfig.ProtoReflect())
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		panic(fmt.Errorf("field signer of message uexecutor.v1.MsgAddChainConfig is not mutable"))
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-=======
 func (x *fastReflection_MsgVoteInbound) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		if x.Inbound == nil {
 			x.Inbound = new(Inbound)
 		}
 		return protoreflect.ValueOfMessage(x.Inbound.ProtoReflect())
-	case "ue.v1.MsgVoteInbound.signer":
-		panic(fmt.Errorf("field signer of message ue.v1.MsgVoteInbound is not mutable"))
+	case "uexecutor.v1.MsgVoteInbound.signer":
+		panic(fmt.Errorf("field signer of message uexecutor.v1.MsgVoteInbound is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgAddChainConfig.signer":
-		return protoreflect.ValueOfString("")
-	case "uexecutor.v1.MsgAddChainConfig.chain_config":
-		m := new(ChainConfig)
-		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfig does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-=======
 func (x *fastReflection_MsgVoteInbound) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	switch fd.FullName() {
-	case "ue.v1.MsgVoteInbound.signer":
+	case "uexecutor.v1.MsgVoteInbound.signer":
 		return protoreflect.ValueOfString("")
-	case "ue.v1.MsgVoteInbound.inbound":
+	case "uexecutor.v1.MsgVoteInbound.inbound":
 		m := new(Inbound)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInbound"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInbound"))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSynthetic does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		panic(fmt.Errorf("message ue.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInbound does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgAddChainConfig", d.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundSynthetic", d.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInbound", d.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgVoteInbound", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -4319,15 +4015,7 @@ func (x *fastReflection_MsgVoteInbound) WhichOneof(d protoreflect.OneofDescripto
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) GetUnknown() protoreflect.RawFields {
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) GetUnknown() protoreflect.RawFields {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) GetUnknown() protoreflect.RawFields {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x.unknownFields
 }
 
@@ -4338,15 +4026,7 @@ func (x *fastReflection_MsgVoteInbound) GetUnknown() protoreflect.RawFields {
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) SetUnknown(fields protoreflect.RawFields) {
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) SetUnknown(fields protoreflect.RawFields) {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) SetUnknown(fields protoreflect.RawFields) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	x.unknownFields = fields
 }
 
@@ -4358,15 +4038,7 @@ func (x *fastReflection_MsgVoteInbound) SetUnknown(fields protoreflect.RawFields
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) IsValid() bool {
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) IsValid() bool {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) IsValid() bool {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x != nil
 }
 
@@ -4376,21 +4048,9 @@ func (x *fastReflection_MsgVoteInbound) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfig) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgAddChainConfig)
-=======
-func (x *fastReflection_MsgVoteInboundSynthetic) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
 		x := input.Message.Interface().(*MsgVoteInbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4406,43 +4066,8 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		if x.ChainConfig != nil {
-			l = options.Size(x.ChainConfig)
-=======
-		l = len(x.SourceChain)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.TxHash)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.Sender)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.Recipient)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.Amount)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		l = len(x.AssetAddr)
-		if l > 0 {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-		if x.InboundSynthetic != nil {
-			l = options.Size(x.InboundSynthetic)
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-=======
 		if x.Inbound != nil {
 			l = options.Size(x.Inbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if x.unknownFields != nil {
@@ -4455,15 +4080,7 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgAddChainConfig)
-=======
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 		x := input.Message.Interface().(*MsgVoteInbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4482,19 +4099,8 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		if x.ChainConfig != nil {
-			encoded, err := options.Marshal(x.ChainConfig)
-=======
-		if x.InboundSynthetic != nil {
-			encoded, err := options.Marshal(x.InboundSynthetic)
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-=======
 		if x.Inbound != nil {
 			encoded, err := options.Marshal(x.Inbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4504,50 +4110,6 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 			i -= len(encoded)
 			copy(dAtA[i:], encoded)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-=======
-		if len(x.AssetAddr) > 0 {
-			i -= len(x.AssetAddr)
-			copy(dAtA[i:], x.AssetAddr)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.AssetAddr)))
-			i--
-			dAtA[i] = 0x3a
-		}
-		if len(x.Amount) > 0 {
-			i -= len(x.Amount)
-			copy(dAtA[i:], x.Amount)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Amount)))
-			i--
-			dAtA[i] = 0x32
-		}
-		if len(x.Recipient) > 0 {
-			i -= len(x.Recipient)
-			copy(dAtA[i:], x.Recipient)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Recipient)))
-			i--
-			dAtA[i] = 0x2a
-		}
-		if len(x.Sender) > 0 {
-			i -= len(x.Sender)
-			copy(dAtA[i:], x.Sender)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Sender)))
-			i--
-			dAtA[i] = 0x22
-		}
-		if len(x.TxHash) > 0 {
-			i -= len(x.TxHash)
-			copy(dAtA[i:], x.TxHash)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.TxHash)))
-			i--
-			dAtA[i] = 0x1a
-		}
-		if len(x.SourceChain) > 0 {
-			i -= len(x.SourceChain)
-			copy(dAtA[i:], x.SourceChain)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.SourceChain)))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 			i--
 			dAtA[i] = 0x12
 		}
@@ -4569,15 +4131,7 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgAddChainConfig)
-=======
-		x := input.Message.Interface().(*MsgVoteInboundSynthetic)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 		x := input.Message.Interface().(*MsgVoteInbound)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4609,24 +4163,10 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfig: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSynthetic: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSynthetic: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInbound: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			}
 			switch fieldNum {
 			case 1:
@@ -4663,13 +4203,7 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 2:
 				if wireType != 2 {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
-=======
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -4696,17 +4230,10 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				if x.ChainConfig == nil {
-					x.ChainConfig = &ChainConfig{}
-				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.ChainConfig); err != nil {
-=======
 				if x.Inbound == nil {
 					x.Inbound = &Inbound{}
 				}
 				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Inbound); err != nil {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -4746,32 +4273,12 @@ func (x *fastReflection_MsgVoteInbound) ProtoMethods() *protoiface.Methods {
 }
 
 var (
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	md_MsgAddChainConfigResponse protoreflect.MessageDescriptor
-)
-
-func init() {
-	file_uexecutor_v1_tx_proto_init()
-	md_MsgAddChainConfigResponse = File_uexecutor_v1_tx_proto.Messages().ByName("MsgAddChainConfigResponse")
-}
-
-var _ protoreflect.Message = (*fastReflection_MsgAddChainConfigResponse)(nil)
-
-type fastReflection_MsgAddChainConfigResponse MsgAddChainConfigResponse
-
-func (x *MsgAddChainConfigResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgAddChainConfigResponse)(x)
-}
-
-func (x *MsgAddChainConfigResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[9]
-=======
 	md_MsgVoteInboundResponse protoreflect.MessageDescriptor
 )
 
 func init() {
-	file_ue_v1_tx_proto_init()
-	md_MsgVoteInboundResponse = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundResponse")
+	file_uexecutor_v1_tx_proto_init()
+	md_MsgVoteInboundResponse = File_uexecutor_v1_tx_proto.Messages().ByName("MsgVoteInboundResponse")
 }
 
 var _ protoreflect.Message = (*fastReflection_MsgVoteInboundResponse)(nil)
@@ -4783,8 +4290,7 @@ func (x *MsgVoteInboundResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *MsgVoteInboundResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_ue_v1_tx_proto_msgTypes[9]
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4795,21 +4301,6 @@ func (x *MsgVoteInboundResponse) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-var _fastReflection_MsgAddChainConfigResponse_messageType fastReflection_MsgAddChainConfigResponse_messageType
-var _ protoreflect.MessageType = fastReflection_MsgAddChainConfigResponse_messageType{}
-
-type fastReflection_MsgAddChainConfigResponse_messageType struct{}
-
-func (x fastReflection_MsgAddChainConfigResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgAddChainConfigResponse)(nil)
-}
-func (x fastReflection_MsgAddChainConfigResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgAddChainConfigResponse)
-}
-func (x fastReflection_MsgAddChainConfigResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgAddChainConfigResponse
-=======
 var _fastReflection_MsgVoteInboundResponse_messageType fastReflection_MsgVoteInboundResponse_messageType
 var _ protoreflect.MessageType = fastReflection_MsgVoteInboundResponse_messageType{}
 
@@ -4823,32 +4314,17 @@ func (x fastReflection_MsgVoteInboundResponse_messageType) New() protoreflect.Me
 }
 func (x fastReflection_MsgVoteInboundResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInboundResponse
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgAddChainConfigResponse
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Descriptor() protoreflect.MessageDescriptor {
 	return md_MsgVoteInboundResponse
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Type() protoreflect.MessageType {
-	return _fastReflection_MsgAddChainConfigResponse_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgAddChainConfigResponse) New() protoreflect.Message {
-	return new(fastReflection_MsgAddChainConfigResponse)
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Type() protoreflect.MessageType {
 	return _fastReflection_MsgVoteInboundResponse_messageType
 }
@@ -4856,18 +4332,12 @@ func (x *fastReflection_MsgVoteInboundResponse) Type() protoreflect.MessageType 
 // New returns a newly allocated and mutable empty message.
 func (x *fastReflection_MsgVoteInboundResponse) New() protoreflect.Message {
 	return new(fastReflection_MsgVoteInboundResponse)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Interface() protoreflect.ProtoMessage {
-	return (*MsgAddChainConfigResponse)(x)
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Interface() protoreflect.ProtoMessage {
 	return (*MsgVoteInboundResponse)(x)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -4875,11 +4345,7 @@ func (x *fastReflection_MsgVoteInboundResponse) Interface() protoreflect.ProtoMe
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 }
 
 // Has reports whether a field is populated.
@@ -4893,23 +4359,13 @@ func (x *fastReflection_MsgVoteInboundResponse) Range(f func(protoreflect.FieldD
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4919,23 +4375,13 @@ func (x *fastReflection_MsgVoteInboundResponse) Has(fd protoreflect.FieldDescrip
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -4945,23 +4391,13 @@ func (x *fastReflection_MsgVoteInboundResponse) Clear(fd protoreflect.FieldDescr
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", descriptor.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", descriptor.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -4975,23 +4411,13 @@ func (x *fastReflection_MsgVoteInboundResponse) Get(descriptor protoreflect.Fiel
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -5005,63 +4431,36 @@ func (x *fastReflection_MsgVoteInboundResponse) Set(fd protoreflect.FieldDescrip
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgAddChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgAddChainConfigResponse does not contain field %s", fd.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteInboundResponse"))
 		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteInboundResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgAddChainConfigResponse", d.FullName()))
-=======
 func (x *fastReflection_MsgVoteInboundResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundResponse", d.FullName()))
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgVoteInboundResponse", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -5069,11 +4468,7 @@ func (x *fastReflection_MsgVoteInboundResponse) WhichOneof(d protoreflect.OneofD
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) GetUnknown() protoreflect.RawFields {
-=======
 func (x *fastReflection_MsgVoteInboundResponse) GetUnknown() protoreflect.RawFields {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x.unknownFields
 }
 
@@ -5084,11 +4479,7 @@ func (x *fastReflection_MsgVoteInboundResponse) GetUnknown() protoreflect.RawFie
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) SetUnknown(fields protoreflect.RawFields) {
-=======
 func (x *fastReflection_MsgVoteInboundResponse) SetUnknown(fields protoreflect.RawFields) {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	x.unknownFields = fields
 }
 
@@ -5100,11 +4491,7 @@ func (x *fastReflection_MsgVoteInboundResponse) SetUnknown(fields protoreflect.R
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) IsValid() bool {
-=======
 func (x *fastReflection_MsgVoteInboundResponse) IsValid() bool {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	return x != nil
 }
 
@@ -5114,15 +4501,9 @@ func (x *fastReflection_MsgVoteInboundResponse) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgAddChainConfigResponse) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgAddChainConfigResponse)
-=======
 func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
 		x := input.Message.Interface().(*MsgVoteInboundResponse)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -5144,11 +4525,7 @@ func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Metho
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgAddChainConfigResponse)
-=======
 		x := input.Message.Interface().(*MsgVoteInboundResponse)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -5178,11 +4555,7 @@ func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Metho
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgAddChainConfigResponse)
-=======
 		x := input.Message.Interface().(*MsgVoteInboundResponse)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -5214,17 +4587,10 @@ func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Metho
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfigResponse: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgAddChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			}
 			switch fieldNum {
 			default:
@@ -5262,1195 +4628,6 @@ func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Metho
 	}
 }
 
-var (
-	md_MsgUpdateChainConfig              protoreflect.MessageDescriptor
-	fd_MsgUpdateChainConfig_signer       protoreflect.FieldDescriptor
-	fd_MsgUpdateChainConfig_chain_config protoreflect.FieldDescriptor
-)
-
-func init() {
-	file_uexecutor_v1_tx_proto_init()
-	md_MsgUpdateChainConfig = File_uexecutor_v1_tx_proto.Messages().ByName("MsgUpdateChainConfig")
-	fd_MsgUpdateChainConfig_signer = md_MsgUpdateChainConfig.Fields().ByName("signer")
-	fd_MsgUpdateChainConfig_chain_config = md_MsgUpdateChainConfig.Fields().ByName("chain_config")
-}
-
-var _ protoreflect.Message = (*fastReflection_MsgUpdateChainConfig)(nil)
-
-type fastReflection_MsgUpdateChainConfig MsgUpdateChainConfig
-
-func (x *MsgUpdateChainConfig) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgUpdateChainConfig)(x)
-}
-
-func (x *MsgUpdateChainConfig) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-var _fastReflection_MsgUpdateChainConfig_messageType fastReflection_MsgUpdateChainConfig_messageType
-var _ protoreflect.MessageType = fastReflection_MsgUpdateChainConfig_messageType{}
-
-type fastReflection_MsgUpdateChainConfig_messageType struct{}
-
-func (x fastReflection_MsgUpdateChainConfig_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgUpdateChainConfig)(nil)
-}
-func (x fastReflection_MsgUpdateChainConfig_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgUpdateChainConfig)
-}
-func (x fastReflection_MsgUpdateChainConfig_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgUpdateChainConfig
-}
-
-// Descriptor returns message descriptor, which contains only the protobuf
-// type information for the message.
-func (x *fastReflection_MsgUpdateChainConfig) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgUpdateChainConfig
-}
-
-// Type returns the message type, which encapsulates both Go and protobuf
-// type information. If the Go type information is not needed,
-// it is recommended that the message descriptor be used instead.
-func (x *fastReflection_MsgUpdateChainConfig) Type() protoreflect.MessageType {
-	return _fastReflection_MsgUpdateChainConfig_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgUpdateChainConfig) New() protoreflect.Message {
-	return new(fastReflection_MsgUpdateChainConfig)
-}
-
-// Interface unwraps the message reflection interface and
-// returns the underlying ProtoMessage interface.
-func (x *fastReflection_MsgUpdateChainConfig) Interface() protoreflect.ProtoMessage {
-	return (*MsgUpdateChainConfig)(x)
-}
-
-// Range iterates over every populated field in an undefined order,
-// calling f for each field descriptor and value encountered.
-// Range returns immediately if f returns false.
-// While iterating, mutating operations may only be performed
-// on the current field descriptor.
-func (x *fastReflection_MsgUpdateChainConfig) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Signer != "" {
-		value := protoreflect.ValueOfString(x.Signer)
-		if !f(fd_MsgUpdateChainConfig_signer, value) {
-			return
-		}
-	}
-	if x.ChainConfig != nil {
-		value := protoreflect.ValueOfMessage(x.ChainConfig.ProtoReflect())
-		if !f(fd_MsgUpdateChainConfig_chain_config, value) {
-			return
-		}
-	}
-}
-
-// Has reports whether a field is populated.
-//
-// Some fields have the property of nullability where it is possible to
-// distinguish between the default value of a field and whether the field
-// was explicitly populated with the default value. Singular message fields,
-// member fields of a oneof, and proto2 scalar fields are nullable. Such
-// fields are populated only if explicitly set.
-//
-// In other cases (aside from the nullable cases above),
-// a proto3 scalar field is populated if it contains a non-zero value, and
-// a repeated field is populated if it is non-empty.
-func (x *fastReflection_MsgUpdateChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		return x.Signer != ""
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		return x.ChainConfig != nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", fd.FullName()))
-	}
-}
-
-// Clear clears the field such that a subsequent Has call reports false.
-//
-// Clearing an extension field clears both the extension type and value
-// associated with the given field number.
-//
-// Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgUpdateChainConfig) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		x.Signer = ""
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		x.ChainConfig = nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", fd.FullName()))
-	}
-}
-
-// Get retrieves the value for a field.
-//
-// For unpopulated scalars, it returns the default value, where
-// the default value of a bytes scalar is guaranteed to be a copy.
-// For unpopulated composite types, it returns an empty, read-only view
-// of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_MsgUpdateChainConfig) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		value := x.Signer
-		return protoreflect.ValueOfString(value)
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		value := x.ChainConfig
-		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", descriptor.FullName()))
-	}
-}
-
-// Set stores the value for a field.
-//
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType.
-// When setting a composite type, it is unspecified whether the stored value
-// aliases the source's memory in any way. If the composite value is an
-// empty, read-only value, then it panics.
-//
-// Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgUpdateChainConfig) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		x.Signer = value.Interface().(string)
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		x.ChainConfig = value.Message().Interface().(*ChainConfig)
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", fd.FullName()))
-	}
-}
-
-// Mutable returns a mutable reference to a composite type.
-//
-// If the field is unpopulated, it may allocate a composite value.
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType
-// if not already stored.
-// It panics if the field does not contain a composite type.
-//
-// Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgUpdateChainConfig) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		if x.ChainConfig == nil {
-			x.ChainConfig = new(ChainConfig)
-		}
-		return protoreflect.ValueOfMessage(x.ChainConfig.ProtoReflect())
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		panic(fmt.Errorf("field signer of message uexecutor.v1.MsgUpdateChainConfig is not mutable"))
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", fd.FullName()))
-	}
-}
-
-// NewField returns a new value that is assignable to the field
-// for the given descriptor. For scalars, this returns the default value.
-// For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_MsgUpdateChainConfig) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uexecutor.v1.MsgUpdateChainConfig.signer":
-		return protoreflect.ValueOfString("")
-	case "uexecutor.v1.MsgUpdateChainConfig.chain_config":
-		m := new(ChainConfig)
-		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfig"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfig does not contain field %s", fd.FullName()))
-	}
-}
-
-// WhichOneof reports which field within the oneof is populated,
-// returning nil if none are populated.
-// It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_MsgUpdateChainConfig) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgUpdateChainConfig", d.FullName()))
-	}
-	panic("unreachable")
-}
-
-// GetUnknown retrieves the entire list of unknown fields.
-// The caller may only mutate the contents of the RawFields
-// if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_MsgUpdateChainConfig) GetUnknown() protoreflect.RawFields {
-	return x.unknownFields
-}
-
-// SetUnknown stores an entire list of unknown fields.
-// The raw fields must be syntactically valid according to the wire format.
-// An implementation may panic if this is not the case.
-// Once stored, the caller must not mutate the content of the RawFields.
-// An empty RawFields may be passed to clear the fields.
-//
-// SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_MsgUpdateChainConfig) SetUnknown(fields protoreflect.RawFields) {
-	x.unknownFields = fields
-}
-
-// IsValid reports whether the message is valid.
-//
-// An invalid message is an empty, read-only value.
-//
-// An invalid message often corresponds to a nil pointer of the concrete
-// message type, but the details are implementation dependent.
-// Validity is not part of the protobuf data model, and may not
-// be preserved in marshaling or other operations.
-func (x *fastReflection_MsgUpdateChainConfig) IsValid() bool {
-	return x != nil
-}
-
-// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
-// This method may return nil.
-//
-// The returned methods type is identical to
-// "google.golang.org/protobuf/runtime/protoiface".Methods.
-// Consult the protoiface package documentation for details.
-func (x *fastReflection_MsgUpdateChainConfig) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgUpdateChainConfig)
-		if x == nil {
-			return protoiface.SizeOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Size:              0,
-			}
-		}
-		options := runtime.SizeInputToOptions(input)
-		_ = options
-		var n int
-		var l int
-		_ = l
-		l = len(x.Signer)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		if x.ChainConfig != nil {
-			l = options.Size(x.ChainConfig)
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		if x.unknownFields != nil {
-			n += len(x.unknownFields)
-		}
-		return protoiface.SizeOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Size:              n,
-		}
-	}
-
-	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*MsgUpdateChainConfig)
-		if x == nil {
-			return protoiface.MarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Buf:               input.Buf,
-			}, nil
-		}
-		options := runtime.MarshalInputToOptions(input)
-		_ = options
-		size := options.Size(x)
-		dAtA := make([]byte, size)
-		i := len(dAtA)
-		_ = i
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			i -= len(x.unknownFields)
-			copy(dAtA[i:], x.unknownFields)
-		}
-		if x.ChainConfig != nil {
-			encoded, err := options.Marshal(x.ChainConfig)
-			if err != nil {
-				return protoiface.MarshalOutput{
-					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-					Buf:               input.Buf,
-				}, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
-			i--
-			dAtA[i] = 0x12
-		}
-		if len(x.Signer) > 0 {
-			i -= len(x.Signer)
-			copy(dAtA[i:], x.Signer)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Signer)))
-			i--
-			dAtA[i] = 0xa
-		}
-		if input.Buf != nil {
-			input.Buf = append(input.Buf, dAtA...)
-		} else {
-			input.Buf = dAtA
-		}
-		return protoiface.MarshalOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Buf:               input.Buf,
-		}, nil
-	}
-	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*MsgUpdateChainConfig)
-		if x == nil {
-			return protoiface.UnmarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Flags:             input.Flags,
-			}, nil
-		}
-		options := runtime.UnmarshalInputToOptions(input)
-		_ = options
-		dAtA := input.Buf
-		l := len(dAtA)
-		iNdEx := 0
-		for iNdEx < l {
-			preIndex := iNdEx
-			var wire uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				wire |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			fieldNum := int32(wire >> 3)
-			wireType := int(wire & 0x7)
-			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateChainConfig: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
-			}
-			switch fieldNum {
-			case 1:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
-=======
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SourceChain", wireType)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field InboundSynthetic", wireType)
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-				}
-				var msglen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					msglen |= int(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				if msglen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + msglen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				x.Signer = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 2:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
-				}
-				var msglen int
-=======
-				x.SourceChain = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 3:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
-				}
-				var stringLen uint64
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-					msglen |= int(b&0x7F) << shift
-=======
-					stringLen |= uint64(b&0x7F) << shift
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-					if b < 0x80 {
-						break
-					}
-				}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				if msglen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + msglen
-=======
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				if x.ChainConfig == nil {
-					x.ChainConfig = &ChainConfig{}
-				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.ChainConfig); err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-=======
-				x.TxHash = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 4:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.Sender = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 5:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Recipient", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.Recipient = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 6:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.Amount = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 7:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field AssetAddr", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.AssetAddr = string(dAtA[iNdEx:postIndex])
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-				if x.InboundSynthetic == nil {
-					x.InboundSynthetic = &InboundSynthetic{}
-				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.InboundSynthetic); err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-				iNdEx = postIndex
-			default:
-				iNdEx = preIndex
-				skippy, err := runtime.Skip(dAtA[iNdEx:])
-				if err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-				if (skippy < 0) || (iNdEx+skippy) < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if (iNdEx + skippy) > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				if !options.DiscardUnknown {
-					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
-				}
-				iNdEx += skippy
-			}
-		}
-
-		if iNdEx > l {
-			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-		}
-		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
-	}
-	return &protoiface.Methods{
-		NoUnkeyedLiterals: struct{}{},
-		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
-		Size:              size,
-		Marshal:           marshal,
-		Unmarshal:         unmarshal,
-		Merge:             nil,
-		CheckInitialized:  nil,
-	}
-}
-
-var (
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	md_MsgUpdateChainConfigResponse protoreflect.MessageDescriptor
-)
-
-func init() {
-	file_uexecutor_v1_tx_proto_init()
-	md_MsgUpdateChainConfigResponse = File_uexecutor_v1_tx_proto.Messages().ByName("MsgUpdateChainConfigResponse")
-}
-
-var _ protoreflect.Message = (*fastReflection_MsgUpdateChainConfigResponse)(nil)
-
-type fastReflection_MsgUpdateChainConfigResponse MsgUpdateChainConfigResponse
-
-func (x *MsgUpdateChainConfigResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgUpdateChainConfigResponse)(x)
-}
-
-func (x *MsgUpdateChainConfigResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
-=======
-	md_MsgVoteInboundSyntheticResponse protoreflect.MessageDescriptor
-)
-
-func init() {
-	file_ue_v1_tx_proto_init()
-	md_MsgVoteInboundSyntheticResponse = File_ue_v1_tx_proto.Messages().ByName("MsgVoteInboundSyntheticResponse")
-}
-
-var _ protoreflect.Message = (*fastReflection_MsgVoteInboundSyntheticResponse)(nil)
-
-type fastReflection_MsgVoteInboundSyntheticResponse MsgVoteInboundSyntheticResponse
-
-func (x *MsgVoteInboundSyntheticResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSyntheticResponse)(x)
-}
-
-func (x *MsgVoteInboundSyntheticResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_ue_v1_tx_proto_msgTypes[9]
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-var _fastReflection_MsgUpdateChainConfigResponse_messageType fastReflection_MsgUpdateChainConfigResponse_messageType
-var _ protoreflect.MessageType = fastReflection_MsgUpdateChainConfigResponse_messageType{}
-
-type fastReflection_MsgUpdateChainConfigResponse_messageType struct{}
-
-func (x fastReflection_MsgUpdateChainConfigResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgUpdateChainConfigResponse)(nil)
-}
-func (x fastReflection_MsgUpdateChainConfigResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgUpdateChainConfigResponse)
-}
-func (x fastReflection_MsgUpdateChainConfigResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgUpdateChainConfigResponse
-=======
-var _fastReflection_MsgVoteInboundSyntheticResponse_messageType fastReflection_MsgVoteInboundSyntheticResponse_messageType
-var _ protoreflect.MessageType = fastReflection_MsgVoteInboundSyntheticResponse_messageType{}
-
-type fastReflection_MsgVoteInboundSyntheticResponse_messageType struct{}
-
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_MsgVoteInboundSyntheticResponse)(nil)
-}
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSyntheticResponse)
-}
-func (x fastReflection_MsgVoteInboundSyntheticResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSyntheticResponse
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-}
-
-// Descriptor returns message descriptor, which contains only the protobuf
-// type information for the message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgUpdateChainConfigResponse
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_MsgVoteInboundSyntheticResponse
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-}
-
-// Type returns the message type, which encapsulates both Go and protobuf
-// type information. If the Go type information is not needed,
-// it is recommended that the message descriptor be used instead.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Type() protoreflect.MessageType {
-	return _fastReflection_MsgUpdateChainConfigResponse_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgUpdateChainConfigResponse) New() protoreflect.Message {
-	return new(fastReflection_MsgUpdateChainConfigResponse)
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Type() protoreflect.MessageType {
-	return _fastReflection_MsgVoteInboundSyntheticResponse_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) New() protoreflect.Message {
-	return new(fastReflection_MsgVoteInboundSyntheticResponse)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-}
-
-// Interface unwraps the message reflection interface and
-// returns the underlying ProtoMessage interface.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Interface() protoreflect.ProtoMessage {
-	return (*MsgUpdateChainConfigResponse)(x)
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Interface() protoreflect.ProtoMessage {
-	return (*MsgVoteInboundSyntheticResponse)(x)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-}
-
-// Range iterates over every populated field in an undefined order,
-// calling f for each field descriptor and value encountered.
-// Range returns immediately if f returns false.
-// While iterating, mutating operations may only be performed
-// on the current field descriptor.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-}
-
-// Has reports whether a field is populated.
-//
-// Some fields have the property of nullability where it is possible to
-// distinguish between the default value of a field and whether the field
-// was explicitly populated with the default value. Singular message fields,
-// member fields of a oneof, and proto2 scalar fields are nullable. Such
-// fields are populated only if explicitly set.
-//
-// In other cases (aside from the nullable cases above),
-// a proto3 scalar field is populated if it contains a non-zero value, and
-// a repeated field is populated if it is non-empty.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// Clear clears the field such that a subsequent Has call reports false.
-//
-// Clearing an extension field clears both the extension type and value
-// associated with the given field number.
-//
-// Clear is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// Get retrieves the value for a field.
-//
-// For unpopulated scalars, it returns the default value, where
-// the default value of a bytes scalar is guaranteed to be a copy.
-// For unpopulated composite types, it returns an empty, read-only view
-// of the value; to obtain a mutable reference, use Mutable.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", descriptor.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", descriptor.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// Set stores the value for a field.
-//
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType.
-// When setting a composite type, it is unspecified whether the stored value
-// aliases the source's memory in any way. If the composite value is an
-// empty, read-only value, then it panics.
-//
-// Set is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// Mutable returns a mutable reference to a composite type.
-//
-// If the field is unpopulated, it may allocate a composite value.
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType
-// if not already stored.
-// It panics if the field does not contain a composite type.
-//
-// Mutable is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// NewField returns a new value that is assignable to the field
-// for the given descriptor. For scalars, this returns the default value.
-// For lists, maps, and messages, this returns a new, empty, mutable value.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgUpdateChainConfigResponse"))
-		}
-		panic(fmt.Errorf("message uexecutor.v1.MsgUpdateChainConfigResponse does not contain field %s", fd.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: ue.v1.MsgVoteInboundSyntheticResponse"))
-		}
-		panic(fmt.Errorf("message ue.v1.MsgVoteInboundSyntheticResponse does not contain field %s", fd.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-}
-
-// WhichOneof reports which field within the oneof is populated,
-// returning nil if none are populated.
-// It panics if the oneof descriptor does not belong to this message.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgUpdateChainConfigResponse", d.FullName()))
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in ue.v1.MsgVoteInboundSyntheticResponse", d.FullName()))
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	}
-	panic("unreachable")
-}
-
-// GetUnknown retrieves the entire list of unknown fields.
-// The caller may only mutate the contents of the RawFields
-// if the mutated bytes are stored back into the message with SetUnknown.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) GetUnknown() protoreflect.RawFields {
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) GetUnknown() protoreflect.RawFields {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	return x.unknownFields
-}
-
-// SetUnknown stores an entire list of unknown fields.
-// The raw fields must be syntactically valid according to the wire format.
-// An implementation may panic if this is not the case.
-// Once stored, the caller must not mutate the content of the RawFields.
-// An empty RawFields may be passed to clear the fields.
-//
-// SetUnknown is a mutating operation and unsafe for concurrent use.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) SetUnknown(fields protoreflect.RawFields) {
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) SetUnknown(fields protoreflect.RawFields) {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	x.unknownFields = fields
-}
-
-// IsValid reports whether the message is valid.
-//
-// An invalid message is an empty, read-only value.
-//
-// An invalid message often corresponds to a nil pointer of the concrete
-// message type, but the details are implementation dependent.
-// Validity is not part of the protobuf data model, and may not
-// be preserved in marshaling or other operations.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) IsValid() bool {
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) IsValid() bool {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-	return x != nil
-}
-
-// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
-// This method may return nil.
-//
-// The returned methods type is identical to
-// "google.golang.org/protobuf/runtime/protoiface".Methods.
-// Consult the protoiface package documentation for details.
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-func (x *fastReflection_MsgUpdateChainConfigResponse) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgUpdateChainConfigResponse)
-=======
-func (x *fastReflection_MsgVoteInboundSyntheticResponse) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-		if x == nil {
-			return protoiface.SizeOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Size:              0,
-			}
-		}
-		options := runtime.SizeInputToOptions(input)
-		_ = options
-		var n int
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			n += len(x.unknownFields)
-		}
-		return protoiface.SizeOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Size:              n,
-		}
-	}
-
-	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgUpdateChainConfigResponse)
-=======
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-		if x == nil {
-			return protoiface.MarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Buf:               input.Buf,
-			}, nil
-		}
-		options := runtime.MarshalInputToOptions(input)
-		_ = options
-		size := options.Size(x)
-		dAtA := make([]byte, size)
-		i := len(dAtA)
-		_ = i
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			i -= len(x.unknownFields)
-			copy(dAtA[i:], x.unknownFields)
-		}
-		if input.Buf != nil {
-			input.Buf = append(input.Buf, dAtA...)
-		} else {
-			input.Buf = dAtA
-		}
-		return protoiface.MarshalOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Buf:               input.Buf,
-		}, nil
-	}
-	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		x := input.Message.Interface().(*MsgUpdateChainConfigResponse)
-=======
-		x := input.Message.Interface().(*MsgVoteInboundSyntheticResponse)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-		if x == nil {
-			return protoiface.UnmarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Flags:             input.Flags,
-			}, nil
-		}
-		options := runtime.UnmarshalInputToOptions(input)
-		_ = options
-		dAtA := input.Buf
-		l := len(dAtA)
-		iNdEx := 0
-		for iNdEx < l {
-			preIndex := iNdEx
-			var wire uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				wire |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			fieldNum := int32(wire >> 3)
-			wireType := int(wire & 0x7)
-			if wireType == 4 {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateChainConfigResponse: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteInboundSyntheticResponse: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-			}
-			switch fieldNum {
-			default:
-				iNdEx = preIndex
-				skippy, err := runtime.Skip(dAtA[iNdEx:])
-				if err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-				if (skippy < 0) || (iNdEx+skippy) < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if (iNdEx + skippy) > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				if !options.DiscardUnknown {
-					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
-				}
-				iNdEx += skippy
-			}
-		}
-
-		if iNdEx > l {
-			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-		}
-		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
-	}
-	return &protoiface.Methods{
-		NoUnkeyedLiterals: struct{}{},
-		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
-		Size:              size,
-		Marshal:           marshal,
-		Unmarshal:         unmarshal,
-		Merge:             nil,
-		CheckInitialized:  nil,
-	}
-}
-
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-=======
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
-=======
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -6810,25 +4987,8 @@ func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
 	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-// MsgAddChainConfig defines a message to add a new ChainConfig.
-type MsgAddChainConfig struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-=======
-// MsgVoteInboundSynthetic allows a universal validator to vote on an inbound synthetic transfer.
-type MsgVoteInboundSynthetic struct {
-=======
-// MsgVoteInbound allows a universal validator to vote on an inbound synthetic transfer.
-=======
 // MsgVoteInbound allows a universal validator to vote on an inbound transfer.
->>>>>>> 02d0c51 (fix: fixed broken test cases of uregistry module):api/ue/v1/tx.pulsar.go
 type MsgVoteInbound struct {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -6841,7 +5001,7 @@ type MsgVoteInbound struct {
 func (x *MsgVoteInbound) Reset() {
 	*x = MsgVoteInbound{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ue_v1_tx_proto_msgTypes[8]
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6855,7 +5015,7 @@ func (*MsgVoteInbound) ProtoMessage() {}
 
 // Deprecated: Use MsgVoteInbound.ProtoReflect.Descriptor instead.
 func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
-	return file_ue_v1_tx_proto_rawDescGZIP(), []int{8}
+	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MsgVoteInbound) GetSigner() string {
@@ -6882,7 +5042,7 @@ type MsgVoteInboundResponse struct {
 func (x *MsgVoteInboundResponse) Reset() {
 	*x = MsgVoteInboundResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ue_v1_tx_proto_msgTypes[9]
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6896,156 +5056,10 @@ func (*MsgVoteInboundResponse) ProtoMessage() {}
 
 // Deprecated: Use MsgVoteInboundResponse.ProtoReflect.Descriptor instead.
 func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
-	return file_ue_v1_tx_proto_rawDescGZIP(), []int{9}
-}
-
-var File_ue_v1_tx_proto protoreflect.FileDescriptor
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-
-	// signer is the address authorized to add a chain config
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// The new ChainConfig to add
-	ChainConfig *ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config,omitempty"`
-}
-
-func (x *MsgAddChainConfig) Reset() {
-	*x = MsgAddChainConfig{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MsgAddChainConfig) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgAddChainConfig) ProtoMessage() {}
-
-// Deprecated: Use MsgAddChainConfig.ProtoReflect.Descriptor instead.
-func (*MsgAddChainConfig) Descriptor() ([]byte, []int) {
-	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *MsgAddChainConfig) GetSigner() string {
-	if x != nil {
-		return x.Signer
-	}
-	return ""
-}
-
-func (x *MsgAddChainConfig) GetChainConfig() *ChainConfig {
-	if x != nil {
-		return x.ChainConfig
-	}
-	return nil
-}
-
-// MsgAddChainConfigResponse defines the response for MsgAddChainConfig.
-type MsgAddChainConfigResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *MsgAddChainConfigResponse) Reset() {
-	*x = MsgAddChainConfigResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MsgAddChainConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgAddChainConfigResponse) ProtoMessage() {}
-
-// Deprecated: Use MsgAddChainConfigResponse.ProtoReflect.Descriptor instead.
-func (*MsgAddChainConfigResponse) Descriptor() ([]byte, []int) {
 	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
-// MsgUpdateChainConfig defines a message to update a existing ChainConfig.
-type MsgUpdateChainConfig struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// signer is the address authorized to add a chain config
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// The new ChainConfig to add
-	ChainConfig *ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config,omitempty"`
-}
-
-func (x *MsgUpdateChainConfig) Reset() {
-	*x = MsgUpdateChainConfig{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MsgUpdateChainConfig) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgUpdateChainConfig) ProtoMessage() {}
-
-// Deprecated: Use MsgUpdateChainConfig.ProtoReflect.Descriptor instead.
-func (*MsgUpdateChainConfig) Descriptor() ([]byte, []int) {
-	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *MsgUpdateChainConfig) GetSigner() string {
-	if x != nil {
-		return x.Signer
-	}
-	return ""
-}
-
-func (x *MsgUpdateChainConfig) GetChainConfig() *ChainConfig {
-	if x != nil {
-		return x.ChainConfig
-	}
-	return nil
-}
-
-// MsgUpdateChainConfigResponse defines the response for MsgUpdateChainConfig.
-type MsgUpdateChainConfigResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *MsgUpdateChainConfigResponse) Reset() {
-	*x = MsgUpdateChainConfigResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MsgUpdateChainConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgUpdateChainConfigResponse) ProtoMessage() {}
-
-// Deprecated: Use MsgUpdateChainConfigResponse.ProtoReflect.Descriptor instead.
-func (*MsgUpdateChainConfigResponse) Descriptor() ([]byte, []int) {
-	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{11}
-}
-
 var File_uexecutor_v1_tx_proto protoreflect.FileDescriptor
-=======
-var File_ue_v1_tx_proto protoreflect.FileDescriptor
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
 
 var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x0a, 0x15, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x2f, 0x74,
@@ -7107,7 +5121,6 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06,
 	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x52, 0x0a, 0x14, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
 	0x73, 0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x02,
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 	0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
 	0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63,
 	0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x52, 0x12, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
@@ -7123,304 +5136,56 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f,
 	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
 	0x64, 0x22, 0x1b, 0x0a, 0x19, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50,
-	0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xb0,
-	0x01, 0x0a, 0x11, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06,
-	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x3c, 0x0a, 0x0c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f,
-	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75,
-	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x3a, 0x2b, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
-	0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f,
-	0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x22, 0x1b, 0x0a, 0x19, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xb6,
-	0x01, 0x0a, 0x14, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
-	0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73,
-	0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e,
-	0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x3c, 0x0a, 0x0c, 0x63, 0x68, 0x61,
-	0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x19, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x43,
-	0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0b, 0x63, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x3a, 0x2e, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69,
-	0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x6f, 0x72, 0x2f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x1e, 0x0a, 0x1c, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x90, 0x04, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12,
-	0x54, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12,
-	0x1d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x25,
-	0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55,
-	0x45, 0x41, 0x12, 0x1a, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x22,
-	0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x42, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x17, 0x2e, 0x75,
-	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d,
-	0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
-	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x5a, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63,
-	0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x27, 0x2e, 0x75, 0x65, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63,
-	0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x5a, 0x0a, 0x0e, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x12, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x27, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
-	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x63,
-	0x0a, 0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x12, 0x22, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x1a, 0x2a, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0xaf, 0x01, 0x0a, 0x10, 0x63,
-	0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42,
-	0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x76,
-	0x31, 0x3b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03,
-	0x55, 0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
-	0x56, 0x31, 0xca, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56,
-	0x31, 0xe2, 0x02, 0x18, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
-	0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55,
-	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
-=======
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69,
-	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x52,
-	0x12, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x78, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x03,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x78, 0x48, 0x61, 0x73, 0x68, 0x3a, 0x1c, 0x82, 0xe7,
-	0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x0c, 0x75, 0x65,
-	0x2f, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x22, 0x13, 0x0a, 0x11, 0x4d, 0x73,
-	0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0xab, 0x02, 0x0a, 0x11, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61,
-	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
-	0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52,
-	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x4b, 0x0a, 0x14, 0x75, 0x6e, 0x69, 0x76, 0x65,
-	0x72, 0x73, 0x61, 0x6c, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e,
-	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64,
-	0x52, 0x12, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75,
-	0x6e, 0x74, 0x49, 0x64, 0x12, 0x44, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
-	0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x2b, 0x0a, 0x11, 0x76, 0x65,
-	0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x18,
-	0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x3a, 0x24, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69,
-	0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x45,
-	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x1b, 0x0a,
-	0x19, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f,
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x97, 0x02, 0x0a, 0x03, 0x4d,
-	0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65,
-	0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75,
-	0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45,
-	0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e,
-	0x74, 0x50, 0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d,
-	0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61,
-	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80,
-	0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76,
-	0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69,
-	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61,
-	0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75,
-	0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa,
-	0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2,
-	0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64,
-	0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
-	0x6f, 0x74, 0x6f, 0x33,
-=======
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x88, 0x02, 0x0a, 0x17, 0x4d,
-=======
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa0, 0x02, 0x0a, 0x17, 0x4d,
->>>>>>> 2e4e4a5 (refactor: updated msg_vote_inbound_synthetic proto and generated protobuf):api/ue/v1/tx.pulsar.go
-=======
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xbd, 0x01, 0x0a, 0x17, 0x4d,
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e,
-	0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d,
-	0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67,
-	0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x44, 0x0a, 0x11, 0x69, 0x6e, 0x62, 0x6f,
-	0x75, 0x6e, 0x64, 0x5f, 0x73, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f,
-	0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x10, 0x69, 0x6e,
-	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x3a, 0x2a,
-	0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1a,
-	0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
-	0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x22, 0x21, 0x0a, 0x1f, 0x4d, 0x73,
-	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74,
-	0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xf7, 0x02,
-	0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
-	0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e,
-	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50,
-	0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a,
-	0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a,
-	0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f,
-	0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06,
-	0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
-	0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20,
-	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x5e, 0x0a, 0x14, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x1a, 0x26, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53,
-	0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	0x32, 0xf7, 0x02, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c,
-	0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50,
-	0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e,
-	0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d,
-	0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a,
-	0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12,
-	0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76,
+	0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x96,
+	0x01, 0x0a, 0x0e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
+	0x64, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67,
+	0x6e, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x07, 0x69, 0x6e, 0x62,
+	0x6f, 0x75, 0x6e, 0x64, 0x3a, 0x21, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
+	0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x11, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65,
+	0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x18, 0x0a, 0x16, 0x4d, 0x73, 0x67, 0x56, 0x6f,
+	0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x32, 0xa2, 0x03, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x54, 0x0a, 0x0c, 0x55, 0x70, 0x64,
+	0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1d, 0x2e, 0x75, 0x65, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61,
+	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x25, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
+	0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x4b, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x1a, 0x2e, 0x75,
+	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44,
+	0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x22, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f,
+	0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x42, 0x0a, 0x06,
+	0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x17, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a,
+	0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x5a, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f,
+	0x61, 0x64, 0x12, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76,
 	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c,
-	0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x5e, 0x0a, 0x14, 0x56,
-	0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65,
-	0x74, 0x69, 0x63, 0x12, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56,
-	0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65,
-	0x74, 0x69, 0x63, 0x1a, 0x26, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56,
-	0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65,
-	0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0,
-	0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42,
-	0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f,
-	0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05,
-	0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11,
-	0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
-	0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
-	0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x13, 0x2e,
-	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55,
-	0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65,
-	0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76,
-	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65,
-	0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x5e, 0x0a, 0x14, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75,
-	0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x12, 0x1e, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75,
-	0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x1a, 0x26, 0x2e, 0x75, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75,
-	0x6e, 0x64, 0x53, 0x79, 0x6e, 0x74, 0x68, 0x65, 0x74, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f,
-	0x6d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f,
-	0x50, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72,
-	0x6f, 0x6c, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2,
-	0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05,
-	0x55, 0x65, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50,
-	0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a,
-	0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
->>>>>>> 2e4e4a5 (refactor: updated msg_vote_inbound_synthetic proto and generated protobuf):api/ue/v1/tx.pulsar.go
-=======
-	0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
-	0x65, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
-	0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70,
-	0x69, 0x2f, 0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55,
-	0x58, 0x58, 0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c,
-	0x56, 0x31, 0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65,
-	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
-=======
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x8f, 0x01, 0x0a, 0x0e, 0x4d,
-	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x30, 0x0a,
-	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2,
-	0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12,
-	0x28, 0x0a, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x0e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64,
-	0x52, 0x07, 0x69, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x3a, 0x21, 0x82, 0xe7, 0xb0, 0x2a, 0x06,
-	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x11, 0x75, 0x65, 0x2f, 0x4d, 0x73,
-	0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x18, 0x0a, 0x16,
-	0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xdc, 0x02, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x46,
-	0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x16,
-	0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x1e, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79,
-	0x55, 0x45, 0x41, 0x12, 0x13, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44,
-	0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x1b, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12,
-	0x10, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50,
-	0x43, 0x1a, 0x18, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e,
-	0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0e, 0x45,
-	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x18, 0x2e,
-	0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65,
-	0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x20, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x43, 0x0a, 0x0b, 0x56, 0x6f, 0x74,
-	0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x15, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a,
-	0x1d, 0x2e, 0x75, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49,
-	0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05,
-	0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x76, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x2e,
-	0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2b, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x6f, 0x6c, 0x6c, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x61, 0x70, 0x69, 0x2f,
-	0x75, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
-	0xaa, 0x02, 0x05, 0x55, 0x65, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x05, 0x55, 0x65, 0x5c, 0x56, 0x31,
-	0xe2, 0x02, 0x11, 0x55, 0x65, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61,
-	0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x06, 0x55, 0x65, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
+	0x6f, 0x61, 0x64, 0x1a, 0x27, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
+	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
+	0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x51, 0x0a, 0x0b,
+	0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x1c, 0x2e, 0x75, 0x65,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f,
+	0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a, 0x24, 0x2e, 0x75, 0x65, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65,
+	0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a,
+	0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0xaf, 0x01, 0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
+	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50,
+	0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73,
+	0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69,
+	0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa,
+	0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02,
+	0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x18,
+	0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42,
+	0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55, 0x65, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -7435,118 +5200,45 @@ func file_uexecutor_v1_tx_proto_rawDescGZIP() []byte {
 	return file_uexecutor_v1_tx_proto_rawDescData
 }
 
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-var file_uexecutor_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_uexecutor_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_uexecutor_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),              // 0: uexecutor.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),      // 1: uexecutor.v1.MsgUpdateParamsResponse
-	(*MsgDeployUEA)(nil),                 // 2: uexecutor.v1.MsgDeployUEA
-	(*MsgDeployUEAResponse)(nil),         // 3: uexecutor.v1.MsgDeployUEAResponse
-	(*MsgMintPC)(nil),                    // 4: uexecutor.v1.MsgMintPC
-	(*MsgMintPCResponse)(nil),            // 5: uexecutor.v1.MsgMintPCResponse
-	(*MsgExecutePayload)(nil),            // 6: uexecutor.v1.MsgExecutePayload
-	(*MsgExecutePayloadResponse)(nil),    // 7: uexecutor.v1.MsgExecutePayloadResponse
-	(*MsgAddChainConfig)(nil),            // 8: uexecutor.v1.MsgAddChainConfig
-	(*MsgAddChainConfigResponse)(nil),    // 9: uexecutor.v1.MsgAddChainConfigResponse
-	(*MsgUpdateChainConfig)(nil),         // 10: uexecutor.v1.MsgUpdateChainConfig
-	(*MsgUpdateChainConfigResponse)(nil), // 11: uexecutor.v1.MsgUpdateChainConfigResponse
-	(*Params)(nil),                       // 12: uexecutor.v1.Params
-	(*UniversalAccountId)(nil),           // 13: uexecutor.v1.UniversalAccountId
-	(*UniversalPayload)(nil),             // 14: uexecutor.v1.UniversalPayload
-	(*ChainConfig)(nil),                  // 15: uexecutor.v1.ChainConfig
+	(*MsgUpdateParams)(nil),           // 0: uexecutor.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),   // 1: uexecutor.v1.MsgUpdateParamsResponse
+	(*MsgDeployUEA)(nil),              // 2: uexecutor.v1.MsgDeployUEA
+	(*MsgDeployUEAResponse)(nil),      // 3: uexecutor.v1.MsgDeployUEAResponse
+	(*MsgMintPC)(nil),                 // 4: uexecutor.v1.MsgMintPC
+	(*MsgMintPCResponse)(nil),         // 5: uexecutor.v1.MsgMintPCResponse
+	(*MsgExecutePayload)(nil),         // 6: uexecutor.v1.MsgExecutePayload
+	(*MsgExecutePayloadResponse)(nil), // 7: uexecutor.v1.MsgExecutePayloadResponse
+	(*MsgVoteInbound)(nil),            // 8: uexecutor.v1.MsgVoteInbound
+	(*MsgVoteInboundResponse)(nil),    // 9: uexecutor.v1.MsgVoteInboundResponse
+	(*Params)(nil),                    // 10: uexecutor.v1.Params
+	(*UniversalAccountId)(nil),        // 11: uexecutor.v1.UniversalAccountId
+	(*UniversalPayload)(nil),          // 12: uexecutor.v1.UniversalPayload
+	(*Inbound)(nil),                   // 13: uexecutor.v1.Inbound
 }
 var file_uexecutor_v1_tx_proto_depIdxs = []int32{
-	12, // 0: uexecutor.v1.MsgUpdateParams.params:type_name -> uexecutor.v1.Params
-	13, // 1: uexecutor.v1.MsgDeployUEA.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	13, // 2: uexecutor.v1.MsgMintPC.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	13, // 3: uexecutor.v1.MsgExecutePayload.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	14, // 4: uexecutor.v1.MsgExecutePayload.universal_payload:type_name -> uexecutor.v1.UniversalPayload
-	15, // 5: uexecutor.v1.MsgAddChainConfig.chain_config:type_name -> uexecutor.v1.ChainConfig
-	15, // 6: uexecutor.v1.MsgUpdateChainConfig.chain_config:type_name -> uexecutor.v1.ChainConfig
-	0,  // 7: uexecutor.v1.Msg.UpdateParams:input_type -> uexecutor.v1.MsgUpdateParams
-	2,  // 8: uexecutor.v1.Msg.DeployUEA:input_type -> uexecutor.v1.MsgDeployUEA
-	4,  // 9: uexecutor.v1.Msg.MintPC:input_type -> uexecutor.v1.MsgMintPC
-	6,  // 10: uexecutor.v1.Msg.ExecutePayload:input_type -> uexecutor.v1.MsgExecutePayload
-	8,  // 11: uexecutor.v1.Msg.AddChainConfig:input_type -> uexecutor.v1.MsgAddChainConfig
-	10, // 12: uexecutor.v1.Msg.UpdateChainConfig:input_type -> uexecutor.v1.MsgUpdateChainConfig
-	1,  // 13: uexecutor.v1.Msg.UpdateParams:output_type -> uexecutor.v1.MsgUpdateParamsResponse
-	3,  // 14: uexecutor.v1.Msg.DeployUEA:output_type -> uexecutor.v1.MsgDeployUEAResponse
-	5,  // 15: uexecutor.v1.Msg.MintPC:output_type -> uexecutor.v1.MsgMintPCResponse
-	7,  // 16: uexecutor.v1.Msg.ExecutePayload:output_type -> uexecutor.v1.MsgExecutePayloadResponse
-	9,  // 17: uexecutor.v1.Msg.AddChainConfig:output_type -> uexecutor.v1.MsgAddChainConfigResponse
-	11, // 18: uexecutor.v1.Msg.UpdateChainConfig:output_type -> uexecutor.v1.MsgUpdateChainConfigResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
-=======
-var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-=======
-var file_ue_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-var file_ue_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),           // 0: ue.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),   // 1: ue.v1.MsgUpdateParamsResponse
-	(*MsgDeployUEA)(nil),              // 2: ue.v1.MsgDeployUEA
-	(*MsgDeployUEAResponse)(nil),      // 3: ue.v1.MsgDeployUEAResponse
-	(*MsgMintPC)(nil),                 // 4: ue.v1.MsgMintPC
-	(*MsgMintPCResponse)(nil),         // 5: ue.v1.MsgMintPCResponse
-	(*MsgExecutePayload)(nil),         // 6: ue.v1.MsgExecutePayload
-	(*MsgExecutePayloadResponse)(nil), // 7: ue.v1.MsgExecutePayloadResponse
-	(*MsgVoteInbound)(nil),            // 8: ue.v1.MsgVoteInbound
-	(*MsgVoteInboundResponse)(nil),    // 9: ue.v1.MsgVoteInboundResponse
-	(*Params)(nil),                    // 10: ue.v1.Params
-	(*UniversalAccountId)(nil),        // 11: ue.v1.UniversalAccountId
-	(*UniversalPayload)(nil),          // 12: ue.v1.UniversalPayload
-	(*Inbound)(nil),                   // 13: ue.v1.Inbound
-}
-var file_ue_v1_tx_proto_depIdxs = []int32{
-	10, // 0: ue.v1.MsgUpdateParams.params:type_name -> ue.v1.Params
-	11, // 1: ue.v1.MsgDeployUEA.universal_account_id:type_name -> ue.v1.UniversalAccountId
-	11, // 2: ue.v1.MsgMintPC.universal_account_id:type_name -> ue.v1.UniversalAccountId
-	11, // 3: ue.v1.MsgExecutePayload.universal_account_id:type_name -> ue.v1.UniversalAccountId
-	12, // 4: ue.v1.MsgExecutePayload.universal_payload:type_name -> ue.v1.UniversalPayload
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-	0,  // 5: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
-	2,  // 6: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
-	4,  // 7: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
-	6,  // 8: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
-	8,  // 9: ue.v1.Msg.VoteInboundSynthetic:input_type -> ue.v1.MsgVoteInboundSynthetic
-	1,  // 10: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
-	3,  // 11: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
-	5,  // 12: ue.v1.Msg.MintPC:output_type -> ue.v1.MsgMintPCResponse
-	7,  // 13: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
-	9,  // 14: ue.v1.Msg.VoteInboundSynthetic:output_type -> ue.v1.MsgVoteInboundSyntheticResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
-=======
-	13, // 5: ue.v1.MsgVoteInboundSynthetic.inbound_synthetic:type_name -> ue.v1.InboundSynthetic
-=======
-	13, // 5: ue.v1.MsgVoteInbound.inbound:type_name -> ue.v1.Inbound
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
-	0,  // 6: ue.v1.Msg.UpdateParams:input_type -> ue.v1.MsgUpdateParams
-	2,  // 7: ue.v1.Msg.DeployUEA:input_type -> ue.v1.MsgDeployUEA
-	4,  // 8: ue.v1.Msg.MintPC:input_type -> ue.v1.MsgMintPC
-	6,  // 9: ue.v1.Msg.ExecutePayload:input_type -> ue.v1.MsgExecutePayload
-	8,  // 10: ue.v1.Msg.VoteInbound:input_type -> ue.v1.MsgVoteInbound
-	1,  // 11: ue.v1.Msg.UpdateParams:output_type -> ue.v1.MsgUpdateParamsResponse
-	3,  // 12: ue.v1.Msg.DeployUEA:output_type -> ue.v1.MsgDeployUEAResponse
-	5,  // 13: ue.v1.Msg.MintPC:output_type -> ue.v1.MsgMintPCResponse
-	7,  // 14: ue.v1.Msg.ExecutePayload:output_type -> ue.v1.MsgExecutePayloadResponse
-	9,  // 15: ue.v1.Msg.VoteInbound:output_type -> ue.v1.MsgVoteInboundResponse
+	10, // 0: uexecutor.v1.MsgUpdateParams.params:type_name -> uexecutor.v1.Params
+	11, // 1: uexecutor.v1.MsgDeployUEA.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	11, // 2: uexecutor.v1.MsgMintPC.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	11, // 3: uexecutor.v1.MsgExecutePayload.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	12, // 4: uexecutor.v1.MsgExecutePayload.universal_payload:type_name -> uexecutor.v1.UniversalPayload
+	13, // 5: uexecutor.v1.MsgVoteInbound.inbound:type_name -> uexecutor.v1.Inbound
+	0,  // 6: uexecutor.v1.Msg.UpdateParams:input_type -> uexecutor.v1.MsgUpdateParams
+	2,  // 7: uexecutor.v1.Msg.DeployUEA:input_type -> uexecutor.v1.MsgDeployUEA
+	4,  // 8: uexecutor.v1.Msg.MintPC:input_type -> uexecutor.v1.MsgMintPC
+	6,  // 9: uexecutor.v1.Msg.ExecutePayload:input_type -> uexecutor.v1.MsgExecutePayload
+	8,  // 10: uexecutor.v1.Msg.VoteInbound:input_type -> uexecutor.v1.MsgVoteInbound
+	1,  // 11: uexecutor.v1.Msg.UpdateParams:output_type -> uexecutor.v1.MsgUpdateParamsResponse
+	3,  // 12: uexecutor.v1.Msg.DeployUEA:output_type -> uexecutor.v1.MsgDeployUEAResponse
+	5,  // 13: uexecutor.v1.Msg.MintPC:output_type -> uexecutor.v1.MsgMintPCResponse
+	7,  // 14: uexecutor.v1.Msg.ExecutePayload:output_type -> uexecutor.v1.MsgExecutePayloadResponse
+	9,  // 15: uexecutor.v1.Msg.VoteInbound:output_type -> uexecutor.v1.MsgVoteInboundResponse
 	11, // [11:16] is the sub-list for method output_type
 	6,  // [6:11] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
->>>>>>> 2de3479 (refactor: updated proto impl of msg_vote_inbound_synthetic):api/ue/v1/tx.pulsar.go
 }
 
 func init() { file_uexecutor_v1_tx_proto_init() }
@@ -7652,18 +5344,8 @@ func file_uexecutor_v1_tx_proto_init() {
 				return nil
 			}
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		file_uexecutor_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgAddChainConfig); i {
-=======
-		file_ue_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-			switch v := v.(*MsgVoteInboundSynthetic); i {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 			switch v := v.(*MsgVoteInbound); i {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			case 0:
 				return &v.state
 			case 1:
@@ -7674,17 +5356,8 @@ func file_uexecutor_v1_tx_proto_init() {
 				return nil
 			}
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
 		file_uexecutor_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgAddChainConfigResponse); i {
-=======
-		file_ue_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-			switch v := v.(*MsgVoteInboundSyntheticResponse); i {
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
-=======
 			switch v := v.(*MsgVoteInboundResponse); i {
->>>>>>> e0e466f (refactor: renamed inbound_synthetic to inbound and added a tx_type in inbound):api/ue/v1/tx.pulsar.go
 			case 0:
 				return &v.state
 			case 1:
@@ -7695,35 +5368,6 @@ func file_uexecutor_v1_tx_proto_init() {
 				return nil
 			}
 		}
-<<<<<<< HEAD:api/uexecutor/v1/tx.pulsar.go
-		file_uexecutor_v1_tx_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgUpdateChainConfig); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_uexecutor_v1_tx_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgUpdateChainConfigResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-=======
->>>>>>> 0feca6d (feat: integrating uregistry methods with ue, utv modules):api/ue/v1/tx.pulsar.go
-=======
->>>>>>> 3eee8af (refactor: added generated brotobuf):api/ue/v1/tx.pulsar.go
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

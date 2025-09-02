@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rollchains/pchain/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

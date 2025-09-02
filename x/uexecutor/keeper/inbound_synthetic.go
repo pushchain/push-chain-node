@@ -2,42 +2,12 @@ package keeper
 
 import (
 	"context"
-<<<<<<< HEAD:x/uexecutor/keeper/inbound_synthetic.go
-
-	"github.com/rollchains/pchain/x/ue/types"
-)
-
-// AddPendingInboundSynthetic adds an inbound synthetic to the pending set if not already present
-func (k Keeper) AddPendingInboundSynthetic(ctx context.Context, inbound types.InboundSynthetic) error {
-	key := types.GetInboundSyntheticKey(inbound)
-	has, err := k.PendingInboundSynthetics.Has(ctx, key)
-	if err != nil {
-		return err
-	}
-	if has {
-		// Already present, do nothing
-		return nil
-	}
-	return k.PendingInboundSynthetics.Set(ctx, key)
-}
-
-// IsPendingInboundSynthetic checks if an inbound synthetic is pending
-func (k Keeper) IsPendingInboundSynthetic(ctx context.Context, inbound types.InboundSynthetic) (bool, error) {
-	key := types.GetInboundSyntheticKey(inbound)
-	return k.PendingInboundSynthetics.Has(ctx, key)
-}
-
-// RemovePendingInboundSynthetic removes an inbound synthetic from the pending set
-func (k Keeper) RemovePendingInboundSynthetic(ctx context.Context, inbound types.InboundSynthetic) error {
-	key := types.GetInboundSyntheticKey(inbound)
-	return k.PendingInboundSynthetics.Remove(ctx, key)
-=======
 	"fmt"
 	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 func (k Keeper) ExecuteInboundSynthetic(ctx context.Context, utx types.UniversalTx) error {
@@ -87,5 +57,4 @@ func (k Keeper) ExecuteInboundSynthetic(ctx context.Context, utx types.Universal
 	}
 
 	return nil
->>>>>>> 51ad333 (feat: added keeper method for ExecuteInboundSynthetic):x/ue/keeper/inbound_synthetic.go
 }

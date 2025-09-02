@@ -8,26 +8,33 @@ import (
 	utils "github.com/pushchain/push-chain-node/testutils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMintPC(t *testing.T) {
 	app, ctx, _ := utils.SetAppWithValidators(t)
-	chainConfigTest := uexecutortypes.ChainConfig{
-		Chain:             "eip155:11155111",
-		VmType:            uexecutortypes.VM_TYPE_EVM,
-		PublicRpcUrl:      "https://1rpc.io/sepolia",
-		GatewayAddress:    "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
-		BlockConfirmation: 12,
-		GatewayMethods: []*uexecutortypes.MethodConfig{&uexecutortypes.MethodConfig{
+	chainConfigTest := uregistrytypes.ChainConfig{
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		PublicRpcUrl:   "https://1rpc.io/sepolia",
+		GatewayAddress: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
+		BlockConfirmation: &uregistrytypes.BlockConfirmation{
+			FastInbound:     5,
+			StandardInbound: 12,
+		},
+		GatewayMethods: []*uregistrytypes.GatewayMethods{&uregistrytypes.GatewayMethods{
 			Name:            "addFunds",
-			Identifier:      "0xf9bfe8a7",
+			Identifier:      "",
 			EventIdentifier: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
 		}},
-		Enabled: true,
+		Enabled: &uregistrytypes.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 
-	app.UexecutorKeeper.AddChainConfig(ctx, &chainConfigTest)
+	app.UregistryKeeper.AddChainConfig(ctx, &chainConfigTest)
 	ms := uexecutorkeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
 	t.Run("Success", func(t *testing.T) {

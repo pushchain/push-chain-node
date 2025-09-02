@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
 )
 
 // ChainData represents cached data for a single chain
@@ -271,7 +271,6 @@ func (c *ConfigCache) UpdateAll(chains []*uregistrytypes.ChainConfig, tokens []*
 		Msg("updated all configs in cache")
 }
 
-
 // GetLastUpdate returns the last update timestamp
 func (c *ConfigCache) GetLastUpdate() time.Time {
 	c.mu.RLock()
@@ -304,4 +303,3 @@ func (c *ConfigCache) GetChainData(chainID string) *ChainData {
 
 	return result
 }
-

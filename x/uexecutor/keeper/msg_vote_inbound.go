@@ -7,7 +7,7 @@ import (
 	errors "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rollchains/pchain/x/ue/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // voteInbound is for uvalidators for voting on synthetic asset inbound bridging

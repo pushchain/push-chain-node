@@ -3,8 +3,8 @@ package types_test
 import (
 	"testing"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	utxverifiertypes "github.com/rollchains/pchain/x/utxverifier/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	"github.com/stretchr/testify/require"
 )
 

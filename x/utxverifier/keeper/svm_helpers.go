@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/decred/base58"
-	"github.com/rollchains/pchain/utils/rpc"
-	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	utxverifiertypes "github.com/rollchains/pchain/x/utxverifier/types"
+	"github.com/pushchain/push-chain-node/utils/rpc"
+	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 func IsValidSVMSender(accountKeys []string, expectedHex string) (string, error) {

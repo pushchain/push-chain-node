@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/utils/rpc"
-	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	utxverifiertypes "github.com/rollchains/pchain/x/utxverifier/types"
+	"github.com/pushchain/push-chain-node/utils"
+	"github.com/pushchain/push-chain-node/utils/rpc"
+	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract

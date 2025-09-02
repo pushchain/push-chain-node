@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 
+<<<<<<< HEAD:x/utxverifier/keeper/verify_gateway_interaction_tx.go
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+=======
+	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+>>>>>>> feat/universal-validator:x/utv/keeper/verify_gateway_interaction_tx.go
 )
 
 // VerifyGatewayInteractionTx only verifies if the user has interacted with the gateway on the source chain.

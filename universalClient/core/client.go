@@ -77,7 +77,6 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
 	}
-
 	// Start the query server
 	if uc.queryServer != nil {
 		uc.log.Info().Int("port", uc.config.QueryServerPort).Msg("Starting query server...")
@@ -98,7 +97,6 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.queryServer.Stop(); err != nil {
 		uc.log.Error().Err(err).Msg("error stopping query server")
 	}
-
 	// Stop config updater
 	uc.configUpdater.Stop()
 

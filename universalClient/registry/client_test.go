@@ -201,7 +201,6 @@ func TestRegistryClientMethods(t *testing.T) {
 	t.Run("RetryLogic_ContextCancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-
 		// First call fails
 		mockClient.EXPECT().
 			AllChainConfigs(gomock.Any(), gomock.Any()).

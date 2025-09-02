@@ -193,12 +193,10 @@ func TestChainClientInterface(t *testing.T) {
 		}),
 		healthy: true,
 	}
-
 	// Verify interface methods work through embedding
 	assert.Equal(t, "test:chain", client.ChainID())
 	assert.NotNil(t, client.GetConfig())
 	assert.True(t, client.IsHealthy())
-
 	// Test Start and Stop
 	err := client.Start(context.Background())
 	assert.NoError(t, err)

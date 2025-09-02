@@ -120,26 +120,22 @@ func TestServerStartStop(t *testing.T) {
 		err = server.Stop()
 		assert.NoError(t, err)
 	})
-
 	t.Run("Start with nil server", func(t *testing.T) {
 		server := &Server{
 			client: mockClient,
 			logger: logger,
 			server: nil,
 		}
-
 		err := server.Start()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "query server is nil")
 	})
-
 	t.Run("Stop with nil server", func(t *testing.T) {
 		server := &Server{
 			client: mockClient,
 			logger: logger,
 			server: nil,
 		}
-
 		err := server.Stop()
 		assert.NoError(t, err)
 	})

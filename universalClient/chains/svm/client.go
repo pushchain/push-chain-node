@@ -106,7 +106,6 @@ func (c *Client) IsHealthy() bool {
 		// Check connection by getting health status
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-
 		health, err := c.rpcClient.GetHealth(ctx)
 		if err != nil {
 			c.logger.Warn().Err(err).Msg("health check failed")
@@ -126,12 +125,10 @@ func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
 	if c.rpcClient == nil {
 		return 0, fmt.Errorf("client not connected")
 	}
-
 	slot, err := c.rpcClient.GetSlot(ctx, rpc.CommitmentFinalized)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get slot: %w", err)
 	}
-
 	return slot, nil
 }
 

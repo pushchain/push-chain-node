@@ -178,7 +178,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		// Verify Solana chain is gone (UpdateChainConfigs replaces all chains)
 		config = cache.GetChainConfig("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
 		assert.Nil(t, config)
-
 		// Restore original data for next tests
 		cache.UpdateAll(chainConfigs, tokenConfigs)
 	})
@@ -193,7 +192,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs([]*uregistrytypes.TokenConfig{newToken})
-
 		// Verify new token exists
 		token := cache.GetTokenConfig("eip155:1", "0xCCC...")
 		require.NotNil(t, token)
@@ -401,7 +399,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateAll(nil, tokenConfigs)
-
 		token := cache.GetTokenConfig("eip155:11155111", "0xAAA...")
 		require.NotNil(t, token)
 		assert.Equal(t, "New Token", token.Name)
@@ -420,7 +417,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs(tokenConfigs)
-
 		// Should still be able to get the token
 		token := cache.GetTokenConfig("eip155:999", "0xXXX...")
 		require.NotNil(t, token)

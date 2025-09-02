@@ -90,19 +90,16 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 				Msg("successfully fetched initial configuration")
 			return nil
 		}
-
 		u.logger.Error().
 			Err(err).
 			Int("attempt", attempt).
 			Int("max_attempts", u.config.InitialFetchRetries).
 			Dur("next_retry_in", backoff).
 			Msg("initial config fetch failed")
-
 		// Check if this was the last attempt
 		if attempt == u.config.InitialFetchRetries {
 			return fmt.Errorf("failed to fetch initial configuration after %d attempts: %w", attempt, err)
 		}
-
 		// Wait before next retry with exponential backoff
 		select {
 		case <-ctx.Done():
@@ -115,7 +112,6 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 			}
 		}
 	}
-
 	return fmt.Errorf("failed to fetch initial configuration")
 }
 

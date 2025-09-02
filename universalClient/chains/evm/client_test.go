@@ -236,7 +236,6 @@ func TestClientIsHealthy(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`
@@ -337,7 +336,6 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`

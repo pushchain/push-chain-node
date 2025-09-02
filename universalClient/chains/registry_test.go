@@ -37,7 +37,6 @@ func NewMockChainClient(config *uregistrytypes.ChainConfig) *MockChainClient {
 func (m *MockChainClient) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if m.startError != nil {
 		return m.startError
 	}
@@ -48,7 +47,6 @@ func (m *MockChainClient) Start(ctx context.Context) error {
 func (m *MockChainClient) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if m.stopError != nil {
 		return m.stopError
 	}
@@ -102,7 +100,6 @@ func TestChainRegistryInitialization(t *testing.T) {
 func TestChainRegistryCreateChainClient(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	registry := NewChainRegistry(logger)
-
 	t.Run("Create EVM client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
@@ -120,7 +117,6 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.Equal(t, config, client.GetConfig())
 	})
-
 	t.Run("Create Solana client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "solana:mainnet",
@@ -138,20 +134,17 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.Equal(t, config, client.GetConfig())
 	})
-
 	t.Run("Nil config", func(t *testing.T) {
 		client, err := registry.CreateChainClient(nil)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "chain config is nil")
 	})
-
 	t.Run("Unsupported VM type", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:  "unknown:chain",
 			VmType: 999, // Invalid VM type
 		}
-
 		client, err := registry.CreateChainClient(config)
 		assert.Error(t, err)
 		assert.Nil(t, client)
@@ -230,7 +223,6 @@ func (m *MockableChainRegistry) AddOrUpdateChain(ctx context.Context, config *ur
 func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	ctx := context.Background()
-
 	t.Run("Add new chain - with mock", func(t *testing.T) {
 		baseRegistry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
@@ -242,7 +234,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 				return NewMockChainClient(cfg), nil
 			},
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -262,13 +253,11 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.True(t, client.(*MockChainClient).IsStarted())
 	})
-
 	t.Run("Update existing chain with same config", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -293,13 +282,11 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.Equal(t, mockClient, registry.GetChain("eip155:1337"))
 		assert.False(t, mockClient.IsStopped()) // Should not have been stopped
 	})
-
 	t.Run("Update existing chain with different config", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		oldConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -326,7 +313,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		oldClient := NewMockChainClient(oldConfig)
 		oldClient.started = true
 		registry.chains["eip155:1337"] = oldClient
-
 		// Create a mockable registry
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
@@ -356,7 +342,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		err := registry.AddOrUpdateChain(ctx, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid chain config")
-
 		// Empty chain ID
 		err = registry.AddOrUpdateChain(ctx, &uregistrytypes.ChainConfig{
 			Chain: "",
@@ -364,18 +349,15 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid chain config")
 	})
-
 	t.Run("Client start error", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:  "eip155:1337",
 			VmType: uregistrytypes.VmType_EVM,
 		}
-
 		// Create a mockable registry that returns client that fails to start
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
@@ -398,13 +380,11 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 // TestChainRegistryRemoveChain tests removing chains
 func TestChainRegistryRemoveChain(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-
 	t.Run("Remove existing chain", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		// Add a chain
 		mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
 			Chain: "eip155:1337",
@@ -432,7 +412,6 @@ func TestChainRegistryRemoveChain(t *testing.T) {
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		// Add a chain that fails to stop
 		mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
 			Chain: "eip155:1337",
@@ -455,19 +434,16 @@ func TestChainRegistryGetChain(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add a chain
 	mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
 		Chain: "eip155:1337",
 	})
 	registry.chains["eip155:1337"] = mockClient
-
 	t.Run("Get existing chain", func(t *testing.T) {
 		client := registry.GetChain("eip155:1337")
 		assert.NotNil(t, client)
 		assert.Equal(t, mockClient, client)
 	})
-
 	t.Run("Get non-existent chain", func(t *testing.T) {
 		client := registry.GetChain("non-existent")
 		assert.Nil(t, client)
@@ -481,18 +457,15 @@ func TestChainRegistryGetAllChains(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add multiple chains
 	chain1 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "test:chain1"})
 	chain2 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1338"})
 	registry.chains["eip155:1337"] = chain1
 	registry.chains["eip155:1338"] = chain2
-
 	chains := registry.GetAllChains()
 	assert.Len(t, chains, 2)
 	assert.Equal(t, chain1, chains["eip155:1337"])
 	assert.Equal(t, chain2, chains["eip155:1338"])
-
 	// Verify it's a copy (modifications don't affect registry)
 	delete(chains, "test:chain1")
 	assert.Len(t, registry.chains, 2)
@@ -505,7 +478,6 @@ func TestChainRegistryStopAll(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add multiple chains
 	chain1 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "test:chain1"})
 	chain2 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1338"})
@@ -530,7 +502,6 @@ func TestChainRegistryGetHealthStatus(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add chains with different health states
 	healthyChain := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1001"})
 	unhealthyChain := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1002"})
@@ -563,7 +534,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Create a mockable registry for concurrent adds
 	mockableRegistry := &MockableChainRegistry{
 		ChainRegistry: registry,
@@ -587,7 +557,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 			_ = mockableRegistry.AddOrUpdateChain(ctx, config)
 		}(i)
 	}
-
 	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -597,7 +566,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 			_ = registry.GetHealthStatus()
 		}()
 	}
-
 	// Concurrent removes
 	for i := 0; i < 5; i++ {
 		wg.Add(1)

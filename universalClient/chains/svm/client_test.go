@@ -373,7 +373,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))
@@ -442,7 +441,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))

@@ -33,7 +33,6 @@ type RegistryClient struct {
 	// Retry configuration
 	maxRetries   int
 	retryBackoff time.Duration
-
 	// Health check configuration
 	healthCheckInterval time.Duration
 	unhealthyCooldown   time.Duration
@@ -159,13 +158,11 @@ func (c *RegistryClient) checkAllConnections() {
 		// Check connection state
 		state := connInfo.conn.GetState()
 		wasHealthy := connInfo.healthy
-
 		if state == connectivity.Ready || state == connectivity.Idle {
 			// Try a simple query to verify it actually works
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			_, err := connInfo.queryClient.AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
 			cancel()
-
 			connInfo.healthy = err == nil
 			if err != nil {
 				c.logger.Debug().
@@ -353,7 +350,6 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Err(err).
 				Str("query", queryName).
 				Msg("no healthy connections available")
-
 			// If no healthy connections, try to trigger failover
 			if connectionAttempts < maxConnectionAttempts {
 				connectionAttempts++
@@ -395,7 +391,6 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Msg("marking connection unhealthy due to error")
 			c.selectNextHealthy()
 			c.mu.Unlock()
-
 			// Don't count connection failures against retry limit
 			if connectionAttempts < maxConnectionAttempts {
 				connectionAttempts++

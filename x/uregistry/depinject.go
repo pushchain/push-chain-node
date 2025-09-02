@@ -42,8 +42,19 @@ type ModuleInputs struct {
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
 
+<<<<<<< HEAD
+<<<<<<<< HEAD:x/uregistry/depinject.go
 	StakingKeeper  stakingkeeper.Keeper
 	SlashingKeeper slashingkeeper.Keeper
+========
+	StakingKeeper   stakingkeeper.Keeper
+	SlashingKeeper  slashingkeeper.Keeper
+	UregistryKeeper types.UregistryKeeper
+>>>>>>>> feat/universal-validator:x/utv/depinject.go
+=======
+	StakingKeeper  stakingkeeper.Keeper
+	SlashingKeeper slashingkeeper.Keeper
+>>>>>>> feat/universal-validator
 }
 
 type ModuleOutputs struct {
@@ -56,8 +67,18 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
+<<<<<<< HEAD
+<<<<<<<< HEAD:x/uregistry/depinject.go
 	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
 	m := NewAppModule(in.Cdc, k)
+========
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UregistryKeeper)
+	m := NewAppModule(in.Cdc, k, in.UregistryKeeper)
+>>>>>>>> feat/universal-validator:x/utv/depinject.go
+=======
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
+	m := NewAppModule(in.Cdc, k)
+>>>>>>> feat/universal-validator
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

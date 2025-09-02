@@ -68,7 +68,7 @@ func TestSolanaGatewayHandler_SlotConfirmations(t *testing.T) {
 	assert.Equal(t, txSignature, tx.TxHash)
 	assert.Equal(t, slotNumber, tx.BlockNumber) // In Solana, we use slot number as block number
 	assert.Equal(t, "add_funds", tx.Method)
-	assert.Equal(t, "pending", tx.Status)
+	assert.Equal(t, "confirmation_pending", tx.Status)
 }
 
 func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
@@ -121,11 +121,11 @@ func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
 
 	confirmed, err = tracker.IsConfirmed(fastTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "FAST transaction should be confirmed with 5 slots")
+	assert.False(t, confirmed, "FAST transaction status is awaiting_vote, not confirmed")
 
 	tx, err := tracker.GetGatewayTransaction(fastTxSig)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 	assert.Equal(t, uint64(5), tx.Confirmations)
 
 	// Test STANDARD confirmation type (12 blocks)
@@ -158,11 +158,11 @@ func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
 
 	confirmed, err = tracker.IsConfirmed(standardTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "STANDARD transaction should be confirmed with 12 slots")
+	assert.False(t, confirmed, "STANDARD transaction status is awaiting_vote, not confirmed")
 
 	tx, err = tracker.GetGatewayTransaction(standardTxSig)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 	assert.Equal(t, uint64(12), tx.Confirmations)
 }
 
@@ -221,10 +221,10 @@ func TestSolanaGatewayHandler_MultipleTransactions(t *testing.T) {
 		confirmations    uint64
 		shouldBeConfirmed bool
 	}{
-		{"sig1_5wHu1qwD7q5ifaN5nwdcDqNFo53GJqa7tkAMzRc", 15, true},  // STANDARD with 15 > 12
-		{"sig2_6xIu2rwE8r6jgbO6oxedErOGp64HKrb8ulBNaSD", 13, true},  // STANDARD with 13 > 12
-		{"sig3_7yJv3sxF9s7khcP7pyfeF5PHq75ILsc9vmCObTE", 10, true},  // FAST with 10 > 5
-		{"sig4_8zKw4tyG0t8lidQ8qzgfG6QIr86JMtd0wnDPcUF", 5, true},   // FAST with 5 = 5
+		{"sig1_5wHu1qwD7q5ifaN5nwdcDqNFo53GJqa7tkAMzRc", 15, false},  // STANDARD with 15 > 12 (awaiting_vote)
+		{"sig2_6xIu2rwE8r6jgbO6oxedErOGp64HKrb8ulBNaSD", 13, false},  // STANDARD with 13 > 12 (awaiting_vote)
+		{"sig3_7yJv3sxF9s7khcP7pyfeF5PHq75ILsc9vmCObTE", 10, false},  // FAST with 10 > 5 (awaiting_vote)
+		{"sig4_8zKw4tyG0t8lidQ8qzgfG6QIr86JMtd0wnDPcUF", 5, false},   // FAST with 5 = 5 (awaiting_vote)
 	}
 
 	for i, expected := range expectedResults {
@@ -242,7 +242,7 @@ func TestSolanaGatewayHandler_MultipleTransactions(t *testing.T) {
 	// Get all confirmed transactions
 	confirmedTxs, err := tracker.GetConfirmedTransactions(config.Chain)
 	require.NoError(t, err)
-	assert.Equal(t, 4, len(confirmedTxs), "Should have 4 confirmed transactions (2 STANDARD, 2 FAST)")
+	assert.Equal(t, 0, len(confirmedTxs), "Should have 0 confirmed transactions (all are awaiting_vote)")
 }
 
 func TestSolanaGatewayHandler_Methods(t *testing.T) {
@@ -311,7 +311,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 
 	tx, err := tracker.GetGatewayTransaction(txSignature)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 
 	// Simulate reorg - same transaction at different slot
 	newSlotNumber := uint64(150000002)
@@ -328,7 +328,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 	// Check it's back to pending
 	tx, err = tracker.GetGatewayTransaction(txSignature)
 	require.NoError(t, err)
-	assert.Equal(t, "pending", tx.Status)
+	assert.Equal(t, "confirmation_pending", tx.Status)
 	assert.Equal(t, uint64(0), tx.Confirmations)
 }
 
@@ -389,7 +389,7 @@ func TestCrossChainConfirmations(t *testing.T) {
 	
 	confirmed, err := evmTracker.IsConfirmed(evmFastTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "EVM FAST should be confirmed with 5 blocks")
+	assert.False(t, confirmed, "EVM FAST status is awaiting_vote, not confirmed")
 
 	confirmed, err = evmTracker.IsConfirmed(evmStandardTxHash)
 	require.NoError(t, err)
@@ -401,7 +401,7 @@ func TestCrossChainConfirmations(t *testing.T) {
 	
 	confirmed, err = solanaTracker.IsConfirmed(solanaFastTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Solana FAST should be confirmed with 5 slots")
+	assert.False(t, confirmed, "Solana FAST status is awaiting_vote, not confirmed")
 
 	confirmed, err = solanaTracker.IsConfirmed(solanaStandardTxSig)
 	require.NoError(t, err)
@@ -414,7 +414,7 @@ func TestCrossChainConfirmations(t *testing.T) {
 	
 	confirmed, err = evmTracker.IsConfirmed(evmStandardTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "EVM STANDARD should be confirmed with 12 blocks")
+	assert.False(t, confirmed, "EVM STANDARD status is awaiting_vote, not confirmed")
 
 	// Update Solana to 12 confirmations
 	err = solanaTracker.UpdateConfirmations(2012)
@@ -422,22 +422,22 @@ func TestCrossChainConfirmations(t *testing.T) {
 	
 	confirmed, err = solanaTracker.IsConfirmed(solanaStandardTxSig)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "Solana STANDARD should be confirmed with 12 slots")
+	assert.False(t, confirmed, "Solana STANDARD status is awaiting_vote, not confirmed")
 
 	// Verify all transactions are confirmed
 	tx, err := evmTracker.GetGatewayTransaction(evmFastTxHash)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 
 	tx, err = evmTracker.GetGatewayTransaction(evmStandardTxHash)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 
 	tx, err = solanaTracker.GetGatewayTransaction(solanaFastTxSig)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 
 	tx, err = solanaTracker.GetGatewayTransaction(solanaStandardTxSig)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 }

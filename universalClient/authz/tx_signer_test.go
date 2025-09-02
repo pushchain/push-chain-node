@@ -14,7 +14,7 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	uetypes "github.com/rollchains/pchain/x/ue/types"
 	txsigning "cosmossdk.io/x/tx/signing"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -244,10 +244,18 @@ func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
 		{
 			name: "valid allowed message",
 			msgs: []sdk.Msg{
-				&banktypes.MsgSend{
-					FromAddress: "push1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-					ToAddress:   granteeAddr.String(),
-					Amount:      sdk.NewCoins(sdk.NewInt64Coin("push", 1000)),
+				&uetypes.MsgVoteInbound{
+					Signer: granteeAddr.String(),
+					Inbound: &uetypes.Inbound{
+						SourceChain: "solana:mainnet",
+						TxHash: "0x1234567890abcdef1234567890abcdef12345678",
+						Sender: "sender_address",
+						Recipient: "recipient_address",
+						Amount: "1000",
+						AssetAddr: "asset_address",
+						LogIndex: "0",
+						TxType: uetypes.InboundTxType_SYNTHETIC,
+					},
 				},
 			},
 			expectError: false,
@@ -329,10 +337,18 @@ func TestTxSigner_ValidateMessages(t *testing.T) {
 		{
 			name: "valid allowed messages",
 			msgs: []sdk.Msg{
-				&banktypes.MsgSend{
-					FromAddress: "push1z7n2ahw28fveuaqra93nnd2x8ulrw9lkwg3tpp",
-					ToAddress:   granteeAddr.String(),
-					Amount:      sdk.NewCoins(sdk.NewInt64Coin("push", 1000)),
+				&uetypes.MsgVoteInbound{
+					Signer: granteeAddr.String(),
+					Inbound: &uetypes.Inbound{
+						SourceChain: "solana:mainnet",
+						TxHash: "0x1234567890abcdef1234567890abcdef12345678",
+						Sender: "sender_address",
+						Recipient: "recipient_address",
+						Amount: "1000",
+						AssetAddr: "asset_address",
+						LogIndex: "0",
+						TxType: uetypes.InboundTxType_SYNTHETIC,
+					},
 				},
 			},
 			expectError: false,
@@ -370,10 +386,18 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 	txSigner, _, granteeAddr := setupTestTxSignerWithTxConfig(mockTxConfig)
 
 	msgs := []sdk.Msg{
-		&banktypes.MsgSend{
-			FromAddress: "push1granter",
-			ToAddress:   granteeAddr.String(),
-			Amount:      sdk.NewCoins(sdk.NewInt64Coin("push", 1000)),
+		&uetypes.MsgVoteInbound{
+			Signer: granteeAddr.String(),
+			Inbound: &uetypes.Inbound{
+				SourceChain: "solana:mainnet",
+				TxHash: "0x1234567890abcdef1234567890abcdef12345678",
+				Sender: "sender_address",
+				Recipient: "recipient_address",
+				Amount: "1000",
+				AssetAddr: "asset_address",
+				LogIndex: "0",
+				TxType: uetypes.InboundTxType_SYNTHETIC,
+			},
 		},
 	}
 

@@ -145,7 +145,7 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	confirmed, err = tracker.IsConfirmed(fastTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "FAST transaction should be confirmed with 5 confirmations")
+	assert.False(t, confirmed, "FAST transaction status is awaiting_vote, not confirmed")
 
 	// Test STANDARD confirmation type (12 blocks)
 	standardTxHash := "0xstandard456"
@@ -174,12 +174,12 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 
 	confirmed, err = tracker.IsConfirmed(standardTxHash)
 	require.NoError(t, err)
-	assert.True(t, confirmed, "STANDARD transaction should be confirmed with 12 confirmations")
+	assert.False(t, confirmed, "STANDARD transaction status is awaiting_vote, not confirmed")
 
-	// Verify the STANDARD transaction is marked as confirmed in database
+	// Verify the STANDARD transaction is marked as awaiting_vote in database
 	tx, err := tracker.GetGatewayTransaction(standardTxHash)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 	assert.Equal(t, uint64(12), tx.Confirmations)
 }
 
@@ -434,7 +434,7 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 	for _, hash := range fastTxs {
 		confirmed, err := tracker.IsConfirmed(hash)
 		require.NoError(t, err)
-		assert.True(t, confirmed, "FAST transaction %s should be confirmed", hash)
+		assert.False(t, confirmed, "FAST transaction %s status is awaiting_vote, not confirmed", hash)
 	}
 
 	// Check STANDARD transactions (need 12 confirmations)
@@ -444,13 +444,13 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 	for _, hash := range standardTxs {
 		confirmed, err := tracker.IsConfirmed(hash)
 		require.NoError(t, err)
-		assert.True(t, confirmed, "STANDARD transaction %s should be confirmed", hash)
+		assert.False(t, confirmed, "STANDARD transaction %s status is awaiting_vote, not confirmed", hash)
 	}
 
 	// Get all confirmed transactions - all 4 should be confirmed
 	confirmedTxs, err := tracker.GetConfirmedTransactions(config.Chain)
 	require.NoError(t, err)
-	assert.Equal(t, 4, len(confirmedTxs), "Should have 4 confirmed transactions (2 STANDARD, 2 FAST)")
+	assert.Equal(t, 0, len(confirmedTxs), "Should have 0 confirmed transactions (all are awaiting_vote)")
 }
 
 func TestEVMGatewayHandler_EventTopics(t *testing.T) {
@@ -517,7 +517,7 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 
 	tx, err := tracker.GetGatewayTransaction(txHash)
 	require.NoError(t, err)
-	assert.Equal(t, "confirmed", tx.Status)
+	assert.Equal(t, "awaiting_vote", tx.Status)
 
 	// Simulate reorg - track same transaction at different block
 	newBlockNumber := uint64(1002)
@@ -531,9 +531,9 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Check it's back to pending
+	// Check it's back to confirmation_pending
 	tx, err = tracker.GetGatewayTransaction(txHash)
 	require.NoError(t, err)
-	assert.Equal(t, "pending", tx.Status)
+	assert.Equal(t, "confirmation_pending", tx.Status)
 	assert.Equal(t, uint64(0), tx.Confirmations)
 }

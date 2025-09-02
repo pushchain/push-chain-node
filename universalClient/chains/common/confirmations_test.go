@@ -63,7 +63,7 @@ func TestTrackTransaction(t *testing.T) {
 	assert.Equal(t, "0x1234567890abcdef", tx.TxHash)
 	assert.Equal(t, uint64(100), tx.BlockNumber)
 	assert.Equal(t, "addFunds", tx.Method)
-	assert.Equal(t, "pending", tx.Status)
+	assert.Equal(t, "confirmation_pending", tx.Status)
 	assert.Equal(t, uint64(0), tx.Confirmations)
 	
 	// Track the same transaction again (should update)
@@ -105,7 +105,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	tx, err := tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(5), tx.Confirmations)
-	assert.Equal(t, "pending", tx.Status) // Still pending (STANDARD requires 12)
+	assert.Equal(t, "confirmation_pending", tx.Status) // Still pending (STANDARD requires 12)
 	
 	// Update confirmations with current block at 112
 	err = tracker.UpdateConfirmations(112)
@@ -115,7 +115,7 @@ func TestUpdateConfirmations(t *testing.T) {
 	tx, err = tracker.GetGatewayTransaction("0x1234567890abcdef")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(12), tx.Confirmations)
-	assert.Equal(t, "confirmed", tx.Status) // Now confirmed (standard)
+	assert.Equal(t, "awaiting_vote", tx.Status) // Now confirmed (standard)
 }
 
 func TestIsConfirmed(t *testing.T) {
@@ -146,10 +146,10 @@ func TestIsConfirmed(t *testing.T) {
 	err = tracker.UpdateConfirmations(105)
 	require.NoError(t, err)
 	
-	// Now confirmed for FAST type
+	// Now confirmed for FAST type (but status is awaiting_vote, not confirmed)
 	confirmed, err = tracker.IsConfirmed("0xfast")
 	require.NoError(t, err)
-	assert.True(t, confirmed)
+	assert.False(t, confirmed) // Status is awaiting_vote, not confirmed
 	
 	// Test STANDARD confirmation type
 	err = tracker.TrackTransaction(
@@ -171,10 +171,10 @@ func TestIsConfirmed(t *testing.T) {
 	err = tracker.UpdateConfirmations(112)
 	require.NoError(t, err)
 	
-	// Now confirmed for STANDARD type
+	// Now confirmed for STANDARD type (but status is awaiting_vote, not confirmed)
 	confirmed, err = tracker.IsConfirmed("0xstandard")
 	require.NoError(t, err)
-	assert.True(t, confirmed)
+	assert.False(t, confirmed) // Status is awaiting_vote, not confirmed
 }
 
 func TestGetConfirmedTransactions(t *testing.T) {
@@ -210,7 +210,7 @@ func TestGetConfirmedTransactions(t *testing.T) {
 	// Get confirmed transactions
 	txs, err := tracker.GetConfirmedTransactions("eip155:11155111")
 	require.NoError(t, err)
-	assert.Len(t, txs, 1) // Only first one should be confirmed (block 100, confirmations = 112-100 = 12)
+	assert.Len(t, txs, 0) // None are "confirmed" - they become "awaiting_vote" after reaching confirmations
 }
 
 func TestMarkTransactionFailed(t *testing.T) {

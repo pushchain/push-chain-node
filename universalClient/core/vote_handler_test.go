@@ -433,12 +433,12 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 	txs := []store.ChainTransaction{
 		{
 			TxHash:        "0x1",
-			Status:        "pending",
+			Status:        "confirmation_pending",
 			Confirmations: 10,
 		},
 		{
 			TxHash:        "0x2",
-			Status:        "pending",
+			Status:        "confirmation_pending",
 			Confirmations: 5,
 		},
 		{
@@ -448,7 +448,7 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 		},
 		{
 			TxHash:        "0x4",
-			Status:        "pending",
+			Status:        "awaiting_vote",
 			Confirmations: 20,
 		},
 	}

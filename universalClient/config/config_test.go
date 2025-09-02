@@ -38,7 +38,7 @@ func TestConfigValidation(t *testing.T) {
 	assert.NotZero(t, cfg.InitialFetchRetries)
 	assert.NotZero(t, cfg.InitialFetchTimeoutSeconds)
 	assert.NotZero(t, cfg.QueryServerPort)
-	assert.Equal(t, KeyringBackendFile, cfg.KeyringBackend)
+	assert.Equal(t, KeyringBackendTest, cfg.KeyringBackend) // Defaults to test when empty
 	assert.NotEmpty(t, cfg.PushChainGRPCURLs)
 }
 

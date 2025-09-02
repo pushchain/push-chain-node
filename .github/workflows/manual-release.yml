@@ -35,6 +35,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22.3'
+          cache: true
 
       - name: Clean dist directory
         run: rm -rf dist
@@ -166,7 +167,7 @@ jobs:
       - name: Build with GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
-          version: latest
+          version: v1.26.2
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

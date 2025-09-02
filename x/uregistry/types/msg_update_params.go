@@ -52,5 +52,5 @@ func (msg *MsgUpdateParams) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid admin address: %s", msg.Params.Admin)
 	}
 
-	return msg.Params.ValidateBasic()
+	return msg.Params.Validate()
 }

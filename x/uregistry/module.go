@@ -42,42 +42,17 @@ type AppModuleBasic struct {
 
 type AppModule struct {
 	AppModuleBasic
-
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/module.go
 	keeper keeper.Keeper
-========
-	keeper          keeper.Keeper
-	uregistryKeeper types.UregistryKeeper
->>>>>>>> feat/universal-validator:x/utv/module.go
-=======
-	keeper keeper.Keeper
->>>>>>> feat/universal-validator
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/module.go
-=======
->>>>>>> feat/universal-validator
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic: AppModuleBasic{cdc: cdc},
 		keeper:         keeper,
-<<<<<<< HEAD
-========
-	uregistryKeeper types.UregistryKeeper,
-) *AppModule {
-	return &AppModule{
-		AppModuleBasic:  AppModuleBasic{cdc: cdc},
-		keeper:          keeper,
-		uregistryKeeper: uregistryKeeper,
->>>>>>>> feat/universal-validator:x/utv/module.go
-=======
->>>>>>> feat/universal-validator
 	}
 }
 
@@ -97,7 +72,7 @@ func (a AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, _ client.TxEn
 	if err != nil {
 		return err
 	}
-	if err := data.Params.ValidateBasic(); err != nil {
+	if err := data.Params.Validate(); err != nil {
 		return errorsmod.Wrap(err, "params")
 	}
 	return nil

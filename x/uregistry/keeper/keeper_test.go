@@ -26,26 +26,10 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/keeper/keeper_test.go
 	"github.com/pushchain/push-chain-node/app"
 	module "github.com/pushchain/push-chain-node/x/uregistry"
 	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
-========
-	"github.com/rollchains/pchain/app"
-	module "github.com/rollchains/pchain/x/utv"
-	"github.com/rollchains/pchain/x/utv/keeper"
-	"github.com/rollchains/pchain/x/utv/types"
-
-	uregistryKeeper "github.com/rollchains/pchain/x/uregistry/keeper"
->>>>>>>> feat/universal-validator:x/utv/keeper/keeper_test.go
-=======
-	"github.com/rollchains/pchain/app"
-	module "github.com/rollchains/pchain/x/uregistry"
-	"github.com/rollchains/pchain/x/uregistry/keeper"
-	"github.com/rollchains/pchain/x/uregistry/types"
->>>>>>> feat/universal-validator
 )
 
 var maccPerms = map[string][]string{
@@ -102,23 +86,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/keeper/keeper_test.go
-=======
->>>>>>> feat/universal-validator
 	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k)
-<<<<<<< HEAD
-========
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &uregistryKeeper.Keeper{})
-	f.msgServer = keeper.NewMsgServerImpl(f.k)
-	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &uregistryKeeper.Keeper{})
->>>>>>>> feat/universal-validator:x/utv/keeper/keeper_test.go
-=======
->>>>>>> feat/universal-validator
 
 	return f
 }

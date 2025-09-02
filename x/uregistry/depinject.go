@@ -5,10 +5,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
@@ -41,20 +39,6 @@ type ModuleInputs struct {
 	Cdc          codec.Codec
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
-
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/depinject.go
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
-========
-	StakingKeeper   stakingkeeper.Keeper
-	SlashingKeeper  slashingkeeper.Keeper
-	UregistryKeeper types.UregistryKeeper
->>>>>>>> feat/universal-validator:x/utv/depinject.go
-=======
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
->>>>>>> feat/universal-validator
 }
 
 type ModuleOutputs struct {
@@ -67,18 +51,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-<<<<<<< HEAD
-<<<<<<<< HEAD:x/uregistry/depinject.go
 	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
 	m := NewAppModule(in.Cdc, k)
-========
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UregistryKeeper)
-	m := NewAppModule(in.Cdc, k, in.UregistryKeeper)
->>>>>>>> feat/universal-validator:x/utv/depinject.go
-=======
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
-	m := NewAppModule(in.Cdc, k)
->>>>>>> feat/universal-validator
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

@@ -5,19 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-<<<<<<< HEAD:x/utxverifier/keeper/verify_tx_svm.go
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
-=======
-	"github.com/rollchains/pchain/utils"
-	"github.com/rollchains/pchain/utils/rpc"
-	svmrpc "github.com/rollchains/pchain/utils/rpc/svm"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
-	utvtypes "github.com/rollchains/pchain/x/utv/types"
->>>>>>> feat/universal-validator:x/utv/keeper/verify_tx_svm.go
 )
 
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
@@ -41,11 +33,7 @@ func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash str
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
-<<<<<<< HEAD:x/utxverifier/keeper/verify_tx_svm.go
 func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (*utxverifiertypes.USDValue, error) {
-=======
-func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (*utvtypes.USDValue, error) {
->>>>>>> feat/universal-validator:x/utv/keeper/verify_tx_svm.go
 	// Fetch stored metadata
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
@@ -89,11 +77,7 @@ func (k Keeper) VerifySVMInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
 	chainConfig uregistrytypes.ChainConfig,
-<<<<<<< HEAD:x/utxverifier/keeper/verify_tx_svm.go
 ) (*utxverifiertypes.VerifiedTxMetadata, error) {
-=======
-) (*utvtypes.VerifiedTxMetadata, error) {
->>>>>>> feat/universal-validator:x/utv/keeper/verify_tx_svm.go
 	meta, found, err := k.GetVerifiedInboundTxMetadata(ctx, chainConfig.Chain, txHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
@@ -115,11 +99,7 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
 	chainConfig uregistrytypes.ChainConfig,
-<<<<<<< HEAD:x/utxverifier/keeper/verify_tx_svm.go
 ) (*utxverifiertypes.VerifiedTxMetadata, error) {
-=======
-) (*utvtypes.VerifiedTxMetadata, error) {
->>>>>>> feat/universal-validator:x/utv/keeper/verify_tx_svm.go
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 		PublicRPC:  chainConfig.PublicRpcUrl,

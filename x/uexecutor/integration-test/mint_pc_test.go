@@ -17,7 +17,7 @@ func TestMintPC(t *testing.T) {
 	chainConfigTest := uregistrytypes.ChainConfig{
 		Chain:          "eip155:11155111",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://1rpc.io/sepolia",
+		PublicRpcUrl:   "https://sepolia.drpc.org",
 		GatewayAddress: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,

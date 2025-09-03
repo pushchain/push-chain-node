@@ -10,6 +10,10 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Colors for output
+CYAN='\033[0;36m'
+NC='\033[0m'
+
 # Read env or defaults
 MONIKER="${MONIKER:-push-validator}"
 GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
@@ -44,7 +48,7 @@ mkdir -p "$ROOT_DIR"
 mkdir -p "$HOME/.local/bin"
 cd "$ROOT_DIR"
 
-echo "Installing Push Validator Manager into $ROOT_DIR"
+echo -e "${CYAN}📦 Installing Push Validator Manager into $ROOT_DIR${NC}"
 
 # Always clone fresh repository to ensure latest version
 rm -rf "$REPO_DIR"
@@ -128,6 +132,8 @@ mv "$tmp" "$ENV_FILE"
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_LINK" start || true
+  # Small delay to prevent flicker before sync display
+  sleep 0.5
   # Go directly to sync progress display
   "$MANAGER_LINK" sync
 fi

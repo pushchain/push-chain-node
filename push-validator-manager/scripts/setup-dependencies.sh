@@ -25,7 +25,6 @@ LOCAL_REPO_DIR="$ROOT_TOP/repo"
 BUILD_DIR="$SCRIPT_DIR/build"
 
 print_status "🚀 Setting up native Push Chain environment..."
-echo
 
 # Fast-path: if binary already exists and works, skip all
 if [ -f "$BUILD_DIR/pchaind" ]; then
@@ -203,5 +202,3 @@ fi
 
 echo
 print_success "✅ Binary created successfully"
-echo "Binary location: $BUILD_DIR/pchaind"
-echo "Version: $("$BUILD_DIR/pchaind" version 2>/dev/null)"

@@ -525,8 +525,8 @@ monitor_sync() {
         is_tty=1
         tput civis 2>/dev/null || true
         trap 'tput cnorm 2>/dev/null || true; echo' INT TERM EXIT
-        # Clear screen once at start
-        printf '\033[2J\033[H'
+        # Don't clear screen to avoid flicker
+        # printf '\033[2J\033[H'
     fi
     
     while true; do

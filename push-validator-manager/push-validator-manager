@@ -367,7 +367,7 @@ show_status() {
     echo -e "  ${BOLD}Binary:${NC} $NATIVE_BINARY"
     # Get version safely with better error handling
     if [ -f "$NATIVE_BINARY" ]; then
-        VERSION=$("$NATIVE_BINARY" version 2>/dev/null | head -n1 || echo "v1.0.1-native")
+        VERSION=$("$NATIVE_BINARY" version 2>&1 | grep -v "WARNING" | head -n1 || echo "v1.0.1-native")
         # Fallback if version command doesn't work
         if [ -z "$VERSION" ] || [ "$VERSION" = "" ]; then
             VERSION="v1.0.1-native"
@@ -704,8 +704,8 @@ monitor_sync() {
             last_time=$current_time
             
         else
-            print_warning "⚠️ Waiting for node to respond..."
-            echo "Make sure the node is running: ./push-validator-manager status"
+            # Silently wait for node to respond
+            :
         fi
         
         if [ "$COMPACT_MODE" -eq 1 ]; then

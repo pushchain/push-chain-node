@@ -134,10 +134,10 @@ install_macos_deps() {
     
     # Verify installations
     print_status "✅ Verifying installations..."
-    go version
-    jq --version
-    python3 --version
-    python3 -m pip show tomlkit >/dev/null 2>&1 && echo "tomlkit: ✅ Installed"
+    go version >/dev/null 2>&1 || print_error "Go installation failed"
+    jq --version >/dev/null 2>&1 || print_error "jq installation failed"
+    python3 --version >/dev/null 2>&1 || print_error "Python3 installation failed"
+    python3 -m pip show tomlkit >/dev/null 2>&1 || print_error "tomlkit installation failed"
 }
 
 # Install dependencies based on OS
@@ -204,4 +204,4 @@ fi
 echo
 print_success "✅ Binary created successfully"
 echo "Binary location: $BUILD_DIR/pchaind"
-echo "Version: $("$BUILD_DIR/pchaind" version)"
+echo "Version: $("$BUILD_DIR/pchaind" version 2>/dev/null)"

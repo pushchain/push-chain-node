@@ -49,7 +49,7 @@ echo "Installing Push Validator Manager into $ROOT_DIR"
 # Always clone fresh repository to ensure latest version
 echo "Cloning repository..."
 rm -rf "$REPO_DIR"
-git clone --depth 1 --branch feature/pnm https://github.com/pushchain/push-chain-node "$REPO_DIR"
+git clone --quiet --depth 1 --branch feature/pnm https://github.com/pushchain/push-chain-node "$REPO_DIR"
 
 # Build native binary and ensure manager script
 echo "Building native binary and setting up manager..."

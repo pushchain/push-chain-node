@@ -2,7 +2,7 @@
 
 set -e
 
-GO_MOD_PACKAGE="github.com/rollchains/pchain"
+GO_MOD_PACKAGE="github.com/pushchain/push-chain-node"
 
 echo "Generating gogo proto code"
 cd proto

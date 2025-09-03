@@ -5,10 +5,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
@@ -16,8 +14,8 @@ import (
 	"cosmossdk.io/depinject"
 	"cosmossdk.io/log"
 
-	modulev1 "github.com/rollchains/pchain/api/uregistry/module/v1"
-	"github.com/rollchains/pchain/x/uregistry/keeper"
+	modulev1 "github.com/pushchain/push-chain-node/api/uregistry/module/v1"
+	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -41,9 +39,6 @@ type ModuleInputs struct {
 	Cdc          codec.Codec
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
-
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
 }
 
 type ModuleOutputs struct {

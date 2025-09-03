@@ -3,7 +3,7 @@ package keeper
 import (
 	"context"
 
-	"github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // updateParams is for updating params collections of the module

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rollchains/pchain/universalClient/api"
-	"github.com/rollchains/pchain/universalClient/chains"
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/db"
-	"github.com/rollchains/pchain/universalClient/registry"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/api"
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/registry"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
 )
 
@@ -62,11 +62,11 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, db *db.DB, cfg 
 		chainRegistry:  chainRegistry,
 		config:         cfg,
 	}
-	
+
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
 	uc.queryServer = api.NewServer(uc, log, cfg.QueryServerPort)
-	
+
 	return uc, nil
 }
 
@@ -77,7 +77,6 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.configUpdater.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start config updater: %w", err)
 	}
-	
 	// Start the query server
 	if uc.queryServer != nil {
 		uc.log.Info().Int("port", uc.config.QueryServerPort).Msg("Starting query server...")
@@ -98,7 +97,6 @@ func (uc *UniversalClient) Start() error {
 	if err := uc.queryServer.Stop(); err != nil {
 		uc.log.Error().Err(err).Msg("error stopping query server")
 	}
-	
 	// Stop config updater
 	uc.configUpdater.Stop()
 

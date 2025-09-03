@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestClientInitialization tests the creation of Solana client
@@ -25,7 +25,10 @@ func TestClientInitialization(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		client, err := NewClient(config, logger)
@@ -164,7 +167,10 @@ func TestClientStartStop(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   server.URL,
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		client, err := NewClient(config, logger)
@@ -304,7 +310,10 @@ func TestClientGetMethods(t *testing.T) {
 		VmType:         uregistrytypes.VmType_SVM,
 		PublicRpcUrl:   "https://api.devnet.solana.com",
 		GatewayAddress: "Sol123...",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 
 	client, err := NewClient(config, logger)
@@ -337,10 +346,10 @@ func TestClientGetSlot(t *testing.T) {
 			// Read the request body to determine which method is being called
 			var reqBody map[string]interface{}
 			json.NewDecoder(r.Body).Decode(&reqBody)
-			
+
 			var response map[string]interface{}
 			method, _ := reqBody["method"].(string)
-			
+
 			switch method {
 			case "getHealth":
 				response = map[string]interface{}{
@@ -364,7 +373,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-			
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))
@@ -413,10 +421,10 @@ func TestClientGetSlot(t *testing.T) {
 			// Read the request body to determine which method is being called
 			var reqBody map[string]interface{}
 			json.NewDecoder(r.Body).Decode(&reqBody)
-			
+
 			var response map[string]interface{}
 			method, _ := reqBody["method"].(string)
-			
+
 			if method == "getHealth" {
 				response = map[string]interface{}{
 					"jsonrpc": "2.0",
@@ -433,7 +441,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-			
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))

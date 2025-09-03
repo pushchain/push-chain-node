@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestConfigCacheBasicOperations tests basic cache operations
@@ -23,14 +23,20 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		},
 		{
 			Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		},
 	}
 
@@ -129,11 +135,14 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-sepolia-new.example.com",
 			GatewayAddress: "0x999...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain})
-		
+
 		// Verify chain was updated
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
@@ -149,11 +158,14 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth-mainnet.example.com",
 			GatewayAddress: "0x456...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain, newChain})
-		
+
 		// Verify new chain exists
 		config = cache.GetChainConfig("eip155:1")
 		require.NotNil(t, config)
@@ -166,7 +178,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		// Verify Solana chain is gone (UpdateChainConfigs replaces all chains)
 		config = cache.GetChainConfig("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
 		assert.Nil(t, config)
-		
 		// Restore original data for next tests
 		cache.UpdateAll(chainConfigs, tokenConfigs)
 	})
@@ -181,7 +192,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs([]*uregistrytypes.TokenConfig{newToken})
-		
 		// Verify new token exists
 		token := cache.GetTokenConfig("eip155:1", "0xCCC...")
 		require.NotNil(t, token)
@@ -219,7 +229,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 	})
 }
 
-
 // TestConfigCacheConcurrency tests thread-safe operations
 func TestConfigCacheConcurrency(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
@@ -228,9 +237,12 @@ func TestConfigCacheConcurrency(t *testing.T) {
 	// Initial data
 	chainConfigs := []*uregistrytypes.ChainConfig{
 		{
-			Chain:   "eip155:11155111",
-			VmType:  uregistrytypes.VmType_EVM,
-			Enabled: true,
+			Chain:  "eip155:11155111",
+			VmType: uregistrytypes.VmType_EVM,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		},
 	}
 
@@ -273,9 +285,12 @@ func TestConfigCacheConcurrency(t *testing.T) {
 			for j := 0; j < iterations; j++ {
 				// Write operations
 				newChain := &uregistrytypes.ChainConfig{
-					Chain:   "test:chain" + string(rune(id)),
-					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Chain:  "test:chain" + string(rune(id)),
+					VmType: uregistrytypes.VmType_EVM,
+					Enabled: &uregistrytypes.ChainEnabled{
+						IsInboundEnabled:  true,
+						IsOutboundEnabled: true,
+					},
 				}
 				cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{newChain})
 
@@ -316,10 +331,10 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 	t.Run("UpdateAll_NilSlices", func(t *testing.T) {
 		// Should not panic with nil slices
 		cache.UpdateAll(nil, nil)
-		
+
 		chains := cache.GetAllChainConfigs()
 		assert.Len(t, chains, 0)
-		
+
 		tokens := cache.GetAllTokenConfigs()
 		assert.Len(t, tokens, 0)
 	})
@@ -327,10 +342,10 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 	t.Run("UpdateAll_EmptySlices", func(t *testing.T) {
 		// Should handle empty slices
 		cache.UpdateAll([]*uregistrytypes.ChainConfig{}, []*uregistrytypes.TokenConfig{})
-		
+
 		chains := cache.GetAllChainConfigs()
 		assert.Len(t, chains, 0)
-		
+
 		tokens := cache.GetAllTokenConfigs()
 		assert.Len(t, tokens, 0)
 	})
@@ -339,25 +354,31 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		// Last one should win
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			{
-				Chain:          "eip155:11155111",
-				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://old.example.com",
-				Enabled:        false,
+				Chain:        "eip155:11155111",
+				VmType:       uregistrytypes.VmType_EVM,
+				PublicRpcUrl: "https://old.example.com",
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  false,
+					IsOutboundEnabled: false,
+				},
 			},
 			{
-				Chain:          "eip155:11155111",
-				VmType:         uregistrytypes.VmType_EVM,
-				PublicRpcUrl:   "https://new.example.com",
-				Enabled:        true,
+				Chain:        "eip155:11155111",
+				VmType:       uregistrytypes.VmType_EVM,
+				PublicRpcUrl: "https://new.example.com",
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 		}
 
 		cache.UpdateAll(chainConfigs, nil)
-		
+
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
 		assert.Equal(t, "https://new.example.com", config.PublicRpcUrl)
-		assert.True(t, config.Enabled)
+		assert.True(t, config.Enabled.IsInboundEnabled)
 	})
 
 	t.Run("DuplicateTokens", func(t *testing.T) {
@@ -378,7 +399,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateAll(nil, tokenConfigs)
-		
 		token := cache.GetTokenConfig("eip155:11155111", "0xAAA...")
 		require.NotNil(t, token)
 		assert.Equal(t, "New Token", token.Name)
@@ -397,7 +417,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs(tokenConfigs)
-		
 		// Should still be able to get the token
 		token := cache.GetTokenConfig("eip155:999", "0xXXX...")
 		require.NotNil(t, token)

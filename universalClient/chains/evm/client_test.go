@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestClientInitialization tests the creation of EVM client
@@ -25,7 +25,10 @@ func TestClientInitialization(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		client, err := NewClient(config, logger)
@@ -164,7 +167,10 @@ func TestClientStartStop(t *testing.T) {
 			VmType:         uregistrytypes.VmType_EVM,
 			PublicRpcUrl:   server.URL,
 			GatewayAddress: "0x123...",
-			Enabled:        true,
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
 		}
 
 		client, err := NewClient(config, logger)
@@ -230,7 +236,6 @@ func TestClientIsHealthy(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-				
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`
@@ -292,7 +297,10 @@ func TestClientGetMethods(t *testing.T) {
 		VmType:         uregistrytypes.VmType_EVM,
 		PublicRpcUrl:   "https://eth-sepolia.example.com",
 		GatewayAddress: "0x123...",
-		Enabled:        true,
+		Enabled: &uregistrytypes.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
 	}
 
 	client, err := NewClient(config, logger)
@@ -328,7 +336,6 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-				
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`

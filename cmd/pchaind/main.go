@@ -7,7 +7,7 @@ import (
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/joho/godotenv"
-	"github.com/rollchains/pchain/app"
+	"github.com/pushchain/push-chain-node/app"
 )
 
 func main() {

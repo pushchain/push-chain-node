@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // Client implements the ChainClient interface for EVM chains
@@ -119,7 +119,6 @@ func (c *Client) IsHealthy() bool {
 		// Check connection by getting latest block number
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
 		_, err := c.ethClient.BlockNumber(ctx)
 		if err != nil {
 			c.logger.Warn().Err(err).Msg("health check failed")
@@ -139,12 +138,10 @@ func (c *Client) GetLatestBlockNumber(ctx context.Context) (*big.Int, error) {
 	if c.ethClient == nil {
 		return nil, fmt.Errorf("client not connected")
 	}
-	
 	blockNum, err := c.ethClient.BlockNumber(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
-	
 	return new(big.Int).SetUint64(blockNum), nil
 }
 

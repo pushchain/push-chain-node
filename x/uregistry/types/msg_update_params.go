@@ -4,7 +4,7 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/rollchains/pchain/utils"
+	"github.com/pushchain/push-chain-node/utils"
 )
 
 var (
@@ -52,5 +52,5 @@ func (msg *MsgUpdateParams) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid admin address: %s", msg.Params.Admin)
 	}
 
-	return msg.Params.ValidateBasic()
+	return msg.Params.Validate()
 }

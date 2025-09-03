@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/universalClient/chains"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/registry"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/registry"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // MockedRegistryClient implements RegistryInterface for testing
@@ -50,7 +50,6 @@ func (m *MockedRegistryClient) GetAllTokenConfigs(ctx context.Context) ([]*uregi
 // TestConfigUpdaterInitialization tests the creation of ConfigUpdater
 func TestConfigUpdaterInitialization(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
 	// Create real instances for initialization test
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
@@ -60,7 +59,6 @@ func TestConfigUpdaterInitialization(t *testing.T) {
 		InitialFetchTimeout:   30 * time.Second,
 		RetryBackoff:          time.Second,
 	}
-	
 	updater := NewConfigUpdater(
 		nil, // Registry client can be nil for initialization test
 		cache,
@@ -68,7 +66,6 @@ func TestConfigUpdaterInitialization(t *testing.T) {
 		cfg,
 		logger,
 	)
-	
 	assert.NotNil(t, updater)
 	assert.Equal(t, 5*time.Minute, updater.updatePeriod)
 	assert.Equal(t, cfg, updater.config)
@@ -79,28 +76,34 @@ func TestConfigUpdaterInitialization(t *testing.T) {
 // TestConfigUpdaterUpdateConfigs tests the updateConfigs method
 func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	t.Run("Successful update", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
 		chainReg := chains.NewChainRegistry(logger)
-		
+
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			{
 				Chain:          "eip155:11155111",
 				VmType:         uregistrytypes.VmType_EVM,
 				PublicRpcUrl:   "https://eth-sepolia.example.com",
 				GatewayAddress: "0x123...",
-				Enabled:        true,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 			{
 				Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:         uregistrytypes.VmType_SVM,
 				PublicRpcUrl:   "https://api.devnet.solana.com",
 				GatewayAddress: "Sol123...",
-				Enabled:        true,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 		}
-		
+
 		tokenConfigs := []*uregistrytypes.TokenConfig{
 			{
 				Chain:   "eip155:11155111",
@@ -109,7 +112,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 				Symbol:  "TEST",
 			},
 		}
-		
 		mockRegistry := &MockedRegistryClient{
 			getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 				return chainConfigs, nil
@@ -118,7 +120,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 				return tokenConfigs, nil
 			},
 		}
-		
 		updater := &ConfigUpdater{
 			registry: mockRegistry,
 			cache:    cache,
@@ -126,29 +127,28 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 			config:   getTestConfig(10 * time.Minute),
 			logger:   logger,
 		}
-		
+
 		ctx := context.Background()
 		err := updater.updateConfigs(ctx)
 		require.NoError(t, err)
-		
+
 		// Verify cache was updated
 		cachedChains := cache.GetAllChainConfigs()
 		assert.Len(t, cachedChains, 2)
-		
+
 		cachedTokens := cache.GetAllTokenConfigs()
 		assert.Len(t, cachedTokens, 1)
 	})
-	
+
 	t.Run("Chain config fetch error", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
 		chainReg := chains.NewChainRegistry(logger)
-		
+
 		mockRegistry := &MockedRegistryClient{
 			getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 				return nil, errors.New("chain fetch error")
 			},
 		}
-		
 		updater := &ConfigUpdater{
 			registry: mockRegistry,
 			cache:    cache,
@@ -156,17 +156,16 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 			config:   getTestConfig(10 * time.Minute),
 			logger:   logger,
 		}
-		
 		ctx := context.Background()
 		err := updater.updateConfigs(ctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to fetch chain configs")
 	})
-	
+
 	t.Run("Token config fetch error", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
 		chainReg := chains.NewChainRegistry(logger)
-		
+
 		mockRegistry := &MockedRegistryClient{
 			getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 				return []*uregistrytypes.ChainConfig{}, nil
@@ -175,7 +174,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 				return nil, errors.New("token fetch error")
 			},
 		}
-		
 		updater := &ConfigUpdater{
 			registry: mockRegistry,
 			cache:    cache,
@@ -183,17 +181,16 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 			config:   getTestConfig(10 * time.Minute),
 			logger:   logger,
 		}
-		
 		ctx := context.Background()
 		err := updater.updateConfigs(ctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to fetch token configs")
 	})
-	
+
 	t.Run("Context timeout", func(t *testing.T) {
 		cache := registry.NewConfigCache(logger)
 		chainReg := chains.NewChainRegistry(logger)
-		
+
 		mockRegistry := &MockedRegistryClient{
 			getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 				// Simulate slow response
@@ -205,7 +202,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 				}
 			},
 		}
-		
 		updater := &ConfigUpdater{
 			registry: mockRegistry,
 			cache:    cache,
@@ -213,7 +209,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 			config:   getTestConfig(10 * time.Minute),
 			logger:   logger,
 		}
-		
 		// Use updateConfigs method directly with a short timeout
 		// Create our own timeout since updateConfigs creates its own
 		err := updater.updateConfigs(context.Background())
@@ -227,73 +222,81 @@ func TestConfigUpdaterUpdateChainClients(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	updater := &ConfigUpdater{
 		cache:    cache,
 		chainReg: chainReg,
 		config:   getTestConfig(10 * time.Minute),
 		logger:   logger,
 	}
-	
 	t.Run("Add enabled chains", func(t *testing.T) {
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			{
 				Chain:        "eip155:11155111",
 				VmType:       uregistrytypes.VmType_EVM,
 				PublicRpcUrl: "https://eth-sepolia.example.com",
-				Enabled:      true,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 			{
 				Chain:        "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 				VmType:       uregistrytypes.VmType_SVM,
 				PublicRpcUrl: "https://api.devnet.solana.com",
-				Enabled:      true,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 		}
-		
+
 		ctx := context.Background()
 		err := updater.updateChainClients(ctx, chainConfigs)
 		// This will not error because updateChainClients continues on individual chain errors
 		assert.NoError(t, err)
-		
 		// Solana chain will be added (devnet is public), but EVM will fail (invalid URL)
 		allChains := chainReg.GetAllChains()
 		assert.Len(t, allChains, 1) // Only Solana succeeds
 		assert.Contains(t, allChains, "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
 	})
-	
+
 	t.Run("Skip disabled chains", func(t *testing.T) {
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			{
-				Chain:   "eip155:11155111",
-				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: false, // Disabled
+				Chain:  "eip155:11155111",
+				VmType: uregistrytypes.VmType_EVM,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  false,
+					IsOutboundEnabled: false,
+				}, // Disabled TODO: Check this once @shoaib
 			},
 		}
-		
+
 		ctx := context.Background()
 		err := updater.updateChainClients(ctx, chainConfigs)
 		assert.NoError(t, err)
-		
+
 		// No chains should be added
 		allChains := chainReg.GetAllChains()
 		assert.Len(t, allChains, 0)
 	})
-	
 	t.Run("Skip nil configs", func(t *testing.T) {
 		chainConfigs := []*uregistrytypes.ChainConfig{
 			nil, // Nil config
 			{
-				Chain:   "", // Empty chain ID
-				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: true,
+				Chain:  "", // Empty chain ID
+				VmType: uregistrytypes.VmType_EVM,
+				Enabled: &uregistrytypes.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
 			},
 		}
-		
+
 		ctx := context.Background()
 		err := updater.updateChainClients(ctx, chainConfigs)
 		assert.NoError(t, err)
-		
+
 		// No chains should be added
 		allChains := chainReg.GetAllChains()
 		assert.Len(t, allChains, 0)
@@ -305,16 +308,18 @@ func TestConfigUpdaterForceUpdate(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	forceUpdateCalled := false
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			forceUpdateCalled = true
 			return []*uregistrytypes.ChainConfig{
 				{
-					Chain:   "eip155:11155111",
-					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Chain:  "eip155:11155111",
+					VmType: uregistrytypes.VmType_EVM,
+					Enabled: &uregistrytypes.ChainEnabled{
+						IsInboundEnabled:  true,
+						IsOutboundEnabled: true,
+					},
 				},
 			}, nil
 		},
@@ -322,20 +327,19 @@ func TestConfigUpdaterForceUpdate(t *testing.T) {
 			return []*uregistrytypes.TokenConfig{}, nil
 		},
 	}
-	
 	updater := &ConfigUpdater{
 		registry: mockRegistry,
 		cache:    cache,
 		chainReg: chainReg,
 		logger:   logger,
 	}
-	
+
 	ctx := context.Background()
 	err := updater.ForceUpdate(ctx)
 	require.NoError(t, err)
-	
+
 	assert.True(t, forceUpdateCalled)
-	
+
 	// Verify cache was updated
 	chains := cache.GetAllChainConfigs()
 	assert.Len(t, chains, 1)
@@ -346,16 +350,18 @@ func TestConfigUpdaterPeriodicUpdates(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	var updateCount int32
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			atomic.AddInt32(&updateCount, 1)
 			return []*uregistrytypes.ChainConfig{
 				{
-					Chain:   "eip155:11155111",
-					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Chain:  "eip155:11155111",
+					VmType: uregistrytypes.VmType_EVM,
+					Enabled: &uregistrytypes.ChainEnabled{
+						IsInboundEnabled:  true,
+						IsOutboundEnabled: true,
+					},
 				},
 			}, nil
 		},
@@ -363,7 +369,6 @@ func TestConfigUpdaterPeriodicUpdates(t *testing.T) {
 			return []*uregistrytypes.TokenConfig{}, nil
 		},
 	}
-	
 	testCfg := getTestConfig(50 * time.Millisecond) // Short period for testing
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
@@ -374,18 +379,18 @@ func TestConfigUpdaterPeriodicUpdates(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	ctx := context.Background()
 	err := updater.Start(ctx)
 	require.NoError(t, err)
-	
+
 	// Wait for at least 2 periodic updates
 	time.Sleep(150 * time.Millisecond)
-	
+
 	// Should have initial update + at least 2 periodic updates
 	count := atomic.LoadInt32(&updateCount)
 	assert.GreaterOrEqual(t, count, int32(3))
-	
+
 	updater.Stop()
 }
 
@@ -394,7 +399,6 @@ func TestConfigUpdaterStartStop(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			return []*uregistrytypes.ChainConfig{}, nil
@@ -403,7 +407,6 @@ func TestConfigUpdaterStartStop(t *testing.T) {
 			return []*uregistrytypes.TokenConfig{}, nil
 		},
 	}
-	
 	testCfg := getTestConfig(50 * time.Millisecond)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
@@ -414,22 +417,22 @@ func TestConfigUpdaterStartStop(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Start the updater
 	err := updater.Start(ctx)
 	require.NoError(t, err)
-	
+
 	// Verify ticker was created
 	assert.NotNil(t, updater.ticker)
-	
+
 	// Stop the updater
 	updater.Stop()
-	
+
 	// Give it a moment to stop
 	time.Sleep(10 * time.Millisecond)
-	
+
 	// Verify stop channel is closed by trying to send to it
 	select {
 	case <-updater.stopCh:
@@ -444,7 +447,6 @@ func TestConfigUpdaterContextCancellation(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			return []*uregistrytypes.ChainConfig{}, nil
@@ -453,7 +455,6 @@ func TestConfigUpdaterContextCancellation(t *testing.T) {
 			return []*uregistrytypes.TokenConfig{}, nil
 		},
 	}
-	
 	testCfg := getTestConfig(50 * time.Millisecond)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
@@ -464,23 +465,23 @@ func TestConfigUpdaterContextCancellation(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Start the updater
 	err := updater.Start(ctx)
 	require.NoError(t, err)
-	
+
 	// Let it run briefly
 	time.Sleep(20 * time.Millisecond)
-	
+
 	// Cancel the context
 	cancel()
-	
+
 	// Wait a bit to ensure the goroutine has time to stop
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// The updater should handle context cancellation gracefully
 	// We can't directly test if the goroutine stopped, but no panic should occur
 }
@@ -490,13 +491,11 @@ func TestConfigUpdaterStartFailure(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			return nil, errors.New("initial update error")
 		},
 	}
-	
 	testCfg := getTestConfig(50 * time.Millisecond)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
@@ -507,9 +506,9 @@ func TestConfigUpdaterStartFailure(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Start should fail if all initial update attempts fail
 	err := updater.Start(ctx)
 	assert.Error(t, err)
@@ -521,7 +520,6 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	attemptCount := 0
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
@@ -533,9 +531,12 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 			// Succeed on 3rd attempt
 			return []*uregistrytypes.ChainConfig{
 				{
-					Chain:   "eip155:11155111",
-					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: true,
+					Chain:  "eip155:11155111",
+					VmType: uregistrytypes.VmType_EVM,
+					Enabled: &uregistrytypes.ChainEnabled{
+						IsInboundEnabled:  true,
+						IsOutboundEnabled: true,
+					},
 				},
 			}, nil
 		},
@@ -543,7 +544,6 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 			return []*uregistrytypes.TokenConfig{}, nil
 		},
 	}
-	
 	testCfg := getTestConfig(50 * time.Millisecond)
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
@@ -554,18 +554,18 @@ func TestConfigUpdaterInitialUpdateRetries(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Start should succeed after retries
 	err := updater.Start(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, attemptCount) // Should have made 3 attempts
-	
+
 	// Verify cache was updated
 	chains := cache.GetAllChainConfigs()
 	assert.Len(t, chains, 1)
-	
+
 	// Stop the updater
 	updater.Stop()
 }
@@ -575,7 +575,6 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	cache := registry.NewConfigCache(logger)
 	chainReg := chains.NewChainRegistry(logger)
-	
 	mockRegistry := &MockedRegistryClient{
 		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
 			// Simulate slow response
@@ -587,11 +586,11 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 			}
 		},
 	}
-	
+
 	testCfg := getTestConfig(50 * time.Millisecond)
 	testCfg.InitialFetchTimeout = 100 * time.Millisecond // Very short timeout
-	testCfg.InitialFetchRetries = 1 // Single attempt
-	
+	testCfg.InitialFetchRetries = 1                      // Single attempt
+
 	updater := &ConfigUpdater{
 		registry:     mockRegistry,
 		cache:        cache,
@@ -601,9 +600,9 @@ func TestConfigUpdaterInitialUpdateTimeout(t *testing.T) {
 		logger:       logger,
 		stopCh:       make(chan struct{}),
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Start should fail due to timeout
 	err := updater.Start(ctx)
 	assert.Error(t, err)

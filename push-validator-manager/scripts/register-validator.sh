@@ -72,7 +72,7 @@ else
     print_error "❌ Node too far behind to register validator"
     echo
     print_status "Node is ${MAGENTA}$BLOCKS_BEHIND${NC} blocks behind (limit: $SYNC_THRESHOLD)"
-    print_status "Run ${CYAN}push-node-manager sync${NC} to monitor progress"
+    print_status "Run ${CYAN}push-validator-manager sync${NC} to monitor progress"
     echo
     exit 1
 fi
@@ -111,7 +111,7 @@ if [ -n "$PUBKEY_BASE64" ]; then
         print_status "  2) Run a second node with a different consensus key and register that"
         print_status "  3) Rotate this node's consensus key by re-initializing keys (advanced; may affect uptime)"
         echo
-        print_status "Tip: Check current validators: ./push-node-manager validators"
+        print_status "Tip: Check current validators: ./push-validator-manager validators"
         exit 1
     fi
 fi
@@ -316,7 +316,7 @@ if [ $TX_EXIT_CODE -eq 124 ]; then
     print_status "   • Transaction stuck in mempool"
     echo
     print_status "💡 Try again in a few minutes or check:"
-    print_status "   • Node status: ./push-node-manager status"
+    print_status "   • Node status: ./push-validator-manager status"
     print_status "   • Network connectivity to $GENESIS_DOMAIN"
     rm -f "$TX_OUTPUT_FILE"
     rm -f "$VALIDATOR_JSON"
@@ -363,7 +363,7 @@ else
         echo
         print_status "💡 Possible solutions:"
         print_status "   1. Use a different key name when prompted"
-        print_status "   2. Check if you're already a validator: ./push-node-manager validators"
+        print_status "   2. Check if you're already a validator: ./push-validator-manager validators"
         print_status "   3. Create a new validator key with a different name"
         echo
         print_status "🔍 Your current validator info:"

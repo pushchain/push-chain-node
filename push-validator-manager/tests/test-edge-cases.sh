@@ -1,10 +1,10 @@
 #!/bin/bash
 
 ###############################################
-# Push Node Manager Edge Case Test Suite
+# Push Validator Manager Edge Case Test Suite
 #
 # Tests edge cases, error scenarios, and recovery
-# situations for the Push Node Manager installer
+# situations for the Push Validator Manager installer
 ###############################################
 
 set -euo pipefail
@@ -28,7 +28,7 @@ print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 # Test configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PUSH_NODE_MANAGER="$SCRIPT_DIR/../push-node-manager"
+PUSH_NODE_MANAGER="$SCRIPT_DIR/../push-validator-manager"
 TEST_RESULTS_DIR="./test-results"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 LOG_FILE="$TEST_RESULTS_DIR/edge-case-test-$TIMESTAMP.log"
@@ -157,19 +157,19 @@ test_corrupted_installation() {
     print_header "🔧 Testing Corrupted Installation Recovery"
     
     # Only test if we have a current installation
-    if [ -d "$HOME/push-node-manager" ]; then
-        local backup_dir="$HOME/push-node-manager-backup-$$"
+    if [ -d "$HOME/push-validator-manager" ]; then
+        local backup_dir="$HOME/push-validator-manager-backup-$$"
         
         # Backup current installation
         print_status "Creating backup of current installation"
-        cp -r "$HOME/push-node-manager" "$backup_dir" 2>/dev/null || true
+        cp -r "$HOME/push-validator-manager" "$backup_dir" 2>/dev/null || true
         
         # Simulate corruption by removing a critical file
-        if [ -f "$HOME/push-node-manager/push-node-manager" ]; then
-            rm -f "$HOME/push-node-manager/push-node-manager" 2>/dev/null || true
+        if [ -f "$HOME/push-validator-manager/push-validator-manager" ]; then
+            rm -f "$HOME/push-validator-manager/push-validator-manager" 2>/dev/null || true
             
-            # Test if push-node-manager detects the corruption
-            if "$HOME/push-node-manager/push-node-manager" help >/dev/null 2>&1; then
+            # Test if push-validator-manager detects the corruption
+            if "$HOME/push-validator-manager/push-validator-manager" help >/dev/null 2>&1; then
                 log_test_result "Corruption detection" "FAIL" "Should have detected missing symlink"
             else
                 log_test_result "Corruption detection" "PASS" "Correctly detected corruption"
@@ -178,8 +178,8 @@ test_corrupted_installation() {
         
         # Restore backup
         print_status "Restoring backup"
-        rm -rf "$HOME/push-node-manager" 2>/dev/null || true
-        mv "$backup_dir" "$HOME/push-node-manager" 2>/dev/null || true
+        rm -rf "$HOME/push-validator-manager" 2>/dev/null || true
+        mv "$backup_dir" "$HOME/push-validator-manager" 2>/dev/null || true
         
         log_test_result "Installation recovery" "PASS" "Backup and restore completed"
     else
@@ -425,7 +425,7 @@ print_test_summary() {
     echo
     
     if [ "$TESTS_FAILED" -eq 0 ]; then
-        print_success "🎉 All edge case tests passed! Push Node Manager handles edge cases correctly."
+        print_success "🎉 All edge case tests passed! Push Validator Manager handles edge cases correctly."
     else
         print_error "⚠️  Some edge case tests failed. Check the log file for details: $LOG_FILE"
     fi
@@ -435,19 +435,19 @@ print_test_summary() {
 
 # Main execution
 main() {
-    print_header "🚀 Push Node Manager Edge Case Test Suite"
+    print_header "🚀 Push Validator Manager Edge Case Test Suite"
     print_status "Testing script: $PUSH_NODE_MANAGER"
     print_status "Started at: $(date)"
     print_status "Log file: $LOG_FILE"
     echo
     
-    log "Starting Push Node Manager edge case test suite"
+    log "Starting Push Validator Manager edge case test suite"
     log "Script path: $PUSH_NODE_MANAGER"
     
-    # Check if push-node-manager script exists
+    # Check if push-validator-manager script exists
     if [ ! -f "$PUSH_NODE_MANAGER" ]; then
-        print_error "❌ Push Node Manager script not found: $PUSH_NODE_MANAGER"
-        print_status "Make sure you're running this from the correct directory or install Push Node Manager first."
+        print_error "❌ Push Validator Manager script not found: $PUSH_NODE_MANAGER"
+        print_status "Make sure you're running this from the correct directory or install Push Validator Manager first."
         exit 1
     fi
     
@@ -479,9 +479,9 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: $0 [--help]"
         echo ""
-        echo "This script tests edge cases and error scenarios for Push Node Manager."
+        echo "This script tests edge cases and error scenarios for Push Validator Manager."
         echo ""
-        echo "The script should be run from the push-node-manager directory."
+        echo "The script should be run from the push-validator-manager directory."
         exit 0
         ;;
     *)

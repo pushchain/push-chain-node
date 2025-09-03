@@ -2,7 +2,7 @@
 
 ###############################################
 # Push Chain Node Backup Script
-# Native Push Node Manager Edition
+# Native Push Validator Manager Edition
 #
 # Archives the full ~/.pchain directory and stores
 # it in ~/push-node-backups with a timestamp.
@@ -42,7 +42,7 @@ echo
 if [ ! -d "$NODE_HOME" ]; then
     print_error "❌ Node directory not found: $NODE_HOME"
     print_status "Make sure you have initialized the node first:"
-    print_status "  ./push-node-manager start"
+    print_status "  ./push-validator-manager start"
     exit 1
 fi
 
@@ -167,10 +167,10 @@ fi
 echo
 print_header "🔄 Restore Instructions"
 print_status "To restore this backup:"
-print_status "  1. Stop the node: ${BOLD}./push-node-manager stop${NC}"
+print_status "  1. Stop the node: ${BOLD}./push-validator-manager stop${NC}"
 print_status "  2. Backup current data: ${BOLD}mv ~/.pchain ~/.pchain.old${NC}"
 print_status "  3. Extract backup: ${BOLD}tar -xzf $BACKUP_PATH -C ~${NC}"
-print_status "  4. Start the node: ${BOLD}./push-node-manager start${NC}"
+print_status "  4. Start the node: ${BOLD}./push-validator-manager start${NC}"
 
 echo
 print_header "🗂️  Backup Management"

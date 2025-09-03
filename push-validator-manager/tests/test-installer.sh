@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###############################################
-# Push Node Manager Installer Test Suite
+# Push Validator Manager Installer Test Suite
 # 
 # Comprehensive testing framework for the one-line installer
 # Tests multiple environments, commands, and edge cases
@@ -100,12 +100,12 @@ test_basic_installation() {
     local install_command="
         $minimal_deps_cmd && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        ls -la ~/push-node-manager/ && \
-        ~/push-node-manager/push-node-manager help
+        ls -la ~/push-validator-manager/ && \
+        ~/push-validator-manager/push-validator-manager help
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
-        if echo "$output" | grep -q "push-node-manager help" && echo "$output" | grep -q "Essential Commands"; then
+        if echo "$output" | grep -q "push-validator-manager help" && echo "$output" | grep -q "Essential Commands"; then
             log_test_result "$test_name" "PASS" "Installation completed and help command works"
         else
             log_test_result "$test_name" "FAIL" "Installation completed but help command failed"
@@ -134,8 +134,8 @@ test_binary_creation() {
     local install_command="
         $minimal_deps_cmd $file_cmd && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        ls -la ~/push-node-manager/repo/push-node-manager/build/ && \
-        file ~/push-node-manager/repo/push-node-manager/build/pchaind
+        ls -la ~/push-validator-manager/repo/push-validator-manager/build/ && \
+        file ~/push-validator-manager/repo/push-validator-manager/build/pchaind
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -158,12 +158,12 @@ test_symlink_creation() {
     local install_command="
         apt-get update && apt-get install -y curl jq git build-essential golang-go && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        ls -la ~/push-node-manager/push-node-manager && \
-        readlink ~/push-node-manager/push-node-manager
+        ls -la ~/push-validator-manager/push-validator-manager && \
+        readlink ~/push-validator-manager/push-validator-manager
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
-        if echo "$output" | grep -q "push-node-manager.*->.*repo/push-node-manager/push-node-manager"; then
+        if echo "$output" | grep -q "push-validator-manager.*->.*repo/push-validator-manager/push-validator-manager"; then
             log_test_result "$test_name" "PASS" "Symlink created correctly"
         else
             log_test_result "$test_name" "FAIL" "Symlink not created correctly"
@@ -182,7 +182,7 @@ test_environment_file() {
     local install_command="
         apt-get update && apt-get install -y curl jq git build-essential golang-go && \
         MONIKER=test-node KEYRING_BACKEND=test curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        cat ~/push-node-manager/.env
+        cat ~/push-validator-manager/.env
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -205,10 +205,10 @@ test_command_functionality() {
     local install_command="
         apt-get update && apt-get install -y curl jq git build-essential golang-go && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        cd ~/push-node-manager && \
-        ./push-node-manager help && \
-        ./push-node-manager status || echo 'Status command ran (expected to show not running)' && \
-        ./push-node-manager validators || echo 'Validators command ran (expected to fail without network)'
+        cd ~/push-validator-manager && \
+        ./push-validator-manager help && \
+        ./push-validator-manager status || echo 'Status command ran (expected to show not running)' && \
+        ./push-validator-manager validators || echo 'Validators command ran (expected to fail without network)'
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -234,7 +234,7 @@ test_reinstallation() {
         echo 'First installation complete' && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
         echo 'Second installation complete' && \
-        ~/push-node-manager/push-node-manager help
+        ~/push-validator-manager/push-validator-manager help
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -290,12 +290,12 @@ test_symlink_creation() {
     local install_command="
         $pkg_install_cmd && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        ls -la ~/push-node-manager/push-node-manager && \
-        readlink ~/push-node-manager/push-node-manager
+        ls -la ~/push-validator-manager/push-validator-manager && \
+        readlink ~/push-validator-manager/push-validator-manager
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
-        if echo "$output" | grep -q "push-node-manager.*->.*repo/push-node-manager/push-node-manager"; then
+        if echo "$output" | grep -q "push-validator-manager.*->.*repo/push-validator-manager/push-validator-manager"; then
             log_test_result "$test_name" "PASS" "Symlink created correctly"
         else
             log_test_result "$test_name" "FAIL" "Symlink not created correctly"
@@ -317,7 +317,7 @@ test_environment_file() {
     local install_command="
         $pkg_install_cmd && \
         MONIKER=test-node KEYRING_BACKEND=test curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        cat ~/push-node-manager/.env
+        cat ~/push-validator-manager/.env
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -343,10 +343,10 @@ test_command_functionality() {
     local install_command="
         $pkg_install_cmd && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
-        cd ~/push-node-manager && \
-        ./push-node-manager help && \
-        ./push-node-manager status || echo 'Status command ran (expected to show not running)' && \
-        ./push-node-manager validators || echo 'Validators command ran (expected to fail without network)'
+        cd ~/push-validator-manager && \
+        ./push-validator-manager help && \
+        ./push-validator-manager status || echo 'Status command ran (expected to show not running)' && \
+        ./push-validator-manager validators || echo 'Validators command ran (expected to fail without network)'
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -375,7 +375,7 @@ test_reinstallation() {
         echo 'First installation complete' && \
         curl -fsSL $INSTALLER_URL | bash -s -- --no-start && \
         echo 'Second installation complete' && \
-        ~/push-node-manager/push-node-manager help
+        ~/push-validator-manager/push-validator-manager help
     "
     
     if output=$(run_in_container "$image" "$install_command" 2>&1); then
@@ -478,13 +478,13 @@ print_test_summary() {
 
 # Main execution
 main() {
-    print_header "🚀 Push Node Manager Installer Test Suite"
+    print_header "🚀 Push Validator Manager Installer Test Suite"
     print_status "Started at: $(date)"
     print_status "Installer URL: $INSTALLER_URL"
     print_status "Log file: $LOG_FILE"
     echo
     
-    log "Starting Push Node Manager installer test suite"
+    log "Starting Push Validator Manager installer test suite"
     log "Installer URL: $INSTALLER_URL"
     
     # Test installer accessibility and syntax first
@@ -513,11 +513,11 @@ case "${1:-}" in
         echo "  --help    Show this help message"
         echo "  --quick   Run only basic tests (no Docker required)"
         echo ""
-        echo "This script tests the Push Node Manager installer across multiple environments."
+        echo "This script tests the Push Validator Manager installer across multiple environments."
         exit 0
         ;;
     --quick)
-        print_header "🚀 Quick Push Node Manager Installer Tests"
+        print_header "🚀 Quick Push Validator Manager Installer Tests"
         test_installer_accessibility
         test_installer_syntax
         print_test_summary

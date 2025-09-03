@@ -1,4 +1,4 @@
-# Push Node Manager
+# Push Validator Manager
 
 **Push Chain validator management**
 
@@ -10,17 +10,17 @@ curl -fsSL https://get.push.network/node/install.sh | bash
 ```
 This installs and starts your validator automatically.
 
-> **Note:** After installation, restart your terminal or run `source ~/.bashrc` (or `~/.zshrc`) to use the `push-node-manager` command from anywhere.
+> **Note:** After installation, restart your terminal or run `source ~/.bashrc` (or `~/.zshrc`) to use the `push-validator-manager` command from anywhere.
 
 ### Step 2: Check Sync Status
 ```bash
-push-node-manager status
+push-validator-manager status
 ```
 Wait for: `✅ Catching Up: false` (fully synced)
 
 ### Step 3: Become a Validator
 ```bash
-push-node-manager register-validator
+push-validator-manager register-validator
 ```
 
 **Requirements:**
@@ -34,28 +34,28 @@ push-node-manager register-validator
 
 ### Essential Commands
 ```bash
-push-node-manager start                # Setup + start node  
-push-node-manager stop                 # Stop node
-push-node-manager status               # Show sync status & validator info
-push-node-manager register-validator   # Become a validator
-push-node-manager logs                 # View live logs
+push-validator-manager start                # Setup + start node  
+push-validator-manager stop                 # Stop node
+push-validator-manager status               # Show sync status & validator info
+push-validator-manager register-validator   # Become a validator
+push-validator-manager logs                 # View live logs
 ```
 
 ### Additional Commands
 ```bash
-push-node-manager restart         # Restart node
-push-node-manager sync            # Real-time sync monitor
-push-node-manager validators      # List all validators
-push-node-manager balance         # Check wallet balance
-push-node-manager reset           # Reset blockchain data
-push-node-manager help            # Show all commands
+push-validator-manager restart         # Restart node
+push-validator-manager sync            # Real-time sync monitor
+push-validator-manager validators      # List all validators
+push-validator-manager balance         # Check wallet balance
+push-validator-manager reset           # Reset blockchain data
+push-validator-manager help            # Show all commands
 ```
 
 ### Public Setup Commands (Optional)
 ```bash
-push-node-manager setup-nginx <domain>  # Setup NGINX + SSL for public RPC
-push-node-manager setup-logs            # Configure log rotation
-push-node-manager backup                # Create node backup
+push-validator-manager setup-nginx <domain>  # Setup NGINX + SSL for public RPC
+push-validator-manager setup-logs            # Configure log rotation
+push-validator-manager backup                # Create node backup
 ```
 
 ## 📊 Network Info
@@ -83,7 +83,7 @@ By default, your validator runs locally. These optional commands help set up pub
 
 #### Setup NGINX with SSL
 ```bash
-push-node-manager setup-nginx yourdomain.com
+push-validator-manager setup-nginx yourdomain.com
 ```
 **Creates:**
 - `https://yourdomain.com` - Cosmos RPC endpoint
@@ -98,7 +98,7 @@ push-node-manager setup-nginx yourdomain.com
 
 #### Setup Log Rotation
 ```bash
-push-node-manager setup-logs
+push-validator-manager setup-logs
 ```
 **Configures:**
 - Daily log rotation
@@ -108,7 +108,7 @@ push-node-manager setup-logs
 
 #### Create Backups  
 ```bash
-push-node-manager backup
+push-validator-manager backup
 ```
 - Timestamped backup in `~/push-node-backups/`
 - Includes all config, keys, and blockchain data  

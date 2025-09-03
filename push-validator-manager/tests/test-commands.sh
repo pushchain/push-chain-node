@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ###############################################
-# Push Node Manager Command Test Suite
+# Push Validator Manager Command Test Suite
 #
-# Comprehensive testing of all push-node-manager commands
+# Comprehensive testing of all push-validator-manager commands
 # Tests functionality, error handling, and edge cases
 ###############################################
 
@@ -28,7 +28,7 @@ print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 # Test configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PUSH_NODE_MANAGER="$SCRIPT_DIR/../push-node-manager"
+PUSH_NODE_MANAGER="$SCRIPT_DIR/../push-validator-manager"
 TEST_RESULTS_DIR="./test-results"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 LOG_FILE="$TEST_RESULTS_DIR/command-test-$TIMESTAMP.log"
@@ -422,7 +422,7 @@ print_test_summary() {
     echo
     
     if [ "$TESTS_FAILED" -eq 0 ]; then
-        print_success "🎉 All command tests passed! Push Node Manager commands are working correctly."
+        print_success "🎉 All command tests passed! Push Validator Manager commands are working correctly."
     else
         print_error "⚠️  Some command tests failed. Check the log file for details: $LOG_FILE"
     fi
@@ -432,19 +432,19 @@ print_test_summary() {
 
 # Main execution
 main() {
-    print_header "🚀 Push Node Manager Command Test Suite"
+    print_header "🚀 Push Validator Manager Command Test Suite"
     print_status "Testing script: $PUSH_NODE_MANAGER"
     print_status "Started at: $(date)"
     print_status "Log file: $LOG_FILE"
     echo
     
-    log "Starting Push Node Manager command test suite"
+    log "Starting Push Validator Manager command test suite"
     log "Script path: $PUSH_NODE_MANAGER"
     
-    # Check if push-node-manager script exists
+    # Check if push-validator-manager script exists
     if [ ! -f "$PUSH_NODE_MANAGER" ]; then
-        print_error "❌ Push Node Manager script not found: $PUSH_NODE_MANAGER"
-        print_status "Make sure you're running this from the correct directory or install Push Node Manager first."
+        print_error "❌ Push Validator Manager script not found: $PUSH_NODE_MANAGER"
+        print_status "Make sure you're running this from the correct directory or install Push Validator Manager first."
         exit 1
     fi
     
@@ -473,9 +473,9 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: $0 [--help]"
         echo ""
-        echo "This script tests all Push Node Manager commands for functionality and correctness."
+        echo "This script tests all Push Validator Manager commands for functionality and correctness."
         echo ""
-        echo "The script should be run from the push-node-manager directory."
+        echo "The script should be run from the push-validator-manager directory."
         exit 0
         ;;
     *)

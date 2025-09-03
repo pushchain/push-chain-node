@@ -2,7 +2,7 @@
 
 # ---------------------------------------
 # Push Chain NGINX + SSL Setup Script
-# Native Push Node Manager Edition
+# Native Push Validator Manager Edition
 # ---------------------------------------
 # - Sets up NGINX to serve Cosmos and EVM RPCs
 # - Bootstraps temporary HTTP config to fetch certs
@@ -31,7 +31,7 @@ print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 # Validate input
 if [ -z "${1:-}" ]; then
-    print_error "❌ Usage: ./push-node-manager setup-nginx yourdomain.com"
+    print_error "❌ Usage: ./push-validator-manager setup-nginx yourdomain.com"
     echo
     print_status "This sets up public HTTPS endpoints:"
     print_status "  • https://yourdomain.com - Cosmos RPC"
@@ -71,7 +71,7 @@ print_status "🔍 Checking prerequisites..."
 # Check if node is running
 if ! pgrep -f "pchaind start" >/dev/null; then
     print_error "❌ Push node is not running"
-    print_status "Start your node first: ./push-node-manager start"
+    print_status "Start your node first: ./push-validator-manager start"
     exit 1
 fi
 
@@ -302,8 +302,8 @@ echo
 print_status "📝 Next steps:"
 print_status "  • Test endpoints with your applications"
 print_status "  • Monitor logs: sudo journalctl -u nginx -f"
-print_status "  • Set up log rotation: ./push-node-manager setup-logs"
-print_status "  • Create backups: ./push-node-manager backup"
+print_status "  • Set up log rotation: ./push-validator-manager setup-logs"
+print_status "  • Create backups: ./push-validator-manager backup"
 echo
 print_warning "🔒 Security notes:"
 print_status "  • Rate limiting is set to 10 requests/second per IP"

@@ -17,7 +17,7 @@ print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Installer layout:
-#   ROOT_TOP (~/.local/share/push-node-manager)
+#   ROOT_TOP (~/.local/share/push-validator-manager)
 #     ├─ app/ (this script lives in app/scripts)
 #     └─ repo/ (cloned source by install.sh)
 ROOT_TOP="$(cd "$SCRIPT_DIR/../.." && pwd)"

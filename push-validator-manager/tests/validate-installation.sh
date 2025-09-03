@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###############################################
-# Push Node Manager Installation Validator
+# Push Validator Manager Installation Validator
 #
 # Comprehensive validation script that checks:
 # - All expected files and directories exist
@@ -36,10 +36,10 @@ CHECKS_PASSED=0
 CHECKS_FAILED=0
 
 # Expected paths
-INSTALL_DIR="$HOME/push-node-manager"
+INSTALL_DIR="$HOME/push-validator-manager"
 REPO_DIR="$INSTALL_DIR/repo"
-MANAGER_SCRIPT="$INSTALL_DIR/push-node-manager"
-BINARY_PATH="$REPO_DIR/push-node-manager/build/pchaind"
+MANAGER_SCRIPT="$INSTALL_DIR/push-validator-manager"
+BINARY_PATH="$REPO_DIR/push-validator-manager/build/pchaind"
 ENV_FILE="$INSTALL_DIR/.env"
 
 # Validation result tracking
@@ -87,25 +87,25 @@ validate_directory_structure() {
         check_result "Git repository structure" "FAIL" "Not a git repository"
     fi
     
-    # Check push-node-manager subdirectory
-    if [ -d "$REPO_DIR/push-node-manager" ]; then
-        check_result "Push Node Manager directory" "PASS" "$REPO_DIR/push-node-manager"
+    # Check push-validator-manager subdirectory
+    if [ -d "$REPO_DIR/push-validator-manager" ]; then
+        check_result "Push Validator Manager directory" "PASS" "$REPO_DIR/push-validator-manager"
     else
-        check_result "Push Node Manager directory" "FAIL" "Missing: $REPO_DIR/push-node-manager"
+        check_result "Push Validator Manager directory" "FAIL" "Missing: $REPO_DIR/push-validator-manager"
     fi
     
     # Check build directory
-    if [ -d "$REPO_DIR/push-node-manager/build" ]; then
-        check_result "Build directory exists" "PASS" "$REPO_DIR/push-node-manager/build"
+    if [ -d "$REPO_DIR/push-validator-manager/build" ]; then
+        check_result "Build directory exists" "PASS" "$REPO_DIR/push-validator-manager/build"
     else
-        check_result "Build directory exists" "FAIL" "Missing: $REPO_DIR/push-node-manager/build"
+        check_result "Build directory exists" "FAIL" "Missing: $REPO_DIR/push-validator-manager/build"
     fi
     
     # Check scripts directory
-    if [ -d "$REPO_DIR/push-node-manager/scripts" ]; then
-        check_result "Scripts directory exists" "PASS" "$REPO_DIR/push-node-manager/scripts"
+    if [ -d "$REPO_DIR/push-validator-manager/scripts" ]; then
+        check_result "Scripts directory exists" "PASS" "$REPO_DIR/push-validator-manager/scripts"
     else
-        check_result "Scripts directory exists" "FAIL" "Missing: $REPO_DIR/push-node-manager/scripts"
+        check_result "Scripts directory exists" "FAIL" "Missing: $REPO_DIR/push-validator-manager/scripts"
     fi
     
     echo
@@ -229,14 +229,14 @@ validate_commands() {
     cd "$INSTALL_DIR" || return 1
     
     # Test help command
-    if ./push-node-manager help >/dev/null 2>&1; then
+    if ./push-validator-manager help >/dev/null 2>&1; then
         check_result "Help command works" "PASS" "Command executes successfully"
     else
         check_result "Help command works" "FAIL" "Help command failed"
     fi
     
     # Test status command (should work even if node not running)
-    if ./push-node-manager status >/dev/null 2>&1 || true; then
+    if ./push-validator-manager status >/dev/null 2>&1 || true; then
         check_result "Status command works" "PASS" "Command executes (expected to show 'not running')"
     else
         check_result "Status command works" "FAIL" "Status command failed unexpectedly"
@@ -252,7 +252,7 @@ validate_commands() {
     )
     
     for script in "${essential_scripts[@]}"; do
-        script_path="$REPO_DIR/push-node-manager/$script"
+        script_path="$REPO_DIR/push-validator-manager/$script"
         if [ -f "$script_path" ] && [ -x "$script_path" ]; then
             check_result "$(basename "$script") exists" "PASS" "Script is present and executable"
         else
@@ -356,7 +356,7 @@ print_validation_summary() {
     echo
     
     if [ "$CHECKS_FAILED" -eq 0 ]; then
-        print_success "🎉 Installation validation passed! Push Node Manager is properly installed."
+        print_success "🎉 Installation validation passed! Push Validator Manager is properly installed."
         echo
         print_status "Next steps:"
         print_status "  • Start your node: $MANAGER_SCRIPT start"
@@ -375,7 +375,7 @@ print_validation_summary() {
 
 # Main execution
 main() {
-    print_header "🔍 Push Node Manager Installation Validator"
+    print_header "🔍 Push Validator Manager Installation Validator"
     print_status "Checking installation at: $INSTALL_DIR"
     echo
     
@@ -405,7 +405,7 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: $0 [--help|--quiet]"
         echo ""
-        echo "This script validates a Push Node Manager installation."
+        echo "This script validates a Push Validator Manager installation."
         echo ""
         echo "Options:"
         echo "  --help    Show this help message"

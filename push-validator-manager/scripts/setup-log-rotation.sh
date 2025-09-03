@@ -2,7 +2,7 @@
 
 ###############################################
 # Push Chain Log Rotation Setup Script
-# Native Push Node Manager Edition
+# Native Push Validator Manager Edition
 #
 # - Rotates logs under ~/.pchain/logs/
 # - Uses logrotate (daily, compress, 14-day retention)
@@ -56,7 +56,7 @@ if [ "$MACHINE" = "macOS" ]; then
     print_status "🍎 macOS detected - using native log management"
     print_status "ℹ️  macOS automatically manages log rotation via ASL/Unified Logging"
     print_status "📁 Your logs are in: $LOG_DIR"
-    print_status "🔍 View logs with: ./push-node-manager logs"
+    print_status "🔍 View logs with: ./push-validator-manager logs"
     echo
     print_success "✅ Log management configured for macOS"
     print_status "💡 Manual cleanup command if needed:"

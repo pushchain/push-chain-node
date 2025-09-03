@@ -114,7 +114,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 		}
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		padded := common.LeftPadBytes(addr.Bytes(), 64)
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -123,9 +123,8 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(receipt, errors.New("unable to deploy UEA"))
-
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
 		require.ErrorContains(err, "unable to deploy UEA")
 	})
@@ -139,7 +138,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		padded := common.LeftPadBytes(addr.Bytes(), 64)
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -148,7 +147,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(receipt, nil)
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -189,7 +188,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32) // Incorrect 40 bytes padding to initiate the error
+		padded := common.LeftPadBytes(addr.Bytes(), 64) // Incorrect 40 bytes padding to initiate the error
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -233,7 +232,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
 		}
 		_, err := f.msgServer.MintPC(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to convert EVM address")
+		require.ErrorContains(t, err, "length insufficient 40 require 64")
 	})
 
 	t.Run("fail: Mint Fails", func(t *testing.T) {
@@ -245,7 +244,12 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
+
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -280,10 +284,14 @@ func TestMsgServer_MintPC(t *testing.T) {
 			UniversalAccountId: validUA,
 			TxHash:             validTxHash,
 		}
+		addr := common.HexToAddress("0x8669BED121FEFA3D9CF282127384F489E717CC95")
 
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -409,9 +417,15 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			UniversalPayload:   validUP,
 			VerificationData:   "test-signature",
 		}
+
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
+
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -462,9 +476,15 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			UniversalPayload:   avalidUP,
 			VerificationData:   "test-signature",
 		}
+
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
+
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}

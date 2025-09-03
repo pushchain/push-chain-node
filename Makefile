@@ -172,9 +172,7 @@ test-system: install
 
 test-integration:
 	@echo "Running integration tests..."
-	@go test ./x/uexecutor/integration-test -v -run '^TestExecutePayload$$' || exit 1
-	@go test ./x/uexecutor/integration-test -v -run '^TestDeployUEA$$' || exit 1
-	@go test ./x/uexecutor/integration-test -v -run '^TestMintPC$$' || exit 1
+	@go test ./x/uexecutor/integration-test -v || exit 1
 	@echo "All integration tests completed successfully"
 
 ###############################################################################

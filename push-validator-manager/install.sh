@@ -267,8 +267,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
   if "$MANAGER_LINK" start; then
     # Wait longer for node to stabilize
     sleep 2
-    # Go directly to sync progress display
-    "$MANAGER_LINK" sync || true
+    # Go directly to sync progress display (exit gracefully if user interrupts)
+    "$MANAGER_LINK" sync 2>/dev/null || true
+    # After sync exits (user interrupt or completion), just continue silently
   else
     echo -e "\033[0;31m❌ Failed to start node. Check logs for details.\033[0m"
     echo "You can try starting manually with: push-validator-manager start"

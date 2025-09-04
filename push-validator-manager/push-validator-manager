@@ -222,15 +222,27 @@ PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
 
 # Check if node is running
 is_node_running() {
+    # First check PID file
     if [ -f "$PCHAIND_PID_FILE" ]; then
         PID=$(cat "$PCHAIND_PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
-            return 0
-        else
-            rm -f "$PCHAIND_PID_FILE"
-            return 1
+            # Verify it's actually puniversald/pchaind process
+            if ps -p "$PID" -o comm= | grep -qE "puniversald|pchaind"; then
+                return 0
+            fi
         fi
+        # PID file exists but process not found or wrong process - clean up
+        rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
     fi
+    
+    # Fallback: check if puniversald is running and listening on expected port
+    if pgrep -f "puniversald.*start.*--home.*$HOME_DIR" > /dev/null 2>&1; then
+        # Found process, update PID file
+        local FOUND_PID=$(pgrep -f "puniversald.*start.*--home.*$HOME_DIR" | head -1)
+        echo "$FOUND_PID" > "$PCHAIND_PID_FILE"
+        return 0
+    fi
+    
     return 1
 }
 
@@ -610,7 +622,7 @@ monitor_sync() {
         tput civis 2>/dev/null || true
         # On Ctrl+C, restore cursor and exit successfully so callers (like install.sh)
         # don't treat this as a failure. Node continues running.
-        trap 'MONITOR_STOPPED=1; tput cnorm 2>/dev/null || true; echo; print_status "📊 Sync monitoring stopped. Node continues running in background."; print_status "To stop the node: ${BOLD}push-validator-manager stop${NC}"; print_status "To check status: ${BOLD}push-validator-manager status${NC}"; print_status "To monitor again: ${BOLD}push-validator-manager sync${NC}"; exit 0' INT
+        trap 'MONITOR_STOPPED=1; tput cnorm 2>/dev/null || true; echo; echo "📊 Sync monitoring stopped. Node continues running in background."; exit 0' INT
         trap 'tput cnorm 2>/dev/null || true' TERM EXIT
         # Don't clear screen to avoid flicker
         # printf '\033[2J\033[H'
@@ -1053,6 +1065,7 @@ monitor_sync_auto() {
 # WebSocket monitor using websocat or wscat
 monitor_sync_ws() {
     MONITOR_STOPPED=0
+    
     # Options: default is compact single-line; use -d/--dashboard for full-screen
     local COMPACT_MODE=1
     for arg in "$@"; do
@@ -1098,7 +1111,7 @@ monitor_sync_ws() {
     if [ -t 1 ]; then
         is_tty=1
         tput civis 2>/dev/null || true
-        trap 'MONITOR_STOPPED=1; tput cnorm 2>/dev/null || true; echo; print_status "📊 Sync monitoring stopped. Node continues running in background."; print_status "To stop the node: ${BOLD}push-validator-manager stop${NC}"; print_status "To check status: ${BOLD}push-validator-manager status${NC}"; print_status "To monitor again: ${BOLD}push-validator-manager sync${NC}"; exit 0' INT
+        trap 'MONITOR_STOPPED=1; tput cnorm 2>/dev/null || true; echo; echo "📊 Sync monitoring stopped. Node continues running in background."; exit 0' INT
     fi
 
     # Helper: render current status in compact or dashboard mode
@@ -1248,7 +1261,9 @@ monitor_sync_ws() {
     local queries=("cometbft.event='NewBlockHeader'" "tm.event='NewBlockHeader'" "tm.event='NewBlock'")
     local noevent_streak=0
     local TMP_RECEIVED="/tmp/pnm_ws_${$}_received"
-    trap 'rm -f "$TMP_RECEIVED" 2>/dev/null || true' EXIT
+    # Use a function to clean up to avoid variable evaluation issues
+    cleanup_tmp_received() { rm -f "/tmp/pnm_ws_${$}_received" 2>/dev/null || true; }
+    trap cleanup_tmp_received EXIT
     : > "$TMP_RECEIVED" 2>/dev/null || true
 
     while true; do

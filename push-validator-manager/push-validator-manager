@@ -222,12 +222,12 @@ PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
 
 # Check if node is running
 is_node_running() {
-    # First check PID file
+    # Check PID file
     if [ -f "$PCHAIND_PID_FILE" ]; then
         PID=$(cat "$PCHAIND_PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
-            # Verify it's actually puniversald/pchaind process
-            if ps -p "$PID" -o comm= | grep -qE "puniversald|pchaind"; then
+            # Verify it's actually pchaind process
+            if ps -p "$PID" -o comm= | grep -q "pchaind"; then
                 return 0
             fi
         fi
@@ -235,10 +235,10 @@ is_node_running() {
         rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
     fi
     
-    # Fallback: check if puniversald is running and listening on expected port
-    if pgrep -f "puniversald.*start.*--home.*$HOME_DIR" > /dev/null 2>&1; then
+    # Fallback: check if pchaind is running and listening on expected port
+    if pgrep -f "pchaind.*start.*--home.*$HOME_DIR" > /dev/null 2>&1; then
         # Found process, update PID file
-        local FOUND_PID=$(pgrep -f "puniversald.*start.*--home.*$HOME_DIR" | head -1)
+        local FOUND_PID=$(pgrep -f "pchaind.*start.*--home.*$HOME_DIR" | head -1)
         echo "$FOUND_PID" > "$PCHAIND_PID_FILE"
         return 0
     fi

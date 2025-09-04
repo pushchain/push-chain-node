@@ -185,6 +185,14 @@ require_cmd lsof
 require_cmd nohup
 require_one_of dig nslookup host
 
+# Fast, resilient HTTP getter with short timeouts
+http_get_quick() {
+    # Usage: http_get_quick <url> [max_time_seconds]
+    local url="$1"
+    local max_time="${2:-3}"
+    curl -fsS --connect-timeout 1 --max-time "$max_time" "$url" 2>/dev/null || echo ""
+}
+
 # ASCII Art Banner
 show_banner() {
     echo -e "${BOLD}${GREEN}"
@@ -251,14 +259,15 @@ start_node() {
         "$NATIVE_BINARY" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
         
         print_status "🌍 Fetching genesis.json from $GENESIS_RPC/genesis"
-        if ! curl -fsS "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
+        if ! http_get_quick "$GENESIS_RPC/genesis" 5 | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
             print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
             exit 1
         fi
         
         print_status "🔍 Fetching available peers from network"
         # Try to get multiple peers from the network
-        PEERS_JSON=$(curl -fsS "$GENESIS_RPC/net_info" 2>/dev/null || echo '{}')
+        PEERS_JSON=$(http_get_quick "$GENESIS_RPC/net_info" 3)
+        [ -n "$PEERS_JSON" ] || PEERS_JSON='{}'
         PERSISTENT_PEERS=""
         
         # Extract peers from net_info if available
@@ -273,7 +282,7 @@ start_node() {
         # Fallback to single peer from status endpoint
         if [ -z "$PERSISTENT_PEERS" ]; then
             print_status "🔍 Fetching validator node ID from /status"
-            VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+            VALIDATOR_NODE_ID=$(http_get_quick "$GENESIS_RPC/status" 3 | jq -r '.result.node_info.id // empty')
             if [ -z "${VALIDATOR_NODE_ID}" ]; then
                 print_error "❌ Failed to query validator node ID from $GENESIS_RPC/status"
                 exit 1
@@ -301,7 +310,7 @@ start_node() {
 
     # Ensure genesis.json exists even if config was present
     if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
-        if ! curl -fsS "$GENESIS_RPC/genesis" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
+        if ! http_get_quick "$GENESIS_RPC/genesis" 5 | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
             print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
             exit 1
         fi
@@ -309,7 +318,8 @@ start_node() {
         # Also refresh persistent_peers to be safe (silent)
         
         # Try to get multiple peers from the network
-        PEERS_JSON=$(curl -fsS "$GENESIS_RPC/net_info" 2>/dev/null || echo '{}')
+        PEERS_JSON=$(http_get_quick "$GENESIS_RPC/net_info" 3)
+        [ -n "$PEERS_JSON" ] || PEERS_JSON='{}'
         PERSISTENT_PEERS=""
         
         # Extract peers from net_info if available
@@ -322,7 +332,7 @@ start_node() {
         
         # Fallback to single peer
         if [ -z "$PERSISTENT_PEERS" ]; then
-            VALIDATOR_NODE_ID=$(curl -fsS "$GENESIS_RPC/status" | jq -r '.result.node_info.id // empty')
+            VALIDATOR_NODE_ID=$(http_get_quick "$GENESIS_RPC/status" 3 | jq -r '.result.node_info.id // empty')
             VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
             if [ -n "$VALIDATOR_NODE_ID" ] && [ -n "$VALIDATOR_IP" ]; then
                 PERSISTENT_PEERS="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
@@ -441,7 +451,7 @@ show_status() {
             
             # Get detailed status
             if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-                NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+                NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
                 
                 if [ -n "$NODE_STATUS" ]; then
                     echo
@@ -466,7 +476,7 @@ show_status() {
                     
                     # Fetch remote network height to determine actual sync status
                     REMOTE_HEIGHT=0
-                    REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null || echo "")
+                    REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
                     if [ -n "$REMOTE_STATUS" ]; then
                         REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
                     fi
@@ -592,7 +602,7 @@ monitor_sync() {
         fi
         
         # Get node status
-        NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+                NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
         
         if [ -n "$NODE_STATUS" ]; then
             # Extract sync information
@@ -601,7 +611,7 @@ monitor_sync() {
             LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null || echo "unknown")
             
             # Fetch remote (network) latest height to compute progress
-            REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null || echo "")
+                    REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
             REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
             # Normalize to integers if possible
             [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]] || REMOTE_HEIGHT=0
@@ -805,7 +815,8 @@ configure_genesis() {
         if [ -f "$HOME_DIR/config/config.toml" ]; then
             # Try to get multiple peers from the new genesis domain
             NEW_PEERS=""
-            PEERS_JSON=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/net_info" 2>/dev/null || echo '{}')
+            PEERS_JSON=$(http_get_quick "https://$NEW_GENESIS_DOMAIN/net_info" 3)
+            [ -n "$PEERS_JSON" ] || PEERS_JSON='{}'
             
             if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
                 PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
@@ -816,7 +827,7 @@ configure_genesis() {
             
             # Fallback to single peer
             if [ -z "$NEW_PEERS" ]; then
-                NEW_NODE_ID=$(curl -fsS "https://$NEW_GENESIS_DOMAIN/status" | jq -r '.result.node_info.id // empty' || true)
+                NEW_NODE_ID=$(http_get_quick "https://$NEW_GENESIS_DOMAIN/status" 3 | jq -r '.result.node_info.id // empty' || true)
                 NEW_IP=$(resolve_host_ip "$NEW_GENESIS_DOMAIN")
                 if [ -n "$NEW_NODE_ID" ] && [ -n "$NEW_IP" ]; then
                     NEW_PEERS="$NEW_NODE_ID@$NEW_IP:26656"
@@ -1070,7 +1081,7 @@ monitor_sync_ws() {
 
         # Refresh remote height every 5 seconds for accurate percentage/ETA
         if [ $((current_time - last_remote_poll)) -ge 5 ]; then
-            local REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null || echo "")
+            local REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
             local RH=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
             [[ "$RH" =~ ^[0-9]+$ ]] || RH=0
             REMOTE_HEIGHT=$RH
@@ -1126,9 +1137,30 @@ monitor_sync_ws() {
         fi
 
         if [ "$COMPACT_MODE" -eq 1 ]; then
-            printf "\r%s [%s] %s%%  height %s/%s  rate %s blk/s  avg %ss  link %s (%s%%)" \
-                "$status_text" "$PROGRESS_BAR" "$PROGRESS_PERCENT" \
-                "${LOCAL_HEIGHT:-0}" "${REMOTE_HEIGHT:-0}" "$blocks_per_sec" "$avg_block_time" "$quality_text" "$quality"
+            # Compose single-line summary with bar and ETA
+            local eta_text=""
+            local HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+            if [ "$HEIGHT_DIFF" -gt 5 ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
+                local REMAINING_BLOCKS=$HEIGHT_DIFF
+                local RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
+                if [ "$RATE_POS" -eq 1 ]; then
+                    local ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
+                    if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
+                        local ETA_H=$((ETA_SECONDS / 3600))
+                        local ETA_M=$(((ETA_SECONDS % 3600) / 60))
+                        local ETA_S=$((ETA_SECONDS % 60))
+                        if [ "$ETA_H" -gt 0 ]; then
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
+                        elif [ "$ETA_M" -gt 0 ]; then
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
+                        else
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
+                        fi
+                    fi
+                fi
+            fi
+            local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+            printf "\r%b\033[K" "$line"
         else
             if [ "$is_tty" -eq 1 ]; then
                 tput cup 0 0 2>/dev/null || printf '\033[H'
@@ -1152,7 +1184,7 @@ monitor_sync_ws() {
     }
 
     # Perform an immediate initial fetch to avoid blank screen while connecting
-    local INIT_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+    local INIT_STATUS=$(http_get_quick http://localhost:26657/status 2)
     if [ -n "$INIT_STATUS" ]; then
         LOCAL_HEIGHT=$(echo "$INIT_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
         [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
@@ -1246,9 +1278,7 @@ monitor_sync_ws() {
 
         # If we failed to get events several times in a row, fallback
         if [ "$noevent_streak" -ge 3 ]; then
-            if [ "$COMPACT_MODE" -eq 1 ] && [ "$is_tty" -eq 1 ]; then
-                echo  # ensure newline after \r output
-            fi
+            # Do not print a newline; let the fallback monitor redraw on the same line
             return 1
         fi
 

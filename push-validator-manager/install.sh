@@ -227,6 +227,20 @@ install_ws_client() {
 
   if command -v websocat >/dev/null 2>&1 || command -v wscat >/dev/null 2>&1; then
     echo -e "\033[0;32m✅ WebSocket client available (real-time sync enabled)${NC}"
+    # Ensure npm global bin (where wscat usually lives) is on PATH for this session and future shells
+    if command -v npm >/dev/null 2>&1; then
+      NPM_BIN="$(npm bin -g 2>/dev/null || true)"
+      if [[ -n "$NPM_BIN" ]]; then
+        case ":$PATH:" in
+          *":$NPM_BIN:"*) : ;;
+          *) export PATH="$NPM_BIN:$PATH" ;;
+        esac
+        # Persist to shell config if we created/updated it earlier
+        if [[ -n "$SHELL_CONFIG" ]] && ! grep -q "$NPM_BIN" "$SHELL_CONFIG" 2>/dev/null; then
+          echo "export PATH=\"$NPM_BIN:\$PATH\"" >> "$SHELL_CONFIG"
+        fi
+      fi
+    fi
     return 0
   fi
 
@@ -279,4 +293,3 @@ if [[ -d "$REPO_DIR" ]]; then
     # Remove the temporary clone
     rm -rf "$REPO_DIR"
 fi
-

@@ -150,17 +150,95 @@ print_success "✅ Dependencies installed successfully!"
 echo
 
 # Optional: WebSocket client for real-time sync monitoring
-if command -v websocat >/dev/null 2>&1; then
-    print_success "✅ websocat found (real-time sync enabled)"
-else
-    print_warning "⚠️ websocat not found. Real-time sync will fall back to polling."
-    print_status "   Install with:"
-    if [ "$OS" = "linux" ]; then
-        echo "     sudo apt-get install -y websocat  # or download a release from https://github.com/vi/websocat"
-    else
-        echo "     brew install websocat"
+install_ws_client() {
+    if command -v websocat >/dev/null 2>&1 || command -v wscat >/dev/null 2>&1; then
+        return 0
     fi
-fi
+
+    print_status "🔌 Installing WebSocket client for real-time sync..."
+
+    if [ "$OS" = "macos" ]; then
+        if command -v brew >/dev/null 2>&1; then
+            brew install websocat || true
+        fi
+        if ! command -v websocat >/dev/null 2>&1; then
+            # fallback to wscat via npm
+            if ! command -v npm >/dev/null 2>&1; then
+                brew install node || true
+            fi
+            if command -v npm >/dev/null 2>&1; then
+                npm install -g wscat || true
+            fi
+        fi
+    else
+        # linux
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update || true
+            sudo apt-get install -y websocat || true
+        fi
+        if ! command -v websocat >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get install -y npm || true
+            fi
+            if command -v npm >/dev/null 2>&1; then
+                npm install -g wscat || true
+            fi
+        fi
+    fi
+
+    # Attempt direct release download as last resort
+    if ! command -v websocat >/dev/null 2>&1 && ! command -v wscat >/dev/null 2>&1; then
+        print_status "🌐 Attempting direct download of websocat release..."
+        OS_NAME="$(uname -s)"; ARCH_NAME="$(uname -m)"
+        ASSET_FILTER=""
+        if [[ "$OS_NAME" = "Darwin" ]]; then
+            if [[ "$ARCH_NAME" = "arm64" || "$ARCH_NAME" = "aarch64" ]]; then
+                ASSET_FILTER="aarch64-apple-darwin"
+            else
+                ASSET_FILTER="x86_64-apple-darwin"
+            fi
+        elif [[ "$OS_NAME" = "Linux" ]]; then
+            if [[ "$ARCH_NAME" = "arm64" || "$ARCH_NAME" = "aarch64" ]]; then
+                ASSET_FILTER="aarch64-unknown-linux-musl"
+            else
+                ASSET_FILTER="x86_64-unknown-linux-musl"
+            fi
+        fi
+        if [[ -n "$ASSET_FILTER" ]]; then
+            RELEASE_API="https://api.github.com/repos/vi/websocat/releases/latest"
+            ASSET_URL=$(curl -fsSL "$RELEASE_API" | jq -r \
+                '.assets[] | select(.name | contains("'"$ASSET_FILTER"'")) | .browser_download_url' | head -n1 2>/dev/null || true)
+            if [[ -n "$ASSET_URL" ]]; then
+                mkdir -p "$HOME/.local/bin"
+                curl -fsSL "$ASSET_URL" -o "$HOME/.local/bin/websocat" 2>/dev/null || true
+                chmod +x "$HOME/.local/bin/websocat" 2>/dev/null || true
+                # Add to PATH for current shell
+                case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+            fi
+        fi
+    fi
+
+    # Ensure npm global bin is on PATH if wscat was installed
+    if command -v npm >/dev/null 2>&1; then
+        NPM_BIN="$(npm bin -g 2>/dev/null || true)"
+        if [[ -n "$NPM_BIN" ]]; then
+            case ":$PATH:" in *":$NPM_BIN:"*) : ;; *) export PATH="$NPM_BIN:$PATH" ;; esac
+        fi
+    fi
+
+    if command -v websocat >/dev/null 2>&1; then
+        print_success "✅ websocat installed (real-time sync enabled)"
+    elif command -v wscat >/dev/null 2>&1; then
+        print_success "✅ wscat installed (real-time sync enabled)"
+    else
+        print_warning "⚠️ Could not install websocat/wscat automatically. Monitoring will use polling."
+        print_status "   Manual install options:"
+        print_status "   - websocat: brew install websocat  |  sudo apt-get install -y websocat"
+        print_status "   - wscat: npm install -g wscat"
+    fi
+}
+
+install_ws_client || true
 
 # Use the repo cloned by install.sh
 if [ ! -d "$LOCAL_REPO_DIR" ] || [ ! -f "$LOCAL_REPO_DIR/go.mod" ]; then

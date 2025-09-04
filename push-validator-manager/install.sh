@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 # Push Validator Manager one-liner installer (source-build only, no CI required)
+# By default, resets blockchain data for clean installation (wallets/keys preserved)
 # Usage examples:
-#   curl -fsSL https://get.push.network/pnm/install.sh | bash
+#   curl -fsSL https://get.push.network/pnm/install.sh | bash                    # Clean install (default)
+#   curl -fsSL https://get.push.network/pnm/install.sh | bash -s -- --no-reset   # Keep existing data
+#   curl -fsSL https://get.push.network/pnm/install.sh | bash -s -- --no-start   # Don't auto-start
 #   MONIKER=my-node GENESIS_DOMAIN=rpc-testnet-donut-node1.push.org KEYRING_BACKEND=os \
 #     curl -fsSL https://get.push.network/pnm/install.sh | bash
-#   curl -fsSL https://get.push.network/pnm/install.sh | bash -s -- --no-start
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -19,11 +21,14 @@ MONIKER="${MONIKER:-push-validator}"
 GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 AUTO_START="yes"
+RESET_DATA="${RESET_DATA:-yes}"  # Default to reset for clean installation
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-start) AUTO_START="no"; shift ;;
     --start) AUTO_START="yes"; shift ;;
+    --no-reset) RESET_DATA="no"; shift ;;
+    --reset) RESET_DATA="yes"; shift ;;
     --moniker) MONIKER="$2"; shift 2 ;;
     --genesis) GENESIS_DOMAIN="$2"; shift 2 ;;
     --keyring) KEYRING_BACKEND="$2"; shift 2 ;;
@@ -47,6 +52,20 @@ MANAGER_LINK="$HOME/.local/bin/push-validator-manager"
 mkdir -p "$ROOT_DIR"
 mkdir -p "$HOME/.local/bin"
 cd "$ROOT_DIR"
+
+# Reset blockchain data by default (preserve keyring)
+if [[ "$RESET_DATA" = "yes" ]] && [[ -d "$HOME/.pchain" ]]; then
+    echo -e "${CYAN}🧹 Resetting blockchain data (wallets preserved)...${NC}"
+    rm -rf "$HOME/.pchain/data" 2>/dev/null || true
+    rm -f "$HOME/.pchain/config/genesis.json" 2>/dev/null || true
+    rm -f "$HOME/.pchain/config/addrbook.json" 2>/dev/null || true
+    rm -f "$HOME/.pchain/config/config.toml" 2>/dev/null || true
+    rm -f "$HOME/.pchain/config/config.toml.bak" 2>/dev/null || true
+    rm -rf "$HOME/.pchain/wasm" 2>/dev/null || true
+    rm -rf "$HOME/.pchain/logs" 2>/dev/null || true
+    # Note: ~/.pchain/keyring-test/ is preserved
+    echo -e "\033[0;32m✅ Blockchain data reset (wallets preserved)${NC}"
+fi
 
 echo -e "${CYAN}📦 Installing Push Validator Manager into $ROOT_DIR${NC}"
 

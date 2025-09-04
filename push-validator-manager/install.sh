@@ -150,11 +150,15 @@ mv "$tmp" "$ENV_FILE"
 
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
-  "$MANAGER_LINK" start || true
-  # Small delay to prevent flicker before sync display
-  sleep 0.5
-  # Go directly to sync progress display
-  "$MANAGER_LINK" sync
+  if "$MANAGER_LINK" start; then
+    # Wait longer for node to stabilize
+    sleep 2
+    # Go directly to sync progress display
+    "$MANAGER_LINK" sync
+  else
+    echo -e "\033[0;31m❌ Failed to start node. Check logs for details.\033[0m"
+    echo "You can try starting manually with: push-validator-manager start"
+  fi
 fi
 
 # ALWAYS show PATH instruction when running from pipe (curl | bash)

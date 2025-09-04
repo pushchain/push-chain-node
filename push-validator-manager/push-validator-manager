@@ -327,7 +327,20 @@ STATEEOF
     # Start in background
     mkdir -p "$HOME_DIR/logs"
     nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
-    echo $! > "$PCHAIND_PID_FILE"
+    PID=$!
+    echo $PID > "$PCHAIND_PID_FILE"
+    
+    # Wait a moment and verify the process actually started
+    sleep 1
+    if ! kill -0 "$PID" 2>/dev/null; then
+        print_error "❌ Node failed to start - process exited immediately"
+        if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
+            print_warning "Last log entries:"
+            tail -20 "$HOME_DIR/logs/pchaind.log"
+        fi
+        rm -f "$PCHAIND_PID_FILE"
+        return 1
+    fi
     
     print_success "✅ Node started successfully"
 }

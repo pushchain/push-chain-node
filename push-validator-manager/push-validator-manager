@@ -58,6 +58,28 @@ print_warning() {
     echo -e "${YELLOW}$1${NC}"
 }
 
+# Compute a reasonable progress bar width based on terminal size
+# Override with PROGRESS_BAR_WIDTH env var (10..100)
+compute_bar_width() {
+    local override="${PROGRESS_BAR_WIDTH:-}"
+    if [[ "$override" =~ ^[0-9]+$ ]] && [ "$override" -ge 10 ] && [ "$override" -le 100 ]; then
+        echo "$override"
+        return 0
+    fi
+    local cols=80
+    if [ -t 1 ]; then
+        cols=$(tput cols 2>/dev/null || echo 80)
+        [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+    fi
+    if [ "$cols" -ge 140 ]; then
+        echo 50
+    elif [ "$cols" -ge 100 ]; then
+        echo 40
+    else
+        echo 30
+    fi
+}
+
 # Dependency helpers
 require_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -605,7 +627,7 @@ monitor_sync() {
                     PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0.00")
                 fi
             fi
-            BAR_WIDTH=30
+            BAR_WIDTH=$(compute_bar_width)
             FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
             [ -z "$FILLED" ] && FILLED=0
             EMPTY=$((BAR_WIDTH - FILLED))
@@ -650,8 +672,8 @@ monitor_sync() {
                         fi
                     fi
                 fi
-                # Build colored single-line summary and print in place
-                local line="${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} (${GREEN}${PROGRESS_PERCENT}%${NC}) | ${status_text} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                # Build colored single-line summary with progress bar and print in place
+                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
                 printf "\r%b\033[K" "$line"
             else
                 # Full-screen rich output
@@ -1031,6 +1053,7 @@ monitor_sync_ws() {
     local last_remote_poll=$start_time
     local FULLY_SYNCED_ONCE=0
     local reconnects=0
+    local LOCAL_HEIGHT=0
 
     # Prepare terminal when TTY
     local is_tty=0
@@ -1068,7 +1091,7 @@ monitor_sync_ws() {
                 PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0.00")
             fi
         fi
-        local BAR_WIDTH=30
+        local BAR_WIDTH=$(compute_bar_width)
         local FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
         [ -z "$FILLED" ] && FILLED=0
         local EMPTY=$((BAR_WIDTH - FILLED))
@@ -1128,6 +1151,16 @@ monitor_sync_ws() {
         last_time=$current_time
     }
 
+    # Perform an immediate initial fetch to avoid blank screen while connecting
+    local INIT_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null || echo "")
+    if [ -n "$INIT_STATUS" ]; then
+        LOCAL_HEIGHT=$(echo "$INIT_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+        [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
+        previous_height=$LOCAL_HEIGHT
+    fi
+    # Render once immediately so users see progress without waiting for first event
+    render_ws_view || true
+
     # Subscribe helper: run client and stream events; returns on disconnect
     _run_subscription() {
         local query="$1"
@@ -1154,7 +1187,9 @@ monitor_sync_ws() {
         local got_event=0
         for q in "${queries[@]}"; do
             : > "$TMP_RECEIVED" 2>/dev/null || true
-            _run_subscription "$q" | while IFS= read -r line; do
+            # Use process substitution with read timeout so we don't block forever
+            exec 3< <(_run_subscription "$q")
+            while IFS= read -r -t 2 line <&3; do
                 # Extract height from either NewBlock or NewBlockHeader shapes
                 local h
                 h=$(echo "$line" | jq -r '(.result.data.value.block.header.height // .result.data.value.header.height // empty)') || h=""
@@ -1191,11 +1226,14 @@ monitor_sync_ws() {
                     FULLY_SYNCED_ONCE=1
                 fi
             done
+            exec 3<&-
 
             if [ -s "$TMP_RECEIVED" ]; then
                 got_event=1
                 break
             fi
+            # No events in this attempt; render to keep UI fresh
+            render_ws_view || true
         done
 
         if [ "$got_event" -eq 1 ]; then

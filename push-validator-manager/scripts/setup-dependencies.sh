@@ -149,6 +149,19 @@ fi
 print_success "✅ Dependencies installed successfully!"
 echo
 
+# Optional: WebSocket client for real-time sync monitoring
+if command -v websocat >/dev/null 2>&1; then
+    print_success "✅ websocat found (real-time sync enabled)"
+else
+    print_warning "⚠️ websocat not found. Real-time sync will fall back to polling."
+    print_status "   Install with:"
+    if [ "$OS" = "linux" ]; then
+        echo "     sudo apt-get install -y websocat  # or download a release from https://github.com/vi/websocat"
+    else
+        echo "     brew install websocat"
+    fi
+fi
+
 # Use the repo cloned by install.sh
 if [ ! -d "$LOCAL_REPO_DIR" ] || [ ! -f "$LOCAL_REPO_DIR/go.mod" ]; then
     print_error "❌ Push Chain source not found at: $LOCAL_REPO_DIR"

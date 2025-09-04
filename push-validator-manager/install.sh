@@ -137,6 +137,108 @@ fi
 # ALWAYS export PATH for current session, regardless of shell config
 export PATH="$HOME/.local/bin:$PATH"
 
+# Best-effort install for a WebSocket client (websocat preferred, else wscat)
+install_ws_client() {
+  echo -e "${CYAN}🔌 Checking WebSocket client for real-time sync...${NC}"
+  if command -v websocat >/dev/null 2>&1; then
+    echo -e "\033[0;32m✅ websocat already installed${NC}"
+    return 0
+  fi
+  if command -v wscat >/dev/null 2>&1; then
+    echo -e "\033[0;32m✅ wscat already installed${NC}"
+    return 0
+  fi
+
+  OS_NAME="$(uname -s)"
+  ARCH_NAME="$(uname -m)"
+
+  # Try package managers first
+  if [[ "$OS_NAME" = "Darwin" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo -e "${CYAN}📦 Installing websocat via Homebrew...${NC}"
+      brew install websocat >/dev/null 2>&1 || true
+    fi
+  elif [[ "$OS_NAME" = "Linux" ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      echo -e "${CYAN}📦 Installing websocat via apt-get...${NC}"
+      sudo apt-get update -y >/dev/null 2>&1 || true
+      sudo apt-get install -y websocat >/dev/null 2>&1 || true
+    fi
+  fi
+
+  if command -v websocat >/dev/null 2>&1; then
+    echo -e "\033[0;32m✅ websocat installed${NC}"
+    return 0
+  fi
+
+  # Attempt direct GitHub release download of websocat (best effort)
+  echo -e "${CYAN}🌐 Attempting direct download of websocat release...${NC}"
+  RELEASE_API="https://api.github.com/repos/vi/websocat/releases/latest"
+  ASSET_URL=""
+
+  if [[ "$OS_NAME" = "Darwin" ]]; then
+    if [[ "$ARCH_NAME" = "arm64" || "$ARCH_NAME" = "aarch64" ]]; then
+      ASSET_FILTER="aarch64-apple-darwin"
+    else
+      ASSET_FILTER="x86_64-apple-darwin"
+    fi
+  elif [[ "$OS_NAME" = "Linux" ]]; then
+    if [[ "$ARCH_NAME" = "arm64" || "$ARCH_NAME" = "aarch64" ]]; then
+      ASSET_FILTER="aarch64-unknown-linux-musl"
+    else
+      ASSET_FILTER="x86_64-unknown-linux-musl"
+    fi
+  fi
+
+  if [[ -n "$ASSET_FILTER" ]]; then
+    ASSET_URL=$(curl -fsSL "$RELEASE_API" | jq -r \
+      '.assets[] | select(.name | contains("'"$ASSET_FILTER"'")) | .browser_download_url' | head -n1 2>/dev/null || true)
+  fi
+
+  if [[ -n "$ASSET_URL" ]]; then
+    TMP_BIN="$HOME/.local/bin/websocat"
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL "$ASSET_URL" -o "$TMP_BIN" 2>/dev/null || true
+    chmod +x "$TMP_BIN" 2>/dev/null || true
+  fi
+
+  if command -v websocat >/dev/null 2>&1; then
+    echo -e "\033[0;32m✅ websocat installed (download)${NC}"
+    return 0
+  fi
+
+  # Fallback to wscat via npm (if available)
+  if command -v npm >/dev/null 2>&1; then
+    echo -e "${CYAN}📦 Installing wscat via npm...${NC}"
+    npm install -g wscat >/dev/null 2>&1 || true
+  else
+    # Try to get npm if practical
+    if [[ "$OS_NAME" = "Darwin" ]] && command -v brew >/dev/null 2>&1; then
+      echo -e "${CYAN}📦 Installing Node.js via Homebrew (for wscat)...${NC}"
+      brew install node >/dev/null 2>&1 || true
+    elif [[ "$OS_NAME" = "Linux" ]] && command -v apt-get >/dev/null 2>&1; then
+      echo -e "${CYAN}📦 Installing npm via apt-get (for wscat)...${NC}"
+      sudo apt-get install -y npm >/dev/null 2>&1 || true
+    fi
+    if command -v npm >/dev/null 2>&1; then
+      npm install -g wscat >/dev/null 2>&1 || true
+    fi
+  fi
+
+  if command -v websocat >/dev/null 2>&1 || command -v wscat >/dev/null 2>&1; then
+    echo -e "\033[0;32m✅ WebSocket client available (real-time sync enabled)${NC}"
+    return 0
+  fi
+
+  echo -e "\033[1;33m⚠️  Could not install websocat/wscat automatically. Falling back to polling.\033[0m"
+  echo "   You can install manually:"
+  echo "   - websocat: brew install websocat  |  sudo apt-get install -y websocat"
+  echo "   - wscat: npm install -g wscat"
+}
+
+# Try to install a WS client now (best effort, non-fatal)
+install_ws_client || true
+
 # Persist configuration
 ENV_FILE="$ROOT_DIR/.env"
 tmp="$ENV_FILE.tmp"; : > "$tmp"
@@ -177,5 +279,4 @@ if [[ -d "$REPO_DIR" ]]; then
     # Remove the temporary clone
     rm -rf "$REPO_DIR"
 fi
-
 

@@ -358,8 +358,8 @@ show_sync_after_start() {
         # Give node a moment to initialize
         sleep 3
         
-        # Start monitoring
-        monitor_sync --compact
+        # Start monitoring (prefer WebSocket, fallback to polling)
+        monitor_sync_auto --compact
     )
     # Return 0 so the parent script continues normally
     return 0
@@ -966,6 +966,263 @@ show_help() {
 }
 
 # Command handling
+###############################################################################
+# WebSocket-driven sync monitoring (with graceful fallback)
+###############################################################################
+
+# Optional user hook: override this function in the environment to run custom
+# actions once the node is fully synced. Default prints helpful guidance.
+on_fully_synced() {
+    print_success "🎉 Node is fully synced and ready!"
+    echo -e "You can now register as validator: ${BOLD}push-validator-manager register-validator${NC}"
+    # If a user-provided hook script exists, run it
+    if [ -x "$SCRIPT_DIR/scripts/on-synced.sh" ]; then
+        "$SCRIPT_DIR/scripts/on-synced.sh" || true
+    fi
+}
+
+# Try WebSocket monitor first; if unavailable, fall back to the existing polling
+monitor_sync_auto() {
+    if monitor_sync_ws "$@"; then
+        return 0
+    else
+        # Fallback to existing polling monitor
+        monitor_sync "$@"
+    fi
+}
+
+# WebSocket monitor using websocat or wscat
+monitor_sync_ws() {
+    # Options: default is compact single-line; use -d/--dashboard for full-screen
+    local COMPACT_MODE=1
+    for arg in "$@"; do
+        case "$arg" in
+            -d|--dashboard) COMPACT_MODE=0 ;;
+            -c|--compact) COMPACT_MODE=1 ;;
+        esac
+    done
+
+    # Require running node
+    if ! is_node_running; then
+        echo
+        print_error "❌ Node is not running"
+        echo "Start the node first: push-validator-manager start"
+        return 1
+    fi
+
+    # Detect WebSocket client
+    local WS_CLIENT=""
+    if command -v websocat >/dev/null 2>&1; then
+        WS_CLIENT="websocat"
+    elif command -v wscat >/dev/null 2>&1; then
+        WS_CLIENT="wscat"
+    else
+        print_warning "⚠️ No WebSocket client (websocat/wscat) found; falling back to polling."
+        return 1
+    fi
+
+    local start_time=$(date +%s)
+    local last_time=$start_time
+    local previous_height=0
+    local last_event_time=$start_time
+    local avg_interval_sum=0
+    local avg_interval_count=0
+    local REMOTE_HEIGHT=0
+    local last_remote_poll=$start_time
+    local FULLY_SYNCED_ONCE=0
+    local reconnects=0
+
+    # Prepare terminal when TTY
+    local is_tty=0
+    if [ -t 1 ]; then
+        is_tty=1
+        tput civis 2>/dev/null || true
+        trap 'tput cnorm 2>/dev/null || true; echo; print_status "📊 Sync monitoring stopped."; exit 0' INT
+    fi
+
+    # Helper: render current status in compact or dashboard mode
+    render_ws_view() {
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        # Refresh remote height every 5 seconds for accurate percentage/ETA
+        if [ $((current_time - last_remote_poll)) -ge 5 ]; then
+            local REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null || echo "")
+            local RH=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            [[ "$RH" =~ ^[0-9]+$ ]] || RH=0
+            REMOTE_HEIGHT=$RH
+            last_remote_poll=$current_time
+        fi
+
+        # Compute blocks/sec using previous_height/last_time deltas
+        local interval=$((current_time - last_time)); [ $interval -le 0 ] && interval=1
+        local height_diff=$((LOCAL_HEIGHT - previous_height))
+        local blocks_per_sec=$(echo "scale=2; $height_diff / $interval" | bc 2>/dev/null || echo "0")
+
+        # Progress bar
+        local PROGRESS_PERCENT="0.00"
+        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+            if [ "$LOCAL_HEIGHT" -ge "$REMOTE_HEIGHT" ]; then
+                PROGRESS_PERCENT="100.00"
+            else
+                PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0.00")
+            fi
+        fi
+        local BAR_WIDTH=30
+        local FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
+        [ -z "$FILLED" ] && FILLED=0
+        local EMPTY=$((BAR_WIDTH - FILLED))
+        local BAR_FILLED=$(printf "%0.s█" $(seq 1 ${FILLED}))
+        local BAR_EMPTY=$(printf "%0.s░" $(seq 1 ${EMPTY}))
+        local PROGRESS_BAR="${BAR_FILLED}${BAR_EMPTY}"
+
+        # Connection quality: degrade with reconnects and long gaps
+        local gap=$((current_time - last_event_time))
+        local quality=$((100 - reconnects*15))
+        [ $quality -lt 10 ] && quality=10
+        if [ $gap -gt 10 ]; then quality=$((quality - 20)); [ $quality -lt 5 ] && quality=5; fi
+        local quality_text="Good"; [ $quality -lt 70 ] && quality_text="OK"; [ $quality -lt 40 ] && quality_text="Poor"
+
+        # Average block interval (seconds)
+        local avg_block_time=""
+        if [ $avg_interval_count -gt 0 ]; then
+            avg_block_time=$(echo "scale=2; $avg_interval_sum / $avg_interval_count" | bc 2>/dev/null || echo "0")
+        else
+            avg_block_time="0"
+        fi
+
+        # Status text based on proximity to head
+        local status_text="${YELLOW}⏳ SYNCING${NC}"
+        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+            local HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+            if [ "$HEIGHT_DIFF" -le 5 ]; then
+                status_text="${GREEN}✅ SYNCED${NC}"
+            elif [ "$HEIGHT_DIFF" -le 100 ]; then
+                status_text="${YELLOW}🔄 CATCHING UP${NC}"
+            fi
+        fi
+
+        if [ "$COMPACT_MODE" -eq 1 ]; then
+            printf "\r%s [%s] %s%%  height %s/%s  rate %s blk/s  avg %ss  link %s (%s%%)" \
+                "$status_text" "$PROGRESS_BAR" "$PROGRESS_PERCENT" \
+                "${LOCAL_HEIGHT:-0}" "${REMOTE_HEIGHT:-0}" "$blocks_per_sec" "$avg_block_time" "$quality_text" "$quality"
+        else
+            if [ "$is_tty" -eq 1 ]; then
+                tput cup 0 0 2>/dev/null || printf '\033[H'
+                tput ed 2>/dev/null || printf '\033[J'
+            fi
+            echo -e "${BLUE}📊 Push Chain Sync (WebSocket)${NC}"
+            echo -e "${GREEN}══════════════════════════════════════════${NC}"
+            echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}${LOCAL_HEIGHT:-0}${NC}/${MAGENTA}${REMOTE_HEIGHT:-0}${NC}"
+            echo -e "  ${BOLD}Status:${NC} $status_text"
+            echo -e "  ${BOLD}Rate:${NC} ${CYAN}${blocks_per_sec} blocks/sec${NC}"
+            echo -e "  ${BOLD}Avg Block Time:${NC} ${CYAN}${avg_block_time}s${NC}"
+            echo -e "  ${BOLD}Connection:${NC} ${CYAN}${quality_text}${NC} (${quality}%)"
+            echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC}"
+            echo -e "  ${BOLD}Monitoring Time:${NC} $((elapsed))s"
+            echo
+            print_status "Press Ctrl+C to exit monitor"
+        fi
+
+        previous_height=$LOCAL_HEIGHT
+        last_time=$current_time
+    }
+
+    # Subscribe helper: run client and stream events; returns on disconnect
+    _run_subscription() {
+        local query="$1"
+        local payload='{\"jsonrpc\":\"2.0\",\"method\":\"subscribe\",\"params\":{\"query\":'"\"$query\""'},\"id\":1}'
+        if [ "$WS_CLIENT" = "websocat" ]; then
+            # Send subscribe JSON and stream messages
+            # shellcheck disable=SC2005
+            ( echo "$payload"; ) | websocat -t ws://localhost:26657/websocket 2>/dev/null
+        else
+            # wscat can send once with -x and print responses
+            wscat -c ws://localhost:26657/websocket -x "$payload" 2>/dev/null
+        fi
+    }
+
+    # Attempt multiple query forms; keep reconnecting. If we fail repeatedly
+    # without receiving any events, let caller fallback to polling.
+    local queries=("cometbft.event='NewBlockHeader'" "tm.event='NewBlockHeader'" "tm.event='NewBlock'")
+    local noevent_streak=0
+    local TMP_RECEIVED="/tmp/pnm_ws_${$}_received"
+    trap 'rm -f "$TMP_RECEIVED" 2>/dev/null || true' EXIT
+    : > "$TMP_RECEIVED" 2>/dev/null || true
+
+    while true; do
+        local got_event=0
+        for q in "${queries[@]}"; do
+            : > "$TMP_RECEIVED" 2>/dev/null || true
+            _run_subscription "$q" | while IFS= read -r line; do
+                # Extract height from either NewBlock or NewBlockHeader shapes
+                local h
+                h=$(echo "$line" | jq -r '(.result.data.value.block.header.height // .result.data.value.header.height // empty)') || h=""
+                if [ -z "$h" ] || [ "$h" = "null" ]; then
+                    continue
+                fi
+
+                # Normalize height
+                if [[ "$h" =~ ^[0-9]+$ ]]; then
+                    LOCAL_HEIGHT=$h
+                else
+                    continue
+                fi
+
+                # Mark that we received at least one event in this attempt
+                echo 1 > "$TMP_RECEIVED" 2>/dev/null || true
+
+                # Update average block interval from event arrival spacing (wall clock)
+                local now=$(date +%s)
+                local delta=$((now - last_event_time))
+                if [ $delta -gt 0 ]; then
+                    avg_interval_sum=$((avg_interval_sum + delta))
+                    avg_interval_count=$((avg_interval_count + 1))
+                fi
+                last_event_time=$now
+
+                # Render UI and possibly invoke hook when considered synced
+                render_ws_view
+
+                # Trigger on_fully_synced once when near head
+                if [ "$FULLY_SYNCED_ONCE" -eq 0 ] && [ "$REMOTE_HEIGHT" -gt 0 ] && [ $((REMOTE_HEIGHT - LOCAL_HEIGHT)) -le 5 ]; then
+                    echo
+                    on_fully_synced || true
+                    FULLY_SYNCED_ONCE=1
+                fi
+            done
+
+            if [ -s "$TMP_RECEIVED" ]; then
+                got_event=1
+                break
+            fi
+        done
+
+        if [ "$got_event" -eq 1 ]; then
+            noevent_streak=0
+        else
+            noevent_streak=$((noevent_streak + 1))
+        fi
+
+        reconnects=$((reconnects + 1))
+
+        # If we failed to get events several times in a row, fallback
+        if [ "$noevent_streak" -ge 3 ]; then
+            if [ "$COMPACT_MODE" -eq 1 ] && [ "$is_tty" -eq 1 ]; then
+                echo  # ensure newline after \r output
+            fi
+            return 1
+        fi
+
+        # Small backoff before trying again
+        sleep 2
+    done
+}
+
+###############################################################################
+# Command handling
+###############################################################################
+
 case "${1:-help}" in
     start|run)
         show_banner
@@ -987,7 +1244,7 @@ case "${1:-help}" in
         ;;
         
     sync)
-        monitor_sync ${@:2}
+        monitor_sync_auto ${@:2}
         ;;
         
     logs)

@@ -376,10 +376,20 @@ start_node() {
 STATEEOF
     fi
     
-    # Start in background
+    # Start in background with proper signal isolation
     mkdir -p "$HOME_DIR/logs"
-    nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
-    PID=$!
+    # Use setsid to create new session and isolate from terminal signals
+    if command -v setsid >/dev/null 2>&1; then
+        setsid nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
+        # Give it a moment to start and get the actual PID
+        sleep 0.5
+        PID=$(pgrep -f "pchaind.*start.*--home.*$HOME_DIR" | head -1)
+    else
+        # Fallback: use nohup and disown
+        nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
+        PID=$!
+        disown $PID 2>/dev/null || true
+    fi
     echo $PID > "$PCHAIND_PID_FILE"
     
     # Wait a moment and verify the process actually started

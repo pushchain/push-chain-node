@@ -253,7 +253,12 @@ start_node() {
     
     # If already running, do not disturb the running process
     if is_node_running; then
-        print_success "✅ Node already running (PID: $(cat \"$PCHAIND_PID_FILE\"))"
+        if [ -f "$PCHAIND_PID_FILE" ]; then
+            PID=$(cat "$PCHAIND_PID_FILE" 2>/dev/null)
+            print_success "✅ Node already running (PID: $PID)"
+        else
+            print_success "✅ Node already running"
+        fi
         print_status "Use: ${BOLD}push-validator-manager sync${NC} to monitor or ${BOLD}push-validator-manager status${NC}"
         return 0
     fi
@@ -516,7 +521,12 @@ show_status() {
         print_success "✅ Node initialized"
         
         if is_node_running; then
-            print_success "✅ Node is running (PID: $(cat "$PCHAIND_PID_FILE"))"
+            if [ -f "$PCHAIND_PID_FILE" ]; then
+                PID=$(cat "$PCHAIND_PID_FILE" 2>/dev/null)
+                print_success "✅ Node is running (PID: $PID)"
+            else
+                print_success "✅ Node is running"
+            fi
             
             # Get detailed status
             if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then

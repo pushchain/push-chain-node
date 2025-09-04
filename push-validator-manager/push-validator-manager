@@ -343,6 +343,26 @@ STATEEOF
     fi
     
     print_success "✅ Node started successfully"
+    
+    # Show sync status (safe - won't kill node on Ctrl+C)
+    show_sync_after_start
+}
+
+# Safe sync monitoring that doesn't kill the node on Ctrl+C
+show_sync_after_start() {
+    # Run monitor_sync in a subshell with its own signal handling
+    (
+        # Trap INT to exit only this subshell, not the parent
+        trap 'echo; print_status "📊 Sync monitoring stopped. Node continues running in background."; echo; print_status "To check status: ${BOLD}push-validator-manager status${NC}"; print_status "To monitor again: ${BOLD}push-validator-manager sync${NC}"; exit 0' INT
+        
+        # Give node a moment to initialize
+        sleep 3
+        
+        # Start monitoring
+        monitor_sync --compact
+    )
+    # Return 0 so the parent script continues normally
+    return 0
 }
 
 # Stop node
@@ -474,11 +494,11 @@ show_status() {
             fi
         else
             print_error "❌ Node is not running"
-            echo "Use: ./push-validator-manager start"
+            echo "Use: push-validator-manager start"
         fi
     else
         print_error "❌ Node not initialized"
-        echo "Use: ./push-validator-manager start"
+        echo "Use: push-validator-manager start"
     fi
 }
 
@@ -493,7 +513,7 @@ show_logs() {
         if is_node_running; then
             print_status "Node is running but logs not found at expected location"
         else
-            print_status "Start the node first: ./push-validator-manager start"
+            print_status "Start the node first: push-validator-manager start"
         fi
     fi
 }
@@ -516,7 +536,7 @@ monitor_sync() {
     if ! is_node_running; then
         echo  # Add blank line for spacing
         print_error "❌ Node is not running"
-        echo "Start the node first: ./push-validator-manager start"
+        echo "Start the node first: push-validator-manager start"
         exit 1
     fi
     
@@ -706,7 +726,7 @@ monitor_sync() {
                 if [ "$is_synced" -eq 1 ]; then
                     echo
                     echo -e "${BOLD}${GREEN}🎉 Node is fully synced and ready!${NC}"
-                    echo -e "You can now register as validator: ${BOLD}./push-validator-manager register-validator${NC}"
+                    echo -e "You can now register as validator: ${BOLD}push-validator-manager register-validator${NC}"
                 fi
                 
                 echo
@@ -784,7 +804,7 @@ configure_genesis() {
             if [ -n "$NEW_PEERS" ]; then
                 sed -i.bak -e "s/^persistent_peers = .*/persistent_peers = \"$NEW_PEERS\"/" -e "s/^addr_book_strict = .*/addr_book_strict = false/" "$HOME_DIR/config/config.toml"
                 print_success "🔗 Updated persistent_peers to $NEW_PEERS"
-                print_status "🔄 Restart the node to apply the new peers: ./push-validator-manager restart"
+                print_status "🔄 Restart the node to apply the new peers: push-validator-manager restart"
             else
                 print_warning "⚠️ Could not resolve new peer info; leaving config unchanged."
             fi
@@ -797,8 +817,8 @@ configure_genesis() {
         echo -e "  ${BOLD}Domain:${NC} ${MAGENTA}$GENESIS_DOMAIN${NC}"
         echo -e "  ${BOLD}Full URL:${NC} ${MAGENTA}$GENESIS_RPC${NC}"
         echo
-        print_status "💡 To change: ./push-validator-manager set-genesis <domain>"
-        print_status "   Example: ./push-validator-manager set-genesis rpc.custom-node.org"
+        print_status "💡 To change: push-validator-manager set-genesis <domain>"
+        print_status "   Example: push-validator-manager set-genesis rpc.custom-node.org"
         echo
         print_status "🔧 Default: rpc-testnet-donut-node1.push.org"
     fi
@@ -812,7 +832,7 @@ check_balance() {
     # Check if wallet exists
     if ! "$NATIVE_BINARY" keys show "$WALLET_NAME" --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" >/dev/null 2>&1; then
         print_error "❌ Wallet '$WALLET_NAME' not found!"
-        echo "Create a wallet first using: ./push-validator-manager register-validator"
+        echo "Create a wallet first using: push-validator-manager register-validator"
         exit 1
     fi
     
@@ -896,7 +916,7 @@ list_validators() {
         fi
     else
         print_error "❌ Node must be running to query validators"
-        echo "Start the node first: ./push-validator-manager start"
+        echo "Start the node first: push-validator-manager start"
     fi
 }
 
@@ -1020,14 +1040,14 @@ case "${1:-help}" in
             
             print_success "✅ Blockchain data reset completely"
             print_status "Node will be completely re-initialized on next start"
-            print_status "Start the node to re-sync: ./push-validator-manager start"
+            print_status "Start the node to re-sync: push-validator-manager start"
         fi
         ;;
         
     setup-nginx)
         if [ -z "${2:-}" ]; then
             print_error "❌ Domain required for NGINX setup"
-            echo "Usage: ./push-validator-manager setup-nginx yourdomain.com"
+            echo "Usage: push-validator-manager setup-nginx yourdomain.com"
             exit 1
         fi
         bash "$SCRIPT_DIR/scripts/setup-nginx.sh" "$2"
@@ -1047,7 +1067,7 @@ case "${1:-help}" in
         
     *)
         print_error "❌ Unknown command: $1"
-        echo "Use './push-validator-manager help' for usage information"
+        echo "Use 'push-validator-manager help' for usage information"
         exit 1
         ;;
 esac

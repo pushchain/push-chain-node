@@ -32,6 +32,7 @@ MAGENTA='\033[0;35m'    # Accent/highlight data
 WHITE='\033[1;37m'      # Important values (bold white)
 NC='\033[0m'            # No color/reset
 BOLD='\033[1m'          # Emphasis
+DIM='\033[90m'          # Dim gray (for empty bar)
 
 # Print functions - Unified across all scripts
 print_status() {
@@ -589,7 +590,10 @@ monitor_sync() {
     if [ -t 1 ]; then
         is_tty=1
         tput civis 2>/dev/null || true
-        trap 'tput cnorm 2>/dev/null || true; echo' INT TERM EXIT
+        # On Ctrl+C, restore cursor and exit successfully so callers (like install.sh)
+        # don't treat this as a failure. Node continues running.
+        trap 'tput cnorm 2>/dev/null || true; echo; print_status "📊 Sync monitoring stopped. Node continues running in background."; exit 0' INT
+        trap 'tput cnorm 2>/dev/null || true' TERM EXIT
         # Don't clear screen to avoid flicker
         # printf '\033[2J\033[H'
     fi
@@ -640,10 +644,15 @@ monitor_sync() {
             BAR_WIDTH=$(compute_bar_width)
             FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
             [ -z "$FILLED" ] && FILLED=0
+            # Ensure at least 1 cell shows when progress > 0
+            if [ "$FILLED" -eq 0 ] && [ "$PROGRESS_PERCENT" != "0.00" ]; then
+                FILLED=1
+            fi
+            [ "$FILLED" -gt "$BAR_WIDTH" ] && FILLED=$BAR_WIDTH
             EMPTY=$((BAR_WIDTH - FILLED))
             BAR_FILLED=$(printf "%0.s█" $(seq 1 ${FILLED}))
             BAR_EMPTY=$(printf "%0.s░" $(seq 1 ${EMPTY}))
-            PROGRESS_BAR="${BAR_FILLED}${BAR_EMPTY}"
+            PROGRESS_BAR="${GREEN}${BAR_FILLED}${NC}${DIM}${BAR_EMPTY}${NC}"
             
             if [ "$COMPACT_MODE" -eq 1 ]; then
                 # Single-line compact output with colors
@@ -1105,10 +1114,14 @@ monitor_sync_ws() {
         local BAR_WIDTH=$(compute_bar_width)
         local FILLED=$(echo "$PROGRESS_PERCENT * $BAR_WIDTH / 100" | bc 2>/dev/null | cut -d'.' -f1)
         [ -z "$FILLED" ] && FILLED=0
+        if [ "$FILLED" -eq 0 ] && [ "$PROGRESS_PERCENT" != "0.00" ]; then
+            FILLED=1
+        fi
+        [ "$FILLED" -gt "$BAR_WIDTH" ] && FILLED=$BAR_WIDTH
         local EMPTY=$((BAR_WIDTH - FILLED))
         local BAR_FILLED=$(printf "%0.s█" $(seq 1 ${FILLED}))
         local BAR_EMPTY=$(printf "%0.s░" $(seq 1 ${EMPTY}))
-        local PROGRESS_BAR="${BAR_FILLED}${BAR_EMPTY}"
+        local PROGRESS_BAR="${GREEN}${BAR_FILLED}${NC}${DIM}${BAR_EMPTY}${NC}"
 
         # Connection quality: degrade with reconnects and long gaps
         local gap=$((current_time - last_event_time))

@@ -378,19 +378,48 @@ STATEEOF
     
     # Start in background with proper signal isolation
     mkdir -p "$HOME_DIR/logs"
-    # Use setsid to create new session and isolate from terminal signals
-    if command -v setsid >/dev/null 2>&1; then
-        setsid nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
-        # Give it a moment to start and get the actual PID
-        sleep 0.5
-        PID=$(pgrep -f "pchaind.*start.*--home.*$HOME_DIR" | head -1)
+    
+    # Use daemon launcher to create a truly detached process
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    DAEMON_LAUNCHER="$SCRIPT_DIR/daemon-launcher.sh"
+    
+    if [[ -f "$DAEMON_LAUNCHER" ]]; then
+        # Use the daemon launcher for complete detachment
+        "$DAEMON_LAUNCHER" "$NATIVE_BINARY" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
+        
+        # Wait for PID file to be created
+        local wait_count=0
+        while [[ ! -f "$PCHAIND_PID_FILE" ]] && [[ $wait_count -lt 10 ]]; do
+            sleep 0.1
+            ((wait_count++))
+        done
+        
+        if [[ -f "$PCHAIND_PID_FILE" ]]; then
+            PID=$(cat "$PCHAIND_PID_FILE")
+        else
+            print_error "❌ Failed to create PID file"
+            return 1
+        fi
     else
-        # Fallback: use nohup and disown
-        nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 &
-        PID=$!
-        disown $PID 2>/dev/null || true
+        # Fallback to previous method if launcher script not found
+        (
+            trap '' INT TERM HUP
+            nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
+            echo $! > "$PCHAIND_PID_FILE"
+        ) &
+        
+        # Wait for PID file to be written
+        sleep 0.5
+        
+        # Read the actual PID
+        if [ -f "$PCHAIND_PID_FILE" ]; then
+            PID=$(cat "$PCHAIND_PID_FILE")
+        else
+            # Fallback: find the process
+            PID=$(pgrep -f "pchaind.*start.*--home.*$HOME_DIR" | head -1)
+        fi
+        echo $PID > "$PCHAIND_PID_FILE"
     fi
-    echo $PID > "$PCHAIND_PID_FILE"
     
     # Wait a moment and verify the process actually started
     sleep 1

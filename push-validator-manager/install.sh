@@ -155,14 +155,13 @@ install_ws_client() {
   # Try package managers first
   if [[ "$OS_NAME" = "Darwin" ]]; then
     if command -v brew >/dev/null 2>&1; then
-      echo -e "${CYAN}📦 Installing websocat via Homebrew...${NC}"
-      brew install websocat >/dev/null 2>&1 || true
+      HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1 \
+        brew install websocat >/dev/null 2>&1 || true
     fi
   elif [[ "$OS_NAME" = "Linux" ]]; then
     if command -v apt-get >/dev/null 2>&1; then
-      echo -e "${CYAN}📦 Installing websocat via apt-get...${NC}"
-      sudo apt-get update -y >/dev/null 2>&1 || true
-      sudo apt-get install -y websocat >/dev/null 2>&1 || true
+      sudo apt-get update -y -qq >/dev/null 2>&1 || true
+      sudo apt-get install -y -qq websocat >/dev/null 2>&1 || true
     fi
   fi
 
@@ -209,19 +208,17 @@ install_ws_client() {
 
   # Fallback to wscat via npm (if available)
   if command -v npm >/dev/null 2>&1; then
-    echo -e "${CYAN}📦 Installing wscat via npm...${NC}"
-    npm install -g wscat >/dev/null 2>&1 || true
+    npm install -g --silent --no-progress wscat >/dev/null 2>&1 || true
   else
     # Try to get npm if practical
     if [[ "$OS_NAME" = "Darwin" ]] && command -v brew >/dev/null 2>&1; then
-      echo -e "${CYAN}📦 Installing Node.js via Homebrew (for wscat)...${NC}"
-      brew install node >/dev/null 2>&1 || true
+      HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1 \
+        brew install node >/dev/null 2>&1 || true
     elif [[ "$OS_NAME" = "Linux" ]] && command -v apt-get >/dev/null 2>&1; then
-      echo -e "${CYAN}📦 Installing npm via apt-get (for wscat)...${NC}"
-      sudo apt-get install -y npm >/dev/null 2>&1 || true
+      sudo apt-get install -y -qq npm >/dev/null 2>&1 || true
     fi
     if command -v npm >/dev/null 2>&1; then
-      npm install -g wscat >/dev/null 2>&1 || true
+      npm install -g --silent --no-progress wscat >/dev/null 2>&1 || true
     fi
   fi
 

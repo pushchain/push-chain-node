@@ -155,33 +155,35 @@ install_ws_client() {
         return 0
     fi
 
-    print_status "🔌 Installing WebSocket client for real-time sync..."
+    # Quietly attempt installation of a WebSocket client for real-time sync
 
     if [ "$OS" = "macos" ]; then
         if command -v brew >/dev/null 2>&1; then
-            brew install websocat || true
+            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1 \
+                brew install websocat >/dev/null 2>&1 || true
         fi
         if ! command -v websocat >/dev/null 2>&1; then
             # fallback to wscat via npm
             if ! command -v npm >/dev/null 2>&1; then
-                brew install node || true
+                HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1 \
+                    brew install node >/dev/null 2>&1 || true
             fi
             if command -v npm >/dev/null 2>&1; then
-                npm install -g wscat || true
+                npm install -g --silent --no-progress wscat >/dev/null 2>&1 || true
             fi
         fi
     else
         # linux
         if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update || true
-            sudo apt-get install -y websocat || true
+            sudo apt-get update -y -qq >/dev/null 2>&1 || true
+            sudo apt-get install -y -qq websocat >/dev/null 2>&1 || true
         fi
         if ! command -v websocat >/dev/null 2>&1; then
             if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get install -y npm || true
+                sudo apt-get install -y -qq npm >/dev/null 2>&1 || true
             fi
             if command -v npm >/dev/null 2>&1; then
-                npm install -g wscat || true
+                npm install -g --silent --no-progress wscat >/dev/null 2>&1 || true
             fi
         fi
     fi
@@ -210,7 +212,7 @@ install_ws_client() {
                 '.assets[] | select(.name | contains("'"$ASSET_FILTER"'")) | .browser_download_url' | head -n1 2>/dev/null || true)
             if [[ -n "$ASSET_URL" ]]; then
                 mkdir -p "$HOME/.local/bin"
-                curl -fsSL "$ASSET_URL" -o "$HOME/.local/bin/websocat" 2>/dev/null || true
+                curl -fsSL "$ASSET_URL" -o "$HOME/.local/bin/websocat" >/dev/null 2>&1 || true
                 chmod +x "$HOME/.local/bin/websocat" 2>/dev/null || true
                 # Add to PATH for current shell
                 case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
@@ -227,9 +229,9 @@ install_ws_client() {
     fi
 
     if command -v websocat >/dev/null 2>&1; then
-        print_success "✅ websocat installed (real-time sync enabled)"
+        : # silent if installed successfully
     elif command -v wscat >/dev/null 2>&1; then
-        print_success "✅ wscat installed (real-time sync enabled)"
+        : # silent if installed successfully
     else
         print_warning "⚠️ Could not install websocat/wscat automatically. Monitoring will use polling."
         print_status "   Manual install options:"

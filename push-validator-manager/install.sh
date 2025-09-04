@@ -11,6 +11,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
+ORIGINAL_PATH="$PATH"
 
 # Colors for output
 CYAN='\033[0;36m'
@@ -276,12 +277,16 @@ fi
 
 # ALWAYS show PATH instruction when running from pipe (curl | bash)
 if [ ! -t 0 ]; then
-  # Running from pipe - PATH won't persist after script exits
-  echo
-  echo -e "\033[1;33m⚠️  To use push-validator-manager in this terminal, run:\033[0m"
-  echo -e "\033[1;32m    export PATH=\"\$HOME/.local/bin:\$PATH\"\033[0m"
-  echo
-  echo "Or open a new terminal window."
+  case ":$ORIGINAL_PATH:" in
+    *":$HOME/.local/bin:"*) : ;; # already present before running
+    *)
+      echo
+      echo -e "\033[1;33m⚠️  To use push-validator-manager in this terminal, run:\033[0m"
+      echo -e "\033[1;32m    export PATH=\"\$HOME/.local/bin:\$PATH\"\033[0m"
+      echo
+      echo "Or open a new terminal window."
+      ;;
+  esac
 fi
 
 # Optional: Clean up the cloned repository to save space (keep only push-validator-manager)

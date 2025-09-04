@@ -56,13 +56,13 @@ cd "$ROOT_DIR"
 # Reset blockchain data by default (preserve keyring)
 if [[ "$RESET_DATA" = "yes" ]] && [[ -d "$HOME/.pchain" ]]; then
     echo -e "${CYAN}🧹 Resetting blockchain data (wallets preserved)...${NC}"
+    # Remove entire directories to ensure clean state
     rm -rf "$HOME/.pchain/data" 2>/dev/null || true
-    rm -f "$HOME/.pchain/config/genesis.json" 2>/dev/null || true
-    rm -f "$HOME/.pchain/config/addrbook.json" 2>/dev/null || true
-    rm -f "$HOME/.pchain/config/config.toml" 2>/dev/null || true
-    rm -f "$HOME/.pchain/config/config.toml.bak" 2>/dev/null || true
+    rm -rf "$HOME/.pchain/config" 2>/dev/null || true
     rm -rf "$HOME/.pchain/wasm" 2>/dev/null || true
     rm -rf "$HOME/.pchain/logs" 2>/dev/null || true
+    # Remove pid file if exists
+    rm -f "$HOME/.pchain/pchaind.pid" 2>/dev/null || true
     # Note: ~/.pchain/keyring-test/ is preserved
     echo -e "\033[0;32m✅ Blockchain data reset (wallets preserved)${NC}"
 fi

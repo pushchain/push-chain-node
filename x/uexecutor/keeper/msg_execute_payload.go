@@ -20,6 +20,17 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
+	// Step 1: Parse and validate payload and verificationData
+	payload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return errors.Wrapf(err, "invalid universal payload")
+	}
+
+	verificationDataVal, err := utils.HexToBytes(verificationData)
+	if err != nil {
+		return errors.Wrapf(err, "invalid verificationData format")
+	}
+
 	chainConfig, err := k.uregistryKeeper.GetChainConfig(sdkCtx, caip2Identifier)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
@@ -31,7 +42,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
-	// Step 1: Compute smart account address
+	// Step 2: Compute smart account address
 	// Calling factory contract to compute the UEA address
 	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
@@ -39,18 +50,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !isDeployed {
-		return errors.Wrapf(err, "UEA is not deployed")
-	}
-
-	// // Step 2: Parse and validate payload and verificationData
-	payload, err := types.NewAbiUniversalPayload(universalPayload)
-	if err != nil {
-		return errors.Wrapf(err, "invalid universal payload")
-	}
-
-	verificationDataVal, err := utils.HexToBytes(verificationData)
-	if err != nil {
-		return errors.Wrapf(err, "invalid verificationData format")
+		return fmt.Errorf("UEA is not deployed")
 	}
 
 	// Step 3: Execute payload through UEA

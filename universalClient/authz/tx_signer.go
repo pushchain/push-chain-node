@@ -12,7 +12,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	"github.com/rollchains/pchain/universalClient/keys"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/rs/zerolog"
 )
 

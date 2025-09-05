@@ -528,3 +528,42 @@ func parseEVMChainID(caip2 string) (int64, error) {
 
 	return chainID, nil
 }
+
+// Gateway operation implementations
+
+// GetLatestBlock returns the latest block number
+func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
+	if c.gatewayHandler != nil {
+		return c.gatewayHandler.GetLatestBlock(ctx)
+	}
+
+	// Fallback to direct client call
+	if c.ethClient == nil {
+		return 0, fmt.Errorf("client not connected")
+	}
+	return c.ethClient.BlockNumber(ctx)
+}
+
+// WatchGatewayEvents starts watching for gateway events
+func (c *Client) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
+	if c.gatewayHandler == nil {
+		return nil, fmt.Errorf("gateway handler not initialized")
+	}
+	return c.gatewayHandler.WatchGatewayEvents(ctx, fromBlock)
+}
+
+// GetTransactionConfirmations returns the number of confirmations for a transaction
+func (c *Client) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
+	if c.gatewayHandler == nil {
+		return 0, fmt.Errorf("gateway handler not initialized")
+	}
+	return c.gatewayHandler.GetTransactionConfirmations(ctx, txHash)
+}
+
+// IsConfirmed checks if a transaction has enough confirmations
+func (c *Client) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	if c.gatewayHandler == nil {
+		return false, fmt.Errorf("gateway handler not initialized")
+	}
+	return c.gatewayHandler.IsConfirmed(ctx, txHash)
+}

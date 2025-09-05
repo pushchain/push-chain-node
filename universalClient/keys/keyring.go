@@ -19,7 +19,7 @@ import (
 	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/rs/zerolog/log"
 	
-	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 )
 
 // KeyringConfig holds configuration for keyring initialization

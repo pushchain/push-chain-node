@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/rollchains/pchain/universalClient/keys"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
 )
 
 

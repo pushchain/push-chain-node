@@ -12,6 +12,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/core"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/logger"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/spf13/cobra"
 
 	cosmosevmcmd "github.com/cosmos/evm/client"

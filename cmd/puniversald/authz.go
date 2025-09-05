@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	authzcmd "github.com/rollchains/pchain/cmd/puniversald/authz"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
+	authzcmd "github.com/pushchain/push-chain-node/cmd/puniversald/authz"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 var (

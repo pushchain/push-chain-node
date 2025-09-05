@@ -15,7 +15,7 @@ func TestIsAllowedMsgType(t *testing.T) {
 	}{
 		{
 			name:     "allowed UE vote inbound message",
-			msgType:  "/ue.v1.MsgVoteInbound",
+			msgType:  "/uexecutor.v1.MsgVoteInbound",
 			expected: true,
 		},
 		{
@@ -46,7 +46,7 @@ func TestIsAllowedMsgType(t *testing.T) {
 func TestDefaultAllowedMsgTypes(t *testing.T) {
 	// Should contain expected default message types
 	expectedTypes := []string{
-		"/ue.v1.MsgVoteInbound",
+		"/uexecutor.v1.MsgVoteInbound",
 	}
 
 	assert.Equal(t, len(expectedTypes), len(DefaultAllowedMsgTypes))
@@ -62,7 +62,7 @@ func TestDefaultAllowedMsgTypesFormat(t *testing.T) {
 
 	// Check for specific expected default message types
 	expectedTypes := map[string]bool{
-		"/ue.v1.MsgVoteInbound": true,
+		"/uexecutor.v1.MsgVoteInbound": true,
 	}
 
 	for _, msgType := range DefaultAllowedMsgTypes {

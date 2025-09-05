@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 func TestNewEventParser(t *testing.T) {

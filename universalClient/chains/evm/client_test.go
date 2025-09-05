@@ -387,7 +387,7 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 		blockNum, err := client.GetLatestBlockNumber(ctx)
 		assert.Error(t, err)
 		assert.Nil(t, blockNum)
-		assert.Contains(t, err.Error(), "no eth client available")
+		assert.Contains(t, err.Error(), "client not connected")
 	})
 }
 

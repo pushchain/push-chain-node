@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/rs/zerolog"
 )
 

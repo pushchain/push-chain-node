@@ -21,11 +21,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	uauthz "github.com/rollchains/pchain/universalClient/authz"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
-	"github.com/rollchains/pchain/universalClient/keys"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uauthz "github.com/pushchain/push-chain-node/universalClient/authz"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
 

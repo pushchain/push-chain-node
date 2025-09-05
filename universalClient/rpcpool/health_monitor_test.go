@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

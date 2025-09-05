@@ -12,10 +12,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	uauthz "github.com/rollchains/pchain/universalClient/authz"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
-	"github.com/rollchains/pchain/universalClient/keys"
+	uauthz "github.com/pushchain/push-chain-node/universalClient/authz"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
 )
 
 // ExecCmd creates the authz exec command

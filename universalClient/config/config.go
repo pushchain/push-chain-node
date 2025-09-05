@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rollchains/pchain/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 const (

@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configPkg "github.com/rollchains/pchain/universalClient/config"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	configPkg "github.com/pushchain/push-chain-node/universalClient/config"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestClientInitialization tests the creation of Solana client

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rollchains/pchain/universalClient/rpcpool"
+	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
 )
 
 // svmClientAdapter wraps rpc.Client to implement rpcpool.Client interface

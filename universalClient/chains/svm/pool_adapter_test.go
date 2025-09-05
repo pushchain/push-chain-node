@@ -7,7 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rollchains/pchain/universalClient/rpcpool"
+	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

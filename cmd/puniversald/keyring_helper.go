@@ -15,7 +15,7 @@ import (
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	evmcrypto "github.com/cosmos/evm/crypto/ethsecp256k1"
 
-	"github.com/rollchains/pchain/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 )
 
 // getKeybase creates an instance of Keybase for CLI commands

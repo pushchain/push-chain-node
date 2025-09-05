@@ -14,7 +14,7 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	uetypes "github.com/rollchains/pchain/x/ue/types"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	txsigning "cosmossdk.io/x/tx/signing"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"

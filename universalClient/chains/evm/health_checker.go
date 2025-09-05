@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rollchains/pchain/universalClient/rpcpool"
+	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
 )
 
 // EVMHealthChecker implements health checking for EVM endpoints

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rollchains/pchain/universalClient/rpcpool"
+	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
 )
 
 // evmClientAdapter wraps ethclient.Client to implement rpcpool.Client interface

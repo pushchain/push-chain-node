@@ -7,12 +7,12 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/chains/evm"
-	"github.com/rollchains/pchain/universalClient/chains/svm"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/db"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/chains/evm"
+	"github.com/pushchain/push-chain-node/universalClient/chains/svm"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // ChainRegistry manages chain clients based on their configurations
@@ -286,18 +286,8 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	}
 
 	// Compare relevant fields
-	equal := a.Chain == b.Chain &&
+	return a.Chain == b.Chain &&
 		a.VmType == b.VmType &&
-		a.GatewayAddress == b.GatewayAddress
-
-	// Compare Enabled field values (not pointers)
-	if a.Enabled == nil && b.Enabled == nil {
-		return equal
-	}
-	if a.Enabled == nil || b.Enabled == nil {
-		return false
-	}
-	return equal &&
-		a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
-		a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
+		a.GatewayAddress == b.GatewayAddress &&
+		enabledEqual
 }

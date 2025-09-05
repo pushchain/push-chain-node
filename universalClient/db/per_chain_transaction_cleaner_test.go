@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/logger"
-	"github.com/rollchains/pchain/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/logger"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

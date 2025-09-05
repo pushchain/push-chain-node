@@ -19,12 +19,14 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			LogIndex:    "1",
 			TxType:      types.InboundTxType_FUNDS_BRIDGE_TX,
 		},
-		PcTx: &types.PCTx{
-			TxHash:      "0xabc123",
-			Sender:      "0x000000000000000000000000000000000000dead",
-			GasUsed:     21000,
-			BlockHeight: 100,
-			Status:      "SUCCESS",
+		PcTx: []*types.PCTx{
+			{
+				TxHash:      "0xabc123",
+				Sender:      "0x000000000000000000000000000000000000dead",
+				GasUsed:     21000,
+				BlockHeight: 100,
+				Status:      "SUCCESS",
+			},
 		},
 		OutboundTx: &types.OutboundTx{
 			DestinationChain: "eip155:11155111",
@@ -61,7 +63,9 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			name: "invalid pc_tx",
 			universal: func() types.UniversalTx {
 				utx := validUniversal
-				utx.PcTx = &types.PCTx{} // BlockHeight = 0
+				utx.PcTx = []*types.PCTx{
+					{}, // invalid: missing required fields like BlockHeight
+				}
 				return utx
 			}(),
 			expectError: true,

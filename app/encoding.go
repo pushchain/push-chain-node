@@ -15,7 +15,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
-	"github.com/rollchains/pchain/app/params"
+	"github.com/pushchain/push-chain-node/app/params"
 )
 
 // MakeEncodingConfig creates a new EncodingConfig with all modules registered. For testing only

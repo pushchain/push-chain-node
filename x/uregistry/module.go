@@ -18,8 +18,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/rollchains/pchain/x/uregistry/keeper"
-	"github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 const (
@@ -42,7 +42,6 @@ type AppModuleBasic struct {
 
 type AppModule struct {
 	AppModuleBasic
-
 	keeper keeper.Keeper
 }
 
@@ -73,7 +72,7 @@ func (a AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, _ client.TxEn
 	if err != nil {
 		return err
 	}
-	if err := data.Params.ValidateBasic(); err != nil {
+	if err := data.Params.Validate(); err != nil {
 		return errorsmod.Wrap(err, "params")
 	}
 	return nil

@@ -46,13 +46,13 @@ func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
 func (r *ChainRegistry) SetVoteHandlers(handlers map[string]common.VoteHandler) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if handlers == nil {
 		r.voteHandlers = make(map[string]common.VoteHandler)
 	} else {
 		r.voteHandlers = handlers
 	}
-	
+
 	// Set vote handler on all existing chains
 	for chainID, client := range r.chains {
 		if handler, exists := r.voteHandlers[chainID]; exists && handler != nil {
@@ -73,12 +73,12 @@ func (r *ChainRegistry) SetVoteHandlers(handlers map[string]common.VoteHandler) 
 func (r *ChainRegistry) SetVoteHandler(handler common.VoteHandler) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	// Set the same handler for all chains
 	for chainID := range r.chains {
 		r.voteHandlers[chainID] = handler
 	}
-	
+
 	// Set vote handler on all existing chains
 	for chainID, client := range r.chains {
 		client.SetVoteHandler(handler)
@@ -266,7 +266,7 @@ func (r *ChainRegistry) GetHealthStatus() map[string]bool {
 func (r *ChainRegistry) GetDatabaseStats() map[string]interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	return r.dbManager.GetDatabaseStats()
 }
 
@@ -276,11 +276,20 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 		return a == b
 	}
 
+	// Handle Enabled field comparison
+	enabledEqual := false
+	if a.Enabled == nil && b.Enabled == nil {
+		enabledEqual = true
+	} else if a.Enabled != nil && b.Enabled != nil {
+		enabledEqual = a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
+			a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
+	}
+
 	// Compare relevant fields
 	equal := a.Chain == b.Chain &&
 		a.VmType == b.VmType &&
 		a.GatewayAddress == b.GatewayAddress
-	
+
 	// Compare Enabled field values (not pointers)
 	if a.Enabled == nil && b.Enabled == nil {
 		return equal
@@ -288,7 +297,7 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	if a.Enabled == nil || b.Enabled == nil {
 		return false
 	}
-	return equal && 
+	return equal &&
 		a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
 		a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
 }

@@ -10,7 +10,7 @@ SIMAPP = ./app
 
 # for dockerized protobuf tools
 DOCKER := $(shell which docker)
-HTTPS_GIT := github.com/rollchains/pchain.git
+HTTPS_GIT := github.com/pushchain/push-chain-node.git
 
 export GO111MODULE = on
 
@@ -169,6 +169,11 @@ test-sim-deterministic: runsim
 
 test-system: install
 	$(MAKE) -C tests/system/ test
+
+test-integration:
+	@echo "Running integration tests..."
+	@go test ./x/uexecutor/integration-test -v || exit 1
+	@echo "All integration tests completed successfully"
 
 ###############################################################################
 ###                                Linting                                  ###

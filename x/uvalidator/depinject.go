@@ -16,8 +16,8 @@ import (
 	"cosmossdk.io/depinject"
 	"cosmossdk.io/log"
 
-	modulev1 "github.com/rollchains/pchain/api/uvalidator/module/v1"
-	"github.com/rollchains/pchain/x/uvalidator/keeper"
+	modulev1 "github.com/pushchain/push-chain-node/api/uvalidator/module/v1"
+	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
 
 var _ appmodule.AppModule = AppModule{}

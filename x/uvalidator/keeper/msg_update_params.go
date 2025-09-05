@@ -3,7 +3,7 @@ package keeper
 import (
 	"context"
 
-	"github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // updateParams is for updating params collections of the module

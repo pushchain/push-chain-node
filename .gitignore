@@ -2,6 +2,7 @@
 configs/logs.json
 dist/
 build/
+testnet/*/binary
 
 # Create cosmos app
 web/

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 func TestParams(t *testing.T) {

@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/db"
-	"github.com/rollchains/pchain/universalClient/rpcpool"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // Client implements the ChainClient interface for EVM chains
@@ -209,7 +209,7 @@ func (c *Client) Start(ctx context.Context) error {
 			// Not a fatal error - continue without gateway support
 		} else {
 			c.gatewayHandler = handler
-			
+
 			// Set vote handler if available
 			if c.voteHandler != nil {
 				c.gatewayHandler.SetVoteHandler(c.voteHandler)
@@ -474,7 +474,6 @@ func (c *Client) IsHealthy() bool {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-
 		_, err := c.ethClient.BlockNumber(ctx)
 		if err != nil {
 			c.logger.Warn().Err(err).Msg("health check failed")
@@ -491,19 +490,14 @@ func (c *Client) GetChainID() int64 {
 
 // GetLatestBlockNumber returns the latest block number with automatic failover
 func (c *Client) GetLatestBlockNumber(ctx context.Context) (*big.Int, error) {
-	var blockNumber uint64
-	var err error
-
-	err = c.executeWithFailover(ctx, "get_block_number", func(client *ethclient.Client) error {
-		blockNumber, err = client.BlockNumber(ctx)
-		return err
-	})
-
+	if c.ethClient == nil {
+		return nil, fmt.Errorf("client not connected")
+	}
+	blockNum, err := c.ethClient.BlockNumber(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
-
-	return new(big.Int).SetUint64(blockNumber), nil
+	return new(big.Int).SetUint64(blockNum), nil
 }
 
 // GetRPCURL returns the first RPC endpoint URL from config or empty string
@@ -533,43 +527,4 @@ func parseEVMChainID(caip2 string) (int64, error) {
 	}
 
 	return chainID, nil
-}
-
-// Gateway operation implementations
-
-// GetLatestBlock returns the latest block number
-func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
-	if c.gatewayHandler != nil {
-		return c.gatewayHandler.GetLatestBlock(ctx)
-	}
-
-	// Fallback to direct client call
-	if c.ethClient == nil {
-		return 0, fmt.Errorf("client not connected")
-	}
-	return c.ethClient.BlockNumber(ctx)
-}
-
-// WatchGatewayEvents starts watching for gateway events
-func (c *Client) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
-	if c.gatewayHandler == nil {
-		return nil, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.WatchGatewayEvents(ctx, fromBlock)
-}
-
-// GetTransactionConfirmations returns the number of confirmations for a transaction
-func (c *Client) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
-	if c.gatewayHandler == nil {
-		return 0, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.GetTransactionConfirmations(ctx, txHash)
-}
-
-// IsConfirmed checks if a transaction has enough confirmations
-func (c *Client) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
-	if c.gatewayHandler == nil {
-		return false, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.IsConfirmed(ctx, txHash)
 }

@@ -4,7 +4,7 @@ package uvalidator.v1;
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
 
-option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
 
 // Params defines the set of module parameters.
 message Params {

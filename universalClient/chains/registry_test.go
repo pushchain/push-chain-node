@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/db"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // MockChainClient implements common.ChainClient for testing
@@ -40,7 +40,6 @@ func NewMockChainClient(config *uregistrytypes.ChainConfig) *MockChainClient {
 func (m *MockChainClient) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if m.startError != nil {
 		return m.startError
 	}
@@ -51,7 +50,6 @@ func (m *MockChainClient) Start(ctx context.Context) error {
 func (m *MockChainClient) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if m.stopError != nil {
 		return m.stopError
 	}
@@ -153,7 +151,6 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.Equal(t, config, client.GetConfig())
 	})
-
 	t.Run("Create Solana client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "solana:mainnet",
@@ -167,20 +164,17 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.Equal(t, config, client.GetConfig())
 	})
-
 	t.Run("Nil config", func(t *testing.T) {
 		client, err := registry.CreateChainClient(nil)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "chain config is nil")
 	})
-
 	t.Run("Unsupported VM type", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:  "unknown:chain",
 			VmType: 999, // Invalid VM type
 		}
-
 		client, err := registry.CreateChainClient(config)
 		assert.Error(t, err)
 		assert.Nil(t, client)
@@ -259,7 +253,6 @@ func (m *MockableChainRegistry) AddOrUpdateChain(ctx context.Context, config *ur
 func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	ctx := context.Background()
-
 	t.Run("Add new chain - with mock", func(t *testing.T) {
 		baseRegistry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
@@ -271,7 +264,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 				return NewMockChainClient(cfg), nil
 			},
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -287,13 +279,11 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.True(t, client.(*MockChainClient).IsStarted())
 	})
-
 	t.Run("Update existing chain with same config", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -314,13 +304,11 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.Equal(t, mockClient, registry.GetChain("eip155:1337"))
 		assert.False(t, mockClient.IsStopped()) // Should not have been stopped
 	})
-
 	t.Run("Update existing chain with different config", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		oldConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
@@ -339,7 +327,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		oldClient := NewMockChainClient(oldConfig)
 		oldClient.started = true
 		registry.chains["eip155:1337"] = oldClient
-
 		// Create a mockable registry
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
@@ -369,7 +356,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		err := registry.AddOrUpdateChain(ctx, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid chain config")
-
 		// Empty chain ID
 		err = registry.AddOrUpdateChain(ctx, &uregistrytypes.ChainConfig{
 			Chain: "",
@@ -377,18 +363,15 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid chain config")
 	})
-
 	t.Run("Client start error", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,
 		}
-
 		config := &uregistrytypes.ChainConfig{
 			Chain:  "eip155:1337",
 			VmType: uregistrytypes.VmType_EVM,
 		}
-
 		// Create a mockable registry that returns client that fails to start
 		mockableRegistry := &MockableChainRegistry{
 			ChainRegistry: registry,
@@ -415,7 +398,6 @@ func TestChainRegistryStopAll(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add multiple chains
 	chain1 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "test:chain1"})
 	chain2 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1338"})
@@ -440,7 +422,6 @@ func TestChainRegistryGetHealthStatus(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Add chains with different health states
 	healthyChain := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1001"})
 	unhealthyChain := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1002"})
@@ -473,7 +454,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 		chains: make(map[string]common.ChainClient),
 		logger: logger,
 	}
-
 	// Create a mockable registry for concurrent adds
 	mockableRegistry := &MockableChainRegistry{
 		ChainRegistry: registry,
@@ -497,7 +477,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 			_ = mockableRegistry.AddOrUpdateChain(ctx, config)
 		}(i)
 	}
-
 	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -507,7 +486,6 @@ func TestChainRegistryConcurrency(t *testing.T) {
 			_ = registry.GetHealthStatus()
 		}()
 	}
-
 	// Concurrent removes
 	for i := 0; i < 5; i++ {
 		wg.Add(1)

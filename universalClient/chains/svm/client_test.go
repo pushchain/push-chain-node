@@ -48,7 +48,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   "https://api.devnet.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := NewClient(config, nil, nil, logger)
@@ -186,7 +186,7 @@ func TestClientStartStop(t *testing.T) {
 			VmType:         uregistrytypes.VmType_SVM,
 			PublicRpcUrl:   server.URL,
 			GatewayAddress: "Sol123...",
-			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Create appConfig with RPC URLs
@@ -224,7 +224,7 @@ func TestClientStartStop(t *testing.T) {
 				},
 			},
 			RPCPoolConfig: configPkg.RPCPoolConfig{
-				HealthCheckIntervalSeconds: 1,  // Fast health check
+				HealthCheckIntervalSeconds: 1, // Fast health check
 				UnhealthyThreshold:         2,
 				RecoveryIntervalSeconds:    300,
 				MinHealthyEndpoints:        1,
@@ -240,13 +240,13 @@ func TestClientStartStop(t *testing.T) {
 		ctx := context.Background()
 		err = client.Start(ctx)
 		assert.NoError(t, err)
-		
+
 		// But the client should not be healthy after health checks fail
 		// Need to wait for 2+ failures to mark endpoint as excluded
 		assert.Eventually(t, func() bool {
 			return !client.IsHealthy()
 		}, 4*time.Second, 200*time.Millisecond)
-		
+
 		// Clean up
 		client.Stop()
 	})
@@ -266,7 +266,7 @@ func TestClientStartStop(t *testing.T) {
 		// Use a timeout context to prevent hanging
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-		
+
 		err = client.Start(ctx)
 		assert.Error(t, err)
 		// Should get error about no RPC URLs configured
@@ -353,11 +353,11 @@ func TestClientIsHealthy(t *testing.T) {
 				},
 			},
 			RPCPoolConfig: configPkg.RPCPoolConfig{
-				HealthCheckIntervalSeconds: 1,  // Check every second
-				UnhealthyThreshold:         2,  // Only 2 failures to mark unhealthy
+				HealthCheckIntervalSeconds: 1, // Check every second
+				UnhealthyThreshold:         2, // Only 2 failures to mark unhealthy
 				RecoveryIntervalSeconds:    300,
 				MinHealthyEndpoints:        1,
-				RequestTimeoutSeconds:      1,  // Faster timeout
+				RequestTimeoutSeconds:      1, // Faster timeout
 				LoadBalancingStrategy:      "round-robin",
 			},
 		}
@@ -377,7 +377,7 @@ func TestClientIsHealthy(t *testing.T) {
 		// Check health - should be false because no healthy endpoints
 		healthy := client.IsHealthy()
 		assert.False(t, healthy)
-		
+
 		// Stop the client
 		client.Stop()
 	})
@@ -391,7 +391,7 @@ func TestClientGetMethods(t *testing.T) {
 		Chain:          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 		VmType:         uregistrytypes.VmType_SVM,
 		GatewayAddress: "Sol123...",
-		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+		Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	appConfig := createTestAppConfig(map[string][]string{
@@ -428,10 +428,10 @@ func TestClientGetSlot(t *testing.T) {
 			// Read the request body to determine which method is being called
 			var reqBody map[string]interface{}
 			json.NewDecoder(r.Body).Decode(&reqBody)
-			
+
 			var response map[string]interface{}
 			method, _ := reqBody["method"].(string)
-			
+
 			switch method {
 			case "getHealth":
 				response = map[string]interface{}{
@@ -455,7 +455,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-			
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))
@@ -509,10 +508,10 @@ func TestClientGetSlot(t *testing.T) {
 			// Read the request body to determine which method is being called
 			var reqBody map[string]interface{}
 			json.NewDecoder(r.Body).Decode(&reqBody)
-			
+
 			var response map[string]interface{}
 			method, _ := reqBody["method"].(string)
-			
+
 			if method == "getHealth" {
 				response = map[string]interface{}{
 					"jsonrpc": "2.0",
@@ -529,7 +528,6 @@ func TestClientGetSlot(t *testing.T) {
 					"id": reqBody["id"],
 				}
 			}
-			
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}))

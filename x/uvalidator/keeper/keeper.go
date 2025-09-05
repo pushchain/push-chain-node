@@ -15,7 +15,7 @@ import (
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 
-	"github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 	// sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 

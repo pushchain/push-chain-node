@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestConfigCacheBasicOperations tests basic cache operations
@@ -130,7 +130,7 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain})
-		
+
 		// Verify chain was updated
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
@@ -149,7 +149,7 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		}
 
 		cache.UpdateChainConfigs([]*uregistrytypes.ChainConfig{updatedChain, newChain})
-		
+
 		// Verify new chain exists
 		config = cache.GetChainConfig("eip155:1")
 		require.NotNil(t, config)
@@ -162,7 +162,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		// Verify Solana chain is gone (UpdateChainConfigs replaces all chains)
 		config = cache.GetChainConfig("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
 		assert.Nil(t, config)
-		
 		// Restore original data for next tests
 		cache.UpdateAll(chainConfigs, tokenConfigs)
 	})
@@ -177,7 +176,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs([]*uregistrytypes.TokenConfig{newToken})
-		
 		// Verify new token exists
 		token := cache.GetTokenConfig("eip155:1", "0xCCC...")
 		require.NotNil(t, token)
@@ -214,7 +212,6 @@ func TestConfigCacheBasicOperations(t *testing.T) {
 		assert.Nil(t, chainData)
 	})
 }
-
 
 // TestConfigCacheConcurrency tests thread-safe operations
 func TestConfigCacheConcurrency(t *testing.T) {
@@ -312,10 +309,10 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 	t.Run("UpdateAll_NilSlices", func(t *testing.T) {
 		// Should not panic with nil slices
 		cache.UpdateAll(nil, nil)
-		
+
 		chains := cache.GetAllChainConfigs()
 		assert.Len(t, chains, 0)
-		
+
 		tokens := cache.GetAllTokenConfigs()
 		assert.Len(t, tokens, 0)
 	})
@@ -323,10 +320,10 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 	t.Run("UpdateAll_EmptySlices", func(t *testing.T) {
 		// Should handle empty slices
 		cache.UpdateAll([]*uregistrytypes.ChainConfig{}, []*uregistrytypes.TokenConfig{})
-		
+
 		chains := cache.GetAllChainConfigs()
 		assert.Len(t, chains, 0)
-		
+
 		tokens := cache.GetAllTokenConfigs()
 		assert.Len(t, tokens, 0)
 	})
@@ -349,7 +346,7 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateAll(chainConfigs, nil)
-		
+
 		config := cache.GetChainConfig("eip155:11155111")
 		require.NotNil(t, config)
 		assert.Equal(t, "0xNew...", config.GatewayAddress)
@@ -374,7 +371,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateAll(nil, tokenConfigs)
-		
 		token := cache.GetTokenConfig("eip155:11155111", "0xAAA...")
 		require.NotNil(t, token)
 		assert.Equal(t, "New Token", token.Name)
@@ -393,7 +389,6 @@ func TestConfigCacheEdgeCases(t *testing.T) {
 		}
 
 		cache.UpdateTokenConfigs(tokenConfigs)
-		
 		// Should still be able to get the token
 		token := cache.GetTokenConfig("eip155:999", "0xXXX...")
 		require.NotNil(t, token)

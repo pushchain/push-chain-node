@@ -7,7 +7,7 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
-	"github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 type msgServer struct {

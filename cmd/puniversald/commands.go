@@ -7,12 +7,11 @@ import (
 	"path/filepath"
 
 	sdkversion "github.com/cosmos/cosmos-sdk/version"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/constant"
-	"github.com/rollchains/pchain/universalClient/core"
-	"github.com/rollchains/pchain/universalClient/db"
-	"github.com/rollchains/pchain/universalClient/logger"
-	"github.com/rollchains/pchain/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/core"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/logger"
 	"github.com/spf13/cobra"
 
 	cosmosevmcmd "github.com/cosmos/evm/client"

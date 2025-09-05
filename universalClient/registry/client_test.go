@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // TestRegistryClientMethods tests the registry client methods with mocks
@@ -191,7 +191,6 @@ func TestRegistryClientMethods(t *testing.T) {
 	t.Run("RetryLogic_ContextCancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		
 		// First call fails
 		mockClient.EXPECT().
 			AllChainConfigs(gomock.Any(), gomock.Any()).

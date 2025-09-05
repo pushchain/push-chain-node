@@ -1,27 +1,24 @@
 {
   "$schema": "https://raw.githubusercontent.com/cosmos/chain-registry/master/chain.schema.json",
-  "chain_name": "pchain",
+  "chain_name": "pushchain",
   "chain_type": "ethereum",
   "status": "live",
-  "website": "https://example.com",
+  "website": "https://push.org/",
   "network_type": "testnet",
-  "pretty_name": "Pchain",
-  "chain_id": "localchain-1",
+  "pretty_name": "Push Chain Donut Testnet",
+  "chain_id": "42101",
   "bech32_prefix": "push",
   "daemon_name": "pchaind",
   "node_home": "$HOME/.pchain",
-  "key_algos": [
-    "eth_secp256k1"
-  ],
+  "key_algos": ["eth_secp256k1"],
   "slip44": 60,
   "fees": {
     "fee_tokens": [
       {
         "denom": "upc",
-        "fixed_min_gas_price": 0,
-        "low_gas_price": 0,
-        "average_gas_price": 0.025,
-        "high_gas_price": 0.04
+        "low_gas_price": 1000000000,
+        "average_gas_price": 25000000000,
+        "high_gas_price": 40000000000
       }
     ]
   },
@@ -36,11 +33,9 @@
     }
   },
   "codebase": {
-    "git_repo": "https://github.com/rollchains/pchain",
+    "git_repo": "https://github.com/pushchain/push-chain-node",
     "recommended_version": "v1.0.0",
-    "compatible_versions": [
-      "v0.9.0"
-    ],
+    "compatible_versions": ["v0.9.0"],
     "cosmos_sdk_version": "0.50",
     "consensus": {
       "type": "tendermint",
@@ -49,12 +44,10 @@
     "cosmwasm_version": "0.50",
     "cosmwasm_enabled": true,
     "ibc_go_version": "8",
-    "ics_enabled": [
-      "ics20-1"
-    ],
+    "ics_enabled": ["ics20-1"],
     "genesis": {
       "name": "v1",
-      "genesis_url": "https://github.com/rollchains/pchain/networks/raw/main/genesis.json"
+      "genesis_url": "https://rpc-testnet-donut-node1.push.org/genesis"
     },
     "versions": [
       {
@@ -68,7 +61,7 @@
   },
   "images": [
     {
-      "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+      "png": "https://res.cloudinary.com/dx8mqtt0p/image/upload/t_pushchain_logo/Screenshot_2025-07-15_at_11.35.04_AM_wxoldu",
       "theme": {
         "primary_color_hex": "#FF2D00"
       }
@@ -78,27 +71,32 @@
   "apis": {
     "rpc": [
       {
-        "address": "http://127.0.0.1:26657",
-        "provider": "localhost"
+        "address": "https://evm.rpc-testnet-donut-node1.push.org/",
+        "provider": "Push Chain"
+      },
+      {
+        "address": "https://evm.rpc-testnet-donut-node2.push.org/",
+        "provider": "Push Chain"
       }
     ],
     "rest": [
       {
-        "address": "http://127.0.0.1:1317",
-        "provider": "localhost"
+        "address": "https://evm.rpc-testnet-donut-node1.push.org/",
+        "provider": "Push Chain"
+      },
+      {
+        "address": "https://evm.rpc-testnet-donut-node2.push.org/",
+        "provider": "Push Chain"
       }
     ]
   },
   "explorers": [
     {
-      "kind": "cosmos",
-      "url": "https://example.com",
-      "tx_page": "https://example.com/tx",
-      "account_page": "https://example.com/account"
+      "kind": "BlockScout",
+      "url": "https://donut.push.network/",
+      "tx_page": "https://donut.push.network/txs",
+      "account_page": "https://donut.push.network/accounts"
     }
   ],
-  "keywords": [
-    "cosmos",
-    "spawn"
-  ]
+  "keywords": ["cosmos", "pushchain"]
 }

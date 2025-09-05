@@ -8,7 +8,7 @@ import "uvalidator/v1/ballot.proto";
 
 import "cosmos/base/query/v1beta1/pagination.proto";
 
-option go_package = "github.com/rollchains/pchain/x/uvalidator/types";
+option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
 
 // Query provides defines the gRPC querier service.
 service Query {

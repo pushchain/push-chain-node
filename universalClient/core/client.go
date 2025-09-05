@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rollchains/pchain/universalClient/api"
-	"github.com/rollchains/pchain/universalClient/chains"
-	"github.com/rollchains/pchain/universalClient/chains/common"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/db"
-	"github.com/rollchains/pchain/universalClient/keys"
-	"github.com/rollchains/pchain/universalClient/registry"
-	"github.com/rollchains/pchain/universalClient/store"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/api"
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
+	"github.com/pushchain/push-chain-node/universalClient/registry"
+	"github.com/pushchain/push-chain-node/universalClient/store"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
 )
 
@@ -33,7 +33,7 @@ type UniversalClient struct {
 	// Hot key components
 	keys         keys.UniversalValidatorKeys
 	voteHandlers map[string]*VoteHandler // Per-chain vote handlers (chainID -> VoteHandler)
-	keyMonitor   *KeyMonitor // Monitors keys and permissions dynamically
+	keyMonitor   *KeyMonitor             // Monitors keys and permissions dynamically
 	// Transaction cleanup
 	transactionCleaner *db.PerChainTransactionCleaner
 	// Gas price fetcher
@@ -45,7 +45,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	if cfg == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
-	
+
 	// PushChainGRPCURLs is a hard requirement
 	if len(cfg.PushChainGRPCURLs) == 0 {
 		return nil, fmt.Errorf("PushChainGRPCURLs is required but not configured")
@@ -80,7 +80,6 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		log,
 	)
 
-
 	// Create gas price fetcher
 	gasPriceFetcher := NewGasPriceFetcher(
 		chainRegistry,
@@ -109,7 +108,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	if cfg.KeyCheckInterval > 0 {
 		keyCheckInterval = time.Duration(cfg.KeyCheckInterval) * time.Second
 	}
-	
+
 	uc.keyMonitor = NewKeyMonitor(
 		ctx,
 		log,
@@ -117,14 +116,14 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		cfg.PushChainGRPCURLs[0],
 		keyCheckInterval,
 	)
-	
+
 	// Set callbacks for when keys change
 	uc.keyMonitor.SetCallbacks(
 		func(keys keys.UniversalValidatorKeys) {
 			uc.keys = keys
 			// Create per-chain vote handlers
 			uc.createVoteHandlersForAllChains(keys)
-			
+
 			// Process any transactions awaiting votes
 			go uc.processAwaitingVoteTransactions()
 		},
@@ -294,9 +293,9 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 		uc.log.Error().Msg("Key monitor is nil, cannot create vote handlers")
 		return
 	}
-	
+
 	chainDatabases := uc.dbManager.GetAllDatabases()
-	
+
 	// Get granter from key monitor (assuming it's stored in the keys or accessible somehow)
 	// For now, we'll need to get this from the key monitor
 	granter := uc.keyMonitor.GetCurrentGranter()
@@ -304,14 +303,14 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 		uc.log.Error().Msg("No granter found, cannot create vote handlers")
 		return
 	}
-	
+
 	voteHandlers := make(map[string]*VoteHandler)
 	for chainID, db := range chainDatabases {
 		// Skip the universal validator database as it doesn't store chain transactions
 		if chainID == "universal-validator" {
 			continue
 		}
-		
+
 		// Create TxSigner (we'll need to extract this from key monitor or create interface)
 		txSigner := uc.keyMonitor.GetCurrentTxSigner()
 		if txSigner == nil {
@@ -320,7 +319,7 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 				Msg("No tx signer available, cannot create vote handler for chain")
 			continue
 		}
-		
+
 		// Create vote handler for this chain
 		voteHandler := NewVoteHandler(
 			txSigner,
@@ -329,23 +328,23 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 			keys,
 			granter,
 		)
-		
+
 		voteHandlers[chainID] = voteHandler
-		
+
 		uc.log.Info().
 			Str("chain_id", chainID).
 			Msg("Created vote handler for chain")
 	}
-	
+
 	uc.voteHandlers = voteHandlers
-	
+
 	// Update chain registry with the new vote handlers (convert to interface type)
 	interfaceHandlers := make(map[string]common.VoteHandler)
 	for chainID, handler := range voteHandlers {
 		interfaceHandlers[chainID] = handler
 	}
 	uc.chainRegistry.SetVoteHandlers(interfaceHandlers)
-	
+
 	uc.log.Info().
 		Int("vote_handlers", len(voteHandlers)).
 		Msg("Successfully created per-chain vote handlers")
@@ -355,33 +354,33 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 func (uc *UniversalClient) processAwaitingVoteTransactions() {
 	// Get all chain databases to check for awaiting vote transactions
 	chainDatabases := uc.dbManager.GetAllDatabases()
-	
+
 	if len(chainDatabases) == 0 {
 		uc.log.Debug().Msg("no chain databases available for processing awaiting vote transactions")
 		return
 	}
-	
+
 	// Structure to track transactions with their chain context
 	type chainTransaction struct {
 		store.ChainTransaction
 		ChainID string
 	}
-	
+
 	var allAwaitingTxsWithChain []chainTransaction
 	totalCount := 0
-	
+
 	// Query each chain database for awaiting vote transactions
 	for chainID, db := range chainDatabases {
 		// Skip the universal validator database as it doesn't store chain transactions
 		if chainID == "universal-validator" {
 			continue
 		}
-		
+
 		var awaitingTxs []store.ChainTransaction
 		err := db.Client().
 			Where("status = ?", "awaiting_vote").
 			Find(&awaitingTxs).Error
-		
+
 		if err != nil {
 			uc.log.Error().
 				Err(err).
@@ -389,35 +388,35 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 				Msg("failed to fetch transactions awaiting votes from chain database")
 			continue
 		}
-		
+
 		if len(awaitingTxs) > 0 {
 			uc.log.Debug().
 				Str("chain_id", chainID).
 				Int("count", len(awaitingTxs)).
 				Msg("found transactions awaiting votes in chain database")
-			
+
 			// Add chain context to transactions
 			for _, tx := range awaitingTxs {
 				allAwaitingTxsWithChain = append(allAwaitingTxsWithChain, chainTransaction{
 					ChainTransaction: tx,
-					ChainID:         chainID,
+					ChainID:          chainID,
 				})
 			}
-			
+
 			totalCount += len(awaitingTxs)
 		}
 	}
-	
+
 	if totalCount == 0 {
 		uc.log.Debug().Msg("no transactions awaiting votes found across all chain databases")
 		return
 	}
-	
+
 	uc.log.Info().
 		Int("count", totalCount).
 		Int("chains_checked", len(chainDatabases)-1). // -1 to exclude universal-validator
 		Msg("processing backlog of transactions awaiting votes")
-	
+
 	// Vote on each transaction using the appropriate chain's vote handler
 	ctx := context.Background()
 	successCount := 0
@@ -431,7 +430,7 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 				Msg("no vote handler available for chain - skipping transaction")
 			continue
 		}
-		
+
 		// Make a copy to pass by reference
 		txCopy := txWithChain.ChainTransaction
 		if err := voteHandler.VoteAndConfirm(ctx, &txCopy); err != nil {
@@ -449,10 +448,9 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 			successCount++
 		}
 	}
-	
+
 	uc.log.Info().
 		Int("processed", successCount).
 		Int("total", totalCount).
 		Msg("completed processing backlog transactions")
 }
-

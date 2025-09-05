@@ -3,7 +3,7 @@ package types_test
 import (
 	"testing"
 
-	"github.com/rollchains/pchain/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/stretchr/testify/require"
 )
 

@@ -204,7 +204,7 @@ func (c *Client) Start(ctx context.Context) error {
 			// Not a fatal error - continue without gateway support
 		} else {
 			c.gatewayHandler = handler
-			
+
 			// Set vote handler if available
 			if c.voteHandler != nil {
 				c.gatewayHandler.SetVoteHandler(c.voteHandler)

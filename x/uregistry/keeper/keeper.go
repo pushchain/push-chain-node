@@ -12,7 +12,7 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	"github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 type Keeper struct {
@@ -64,7 +64,7 @@ func (k Keeper) Logger() log.Logger {
 // InitGenesis initializes the module's state from a genesis state.
 func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) error {
 
-	if err := data.Params.ValidateBasic(); err != nil {
+	if err := data.Params.Validate(); err != nil {
 		return err
 	}
 

@@ -11,22 +11,22 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // MockUniversalClient implements UniversalClientInterface for testing
 type MockUniversalClient struct {
-	chainConfigs  []*uregistrytypes.ChainConfig
-	tokenConfigs  []*uregistrytypes.TokenConfig
-	lastUpdate    time.Time
-	forceUpdateErr error
+	chainConfigs      []*uregistrytypes.ChainConfig
+	tokenConfigs      []*uregistrytypes.TokenConfig
+	lastUpdate        time.Time
+	forceUpdateErr    error
 	forceUpdateCalled bool
 }
 
 func NewMockUniversalClient() *MockUniversalClient {
 	enabled := &uregistrytypes.ChainEnabled{
-		IsInboundEnabled: true,
+		IsInboundEnabled:  true,
 		IsOutboundEnabled: true,
 	}
 	return &MockUniversalClient{
@@ -116,19 +116,19 @@ func (m *MockUniversalClient) ForceConfigUpdate() error {
 func TestNewServer(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	mockClient := NewMockUniversalClient()
-	
+
 	t.Run("Create server with valid config", func(t *testing.T) {
 		server := NewServer(mockClient, logger, 8080)
-		
+
 		assert.NotNil(t, server)
 		assert.Equal(t, mockClient, server.client)
 		assert.NotNil(t, server.server)
 		assert.Equal(t, ":8080", server.server.Addr)
 	})
-	
+
 	t.Run("Create server with different port", func(t *testing.T) {
 		server := NewServer(mockClient, logger, 9090)
-		
+
 		assert.NotNil(t, server)
 		assert.Equal(t, ":9090", server.server.Addr)
 	})
@@ -137,46 +137,42 @@ func TestNewServer(t *testing.T) {
 func TestServerStartStop(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	mockClient := NewMockUniversalClient()
-	
+
 	t.Run("Start and stop server", func(t *testing.T) {
 		// Use a random port to avoid conflicts
 		server := NewServer(mockClient, logger, 0)
-		
+
 		// Start server
 		err := server.Start()
 		require.NoError(t, err)
-		
+
 		// Give server time to start
 		time.Sleep(200 * time.Millisecond)
-		
+
 		// Verify server is running by making a health check request
 		// Note: We're using port 0, so we can't easily test the actual HTTP endpoint
 		// In a real test, we'd get the actual port from the listener
-		
+
 		// Stop server
 		err = server.Stop()
 		assert.NoError(t, err)
 	})
-	
 	t.Run("Start with nil server", func(t *testing.T) {
 		server := &Server{
 			client: mockClient,
 			logger: logger,
 			server: nil,
 		}
-		
 		err := server.Start()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "query server is nil")
 	})
-	
 	t.Run("Stop with nil server", func(t *testing.T) {
 		server := &Server{
 			client: mockClient,
 			logger: logger,
 			server: nil,
 		}
-		
 		err := server.Stop()
 		assert.NoError(t, err)
 	})
@@ -185,19 +181,19 @@ func TestServerStartStop(t *testing.T) {
 func TestServerIntegration(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	mockClient := NewMockUniversalClient()
-	
+
 	t.Run("Server lifecycle with HTTP client", func(t *testing.T) {
 		// Create server on a specific port
 		server := NewServer(mockClient, logger, 18080)
-		
+
 		// Start server
 		err := server.Start()
 		require.NoError(t, err)
 		defer server.Stop()
-		
+
 		// Wait for server to be ready
 		time.Sleep(200 * time.Millisecond)
-		
+
 		// Test health endpoint
 		resp, err := http.Get("http://localhost:18080/health")
 		if err == nil {
@@ -215,15 +211,15 @@ func TestHealthHandler(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	handler := http.HandlerFunc(server.handleHealth)
-	
+
 	t.Run("Health check returns OK", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/health", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		// handleHealth just returns "OK" as plain text
 		assert.Equal(t, "OK", w.Body.String())
@@ -237,25 +233,25 @@ func TestGetAllChainConfigsHandler(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	handler := http.HandlerFunc(server.handleChainConfigs)
-	
+
 	t.Run("Get all chain configs", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/chains", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Check structure
 		assert.Contains(t, response, "data")
 		assert.Contains(t, response, "last_fetched")
-		
+
 		// Check data
 		data, ok := response["data"].([]*uregistrytypes.ChainConfig)
 		if !ok {
@@ -278,25 +274,25 @@ func TestGetAllTokenConfigsHandler(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	handler := http.HandlerFunc(server.handleTokenConfigs)
-	
+
 	t.Run("Get all token configs", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/tokens", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Check structure
 		assert.Contains(t, response, "data")
 		assert.Contains(t, response, "last_fetched")
-		
+
 		// Check data
 		dataInterface, ok := response["data"].([]interface{})
 		require.True(t, ok)
@@ -311,59 +307,59 @@ func TestGetTokenConfigsByChainHandler(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	handler := http.HandlerFunc(server.handleTokenConfigsByChain)
-	
+
 	t.Run("Get tokens for existing chain", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-configs-by-chain?chain=eip155:1", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Check structure
 		assert.Contains(t, response, "data")
 		assert.Contains(t, response, "last_fetched")
-		
+
 		// Check data
 		dataInterface, ok := response["data"].([]interface{})
 		require.True(t, ok)
 		assert.Len(t, dataInterface, 2)
 	})
-	
+
 	t.Run("Get tokens for chain with no tokens", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-configs-by-chain?chain=eip155:999", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Check structure
 		assert.Contains(t, response, "data")
 		assert.Contains(t, response, "last_fetched")
-		
+
 		// Check data is empty
 		dataInterface, ok := response["data"].([]interface{})
 		require.True(t, ok)
 		assert.Len(t, dataInterface, 0)
 	})
-	
+
 	t.Run("Missing chain parameter", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/tokens/", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
@@ -375,52 +371,52 @@ func TestGetTokenConfigHandler(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	handler := http.HandlerFunc(server.handleTokenConfig)
-	
+
 	t.Run("Get existing token config", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-config?chain=eip155:1&address=0xAAA", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Check structure
 		assert.Contains(t, response, "data")
 		assert.Contains(t, response, "last_fetched")
-		
+
 		// Check data
 		data, ok := response["data"].(map[string]interface{})
 		require.True(t, ok)
 		assert.Equal(t, "USDT", data["symbol"])
 		assert.Equal(t, "0xAAA", data["address"])
 	})
-	
+
 	t.Run("Get non-existing token config", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/token-config?chain=eip155:1&address=0xZZZ", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 		assert.Contains(t, response, "error")
 	})
-	
+
 	t.Run("Missing parameters", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/token/", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
@@ -432,7 +428,7 @@ func TestInvalidMethods(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	tests := []struct {
 		name        string
 		handler     http.HandlerFunc
@@ -458,14 +454,14 @@ func TestInvalidMethods(t *testing.T) {
 			expectedMsg: "method not allowed",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/test", nil)
 			w := httptest.NewRecorder()
-			
+
 			tt.handler(w, req)
-			
+
 			// Most handlers should return 405 for wrong methods
 			// but implementation may vary
 			body, _ := io.ReadAll(w.Body)
@@ -482,7 +478,7 @@ func TestAPIEndpointsTable(t *testing.T) {
 		client: mockClient,
 		logger: logger,
 	}
-	
+
 	tests := []struct {
 		name       string
 		handler    http.HandlerFunc
@@ -535,14 +531,14 @@ func TestAPIEndpointsTable(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.url, nil)
 			w := httptest.NewRecorder()
-			
+
 			tt.handler(w, req)
-			
+
 			assert.Equal(t, tt.wantStatus, w.Code)
 			if tt.checkBody != nil {
 				tt.checkBody(t, w.Body.Bytes())

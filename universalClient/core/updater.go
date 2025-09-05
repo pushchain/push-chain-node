@@ -8,10 +8,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/rollchains/pchain/universalClient/chains"
-	"github.com/rollchains/pchain/universalClient/config"
-	"github.com/rollchains/pchain/universalClient/registry"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/registry"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // ConfigUpdater handles periodic updates of chain and token configurations
@@ -40,7 +40,7 @@ func NewConfigUpdater(
 	if updateSeconds <= 0 {
 		updateSeconds = 60
 	}
-	
+
 	return &ConfigUpdater{
 		registry:     registryClient,
 		cache:        cache,
@@ -79,38 +79,35 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 		Msg("performing initial configuration fetch")
 
 	backoff := time.Duration(u.config.RetryBackoffSeconds) * time.Second
-	
+
 	for attempt := 1; attempt <= u.config.InitialFetchRetries; attempt++ {
 		// Create timeout context for this attempt
 		attemptCtx, cancel := context.WithTimeout(ctx, time.Duration(u.config.InitialFetchTimeoutSeconds)*time.Second)
-		
+
 		u.logger.Info().
 			Int("attempt", attempt).
 			Int("max_attempts", u.config.InitialFetchRetries).
 			Msg("attempting to fetch initial configuration")
-		
+
 		err := u.updateConfigs(attemptCtx)
 		cancel()
-		
+
 		if err == nil {
 			u.logger.Info().
 				Int("attempt", attempt).
 				Msg("successfully fetched initial configuration")
 			return nil
 		}
-		
 		u.logger.Error().
 			Err(err).
 			Int("attempt", attempt).
 			Int("max_attempts", u.config.InitialFetchRetries).
 			Str("next_retry_in", backoff.String()).
 			Msg("initial config fetch failed")
-		
 		// Check if this was the last attempt
 		if attempt == u.config.InitialFetchRetries {
 			return fmt.Errorf("failed to fetch initial configuration after %d attempts: %w", attempt, err)
 		}
-		
 		// Wait before next retry with exponential backoff
 		select {
 		case <-ctx.Done():
@@ -123,7 +120,6 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 			}
 		}
 	}
-	
 	return fmt.Errorf("failed to fetch initial configuration")
 }
 

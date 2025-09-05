@@ -5,7 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 
-	"github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // !NOTE: Must enable in module.go (disabled in favor of autocli.go)

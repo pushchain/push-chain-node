@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rollchains/pchain/universalClient/config"
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // testAppConfig creates a test app config with RPC URLs
@@ -36,7 +36,7 @@ func TestClientInitialization(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := NewClient(config, nil, nil, logger)
@@ -173,7 +173,7 @@ func TestClientStartStop(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		appConfig := testAppConfig("eip155:1", []string{server.URL})
@@ -240,7 +240,6 @@ func TestClientIsHealthy(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-				
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`
@@ -258,8 +257,8 @@ func TestClientIsHealthy(t *testing.T) {
 		defer server.Close()
 
 		config := &uregistrytypes.ChainConfig{
-			Chain:        "eip155:1",
-			VmType:       uregistrytypes.VmType_EVM,
+			Chain:  "eip155:1",
+			VmType: uregistrytypes.VmType_EVM,
 		}
 
 		appConfig := testAppConfig("eip155:1", []string{server.URL})
@@ -301,7 +300,7 @@ func TestClientGetMethods(t *testing.T) {
 		Chain:          "eip155:11155111",
 		VmType:         uregistrytypes.VmType_EVM,
 		GatewayAddress: "0x123...",
-		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
+		Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	appConfig := testAppConfig("eip155:11155111", []string{"https://eth-sepolia.example.com"})
@@ -338,7 +337,6 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 				body := make([]byte, 1024)
 				n, _ := r.Body.Read(body)
 				bodyStr := string(body[:n])
-				
 				if strings.Contains(bodyStr, "eth_chainId") {
 					// Return chain ID 1 (0x1)
 					response = `{"jsonrpc":"2.0","id":1,"result":"0x1"}`
@@ -355,8 +353,8 @@ func TestClientGetLatestBlockNumber(t *testing.T) {
 		defer server.Close()
 
 		config := &uregistrytypes.ChainConfig{
-			Chain:        "eip155:1",
-			VmType:       uregistrytypes.VmType_EVM,
+			Chain:  "eip155:1",
+			VmType: uregistrytypes.VmType_EVM,
 		}
 
 		appConfig := testAppConfig("eip155:1", []string{server.URL})
@@ -408,8 +406,8 @@ func TestClientConcurrency(t *testing.T) {
 	defer server.Close()
 
 	config := &uregistrytypes.ChainConfig{
-		Chain:        "eip155:1",
-		VmType:       uregistrytypes.VmType_EVM,
+		Chain:  "eip155:1",
+		VmType: uregistrytypes.VmType_EVM,
 	}
 
 	appConfig := testAppConfig("eip155:1", []string{server.URL})

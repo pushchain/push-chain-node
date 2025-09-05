@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	uregistrytypes "github.com/rollchains/pchain/x/uregistry/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // ChainClient defines the interface for chain-specific implementations

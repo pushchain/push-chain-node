@@ -49,7 +49,7 @@ func TestExecutePayload(t *testing.T) {
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
-		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		validUP := &uexecutortypes.UniversalPayload{
 			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
@@ -63,6 +63,24 @@ func TestExecutePayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(0),
 		}
 
+		msgDeploy := &uexecutortypes.MsgDeployUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err := ms.DeployUEA(ctx, msgDeploy)
+		require.NoError(t, err)
+
+		msgMint := &uexecutortypes.MsgMintPC{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err = ms.MintPC(ctx, msgMint)
+		require.NoError(t, err)
+
 		msg := &uexecutortypes.MsgExecutePayload{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
@@ -70,7 +88,7 @@ func TestExecutePayload(t *testing.T) {
 			VerificationData:   "0x075bcd15",
 		}
 
-		_, err := ms.ExecutePayload(ctx, msg)
+		_, err = ms.ExecutePayload(ctx, msg)
 		require.NoError(t, err)
 
 	})

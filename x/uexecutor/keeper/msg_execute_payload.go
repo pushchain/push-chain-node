@@ -33,9 +33,13 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 
 	// Step 1: Compute smart account address
 	// Calling factory contract to compute the UEA address
-	ueaAddr, _, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
+	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
+	}
+
+	if !isDeployed {
+		return errors.Wrapf(err, "UEA is not deployed")
 	}
 
 	// // Step 2: Parse and validate payload and verificationData

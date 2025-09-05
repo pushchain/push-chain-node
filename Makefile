@@ -170,6 +170,11 @@ test-sim-deterministic: runsim
 test-system: install
 	$(MAKE) -C tests/system/ test
 
+test-integration:
+	@echo "Running integration tests..."
+	@go test ./x/uexecutor/integration-test -v || exit 1
+	@echo "All integration tests completed successfully"
+
 ###############################################################################
 ###                                Linting                                  ###
 ###############################################################################

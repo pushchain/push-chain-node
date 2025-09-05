@@ -18,7 +18,7 @@ func TestDeployUEA(t *testing.T) {
 	chainConfigTest := uregistrytypes.ChainConfig{
 		Chain:          "eip155:11155111",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://1rpc.io/sepolia",
+		PublicRpcUrl:   "https://sepolia.drpc.org",
 		GatewayAddress: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
@@ -45,7 +45,7 @@ func TestDeployUEA(t *testing.T) {
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
-		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+		validTxHash := "0x7d5e108ba9709c557a6ed2e238bd6d3c65a40f906fe370617fbf96dd79edd0ce"
 
 		msg := &uexecutortypes.MsgDeployUEA{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",

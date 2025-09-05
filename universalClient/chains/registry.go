@@ -190,10 +190,19 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 		return a == b
 	}
 
+	// Handle Enabled field comparison
+	enabledEqual := false
+	if a.Enabled == nil && b.Enabled == nil {
+		enabledEqual = true
+	} else if a.Enabled != nil && b.Enabled != nil {
+		enabledEqual = a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
+			a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
+	}
+
 	// Compare relevant fields
 	return a.Chain == b.Chain &&
 		a.VmType == b.VmType &&
 		a.PublicRpcUrl == b.PublicRpcUrl &&
 		a.GatewayAddress == b.GatewayAddress &&
-		a.Enabled == b.Enabled
+		enabledEqual
 }

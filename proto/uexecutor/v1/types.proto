@@ -94,6 +94,7 @@ message Inbound {
   string log_index = 7; // log index that originated the cross chain tx
   InboundTxType tx_type = 8; // inbound tx type
   UniversalPayload universal_payload = 9; // payload is the universal payload to be executed
+  string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
 }
 
 message PCTx {
@@ -127,7 +128,7 @@ message UniversalTx {
   option (gogoproto.goproto_stringer) = false;
   
   Inbound inbound_tx = 1;    // Full inbound tx data
-  PCTx pc_tx = 2;               // Execution details on Push Chain
+  repeated PCTx pc_tx = 2;               // Execution details on Push Chain
   OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
   UniversalTxStatus universal_status = 4;       // Current status
 }

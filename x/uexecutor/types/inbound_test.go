@@ -16,7 +16,7 @@ func TestInbound_ValidateBasic(t *testing.T) {
 		Amount:      "1000",
 		AssetAddr:   "0x000000000000000000000000000000000000cafe",
 		LogIndex:    "1",
-		TxType:      types.InboundTxType_SYNTHETIC,
+		TxType:      types.InboundTxType_FUNDS_BRIDGE_TX,
 	}
 
 	tests := []struct {
@@ -131,7 +131,17 @@ func TestInbound_ValidateBasic(t *testing.T) {
 			errContains: "log_index cannot be empty",
 		},
 		{
-			name: "invalid tx_type",
+			name: "unspecified tx_type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.TxType = types.InboundTxType_UNSPECIFIED_TX
+				return ib
+			}(),
+			expectError: true,
+			errContains: "invalid tx_type",
+		},
+		{
+			name: "invalid tx_type out of range",
 			inbound: func() types.Inbound {
 				ib := validInbound
 				ib.TxType = 99

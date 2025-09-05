@@ -74,8 +74,10 @@ message InboundStatus {
 
 enum InboundTxType {
   UNSPECIFIED_TX = 0;
-  SYNTHETIC = 1;
-  FEE_ABSTRACTION = 2;
+  GAS_FUND_TX = 1; // fee abstraction
+  FUNDS_BRIDGE_TX = 2; // synthetic
+  FUNDS_AND_PAYLOAD_TX = 3; // synthetic + payload exec
+  FUNDS_AND_PAYLOAD_INSTANT_TX = 4; // fee abstraction + payload exec
 }
 
 message Inbound {
@@ -91,6 +93,8 @@ message Inbound {
   string asset_addr        = 6;  // address of erc20 token address on source chain
   string log_index = 7; // log index that originated the cross chain tx
   InboundTxType tx_type = 8; // inbound tx type
+  UniversalPayload universal_payload = 9; // payload is the universal payload to be executed
+  string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
 }
 
 message PCTx {
@@ -124,7 +128,7 @@ message UniversalTx {
   option (gogoproto.goproto_stringer) = false;
   
   Inbound inbound_tx = 1;    // Full inbound tx data
-  PCTx pc_tx = 2;               // Execution details on Push Chain
+  repeated PCTx pc_tx = 2;               // Execution details on Push Chain
   OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
   UniversalTxStatus universal_status = 4;       // Current status
 }

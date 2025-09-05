@@ -68,8 +68,24 @@ func (p Inbound) ValidateBasic() error {
 	}
 
 	// Validate tx_type enum
-	if _, ok := InboundTxType_name[int32(p.TxType)]; !ok {
+	if _, ok := InboundTxType_name[int32(p.TxType)]; !ok || p.TxType == InboundTxType_UNSPECIFIED_TX {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid tx_type: %v", p.TxType)
+	}
+
+	// Validate payload only if tx_type requires it
+	switch p.TxType {
+	case InboundTxType_FUNDS_AND_PAYLOAD_TX, InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX:
+		if p.UniversalPayload == nil {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload is required for payload tx types")
+		}
+		if err := p.UniversalPayload.ValidateBasic(); err != nil {
+			return errors.Wrap(err, "invalid payload")
+		}
+	default:
+		// If payload is provided for non-payload types, reject
+		if p.UniversalPayload != nil {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload must be empty for non-payload tx types")
+		}
 	}
 
 	return nil

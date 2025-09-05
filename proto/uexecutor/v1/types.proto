@@ -74,8 +74,10 @@ message InboundStatus {
 
 enum InboundTxType {
   UNSPECIFIED_TX = 0;
-  SYNTHETIC = 1;
-  FEE_ABSTRACTION = 2;
+  GAS_FUND_TX = 1; // fee abstraction
+  FUNDS_BRIDGE_TX = 2; // synthetic
+  FUNDS_AND_PAYLOAD_TX = 3; // synthetic + payload exec
+  FUNDS_AND_PAYLOAD_INSTANT_TX = 4; // fee abstraction + payload exec
 }
 
 message Inbound {
@@ -91,6 +93,7 @@ message Inbound {
   string asset_addr        = 6;  // address of erc20 token address on source chain
   string log_index = 7; // log index that originated the cross chain tx
   InboundTxType tx_type = 8; // inbound tx type
+  UniversalPayload universal_payload = 9; // payload is the universal payload to be executed
 }
 
 message PCTx {

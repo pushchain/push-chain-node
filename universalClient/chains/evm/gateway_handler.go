@@ -57,7 +57,7 @@ func NewGatewayHandler(
 
 	// Create extracted components
 	eventParser := NewEventParser(gatewayAddr, config, logger)
-	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, appConfig, logger)
+	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, appConfig, config.Chain, logger)
 
 	return &GatewayHandler{
 		parentClient: parentClient,

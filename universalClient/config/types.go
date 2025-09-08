@@ -62,6 +62,9 @@ type ChainSpecificConfig struct {
 	// Gas Price Configuration
 	GasPriceIntervalSeconds *int `json:"gas_price_interval_seconds,omitempty"` // How often to fetch gas price for this chain (optional, defaults to 60 seconds if not set)
 
+	// Event Monitoring Configuration
+	EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
+
 	// Future chain-specific settings can be added here
 }
 
@@ -73,19 +76,6 @@ type RPCPoolConfig struct {
 	MinHealthyEndpoints        int    `json:"min_healthy_endpoints"`         // Minimum healthy endpoints required (default: 1)
 	RequestTimeoutSeconds      int    `json:"request_timeout_seconds"`       // Timeout for individual RPC requests in seconds (default: 10)
 	LoadBalancingStrategy      string `json:"load_balancing_strategy"`       // "round-robin" or "weighted" (default: "round-robin")
-}
-
-// GetChainRPCURLs returns the map of chain RPC URLs extracted from unified config
-func (c *Config) GetChainRPCURLs() map[string][]string {
-	result := make(map[string][]string)
-	if c.ChainConfigs != nil {
-		for chainID, config := range c.ChainConfigs {
-			if len(config.RPCURLs) > 0 {
-				result[chainID] = config.RPCURLs
-			}
-		}
-	}
-	return result
 }
 
 // GetChainCleanupSettings returns cleanup settings for a specific chain
@@ -122,20 +112,3 @@ func (c *Config) GetChainConfig(chainID string) *ChainSpecificConfig {
 	return &ChainSpecificConfig{}
 }
 
-// GetChainGasPriceInterval returns the gas price fetch interval for a specific chain
-// Defaults to 60 seconds if not configured
-func (c *Config) GetChainGasPriceInterval(chainID string) int {
-	// Default to 60 seconds
-	defaultInterval := 60
-
-	// Check for chain-specific override in unified config
-	if c.ChainConfigs != nil {
-		if config, ok := c.ChainConfigs[chainID]; ok {
-			if config.GasPriceIntervalSeconds != nil {
-				return *config.GasPriceIntervalSeconds
-			}
-		}
-	}
-
-	return defaultInterval
-}

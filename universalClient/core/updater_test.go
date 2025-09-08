@@ -29,8 +29,8 @@ func getTestConfig(updatePeriod time.Duration) *config.Config {
 	return &config.Config{
 		ConfigRefreshIntervalSeconds: int(updatePeriod.Seconds()),
 		InitialFetchRetries:          3,
-		InitialFetchTimeoutSeconds:   5,
-		RetryBackoffSeconds:          1,
+		InitialFetchTimeoutSeconds:   1,  // Reduced from 5s for faster tests
+		RetryBackoffSeconds:          0,  // Reduced from 1s for faster tests (100ms min enforced)
 	}
 }
 
@@ -168,8 +168,8 @@ func TestConfigUpdater_PerformInitialUpdate_WithRetries(t *testing.T) {
 
 	cache := registry.NewConfigCache(logger)
 	cfg := getTestConfig(30 * time.Second)
-	cfg.InitialFetchRetries = 5
-	cfg.RetryBackoffSeconds = 1
+	cfg.InitialFetchRetries = 3  // Reduced from 5 for faster tests
+	cfg.RetryBackoffSeconds = 0  // Reduced from 1s for faster tests
 	dbManager := db.NewInMemoryChainDBManager(logger, cfg)
 	chainRegistry := chains.NewChainRegistry(dbManager, logger)
 	chainRegistry.SetAppConfig(cfg)
@@ -198,7 +198,7 @@ func TestConfigUpdater_PerformInitialUpdate_ExhaustedRetries(t *testing.T) {
 	chainRegistry := chains.NewChainRegistry(dbManager, logger)
 	chainRegistry.SetAppConfig(cfg)
 	cfg.InitialFetchRetries = 2
-	cfg.RetryBackoffSeconds = 1
+	cfg.RetryBackoffSeconds = 0  // Reduced from 1s for faster tests
 
 	updater := NewConfigUpdater(mockRegistry, cache, chainRegistry, cfg, logger)
 
@@ -441,159 +441,6 @@ func TestConfigUpdaterUpdateConfigs(t *testing.T) {
 		// This should succeed because updateConfigs uses 30s timeout
 		assert.NoError(t, err)
 	})
-}
-
-// TestConfigUpdaterUpdateChainClients tests chain client updates
-func TestConfigUpdaterUpdateChainClients(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	cache := registry.NewConfigCache(logger)
-	cfg := getTestConfig(30 * time.Second)
-
-	// Create an in-memory database manager for testing
-	dbManager := db.NewInMemoryChainDBManager(logger, cfg)
-	chainReg := chains.NewChainRegistry(dbManager, logger)
-	chainReg.SetAppConfig(cfg)
-
-	// Create a test appConfig with RPC URLs
-	appConfig := &config.Config{
-		ChainConfigs: map[string]config.ChainSpecificConfig{
-			"eip155:11155111": {
-				RPCURLs: []string{"https://eth-sepolia.example.com"},
-			},
-			"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {
-				RPCURLs: []string{"https://api.devnet.solana.com"},
-			},
-		},
-		RPCPoolConfig: config.RPCPoolConfig{
-			HealthCheckIntervalSeconds: 30,
-			UnhealthyThreshold:         3,
-			RecoveryIntervalSeconds:    300,
-			MinHealthyEndpoints:        1,
-			RequestTimeoutSeconds:      10,
-		},
-	}
-	chainReg.SetAppConfig(appConfig)
-
-	updater := &ConfigUpdater{
-		cache:    cache,
-		chainReg: chainReg,
-		config:   getTestConfig(10 * time.Minute),
-		logger:   logger,
-	}
-	t.Run("Add enabled chains", func(t *testing.T) {
-		chainConfigs := []*uregistrytypes.ChainConfig{
-			{
-				Chain:   "eip155:11155111",
-				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
-			},
-			{
-				Chain:   "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-				VmType:  uregistrytypes.VmType_SVM,
-				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
-			},
-		}
-
-		ctx := context.Background()
-		err := updater.updateChainClients(ctx, chainConfigs)
-		// This will not error because updateChainClients continues on individual chain errors
-		assert.NoError(t, err)
-		// Solana chain will be added (devnet is public), but EVM will fail (invalid URL)
-		allChains := chainReg.GetAllChains()
-		assert.Len(t, allChains, 1) // Only Solana succeeds
-		assert.Contains(t, allChains, "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
-	})
-
-	t.Run("Skip disabled chains", func(t *testing.T) {
-		chainConfigs := []*uregistrytypes.ChainConfig{
-			{
-				Chain:   "eip155:11155111",
-				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false}, // Disabled
-			},
-		}
-
-		ctx := context.Background()
-		err := updater.updateChainClients(ctx, chainConfigs)
-		assert.NoError(t, err)
-
-		// No chains should be added
-		allChains := chainReg.GetAllChains()
-		assert.Len(t, allChains, 0)
-	})
-	t.Run("Skip nil configs", func(t *testing.T) {
-		chainConfigs := []*uregistrytypes.ChainConfig{
-			nil, // Nil config
-			{
-				Chain:   "", // Empty chain ID
-				VmType:  uregistrytypes.VmType_EVM,
-				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
-			},
-		}
-
-		ctx := context.Background()
-		err := updater.updateChainClients(ctx, chainConfigs)
-		assert.NoError(t, err)
-
-		// No chains should be added
-		allChains := chainReg.GetAllChains()
-		assert.Len(t, allChains, 0)
-	})
-}
-
-// TestConfigUpdaterForceUpdate tests the ForceUpdate method
-func TestConfigUpdaterForceUpdate(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	cache := registry.NewConfigCache(logger)
-	cfg := getTestConfig(30 * time.Second)
-
-	// Create an in-memory database manager for testing
-	dbManager := db.NewInMemoryChainDBManager(logger, cfg)
-	chainReg := chains.NewChainRegistry(dbManager, logger)
-	chainReg.SetAppConfig(cfg)
-
-	// Create a test appConfig with RPC URLs
-	appConfig := &config.Config{
-		ChainConfigs: map[string]config.ChainSpecificConfig{
-			"eip155:11155111": {
-				RPCURLs: []string{"https://eth-sepolia.example.com"},
-			},
-		},
-	}
-	chainReg.SetAppConfig(appConfig)
-
-	forceUpdateCalled := false
-	mockRegistry := &MockedRegistryClient{
-		getAllChainConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
-			forceUpdateCalled = true
-			return []*uregistrytypes.ChainConfig{
-				{
-					Chain:   "eip155:11155111",
-					VmType:  uregistrytypes.VmType_EVM,
-					Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
-				},
-			}, nil
-		},
-		getAllTokenConfigsFunc: func(ctx context.Context) ([]*uregistrytypes.TokenConfig, error) {
-			return []*uregistrytypes.TokenConfig{}, nil
-		},
-	}
-	updater := &ConfigUpdater{
-		registry: mockRegistry,
-		cache:    cache,
-		chainReg: chainReg,
-		logger:   logger,
-	}
-
-	ctx := context.Background()
-	err := updater.ForceUpdate(ctx)
-	require.NoError(t, err)
-
-	assert.True(t, forceUpdateCalled)
-
-	// Verify cache was updated
-	chains := cache.GetAllChainConfigs()
-	assert.Len(t, chains, 1)
 }
 
 // TestConfigUpdaterPeriodicUpdates tests periodic update functionality

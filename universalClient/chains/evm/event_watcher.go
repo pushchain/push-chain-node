@@ -24,6 +24,7 @@ type EventWatcher struct {
 	eventParser  *EventParser
 	tracker      *common.ConfirmationTracker
 	appConfig    *config.Config
+	chainID      string
 	logger       zerolog.Logger
 }
 
@@ -34,6 +35,7 @@ func NewEventWatcher(
 	eventParser *EventParser,
 	tracker *common.ConfirmationTracker,
 	appConfig *config.Config,
+	chainID string,
 	logger zerolog.Logger,
 ) *EventWatcher {
 	return &EventWatcher{
@@ -42,6 +44,7 @@ func NewEventWatcher(
 		eventParser:  eventParser,
 		tracker:      tracker,
 		appConfig:    appConfig,
+		chainID:      chainID,
 		logger:       logger.With().Str("component", "evm_event_watcher").Logger(),
 	}
 }
@@ -72,10 +75,22 @@ func (ew *EventWatcher) WatchEvents(
 	go func() {
 		defer close(eventChan)
 
-		// Use configured polling interval or default to 5 seconds
+		// Use chain-specific polling interval, then global, then default to 5 seconds
 		pollingInterval := 5 * time.Second
-		if ew.appConfig != nil && ew.appConfig.EventPollingIntervalSeconds > 0 {
-			pollingInterval = time.Duration(ew.appConfig.EventPollingIntervalSeconds) * time.Second
+		
+		// Check chain-specific config first
+		if ew.appConfig != nil && ew.appConfig.ChainConfigs != nil {
+			if chainConfig, exists := ew.appConfig.ChainConfigs[ew.chainID]; exists {
+				if chainConfig.EventPollingIntervalSeconds != nil && *chainConfig.EventPollingIntervalSeconds > 0 {
+					pollingInterval = time.Duration(*chainConfig.EventPollingIntervalSeconds) * time.Second
+				} else if ew.appConfig.EventPollingIntervalSeconds > 0 {
+					// Fall back to global config
+					pollingInterval = time.Duration(ew.appConfig.EventPollingIntervalSeconds) * time.Second
+				}
+			} else if ew.appConfig.EventPollingIntervalSeconds > 0 {
+				// No chain-specific config, use global
+				pollingInterval = time.Duration(ew.appConfig.EventPollingIntervalSeconds) * time.Second
+			}
 		}
 		
 		// Create ticker for polling

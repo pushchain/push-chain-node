@@ -183,10 +183,22 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 	go func() {
 		defer close(eventChan)
 
-		// Use configured polling interval or default to 5 seconds
+		// Use chain-specific polling interval, then global, then default to 5 seconds
 		pollingInterval := 5 * time.Second
-		if h.appConfig != nil && h.appConfig.EventPollingIntervalSeconds > 0 {
-			pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
+		
+		// Check chain-specific config first
+		if h.appConfig != nil && h.appConfig.ChainConfigs != nil {
+			if chainConfig, exists := h.appConfig.ChainConfigs[h.config.Chain]; exists {
+				if chainConfig.EventPollingIntervalSeconds != nil && *chainConfig.EventPollingIntervalSeconds > 0 {
+					pollingInterval = time.Duration(*chainConfig.EventPollingIntervalSeconds) * time.Second
+				} else if h.appConfig.EventPollingIntervalSeconds > 0 {
+					// Fall back to global config
+					pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
+				}
+			} else if h.appConfig.EventPollingIntervalSeconds > 0 {
+				// No chain-specific config, use global
+				pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
+			}
 		}
 
 		// Poll for new transactions periodically

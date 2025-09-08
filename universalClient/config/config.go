@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 const (
@@ -24,16 +22,16 @@ func LoadDefaultConfig() (Config, error) {
 	if err := json.Unmarshal(defaultConfigJSON, &cfg); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
-	
-	// Validate the config
-	if err := validateConfig(&cfg); err != nil {
+
+	// Validate the config (default config validates against itself)
+	if err := validateConfig(&cfg, nil); err != nil {
 		return Config{}, fmt.Errorf("invalid default config: %w", err)
 	}
-	
+
 	return cfg, nil
 }
 
-func validateConfig(cfg *Config) error {
+func validateConfig(cfg *Config, defaultCfg *Config) error {
 	// Validate log level
 	if cfg.LogLevel < 0 || cfg.LogLevel > 5 {
 		return fmt.Errorf("log level must be between 0 and 5")
@@ -44,34 +42,33 @@ func validateConfig(cfg *Config) error {
 		return fmt.Errorf("log format must be 'json' or 'console'")
 	}
 
-	// Set defaults for registry config
-	if cfg.ConfigRefreshIntervalSeconds == 0 {
-		cfg.ConfigRefreshIntervalSeconds = 60
+	// Set defaults for registry config from default config
+	if cfg.ConfigRefreshIntervalSeconds == 0 && defaultCfg != nil {
+		cfg.ConfigRefreshIntervalSeconds = defaultCfg.ConfigRefreshIntervalSeconds
 	}
-	if cfg.MaxRetries == 0 {
-		cfg.MaxRetries = 3
+	if cfg.MaxRetries == 0 && defaultCfg != nil {
+		cfg.MaxRetries = defaultCfg.MaxRetries
 	}
-	if cfg.RetryBackoffSeconds == 0 {
-		cfg.RetryBackoffSeconds = 1
+	if cfg.RetryBackoffSeconds == 0 && defaultCfg != nil {
+		cfg.RetryBackoffSeconds = defaultCfg.RetryBackoffSeconds
 	}
 
-	// Set defaults for startup config
-	if cfg.InitialFetchRetries == 0 {
-		cfg.InitialFetchRetries = 5
+	// Set defaults for startup config from default config
+	if cfg.InitialFetchRetries == 0 && defaultCfg != nil {
+		cfg.InitialFetchRetries = defaultCfg.InitialFetchRetries
 	}
-	if cfg.InitialFetchTimeoutSeconds == 0 {
-		cfg.InitialFetchTimeoutSeconds = 30
+	if cfg.InitialFetchTimeoutSeconds == 0 && defaultCfg != nil {
+		cfg.InitialFetchTimeoutSeconds = defaultCfg.InitialFetchTimeoutSeconds
 	}
 
 	// Validate registry config
-	if len(cfg.PushChainGRPCURLs) == 0 {
-		// Default to localhost (clean base URL without port) if no URLs provided
-		cfg.PushChainGRPCURLs = []string{"localhost"}
+	if len(cfg.PushChainGRPCURLs) == 0 && defaultCfg != nil {
+		cfg.PushChainGRPCURLs = defaultCfg.PushChainGRPCURLs
 	}
 
-	// Set defaults for query server
-	if cfg.QueryServerPort == 0 {
-		cfg.QueryServerPort = 8080
+	// Set defaults for query server from default config
+	if cfg.QueryServerPort == 0 && defaultCfg != nil {
+		cfg.QueryServerPort = defaultCfg.QueryServerPort
 	}
 
 	// Set defaults and validate hot key management config
@@ -88,63 +85,58 @@ func validateConfig(cfg *Config) error {
 				return fmt.Errorf("keyring backend must be 'file' or 'test', got: %s", cfg.KeyringBackend)
 			}
 		}
-	} else {
-		// Default to test backend for local development
-		cfg.KeyringBackend = KeyringBackendTest
-	}
-	
-	// Set default for key check interval
-	if cfg.KeyCheckInterval == 0 {
-		cfg.KeyCheckInterval = 30 // Default to 30 seconds
-	}
-	
-	
-	// Set defaults for event monitoring
-	if cfg.EventPollingIntervalSeconds == 0 {
-		cfg.EventPollingIntervalSeconds = 5
+	} else if defaultCfg != nil {
+		cfg.KeyringBackend = defaultCfg.KeyringBackend
 	}
 
-	// Set defaults for transaction cleanup
-	if cfg.TransactionCleanupIntervalSeconds == 0 {
-		cfg.TransactionCleanupIntervalSeconds = 3600
+	// Set default for key check interval from default config
+	if cfg.KeyCheckInterval == 0 && defaultCfg != nil {
+		cfg.KeyCheckInterval = defaultCfg.KeyCheckInterval
 	}
-	if cfg.TransactionRetentionPeriodSeconds == 0 {
-		cfg.TransactionRetentionPeriodSeconds = 86400
+
+	// Set defaults for event monitoring from default config
+	if cfg.EventPollingIntervalSeconds == 0 && defaultCfg != nil {
+		cfg.EventPollingIntervalSeconds = defaultCfg.EventPollingIntervalSeconds
+	}
+
+	// Set defaults for transaction cleanup from default config
+	if cfg.TransactionCleanupIntervalSeconds == 0 && defaultCfg != nil {
+		cfg.TransactionCleanupIntervalSeconds = defaultCfg.TransactionCleanupIntervalSeconds
+	}
+	if cfg.TransactionRetentionPeriodSeconds == 0 && defaultCfg != nil {
+		cfg.TransactionRetentionPeriodSeconds = defaultCfg.TransactionRetentionPeriodSeconds
 	}
 
 	// Initialize ChainConfigs if nil or empty
-	if cfg.ChainConfigs == nil || len(cfg.ChainConfigs) == 0 {
-		// Load defaults from embedded config
-		var defaultCfg Config
-		if err := json.Unmarshal(defaultConfigJSON, &defaultCfg); err == nil {
-			cfg.ChainConfigs = defaultCfg.ChainConfigs
-		} else {
-			cfg.ChainConfigs = make(map[string]ChainSpecificConfig)
+	if (cfg.ChainConfigs == nil || len(cfg.ChainConfigs) == 0) && defaultCfg != nil {
+		cfg.ChainConfigs = defaultCfg.ChainConfigs
+	}
+
+	// Set defaults for RPC pool config from default config
+	if defaultCfg != nil {
+		if cfg.RPCPoolConfig.HealthCheckIntervalSeconds == 0 {
+			cfg.RPCPoolConfig.HealthCheckIntervalSeconds = defaultCfg.RPCPoolConfig.HealthCheckIntervalSeconds
+		}
+		if cfg.RPCPoolConfig.UnhealthyThreshold == 0 {
+			cfg.RPCPoolConfig.UnhealthyThreshold = defaultCfg.RPCPoolConfig.UnhealthyThreshold
+		}
+		if cfg.RPCPoolConfig.RecoveryIntervalSeconds == 0 {
+			cfg.RPCPoolConfig.RecoveryIntervalSeconds = defaultCfg.RPCPoolConfig.RecoveryIntervalSeconds
+		}
+		if cfg.RPCPoolConfig.MinHealthyEndpoints == 0 {
+			cfg.RPCPoolConfig.MinHealthyEndpoints = defaultCfg.RPCPoolConfig.MinHealthyEndpoints
+		}
+		if cfg.RPCPoolConfig.RequestTimeoutSeconds == 0 {
+			cfg.RPCPoolConfig.RequestTimeoutSeconds = defaultCfg.RPCPoolConfig.RequestTimeoutSeconds
+		}
+		if cfg.RPCPoolConfig.LoadBalancingStrategy == "" {
+			cfg.RPCPoolConfig.LoadBalancingStrategy = defaultCfg.RPCPoolConfig.LoadBalancingStrategy
 		}
 	}
 
-	// Set defaults for RPC pool config
-	if cfg.RPCPoolConfig.HealthCheckIntervalSeconds == 0 {
-		cfg.RPCPoolConfig.HealthCheckIntervalSeconds = 30
-	}
-	if cfg.RPCPoolConfig.UnhealthyThreshold == 0 {
-		cfg.RPCPoolConfig.UnhealthyThreshold = 3
-	}
-	if cfg.RPCPoolConfig.RecoveryIntervalSeconds == 0 {
-		cfg.RPCPoolConfig.RecoveryIntervalSeconds = 300
-	}
-	if cfg.RPCPoolConfig.MinHealthyEndpoints == 0 {
-		cfg.RPCPoolConfig.MinHealthyEndpoints = 1
-	}
-	if cfg.RPCPoolConfig.RequestTimeoutSeconds == 0 {
-		cfg.RPCPoolConfig.RequestTimeoutSeconds = 10
-	}
-	if cfg.RPCPoolConfig.LoadBalancingStrategy == "" {
-		cfg.RPCPoolConfig.LoadBalancingStrategy = "round-robin"
-	}
-
 	// Validate load balancing strategy
-	if cfg.RPCPoolConfig.LoadBalancingStrategy != "round-robin" && 
+	if cfg.RPCPoolConfig.LoadBalancingStrategy != "" &&
+		cfg.RPCPoolConfig.LoadBalancingStrategy != "round-robin" &&
 		cfg.RPCPoolConfig.LoadBalancingStrategy != "weighted" {
 		return fmt.Errorf("load balancing strategy must be 'round-robin' or 'weighted'")
 	}
@@ -154,7 +146,9 @@ func validateConfig(cfg *Config) error {
 
 // Save writes the given config to <NodeDir>/config/pushuv_config.json.
 func Save(cfg *Config, basePath string) error {
-	if err := validateConfig(cfg); err != nil {
+	// Load default config for validation
+	defaultCfg, _ := LoadDefaultConfig()
+	if err := validateConfig(cfg, &defaultCfg); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
@@ -187,17 +181,11 @@ func Load(basePath string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
-	
+
 	// Don't validate for now - let the config file values pass through
 	// if err := validateConfig(&cfg); err != nil {
 	//	return Config{}, fmt.Errorf("invalid config: %w", err)
 	// }
-	
+
 	return cfg, nil
-}
-
-
-// GetKeyringDir returns the full path to the keyring directory
-func GetKeyringDir(cfg *Config) string {
-	return filepath.Join(constant.DefaultNodeHome, "keys")
 }

@@ -47,7 +47,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 	}
 
 	client := &Client{
-		BaseChainClient: common.NewBaseChainClient(config),
+		BaseChainClient: common.NewBaseChainClient(config, appConfig),
 		logger: logger.With().
 			Str("component", "solana_client").
 			Str("chain", config.Chain).
@@ -64,17 +64,15 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 
 // getRPCURLs returns the list of RPC URLs to use for this chain
 func (c *Client) getRPCURLs() []string {
-	// Only use RPC URLs from local config - no fallback to registry
-	if c.appConfig != nil {
-		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
-
-		if len(urls) > 0 {
-			c.logger.Info().
-				Str("chain", c.GetConfig().Chain).
-				Int("url_count", len(urls)).
-				Msg("using RPC URLs from local configuration")
-			return urls
-		}
+	// Use the base client's GetRPCURLs method
+	urls := c.BaseChainClient.GetRPCURLs()
+	
+	if len(urls) > 0 {
+		c.logger.Info().
+			Str("chain", c.GetConfig().Chain).
+			Int("url_count", len(urls)).
+			Msg("using RPC URLs from local configuration")
+		return urls
 	}
 
 	chainName := ""

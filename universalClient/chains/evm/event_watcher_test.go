@@ -22,7 +22,7 @@ func TestNewEventWatcher(t *testing.T) {
 	tracker := common.NewConfirmationTracker(nil, nil, logger)
 	appConfig := &config.Config{}
 	
-	watcher := NewEventWatcher(client, gatewayAddr, eventParser, tracker, appConfig, logger)
+	watcher := NewEventWatcher(client, gatewayAddr, eventParser, tracker, appConfig, "eip155:1", logger)
 	
 	assert.NotNil(t, watcher)
 	assert.Equal(t, client, watcher.parentClient)
@@ -68,7 +68,7 @@ func TestEventWatcherPollingInterval(t *testing.T) {
 			eventParser := &EventParser{eventTopics: make(map[string]ethcommon.Hash)}
 			tracker := common.NewConfirmationTracker(nil, nil, logger)
 			
-			watcher := NewEventWatcher(client, gatewayAddr, eventParser, tracker, tt.appConfig, logger)
+			watcher := NewEventWatcher(client, gatewayAddr, eventParser, tracker, tt.appConfig, "eip155:1", logger)
 			
 			assert.NotNil(t, watcher)
 			assert.Equal(t, tt.appConfig, watcher.appConfig)

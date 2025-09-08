@@ -10,16 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
-
-func TestGetKeyringDir(t *testing.T) {
-	config := Config{}
-
-	result := GetKeyringDir(&config)
-	// Since we now use constant.DefaultNodeHome, test should check that path
-	assert.Contains(t, result, "/.puniversal/keys")
-}
-
 func TestConfigValidation(t *testing.T) {
 	// Test default settings
 	cfg := &Config{
@@ -27,8 +17,10 @@ func TestConfigValidation(t *testing.T) {
 		LogFormat: "console",
 	}
 
+	// Load default config for validation
+	defaultCfg, _ := LoadDefaultConfig()
 	// This should set defaults and validate
-	err := validateConfig(cfg)
+	err := validateConfig(cfg, &defaultCfg)
 	assert.NoError(t, err)
 
 	// Check that defaults were set
@@ -51,15 +43,15 @@ func TestValidConfigScenarios(t *testing.T) {
 		{
 			name: "Valid config with all fields",
 			config: Config{
-				LogLevel:                       2,
-				LogFormat:                      "json",
-				ConfigRefreshIntervalSeconds:   30,
-				MaxRetries:                     5,
-				RetryBackoffSeconds:            2,
-				InitialFetchRetries:            3,
-				InitialFetchTimeoutSeconds:     20,
-				PushChainGRPCURLs:              []string{"localhost:9090"},
-				QueryServerPort:                8080,
+				LogLevel:                     2,
+				LogFormat:                    "json",
+				ConfigRefreshIntervalSeconds: 30,
+				MaxRetries:                   5,
+				RetryBackoffSeconds:          2,
+				InitialFetchRetries:          3,
+				InitialFetchTimeoutSeconds:   20,
+				PushChainGRPCURLs:            []string{"localhost:9090"},
+				QueryServerPort:              8080,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 2, cfg.LogLevel)
@@ -89,7 +81,7 @@ func TestValidConfigScenarios(t *testing.T) {
 				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
 				assert.Equal(t, 5, cfg.InitialFetchRetries)
 				assert.Equal(t, 30, cfg.InitialFetchTimeoutSeconds)
-				assert.Equal(t, []string{"localhost"}, cfg.PushChainGRPCURLs)
+				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
 				assert.Equal(t, 8080, cfg.QueryServerPort)
 			},
 		},
@@ -101,7 +93,7 @@ func TestValidConfigScenarios(t *testing.T) {
 				PushChainGRPCURLs: []string{},
 			},
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, []string{"localhost"}, cfg.PushChainGRPCURLs)
+				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
 			},
 		},
 		{
@@ -119,8 +111,9 @@ func TestValidConfigScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defaultCfg, _ := LoadDefaultConfig()
 			cfg := tt.config
-			err := validateConfig(&cfg)
+			err := validateConfig(&cfg, &defaultCfg)
 			assert.NoError(t, err)
 			if tt.validate != nil {
 				tt.validate(t, &cfg)
@@ -180,8 +173,9 @@ func TestInvalidConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defaultCfg, _ := LoadDefaultConfig()
 			cfg := tt.config
-			err := validateConfig(&cfg)
+			err := validateConfig(&cfg, &defaultCfg)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 		})

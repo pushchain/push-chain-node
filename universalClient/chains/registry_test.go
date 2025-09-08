@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
@@ -114,6 +115,26 @@ func (m *MockChainClient) SetVoteHandler(handler common.VoteHandler) {
 // GetGasPrice returns a mock gas price
 func (m *MockChainClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(20000000000), nil // 20 gwei
+}
+
+// GetRPCURLs returns the list of RPC URLs for this chain
+func (m *MockChainClient) GetRPCURLs() []string {
+	return []string{"http://mock.rpc.url"}
+}
+
+// GetCleanupSettings returns cleanup settings for this chain
+func (m *MockChainClient) GetCleanupSettings() (cleanupInterval, retentionPeriod int) {
+	return 3600, 86400 // 1 hour cleanup, 1 day retention
+}
+
+// GetGasPriceInterval returns the gas price fetch interval for this chain
+func (m *MockChainClient) GetGasPriceInterval() int {
+	return 60 // 60 seconds
+}
+
+// GetChainSpecificConfig returns the complete configuration for this chain
+func (m *MockChainClient) GetChainSpecificConfig() *config.ChainSpecificConfig {
+	return &config.ChainSpecificConfig{}
 }
 
 // TestChainRegistryInitialization tests the creation of ChainRegistry

@@ -741,7 +741,7 @@ _execute_authz_transactions() {
     local log_index="1"
     local tx_type="1"  # SYNTHETIC
     
-    authz_result=$(timeout 10 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/uexecutor.v1.MsgVoteInbound" "$operator_addr" "$source_chain" "$tx_hash" "$sender" "$recipient" "$amount" "$asset_addr" "$log_index" "$tx_type" --node core-validator-1 --chain-id localchain_9000-1 --fees "500000000000000upc" --memo "AuthZ Vote Inbound Test" 2>&1)
+    authz_result=$(timeout 10 docker exec universal-validator-1 puniversald authz exec "$container_key_name" "/uexecutor.v1.MsgVoteInbound" "$operator_addr" "$source_chain" "$tx_hash" "$sender" "$recipient" "$amount" "$asset_addr" "$log_index" "$tx_type" --node core-validator-1 --chain-id localchain_9000-1 --gas 500000 --fees "500000000000000upc" --memo "AuthZ Vote Inbound Test" 2>&1)
     
     if echo "$authz_result" | grep -q "TX Success:"; then
         local vote_tx_hash=$(echo "$authz_result" | grep "TX Success:" | sed 's/.*hash=//' | cut -d' ' -f1)

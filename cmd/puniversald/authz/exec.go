@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -30,6 +30,9 @@ func ExecCmd(rpcEndpoint, chainID *string) *cobra.Command {
 		Long: `
 Execute a transaction using AuthZ permissions.
 The grantee (hot key) must have been granted permission to execute the specified message type.
+
+Note: MsgVoteInbound is a gasless transaction type and does not require gas or fees by default.
+You can override the gas and fee values using the --gas and --fees flags if needed.
 
 Supported message types:
   /uexecutor.v1.MsgVoteInbound - <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>
@@ -101,6 +104,7 @@ func runExecCommand(granteeKeyName, msgType string, msgArgs []string, rpcEndpoin
 	hotKeys := keys.NewKeysWithKeybase(kb, granteeAddr, granteeKeyName, "")
 
 	// Create TxSigner for handling the transaction  
+	// Create TxSigner for handling the transaction
 	logger := zerolog.New(nil).Level(zerolog.InfoLevel)
 	txSigner := uauthz.NewTxSigner(hotKeys, clientCtx, logger)
 

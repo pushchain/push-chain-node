@@ -49,7 +49,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 	}
 
 	client := &Client{
-		BaseChainClient: common.NewBaseChainClient(config),
+		BaseChainClient: common.NewBaseChainClient(config, appConfig),
 		logger: logger.With().
 			Str("component", "evm_client").
 			Str("chain", config.Chain).
@@ -66,17 +66,15 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 
 // getRPCURLs returns the list of RPC URLs to use for this chain
 func (c *Client) getRPCURLs() []string {
-	// Only use RPC URLs from local config - no fallback to registry
-	if c.appConfig != nil {
-		urls := common.GetRPCURLs(c.GetConfig(), c.appConfig)
-
-		if len(urls) > 0 {
-			c.logger.Info().
-				Str("chain", c.GetConfig().Chain).
-				Int("url_count", len(urls)).
-				Msg("using RPC URLs from local configuration")
-			return urls
-		}
+	// Use the base client's GetRPCURLs method
+	urls := c.BaseChainClient.GetRPCURLs()
+	
+	if len(urls) > 0 {
+		c.logger.Info().
+			Str("chain", c.GetConfig().Chain).
+			Int("url_count", len(urls)).
+			Msg("using RPC URLs from local configuration")
+		return urls
 	}
 
 	chainName := ""
@@ -250,13 +248,18 @@ func (c *Client) watchGatewayEvents() {
 			return
 		default:
 			// Check if we have available endpoints
+			pollInterval := 5 * time.Second // default
+			if c.appConfig != nil && c.appConfig.EventPollingIntervalSeconds > 0 {
+				pollInterval = time.Duration(c.appConfig.EventPollingIntervalSeconds) * time.Second
+			}
+			
 			if c.rpcPool != nil && c.rpcPool.GetHealthyEndpointCount() == 0 {
 				c.logger.Debug().Msg("waiting for healthy endpoints")
-				time.Sleep(5 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			} else if c.rpcPool == nil && c.ethClient == nil {
 				c.logger.Debug().Msg("waiting for connection to be established")
-				time.Sleep(5 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 
@@ -270,7 +273,7 @@ func (c *Client) watchGatewayEvents() {
 			startBlock, err := c.gatewayHandler.GetStartBlock(ctx)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to get start block")
-				time.Sleep(5 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 
@@ -283,7 +286,7 @@ func (c *Client) watchGatewayEvents() {
 			eventChan, err := c.WatchGatewayEvents(ctx, 9084430)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
-				time.Sleep(5 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 
@@ -295,7 +298,7 @@ func (c *Client) watchGatewayEvents() {
 			watchErr := c.processGatewayEvents(ctx, eventChan)
 			if watchErr != nil {
 				c.logger.Error().Err(watchErr).Msg("gateway event processing error")
-				time.Sleep(5 * time.Second)
+				time.Sleep(pollInterval)
 			}
 		}
 	}

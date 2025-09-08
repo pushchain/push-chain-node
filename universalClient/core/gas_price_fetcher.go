@@ -69,8 +69,8 @@ func (f *GasPriceFetcher) Start(ctx context.Context) error {
 			continue
 		}
 
-		// Get the interval for this chain
-		intervalSeconds := f.config.GetChainGasPriceInterval(chainID)
+		// Get the interval for this chain from the client
+		intervalSeconds := client.GetGasPriceInterval()
 		interval := time.Duration(intervalSeconds) * time.Second
 
 		f.logger.Info().
@@ -210,7 +210,7 @@ func (f *GasPriceFetcher) updateChainFetchers(ctx context.Context) {
 				continue
 			}
 
-			intervalSeconds := f.config.GetChainGasPriceInterval(chainID)
+			intervalSeconds := client.GetGasPriceInterval()
 			interval := time.Duration(intervalSeconds) * time.Second
 
 			f.logger.Info().

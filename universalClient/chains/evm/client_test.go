@@ -199,10 +199,16 @@ func TestClientStartStop(t *testing.T) {
 		}
 
 		appConfig := testAppConfig("eip155:1", []string{"http://invalid.localhost:99999"})
+		// Reduce timeout for tests to fail faster
+		appConfig.RPCPoolConfig.RequestTimeoutSeconds = 2 // Reduce from default 30s to 2s
+		
 		client, err := NewClient(config, nil, appConfig, logger)
 		require.NoError(t, err)
 
-		ctx := context.Background()
+		// Use context with timeout to ensure fast failure
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		
 		err = client.Start(ctx)
 		assert.Error(t, err)
 	})

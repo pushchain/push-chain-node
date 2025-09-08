@@ -2,7 +2,7 @@
   "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
   "public_rpc_url": "http://host.docker.internal:8899",
   "vm_type": 1,
-  "gateway_address": "FCmb3oVYsAhim21YDeGVtxvfoj97chs6voP4ABSAkvV6",
+  "gateway_address": "GV4X8xcFMe4n5tA6eu96HoSKhXiriwjM2fdjpkCwh3ZF",
   "block_confirmation": 0,
   "gateway_methods": [
     {

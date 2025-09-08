@@ -337,7 +337,7 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 				Str("msg_type", genericAuth.Msg).
 				Msg("Generic authorization message type")
 			
-			if genericAuth.Msg == "/ue.v1.MsgVoteInbound" {
+			if genericAuth.Msg == "/uexecutor.v1.MsgVoteInbound" {
 				// Check expiration
 				if grant.Expiration != nil && grant.Expiration.Before(time.Now()) {
 					km.log.Warn().

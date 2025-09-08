@@ -296,7 +296,7 @@ func TestKeyMonitor_checkMsgVoteInboundPermission(t *testing.T) {
 			setupMock: func(m *MockAuthzQueryClient) {
 				// Create a GenericAuthorization for MsgVoteInbound
 				genericAuth := &authz.GenericAuthorization{
-					Msg: "/ue.v1.MsgVoteInbound",
+					Msg: "/uexecutor.v1.MsgVoteInbound",
 				}
 				
 				authzAny, err := codectypes.NewAnyWithValue(genericAuth)
@@ -325,7 +325,7 @@ func TestKeyMonitor_checkMsgVoteInboundPermission(t *testing.T) {
 			granteeAddr: "cosmos1test",
 			setupMock: func(m *MockAuthzQueryClient) {
 				genericAuth := &authz.GenericAuthorization{
-					Msg: "/ue.v1.MsgVoteInbound",
+					Msg: "/uexecutor.v1.MsgVoteInbound",
 				}
 				
 				authzAny, err := codectypes.NewAnyWithValue(genericAuth)

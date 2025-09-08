@@ -32,10 +32,10 @@ Execute a transaction using AuthZ permissions.
 The grantee (hot key) must have been granted permission to execute the specified message type.
 
 Supported message types:
-  /ue.v1.MsgVoteInbound - <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>
+  /uexecutor.v1.MsgVoteInbound - <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>
 
 Example:
-  puniversald authz exec container-hotkey /ue.v1.MsgVoteInbound push1signer... eip155:11155111 0x123abc 0xsender 0xrecipient 1000 0xasset 1 1
+  puniversald authz exec container-hotkey /uexecutor.v1.MsgVoteInbound push1signer... eip155:11155111 0x123abc 0xsender 0xrecipient 1000 0xasset 1 1
 `,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

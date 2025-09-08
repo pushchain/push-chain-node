@@ -11,7 +11,7 @@ import (
 // ParseMessageFromArgs parses command line arguments into a message
 func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 	switch msgType {
-	case "/ue.v1.MsgVoteInbound":
+	case "/uexecutor.v1.MsgVoteInbound":
 		if len(msgArgs) < 9 {
 			return nil, fmt.Errorf("MsgVoteInbound requires: <signer> <source-chain> <tx-hash> <sender> <recipient> <amount> <asset-addr> <log-index> <tx-type>")
 		}
@@ -20,10 +20,10 @@ func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 			return nil, fmt.Errorf("invalid signer address: %w", err)
 		}
 		
-		// Parse tx type (0=UNSPECIFIED, 1=SYNTHETIC, 2=FEE_ABSTRACTION)
+		// Parse tx type (0=UNSPECIFIED, 1=GAS_FUND, 2=FUNDS_BRIDGE, 3=FUNDS_AND_PAYLOAD, 4=FUNDS_AND_PAYLOAD_INSTANT)
 		txTypeInt, err := strconv.Atoi(msgArgs[8])
 		if err != nil {
-			return nil, fmt.Errorf("invalid tx type (must be number 0-2): %w", err)
+			return nil, fmt.Errorf("invalid tx type (must be number 0-4): %w", err)
 		}
 		
 		var txType uetypes.InboundTxType
@@ -31,11 +31,15 @@ func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 		case 0:
 			txType = uetypes.InboundTxType_UNSPECIFIED_TX
 		case 1:
-			txType = uetypes.InboundTxType_SYNTHETIC
+			txType = uetypes.InboundTxType_GAS_FUND_TX
 		case 2:
-			txType = uetypes.InboundTxType_FEE_ABSTRACTION
+			txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
+		case 3:
+			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
+		case 4:
+			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
 		default:
-			return nil, fmt.Errorf("invalid tx type %d (must be 0=UNSPECIFIED, 1=SYNTHETIC, 2=FEE_ABSTRACTION)", txTypeInt)
+			return nil, fmt.Errorf("invalid tx type %d (must be 0=UNSPECIFIED, 1=GAS_FUND, 2=FUNDS_BRIDGE, 3=FUNDS_AND_PAYLOAD, 4=FUNDS_AND_PAYLOAD_INSTANT)", txTypeInt)
 		}
 		
 		return &uetypes.MsgVoteInbound{

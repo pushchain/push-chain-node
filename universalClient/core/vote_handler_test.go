@@ -242,7 +242,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "1000000",
 				AssetAddr:   "0x333",
 				LogIndex:    "5",
-				TxType:      uetypes.InboundTxType_FEE_ABSTRACTION,
+				TxType:      uetypes.InboundTxType_GAS_FUND_TX,
 			},
 		},
 		{
@@ -260,7 +260,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "0",
 				AssetAddr:   "0x0000000000000000000000000000000000000000",
 				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_SYNTHETIC,
+				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 			},
 		},
 		{
@@ -278,7 +278,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "0",
 				AssetAddr:   "0x0000000000000000000000000000000000000000",
 				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_SYNTHETIC,
+				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 			},
 		},
 		{
@@ -298,7 +298,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "0",
 				AssetAddr:   "0x0000000000000000000000000000000000000000",
 				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_SYNTHETIC,
+				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 			},
 		},
 	}

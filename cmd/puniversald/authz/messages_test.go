@@ -32,7 +32,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 	}{
 		{
 			name:    "valid MsgVoteInbound",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20", // signer - valid bech32 address
 				"eip155:11155111", // source chain
@@ -42,7 +42,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				"1000", // amount
 				"0xasset", // asset addr
 				"1", // log index
-				"1", // tx type (SYNTHETIC)
+				"1", // tx type (GAS_FUND)
 			},
 			wantErr: false,
 			validate: func(t *testing.T, msg interface{}) {
@@ -56,12 +56,12 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				assert.Equal(t, "1000", voteMsg.Inbound.Amount)
 				assert.Equal(t, "0xasset", voteMsg.Inbound.AssetAddr)
 				assert.Equal(t, "1", voteMsg.Inbound.LogIndex)
-				assert.Equal(t, uetypes.InboundTxType_SYNTHETIC, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_GAS_FUND_TX, voteMsg.Inbound.TxType)
 			},
 		},
 		{
-			name:    "MsgVoteInbound with FEE_ABSTRACTION type",
-			msgType: "/ue.v1.MsgVoteInbound",
+			name:    "MsgVoteInbound with FUNDS_BRIDGE type",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
 				"eip155:1",
@@ -71,18 +71,18 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				"5000",
 				"0xtoken",
 				"5",
-				"2", // FEE_ABSTRACTION
+				"2", // FUNDS_BRIDGE
 			},
 			wantErr: false,
 			validate: func(t *testing.T, msg interface{}) {
 				voteMsg, ok := msg.(*uetypes.MsgVoteInbound)
 				require.True(t, ok)
-				assert.Equal(t, uetypes.InboundTxType_FEE_ABSTRACTION, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_FUNDS_BRIDGE_TX, voteMsg.Inbound.TxType)
 			},
 		},
 		{
 			name:    "MsgVoteInbound with UNSPECIFIED type",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
 				"eip155:1",
@@ -103,14 +103,14 @@ func TestParseMsgVoteInbound(t *testing.T) {
 		},
 		{
 			name:    "MsgVoteInbound with insufficient args",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{"push1abc123", "eip155:1"},
 			wantErr: true,
 			errMsg:  "MsgVoteInbound requires",
 		},
 		{
 			name:    "MsgVoteInbound with invalid signer",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"invalid_address",
 				"eip155:1",
@@ -127,7 +127,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 		},
 		{
 			name:    "MsgVoteInbound with invalid tx type",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
 				"eip155:1",
@@ -144,7 +144,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 		},
 		{
 			name:    "MsgVoteInbound with non-numeric tx type",
-			msgType: "/ue.v1.MsgVoteInbound",
+			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
 				"eip155:1",

@@ -62,11 +62,11 @@ transactions on behalf of the granter. This validates that AuthZ grants
 are properly set up for the specified message types.
 
 If no message types are specified, checks default message type:
-  /ue.v1.MsgVoteInbound
+  /uexecutor.v1.MsgVoteInbound
 
 Examples:
   puniversald authz verify container-hotkey push1granter...
-  puniversald authz verify container-hotkey push1granter... /ue.v1.MsgVoteInbound
+  puniversald authz verify container-hotkey push1granter... /uexecutor.v1.MsgVoteInbound
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVerifyCommand(*rpcEndpoint, args)
@@ -88,7 +88,7 @@ func runVerifyCommand(rpcEndpoint string, args []string) error {
 	} else {
 		// Use default message type for universal validator voting
 		msgTypes = []string{
-			"/ue.v1.MsgVoteInbound",
+			"/uexecutor.v1.MsgVoteInbound",
 		}
 	}
 

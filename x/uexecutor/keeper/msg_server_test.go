@@ -341,7 +341,17 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	validUP := &types.UniversalPayload{
 		To:                   "0x1234567890abcdef1234567890abcdef12345670",
 		Value:                "10",
-		Data:                 "test-data",
+		Data:                 "0x",
+		GasLimit:             "1000000000000",
+		MaxFeePerGas:         "10",
+		MaxPriorityFeePerGas: "10",
+		Nonce:                "1",
+		Deadline:             "some-deadline",
+	}
+	invalidUP := &types.UniversalPayload{
+		To:                   "0x1234567890abcdef1234567890abcdef12345670",
+		Value:                "10",
+		Data:                 "wrong-data",
 		GasLimit:             "1000000000000",
 		MaxFeePerGas:         "10",
 		MaxPriorityFeePerGas: "10",
@@ -354,7 +364,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             "invalid_address",
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			VerificationData:   "0x",
 		}
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
@@ -367,7 +377,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			VerificationData:   "0x",
 		}
 
 		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(uregistrytypes.ChainConfig{}, errors.New("failed to get chain config for chain eip155:11155111"))
@@ -382,7 +392,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			VerificationData:   "0x",
 		}
 
 		chainConfigTest := uregistrytypes.ChainConfig{
@@ -414,44 +424,9 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			UniversalPayload:   invalidUP,
+			VerificationData:   "0x",
 		}
-
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		// Create a 64-byte buffer (two 32-byte words).
-		padded := make([]byte, 64)
-
-		// Put the address into the first 32-byte word, left-padded.
-		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
-
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		chainConfigTest := uregistrytypes.ChainConfig{
-			Chain:          "eip155:11155111",
-			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: &uregistrytypes.BlockConfirmation{
-				FastInbound:     3,
-				StandardInbound: 10,
-			},
-			GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
-		}
-
-		// f.k.ChainConfigs.Set(f.ctx, "eip155:11155111", chainConfigTest)
-		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
-
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
-
-		// f.mockEVMKeeper.EXPECT().DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "invalid universal payload")
@@ -476,38 +451,6 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			UniversalPayload:   avalidUP,
 			VerificationData:   "test-signature",
 		}
-
-		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-
-		// Create a 64-byte buffer (two 32-byte words).
-		padded := make([]byte, 64)
-
-		// Put the address into the first 32-byte word, left-padded.
-		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
-
-		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: padded,
-		}
-
-		chainConfigTest := uregistrytypes.ChainConfig{
-			Chain:          "eip155:11155111",
-			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
-			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
-			BlockConfirmation: &uregistrytypes.BlockConfirmation{
-				FastInbound:     3,
-				StandardInbound: 10,
-			},
-			GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
-		}
-
-		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
-
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(receipt, nil)
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "invalid verificationData format")

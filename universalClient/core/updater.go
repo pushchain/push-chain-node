@@ -104,6 +104,11 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 			Int("max_attempts", u.config.InitialFetchRetries).
 			Str("next_retry_in", backoff.String()).
 			Msg("initial config fetch failed")
+		
+		// Try to recover connections before next retry
+		u.logger.Info().Msg("attempting to recover registry connections")
+		u.registry.TryRecoverConnections()
+		
 		// Check if this was the last attempt
 		if attempt == u.config.InitialFetchRetries {
 			return fmt.Errorf("failed to fetch initial configuration after %d attempts: %w", attempt, err)

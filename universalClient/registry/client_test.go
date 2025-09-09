@@ -267,18 +267,22 @@ func TestRegistryClientMultiURLFailover(t *testing.T) {
 				queryClient: mockClient1,
 				healthy:     true,
 				lastCheck:   time.Now(),
+				conn:        nil, // Mock connection, no actual gRPC conn
 			},
 			{
 				url:         "localhost:9091",
 				queryClient: mockClient2,
 				healthy:     true,
 				lastCheck:   time.Now(),
+				conn:        nil, // Mock connection, no actual gRPC conn
 			},
 		},
-		currentIdx:   0,
-		logger:       logger,
-		maxRetries:   2,
-		retryBackoff: time.Millisecond,
+		currentIdx:          0,
+		logger:              logger,
+		maxRetries:          2,
+		retryBackoff:        time.Millisecond,
+		unhealthyCooldown:   10 * time.Second,
+		healthCheckInterval: 30 * time.Second,
 	}
 
 	ctx := context.Background()

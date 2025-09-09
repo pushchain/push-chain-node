@@ -22,6 +22,7 @@ import (
 type MockedRegistryClient struct {
 	getAllChainConfigsFunc func(ctx context.Context) ([]*uregistrytypes.ChainConfig, error)
 	getAllTokenConfigsFunc func(ctx context.Context) ([]*uregistrytypes.TokenConfig, error)
+	tryRecoverConnectionsCalls int32
 }
 
 // getTestConfig returns a test configuration
@@ -46,6 +47,10 @@ func (m *MockedRegistryClient) GetAllTokenConfigs(ctx context.Context) ([]*uregi
 		return m.getAllTokenConfigsFunc(ctx)
 	}
 	return nil, nil
+}
+
+func (m *MockedRegistryClient) TryRecoverConnections() {
+	atomic.AddInt32(&m.tryRecoverConnectionsCalls, 1)
 }
 
 // Test successful config update

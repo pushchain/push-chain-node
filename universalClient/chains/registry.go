@@ -15,6 +15,11 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
+// ChainRegistryObserver is an interface for observing chain addition events
+type ChainRegistryObserver interface {
+	OnChainAdded(chainID string)
+}
+
 // ChainRegistry manages chain clients based on their configurations
 type ChainRegistry struct {
 	mu           sync.RWMutex
@@ -23,6 +28,7 @@ type ChainRegistry struct {
 	dbManager    *db.ChainDBManager
 	appConfig    *config.Config
 	voteHandlers map[string]common.VoteHandler // Per-chain vote handlers (chainID -> VoteHandler)
+	observer     ChainRegistryObserver        // Observer for chain events
 }
 
 // NewChainRegistry creates a new chain registry
@@ -40,6 +46,13 @@ func (r *ChainRegistry) SetAppConfig(cfg *config.Config) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.appConfig = cfg
+}
+
+// SetObserver sets the observer for chain events
+func (r *ChainRegistry) SetObserver(observer ChainRegistryObserver) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.observer = observer
 }
 
 // SetVoteHandlers sets per-chain vote handlers
@@ -174,10 +187,33 @@ func (r *ChainRegistry) AddOrUpdateChain(ctx context.Context, config *uregistryt
 		return fmt.Errorf("failed to start chain client for %s: %w", chainID, err)
 	}
 
+	// Store the client first
+	wasNew := !exists
 	r.chains[chainID] = client
 	r.logger.Info().
 		Str("chain", chainID).
 		Msg("successfully added/updated chain client")
+
+	// Notify observer if this was a new chain addition OR if no vote handler exists
+	// This handles the case where chains are added after keys are detected
+	shouldNotify := wasNew
+	if !shouldNotify && r.observer != nil {
+		// Check if vote handler exists for this chain
+		if handler, exists := r.voteHandlers[chainID]; !exists || handler == nil {
+			shouldNotify = true
+			r.logger.Debug().
+				Str("chain", chainID).
+				Msg("chain has no vote handler, will notify observer")
+		}
+	}
+	
+	if shouldNotify && r.observer != nil {
+		r.logger.Debug().
+			Str("chain", chainID).
+			Msg("notifying observer of chain addition")
+		// Call observer in a goroutine to avoid holding the lock
+		go r.observer.OnChainAdded(chainID)
+	}
 
 	return nil
 }

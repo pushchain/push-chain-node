@@ -10,4 +10,5 @@ import (
 type RegistryInterface interface {
 	GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.ChainConfig, error)
 	GetAllTokenConfigs(ctx context.Context) ([]*uregistrytypes.TokenConfig, error)
+	TryRecoverConnections()
 }

@@ -31,7 +31,7 @@ func NewEventParser(
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
 		Msg("building event topics")
-	
+
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
 			eventTopics[method.Identifier] = ethcommon.HexToHash(method.EventIdentifier)
@@ -106,26 +106,24 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 
 // parseEventData extracts specific data from the event based on method type
 func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log, methodName string) {
-	if methodName == "addFunds" && len(log.Topics) >= 3 {
+	if methodName == "addFunds" && len(log.Topics) == 3 {
 		// FundsAdded event typically has:
 		// topics[0] = event signature
 		// topics[1] = indexed sender address
 		// topics[2] = indexed token address (or other indexed param)
 		// data contains amount and payload
-		
+
 		event.Sender = ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex()
-		
+
 		// Parse amount from data if available
 		if len(log.Data) >= 32 {
 			amount := new(big.Int).SetBytes(log.Data[:32])
 			event.Amount = amount.String()
 		}
-		
-		// If there's a receiver in topics (depends on event structure)
-		if len(log.Topics) >= 3 {
-			// This might be token address or receiver, depends on the specific event
-			event.Receiver = ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex()
-		}
+
+		// This might be token address or receiver, depends on the specific event
+		event.Receiver = ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex()
+
 	}
 	// Add more event parsing logic for other methods as needed
 }

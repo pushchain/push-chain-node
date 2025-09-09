@@ -125,3 +125,11 @@ message TokenConfig {
 
   NativeRepresentation native_representation = 9; // Native representation on the chain
 }
+
+message SystemConfig {
+  option (amino.name) = "uregistry/system_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string handler_contract_address = 1;
+}

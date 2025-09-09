@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName      = "/uregistry.v1.Msg/UpdateParams"
-	Msg_AddChainConfig_FullMethodName    = "/uregistry.v1.Msg/AddChainConfig"
-	Msg_UpdateChainConfig_FullMethodName = "/uregistry.v1.Msg/UpdateChainConfig"
-	Msg_AddTokenConfig_FullMethodName    = "/uregistry.v1.Msg/AddTokenConfig"
-	Msg_UpdateTokenConfig_FullMethodName = "/uregistry.v1.Msg/UpdateTokenConfig"
+	Msg_UpdateParams_FullMethodName       = "/uregistry.v1.Msg/UpdateParams"
+	Msg_AddChainConfig_FullMethodName     = "/uregistry.v1.Msg/AddChainConfig"
+	Msg_UpdateChainConfig_FullMethodName  = "/uregistry.v1.Msg/UpdateChainConfig"
+	Msg_AddTokenConfig_FullMethodName     = "/uregistry.v1.Msg/AddTokenConfig"
+	Msg_UpdateTokenConfig_FullMethodName  = "/uregistry.v1.Msg/UpdateTokenConfig"
+	Msg_UpdateSystemConfig_FullMethodName = "/uregistry.v1.Msg/UpdateSystemConfig"
 )
 
 // MsgClient is the client API for Msg service.
@@ -42,6 +43,8 @@ type MsgClient interface {
 	AddTokenConfig(ctx context.Context, in *MsgAddTokenConfig, opts ...grpc.CallOption) (*MsgAddTokenConfigResponse, error)
 	// UpdateTokenConfig updates an existing TokenConfig entry
 	UpdateTokenConfig(ctx context.Context, in *MsgUpdateTokenConfig, opts ...grpc.CallOption) (*MsgUpdateTokenConfigResponse, error)
+	// UpdateSystemConfig updates system config
+	UpdateSystemConfig(ctx context.Context, in *MsgUpdateSystemConfig, opts ...grpc.CallOption) (*MsgUpdateSystemConfigResponse, error)
 }
 
 type msgClient struct {
@@ -97,6 +100,15 @@ func (c *msgClient) UpdateTokenConfig(ctx context.Context, in *MsgUpdateTokenCon
 	return out, nil
 }
 
+func (c *msgClient) UpdateSystemConfig(ctx context.Context, in *MsgUpdateSystemConfig, opts ...grpc.CallOption) (*MsgUpdateSystemConfigResponse, error) {
+	out := new(MsgUpdateSystemConfigResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateSystemConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -113,6 +125,8 @@ type MsgServer interface {
 	AddTokenConfig(context.Context, *MsgAddTokenConfig) (*MsgAddTokenConfigResponse, error)
 	// UpdateTokenConfig updates an existing TokenConfig entry
 	UpdateTokenConfig(context.Context, *MsgUpdateTokenConfig) (*MsgUpdateTokenConfigResponse, error)
+	// UpdateSystemConfig updates system config
+	UpdateSystemConfig(context.Context, *MsgUpdateSystemConfig) (*MsgUpdateSystemConfigResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -134,6 +148,9 @@ func (UnimplementedMsgServer) AddTokenConfig(context.Context, *MsgAddTokenConfig
 }
 func (UnimplementedMsgServer) UpdateTokenConfig(context.Context, *MsgUpdateTokenConfig) (*MsgUpdateTokenConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateTokenConfig not implemented")
+}
+func (UnimplementedMsgServer) UpdateSystemConfig(context.Context, *MsgUpdateSystemConfig) (*MsgUpdateSystemConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSystemConfig not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -238,6 +255,24 @@ func _Msg_UpdateTokenConfig_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_UpdateSystemConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateSystemConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateSystemConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateSystemConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateSystemConfig(ctx, req.(*MsgUpdateSystemConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -264,6 +299,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateTokenConfig",
 			Handler:    _Msg_UpdateTokenConfig_Handler,
+		},
+		{
+			MethodName: "UpdateSystemConfig",
+			Handler:    _Msg_UpdateSystemConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -22,6 +22,7 @@ type Keeper struct {
 
 	// state management
 	Params       collections.Item[types.Params]
+	SystemConfig collections.Item[types.SystemConfig]
 	ChainConfigs collections.Map[string, types.ChainConfig]
 	TokenConfigs collections.Map[string, types.TokenConfig]
 
@@ -48,6 +49,7 @@ func NewKeeper(
 		logger: logger,
 
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		SystemConfig: collections.NewItem(sb, types.SystemConfigKey, types.SystemConfigName, codec.CollValue[types.SystemConfig](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
 		TokenConfigs: collections.NewMap(sb, types.TokenConfigsKey, types.TokenConfigsName, collections.StringKey, codec.CollValue[types.TokenConfig](cdc)),
 
@@ -124,4 +126,19 @@ func (k Keeper) GetTokenConfig(ctx context.Context, chain, address string) (type
 		return types.TokenConfig{}, err
 	}
 	return config, nil
+}
+
+// SetSystemConfig stores the system config.
+func (k Keeper) SetSystemConfig(ctx context.Context, cfg types.SystemConfig) error {
+	return k.SystemConfig.Set(ctx, cfg)
+}
+
+// GetSystemConfig retrieves the system config.
+func (k Keeper) GetSystemConfig(ctx context.Context) (types.SystemConfig, error) {
+	return k.SystemConfig.Get(ctx)
+}
+
+// HasSystemConfig checks if a system config is set.
+func (k Keeper) HasSystemConfig(ctx context.Context) (bool, error) {
+	return k.SystemConfig.Has(ctx)
 }

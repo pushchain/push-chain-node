@@ -227,24 +227,34 @@ func (km *KeyMonitor) checkKeys() error {
 					Str("previous_granter", km.lastGranter).
 					Msg("✅ Key state changed - found key with MsgVoteInbound permission")
 				
+				// Set the state BEFORE calling setupVoteHandler so the callback has access to granter
+				km.lastValidKey = keyInfo.Name
+				km.lastGranter = granter
+				
+				// Release the mutex before calling setupVoteHandler to avoid deadlock
+				// since the callback will call GetCurrentGranter() which needs to acquire a read lock
+				km.mu.Unlock()
+				
 				if err := km.setupVoteHandler(kr, keyInfo, granter); err != nil {
 					km.log.Error().
 						Str("key_name", keyInfo.Name).
 						Err(err).
 						Msg("Failed to setup vote handler")
+					// Reset state on failure - need to acquire lock again
+					km.mu.Lock()
+					km.lastValidKey = ""
+					km.lastGranter = ""
 					km.mu.Unlock()
 					continue
 				}
-				km.lastValidKey = keyInfo.Name
-				km.lastGranter = granter
 			} else {
 				// Log at Debug level for unchanged state
 				km.log.Debug().
 					Str("key_name", keyInfo.Name).
 					Str("granter", granter).
 					Msg("Key with MsgVoteInbound permission unchanged")
+				km.mu.Unlock()
 			}
-			km.mu.Unlock()
 			
 			return nil
 		}

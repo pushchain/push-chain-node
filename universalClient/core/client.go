@@ -579,6 +579,8 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 		var awaitingTxs []store.ChainTransaction
 		err := db.Client().
 			Where("status = ?", "awaiting_vote").
+			Limit(10).
+			Order("created_at ASC"). // Process oldest first
 			Find(&awaitingTxs).Error
 
 		if err != nil {
@@ -620,7 +622,11 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 	// Vote on each transaction using the appropriate chain's vote handler
 	ctx := context.Background()
 	successCount := 0
-	for _, txWithChain := range allAwaitingTxsWithChain {
+	
+	// Process transactions with rate limiting to avoid database overload
+	for i, txWithChain := range allAwaitingTxsWithChain {
+		// Process transactions back-to-back; no fixed delay throttling
+		
 		// Get the vote handler for this chain
 		voteHandler, exists := uc.voteHandlers[txWithChain.ChainID]
 		if !exists || voteHandler == nil {
@@ -631,9 +637,17 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 			continue
 		}
 
-		// Make a copy to pass by reference
-		txCopy := txWithChain.ChainTransaction
-		if err := voteHandler.VoteAndConfirm(ctx, &txCopy); err != nil {
+		// Pass the original transaction by reference (no copy needed)
+		// The vote handler will update the status and save it to the database
+		uc.log.Debug().
+			Str("tx_hash", txWithChain.TxHash).
+			Str("chain_id", txWithChain.ChainID).
+			Str("current_status", txWithChain.ChainTransaction.Status).
+			Int("index", i+1).
+			Int("total", len(allAwaitingTxsWithChain)).
+			Msg("attempting to vote on awaiting transaction")
+		
+		if err := voteHandler.VoteAndConfirm(ctx, &txWithChain.ChainTransaction); err != nil {
 			uc.log.Error().
 				Str("tx_hash", txWithChain.TxHash).
 				Str("chain_id", txWithChain.ChainID).
@@ -641,9 +655,10 @@ func (uc *UniversalClient) processAwaitingVoteTransactions() {
 				Msg("failed to vote on backlog transaction")
 			// Transaction remains in awaiting_vote for next retry
 		} else {
-			uc.log.Debug().
+			uc.log.Info().
 				Str("tx_hash", txWithChain.TxHash).
 				Str("chain_id", txWithChain.ChainID).
+				Str("final_status", txWithChain.ChainTransaction.Status).
 				Msg("successfully voted on backlog transaction")
 			successCount++
 		}

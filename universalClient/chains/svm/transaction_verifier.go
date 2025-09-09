@@ -3,6 +3,7 @@ package svm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -116,16 +117,27 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 	})
 	
 	if err != nil {
-		// Transaction not found - likely dropped or reorganized
-		tv.logger.Warn().
-			Str("tx_hash", tx.TxHash).
-			Uint64("original_slot", tx.BlockNumber).
-			Err(err).
-			Msg("Solana transaction not found on chain - marking as reorged")
+		// Check if this is a genuine "not found" vs RPC/network error
+		// Solana RPC returns specific error messages for not found transactions
+		errStr := err.Error()
+		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "Transaction not found") {
+			// Transaction genuinely not found - likely dropped or reorganized
+			tv.logger.Warn().
+				Str("tx_hash", tx.TxHash).
+				Uint64("original_slot", tx.BlockNumber).
+				Msg("Solana transaction not found on chain - marking as reorged")
+			
+			tx.Status = "reorged"
+			tx.Confirmations = 0
+			return false, nil
+		}
 		
-		tx.Status = "reorged"
-		tx.Confirmations = 0
-		return false, nil
+		// RPC/network error - don't change status, return error for retry
+		tv.logger.Error().
+			Str("tx_hash", tx.TxHash).
+			Err(err).
+			Msg("RPC error while verifying Solana transaction - will retry")
+		return false, fmt.Errorf("RPC error verifying transaction: %w", err)
 	}
 
 	// Check if transaction moved to a different slot
@@ -178,19 +190,21 @@ func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) er
 	for _, tx := range pendingTxs {
 		exists, err := tv.VerifyTransactionExistence(ctx, &tx)
 		if err != nil {
+			// RPC error - log but don't change status, will retry next time
 			tv.logger.Error().
 				Err(err).
 				Str("tx_hash", tx.TxHash).
-				Msg("failed to verify Solana transaction existence")
+				Msg("RPC error verifying Solana transaction - will retry later")
 			continue
 		}
 		
-		// If transaction was reorged, failed, or moved, save the updated status
+		// If transaction status changed (reorged, failed, or moved), save the updated status
 		if !exists {
 			if err := tv.database.Client().Save(&tx).Error; err != nil {
 				tv.logger.Error().
 					Err(err).
 					Str("tx_hash", tx.TxHash).
+					Str("new_status", tx.Status).
 					Msg("failed to update Solana transaction status")
 			}
 		}

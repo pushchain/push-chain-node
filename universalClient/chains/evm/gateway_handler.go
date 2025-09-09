@@ -2,8 +2,10 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -223,15 +225,37 @@ func (h *GatewayHandler) verifyTransactionExistence(
 		receipt, innerErr = client.TransactionReceipt(ctx, hash)
 		return innerErr
 	})
+	
 	if err != nil {
-		// Transaction not found - likely reorganized out
+		// Check if this is a "not found" error vs an RPC/network error
+		if errors.Is(err, ethereum.NotFound) {
+			// Transaction genuinely not found on chain - likely reorganized out
+			h.logger.Warn().
+				Str("tx_hash", tx.TxHash).
+				Uint64("original_block", tx.BlockNumber).
+				Msg("EVM transaction not found on chain - marking as reorged")
+			
+			tx.Status = "reorged"
+			tx.Confirmations = 0
+			return false, nil
+		}
+		
+		// RPC/network error - don't change status, return error for retry
+		h.logger.Error().
+			Str("tx_hash", tx.TxHash).
+			Err(err).
+			Msg("RPC error while verifying transaction - will retry")
+		return false, fmt.Errorf("RPC error verifying transaction: %w", err)
+	}
+
+	// Check if transaction failed on-chain
+	if receipt.Status == 0 {
 		h.logger.Warn().
 			Str("tx_hash", tx.TxHash).
-			Uint64("original_block", tx.BlockNumber).
-			Err(err).
-			Msg("EVM transaction not found on chain - marking as reorged")
+			Uint64("block", receipt.BlockNumber.Uint64()).
+			Msg("EVM transaction failed on chain - marking as failed")
 		
-		tx.Status = "reorged"
+		tx.Status = "failed"
 		tx.Confirmations = 0
 		return false, nil
 	}
@@ -275,20 +299,22 @@ func (h *GatewayHandler) verifyPendingTransactions(ctx context.Context) error {
 	for _, tx := range pendingTxs {
 		exists, err := h.verifyTransactionExistence(ctx, &tx)
 		if err != nil {
+			// RPC error - log but don't change status, will retry next time
 			h.logger.Error().
 				Err(err).
 				Str("tx_hash", tx.TxHash).
-				Msg("failed to verify EVM transaction existence")
+				Msg("RPC error verifying EVM transaction - will retry later")
 			continue
 		}
 		
-		// If transaction was reorged or moved, save the updated status
+		// If transaction status changed (reorged, failed, or moved), save the updated status
 		if !exists {
 			if err := h.database.Client().Save(&tx).Error; err != nil {
 				h.logger.Error().
 					Err(err).
 					Str("tx_hash", tx.TxHash).
-					Msg("failed to update reorged EVM transaction")
+					Str("new_status", tx.Status).
+					Msg("failed to update EVM transaction status")
 			}
 		}
 	}

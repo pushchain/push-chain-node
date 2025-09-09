@@ -85,10 +85,10 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 		return nil, errors.Wrap(err, "failed to get underlying sql.DB")
 	}
 	
-	// Set maximum number of open connections
-	sqlDB.SetMaxOpenConns(1)  // SQLite performs best with a single connection in WAL mode
-	// Set maximum number of idle connections
-	sqlDB.SetMaxIdleConns(1)
+    // Allow concurrent readers/writers in WAL mode
+    // Multiple connections are safe and recommended with WAL enabled
+    sqlDB.SetMaxOpenConns(10)
+    sqlDB.SetMaxIdleConns(10)
 	// Set maximum lifetime of a connection
 	sqlDB.SetConnMaxLifetime(0) // Connections don't expire
 

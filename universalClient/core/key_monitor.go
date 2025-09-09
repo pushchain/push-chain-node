@@ -152,7 +152,7 @@ func (km *KeyMonitor) checkKeys() error {
 		return nil
 	}
 	
-	km.log.Info().
+	km.log.Debug().
 		Int("key_count", len(keyInfos)).
 		Msg("Found keys in keyring")
 	

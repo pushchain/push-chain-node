@@ -1,14 +1,12 @@
 package svm
 
 import (
-	"context"
-	"encoding/binary"
-	"fmt"
+    "context"
+    "fmt"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rs/zerolog"
+    "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/rpc"
+    "github.com/rs/zerolog"
 )
 
 // TransactionBuilder handles building Solana transactions for the gateway
@@ -72,61 +70,7 @@ func (tb *TransactionBuilder) BuildGatewayTransaction(
 	return tx, nil
 }
 
-// CreateAddFundsInstruction creates an instruction for adding funds
-func (tb *TransactionBuilder) CreateAddFundsInstruction(
-	from solana.PublicKey,
-	amount uint64,
-	payload []byte,
-) (solana.Instruction, error) {
-	// Create instruction data
-	// Format: [8 bytes discriminator] + [8 bytes amount] + [variable payload]
-	discriminator := []byte{0x84, 0xed, 0x4c, 0x39, 0x50, 0x0a, 0xb3, 0x8a} // add_funds
-	
-	data := make([]byte, 16+len(payload))
-	copy(data[0:8], discriminator)
-	binary.LittleEndian.PutUint64(data[8:16], amount)
-	if len(payload) > 0 {
-		copy(data[16:], payload)
-	}
-
-	// Build instruction
-	instruction := &solana.GenericInstruction{
-		ProgID: tb.gatewayAddr,
-		AccountValues: solana.AccountMetaSlice{
-			&solana.AccountMeta{
-				PublicKey:  from,
-				IsWritable: true,
-				IsSigner:   true,
-			},
-			&solana.AccountMeta{
-				PublicKey:  tb.gatewayAddr,
-				IsWritable: true,
-				IsSigner:   false,
-			},
-			&solana.AccountMeta{
-				PublicKey:  solana.SystemProgramID,
-				IsWritable: false,
-				IsSigner:   false,
-			},
-		},
-		DataBytes: data,
-	}
-
-	return instruction, nil
-}
-
-// CreateTransferInstruction creates a native SOL transfer instruction
-func (tb *TransactionBuilder) CreateTransferInstruction(
-	from solana.PublicKey,
-	to solana.PublicKey,
-	amount uint64,
-) (solana.Instruction, error) {
-	return system.NewTransferInstruction(
-		amount,
-		from,
-		to,
-	).Build(), nil
-}
+// (helper methods for building specific instructions were removed as unused)
 
 // SendTransaction sends a transaction to the network
 func (tb *TransactionBuilder) SendTransaction(

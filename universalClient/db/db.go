@@ -85,10 +85,17 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 		return nil, errors.Wrap(err, "failed to get underlying sql.DB")
 	}
 	
-    // Allow concurrent readers/writers in WAL mode
-    // Multiple connections are safe and recommended with WAL enabled
-    sqlDB.SetMaxOpenConns(10)
-    sqlDB.SetMaxIdleConns(10)
+	// Configure connection pool based on database type
+	if dsn == InMemorySQLiteDSN {
+		// In-memory databases should use single connection to maintain state
+		// Multiple connections to :memory: create separate databases
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+	} else {
+		// File-based databases can use connection pooling with WAL mode
+		sqlDB.SetMaxOpenConns(10)
+		sqlDB.SetMaxIdleConns(10)
+	}
 	// Set maximum lifetime of a connection
 	sqlDB.SetConnMaxLifetime(0) // Connections don't expire
 

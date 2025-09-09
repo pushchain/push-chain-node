@@ -323,65 +323,7 @@ func TestRetryManager_ExecuteWithRetry_MaxDelayRespected(t *testing.T) {
 	assert.InDelta(t, float64(20*time.Millisecond), float64(delays[1]), float64(tolerance))
 }
 
-func TestRetryManager_ExecuteWithRetryAsync(t *testing.T) {
-	config := &RetryConfig{
-		MaxRetries:     2,
-		InitialDelay:   10 * time.Millisecond,
-		MaxDelay:       100 * time.Millisecond,
-		BackoffFactor:  2.0,
-		RetryableError: func(err error) bool { return true },
-	}
-	
-	logger := zerolog.Nop()
-	manager := NewRetryManager(config, logger)
-	ctx := context.Background()
-	
-	// Test async execution with success
-	var wg sync.WaitGroup
-	var resultErr error
-	
-	wg.Add(1)
-	callCount := 0
-	manager.ExecuteWithRetryAsync(ctx, "async_test", func() error {
-		callCount++
-		if callCount < 2 {
-			return errors.New("temporary failure")
-		}
-		return nil
-	}, func(err error) {
-		defer wg.Done()
-		resultErr = err
-	})
-	
-	wg.Wait()
-	assert.NoError(t, resultErr)
-	assert.Equal(t, 2, callCount)
-}
-
-func TestRetryManager_ExecuteWithRetryAsync_WithoutCallback(t *testing.T) {
-	config := &RetryConfig{
-		MaxRetries:     1,
-		InitialDelay:   10 * time.Millisecond,
-		MaxDelay:       100 * time.Millisecond,
-		BackoffFactor:  2.0,
-		RetryableError: func(err error) bool { return true },
-	}
-	
-	logger := zerolog.Nop()
-	manager := NewRetryManager(config, logger)
-	ctx := context.Background()
-	
-	// Test async execution without callback (should not panic)
-	callCount := 0
-	manager.ExecuteWithRetryAsync(ctx, "async_test", func() error {
-		callCount++
-		return nil
-	}, nil)
-	
-	// Give some time for async execution to complete
-	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, 1, callCount)
-}
+// Tests for async wrapper removed along with ExecuteWithRetryAsync method.
 
 func TestRetryManager_CalculateBackoff(t *testing.T) {
 	tests := []struct {

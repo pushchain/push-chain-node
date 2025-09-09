@@ -157,6 +157,12 @@ func TestChainDBManagerConcurrency(t *testing.T) {
 
 	// Test concurrent access to same chain
 	chainID := "eip155:1"
+	
+	// Pre-initialize the database to ensure schema is migrated before concurrent access
+	initDB, err := manager.GetChainDB(chainID)
+	require.NoError(t, err)
+	require.NotNil(t, initDB)
+	
 	done := make(chan bool, 10)
 
 	for i := 0; i < 10; i++ {

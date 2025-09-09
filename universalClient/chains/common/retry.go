@@ -126,21 +126,6 @@ func (r *RetryManager) ExecuteWithRetry(
 		operation, r.config.MaxRetries + 1, lastErr)
 }
 
-// ExecuteWithRetryAsync executes a function with retry logic asynchronously
-func (r *RetryManager) ExecuteWithRetryAsync(
-	ctx context.Context,
-	operation string,
-	fn func() error,
-	callback func(error),
-) {
-	go func() {
-		err := r.ExecuteWithRetry(ctx, operation, fn)
-		if callback != nil {
-			callback(err)
-		}
-	}()
-}
-
 // CalculateBackoff calculates the next backoff delay
 func (r *RetryManager) CalculateBackoff(attempt int) time.Duration {
 	delay := float64(r.config.InitialDelay) * math.Pow(r.config.BackoffFactor, float64(attempt))

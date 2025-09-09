@@ -282,17 +282,37 @@ func (c *Client) watchGatewayEvents() {
 				Uint64("start_block", startBlock).
 				Msg("determined starting block from database")
 
-			// Start watching events using long-lived context
-			eventChan, err := c.WatchGatewayEvents(ctx, 9084430)
+            // Determine starting block: per-chain config override, else DB start
+            fromBlock := startBlock
+            if c.appConfig != nil {
+                if chainCfg := c.GetChainSpecificConfig(); chainCfg != nil && chainCfg.EventStartFrom != nil {
+                    if *chainCfg.EventStartFrom >= 0 {
+                        fromBlock = uint64(*chainCfg.EventStartFrom)
+                        c.logger.Info().Uint64("from_block", fromBlock).Msg("using per-chain configured start block")
+                    } else {
+                        // -1 means start from latest block
+                        latest, latestErr := c.gatewayHandler.GetLatestBlock(ctx)
+                        if latestErr == nil {
+                            fromBlock = latest
+                            c.logger.Info().Uint64("from_block", fromBlock).Msg("using latest block as start (per-chain config -1)")
+                        } else {
+                            c.logger.Warn().Err(latestErr).Uint64("fallback_from_block", fromBlock).Msg("failed to get latest block; falling back to DB start block")
+                        }
+                    }
+                }
+            }
+
+            // Start watching events using long-lived context
+            eventChan, err := c.WatchGatewayEvents(ctx, fromBlock)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
 				time.Sleep(pollInterval)
 				continue
 			}
 
-			c.logger.Info().
-				Uint64("from_block", startBlock).
-				Msg("gateway event watcher started")
+            c.logger.Info().
+                Uint64("from_block", fromBlock).
+                Msg("gateway event watcher started")
 
 			// Process events until error or disconnection
 			watchErr := c.processGatewayEvents(ctx, eventChan)

@@ -52,8 +52,8 @@ type Config struct {
 
 // ChainSpecificConfig holds all chain-specific configuration in one place
 type ChainSpecificConfig struct {
-	// RPC Configuration
-	RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
+    // RPC Configuration
+    RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
 
 	// Transaction Cleanup Configuration
 	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
@@ -62,10 +62,16 @@ type ChainSpecificConfig struct {
 	// Gas Price Configuration
 	GasPriceIntervalSeconds *int `json:"gas_price_interval_seconds,omitempty"` // How often to fetch gas price for this chain (optional, defaults to 60 seconds if not set)
 
-	// Event Monitoring Configuration
-	EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
+    // Event Monitoring Configuration
+    EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
 
-	// Future chain-specific settings can be added here
+    // Event Start Cursor
+    // If set to a non-negative value, gateway event watchers start from this
+    // block/slot for this chain. If set to -1 or not present, start from the
+    // latest block/slot (or from DB resume point when available).
+    EventStartFrom *int64 `json:"event_start_from,omitempty"`
+
+    // Future chain-specific settings can be added here
 }
 
 // RPCPoolConfig holds configuration for RPC endpoint pooling
@@ -111,4 +117,3 @@ func (c *Config) GetChainConfig(chainID string) *ChainSpecificConfig {
 	// Return empty config if not found
 	return &ChainSpecificConfig{}
 }
-

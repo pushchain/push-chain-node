@@ -442,7 +442,7 @@ deploy-core:
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge install && forge build
 	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployFactory.s.sol \
 		--broadcast \
-		--rpc-url $(PUSH_EVM_URL) \
+		--rpc-url http://localhost:8545 \
 		--private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 \
 		--slow
 

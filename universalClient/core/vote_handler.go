@@ -81,7 +81,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 	// STEP 2: Only after successful vote, update DB status (minimal transaction time)
 	// Use conditional update to prevent race conditions
 	originalStatus := tx.Status
-	
+
 	// Use a short timeout for database operations (5 seconds is plenty)
 	dbCtx, dbCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer dbCancel()
@@ -90,7 +90,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 	// This prevents race conditions if multiple workers process the same transaction
 	result := vh.db.Client().WithContext(dbCtx).
 		Model(&store.ChainTransaction{}).
-		Where("id = ? AND status = ?", tx.ID, "awaiting_vote").
+		Where("id = ? AND status IN (?)", tx.ID, []string{"confirmation_pending", "awaiting_vote"}).
 		Updates(map[string]interface{}{
 			"status":     "confirmed",
 			"updated_at": time.Now(),

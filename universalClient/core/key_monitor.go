@@ -273,7 +273,7 @@ func (km *KeyMonitor) checkKeys() error {
 // checkMsgVoteInboundPermission checks if a key has MsgVoteInbound permission as grantee
 func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClient, granteeAddr string) (bool, string) {
 	// Create context with timeout to prevent hanging
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	
 	km.log.Debug().

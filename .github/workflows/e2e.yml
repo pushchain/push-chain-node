@@ -32,8 +32,21 @@ jobs:
       
       - name: Install Anchor CLI
         run: |
+        # Install Rust (if not already installed)
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          source $HOME/.cargo/env
+
+        # Add wasm32 target for Solana programs
+          rustup target add wasm32-unknown-unknown
+
+        # Install system deps for wasm-bindgen
+          sudo apt-get update
+          sudo apt-get install -y pkg-config build-essential libudev-dev
+
+        # Install Anchor
           cargo install --git https://github.com/coral-xyz/anchor --tag v0.27.0 anchor-cli --locked
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
 
       - name: Check anchor version
         run: anchor --version

@@ -418,7 +418,10 @@ fund-acc1:
 	docker exec push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
 		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
 		1000000000000000000upc \
-		--gas-prices 100000000000upc -y
+		--gas-prices 100000000000upc \
+		--node http://push-chain-node:26657 \
+		-y
+
 
 # Deploy the interop contract and capture address
 deploy-interop:

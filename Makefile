@@ -450,7 +450,7 @@ deploy-core:
 
 e2e-solana-chain-config:
 	echo "Adding Solana config to push-chain"
-	docker exec -it push-chain-node pchaind tx uexecutor add-chain-config --chain-config "$$(cat e2e/solana_localchain_chain_config.json)" --from acc1 --gas-prices 100000000000upc -y
+	docker exec push-chain-node pchaind tx uexecutor add-chain-config --chain-config "$$(cat e2e/solana_localchain_chain_config.json)" --from acc1 --gas-prices 100000000000upc -y
 	
 e2e-solana-interop-deployment:
 	@echo "Funding local solana account"

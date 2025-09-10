@@ -158,7 +158,7 @@ func (k Keeper) CallPRC20Deposit(
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		"depositPRC20Token",
 		prc20Address,
-		to,
 		amount,
+		to,
 	)
 }

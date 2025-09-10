@@ -12,45 +12,59 @@ on:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
-    
+
     steps:
+      # ----------------------
+      # Checkout code
+      # ----------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ----------------------
+      # Install Foundry
+      # ----------------------
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install Solana CLI
+      # ----------------------
+      # Install Rust & Anchor
+      # ----------------------
+      - name: Install Rust & Anchor CLI
         run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-      
-      - name: Ensure PATH includes Solana
-        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-
-      - name: Check solana version
-        run: solana --version
-      
-      - name: Install Anchor CLI
-        run: |
-        # Install Rust (if not already installed)
+          # Install Rust
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           source $HOME/.cargo/env
 
-        # Add wasm32 target for Solana programs
+          # Add wasm target for Solana programs
           rustup target add wasm32-unknown-unknown
 
-        # Install system deps for wasm-bindgen
+          # Install system dependencies for wasm-bindgen
           sudo apt-get update
           sudo apt-get install -y pkg-config build-essential libudev-dev
 
-        # Install Anchor
+          # Install Anchor CLI
           cargo install --git https://github.com/coral-xyz/anchor --tag v0.27.0 anchor-cli --locked
+
+          # Add Cargo bin to PATH
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-
-      - name: Check anchor version
+      - name: Verify Anchor Installation
         run: anchor --version
-      
+
+      # ----------------------
+      # Install Solana CLI
+      # ----------------------
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Check Solana version
+        run: solana --version
+
+      # ----------------------
+      # Start Solana Test Validator
+      # ----------------------
       - name: Start Solana Test Validator
         run: |
           solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
@@ -59,14 +73,23 @@ jobs:
       
       - name: Wait for validator to start
         run: sleep 10
-      
+
+      # ----------------------
+      # Set Solana Keypair
+      # ----------------------
       - name: Set Solana Keypair
         run: solana config set --keypair "$(pwd)/.github/Solana-key.json"
 
+      # ----------------------
+      # Run E2E Tests
+      # ----------------------
       - name: Run E2E Tests
         run: make e2e
         env:
           PATH: $HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin
-      
+
+      # ----------------------
+      # Stop Solana Test Validator
+      # ----------------------
       - name: Stop Solana Test Validator
         run: pkill solana-test-validator || true

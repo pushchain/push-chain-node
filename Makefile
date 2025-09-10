@@ -414,7 +414,7 @@ wait-for-services:
 # Fund acc1 on push-chain
 fund-acc1:
 	@echo "Funding acc1 on push-chain..."
-	pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
+	docker exec -it push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
 		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
 		1000000000000000000upc \
 		--gas-prices 100000000000upc -y
@@ -440,7 +440,7 @@ deploy-core:
 		--private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 \
 		--slow
 
-	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://push-chain-node:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
 
 e2e-solana-chain-config:
 	echo "Adding Solana config to push-chain"

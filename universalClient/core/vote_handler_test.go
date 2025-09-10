@@ -60,15 +60,15 @@ func (m *MockUniversalValidatorKeys) GetHotkeyPassword() string {
 func setupTestDB(t *testing.T) *db.DB {
 	gormDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	
+
 	// Auto-migrate the schema
 	err = gormDB.AutoMigrate(&store.ChainTransaction{})
 	require.NoError(t, err)
-	
+
 	testDB := &db.DB{}
 	// Use the test helper method
 	testDB.SetupDBForTesting(gormDB)
-	
+
 	return testDB
 }
 
@@ -80,9 +80,9 @@ func TestNewVoteHandler(t *testing.T) {
 		Address: "cosmos1test",
 	}
 	granter := "cosmos1granter"
-	
+
 	vh := NewVoteHandler(mockSigner, testDB, log, testKeys, granter)
-	
+
 	assert.NotNil(t, vh)
 	assert.Equal(t, mockSigner, vh.txSigner)
 	assert.Equal(t, testDB, vh.db)
@@ -103,16 +103,16 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				TxHash:        "0x123",
 				BlockNumber:   100,
 				Method:        "addFunds",
-				Status:        "pending",
+				Status:        "confirmation_pending",
 				Confirmations: 10,
 				Data:          json.RawMessage(`{"sender":"0xabc","amount":"1000"}`),
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
-					mock.Anything, 
-					mock.Anything, 
-					mock.Anything, 
-					uint64(500000), 
+				m.On("SignAndBroadcastAuthZTx",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+					uint64(500000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:    0,
@@ -133,11 +133,11 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				Data:          json.RawMessage(`{}`),
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
-					mock.Anything, 
-					mock.Anything, 
-					mock.Anything, 
-					uint64(500000), 
+				m.On("SignAndBroadcastAuthZTx",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+					uint64(500000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:   1,
@@ -157,11 +157,11 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				Confirmations: 20,
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
-					mock.Anything, 
-					mock.Anything, 
-					mock.Anything, 
-					uint64(500000), 
+				m.On("SignAndBroadcastAuthZTx",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+					uint64(500000),
 					mock.Anything,
 				).Return(nil, errors.New("network error"))
 			},
@@ -169,26 +169,26 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 			errorMsg:      "failed to broadcast vote transaction",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			mockSigner := &MockTxSigner{}
 			testDB := setupTestDB(t)
 			log := zerolog.Nop()
-			
+
 			// Save initial transaction
 			err := testDB.Client().Create(tt.tx).Error
 			require.NoError(t, err)
-			
+
 			vh := NewVoteHandler(mockSigner, testDB, log, &MockUniversalValidatorKeys{}, "cosmos1granter")
-			
+
 			// Setup mock expectations
 			tt.setupMock(mockSigner)
-			
+
 			// Execute
 			err = vh.VoteAndConfirm(context.Background(), tt.tx)
-			
+
 			// Assert
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -197,7 +197,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
-				
+
 				// Verify transaction status was updated
 				var updatedTx store.ChainTransaction
 				err = testDB.Client().Where("tx_hash = ?", tt.tx.TxHash).First(&updatedTx).Error
@@ -205,7 +205,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				assert.Equal(t, "confirmed", updatedTx.Status)
 				assert.True(t, updatedTx.UpdatedAt.After(time.Now().Add(-time.Minute)))
 			}
-			
+
 			mockSigner.AssertExpectations(t)
 		})
 	}
@@ -213,7 +213,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 
 func TestVoteHandler_constructInbound(t *testing.T) {
 	vh := &VoteHandler{log: zerolog.Nop()}
-	
+
 	tests := []struct {
 		name     string
 		tx       *store.ChainTransaction
@@ -302,11 +302,11 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inbound, err := vh.constructInbound(tt.tx)
-			
+
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected.SourceChain, inbound.SourceChain)
 			assert.Equal(t, tt.expected.TxHash, inbound.TxHash)
@@ -338,7 +338,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 				Amount:      "1000",
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
+				m.On("SignAndBroadcastAuthZTx",
 					mock.Anything,
 					mock.MatchedBy(func(msgs []sdk.Msg) bool {
 						return len(msgs) == 1 && msgs[0].(*uetypes.MsgVoteInbound) != nil
@@ -362,7 +362,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 				TxHash: "0x456",
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
+				m.On("SignAndBroadcastAuthZTx",
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
@@ -379,7 +379,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 				TxHash: "0x789",
 			},
 			setupMock: func(m *MockTxSigner) {
-				m.On("SignAndBroadcastAuthZTx", 
+				m.On("SignAndBroadcastAuthZTx",
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
@@ -394,7 +394,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 			errorMsg:      "vote transaction failed with code 5",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSigner := &MockTxSigner{}
@@ -403,11 +403,11 @@ func TestVoteHandler_executeVote(t *testing.T) {
 				granter:  "cosmos1granter",
 				log:      zerolog.Nop(),
 			}
-			
+
 			tt.setupMock(mockSigner)
-			
+
 			err := vh.executeVote(context.Background(), tt.inbound)
-			
+
 			if tt.expectedError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -416,7 +416,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			mockSigner.AssertExpectations(t)
 		})
 	}
@@ -428,7 +428,7 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 		db:  testDB,
 		log: zerolog.Nop(),
 	}
-	
+
 	// Create test transactions
 	txs := []store.ChainTransaction{
 		{
@@ -452,17 +452,17 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 			Confirmations: 20,
 		},
 	}
-	
+
 	for _, tx := range txs {
 		err := testDB.Client().Create(&tx).Error
 		require.NoError(t, err)
 	}
-	
+
 	// Test with minConfirmations = 10
 	pendingTxs, err := vh.GetPendingTransactions(10)
 	assert.NoError(t, err)
 	assert.Len(t, pendingTxs, 2)
-	
+
 	// Verify correct transactions were returned
 	txHashes := make([]string, len(pendingTxs))
 	for i, tx := range pendingTxs {
@@ -472,12 +472,12 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 	assert.Contains(t, txHashes, "0x4")
 	assert.NotContains(t, txHashes, "0x2") // Not enough confirmations
 	assert.NotContains(t, txHashes, "0x3") // Already confirmed
-	
+
 	// Test with minConfirmations = 5
 	pendingTxs, err = vh.GetPendingTransactions(5)
 	assert.NoError(t, err)
 	assert.Len(t, pendingTxs, 3)
-	
+
 	// Test with minConfirmations = 25 (no results)
 	pendingTxs, err = vh.GetPendingTransactions(25)
 	assert.NoError(t, err)

@@ -224,6 +224,30 @@ const HANDLER_CONTRACT_ABI = `[
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "initialize",
+      "inputs": [
+        { "name": "wpc_", "type": "address", "internalType": "address" },
+        {
+          "name": "uniswapV3Factory_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "uniswapV3SwapRouter_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "uniswapV3Quoter_",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     }
 ]`
 

@@ -39,6 +39,11 @@ jobs:
         run: cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
       - name: Add Anchor to PATH
         run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install Anchor CLI
+        run: avm install latest
+
+      - name: Use Anchor CLI
+        run: avm use latest
 
       
       - name: Wait for validator to start

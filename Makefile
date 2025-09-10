@@ -410,11 +410,12 @@ wait-for-services:
 		echo "Waiting for Push-Chain Node..."; \
 		sleep 2; \
 	done
+	docker logs push-chain-node
 
 # Fund acc1 on push-chain
 fund-acc1:
 	@echo "Funding acc1 on push-chain..."
-	docker exec -it push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
+	docker exec push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
 		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
 		1000000000000000000upc \
 		--gas-prices 100000000000upc -y

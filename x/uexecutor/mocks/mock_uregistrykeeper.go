@@ -44,6 +44,21 @@ func (m *MockUregistryKeeper) GetChainConfig(ctx context.Context, chain string) 
 	return ret0, ret1
 }
 
+// GetSystemConfig mocks base method.
+func (m *MockUregistryKeeper) GetSystemConfig(ctx context.Context) (uregistrytypes.SystemConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSystemConfig", ctx)
+	ret0, _ := ret[0].(uregistrytypes.SystemConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSystemConfig indicates an expected call of GetSystemConfig.
+func (mr *MockUregistryKeeperMockRecorder) GetSystemConfig(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemConfig", reflect.TypeOf((*MockUregistryKeeper)(nil).GetSystemConfig), ctx)
+}
+
 // GetChainConfig indicates an expected call of GetChainConfig.
 func (mr *MockUregistryKeeperMockRecorder) GetChainConfig(ctx, chain interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

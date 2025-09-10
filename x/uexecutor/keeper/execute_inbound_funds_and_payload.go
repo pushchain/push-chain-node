@@ -2,9 +2,8 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"strings"
-
-	"cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +30,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	}
 
 	if !isDeployed {
-		return errors.Wrapf(err, "UEA is not deployed")
+		return fmt.Errorf("UEA is not deployed")
 	}
 
 	receipt, err := k.depositPRC20(

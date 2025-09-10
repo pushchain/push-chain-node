@@ -35,8 +35,69 @@ func setupUESystem(
 	err = registerEVMChainAndUEA(t, app, ctx, factoryABI, opts, accounts)
 	require.NoError(t, err)
 
+	// Parse Handler ABI
+	handlerABI, err := uetypes.ParseHandlerABI()
+	require.NoError(t, err)
+
+	// Setup Handler contract
+	err = setupHandlerContract(t, app, ctx, handlerABI, opts, accounts)
+	require.NoError(t, err)
+
+	// Parse PRC20 ABI
+	prc20ABI, err := uetypes.ParsePRC20ABI()
+	require.NoError(t, err)
+
+	// Setup Handler contract
+	err = setupPrc20Contract(t, app, ctx, prc20ABI, opts, accounts)
+	require.NoError(t, err)
+
 	return nil
 }
+
+func setupHandlerContract(
+	t *testing.T,
+	app *app.ChainApp,
+	ctx sdk.Context,
+	handlerABI abi.ABI,
+	opts AppSetupOptions,
+	accounts TestAccounts,
+) error {
+	handlerAddr := opts.Addresses.HandlerAddr
+	owner := common.BytesToAddress(accounts.DefaultAccount.GetAddress().Bytes())
+
+	// Deploy Handler contract
+	_ = DeployContract(
+		t,
+		app,
+		ctx,
+		handlerAddr,
+		HANDLER_CONTRACT_BYTECODE,
+	)
+
+	const (
+		WPCAddress              = "0x1111111111111111111111111111111111111111"
+		UniswapV3FactoryAddress = "0x2222222222222222222222222222222222222222"
+		UniswapV3RouterAddress  = "0x3333333333333333333333333333333333333333"
+		UniswapV3QuoterAddress  = "0x4444444444444444444444444444444444444444"
+	)
+
+	// Set UEA proxy implementation
+	_, err := app.EVMKeeper.CallEVM(
+		ctx,
+		handlerABI,
+		owner,
+		handlerAddr,
+		true,
+		"initialize",
+		common.HexToAddress(WPCAddress),
+		common.HexToAddress(UniswapV3FactoryAddress),
+		common.HexToAddress(UniswapV3RouterAddress),
+		common.HexToAddress(UniswapV3QuoterAddress),
+	)
+	require.NoError(t, err)
+	return nil
+}
+
 func setupFactoryContract(
 	t *testing.T,
 	app *app.ChainApp,
@@ -84,6 +145,40 @@ func setupFactoryContract(
 	require.NoError(t, err)
 	t.Logf("UEA Proxy implementation set. Receipt: %v", receipt)
 
+	return nil
+}
+
+func setupPrc20Contract(
+	t *testing.T,
+	app *app.ChainApp,
+	ctx sdk.Context,
+	prc20ABI abi.ABI,
+	opts AppSetupOptions,
+	accounts TestAccounts,
+) error {
+	prc20Addr := opts.Addresses.PRC20USDCAddr
+	ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
+
+	// Deploy Handler contract
+	_ = DeployContract(
+		t,
+		app,
+		ctx,
+		prc20Addr,
+		PRC20_CREATION_BYTECODE,
+	)
+
+	// Set UEA proxy implementation
+	_, err := app.EVMKeeper.CallEVM(
+		ctx,
+		prc20ABI,
+		ueModuleAccAddress,
+		prc20Addr,
+		true,
+		"updateHandlerContract",
+		opts.Addresses.HandlerAddr,
+	)
+	require.NoError(t, err)
 	return nil
 }
 

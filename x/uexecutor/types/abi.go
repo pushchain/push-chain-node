@@ -199,6 +199,58 @@ const UeaV1ABI = `[
     }
 ]`
 
+const HANDLER_CONTRACT_ABI = `[
+    {
+      "type": "function",
+      "name": "depositPRC20Token",
+      "inputs": [
+        { "name": "prc20", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" },
+        { "name": "target", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "depositPRC20WithAutoSwap",
+      "inputs": [
+        { "name": "prc20", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" },
+        { "name": "target", "type": "address", "internalType": "address" },
+        { "name": "fee", "type": "uint24", "internalType": "uint24" },
+        { "name": "minPCOut", "type": "uint256", "internalType": "uint256" },
+        { "name": "deadline", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "initialize",
+      "inputs": [
+        { "name": "wpc_", "type": "address", "internalType": "address" },
+        {
+          "name": "uniswapV3Factory_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "uniswapV3SwapRouter_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "uniswapV3Quoter_",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+]`
+
 const PRC20ABI = `[
     {
       "type": "function",
@@ -594,6 +646,10 @@ func ParseUeaABI() (abi.ABI, error) {
 
 func ParsePRC20ABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(PRC20ABI))
+}
+
+func ParseHandlerABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(HANDLER_CONTRACT_ABI))
 }
 
 type AbiUniversalPayload struct {

@@ -40,7 +40,7 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, un
 	}
 
 	if !isDeployed {
-		return nil, errors.Wrapf(err, "UEA is not deployed")
+		return nil, fmt.Errorf("UEA is not deployed")
 	}
 
 	// // Step 2: Parse and validate payload and verificationData

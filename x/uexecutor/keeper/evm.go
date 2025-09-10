@@ -122,16 +122,27 @@ func (k Keeper) CallUEAExecutePayload(
 	)
 }
 
-// TODO: call HANDLER contracts for minting of synthetic instead of PRC20 contract
-// @dev: need to figure out if deposit fn will be implemented in the handler contracts or need to use depositAndCall itself
+// Calls Handler Contract to deposit prc20 tokens
 func (k Keeper) CallPRC20Deposit(
 	ctx sdk.Context,
 	prc20Address, to common.Address,
 	amount *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
-	abi, err := types.ParsePRC20ABI()
+	// fetch system config
+	sysCfg, err := k.uregistryKeeper.GetSystemConfig(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse PRC20 ABI")
+		return nil, errors.Wrap(err, "failed to get system config")
+	}
+
+	if sysCfg.HandlerContractAddress == "" {
+		return nil, fmt.Errorf("handler contract address not set in system config")
+	}
+
+	handlerAddr := common.HexToAddress(sysCfg.HandlerContractAddress)
+
+	abi, err := types.ParseHandlerABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
 	}
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
@@ -140,13 +151,14 @@ func (k Keeper) CallPRC20Deposit(
 		ctx,
 		abi,
 		ueModuleAccAddress, // who is sending the transaction
-		prc20Address,       // destination: FactoryV1 contract
+		handlerAddr,        // destination: Handler contract
 		big.NewInt(0),
 		nil,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		"deposit",
-		to,
+		"depositPRC20Token",
+		prc20Address,
 		amount,
+		to,
 	)
 }

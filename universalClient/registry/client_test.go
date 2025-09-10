@@ -47,12 +47,8 @@ func TestRegistryClientMethods(t *testing.T) {
 		expectedConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:11155111",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth-sepolia.example.com",
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		mockClient.EXPECT().
@@ -78,20 +74,14 @@ func TestRegistryClientMethods(t *testing.T) {
 	t.Run("GetAllChainConfigs_Success", func(t *testing.T) {
 		expectedConfigs := []*uregistrytypes.ChainConfig{
 			{
-				Chain:  "eip155:11155111",
-				VmType: uregistrytypes.VmType_EVM,
-				Enabled: &uregistrytypes.ChainEnabled{
-					IsInboundEnabled:  true,
-					IsOutboundEnabled: true,
-				},
+				Chain:   "eip155:11155111",
+				VmType:  uregistrytypes.VmType_EVM,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 			{
-				Chain:  "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-				VmType: uregistrytypes.VmType_SVM,
-				Enabled: &uregistrytypes.ChainEnabled{
-					IsInboundEnabled:  true,
-					IsOutboundEnabled: true,
-				},
+				Chain:   "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+				VmType:  uregistrytypes.VmType_SVM,
+				Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 			},
 		}
 
@@ -277,18 +267,22 @@ func TestRegistryClientMultiURLFailover(t *testing.T) {
 				queryClient: mockClient1,
 				healthy:     true,
 				lastCheck:   time.Now(),
+				conn:        nil, // Mock connection, no actual gRPC conn
 			},
 			{
 				url:         "localhost:9091",
 				queryClient: mockClient2,
 				healthy:     true,
 				lastCheck:   time.Now(),
+				conn:        nil, // Mock connection, no actual gRPC conn
 			},
 		},
-		currentIdx:   0,
-		logger:       logger,
-		maxRetries:   2,
-		retryBackoff: time.Millisecond,
+		currentIdx:          0,
+		logger:              logger,
+		maxRetries:          2,
+		retryBackoff:        time.Millisecond,
+		unhealthyCooldown:   10 * time.Second,
+		healthCheckInterval: 30 * time.Second,
 	}
 
 	ctx := context.Background()

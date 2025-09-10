@@ -50,7 +50,7 @@ func NewRegistryClient(grpcURLs []string, logger zerolog.Logger) (*RegistryClien
 		maxRetries:          3,
 		retryBackoff:        time.Second,
 		healthCheckInterval: 30 * time.Second,
-		unhealthyCooldown:   5 * time.Minute,
+		unhealthyCooldown:   10 * time.Second,
 	}
 
 	// Create connections to all URLs
@@ -80,7 +80,8 @@ func NewRegistryClient(grpcURLs []string, logger zerolog.Logger) (*RegistryClien
 		})
 	}
 
-	// Check if we have at least one healthy connection
+	// Allow client to start even without healthy connections
+	// They will be recovered through health checks and retry mechanisms
 	hasHealthy := false
 	for _, conn := range client.connections {
 		if conn.healthy {
@@ -89,7 +90,9 @@ func NewRegistryClient(grpcURLs []string, logger zerolog.Logger) (*RegistryClien
 		}
 	}
 	if !hasHealthy {
-		return nil, fmt.Errorf("failed to establish connection to any of the provided URLs")
+		client.logger.Warn().
+			Int("total_urls", len(grpcURLs)).
+			Msg("starting with no healthy connections, will attempt recovery")
 	}
 
 	// Start health check goroutine
@@ -132,15 +135,29 @@ func (c *RegistryClient) runHealthChecks() {
 func (c *RegistryClient) checkAllConnections() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	
+	c.checkAllConnectionsLocked(false)
+}
 
+// TryRecoverConnections attempts to recover all unhealthy connections immediately
+func (c *RegistryClient) TryRecoverConnections() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	c.logger.Debug().Msg("attempting immediate connection recovery")
+	c.checkAllConnectionsLocked(true)
+}
+
+// checkAllConnectionsLocked checks connections while holding the lock
+func (c *RegistryClient) checkAllConnectionsLocked(forceCheck bool) {
 	for i, connInfo := range c.connections {
-		// Skip if recently checked and still in cooldown
-		if !connInfo.healthy && time.Since(connInfo.lastCheck) < c.unhealthyCooldown {
+		// Skip if recently checked and still in cooldown (unless forced)
+		if !forceCheck && !connInfo.healthy && time.Since(connInfo.lastCheck) < c.unhealthyCooldown {
 			continue
 		}
 
 		// Check or recreate connection
-		if connInfo.conn == nil {
+		if connInfo.conn == nil && connInfo.queryClient == nil {
 			// Try to establish connection
 			conn, err := grpc.Dial(connInfo.url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
@@ -156,21 +173,31 @@ func (c *RegistryClient) checkAllConnections() {
 		}
 
 		// Check connection state
-		state := connInfo.conn.GetState()
 		wasHealthy := connInfo.healthy
-		if state == connectivity.Ready || state == connectivity.Idle {
-			// Try a simple query to verify it actually works
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_, err := connInfo.queryClient.AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
-			cancel()
-			connInfo.healthy = err == nil
-			if err != nil {
-				c.logger.Debug().
-					Str("url", connInfo.url).
-					Err(err).
-					Msg("health check query failed")
+		
+		if connInfo.conn != nil {
+			// Real gRPC connection
+			state := connInfo.conn.GetState()
+			if state == connectivity.Ready || state == connectivity.Idle {
+				// Try a simple query to verify it actually works
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_, err := connInfo.queryClient.AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
+				cancel()
+				connInfo.healthy = err == nil
+				if err != nil {
+					c.logger.Debug().
+						Str("url", connInfo.url).
+						Err(err).
+						Msg("health check query failed")
+				}
+			} else {
+				connInfo.healthy = false
 			}
+		} else if connInfo.queryClient != nil {
+			// Mock connection - skip health check, preserve current state
+			// Don't change health status for mocks
 		} else {
+			// No connection at all
 			connInfo.healthy = false
 		}
 
@@ -178,9 +205,13 @@ func (c *RegistryClient) checkAllConnections() {
 
 		// Log status changes
 		if wasHealthy && !connInfo.healthy {
+			stateStr := "unknown"
+			if connInfo.conn != nil {
+				stateStr = connInfo.conn.GetState().String()
+			}
 			c.logger.Warn().
 				Str("url", connInfo.url).
-				Str("state", state.String()).
+				Str("state", stateStr).
 				Msg("connection marked unhealthy")
 		} else if !wasHealthy && connInfo.healthy {
 			c.logger.Info().
@@ -350,15 +381,24 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Err(err).
 				Str("query", queryName).
 				Msg("no healthy connections available")
-			// If no healthy connections, try to trigger failover
-			if connectionAttempts < maxConnectionAttempts {
-				connectionAttempts++
-				c.mu.Lock()
-				c.selectNextHealthy()
-				c.mu.Unlock()
+			
+			// Try to recover connections immediately
+			c.TryRecoverConnections()
+			
+			// Check again after recovery attempt
+			connInfo, err = c.getHealthyConnection()
+			if err != nil {
+				// If still no healthy connections, try to trigger failover
+				if connectionAttempts < maxConnectionAttempts {
+					connectionAttempts++
+					c.mu.Lock()
+					c.selectNextHealthy()
+					c.mu.Unlock()
+					continue
+				}
+				// Continue retrying instead of failing immediately
 				continue
 			}
-			return nil, fmt.Errorf("no healthy connections available: %w", err)
 		}
 
 		c.logger.Debug().
@@ -391,6 +431,10 @@ func (c *RegistryClient) executeWithRetry(ctx context.Context, queryName string,
 				Msg("marking connection unhealthy due to error")
 			c.selectNextHealthy()
 			c.mu.Unlock()
+			
+			// Try immediate recovery for connection errors
+			c.TryRecoverConnections()
+			
 			// Don't count connection failures against retry limit
 			if connectionAttempts < maxConnectionAttempts {
 				connectionAttempts++

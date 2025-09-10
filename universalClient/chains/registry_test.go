@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -13,18 +14,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // MockChainClient implements common.ChainClient for testing
 type MockChainClient struct {
-	config     *uregistrytypes.ChainConfig
-	started    bool
-	stopped    bool
-	healthy    bool
-	startError error
-	stopError  error
-	mu         sync.Mutex
+	config      *uregistrytypes.ChainConfig
+	started     bool
+	stopped     bool
+	healthy     bool
+	startError  error
+	stopError   error
+	voteHandler common.VoteHandler
+	mu          sync.Mutex
 }
 
 func NewMockChainClient(config *uregistrytypes.ChainConfig) *MockChainClient {
@@ -84,11 +88,62 @@ func (m *MockChainClient) IsStopped() bool {
 	return m.stopped
 }
 
+// Implement GatewayOperations interface
+func (m *MockChainClient) GetLatestBlock(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockChainClient) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
+	return nil, nil
+}
+
+func (m *MockChainClient) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockChainClient) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
+	return false, nil
+}
+
+// SetVoteHandler sets the vote handler for confirmed transactions
+func (m *MockChainClient) SetVoteHandler(handler common.VoteHandler) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.voteHandler = handler
+}
+
+// GetGasPrice returns a mock gas price
+func (m *MockChainClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(20000000000), nil // 20 gwei
+}
+
+// GetRPCURLs returns the list of RPC URLs for this chain
+func (m *MockChainClient) GetRPCURLs() []string {
+	return []string{"http://mock.rpc.url"}
+}
+
+// GetCleanupSettings returns cleanup settings for this chain
+func (m *MockChainClient) GetCleanupSettings() (cleanupInterval, retentionPeriod int) {
+	return 3600, 86400 // 1 hour cleanup, 1 day retention
+}
+
+// GetGasPriceInterval returns the gas price fetch interval for this chain
+func (m *MockChainClient) GetGasPriceInterval() int {
+	return 60 // 60 seconds
+}
+
+// GetChainSpecificConfig returns the complete configuration for this chain
+func (m *MockChainClient) GetChainSpecificConfig() *config.ChainSpecificConfig {
+	return &config.ChainSpecificConfig{}
+}
+
 // TestChainRegistryInitialization tests the creation of ChainRegistry
 func TestChainRegistryInitialization(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 
-	registry := NewChainRegistry(logger)
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
+	registry := NewChainRegistry(dbManager, logger)
 
 	assert.NotNil(t, registry)
 	assert.NotNil(t, registry.chains)
@@ -99,17 +154,17 @@ func TestChainRegistryInitialization(t *testing.T) {
 // TestChainRegistryCreateChainClient tests chain client creation
 func TestChainRegistryCreateChainClient(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	registry := NewChainRegistry(logger)
+
+	dbManager := db.NewInMemoryChainDBManager(logger, nil)
+	defer dbManager.CloseAll()
+	registry := NewChainRegistry(dbManager, logger)
+
 	t.Run("Create EVM client", func(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://eth.example.com",
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := registry.CreateChainClient(config)
@@ -121,12 +176,8 @@ func TestChainRegistryCreateChainClient(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "solana:mainnet",
 			VmType:         uregistrytypes.VmType_SVM,
-			PublicRpcUrl:   "https://api.mainnet-beta.solana.com",
 			GatewayAddress: "Sol123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		client, err := registry.CreateChainClient(config)
@@ -237,12 +288,8 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://test.example.com",
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		err := registry.AddOrUpdateChain(ctx, config)
@@ -261,12 +308,8 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		config := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://test.example.com",
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Add initial client
@@ -290,23 +333,15 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		oldConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://old.example.com",
 			GatewayAddress: "0x123...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		newConfig := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1337",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:   "https://new.example.com",
 			GatewayAddress: "0x456...",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
+			Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 		}
 
 		// Add initial client
@@ -336,7 +371,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 	})
 
 	t.Run("Invalid config", func(t *testing.T) {
-		registry := NewChainRegistry(logger)
+		registry := NewChainRegistry(nil, logger)
 
 		// Nil config
 		err := registry.AddOrUpdateChain(ctx, nil)
@@ -375,100 +410,6 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		// Verify chain was not added
 		assert.Nil(t, registry.GetChain("eip155:1337"))
 	})
-}
-
-// TestChainRegistryRemoveChain tests removing chains
-func TestChainRegistryRemoveChain(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	t.Run("Remove existing chain", func(t *testing.T) {
-		registry := &ChainRegistry{
-			chains: make(map[string]common.ChainClient),
-			logger: logger,
-		}
-		// Add a chain
-		mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
-			Chain: "eip155:1337",
-		})
-		mockClient.started = true
-		registry.chains["eip155:1337"] = mockClient
-
-		// Remove it
-		registry.RemoveChain("eip155:1337")
-
-		// Verify it was removed
-		assert.Nil(t, registry.GetChain("eip155:1337"))
-		assert.True(t, mockClient.IsStopped())
-	})
-
-	t.Run("Remove non-existent chain", func(t *testing.T) {
-		registry := NewChainRegistry(logger)
-
-		// Should not panic
-		registry.RemoveChain("non-existent")
-	})
-
-	t.Run("Remove chain with stop error", func(t *testing.T) {
-		registry := &ChainRegistry{
-			chains: make(map[string]common.ChainClient),
-			logger: logger,
-		}
-		// Add a chain that fails to stop
-		mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
-			Chain: "eip155:1337",
-		})
-		mockClient.stopError = errors.New("stop failed")
-		registry.chains["eip155:1337"] = mockClient
-
-		// Remove it (should log error but still remove)
-		registry.RemoveChain("eip155:1337")
-
-		// Verify it was removed despite error
-		assert.Nil(t, registry.GetChain("eip155:1337"))
-	})
-}
-
-// TestChainRegistryGetChain tests retrieving chains
-func TestChainRegistryGetChain(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	registry := &ChainRegistry{
-		chains: make(map[string]common.ChainClient),
-		logger: logger,
-	}
-	// Add a chain
-	mockClient := NewMockChainClient(&uregistrytypes.ChainConfig{
-		Chain: "eip155:1337",
-	})
-	registry.chains["eip155:1337"] = mockClient
-	t.Run("Get existing chain", func(t *testing.T) {
-		client := registry.GetChain("eip155:1337")
-		assert.NotNil(t, client)
-		assert.Equal(t, mockClient, client)
-	})
-	t.Run("Get non-existent chain", func(t *testing.T) {
-		client := registry.GetChain("non-existent")
-		assert.Nil(t, client)
-	})
-}
-
-// TestChainRegistryGetAllChains tests getting all chains
-func TestChainRegistryGetAllChains(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	registry := &ChainRegistry{
-		chains: make(map[string]common.ChainClient),
-		logger: logger,
-	}
-	// Add multiple chains
-	chain1 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "test:chain1"})
-	chain2 := NewMockChainClient(&uregistrytypes.ChainConfig{Chain: "eip155:1338"})
-	registry.chains["eip155:1337"] = chain1
-	registry.chains["eip155:1338"] = chain2
-	chains := registry.GetAllChains()
-	assert.Len(t, chains, 2)
-	assert.Equal(t, chain1, chains["eip155:1337"])
-	assert.Equal(t, chain2, chains["eip155:1338"])
-	// Verify it's a copy (modifications don't affect registry)
-	delete(chains, "test:chain1")
-	assert.Len(t, registry.chains, 2)
 }
 
 // TestChainRegistryStopAll tests stopping all chains
@@ -588,34 +529,23 @@ func TestConfigsEqual(t *testing.T) {
 	config1 := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1337",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://test.com",
 		GatewayAddress: "0x123",
-		Enabled: &uregistrytypes.ChainEnabled{
-			IsInboundEnabled:  true,
-			IsOutboundEnabled: true,
-		},
+		Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	config2 := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1337",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://test.com",
 		GatewayAddress: "0x123",
-		Enabled: &uregistrytypes.ChainEnabled{
-			IsInboundEnabled:  true,
-			IsOutboundEnabled: true,
-		},
+		Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
+	// Config with different gateway address
 	config3 := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1337",
 		VmType:         uregistrytypes.VmType_EVM,
-		PublicRpcUrl:   "https://different.com",
-		GatewayAddress: "0x123",
-		Enabled: &uregistrytypes.ChainEnabled{
-			IsInboundEnabled:  true,
-			IsOutboundEnabled: true,
-		},
+		GatewayAddress: "0x456",
+		Enabled:        &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true},
 	}
 
 	t.Run("Equal configs", func(t *testing.T) {

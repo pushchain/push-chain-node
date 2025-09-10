@@ -1,6 +1,6 @@
 {
   "chain": "eip155:11155111",
-  "public_rpc_url": "https://1rpc.io/sepolia",
+  "public_rpc_url": "https://eth-sepolia.public.blastapi.io",
   "vm_type": 1,
   "gateway_address": "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
   "block_confirmation": {

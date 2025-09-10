@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -22,6 +23,7 @@ type ConfigUpdater struct {
 	ticker       *time.Ticker
 	logger       zerolog.Logger
 	stopCh       chan struct{}
+	stopOnce     sync.Once
 	updatePeriod time.Duration
 }
 
@@ -33,12 +35,18 @@ func NewConfigUpdater(
 	cfg *config.Config,
 	logger zerolog.Logger,
 ) *ConfigUpdater {
+	// Default to 60 seconds if not configured
+	updateSeconds := cfg.ConfigRefreshIntervalSeconds
+	if updateSeconds <= 0 {
+		updateSeconds = 60
+	}
+
 	return &ConfigUpdater{
 		registry:     registryClient,
 		cache:        cache,
 		chainReg:     chainRegistry,
 		config:       cfg,
-		updatePeriod: cfg.ConfigRefreshInterval,
+		updatePeriod: time.Duration(updateSeconds) * time.Second,
 		logger:       logger.With().Str("component", "config_updater").Logger(),
 		stopCh:       make(chan struct{}),
 	}
@@ -47,7 +55,7 @@ func NewConfigUpdater(
 // Start begins the periodic update process
 func (u *ConfigUpdater) Start(ctx context.Context) error {
 	u.logger.Info().
-		Dur("update_period", u.updatePeriod).
+		Str("update_period", u.updatePeriod.String()).
 		Msg("starting config updater")
 
 	// Perform initial update with retries
@@ -67,14 +75,14 @@ func (u *ConfigUpdater) Start(ctx context.Context) error {
 func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 	u.logger.Info().
 		Int("max_retries", u.config.InitialFetchRetries).
-		Dur("timeout", u.config.InitialFetchTimeout).
+		Str("timeout", (time.Duration(u.config.InitialFetchTimeoutSeconds) * time.Second).String()).
 		Msg("performing initial configuration fetch")
 
-	backoff := u.config.RetryBackoff
+	backoff := time.Duration(u.config.RetryBackoffSeconds) * time.Second
 
 	for attempt := 1; attempt <= u.config.InitialFetchRetries; attempt++ {
 		// Create timeout context for this attempt
-		attemptCtx, cancel := context.WithTimeout(ctx, u.config.InitialFetchTimeout)
+		attemptCtx, cancel := context.WithTimeout(ctx, time.Duration(u.config.InitialFetchTimeoutSeconds)*time.Second)
 
 		u.logger.Info().
 			Int("attempt", attempt).
@@ -94,8 +102,13 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 			Err(err).
 			Int("attempt", attempt).
 			Int("max_attempts", u.config.InitialFetchRetries).
-			Dur("next_retry_in", backoff).
+			Str("next_retry_in", backoff.String()).
 			Msg("initial config fetch failed")
+		
+		// Try to recover connections before next retry
+		u.logger.Info().Msg("attempting to recover registry connections")
+		u.registry.TryRecoverConnections()
+		
 		// Check if this was the last attempt
 		if attempt == u.config.InitialFetchRetries {
 			return fmt.Errorf("failed to fetch initial configuration after %d attempts: %w", attempt, err)
@@ -117,12 +130,14 @@ func (u *ConfigUpdater) performInitialUpdate(ctx context.Context) error {
 
 // Stop halts the periodic update process
 func (u *ConfigUpdater) Stop() {
-	u.logger.Info().Msg("stopping config updater")
+	u.stopOnce.Do(func() {
+		u.logger.Info().Msg("stopping config updater")
 
-	if u.ticker != nil {
-		u.ticker.Stop()
-	}
-	close(u.stopCh)
+		if u.ticker != nil {
+			u.ticker.Stop()
+		}
+		close(u.stopCh)
+	})
 }
 
 // runUpdateLoop runs the periodic update loop
@@ -205,8 +220,7 @@ func (u *ConfigUpdater) updateChainClients(ctx context.Context, chainConfigs []*
 
 		seenChains[config.Chain] = true
 
-		// TODO: check it once @shoaib
-		if !config.Enabled.IsInboundEnabled {
+		if config.Enabled == nil || (!config.Enabled.IsInboundEnabled && !config.Enabled.IsOutboundEnabled) {
 			u.logger.Debug().
 				Str("chain", config.Chain).
 				Msg("chain is disabled, removing if exists")

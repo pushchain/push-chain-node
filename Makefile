@@ -386,8 +386,8 @@ docker-reset:
 # ------------------------
 
 ANVIL_URL=http://anvil:9545
-PUSH_EVM_URL=http://push-chain-node:8545
-CHAIN_RPC=http://push-chain-node:26657
+PUSH_EVM_URL=http://localhost:8545
+CHAIN_RPC=http://localhost:26657
 CHAIN_ID=localchain_9000-1
 
 # Path where contracts will be cloned
@@ -403,7 +403,7 @@ e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana
 wait-for-services:
 	@echo "Waiting for Anvil and Push-Chain-Node to start..."
 	@for i in {1..30}; do \
-		if docker exec push-chain-node curl -s --fail http://push-chain-node:26657/status; then \
+		if docker exec push-chain-node curl -s --fail http://localhost:26657/status; then \
 			echo "Push-Chain Node is ready"; \
 			break; \
 		fi; \
@@ -441,7 +441,7 @@ deploy-core:
 		--private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 \
 		--slow
 
-	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://push-chain-node:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
 
 e2e-solana-chain-config:
 	echo "Adding Solana config to push-chain"

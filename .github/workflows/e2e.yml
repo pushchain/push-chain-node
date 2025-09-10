@@ -1,79 +1,43 @@
-name: E2E Tests
+name: E2E Test Workflow
 
 on:
   push:
-    branches: [ e2e-test ]
+    branches:
+      - e2e-test
   pull_request:
-    branches: [ e2e-test ]
+    branches:
+      - e2e-test
+  workflow_dispatch:
 
 jobs:
-  e2e:
+  e2e-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Solana CLI
+      run: |
+        sudo sh -c "$(curl -sSfL https://release.solana.com/v1.14.17/install)"
+        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+
+    - name: Start Solana Test Validator
+      run: |
+        solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
+        --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
+        --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE &
       
-      - name: Clean Go cache
-        run: |
-        go clean -modcache
-        rm -rf ~/go/pkg/mod
+    - name: Wait for validator to start
+      run: sleep 10
 
-      - name: Install Foundry (Forge)
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          source ~/.foundry/bin/foundryup
-          forge --version
+    - name: Set Solana Keypair Environment
+      run: |
+        export SOLANA_KEYPAIR="$(pwd)/.github/Solana-key.json"
+        solana config set --keypair "$SOLANA_KEYPAIR"
 
-      - name: Install Solana CLI
-        run: |
-          sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          solana --version
+    - name: Run E2E Tests
+      run: make e2e
 
-      - name: Setup Node.js and Yarn
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
-
-      - name: Verify Yarn
-        run: yarn --version
-
-      - name: Configure Solana Keypair
-        run: |
-          mkdir -p ~/.config/solana
-          cp .github/workflow/id.json ~/.config/solana/id.json
-          solana config set --keypair ~/.config/solana/id.json
-          solana address
-
-      - name: Start Solana Test Validator
-        run: |
-          solana-test-validator \
-            --reset \
-            --rpc-port 8899 \
-            --limit-ledger-size 50000000 \
-            --url https://api.devnet.solana.com \
-            --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
-            7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE \
-            > validator.log 2>&1 &
-          echo "Waiting for Solana test validator to start..."
-          sleep 15
-          solana cluster-version --url http://127.0.0.1:8899
-
-      - name: Run E2E Tests
-        env:
-          ANVIL_URL: http://localhost:9545
-          PUSH_EVM_URL: http://localhost:8545
-          CHAIN_RPC: http://localhost:26657
-          CHAIN_ID: localchain_9000-1
-        run: |
-          source ~/.foundry/bin/init.sh || true
-          make e2e
-
-      - name: Upload Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validator-log
-          path: validator.log
+    - name: Stop Solana Test Validator
+      run: pkill solana-test-validator || true

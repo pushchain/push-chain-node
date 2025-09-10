@@ -17,27 +17,33 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Solana CLI
+    - name: Install Solana CLI
       run: |
         sudo sh -c "$(curl -sSfL https://release.solana.com/v1.14.17/install)"
-        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+      # Add Solana CLI path globally for next steps
+      env:
+        PATH: $HOME/.local/share/solana/install/active_release/bin:$PATH
 
     - name: Start Solana Test Validator
       run: |
+        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
         solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
         --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
         --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE &
-      
+
     - name: Wait for validator to start
       run: sleep 10
 
     - name: Set Solana Keypair Environment
       run: |
+        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
         export SOLANA_KEYPAIR="$(pwd)/.github/Solana-key.json"
         solana config set --keypair "$SOLANA_KEYPAIR"
 
     - name: Run E2E Tests
-      run: make e2e
+      run: |
+        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+        make e2e
 
     - name: Stop Solana Test Validator
       run: pkill solana-test-validator || true

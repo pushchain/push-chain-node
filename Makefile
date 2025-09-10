@@ -402,9 +402,14 @@ e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana
 # Wait for services to start up
 wait-for-services:
 	@echo "Waiting for Anvil and Push-Chain-Node to start..."
-	@sleep 30
-	@curl --fail $(CHAIN_RPC)/status || (echo "Push-chain-node not ready" && exit 1)
-	@echo "Services are up!"
+	@for i in {1..30}; do \
+		if docker exec push-chain-node curl -s --fail http://push-chain-node:26657/status; then \
+			echo "Push-Chain Node is ready"; \
+			break; \
+		fi; \
+		echo "Waiting for Push-Chain Node..."; \
+		sleep 2; \
+	done
 
 # Fund acc1 on push-chain
 fund-acc1:

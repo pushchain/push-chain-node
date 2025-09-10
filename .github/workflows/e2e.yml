@@ -32,20 +32,8 @@ jobs:
     - name: Set default toolchain to stable
       run: rustup default stable
 
-    - name: Generate new Solana keypair
-      run: solana-keygen new --no-outfile --force
-
     - name: Set Solana target cluster to local
       run: solana config set --url http://localhost:8899
-
-    - name: Check Solana config
-      run: solana config get
-
-    - name: Install yarn dependencies
-      run: yarn install
-
-    - name: Build Anchor project
-      run: anchor build
 
     - name: Start Solana Test Validator
       run: |

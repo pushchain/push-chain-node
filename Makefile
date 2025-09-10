@@ -385,9 +385,9 @@ docker-reset:
 # Docker Setup flow
 # ------------------------
 
-ANVIL_URL=http://localhost:9545
-PUSH_EVM_URL=http://localhost:8545
-CHAIN_RPC=http://localhost:26657
+ANVIL_URL=http://anvil:9545
+PUSH_EVM_URL=http://push-chain-node:8545
+CHAIN_RPC=http://push-chain-node:26657
 CHAIN_ID=localchain_9000-1
 
 # Path where contracts will be cloned

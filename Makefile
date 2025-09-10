@@ -414,6 +414,8 @@ wait-for-services:
 
 # Fund acc1 on push-chain
 fund-acc1:
+	@echo "waiting for Push-chain-node to setup"
+	sleep 10
 	@echo "Funding acc1 on push-chain..."
 	docker exec push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
 		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \

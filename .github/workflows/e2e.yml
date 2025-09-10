@@ -30,6 +30,14 @@ jobs:
       - name: Check solana version
         run: solana --version
       
+      - name: Install Anchor CLI
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor --tag v0.27.0 anchor-cli --locked
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Check anchor version
+        run: anchor --version
+      
       - name: Start Solana Test Validator
         run: |
           solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
@@ -45,7 +53,7 @@ jobs:
       - name: Run E2E Tests
         run: make e2e
         env:
-          PATH: $HOME/.local/share/solana/install/active_release/bin:/usr/local/bin:/usr/bin:/bin
+          PATH: $HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin
       
       - name: Stop Solana Test Validator
         run: pkill solana-test-validator || true

@@ -2,9 +2,9 @@ package authz
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
+	txsigning "cosmossdk.io/x/tx/signing"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	txsigning "cosmossdk.io/x/tx/signing"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,7 +28,7 @@ func init() {
 		_ = recover()
 	}()
 	sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
-	sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")  
+	sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
 	sdkConfig.SetBech32PrefixForConsensusNode("pushvalcons", "pushvalconspub")
 }
 
@@ -52,7 +51,6 @@ func (m *MockUniversalValidatorKeys) GetHotkeyPassword() string {
 	args := m.Called()
 	return args.String(0)
 }
-
 
 // MockTxConfig is a mock implementation of client.TxConfig
 type MockTxConfig struct {
@@ -103,14 +101,14 @@ func (m *MockTxConfig) SigningContext() *txsigning.Context {
 func setupTestTxSigner() (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress) {
 	mockKeys := &MockUniversalValidatorKeys{}
 	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
+
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
+
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	mockTxConfig := &MockTxConfig{}
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	logger := zerolog.New(nil)
-	
+
 	txSigner := NewTxSigner(mockKeys, clientCtx, logger)
 	return txSigner, mockKeys, granteeAddr
 }
@@ -119,13 +117,13 @@ func setupTestTxSigner() (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress
 func setupTestTxSignerWithTxConfig(mockTxConfig *MockTxConfig) (*TxSigner, *MockUniversalValidatorKeys, sdk.AccAddress) {
 	mockKeys := &MockUniversalValidatorKeys{}
 	granteeAddr := sdk.MustAccAddressFromBech32("push1w7ku9j7jezma7mqv7yterhdvxu0wxzv6c6vrlw")
-	
+
 	mockKeys.On("GetAddress").Return(granteeAddr, nil)
-	
+
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	clientCtx := client.Context{}.WithTxConfig(mockTxConfig).WithCodec(cdc)
 	logger := zerolog.New(nil)
-	
+
 	txSigner := NewTxSigner(mockKeys, clientCtx, logger)
 	return txSigner, mockKeys, granteeAddr
 }
@@ -135,12 +133,12 @@ func setupTestTxBuilder() (*MockTxBuilder, *MockTxConfig) {
 	mockTxBuilder := &MockTxBuilder{}
 	mockTxConfig := &MockTxConfig{}
 	mockTxConfig.On("NewTxBuilder").Return(mockTxBuilder)
-	
+
 	mockTxBuilder.On("SetMsgs", mock.Anything).Return(nil)
 	mockTxBuilder.On("SetMemo", mock.Anything)
 	mockTxBuilder.On("SetGasLimit", mock.Anything)
 	mockTxBuilder.On("SetFeeAmount", mock.Anything)
-	
+
 	return mockTxBuilder, mockTxConfig
 }
 
@@ -216,8 +214,6 @@ func (m *MockTxBuilder) AddAuxSignerData(aux tx.AuxSignerData) error {
 	return args.Error(0)
 }
 
-
-
 func TestNewTxSigner(t *testing.T) {
 	txSigner, mockKeys, _ := setupTestTxSigner()
 
@@ -248,13 +244,13 @@ func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
 					Signer: granteeAddr.String(),
 					Inbound: &uetypes.Inbound{
 						SourceChain: "solana:mainnet",
-						TxHash: "0x1234567890abcdef1234567890abcdef12345678",
-						Sender: "sender_address",
-						Recipient: "recipient_address",
-						Amount: "1000",
-						AssetAddr: "asset_address",
-						LogIndex: "0",
-						TxType: uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
+						TxHash:      "0x1234567890abcdef1234567890abcdef12345678",
+						Sender:      "sender_address",
+						Recipient:   "recipient_address",
+						Amount:      "1000",
+						AssetAddr:   "asset_address",
+						LogIndex:    "0",
+						TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 					},
 				},
 			},
@@ -275,7 +271,7 @@ func TestTxSigner_WrapMessagesWithAuthZ(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := txSigner.WrapMessagesWithAuthZ(tt.msgs)
+			result, err := txSigner.wrapMessagesWithAuthZ(tt.msgs)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -314,7 +310,7 @@ func TestTxSigner_CreateTxBuilder(t *testing.T) {
 	gasLimit := uint64(200000)
 	feeAmount := sdk.NewCoins(sdk.NewInt64Coin("push", 1000))
 
-	result, err := txSigner.CreateTxBuilder(msgs, memo, gasLimit, feeAmount)
+	result, err := txSigner.createTxBuilder(msgs, memo, gasLimit, feeAmount)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -341,13 +337,13 @@ func TestTxSigner_ValidateMessages(t *testing.T) {
 					Signer: granteeAddr.String(),
 					Inbound: &uetypes.Inbound{
 						SourceChain: "solana:mainnet",
-						TxHash: "0x1234567890abcdef1234567890abcdef12345678",
-						Sender: "sender_address",
-						Recipient: "recipient_address",
-						Amount: "1000",
-						AssetAddr: "asset_address",
-						LogIndex: "0",
-						TxType: uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
+						TxHash:      "0x1234567890abcdef1234567890abcdef12345678",
+						Sender:      "sender_address",
+						Recipient:   "recipient_address",
+						Amount:      "1000",
+						AssetAddr:   "asset_address",
+						LogIndex:    "0",
+						TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 					},
 				},
 			},
@@ -366,7 +362,7 @@ func TestTxSigner_ValidateMessages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test validation through WrapMessagesWithAuthZ
-			_, err := txSigner.WrapMessagesWithAuthZ(tt.msgs)
+			_, err := txSigner.wrapMessagesWithAuthZ(tt.msgs)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -390,13 +386,13 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 			Signer: granteeAddr.String(),
 			Inbound: &uetypes.Inbound{
 				SourceChain: "solana:mainnet",
-				TxHash: "0x1234567890abcdef1234567890abcdef12345678",
-				Sender: "sender_address",
-				Recipient: "recipient_address",
-				Amount: "1000",
-				AssetAddr: "asset_address",
-				LogIndex: "0",
-				TxType: uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
+				TxHash:      "0x1234567890abcdef1234567890abcdef12345678",
+				Sender:      "sender_address",
+				Recipient:   "recipient_address",
+				Amount:      "1000",
+				AssetAddr:   "asset_address",
+				LogIndex:    "0",
+				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
 			},
 		},
 	}
@@ -404,29 +400,11 @@ func TestTxSigner_SignAndBroadcastAuthZTx(t *testing.T) {
 	// This will fail due to missing gRPC connection but tests the flow
 	ctx := context.Background()
 	_, err := txSigner.SignAndBroadcastAuthZTx(ctx, msgs, "test memo", 200000, sdk.NewCoins(sdk.NewInt64Coin("push", 1000)))
-	
+
 	// Should fail on signing due to no real implementation
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to sign transaction")
 }
-
-// TestTxSigner_SignTx tests transaction signing
-func TestTxSigner_SignTx(t *testing.T) {
-	txSigner, mockKeys, _ := setupTestTxSigner()
-	
-	// Set up additional mock expectations for SignTx
-	mockKeys.On("GetHotkeyPassword").Return("")
-	mockKeys.On("GetPrivateKey", "").Return(nil, fmt.Errorf("mock private key error"))
-	
-	mockTxBuilder := &MockTxBuilder{}
-
-	// This will fail due to missing account info or gRPC connection
-	err := txSigner.SignTx(mockTxBuilder)
-	
-	// Should fail due to missing account info or gRPC connection
-	assert.Error(t, err)
-}
-
 
 // TestTxSigner_ErrorScenarios tests various error scenarios
 func TestTxSigner_ErrorScenarios(t *testing.T) {
@@ -441,7 +419,7 @@ func TestTxSigner_ErrorScenarios(t *testing.T) {
 		mockTxBuilder.On("SetGasLimit", uint64(0)).Once()
 		mockTxBuilder.On("SetFeeAmount", sdk.NewCoins()).Once()
 
-		result, err := txSigner.CreateTxBuilder(nil, "", 0, sdk.NewCoins())
+		result, err := txSigner.createTxBuilder(nil, "", 0, sdk.NewCoins())
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
@@ -449,6 +427,3 @@ func TestTxSigner_ErrorScenarios(t *testing.T) {
 		mockTxBuilder.AssertExpectations(t)
 	})
 }
-
-
-

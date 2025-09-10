@@ -3,15 +3,17 @@ package authz
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/rs/zerolog"
 )
@@ -22,8 +24,8 @@ type TxSigner struct {
 	clientCtx     client.Context
 	txConfig      client.TxConfig
 	log           zerolog.Logger
-	sequenceMutex sync.Mutex  // Mutex to synchronize transaction signing
-	lastSequence  uint64      // Track the last used sequence
+	sequenceMutex sync.Mutex // Mutex to synchronize transaction signing
+	lastSequence  uint64     // Track the last used sequence
 }
 
 // NewTxSigner creates a new transaction signer
@@ -33,10 +35,10 @@ func NewTxSigner(
 	log zerolog.Logger,
 ) *TxSigner {
 	return &TxSigner{
-		keys:          keys,
-		clientCtx:     clientCtx,
-		txConfig:      clientCtx.TxConfig,
-		log:           log,
+		keys:      keys,
+		clientCtx: clientCtx,
+		txConfig:  clientCtx.TxConfig,
+		log:       log,
 	}
 }
 
@@ -51,26 +53,26 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 	// Lock to prevent concurrent sequence issues
 	ts.sequenceMutex.Lock()
 	defer ts.sequenceMutex.Unlock()
-	
+
 	ts.log.Info().
 		Int("msg_count", len(msgs)).
 		Str("memo", memo).
 		Msg("Creating AuthZ transaction")
 
 	// Wrap messages with AuthZ
-	authzMsgs, err := ts.WrapMessagesWithAuthZ(msgs)
+	authzMsgs, err := ts.wrapMessagesWithAuthZ(msgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wrap messages with AuthZ: %w", err)
 	}
 
 	// Create and sign transaction
-	txBuilder, err := ts.CreateTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
+	txBuilder, err := ts.createTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tx builder: %w", err)
 	}
 
 	// Sign the transaction with sequence management
-	if err := ts.SignTxWithSequence(ctx, txBuilder); err != nil {
+	if err := ts.signTxWithSequence(ctx, txBuilder); err != nil {
 		return nil, fmt.Errorf("failed to sign transaction: %w", err)
 	}
 
@@ -108,7 +110,7 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 }
 
 // WrapMessagesWithAuthZ wraps messages with AuthZ MsgExec
-func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
+func (ts *TxSigner) wrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	if len(msgs) == 0 {
 		return nil, fmt.Errorf("no messages to wrap")
 	}
@@ -116,7 +118,7 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	// Validate that all messages are allowed
 	for i, msg := range msgs {
 		msgType := sdk.MsgTypeURL(msg)
-		if !IsAllowedMsgType(msgType) {
+		if !isAllowedMsgType(msgType) {
 			return nil, fmt.Errorf("message type %s at index %d is not allowed for AuthZ", msgType, i)
 		}
 	}
@@ -138,9 +140,8 @@ func (ts *TxSigner) WrapMessagesWithAuthZ(msgs []sdk.Msg) ([]sdk.Msg, error) {
 	return []sdk.Msg{&msgExec}, nil
 }
 
-
 // CreateTxBuilder creates a transaction builder with the given parameters
-func (ts *TxSigner) CreateTxBuilder(
+func (ts *TxSigner) createTxBuilder(
 	msgs []sdk.Msg,
 	memo string,
 	gasLimit uint64,
@@ -165,90 +166,8 @@ func (ts *TxSigner) CreateTxBuilder(
 	return txBuilder, nil
 }
 
-// SignTx signs a transaction using the hot key (deprecated - use SignTxWithSequence)
-func (ts *TxSigner) SignTx(txBuilder client.TxBuilder) error {
-	ctx := context.Background()
-
-	ts.log.Debug().Msg("Starting transaction signing process")
-
-	// Get account info for sequence and account number
-	account, err := ts.getAccountInfo(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get account info: %w", err)
-	}
-
-	// Get hot key address
-	hotKeyAddr, err := ts.keys.GetAddress()
-	if err != nil {
-		return fmt.Errorf("failed to get hot key address: %w", err)
-	}
-
-	// Get private key
-	password := ts.keys.GetHotkeyPassword()
-	privKey, err := ts.keys.GetPrivateKey(password)
-	if err != nil {
-		return fmt.Errorf("failed to get private key: %w", err)
-	}
-
-	ts.log.Debug().
-		Str("signer", hotKeyAddr.String()).
-		Uint64("account_number", account.GetAccountNumber()).
-		Uint64("sequence", account.GetSequence()).
-		Msg("Signing transaction")
-
-	// Create signature data
-	sigData := signing.SingleSignatureData{
-		SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
-		Signature: nil,
-	}
-
-	sig := signing.SignatureV2{
-		PubKey:   privKey.PubKey(),
-		Data:     &sigData,
-		Sequence: account.GetSequence(),
-	}
-
-	// Set empty signature first to populate SignerInfos
-	if err := txBuilder.SetSignatures(sig); err != nil {
-		return fmt.Errorf("failed to set signatures: %w", err)
-	}
-
-	// Use SDK's SignWithPrivKey helper function for proper signing
-	signerData := authsigning.SignerData{
-		Address:       hotKeyAddr.String(),
-		ChainID:       ts.clientCtx.ChainID,
-		AccountNumber: account.GetAccountNumber(),
-		Sequence:      account.GetSequence(),
-		PubKey:        privKey.PubKey(),
-	}
-
-	signV2, err := tx.SignWithPrivKey(
-		ctx,
-		signing.SignMode_SIGN_MODE_DIRECT,
-		signerData,
-		txBuilder,
-		privKey,
-		ts.clientCtx.TxConfig,
-		account.GetSequence(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to sign with private key: %w", err)
-	}
-
-	// Set the final signature
-	if err := txBuilder.SetSignatures(signV2); err != nil {
-		return fmt.Errorf("failed to set final signatures: %w", err)
-	}
-
-	ts.log.Info().
-		Str("signer", hotKeyAddr.String()).
-		Msg("Transaction signed successfully")
-
-	return nil
-}
-
 // SignTxWithSequence signs a transaction with proper sequence management
-func (ts *TxSigner) SignTxWithSequence(ctx context.Context, txBuilder client.TxBuilder) error {
+func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxBuilder) error {
 	ts.log.Debug().Msg("Starting transaction signing with sequence management")
 
 	// Get account info to refresh sequence if needed
@@ -338,7 +257,6 @@ func (ts *TxSigner) SignTxWithSequence(ctx context.Context, txBuilder client.TxB
 	return nil
 }
 
-
 // getAccountInfo retrieves account information for the hot key
 func (ts *TxSigner) getAccountInfo(ctx context.Context) (client.Account, error) {
 	hotKeyAddr, err := ts.keys.GetAddress()
@@ -393,4 +311,9 @@ func (ts *TxSigner) broadcastTransaction(_ context.Context, txBytes []byte) (*sd
 		Msg("Transaction broadcast result")
 
 	return res, nil
+}
+
+// checks if a message type is allowed for AuthZ execution
+func isAllowedMsgType(msgType string) bool {
+	return slices.Contains(constant.SupportedMessages, msgType)
 }

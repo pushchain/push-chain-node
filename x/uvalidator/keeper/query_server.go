@@ -34,63 +34,13 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 
 	return &types.QueryParamsResponse{Params: &p}, nil
 }
-func (k Querier) UniversalValidatorByCore(goCtx context.Context, req *types.QueryUniversalValidatorByCoreRequest) (*types.QueryUniversalValidatorByCoreResponse, error) {
-	if req == nil || req.CoreValidatorAddress == "" {
-		return nil, status.Error(codes.InvalidArgument, "core validator address is required")
-	}
-
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	uvAddr, err := k.Keeper.CoreToUniversal.Get(ctx, req.CoreValidatorAddress)
-	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "universal validator not found for this core validator")
-		}
-		return nil, status.Errorf(codes.Internal, "failed to get universal validator: %v", err)
-	}
-
-	return &types.QueryUniversalValidatorByCoreResponse{
-		UniversalValidator: uvAddr,
-	}, nil
-}
-
-func (k Querier) CoreValidatorByUniversal(goCtx context.Context, req *types.QueryCoreValidatorByUniversalRequest) (*types.QueryCoreValidatorByUniversalResponse, error) {
-	if req == nil || req.UniversalValidatorAddress == "" {
-		return nil, status.Error(codes.InvalidArgument, "universal validator address is required")
-	}
-
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	var coreAddr string
-	found := false
-
-	err := k.Keeper.CoreToUniversal.Walk(ctx, nil, func(key string, value string) (stop bool, err error) {
-		if value == req.UniversalValidatorAddress {
-			coreAddr = key
-			found = true
-			return true, nil // stop iteration
-		}
-		return false, nil
-	})
-
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to walk CoreToUniversal: %v", err)
-	}
-	if !found {
-		return nil, status.Error(codes.NotFound, "core validator not found for this universal validator")
-	}
-
-	return &types.QueryCoreValidatorByUniversalResponse{
-		CoreValidatorAddress: coreAddr,
-	}, nil
-}
 
 func (k Querier) AllUniversalValidators(goCtx context.Context, req *types.QueryUniversalValidatorsSetRequest) (*types.QueryUniversalValidatorsSetResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	var validators []string
-	err := k.Keeper.UniversalValidatorSet.Walk(ctx, nil, func(addr string) (stop bool, err error) {
-		validators = append(validators, addr)
+	err := k.Keeper.UniversalValidatorSet.Walk(ctx, nil, func(addr sdk.ValAddress) (stop bool, err error) {
+		validators = append(validators, addr.String())
 		return false, nil
 	})
 	if err != nil {

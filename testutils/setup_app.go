@@ -77,7 +77,7 @@ func SetAppWithMultipleValidators(t *testing.T, numVals int) (*app.ChainApp, sdk
 	accounts := SetupTestAccounts(t, app, ctx, appOptions)
 
 	// Collect all accounts we’ll use as validators (for now re-use Default/Cosmos/Target,
-	// but you can extend this with dynamically created accounts)
+	// but extend this with dynamically created accounts)
 	baseAccounts := []sdk.AccountI{accounts.DefaultAccount, accounts.CosmosAccount, accounts.TargetAccount}
 
 	// If numVals > 3, create extra accounts

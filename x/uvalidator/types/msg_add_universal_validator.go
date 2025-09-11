@@ -16,9 +16,8 @@ func NewMsgAddUniversalValidator(
 	universalValidatorAddress sdk.Address,
 ) *MsgAddUniversalValidator {
 	return &MsgAddUniversalValidator{
-		Signer:                    sender.String(),
-		CoreValidatorAddress:      coreValidatorAddress.String(),
-		UniversalValidatorAddress: universalValidatorAddress.String(),
+		Signer:               sender.String(),
+		CoreValidatorAddress: coreValidatorAddress.String(),
 	}
 }
 
@@ -49,11 +48,6 @@ func (msg *MsgAddUniversalValidator) ValidateBasic() error {
 	_, err := sdk.ValAddressFromBech32(msg.CoreValidatorAddress)
 	if err != nil {
 		return errors.Wrap(err, "invalid core validator address")
-	}
-
-	// Validate universal validator address (must be a normal account address)
-	if _, err := sdk.AccAddressFromBech32(msg.UniversalValidatorAddress); err != nil {
-		return errors.Wrap(err, "invalid universal validator address")
 	}
 
 	return nil

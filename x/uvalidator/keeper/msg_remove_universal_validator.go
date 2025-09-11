@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 	"fmt"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // RemoveUniversalValidator removes a universal validator from the set and its associated mapping.
@@ -11,8 +13,14 @@ func (k Keeper) RemoveUniversalValidator(
 	ctx context.Context,
 	universalValidatorAddr string,
 ) error {
+	// Parse core validator address and validate format
+	valAddr, err := sdk.ValAddressFromBech32(universalValidatorAddr)
+	if err != nil {
+		return fmt.Errorf("invalid universal validator address: %w", err)
+	}
+
 	// Check if the universal validator is in the set
-	exists, err := k.UniversalValidatorSet.Has(ctx, universalValidatorAddr)
+	exists, err := k.UniversalValidatorSet.Has(ctx, valAddr)
 	if err != nil {
 		return fmt.Errorf("failed to check universal validator existence: %w", err)
 	}
@@ -21,13 +29,9 @@ func (k Keeper) RemoveUniversalValidator(
 	}
 
 	// Remove from the set
-	if err := k.UniversalValidatorSet.Remove(ctx, universalValidatorAddr); err != nil {
+	if err := k.UniversalValidatorSet.Remove(ctx, valAddr); err != nil {
 		return fmt.Errorf("failed to remove universal validator from set: %w", err)
 	}
 
-	// Scan through CoreToUniversal to remove the entry pointing to this universal address
-	if err := k.RemoveCoreToUniversalMappingByUniversalAddr(ctx, universalValidatorAddr); err != nil {
-		return err
-	}
 	return nil
 }

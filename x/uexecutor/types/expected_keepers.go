@@ -110,7 +110,7 @@ type UValidatorKeeper interface {
 		isFinalized bool,
 		isNew bool,
 		err error)
-	GetUniversalValidatorSet(ctx context.Context) ([]string, error)
+	GetUniversalValidatorSet(ctx context.Context) ([]sdk.ValAddress, error)
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

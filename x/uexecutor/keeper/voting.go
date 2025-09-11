@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 func (k Keeper) VoteOnInboundBallot(
 	ctx context.Context,
-	universalValidator string,
+	universalValidator sdk.ValAddress,
 	inbound types.Inbound,
 ) (isFinalized bool,
 	isNew bool,
@@ -38,14 +39,20 @@ func (k Keeper) VoteOnInboundBallot(
 	// >2/3 quorum similar to tendermint
 	votesNeeded := (totalValidators*types.VotesThresholdNumerator + types.VotesThresholdDenominator - 1) / types.VotesThresholdDenominator
 
+	// Convert []sdk.ValAddress → []string
+	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
+	for i, v := range universalValidatorSet {
+		universalValidatorSetStrs[i] = v.String()
+	}
+
 	// Step 2: Call VoteOnBallot for this inbound synthetic
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
 		ctx,
 		ballotKey,
 		uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
-		universalValidator,
+		universalValidator.String(),
 		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
-		universalValidatorSet,
+		universalValidatorSetStrs,
 		int64(votesNeeded),
 		int64(types.DefaultExpiryAfterBlocks),
 	)

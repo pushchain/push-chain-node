@@ -11,7 +11,7 @@ import (
 )
 
 // voteInbound is for uvalidators for voting on synthetic asset inbound bridging
-func (k Keeper) VoteInbound(ctx context.Context, universalValidator string, inbound types.Inbound) error {
+func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Step 1: Check if inbound synthetic is there in the UTX
 	key := types.GetInboundKey(inbound)

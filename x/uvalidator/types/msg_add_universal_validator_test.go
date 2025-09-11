@@ -16,7 +16,6 @@ func TestMsgAddUniversalValidator_ValidateBasic(t *testing.T) {
 
 	// Valid test addresses
 	validAdmin := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
-	validAccount := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"        // a valid account address
 	validCoreVal := "pushvaloper1gjaw568e35hjc8udhat0xnsxxmkm2snrjnakhg" // a valid valoper address
 
 	tests := []struct {
@@ -28,18 +27,16 @@ func TestMsgAddUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "valid message",
 			msg: types.MsgAddUniversalValidator{
-				Signer:                    validAdmin,
-				CoreValidatorAddress:      validCoreVal,
-				UniversalValidatorAddress: validAccount,
+				Signer:               validAdmin,
+				CoreValidatorAddress: validCoreVal,
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid signer address",
 			msg: types.MsgAddUniversalValidator{
-				Signer:                    "bad_signer",
-				CoreValidatorAddress:      validCoreVal,
-				UniversalValidatorAddress: validAccount,
+				Signer:               "bad_signer",
+				CoreValidatorAddress: validCoreVal,
 			},
 			wantErr: true,
 			errMsg:  "invalid signer address",
@@ -47,22 +44,11 @@ func TestMsgAddUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid core validator address (format)",
 			msg: types.MsgAddUniversalValidator{
-				Signer:                    validAdmin,
-				CoreValidatorAddress:      "not_a_valoper",
-				UniversalValidatorAddress: validAccount,
+				Signer:               validAdmin,
+				CoreValidatorAddress: "not_a_valoper",
 			},
 			wantErr: true,
 			errMsg:  "invalid core validator address",
-		},
-		{
-			name: "invalid universal validator address",
-			msg: types.MsgAddUniversalValidator{
-				Signer:                    validAdmin,
-				CoreValidatorAddress:      validCoreVal,
-				UniversalValidatorAddress: "nope",
-			},
-			wantErr: true,
-			errMsg:  "invalid universal validator address",
 		},
 	}
 

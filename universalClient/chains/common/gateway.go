@@ -16,6 +16,19 @@ type GatewayEvent struct {
 	ConfirmationType string // "STANDARD" or "FAST" - from gateway method config
 }
 
+type TxWithFundsPayload struct {
+	SourceChain         string `json:"sourceChain"`
+	LogIndex            uint   `json:"logIndex"`
+	Sender              string `json:"sender"`
+	Recipient           string `json:"recipient"`
+	BridgeToken         string `json:"bridgeToken"`
+	BridgeAmount        string `json:"bridgeAmount"` // uint256 as decimal string
+	Data                string `json:"data"`         // hex-encoded bytes (0x…)
+	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
+	RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
+	TxType              uint   `json:"txType"`              // enum backing uint as decimal string
+}
+
 // GatewayOperations defines gateway-specific operations for chain clients
 type GatewayOperations interface {
 	// GetLatestBlock returns the latest block/slot number

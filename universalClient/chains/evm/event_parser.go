@@ -87,7 +87,8 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		}
 	}
 
-	if eventID.String() == "" {
+	// TODO: Remove temp code
+	if eventID.String() != "0x20c05737f181a64c7a88fcafce3afbb409f162f97a71661dd939e384a0960766" {
 		return nil
 	}
 
@@ -121,27 +122,17 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 // [1] offset  revertMsg (bytes)         (offset from start of the tuple)
 // ... tail for revertMsg follows
 func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log) {
-	type txWithFundsPayload struct {
-		Sender       string `json:"sender"`
-		Recipient    string `json:"recipient"`
-		BridgeToken  string `json:"bridgeToken"`
-		BridgeAmount string `json:"bridgeAmount"` // uint256 as decimal string
-		Data         string `json:"data"`         // hex-encoded bytes (0x…)
-		RevertCFG    string `json:"revertCFG"`    // raw hex tail starting at tuple offset (0x…)
-		// Decoded revert tuple (new; optional)
-		RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
-		RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
-		TxType              string `json:"txType"`              // enum backing uint as decimal string
-	}
 
 	if len(log.Topics) < 3 {
 		// Not enough indexed fields; nothing to do.
 		return
 	}
 
-	payload := txWithFundsPayload{
-		Sender:    ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
-		Recipient: ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
+	payload := common.TxWithFundsPayload{
+		SourceChain: event.ChainID,
+		Sender:      ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
+		Recipient:   ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
+		LogIndex:    log.Index,
 	}
 
 	// Helper: fetch the i-th 32-byte word from log.Data.
@@ -184,7 +175,7 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 	// txType (enum -> padded uint)
 	if w := word(4); w != nil {
 		txType := new(big.Int).SetBytes(w)
-		payload.TxType = txType.String()
+		payload.TxType = uint(txType.Uint64())
 	}
 
 	// Decode dynamic bytes at absolute offset in log.Data:
@@ -222,11 +213,6 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 	}
 
 	// --- revertCFG (tuple(address fundRecipient, bytes revertMsg)) ---
-	// Store the raw ABI tail (from tuple start) for backwards compatibility.
-	if revertOffset < uint64(len(log.Data)) {
-		payload.RevertCFG = "0x" + hex.EncodeToString(log.Data[revertOffset:])
-	}
-
 	// Decode the tuple if we have enough room for its head (2 words).
 	// NOTE: Offsets inside a tuple are RELATIVE TO THE START OF THE TUPLE.
 	if revertOffset >= uint64(32*5) && revertOffset+64 <= uint64(len(log.Data)) {

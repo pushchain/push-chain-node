@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -134,89 +136,43 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 // constructInbound creates an Inbound message from transaction data
 func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.Inbound, error) {
 	// Initialize event data map
-	var eventData map[string]interface{}
+	var eventData common.TxWithFundsPayload
 
-	// Check if Data field has content
-	if tx.Data != nil {
-		// Try to parse the transaction data
-		if err := json.Unmarshal(tx.Data, &eventData); err != nil {
-			vh.log.Warn().
-				Str("tx_hash", tx.TxHash).
-				Err(err).
-				Msg("failed to parse transaction data, using minimal data")
-			eventData = make(map[string]interface{})
-		}
-	} else {
-		// No data provided, create minimal structure
-		eventData = make(map[string]interface{})
+	if tx == nil {
+		return nil, fmt.Errorf("transaction is nil")
 	}
 
-	// Determine source chain based on method
-	sourceChain, _ := eventData["source_chain"].(string)
-	if sourceChain == "" {
-		sourceChain, _ = eventData["chain_id"].(string)
-	}
-	if sourceChain == "" {
-		// Infer chain from method or use a default
-		// EVM methods typically use "addFunds", Solana uses "add_funds"
-		if tx.Method == "addFunds" {
-			sourceChain = "eip155:11155111" // Sepolia testnet
-		} else if tx.Method == "add_funds" {
-			sourceChain = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" // Solana devnet
-		}
+	if tx.Data == nil {
+		return nil, fmt.Errorf("transaction data is missing for tx_hash: %s", tx.TxHash)
 	}
 
-	// Extract fields with defaults
-	sender, _ := eventData["sender"].(string)
-	if sender == "" {
-		sender = "0x0000000000000000000000000000000000000000" // Default sender
-	}
-
-	recipient, _ := eventData["recipient"].(string)
-	if recipient == "" {
-		recipient = "0x0000000000000000000000000000000000000000" // Default recipient
-	}
-
-	amount, _ := eventData["amount"].(string)
-	if amount == "" {
-		amount = "0" // Default amount
-	}
-
-	assetAddr, _ := eventData["asset_address"].(string)
-	if assetAddr == "" {
-		assetAddr = "0x0000000000000000000000000000000000000000" // Default asset
-	}
-
-	logIndex, _ := eventData["log_index"].(string)
-	if logIndex == "" {
-		logIndex = "0" // Default log index
+	if err := json.Unmarshal(tx.Data, &eventData); err != nil {
+		return nil, fmt.Errorf("failed to  unmarshal transaction data: %w", err)
 	}
 
 	// Default to FUNDS_AND_PAYLOAD_TX type if not specified
 	txType := uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
-	if txTypeStr, ok := eventData["tx_type"].(string); ok {
-		switch txTypeStr {
-		case "GAS_FUND", "FEE_ABSTRACTION":
-			txType = uetypes.InboundTxType_GAS_FUND_TX
-		case "FUNDS_BRIDGE":
-			txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
-		case "FUNDS_AND_PAYLOAD_INSTANT":
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
-		case "SYNTHETIC", "FUNDS_AND_PAYLOAD":
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
-		case "UNSPECIFIED":
-			txType = uetypes.InboundTxType_UNSPECIFIED_TX
-		}
+	switch eventData.TxType {
+	case 0:
+		txType = uetypes.InboundTxType_GAS_FUND_TX
+	case 1:
+		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
+	case 2:
+		txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
+	case 3:
+		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
+	case 4:
+		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}
 
 	return &uetypes.Inbound{
-		SourceChain: sourceChain,
+		SourceChain: eventData.SourceChain,
 		TxHash:      tx.TxHash,
-		Sender:      sender,
-		Recipient:   recipient,
-		Amount:      amount,
-		AssetAddr:   assetAddr,
-		LogIndex:    logIndex,
+		Sender:      eventData.Sender,
+		Recipient:   eventData.Recipient,
+		Amount:      eventData.BridgeAmount,
+		AssetAddr:   eventData.BridgeToken,
+		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
 	}, nil
 }

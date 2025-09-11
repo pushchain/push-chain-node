@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -61,12 +60,12 @@ func (ew *EventWatcher) WatchEvents(
 
 	// Get topics from event parser
 	topics := ew.eventParser.GetEventTopics()
-	
+
 	if len(topics) == 0 {
 		close(eventChan)
 		return eventChan, nil
 	}
-	
+
 	ew.logger.Info().
 		Int("topic_count", len(topics)).
 		Interface("topics", topics).
@@ -77,7 +76,7 @@ func (ew *EventWatcher) WatchEvents(
 
 		// Use chain-specific polling interval, then global, then default to 5 seconds
 		pollingInterval := 5 * time.Second
-		
+
 		// Check chain-specific config first
 		if ew.appConfig != nil && ew.appConfig.ChainConfigs != nil {
 			if chainConfig, exists := ew.appConfig.ChainConfigs[ew.chainID]; exists {
@@ -92,7 +91,7 @@ func (ew *EventWatcher) WatchEvents(
 				pollingInterval = time.Duration(ew.appConfig.EventPollingIntervalSeconds) * time.Second
 			}
 		}
-		
+
 		// Create ticker for polling
 		ticker := time.NewTicker(pollingInterval)
 		defer ticker.Stop()
@@ -166,16 +165,16 @@ func (ew *EventWatcher) processBlockRange(
 ) error {
 	// Define max block range to prevent RPC errors (use 9000 to be safe under the 10000 limit)
 	const maxBlockRange uint64 = 9000
-	
+
 	currentFrom := fromBlock
-	
+
 	// Process in chunks if the range is too large
 	for currentFrom <= toBlock {
 		currentTo := currentFrom + maxBlockRange - 1
 		if currentTo > toBlock {
 			currentTo = toBlock
 		}
-		
+
 		// Log chunk processing for large ranges
 		blockRange := currentTo - currentFrom + 1
 		if blockRange > 1000 {
@@ -185,7 +184,7 @@ func (ew *EventWatcher) processBlockRange(
 				Uint64("range_size", blockRange).
 				Msg("processing block chunk")
 		}
-		
+
 		// Create filter query for this chunk
 		query := ethereum.FilterQuery{
 			FromBlock: big.NewInt(int64(currentFrom)),
@@ -219,20 +218,6 @@ func (ew *EventWatcher) processBlockRange(
 		for _, log := range logs {
 			event := ew.eventParser.ParseGatewayEvent(&log)
 			if event != nil {
-				// Create event data JSON for vote handler
-				eventData := map[string]interface{}{
-					"chain_id":       event.ChainID,
-					"source_chain":   event.ChainID,
-					"sender":         event.Sender,
-					"recipient":      event.Receiver,
-					"amount":         event.Amount,
-					"asset_address":  "", // Can be populated if needed
-					"log_index":      fmt.Sprintf("%d", log.Index),
-					"tx_type":        "SYNTHETIC",
-				}
-				
-				dataBytes, _ := json.Marshal(eventData)
-				
 				// Track transaction for confirmations
 				if err := ew.tracker.TrackTransaction(
 					event.TxHash,
@@ -240,7 +225,7 @@ func (ew *EventWatcher) processBlockRange(
 					event.Method,
 					event.EventID,
 					event.ConfirmationType,
-					dataBytes,
+					event.Payload,
 				); err != nil {
 					ew.logger.Error().Err(err).
 						Str("tx_hash", event.TxHash).
@@ -254,7 +239,7 @@ func (ew *EventWatcher) processBlockRange(
 				}
 			}
 		}
-		
+
 		// Move to next chunk
 		currentFrom = currentTo + 1
 	}

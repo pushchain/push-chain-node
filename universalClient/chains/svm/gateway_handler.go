@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -25,7 +24,7 @@ import (
 type MethodExtractionInfo struct {
 	ReceiverInstructionIndex int
 	AmountEventPosition      int
-	LastVerified            time.Time
+	LastVerified             time.Time
 }
 
 // GatewayHandler handles gateway operations for Solana chains
@@ -38,11 +37,11 @@ type GatewayHandler struct {
 	gatewayAddr  solana.PublicKey
 	database     *db.DB
 	methodCache  map[string]*MethodExtractionInfo // Cache for discovered positions
-	
+
 	// Extracted components
-	txBuilder    *TransactionBuilder
-	eventParser  *EventParser
-	txVerifier   *TransactionVerifier
+	txBuilder   *TransactionBuilder
+	eventParser *EventParser
+	txVerifier  *TransactionVerifier
 }
 
 // NewGatewayHandler creates a new Solana gateway handler
@@ -117,7 +116,7 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 	// Check database for last processed slot
 	var chainState store.ChainState
 	result := h.database.Client().First(&chainState)
-	
+
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			// No record found, get latest slot
@@ -126,7 +125,7 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 		}
 		return 0, fmt.Errorf("failed to get last processed slot: %w", result.Error)
 	}
-	
+
 	// Found a record, check if it has a valid slot number
 	if chainState.LastBlock <= 0 {
 		// If LastBlock is 0 or negative, start from latest slot
@@ -135,25 +134,25 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 			Msg("invalid or zero last slot, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
-	
+
 	h.logger.Info().
 		Int64("slot", chainState.LastBlock).
 		Msg("resuming from last processed slot")
-	
+
 	return uint64(chainState.LastBlock), nil
 }
 
 // UpdateLastProcessedSlot updates the last processed slot in the database
 func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 	var chainState store.ChainState
-	
+
 	// Try to find existing record
 	result := h.database.Client().First(&chainState)
-	
+
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to query last processed slot: %w", result.Error)
 	}
-	
+
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
 		chainState = store.ChainState{
@@ -171,7 +170,7 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -185,7 +184,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 
 		// Use chain-specific polling interval, then global, then default to 5 seconds
 		pollingInterval := 5 * time.Second
-		
+
 		// Check chain-specific config first
 		if h.appConfig != nil && h.appConfig.ChainConfigs != nil {
 			if chainConfig, exists := h.appConfig.ChainConfigs[h.config.Chain]; exists {
@@ -275,20 +274,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 					// Parse gateway event from transaction using event parser
 					event := h.eventParser.ParseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
 					if event != nil {
-						// Create event data JSON for vote handler
-						eventData := map[string]interface{}{
-							"chain_id":       event.ChainID,
-							"source_chain":   event.ChainID,
-							"sender":         event.Sender,
-							"recipient":      event.Receiver,
-							"amount":         event.Amount,
-							"asset_address":  "", // Can be populated if needed
-							"log_index":      "0", // Solana doesn't have log index like EVM
-							"tx_type":        "SYNTHETIC",
-						}
-						
-						dataBytes, _ := json.Marshal(eventData)
-						
+
 						// Track transaction for confirmations
 						if err := h.tracker.TrackTransaction(
 							event.TxHash,
@@ -296,7 +282,7 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64
 							event.Method,
 							event.EventID,
 							event.ConfirmationType,
-							dataBytes,
+							event.Payload,
 						); err != nil {
 							h.logger.Error().Err(err).
 								Str("tx_hash", event.TxHash).
@@ -420,7 +406,7 @@ func (h *GatewayHandler) analyzeTransactionFlow(meta *rpc.TransactionMeta, accou
 		senderPost := meta.PostBalances[0]
 		totalDecrease := senderPre - senderPost
 		actualTransfer := totalDecrease - meta.Fee
-		
+
 		if actualTransfer > 0 {
 			amount = actualTransfer
 		}
@@ -430,7 +416,7 @@ func (h *GatewayHandler) analyzeTransactionFlow(meta *rpc.TransactionMeta, accou
 	for i := 1; i < len(meta.PreBalances) && i < len(meta.PostBalances); i++ {
 		pre := meta.PreBalances[i]
 		post := meta.PostBalances[i]
-		
+
 		if post > pre {
 			increase := post - pre
 			if increase == amount && i < len(accountKeys) {
@@ -465,12 +451,12 @@ func (h *GatewayHandler) extractReceiverDynamically(tx *solana.Transaction, expe
 			if int(programIDIndex) >= len(tx.Message.AccountKeys) {
 				continue
 			}
-			
+
 			programID := tx.Message.AccountKeys[programIDIndex]
 			if !programID.Equals(h.gatewayAddr) {
 				continue
 			}
-			
+
 			if cached.ReceiverInstructionIndex < len(instruction.Accounts) {
 				accountIndex := instruction.Accounts[cached.ReceiverInstructionIndex]
 				if int(accountIndex) < len(tx.Message.AccountKeys) {
@@ -486,12 +472,12 @@ func (h *GatewayHandler) extractReceiverDynamically(tx *solana.Transaction, expe
 		if int(programIDIndex) >= len(tx.Message.AccountKeys) {
 			continue
 		}
-		
+
 		programID := tx.Message.AccountKeys[programIDIndex]
 		if !programID.Equals(h.gatewayAddr) {
 			continue
 		}
-		
+
 		// Find which position has our expected receiver
 		for i, accountIdx := range instruction.Accounts {
 			if int(accountIdx) < len(tx.Message.AccountKeys) {
@@ -502,18 +488,18 @@ func (h *GatewayHandler) extractReceiverDynamically(tx *solana.Transaction, expe
 					}
 					h.methodCache[methodID].ReceiverInstructionIndex = i
 					h.methodCache[methodID].LastVerified = time.Now()
-					
+
 					h.logger.Debug().
 						Str("method", methodID).
 						Int("position", i).
 						Msg("discovered receiver position in instruction")
-					
+
 					return expectedReceiver
 				}
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -526,31 +512,31 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 			if method.EventIdentifier == "" {
 				continue
 			}
-			
+
 			for _, log := range logs {
 				if !strings.HasPrefix(log, "Program data: ") {
 					continue
 				}
-				
+
 				base64Data := strings.TrimPrefix(log, "Program data: ")
 				decoded, err := base64.StdEncoding.DecodeString(base64Data)
 				if err != nil {
 					continue
 				}
-				
+
 				// Verify event identifier
 				if len(decoded) < 8 {
 					continue
 				}
-				
+
 				eventID := fmt.Sprintf("%x", decoded[0:8])
 				if eventID != method.EventIdentifier {
 					continue
 				}
-				
+
 				// Use cached position
 				if len(decoded) >= cached.AmountEventPosition+8 {
-					amountValue := binary.LittleEndian.Uint64(decoded[cached.AmountEventPosition:cached.AmountEventPosition+8])
+					amountValue := binary.LittleEndian.Uint64(decoded[cached.AmountEventPosition : cached.AmountEventPosition+8])
 					if amountValue > 0 && amountValue < 1000000000000000 {
 						return fmt.Sprintf("%d", amountValue)
 					}
@@ -588,8 +574,8 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 
 			// Scan for the expected amount
 			for pos := 8; pos <= len(decoded)-8; pos += 8 {
-				testValue := binary.LittleEndian.Uint64(decoded[pos:pos+8])
-				
+				testValue := binary.LittleEndian.Uint64(decoded[pos : pos+8])
+
 				if testValue == expectedAmount {
 					// Found it! Cache this position
 					if h.methodCache[methodID] == nil {
@@ -597,13 +583,13 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 					}
 					h.methodCache[methodID].AmountEventPosition = pos
 					h.methodCache[methodID].LastVerified = time.Now()
-					
+
 					h.logger.Debug().
 						Str("method", methodID).
 						Int("position", pos).
 						Uint64("amount", testValue).
 						Msg("discovered amount position in event data")
-					
+
 					return fmt.Sprintf("%d", testValue)
 				}
 			}
@@ -612,4 +598,3 @@ func (h *GatewayHandler) extractAmountDynamically(logs []string, expectedAmount 
 
 	return ""
 }
-

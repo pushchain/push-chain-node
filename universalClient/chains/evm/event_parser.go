@@ -1,6 +1,8 @@
 package evm
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"math/big"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -63,10 +65,11 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 	}
 
 	// Find matching method by event topic
-	var methodID, methodName, confirmationType string
+	var eventID ethcommon.Hash
+	var methodName, confirmationType string
 	for id, topic := range ep.eventTopics {
 		if log.Topics[0] == topic {
-			methodID = id
+			eventID = topic
 			// Find method name and confirmation type from config
 			for _, method := range ep.config.GatewayMethods {
 				if method.Identifier == id {
@@ -84,7 +87,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		}
 	}
 
-	if methodID == "" {
+	if eventID.String() == "" {
 		return nil
 	}
 
@@ -93,39 +96,163 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		TxHash:           log.TxHash.Hex(),
 		BlockNumber:      log.BlockNumber,
 		Method:           methodName,
-		EventID:          methodID,
-		Payload:          log.Data,
+		EventID:          eventID.Hex(),
 		ConfirmationType: confirmationType,
 	}
-
 	// Parse event data based on method
-	ep.parseEventData(event, log, methodName)
+	ep.parseEventData(event, log)
 
 	return event
 }
 
-// parseEventData extracts specific data from the event based on method type
-func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log, methodName string) {
-	if methodName == "addFunds" && len(log.Topics) == 3 {
-		// FundsAdded event typically has:
-		// topics[0] = event signature
-		// topics[1] = indexed sender address
-		// topics[2] = indexed token address (or other indexed param)
-		// data contains amount and payload
+// parseEventData extracts specific data from the event based on method type.
+// For TxWithFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType)
+// it JSON-marshals the decoded fields into event.Payload.
+//
+// Encoding layout in log.Data (non-indexed):
+// [0] address  bridgeToken              (32 bytes; right-most 20 significant)
+// [1] uint256  bridgeAmount             (32 bytes)
+// [2] offset   payload (bytes)          (32 bytes; offset from start of log.Data)
+// [3] offset   revertCFG (tuple)        (32 bytes; offset from start of log.Data)
+// [4] uint     txType                   (32 bytes)
+//
+// tuple RevertSettings head (at revertOffset):
+// [0] address fundRecipient
+// [1] offset  revertMsg (bytes)         (offset from start of the tuple)
+// ... tail for revertMsg follows
+func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log) {
+	type txWithFundsPayload struct {
+		Sender       string `json:"sender"`
+		Recipient    string `json:"recipient"`
+		BridgeToken  string `json:"bridgeToken"`
+		BridgeAmount string `json:"bridgeAmount"` // uint256 as decimal string
+		Data         string `json:"data"`         // hex-encoded bytes (0x…)
+		RevertCFG    string `json:"revertCFG"`    // raw hex tail starting at tuple offset (0x…)
+		// Decoded revert tuple (new; optional)
+		RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
+		RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
+		TxType              string `json:"txType"`              // enum backing uint as decimal string
+	}
 
-		event.Sender = ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex()
+	if len(log.Topics) < 3 {
+		// Not enough indexed fields; nothing to do.
+		return
+	}
 
-		// Parse amount from data if available
-		if len(log.Data) >= 32 {
-			amount := new(big.Int).SetBytes(log.Data[:32])
-			event.Amount = amount.String()
+	payload := txWithFundsPayload{
+		Sender:    ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
+		Recipient: ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
+	}
+
+	// Helper: fetch the i-th 32-byte word from log.Data.
+	word := func(i int) []byte {
+		start := i * 32
+		end := start + 32
+		if start < 0 || end > len(log.Data) {
+			return nil
+		}
+		return log.Data[start:end]
+	}
+
+	// Need at least 5 words for the head.
+	if len(log.Data) < 32*5 {
+		b, _ := json.Marshal(payload)
+		event.Payload = b
+		return
+	}
+
+	// bridgeToken (address in the right-most 20 bytes of the first word)
+	if w := word(0); w != nil {
+		payload.BridgeToken = ethcommon.BytesToAddress(w[12:32]).Hex()
+	}
+
+	// bridgeAmount (uint256)
+	if w := word(1); w != nil {
+		amt := new(big.Int).SetBytes(w)
+		payload.BridgeAmount = amt.String()
+	}
+
+	// dynamic offsets (relative to start of log.Data)
+	var dataOffset, revertOffset uint64
+	if w := word(2); w != nil {
+		dataOffset = new(big.Int).SetBytes(w).Uint64()
+	}
+	if w := word(3); w != nil {
+		revertOffset = new(big.Int).SetBytes(w).Uint64()
+	}
+
+	// txType (enum -> padded uint)
+	if w := word(4); w != nil {
+		txType := new(big.Int).SetBytes(w)
+		payload.TxType = txType.String()
+	}
+
+	// Decode dynamic bytes at absolute offset in log.Data:
+	readBytesAt := func(absOff uint64) (hexStr string, ok bool) {
+		if absOff+32 > uint64(len(log.Data)) {
+			return "", false
+		}
+		lstart := int(absOff)
+		lend := lstart + 32
+		byteLen := new(big.Int).SetBytes(log.Data[lstart:lend]).Uint64()
+
+		dataStart := lend
+		dataEnd := dataStart + int(byteLen)
+		if dataEnd > len(log.Data) {
+			return "", false
+		}
+		return "0x" + hex.EncodeToString(log.Data[dataStart:dataEnd]), true
+	}
+
+	// Decode address at absolute offset in log.Data:
+	readAddressAt := func(absOff uint64) (string, bool) {
+		if absOff+32 > uint64(len(log.Data)) {
+			return "", false
+		}
+		w := log.Data[absOff : absOff+32]
+		return ethcommon.BytesToAddress(w[12:32]).Hex(), true
+	}
+
+	// --- payload (bytes) ---
+	// Offsets for dynamic fields in the head will be >= head size (5*32)
+	if dataOffset >= uint64(32*5) {
+		if hexStr, ok := readBytesAt(dataOffset); ok {
+			payload.Data = hexStr
+		}
+	}
+
+	// --- revertCFG (tuple(address fundRecipient, bytes revertMsg)) ---
+	// Store the raw ABI tail (from tuple start) for backwards compatibility.
+	if revertOffset < uint64(len(log.Data)) {
+		payload.RevertCFG = "0x" + hex.EncodeToString(log.Data[revertOffset:])
+	}
+
+	// Decode the tuple if we have enough room for its head (2 words).
+	// NOTE: Offsets inside a tuple are RELATIVE TO THE START OF THE TUPLE.
+	if revertOffset >= uint64(32*5) && revertOffset+64 <= uint64(len(log.Data)) {
+		tupleBase := revertOffset
+
+		// fundRecipient @ tupleBase + 0
+		if addr, ok := readAddressAt(tupleBase); ok {
+			payload.RevertFundRecipient = addr
 		}
 
-		// This might be token address or receiver, depends on the specific event
-		event.Receiver = ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex()
+		// revertMsg offset word @ tupleBase + 32
+		// It's an offset from tupleBase.
+		offWordStart := tupleBase + 32
+		offWordEnd := offWordStart + 32
+		revertMsgRelOff := new(big.Int).SetBytes(log.Data[offWordStart:offWordEnd]).Uint64()
 
+		revertMsgAbsOff := tupleBase + revertMsgRelOff
+		if hexStr, ok := readBytesAt(revertMsgAbsOff); ok {
+			payload.RevertMsg = hexStr
+		}
 	}
-	// Add more event parsing logic for other methods as needed
+
+	// Marshal and store into event.Payload
+	if b, err := json.Marshal(payload); err == nil {
+		event.Payload = b
+	}
 }
 
 // GetEventTopics returns the configured event topics

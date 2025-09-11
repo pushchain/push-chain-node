@@ -67,9 +67,6 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		BlockNumber:      slot,
 		Method:           methodName,
 		EventID:          methodID,
-		Sender:           sender,
-		Receiver:         receiver,
-		Amount:           amount,
 		ConfirmationType: confirmationType,
 	}
 
@@ -98,7 +95,7 @@ func (ep *EventParser) isGatewayTransaction(tx *rpc.GetTransactionResult) bool {
 // extractMethodInfo extracts method ID, name and confirmation type from transaction logs
 func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, string, string) {
 	var methodID, methodName, confirmationType string
-	
+
 	for _, log := range tx.Meta.LogMessages {
 		// Check for add_funds method
 		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
@@ -197,7 +194,7 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 func (ep *EventParser) decodeTransaction(encodedTx interface{}) (*solana.Transaction, error) {
 	// Handle different encoding types
 	var txData []byte
-	
+
 	switch v := encodedTx.(type) {
 	case []interface{}:
 		if len(v) > 0 {
@@ -257,7 +254,7 @@ func (ep *EventParser) parseGatewayInstruction(
 
 	// Check discriminator (first 8 bytes)
 	discriminator := instruction.Data[:8]
-	
+
 	// Check for add_funds discriminator
 	addFundsDiscriminator := []byte{0x84, 0xed, 0x4c, 0x39, 0x50, 0x0a, 0xb3, 0x8a}
 	if !bytesEqual(discriminator, addFundsDiscriminator) {

@@ -19,18 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName                   = "/uvalidator.v1.Query/Params"
-	Query_UniversalValidatorByCore_FullMethodName = "/uvalidator.v1.Query/UniversalValidatorByCore"
-	Query_CoreValidatorByUniversal_FullMethodName = "/uvalidator.v1.Query/CoreValidatorByUniversal"
-	Query_AllUniversalValidators_FullMethodName   = "/uvalidator.v1.Query/AllUniversalValidators"
-	Query_Ballot_FullMethodName                   = "/uvalidator.v1.Query/Ballot"
-	Query_AllBallots_FullMethodName               = "/uvalidator.v1.Query/AllBallots"
-	Query_AllActiveBallotIDs_FullMethodName       = "/uvalidator.v1.Query/AllActiveBallotIDs"
-	Query_AllActiveBallots_FullMethodName         = "/uvalidator.v1.Query/AllActiveBallots"
-	Query_AllExpiredBallotIDs_FullMethodName      = "/uvalidator.v1.Query/AllExpiredBallotIDs"
-	Query_AllExpiredBallots_FullMethodName        = "/uvalidator.v1.Query/AllExpiredBallots"
-	Query_AllFinalizedBallotIDs_FullMethodName    = "/uvalidator.v1.Query/AllFinalizedBallotIDs"
-	Query_AllFinalizedBallots_FullMethodName      = "/uvalidator.v1.Query/AllFinalizedBallots"
+	Query_Params_FullMethodName                 = "/uvalidator.v1.Query/Params"
+	Query_AllUniversalValidators_FullMethodName = "/uvalidator.v1.Query/AllUniversalValidators"
+	Query_Ballot_FullMethodName                 = "/uvalidator.v1.Query/Ballot"
+	Query_AllBallots_FullMethodName             = "/uvalidator.v1.Query/AllBallots"
+	Query_AllActiveBallotIDs_FullMethodName     = "/uvalidator.v1.Query/AllActiveBallotIDs"
+	Query_AllActiveBallots_FullMethodName       = "/uvalidator.v1.Query/AllActiveBallots"
+	Query_AllExpiredBallotIDs_FullMethodName    = "/uvalidator.v1.Query/AllExpiredBallotIDs"
+	Query_AllExpiredBallots_FullMethodName      = "/uvalidator.v1.Query/AllExpiredBallots"
+	Query_AllFinalizedBallotIDs_FullMethodName  = "/uvalidator.v1.Query/AllFinalizedBallotIDs"
+	Query_AllFinalizedBallots_FullMethodName    = "/uvalidator.v1.Query/AllFinalizedBallots"
 )
 
 // QueryClient is the client API for Query service.
@@ -39,10 +37,6 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// UniversalValidatorByCore queries the universal validator associated with the given core validator address.
-	UniversalValidatorByCore(ctx context.Context, in *QueryUniversalValidatorByCoreRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorByCoreResponse, error)
-	// CoreValidatorByUniversal queries the core validator address associated with the given universal validator address.
-	CoreValidatorByUniversal(ctx context.Context, in *QueryCoreValidatorByUniversalRequest, opts ...grpc.CallOption) (*QueryCoreValidatorByUniversalResponse, error)
 	// AllUniversalValidators queries the details of a specific universal validator by its address.
 	AllUniversalValidators(ctx context.Context, in *QueryUniversalValidatorsSetRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorsSetResponse, error)
 	// Ballot queries one ballot by ID.
@@ -74,24 +68,6 @@ func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
 func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, Query_Params_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *queryClient) UniversalValidatorByCore(ctx context.Context, in *QueryUniversalValidatorByCoreRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorByCoreResponse, error) {
-	out := new(QueryUniversalValidatorByCoreResponse)
-	err := c.cc.Invoke(ctx, Query_UniversalValidatorByCore_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *queryClient) CoreValidatorByUniversal(ctx context.Context, in *QueryCoreValidatorByUniversalRequest, opts ...grpc.CallOption) (*QueryCoreValidatorByUniversalResponse, error) {
-	out := new(QueryCoreValidatorByUniversalResponse)
-	err := c.cc.Invoke(ctx, Query_CoreValidatorByUniversal_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +161,6 @@ func (c *queryClient) AllFinalizedBallots(ctx context.Context, in *QueryFinalize
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// UniversalValidatorByCore queries the universal validator associated with the given core validator address.
-	UniversalValidatorByCore(context.Context, *QueryUniversalValidatorByCoreRequest) (*QueryUniversalValidatorByCoreResponse, error)
-	// CoreValidatorByUniversal queries the core validator address associated with the given universal validator address.
-	CoreValidatorByUniversal(context.Context, *QueryCoreValidatorByUniversalRequest) (*QueryCoreValidatorByUniversalResponse, error)
 	// AllUniversalValidators queries the details of a specific universal validator by its address.
 	AllUniversalValidators(context.Context, *QueryUniversalValidatorsSetRequest) (*QueryUniversalValidatorsSetResponse, error)
 	// Ballot queries one ballot by ID.
@@ -216,12 +188,6 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
-}
-func (UnimplementedQueryServer) UniversalValidatorByCore(context.Context, *QueryUniversalValidatorByCoreRequest) (*QueryUniversalValidatorByCoreResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UniversalValidatorByCore not implemented")
-}
-func (UnimplementedQueryServer) CoreValidatorByUniversal(context.Context, *QueryCoreValidatorByUniversalRequest) (*QueryCoreValidatorByUniversalResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CoreValidatorByUniversal not implemented")
 }
 func (UnimplementedQueryServer) AllUniversalValidators(context.Context, *QueryUniversalValidatorsSetRequest) (*QueryUniversalValidatorsSetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllUniversalValidators not implemented")
@@ -277,42 +243,6 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Query_UniversalValidatorByCore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryUniversalValidatorByCoreRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).UniversalValidatorByCore(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_UniversalValidatorByCore_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).UniversalValidatorByCore(ctx, req.(*QueryUniversalValidatorByCoreRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Query_CoreValidatorByUniversal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryCoreValidatorByUniversalRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).CoreValidatorByUniversal(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_CoreValidatorByUniversal_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).CoreValidatorByUniversal(ctx, req.(*QueryCoreValidatorByUniversalRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -489,14 +419,6 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
-		},
-		{
-			MethodName: "UniversalValidatorByCore",
-			Handler:    _Query_UniversalValidatorByCore_Handler,
-		},
-		{
-			MethodName: "CoreValidatorByUniversal",
-			Handler:    _Query_CoreValidatorByUniversal_Handler,
 		},
 		{
 			MethodName: "AllUniversalValidators",

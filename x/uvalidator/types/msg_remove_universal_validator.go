@@ -12,11 +12,11 @@ var (
 // NewMsgRemoveUniversalValidator creates new instance of MsgRemoveUniversalValidator
 func NewMsgRemoveUniversalValidator(
 	sender sdk.Address,
-	universalValidatorAddress sdk.Address,
+	coreValidatorAddress sdk.Address,
 ) *MsgRemoveUniversalValidator {
 	return &MsgRemoveUniversalValidator{
-		Signer:                    sender.String(),
-		UniversalValidatorAddress: universalValidatorAddress.String(),
+		Signer:               sender.String(),
+		CoreValidatorAddress: coreValidatorAddress.String(),
 	}
 }
 
@@ -44,7 +44,7 @@ func (msg *MsgRemoveUniversalValidator) ValidateBasic() error {
 	}
 
 	// Validate universal validator address (must be a normal account address)
-	if _, err := sdk.AccAddressFromBech32(msg.UniversalValidatorAddress); err != nil {
+	if _, err := sdk.AccAddressFromBech32(msg.CoreValidatorAddress); err != nil {
 		return errors.Wrap(err, "invalid universal validator address")
 	}
 

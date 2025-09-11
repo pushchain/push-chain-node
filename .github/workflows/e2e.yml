@@ -35,6 +35,14 @@ jobs:
           solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
             --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
             --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE &
+      - name: Update solana_localchain_chain_config.json with host IP
+        run: |
+          HOST_IP=$(ip route | awk '/default/ { print $3 }')
+          echo "Host IP detected: $HOST_IP"
+          jq --arg rpc_url "http://$HOST_IP:8899" '.public_rpc_url = $rpc_url' e2e/solana_localchain_chain_config.json > e2e/solana_localchain_chain_config_updated.json
+          mv e2e/solana_localchain_chain_config_updated.json e2e/solana_localchain_chain_config.json
+          cat e2e/solana_localchain_chain_config.json
+
       - name: Install Anchor CLI
         run: cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
       - name: Add Anchor to PATH

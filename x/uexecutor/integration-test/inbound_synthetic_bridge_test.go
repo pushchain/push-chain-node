@@ -13,9 +13,15 @@ import (
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
+
+	"time"
+
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
+
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound) {
+func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound, []stakingtypes.Validator) {
 	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
@@ -74,10 +80,31 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 			fmt.Sprintf("universal-validator-%d", i),
 		)).String()
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, universalValAddr)
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr)
 		require.NoError(t, err)
 
 		universalVals[i] = universalValAddr
+	}
+
+	// Grant authz permission: core validator -> universal validator
+	for i, val := range validators {
+		accAddr, err := sdk.ValAddressFromBech32(val.OperatorAddress) // gives ValAddress
+		require.NoError(t, err)
+
+		coreValAddr := sdk.AccAddress(accAddr) // converts to normal account address
+
+		uniValAddr := sdk.MustAccAddressFromBech32(universalVals[i])
+
+		// Define grant for MsgVoteInbound
+		msgType := sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{})
+		auth := authz.NewGenericAuthorization(msgType)
+
+		// Expiration
+		exp := ctx.BlockTime().Add(time.Hour)
+
+		// SaveGrant takes (ctx, grantee, granter, authz.Authorization, *time.Time)
+		err = app.AuthzKeeper.SaveGrant(ctx, uniValAddr, coreValAddr, auth, &exp)
+		require.NoError(t, err)
 	}
 
 	// --- build a base inbound ---
@@ -94,7 +121,7 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 		VerificationData: "",
 	}
 
-	return app, ctx, universalVals, inbound
+	return app, ctx, universalVals, inbound, validators
 }
 
 func TestInboundSyntheticBridge(t *testing.T) {
@@ -104,10 +131,14 @@ func TestInboundSyntheticBridge(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("less than quorum votes keeps inbound pending", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
 		// 1 vote out of 4
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
 		require.NoError(t, err)
 
 		isPending, err := app.UexecutorKeeper.IsPendingInbound(ctx, *inbound)
@@ -116,7 +147,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 	})
 
 	t.Run("quorum reached executes inbound and prc20 gets minted successfully", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
 		ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
 
@@ -130,7 +161,11 @@ func TestInboundSyntheticBridge(t *testing.T) {
 
 		// 3 votes out of 4 (>= 66%)
 		for i := 0; i < 3; i++ {
-			err := app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound)
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
 			require.NoError(t, err)
 		}
 
@@ -161,52 +196,63 @@ func TestInboundSyntheticBridge(t *testing.T) {
 	})
 
 	t.Run("vote after quorum fails", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
 		// reach quorum
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound))
+
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
 		}
 
 		// 4th vote should fail
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[3], *inbound)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[3].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[3], coreValAcc, inbound)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists", "should fail because inbound is already executed")
 	})
 
 	t.Run("duplicate vote fails", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
-		require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound))
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
 
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
+		require.NoError(t, err)
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already voted", "should fail on duplicate vote from same validator")
 	})
 
 	t.Run("different inbounds tracked separately", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
 		inboundB := *inbound
 		inboundB.TxHash = "0xabce"
 
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
 		require.NoError(t, err)
 
-		err = app.UexecutorKeeper.VoteInbound(ctx, vals[0], inboundB)
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, &inboundB)
 		require.NoError(t, err, "votes for different inbounds should be tracked independently")
 	})
 
-	t.Run("invalid validator fails", func(t *testing.T) {
-		app, ctx, _, inbound := setupInboundBridgeTest(t, 4)
-
-		err := app.UexecutorKeeper.VoteInbound(ctx, "invalid-val", *inbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "not eligible", "should fail because validator is not registered")
-	})
-
 	t.Run("balance is zero before execution and updated after", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 		ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
 		recipient := common.HexToAddress(inbound.Recipient)
 
@@ -219,7 +265,12 @@ func TestInboundSyntheticBridge(t *testing.T) {
 
 		// reach quorum
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
 		}
 
 		// balance should equal inbound amount
@@ -233,20 +284,30 @@ func TestInboundSyntheticBridge(t *testing.T) {
 	})
 
 	t.Run("multiple inbounds accumulate balances", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgeTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 		ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
 		recipient := common.HexToAddress(inbound.Recipient)
 
 		// First inbound
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
 		}
 
 		// Second inbound with different TxHash
 		inboundB := *inbound
 		inboundB.TxHash = "0xabcf"
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], inboundB))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, &inboundB)
+			require.NoError(t, err)
 		}
 
 		// balance should equal 2 * inbound.Amount

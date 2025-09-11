@@ -25,31 +25,24 @@ func (k Keeper) AddVoteToBallot(
 }
 
 func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
+	accAddr, err := sdk.AccAddressFromBech32(universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	valAddr := sdk.ValAddress(accAddr)
+
 	// Check if the universal validator is in the registered set
-	exists, err := k.HasUniversalValidatorInSet(ctx, universalValidator)
+	exists, err := k.HasUniversalValidatorInSet(ctx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("failed to check universal validator set: %w", err)
 	}
 	if !exists {
-		return false, nil // not in set → not bonded
+		return false, fmt.Errorf("validator %s not present in the registered universal validators set", valAddr.String())
 	}
 
-	// Get the corresponding core validator
-	coreValidatorAddr, found, err := k.GetUniversalToCore(ctx, universalValidator)
-	if err != nil {
-		return false, fmt.Errorf("failed to get core validator for universal validator %s: %w", universalValidator, err)
-	}
-	if !found {
-		return false, fmt.Errorf("universal validator %s has no mapped core validator", universalValidator)
-	}
-
-	coreValAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
-	if err != nil {
-		return false, fmt.Errorf("invalid core validator address: %w", err)
-	}
-
-	// Ensure the core validator exists in the staking module
-	validator, err := k.stakingKeeper.GetValidator(ctx, coreValAddr)
+	// Ensure the universal validator exists in the staking module
+	validator, err := k.stakingKeeper.GetValidator(ctx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("core validator not found: %w", err)
 	}
@@ -65,32 +58,24 @@ func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidat
 func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	accAddr, err := sdk.AccAddressFromBech32(universalValidator)
+	if err != nil {
+		return false, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	valAddr := sdk.ValAddress(accAddr)
+
 	// Check if the universal validator exists in the set
-	exists, err := k.HasUniversalValidatorInSet(ctx, universalValidator)
+	exists, err := k.HasUniversalValidatorInSet(ctx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("failed to check universal validator set: %w", err)
 	}
 	if !exists {
-		return false, nil // Not in set → cannot be tombstoned
-	}
-
-	// Get the corresponding core validator
-	coreValidatorAddr, found, err := k.GetUniversalToCore(ctx, universalValidator)
-	if err != nil {
-		return false, fmt.Errorf("failed to get core validator for universal validator %s: %w", universalValidator, err)
-	}
-	if !found {
-		return false, fmt.Errorf("universal validator %s has no mapped core validator", universalValidator)
-	}
-
-	// Convert core validator (operator) address to SDK validator address
-	coreValAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
-	if err != nil {
-		return false, fmt.Errorf("failed to get operator address from core validator: %w", err)
+		return false, fmt.Errorf("validator %s not present in the registered universal validators set", valAddr.String())
 	}
 
 	// Query the validator
-	validator, err := k.stakingKeeper.GetValidator(sdkCtx, coreValAddr)
+	validator, err := k.stakingKeeper.GetValidator(sdkCtx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("core validator not found: %w", err)
 	}

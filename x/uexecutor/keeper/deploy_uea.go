@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,7 +9,7 @@ import (
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId) (string, error) {
+func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId) (common.Address, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// EVM Call arguments
@@ -24,12 +23,10 @@ func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, univers
 		universalAccountId,
 	)
 	if err != nil {
-		return "", err
+		return common.Address{}, err
 	}
 
-	fmt.Println("DeployUEA receipt:", receipt)
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	fmt.Println("Returned Bytes Hex:", returnedBytesHex)
+	addr := common.BytesToAddress(receipt.Ret)
 
-	return returnedBytesHex, nil
+	return addr, nil
 }

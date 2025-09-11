@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -85,28 +86,33 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 
 // VoteInbound implements types.MsgServer.
 func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) (*types.MsgVoteInboundResponse, error) {
-	// Get the signer address
-	signerAddr := msg.Signer
+	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	// Convert account to validator operator address
+	signerValAddr := sdk.ValAddress(signerAccAddr)
 
 	// Lookup the linked universal validator for this signer
-	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, signerAddr)
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", signerAddr)
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
 	}
 	if !isBonded {
-		return nil, fmt.Errorf("universal validator for signer %s is not bonded", signerAddr)
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
 	}
 
-	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, signerAddr)
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", signerAddr)
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
 	}
 	if isTombstoned {
-		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", signerAddr)
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
 	// continue with inbound synthetic creation / voting logic here
-	err = ms.k.VoteInbound(ctx, signerAddr, *msg.Inbound)
+	err = ms.k.VoteInbound(ctx, signerValAddr, *msg.Inbound)
 	if err != nil {
 		return nil, err
 	}

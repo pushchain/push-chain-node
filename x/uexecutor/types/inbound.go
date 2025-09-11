@@ -41,14 +41,6 @@ func (p Inbound) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "sender cannot be empty")
 	}
 
-	// Validate recipient
-	if strings.TrimSpace(p.Recipient) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty")
-	}
-	if !utils.IsValidAddress(p.Recipient, utils.HEX) {
-		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient address: %s", p.Recipient)
-	}
-
 	// Validate amount as uint256
 	if strings.TrimSpace(p.Amount) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty")
@@ -78,6 +70,9 @@ func (p Inbound) ValidateBasic() error {
 		if p.UniversalPayload == nil {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload is required for payload tx types")
 		}
+		if strings.TrimSpace(p.Recipient) != "" {
+			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient must be empty for a payload tx type")
+		}
 		if err := p.UniversalPayload.ValidateBasic(); err != nil {
 			return errors.Wrap(err, "invalid payload")
 		}
@@ -85,6 +80,12 @@ func (p Inbound) ValidateBasic() error {
 		// If payload is provided for non-payload types, reject
 		if p.UniversalPayload != nil {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload must be empty for non-payload tx types")
+		}
+		if strings.TrimSpace(p.Recipient) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty")
+		}
+		if !utils.IsValidAddress(p.Recipient, utils.HEX) {
+			return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient address: %s", p.Recipient)
 		}
 	}
 

@@ -26,16 +26,16 @@ func TestMsgRemoveUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "valid message",
 			msg: types.MsgRemoveUniversalValidator{
-				Signer:                    validAdmin,
-				UniversalValidatorAddress: validUniversalVal,
+				Signer:               validAdmin,
+				CoreValidatorAddress: validUniversalVal,
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid signer address",
 			msg: types.MsgRemoveUniversalValidator{
-				Signer:                    "bad_signer",
-				UniversalValidatorAddress: validUniversalVal,
+				Signer:               "bad_signer",
+				CoreValidatorAddress: validUniversalVal,
 			},
 			wantErr: true,
 			errMsg:  "invalid signer address",
@@ -43,8 +43,8 @@ func TestMsgRemoveUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid universal validator address",
 			msg: types.MsgRemoveUniversalValidator{
-				Signer:                    validAdmin,
-				UniversalValidatorAddress: "not_a_valid_addr",
+				Signer:               validAdmin,
+				CoreValidatorAddress: "not_a_valid_addr",
 			},
 			wantErr: true,
 			errMsg:  "invalid universal validator address",

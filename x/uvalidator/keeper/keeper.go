@@ -2,8 +2,6 @@ package keeper
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -16,7 +14,6 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
-	// sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 type Keeper struct {
@@ -26,8 +23,7 @@ type Keeper struct {
 
 	// state management
 	Params                collections.Item[types.Params]
-	CoreToUniversal       collections.Map[string, string] // Mapping: Core Validator Address → Universal Validator Address
-	UniversalValidatorSet collections.KeySet[string]      // Set of all registered Universal Validator addresses
+	UniversalValidatorSet collections.KeySet[sdk.ValAddress] // Set of all registered Universal Validator addresses
 
 	// Ballots management
 	Ballots            collections.Map[string, types.Ballot] // stores the actual ballot object, keyed by ballot ID
@@ -63,19 +59,12 @@ func NewKeeper(
 		logger: logger,
 
 		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
-		CoreToUniversal: collections.NewMap(
-			sb,
-			types.CoreToUniversalKey,
-			types.CoreToUniversalName,
-			collections.StringKey,
-			collections.StringValue,
-		),
 
 		UniversalValidatorSet: collections.NewKeySet(
 			sb,
 			types.CoreValidatorSetKey,
 			types.CoreValidatorSetName,
-			collections.StringKey,
+			sdk.ValAddressKey,
 		),
 
 		// Ballot collections
@@ -130,58 +119,15 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k Keeper) SetCoreToUniversal(ctx context.Context, coreAddr, uvAddr string) error {
-	return k.CoreToUniversal.Set(ctx, coreAddr, uvAddr)
-}
-
-func (k Keeper) HasCoreToUniversal(ctx context.Context, coreAddr string) (bool, error) {
-	return k.CoreToUniversal.Has(ctx, coreAddr)
-}
-
-func (k Keeper) GetCoreToUniversal(ctx context.Context, coreAddr string) (string, bool, error) {
-	value, err := k.CoreToUniversal.Get(ctx, coreAddr)
-	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return "", false, nil
-		}
-		return "", false, err
-	}
-	return value, true, nil
-}
-
-func (k Keeper) RemoveCoreToUniversalMappingByUniversalAddr(ctx context.Context, universalValidatorAddr string) error {
-	var found bool
-
-	err := k.CoreToUniversal.Walk(ctx, nil, func(coreAddr, mappedUniversal string) (bool, error) {
-		if mappedUniversal == universalValidatorAddr {
-			if err := k.CoreToUniversal.Remove(ctx, coreAddr); err != nil {
-				return false, fmt.Errorf("failed to remove mapping for core addr %s: %w", coreAddr, err)
-			}
-			found = true
-			return true, nil // Stop walking
-		}
-		return false, nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("error while walking CoreToUniversal map: %w", err)
-	}
-	if !found {
-		return fmt.Errorf("no core validator maps to universal validator %s", universalValidatorAddr)
-	}
-
-	return nil
-}
-
-func (k Keeper) AddUniversalValidatorToSet(ctx context.Context, uvAddr string) error {
+func (k Keeper) AddUniversalValidatorToSet(ctx context.Context, uvAddr sdk.ValAddress) error {
 	return k.UniversalValidatorSet.Set(ctx, uvAddr)
 }
 
-func (k Keeper) HasUniversalValidatorInSet(ctx context.Context, uvAddr string) (bool, error) {
+func (k Keeper) HasUniversalValidatorInSet(ctx context.Context, uvAddr sdk.ValAddress) (bool, error) {
 	return k.UniversalValidatorSet.Has(ctx, uvAddr)
 }
 
-func (k Keeper) RemoveUniversalValidatorFromSet(ctx context.Context, addr string) error {
+func (k Keeper) RemoveUniversalValidatorFromSet(ctx context.Context, addr sdk.ValAddress) error {
 	return k.UniversalValidatorSet.Remove(ctx, addr)
 }
 
@@ -190,35 +136,11 @@ func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	return sdkCtx.BlockHeight(), nil
 }
 
-// GetUniversalToCore finds the core validator address corresponding to a universal validator.
-// Returns (coreAddr, true, nil) if found, ("", false, nil) if not found, or error if something goes wrong.
-func (k Keeper) GetUniversalToCore(ctx context.Context, uvAddr string) (string, bool, error) {
-	var coreAddr string
-	var found bool
-
-	err := k.CoreToUniversal.Walk(ctx, nil, func(cAddr, mappedUV string) (bool, error) {
-		if mappedUV == uvAddr {
-			coreAddr = cAddr
-			found = true
-			return true, nil // stop walking early
-		}
-		return false, nil
-	})
-	if err != nil {
-		return "", false, fmt.Errorf("error walking CoreToUniversal map: %w", err)
-	}
-
-	if !found {
-		return "", false, nil
-	}
-	return coreAddr, true, nil
-}
-
 // Returns the universal validator set
-func (k Keeper) GetUniversalValidatorSet(ctx context.Context) ([]string, error) {
-	var validators []string
+func (k Keeper) GetUniversalValidatorSet(ctx context.Context) ([]sdk.ValAddress, error) {
+	var validators []sdk.ValAddress
 
-	err := k.UniversalValidatorSet.Walk(ctx, nil, func(key string) (stop bool, err error) {
+	err := k.UniversalValidatorSet.Walk(ctx, nil, func(key sdk.ValAddress) (stop bool, err error) {
 		validators = append(validators, key)
 		return false, nil
 	})

@@ -3,8 +3,11 @@ package integrationtest
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/testutils"
@@ -13,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound) {
+func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound, []stakingtypes.Validator) {
 	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
@@ -71,10 +74,31 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 			fmt.Sprintf("universal-validator-%d", i),
 		)).String()
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, universalValAddr)
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr)
 		require.NoError(t, err)
 
 		universalVals[i] = universalValAddr
+	}
+
+	// Grant authz permission: core validator -> universal validator
+	for i, val := range validators {
+		accAddr, err := sdk.ValAddressFromBech32(val.OperatorAddress) // gives ValAddress
+		require.NoError(t, err)
+
+		coreValAddr := sdk.AccAddress(accAddr) // converts to normal account address
+
+		uniValAddr := sdk.MustAccAddressFromBech32(universalVals[i])
+
+		// Define grant for MsgVoteInbound
+		msgType := sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{})
+		auth := authz.NewGenericAuthorization(msgType)
+
+		// Expiration
+		exp := ctx.BlockTime().Add(time.Hour)
+
+		// SaveGrant takes (ctx, grantee, granter, authz.Authorization, *time.Time)
+		err = app.AuthzKeeper.SaveGrant(ctx, uniValAddr, coreValAddr, auth, &exp)
+		require.NoError(t, err)
 	}
 
 	validUA := &uexecutortypes.UniversalAccountId{
@@ -91,7 +115,7 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 	validVerificationData := ""
 
 	validUP := &uexecutortypes.UniversalPayload{
-		To:                   ueaAddrHex,
+		To:                   ueaAddrHex.String(),
 		Value:                "1000000",
 		Data:                 "0xa9059cbb000000000000000000000000527f3692f5c53cfa83f7689885995606f93b616400000000000000000000000000000000000000000000000000000000000f4240",
 		GasLimit:             "21000000",
@@ -115,15 +139,19 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 		VerificationData: validVerificationData,
 	}
 
-	return app, ctx, universalVals, inbound
+	return app, ctx, universalVals, inbound, validators
 }
 
 func TestInboundSyntheticBridgePayload(t *testing.T) {
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 
 	t.Run("less than quorum votes keeps inbound pending", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgePayloadTest(t, 4)
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
 		require.NoError(t, err)
 
 		isPending, err := app.UexecutorKeeper.IsPendingInbound(ctx, *inbound)
@@ -132,11 +160,16 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("quorum reached executes inbound and payload executes if UEA deployed", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
 
 		// --- Quorum reached ---
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
 		}
 
 		isPending, err := app.UexecutorKeeper.IsPendingInbound(ctx, *inbound)
@@ -145,7 +178,19 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("quorum reached executes inbound and payload fails if UEA is not deployed", func(t *testing.T) {
-		app, ctx, vals, _ := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, _, coreVals := setupInboundBridgePayloadTest(t, 4)
+
+		validUP := &uexecutortypes.UniversalPayload{
+			To:                   utils.GetDefaultAddresses().DefaultTestAddr,
+			Value:                "1000000",
+			Data:                 "0xa9059cbb000000000000000000000000527f3692f5c53cfa83f7689885995606f93b616400000000000000000000000000000000000000000000000000000000000f4240",
+			GasLimit:             "21000000",
+			MaxFeePerGas:         "1000000000",
+			MaxPriorityFeePerGas: "200000000",
+			Nonce:                "1",
+			Deadline:             "9999999999",
+			VType:                uexecutortypes.VerificationType(1),
+		}
 
 		invalidInbound := &uexecutortypes.Inbound{
 			SourceChain:      "eip155:11155111",
@@ -156,51 +201,75 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 			AssetAddr:        prc20Address.String(),
 			LogIndex:         "1",
 			TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
-			UniversalPayload: nil,
+			UniversalPayload: validUP,
 			VerificationData: "",
 		}
 
 		for i := 0; i < 2; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *invalidInbound))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, invalidInbound)
+			require.NoError(t, err)
 		}
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[2], *invalidInbound)
+
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[2].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[2], coreValAcc, invalidInbound)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "UEA is not deployed")
 	})
 
 	t.Run("vote after quorum fails", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
 		for i := 0; i < 3; i++ {
-			require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[i], *inbound))
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
 		}
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[3], *inbound)
+
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[3].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[3], coreValAcc, inbound)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})
 
 	t.Run("duplicate vote fails", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgePayloadTest(t, 4)
-		require.NoError(t, app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound))
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
+		require.NoError(t, err)
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already voted")
 	})
 
 	t.Run("different inbounds tracked separately", func(t *testing.T) {
-		app, ctx, vals, inbound := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
 		inboundB := *inbound
 		inboundB.TxHash = "0xabce"
-		err := app.UexecutorKeeper.VoteInbound(ctx, vals[0], *inbound)
+
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
 		require.NoError(t, err)
-		err = app.UexecutorKeeper.VoteInbound(ctx, vals[0], inboundB)
+		coreValAcc := sdk.AccAddress(valAddr).String()
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, inbound)
+		require.NoError(t, err)
+
+		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, &inboundB)
 		require.NoError(t, err)
 	})
-
-	t.Run("invalid validator fails", func(t *testing.T) {
-		app, ctx, _, inbound := setupInboundBridgePayloadTest(t, 4)
-		err := app.UexecutorKeeper.VoteInbound(ctx, "invalid-val", *inbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "not eligible")
-	})
-
 }

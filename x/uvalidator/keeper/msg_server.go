@@ -48,32 +48,12 @@ func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAdd
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress, msg.UniversalValidatorAddress)
+	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	return &types.MsgAddUniversalValidatorResponse{}, nil
-}
-
-// UpdateUniversalValidator implements types.MsgServer.
-func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.MsgUpdateUniversalValidator) (*types.MsgUpdateUniversalValidatorResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
-	}
-
-	if params.Admin != msg.Signer {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
-	}
-
-	err = ms.k.UpdateUniversalValidator(ctx, msg.CoreValidatorAddress, msg.UniversalValidatorAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MsgUpdateUniversalValidatorResponse{}, nil
 }
 
 // RemoveUniversalValidator implements types.MsgServer.
@@ -88,7 +68,7 @@ func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.Msg
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.RemoveUniversalValidator(ctx, msg.UniversalValidatorAddress)
+	err = ms.k.RemoveUniversalValidator(ctx, msg.CoreValidatorAddress)
 	if err != nil {
 		return nil, err
 	}

@@ -476,7 +476,7 @@ e2e-run-test:
 	@echo "Cloning e2e repository..."
 	@rm -rf $(CONTRACTS_DIR)/push-chain-sdk
 	cd $(CONTRACTS_DIR) && git clone $(SDK_REPO)
-	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout e2e-test && yarn install
+	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout push-node-e2e && yarn install
 	cp $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/target/idl/pushsolanalocker.json $(CONTRACTS_DIR)/push-chain-sdk/packages/core/src/lib/constants/abi/feeLocker.json
 	cp $(E2E_DIR)/.env $(CONTRACTS_DIR)/push-chain-sdk/packages/core/.env
 	cd $(CONTRACTS_DIR)/push-chain-sdk && npx jest core/__e2e__/pushchain.spec.ts --runInBand --detectOpenHandles

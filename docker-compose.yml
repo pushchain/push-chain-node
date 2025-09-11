@@ -20,6 +20,8 @@ services:
       - BLOCK_TIME=1000ms
       - CLEAN=true
     command: bash scripts/test_node.sh   
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "26657:26657"   # Tendermint RPC
       - "1317:1317"     # Cosmos REST API

@@ -74,10 +74,10 @@ message InboundStatus {
 
 enum InboundTxType {
   UNSPECIFIED_TX = 0;
-  GAS_FUND_TX = 1; // fee abstraction
-  FUNDS_BRIDGE_TX = 2; // synthetic
-  FUNDS_AND_PAYLOAD_TX = 3; // synthetic + payload exec
-  FUNDS_AND_PAYLOAD_INSTANT_TX = 4; // fee abstraction + payload exec
+  GAS = 1; // fee abstraction
+  FUNDS = 2; // synthetic
+  FUNDS_AND_PAYLOAD = 3; // synthetic + payload exec
+  GAS_AND_PAYLOAD = 4; // fee abstraction + payload exec
 }
 
 message Inbound {

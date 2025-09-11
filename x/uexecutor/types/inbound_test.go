@@ -16,7 +16,7 @@ func TestInbound_ValidateBasic(t *testing.T) {
 		Amount:      "1000",
 		AssetAddr:   "0x000000000000000000000000000000000000cafe",
 		LogIndex:    "1",
-		TxType:      types.InboundTxType_FUNDS_BRIDGE_TX,
+		TxType:      types.InboundTxType_FUNDS,
 	}
 
 	tests := []struct {

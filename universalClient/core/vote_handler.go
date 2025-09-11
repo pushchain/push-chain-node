@@ -137,7 +137,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	var eventData map[string]interface{}
 
 	// Check if Data field has content
-	if tx.Data != nil && len(tx.Data) > 0 {
+	if tx.Data != nil {
 		// Try to parse the transaction data
 		if err := json.Unmarshal(tx.Data, &eventData); err != nil {
 			vh.log.Warn().

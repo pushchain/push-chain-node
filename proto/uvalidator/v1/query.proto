@@ -17,16 +17,6 @@ service Query {
     option (google.api.http).get = "/uvalidator/v1/params";
   }
 
-  // UniversalValidatorByCore queries the universal validator associated with the given core validator address.
-  rpc UniversalValidatorByCore(QueryUniversalValidatorByCoreRequest) returns (QueryUniversalValidatorByCoreResponse) {
-    option (google.api.http).get = "/uvalidator/v1/core_validators/{core_validator_address}/universal_validator";
-  }
-
-  // CoreValidatorByUniversal queries the core validator address associated with the given universal validator address.
-  rpc CoreValidatorByUniversal(QueryCoreValidatorByUniversalRequest) returns (QueryCoreValidatorByUniversalResponse) {
-    option (google.api.http).get = "/uvalidator/v1/universal_validators/{universal_validator_address}/core_validator";
-  }
-
   // AllUniversalValidators queries the details of a specific universal validator by its address.
   rpc AllUniversalValidators(QueryUniversalValidatorsSetRequest) returns (QueryUniversalValidatorsSetResponse) {
     option (google.api.http).get = "/uvalidator/v1/universal_validators";
@@ -81,31 +71,6 @@ message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
 }
-
-// QueryUniversalValidatorByCoreRequest is the request type for the Query/UniversalValidatorByCore RPC method.
-message QueryUniversalValidatorByCoreRequest {
-  // core_validator_address specifies the address of the core validator to query.
-  string core_validator_address = 1;
-}
-
-// QueryUniversalValidatorByCoreResponse is the response type for the Query/UniversalValidatorByCore RPC method.
-message QueryUniversalValidatorByCoreResponse {
-  // universal_validator defines the universal validator associated with the specified core validator.
-  string universal_validator = 1;
-}
-
-// QueryCoreValidatorByUniversalRequest is the request type for the Query/CoreValidatorByUniversal RPC method.
-message QueryCoreValidatorByUniversalRequest {
-  // universal_validator_address specifies the address of the universal validator to query.
-  string universal_validator_address = 1;
-}
-
-// QueryCoreValidatorByUniversalResponse is the response type for the Query/CoreValidatorByUniversal RPC method.
-message QueryCoreValidatorByUniversalResponse {
-  // core_validator_address defines the core validator associated with the specified universal validator.
-  string core_validator_address = 1;
-}
-
 // QueryUniversalValidatorsSetRequest is the request type for Query/UniversalValidatorAddresses.
 message QueryUniversalValidatorsSetRequest {}
 

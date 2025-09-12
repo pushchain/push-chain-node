@@ -394,7 +394,7 @@ CHAIN_ID=localchain_9000-1
 CONTRACTS_DIR := contracts-tmp
 INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
 CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
-SDK_REPO := https://github.com/pushchain/push-chain-sdk.git
+SDK_REPO := https://github.com/AryaLanjewar3005/push-chain-sdk.git
 E2E_DIR := e2e
 
 e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana-interop-deployment e2e-solana-chain-config e2e-run-test

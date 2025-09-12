@@ -134,7 +134,7 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 		Amount:           "1000000",
 		AssetAddr:        prc20Address.String(),
 		LogIndex:         "1",
-		TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
+		TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD,
 		UniversalPayload: validUP,
 		VerificationData: validVerificationData,
 	}
@@ -200,7 +200,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 			Amount:           "1000000",
 			AssetAddr:        prc20Address.String(),
 			LogIndex:         "1",
-			TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD_TX,
+			TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD,
 			UniversalPayload: validUP,
 			VerificationData: "",
 		}

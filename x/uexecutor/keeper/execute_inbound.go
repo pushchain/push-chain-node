@@ -9,16 +9,16 @@ import (
 
 func (k Keeper) ExecuteInbound(ctx context.Context, utx types.UniversalTx) error {
 	switch utx.InboundTx.TxType {
-	case types.InboundTxType_GAS_FUND_TX: // fee abstraction
+	case types.InboundTxType_GAS: // fee abstraction
 		return k.ExecuteInboundGasFund(ctx, *utx.InboundTx)
 
-	case types.InboundTxType_FUNDS_BRIDGE_TX: // synthetic
+	case types.InboundTxType_FUNDS: // synthetic
 		return k.ExecuteInboundBridge(ctx, utx)
 
-	case types.InboundTxType_FUNDS_AND_PAYLOAD_TX: // synthetic + payload
+	case types.InboundTxType_FUNDS_AND_PAYLOAD: // synthetic + payload
 		return k.ExecuteInboundFundsAndPayload(ctx, utx)
 
-	case types.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX: // fee abstraction + payload
+	case types.InboundTxType_GAS_AND_PAYLOAD: // fee abstraction + payload
 		return k.ExecuteInboundFundsAndPayloadInstant(ctx, utx)
 
 	default:

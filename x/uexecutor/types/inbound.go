@@ -66,7 +66,7 @@ func (p Inbound) ValidateBasic() error {
 
 	// Validate payload only if tx_type requires it
 	switch p.TxType {
-	case InboundTxType_FUNDS_AND_PAYLOAD_TX, InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX:
+	case InboundTxType_FUNDS_AND_PAYLOAD, InboundTxType_GAS_AND_PAYLOAD:
 		if p.UniversalPayload == nil {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload is required for payload tx types")
 		}

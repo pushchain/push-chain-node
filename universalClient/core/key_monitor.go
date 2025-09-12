@@ -36,13 +36,13 @@ type KeyMonitor struct {
 	config        *config.Config
 	grpcURL       string
 	checkInterval time.Duration
-	
+
 	// Callbacks for when keys change
 	onValidKeyFound func(keys.UniversalValidatorKeys)
 	onNoValidKey    func()
-	
+
 	// State
-	mu           sync.RWMutex
+	mu              sync.RWMutex
 	currentTxSigner TxSignerInterface
 	lastValidKey    string
 	lastGranter     string // Track last granter to detect changes
@@ -81,10 +81,10 @@ func (km *KeyMonitor) Start() error {
 	km.log.Info().
 		Dur("check_interval", km.checkInterval).
 		Msg("Starting key monitor")
-	
+
 	// Start monitoring loop first (it will do initial check)
 	go km.monitorLoop()
-	
+
 	return nil
 }
 
@@ -103,10 +103,10 @@ func (km *KeyMonitor) monitorLoop() {
 			Err(err).
 			Msg("Initial key check failed")
 	}
-	
+
 	ticker := time.NewTicker(km.checkInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-km.ctx.Done():
@@ -127,39 +127,39 @@ func (km *KeyMonitor) monitorLoop() {
 // checkKeys checks for valid keys with MsgVoteInbound permission
 func (km *KeyMonitor) checkKeys() error {
 	km.log.Debug().Msg("Checking keyring for valid keys with MsgVoteInbound permission")
-	
+
 	// Setup keyring
 	keyringPath := constant.DefaultNodeHome
 	km.log.Debug().
 		Str("keyring_path", keyringPath).
 		Str("keyring_backend", string(km.config.KeyringBackend)).
 		Msg("Creating keyring")
-		
+
 	kr, err := keys.CreateKeyringFromConfig(keyringPath, nil, km.config.KeyringBackend)
 	if err != nil {
 		return fmt.Errorf("failed to create keyring: %w", err)
 	}
-	
+
 	// List all keys
 	keyInfos, err := kr.List()
 	if err != nil {
 		return fmt.Errorf("failed to list keys: %w", err)
 	}
-	
+
 	if len(keyInfos) == 0 {
 		km.log.Warn().Msg("No keys found in keyring")
 		km.handleNoValidKey()
 		return nil
 	}
-	
+
 	km.log.Debug().
 		Int("key_count", len(keyInfos)).
 		Msg("Found keys in keyring")
-	
+
 	// Create gRPC connection for AuthZ queries
 	// Ensure proper port handling
 	grpcEndpoint := km.grpcURL
-	
+
 	// Check if the URL already contains a port
 	// If it ends with a port number, use as-is; otherwise add :9090
 	if !strings.Contains(grpcEndpoint, ":") {
@@ -169,7 +169,7 @@ func (km *KeyMonitor) checkKeys() error {
 		// Has at least one colon - check if it's a port or part of hostname
 		lastColon := strings.LastIndex(grpcEndpoint, ":")
 		afterColon := grpcEndpoint[lastColon+1:]
-		
+
 		// Check if what's after the last colon is a number (port)
 		if _, err := fmt.Sscanf(afterColon, "%d", new(int)); err != nil {
 			// Not a number, so no port specified yet
@@ -177,19 +177,19 @@ func (km *KeyMonitor) checkKeys() error {
 		}
 		// Otherwise it already has a port, use as-is
 	}
-	
+
 	km.log.Debug().
 		Str("grpc_endpoint", grpcEndpoint).
 		Msg("Connecting to gRPC endpoint for AuthZ queries")
-	
+
 	conn, err := grpc.NewClient(grpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
 	defer conn.Close()
-	
+
 	authzClient := authz.NewQueryClient(conn)
-	
+
 	// Check each key for MsgVoteInbound permission
 	for _, keyInfo := range keyInfos {
 		keyAddr, err := keyInfo.GetAddress()
@@ -200,23 +200,23 @@ func (km *KeyMonitor) checkKeys() error {
 				Msg("Failed to get key address")
 			continue
 		}
-		
+
 		km.log.Debug().
 			Str("key_name", keyInfo.Name).
 			Str("key_address", keyAddr.String()).
 			Msg("Checking key for MsgVoteInbound permission")
-		
+
 		// Check if this key has MsgVoteInbound permission
 		// The key needs to be a grantee with permission from some granter
 		hasPermission, granter := km.checkMsgVoteInboundPermission(authzClient, keyAddr.String())
-		
+
 		if hasPermission {
 			// Check if this is a state change
 			km.mu.Lock()
 			isNewKey := km.lastValidKey != keyInfo.Name
 			isNewGranter := km.lastGranter != granter
 			stateChanged := isNewKey || isNewGranter
-			
+
 			if stateChanged {
 				// Log at Info level for state changes
 				km.log.Info().
@@ -226,15 +226,15 @@ func (km *KeyMonitor) checkKeys() error {
 					Str("previous_key", km.lastValidKey).
 					Str("previous_granter", km.lastGranter).
 					Msg("✅ Key state changed - found key with MsgVoteInbound permission")
-				
+
 				// Set the state BEFORE calling setupVoteHandler so the callback has access to granter
 				km.lastValidKey = keyInfo.Name
 				km.lastGranter = granter
-				
+
 				// Release the mutex before calling setupVoteHandler to avoid deadlock
 				// since the callback will call GetCurrentGranter() which needs to acquire a read lock
 				km.mu.Unlock()
-				
+
 				if err := km.setupVoteHandler(kr, keyInfo, granter); err != nil {
 					km.log.Error().
 						Str("key_name", keyInfo.Name).
@@ -255,16 +255,16 @@ func (km *KeyMonitor) checkKeys() error {
 					Msg("Key with MsgVoteInbound permission unchanged")
 				km.mu.Unlock()
 			}
-			
+
 			return nil
 		}
-		
+
 		km.log.Debug().
 			Str("key_name", keyInfo.Name).
 			Str("key_address", keyAddr.String()).
 			Msg("Key does not have MsgVoteInbound permission")
 	}
-	
+
 	// No valid keys found
 	km.handleNoValidKey()
 	return nil
@@ -275,16 +275,16 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	
+
 	km.log.Debug().
 		Str("grantee", granteeAddr).
 		Msg("Querying grantee grants")
-	
+
 	// Query all grants where this address is the grantee
 	grantResp, err := authzClient.GranteeGrants(ctx, &authz.QueryGranteeGrantsRequest{
 		Grantee: granteeAddr,
 	})
-	
+
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			km.log.Error().
@@ -298,12 +298,12 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 		}
 		return false, ""
 	}
-	
+
 	km.log.Debug().
 		Str("grantee", granteeAddr).
 		Int("grant_count", len(grantResp.Grants)).
 		Msg("Retrieved grants for grantee")
-	
+
 	// Look for MsgVoteInbound permission
 	for i, grant := range grantResp.Grants {
 		if grant.Authorization == nil {
@@ -312,26 +312,26 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 				Msg("Skipping grant with nil authorization")
 			continue
 		}
-		
+
 		km.log.Debug().
 			Int("grant_index", i).
 			Str("granter", grant.Granter).
 			Str("grantee", grant.Grantee).
 			Str("auth_type", grant.Authorization.TypeUrl).
 			Msg("Checking grant")
-		
+
 		// Check if this is a MsgVoteInbound authorization
 		authzAny := grant.Authorization
 		if authzAny.TypeUrl == "/cosmos.authz.v1beta1.GenericAuthorization" {
 			// Create a new GenericAuthorization and unmarshal directly
 			var genericAuth authz.GenericAuthorization
-			
+
 			// Create codec for unmarshaling
 			interfaceRegistry := keys.CreateInterfaceRegistryWithEVMSupport()
 			authz.RegisterInterfaces(interfaceRegistry)
 			uetypes.RegisterInterfaces(interfaceRegistry)
 			cdc := codec.NewProtoCodec(interfaceRegistry)
-			
+
 			// Unmarshal the value directly
 			if err := cdc.Unmarshal(authzAny.Value, &genericAuth); err != nil {
 				km.log.Warn().
@@ -341,12 +341,12 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 					Msg("Failed to unmarshal generic authorization")
 				continue
 			}
-			
+
 			km.log.Debug().
 				Int("grant_index", i).
 				Str("msg_type", genericAuth.Msg).
 				Msg("Generic authorization message type")
-			
+
 			if genericAuth.Msg == "/uexecutor.v1.MsgVoteInbound" {
 				// Check expiration
 				if grant.Expiration != nil && grant.Expiration.Before(time.Now()) {
@@ -357,24 +357,23 @@ func (km *KeyMonitor) checkMsgVoteInboundPermission(authzClient authz.QueryClien
 						Msg("MsgVoteInbound grant expired")
 					continue
 				}
-				
+
 				km.log.Debug().
 					Str("granter", grant.Granter).
 					Str("grantee", granteeAddr).
 					Msg("Found valid MsgVoteInbound grant")
-				
+
 				return true, grant.Granter
 			}
 		}
 	}
-	
+
 	km.log.Warn().
 		Str("grantee", granteeAddr).
 		Msg("No MsgVoteInbound permission found after checking all grants")
-	
+
 	return false, ""
 }
-
 
 // setupVoteHandler creates a new vote handler for the valid key
 func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Record, granter string) error {
@@ -382,13 +381,13 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 	if err != nil {
 		return fmt.Errorf("failed to get key address: %w", err)
 	}
-	
+
 	km.log.Info().
 		Str("key_name", keyInfo.Name).
 		Str("key_address", keyAddr.String()).
 		Str("granter", granter).
 		Msg("Setting up vote handler with valid key")
-	
+
 	// Create Keys instance
 	universalKeys := keys.NewKeysWithKeybase(
 		kr,
@@ -396,7 +395,7 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 		keyInfo.Name,
 		"", // Password will be prompted if needed
 	)
-	
+
 	// Create client.Context for AuthZ TxSigner
 	// Ensure proper port handling (same logic as in checkKeys)
 	grpcEndpoint := km.grpcURL
@@ -409,12 +408,12 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 			grpcEndpoint = grpcEndpoint + ":9090"
 		}
 	}
-	
+
 	conn, err := grpc.NewClient(grpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
-	
+
 	// Setup codec
 	interfaceRegistry := keys.CreateInterfaceRegistryWithEVMSupport()
 	authz.RegisterInterfaces(interfaceRegistry)
@@ -423,10 +422,10 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 	stakingtypes.RegisterInterfaces(interfaceRegistry)
 	govtypes.RegisterInterfaces(interfaceRegistry)
 	uetypes.RegisterInterfaces(interfaceRegistry)
-	
+
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
-	
+
 	// Create HTTP RPC client for broadcasting (standard port 26657)
 	// Extract base endpoint without port
 	rpcEndpoint := km.grpcURL
@@ -439,13 +438,13 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 			rpcEndpoint = rpcEndpoint[:colonIndex]
 		}
 	}
-	
+
 	rpcURL := "http://" + rpcEndpoint + ":26657"
 	httpClient, err := rpchttp.New(rpcURL, "/websocket")
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
-	
+
 	clientCtx := client.Context{}.
 		WithCodec(cdc).
 		WithInterfaceRegistry(interfaceRegistry).
@@ -455,27 +454,27 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 		WithTxConfig(txConfig).
 		WithBroadcastMode("sync").
 		WithClient(httpClient)
-	
+
 	// Create AuthZ TxSigner
 	txSigner := uauthz.NewTxSigner(
 		universalKeys,
 		clientCtx,
 		km.log,
 	)
-	
+
 	// Store the tx signer for use by the client
 	km.currentTxSigner = txSigner
-	
+
 	// Notify callback - client will create per-chain vote handlers
 	if km.onValidKeyFound != nil {
 		km.onValidKeyFound(universalKeys)
 	}
-	
+
 	km.log.Info().
 		Str("key_name", keyInfo.Name).
 		Str("granter", granter).
 		Msg("✅ Voting handler configured successfully")
-	
+
 	return nil
 }
 
@@ -483,17 +482,17 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 func (km *KeyMonitor) handleNoValidKey() {
 	km.mu.Lock()
 	defer km.mu.Unlock()
-	
+
 	if km.lastValidKey != "" || km.lastGranter != "" {
 		km.log.Warn().
 			Str("previous_key", km.lastValidKey).
 			Str("previous_granter", km.lastGranter).
 			Msg("Key state changed - no keys with MsgVoteInbound permission found, voting disabled")
-		
+
 		km.lastValidKey = ""
 		km.lastGranter = ""
 		km.currentTxSigner = nil
-		
+
 		if km.onNoValidKey != nil {
 			km.onNoValidKey()
 		}

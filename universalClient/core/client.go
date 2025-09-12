@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/api"
+	"github.com/pushchain/push-chain-node/universalClient/cache"
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/cron"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
-	"github.com/pushchain/push-chain-node/universalClient/registry"
-	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/rs/zerolog"
 )
 
@@ -22,12 +23,9 @@ type UniversalClient struct {
 	dbManager *db.ChainDBManager
 
 	// Registry components
-	registryClient *registry.RegistryClient
-	configCache    *registry.ConfigCache
-	configUpdater  *ConfigUpdater
-	chainRegistry  *chains.ChainRegistry
-	config         *config.Config
-	queryServer    *api.Server
+	chainRegistry *chains.ChainRegistry
+	config        *config.Config
+	queryServer   *api.Server
 
 	// Hot key components
 	keys                     keys.UniversalValidatorKeys
@@ -38,6 +36,11 @@ type UniversalClient struct {
 	transactionCleaner *db.PerChainTransactionCleaner
 	// Gas price fetcher
 	gasPriceFetcher *GasPriceFetcher
+
+	pushCore         *pushcore.Client
+	cache            *cache.Cache
+	chainCacheJob    *cron.ChainCacheJob
+	chainRegistryJob *cron.ChainRegistryJob
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
@@ -51,27 +54,9 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		return nil, fmt.Errorf("PushChainGRPCURLs is required but not configured")
 	}
 
-	// Create registry client
-	registryClient, err := registry.NewRegistryClient(cfg.PushChainGRPCURLs, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create registry client: %w", err)
-	}
-
-	// Create config cache
-	configCache := registry.NewConfigCache(log)
-
 	// Create chain registry
 	chainRegistry := chains.NewChainRegistry(dbManager, log)
 	chainRegistry.SetAppConfig(cfg)
-
-	// Create config updater
-	configUpdater := NewConfigUpdater(
-		registryClient,
-		configCache,
-		chainRegistry,
-		cfg,
-		log,
-	)
 
 	// Create per-chain transaction cleaner
 	transactionCleaner := db.NewPerChainTransactionCleaner(
@@ -87,20 +72,36 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		log,
 	)
 
+	// New pushcore + cache + cron job
+	pushCore, err := pushcore.New(cfg.PushChainGRPCURLs, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pushcore client: %w", err)
+	}
+	cache := cache.New(log)
+
+	// refresh every minute; 8s per-sync timeout
+	chainCacheJob := cron.NewChainCacheJob(cache, pushCore, time.Minute, 8*time.Second, log)
+
+	chainRegistryJob := cron.NewChainRegistryJob(cache, chainRegistry, time.Minute, 8*time.Second, log)
+
 	// Create the client
 	uc := &UniversalClient{
-		ctx:                      ctx,
-		log:                      log,
-		dbManager:                dbManager,
-		registryClient:           registryClient,
-		configCache:              configCache,
-		configUpdater:            configUpdater,
+		ctx:       ctx,
+		log:       log,
+		dbManager: dbManager,
+
+		// configUpdater:            configUpdater,
 		chainRegistry:            chainRegistry,
 		config:                   cfg,
 		voteHandlers:             make(map[string]*VoteHandler),
 		pendingVoteHandlerChains: make(map[string]bool),
 		transactionCleaner:       transactionCleaner,
 		gasPriceFetcher:          gasPriceFetcher,
+
+		pushCore:         pushCore,
+		cache:            cache,
+		chainCacheJob:    chainCacheJob,
+		chainRegistryJob: chainRegistryJob,
 	}
 
 	// Register as observer for chain addition events
@@ -154,14 +155,16 @@ func (uc *UniversalClient) Start() error {
 		}
 	}
 
-	// Check for required components
-	if uc.configUpdater == nil {
-		return fmt.Errorf("config updater is not initialized")
+	if uc.chainCacheJob != nil {
+		if err := uc.chainCacheJob.Start(uc.ctx); err != nil {
+			uc.log.Error().Err(err).Msg("failed to start chain cache cron")
+		}
 	}
 
-	// Start the config updater
-	if err := uc.configUpdater.Start(uc.ctx); err != nil {
-		return fmt.Errorf("failed to start config updater: %w", err)
+	if uc.chainRegistry != nil {
+		if err := uc.chainRegistryJob.Start(uc.ctx); err != nil {
+			uc.log.Error().Err(err).Msg("failed to start chain registry cron")
+		}
 	}
 
 	// Start the transaction cleaner
@@ -207,9 +210,6 @@ func (uc *UniversalClient) Start() error {
 		uc.keyMonitor.Stop()
 	}
 
-	// Stop config updater
-	uc.configUpdater.Stop()
-
 	// Stop transaction cleaner
 	uc.transactionCleaner.Stop()
 
@@ -221,71 +221,35 @@ func (uc *UniversalClient) Start() error {
 	// Stop all chain clients
 	uc.chainRegistry.StopAll()
 
-	// Close registry client connection
-	if err := uc.registryClient.Close(); err != nil {
-		uc.log.Error().Err(err).Msg("error closing registry client")
-	}
-
 	// Close all database connections
 	if err := uc.dbManager.CloseAll(); err != nil {
 		uc.log.Error().Err(err).Msg("error closing database connections")
 		return err
 	}
 
+	// Stop chain cache cron
+	if uc.chainCacheJob != nil {
+		uc.chainCacheJob.Stop()
+	}
+
+	// Stop chain registry cron
+	if uc.chainRegistryJob != nil {
+		uc.chainRegistryJob.Stop()
+	}
+
+	// Close pushcore client
+	if uc.pushCore != nil {
+		if err := uc.pushCore.Close(); err != nil {
+			uc.log.Error().Err(err).Msg("error closing pushcore client")
+		}
+	}
+
 	return nil
 }
 
-// GetChainConfig returns the cached configuration for a specific chain
-func (uc *UniversalClient) GetChainConfig(chainID string) *uregistrytypes.ChainConfig {
-	return uc.configCache.GetChainConfig(chainID)
-}
-
 // GetAllChainConfigs returns all cached chain configurations
-func (uc *UniversalClient) GetAllChainConfigs() []*uregistrytypes.ChainConfig {
-	return uc.configCache.GetAllChainConfigs()
-}
-
-// GetTokenConfig returns the cached configuration for a specific token
-func (uc *UniversalClient) GetTokenConfig(chain, address string) *uregistrytypes.TokenConfig {
-	return uc.configCache.GetTokenConfig(chain, address)
-}
-
-// GetAllTokenConfigs returns all cached token configurations
-func (uc *UniversalClient) GetAllTokenConfigs() []*uregistrytypes.TokenConfig {
-	return uc.configCache.GetAllTokenConfigs()
-}
-
-// GetTokenConfigsByChain returns all cached token configurations for a specific chain
-func (uc *UniversalClient) GetTokenConfigsByChain(chain string) []*uregistrytypes.TokenConfig {
-	return uc.configCache.GetTokenConfigsByChain(chain)
-}
-
-// GetCacheLastUpdate returns the last update timestamp of the cache
-func (uc *UniversalClient) GetCacheLastUpdate() time.Time {
-	return uc.configCache.GetLastUpdate()
-}
-
-// GetChainClient returns the chain client for a specific chain
-func (uc *UniversalClient) GetChainClient(chainID string) common.ChainClient {
-	return uc.chainRegistry.GetChain(chainID)
-}
-
-// ForceConfigUpdate triggers an immediate configuration update
-func (uc *UniversalClient) ForceConfigUpdate() error {
-	if uc.configUpdater == nil {
-		return fmt.Errorf("config updater is not initialized")
-	}
-	return uc.configUpdater.ForceUpdate(uc.ctx)
-}
-
-// GetVoteHandler returns the vote handler for a specific chain (may be nil if keys not configured)
-func (uc *UniversalClient) GetVoteHandler(chainID string) *VoteHandler {
-	return uc.voteHandlers[chainID]
-}
-
-// GetAllVoteHandlers returns all vote handlers
-func (uc *UniversalClient) GetAllVoteHandlers() map[string]*VoteHandler {
-	return uc.voteHandlers
+func (uc *UniversalClient) GetAllChainData() []*cache.ChainData {
+	return uc.cache.GetAllChains()
 }
 
 // OnChainAdded implements ChainRegistryObserver interface

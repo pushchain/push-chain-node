@@ -80,9 +80,9 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	cache := cache.New(log)
 
 	// refresh every minute; 8s per-sync timeout
-	chainCacheJob := cron.NewChainCacheJob(cache, pushCore, time.Minute, 8*time.Second, log)
+	chainCacheJob := cron.NewChainCacheJob(cache, pushCore, time.Duration(cfg.ConfigRefreshIntervalSeconds), 8*time.Second, log)
 
-	chainRegistryJob := cron.NewChainRegistryJob(cache, chainRegistry, time.Minute, 8*time.Second, log)
+	chainRegistryJob := cron.NewChainRegistryJob(cache, chainRegistry, time.Duration(cfg.ConfigRefreshIntervalSeconds), 8*time.Second, log)
 
 	// Create the client
 	uc := &UniversalClient{

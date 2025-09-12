@@ -2,7 +2,7 @@
   "chain": "eip155:11155111",
   "public_rpc_url": "https://eth-sepolia.public.blastapi.io",
   "vm_type": 1,
-  "gateway_address": "0x4305D572F2bf38Fc2AE8D0172055b1EFd18F57a6",
+  "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
   "block_confirmation": {
     "fast_inbound": 5,
     "standard_inbound": 12

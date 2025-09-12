@@ -394,7 +394,7 @@ CHAIN_ID=localchain_9000-1
 CONTRACTS_DIR := contracts-tmp
 INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
 CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
-SDK_REPO := https://github.com/AryaLanjewar3005/push-chain-sdk.git
+SDK_REPO := https://github.com/pushchain/push-chain-sdk.git
 E2E_DIR := e2e
 
 e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana-interop-deployment e2e-solana-chain-config e2e-run-test
@@ -476,7 +476,7 @@ e2e-run-test:
 	@echo "Cloning e2e repository..."
 	@rm -rf $(CONTRACTS_DIR)/push-chain-sdk
 	cd $(CONTRACTS_DIR) && git clone $(SDK_REPO)
-	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout push-node-e2e && yarn install
+	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout push-node-e2e-test && yarn install
 	cp $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/target/idl/pushsolanalocker.json $(CONTRACTS_DIR)/push-chain-sdk/packages/core/src/lib/constants/abi/feeLocker.json
 	cp $(E2E_DIR)/.env $(CONTRACTS_DIR)/push-chain-sdk/packages/core/.env
 	cd $(CONTRACTS_DIR)/push-chain-sdk && npx jest core/__e2e__/pushchain.spec.ts --runInBand --detectOpenHandles

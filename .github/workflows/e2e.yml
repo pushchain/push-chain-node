@@ -2,11 +2,7 @@ name: E2E Test Workflow
 
 on:
   push:
-    branches:
-      - e2e-test
-  pull_request:
-    branches:
-      - e2e-test
+  
   workflow_dispatch:
 
 jobs:

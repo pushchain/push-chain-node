@@ -24,4 +24,4 @@ ENV CHAIN_ID=localchain_9000-1 \
     BLOCK_TIME=1000ms \
     CLEAN=true
 
-CMD ["bash", "scripts/test_node.sh"]
+CMD ["bash", "scripts/test_node_e2e.sh"]

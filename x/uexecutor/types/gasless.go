@@ -30,7 +30,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 		case *authz.MsgExec:
 			// Only gasless if ALL inner messages are allowed
 			for _, innerMsg := range m.Msgs {
-				if !slices.Contains(GaslessMsgTypes, sdk.MsgTypeURL(innerMsg)) {
+				if !slices.Contains(GaslessMsgTypes, innerMsg.TypeUrl) {
 					return false
 				}
 			}

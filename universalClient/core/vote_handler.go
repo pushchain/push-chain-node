@@ -151,16 +151,16 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	}
 
 	// Default to FUNDS_AND_PAYLOAD_TX type if not specified
-	txType := uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
+	txType := uetypes.InboundTxType_GAS
 	switch eventData.TxType {
 	case 0:
-		txType = uetypes.InboundTxType_GAS_FUND_TX
+		txType = uetypes.InboundTxType_GAS
 	case 1:
-		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
+		txType = uetypes.InboundTxType_GAS_AND_PAYLOAD
 	case 2:
-		txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
+		txType = uetypes.InboundTxType_FUNDS
 	case 3:
-		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
+		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
 	case 4:
 		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}

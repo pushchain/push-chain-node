@@ -23,7 +23,6 @@ type ChainCacheJob struct {
 	mu      sync.Mutex
 	running bool
 	stopCh  chan struct{}
-	forceCh chan struct{}
 	wg      sync.WaitGroup
 }
 
@@ -56,7 +55,6 @@ func (j *ChainCacheJob) Start(ctx context.Context) error {
 	}
 
 	j.stopCh = make(chan struct{})
-	j.forceCh = make(chan struct{}, 1) // buffered so ForceSync won't block
 	j.running = true
 	j.wg.Add(1)
 
@@ -101,10 +99,6 @@ func (j *ChainCacheJob) run(parent context.Context) {
 			if err := j.syncOnce(parent); err != nil {
 				j.logger.Warn().Err(err).Msg("periodic chain config refresh failed; keeping previous cache")
 			}
-		case <-j.forceCh:
-			if err := j.syncOnce(parent); err != nil {
-				j.logger.Warn().Err(err).Msg("forced chain config refresh failed; keeping previous cache")
-			}
 		}
 	}
 }
@@ -143,9 +137,6 @@ func (j *ChainCacheJob) syncOnce(parent context.Context) error {
 	cfgs, err := j.client.GetAllChainConfigs(ctx)
 	if err != nil {
 		return err
-	}
-	if len(cfgs) == 0 {
-		return errors.New("fetched zero chain configs")
 	}
 
 	j.cache.UpdateChains(cfgs)

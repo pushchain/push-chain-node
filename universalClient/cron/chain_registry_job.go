@@ -39,7 +39,7 @@ func NewChainRegistryJob(ca *cache.Cache, cr *chains.ChainRegistry, interval, pe
 		chainRegistry:  cr,
 		interval:       interval,
 		perSyncTimeout: perSyncTimeout,
-		logger:         logger.With().Str("component", "chain_cache_cron").Logger(),
+		logger:         logger.With().Str("component", "chain_registry_cron").Logger(),
 	}
 }
 

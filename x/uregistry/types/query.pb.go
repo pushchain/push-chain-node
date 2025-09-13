@@ -111,6 +111,89 @@ func (m *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
+// SystemConfig
+// QuerySystemConfigRequest is the request type for the Query/SystemConfig RPC method.
+type QuerySystemConfigRequest struct {
+}
+
+func (m *QuerySystemConfigRequest) Reset()         { *m = QuerySystemConfigRequest{} }
+func (m *QuerySystemConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*QuerySystemConfigRequest) ProtoMessage()    {}
+func (*QuerySystemConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_18d604066d6ee842, []int{2}
+}
+func (m *QuerySystemConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuerySystemConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuerySystemConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuerySystemConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuerySystemConfigRequest.Merge(m, src)
+}
+func (m *QuerySystemConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuerySystemConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuerySystemConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuerySystemConfigRequest proto.InternalMessageInfo
+
+// QuerySystemConfigResponse is the response type for the Query/SystemConfig RPC method.
+type QuerySystemConfigResponse struct {
+	SystemConfig *SystemConfig `protobuf:"bytes,1,opt,name=system_config,json=systemConfig,proto3" json:"system_config,omitempty"`
+}
+
+func (m *QuerySystemConfigResponse) Reset()         { *m = QuerySystemConfigResponse{} }
+func (m *QuerySystemConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*QuerySystemConfigResponse) ProtoMessage()    {}
+func (*QuerySystemConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_18d604066d6ee842, []int{3}
+}
+func (m *QuerySystemConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuerySystemConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuerySystemConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuerySystemConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuerySystemConfigResponse.Merge(m, src)
+}
+func (m *QuerySystemConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuerySystemConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuerySystemConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuerySystemConfigResponse proto.InternalMessageInfo
+
+func (m *QuerySystemConfigResponse) GetSystemConfig() *SystemConfig {
+	if m != nil {
+		return m.SystemConfig
+	}
+	return nil
+}
+
 // ChainConfig
 // QueryChainConfigRequest is the request type for the Query/ChainConfig RPC method.
 type QueryChainConfigRequest struct {
@@ -121,7 +204,7 @@ func (m *QueryChainConfigRequest) Reset()         { *m = QueryChainConfigRequest
 func (m *QueryChainConfigRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryChainConfigRequest) ProtoMessage()    {}
 func (*QueryChainConfigRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{2}
+	return fileDescriptor_18d604066d6ee842, []int{4}
 }
 func (m *QueryChainConfigRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -166,7 +249,7 @@ func (m *QueryChainConfigResponse) Reset()         { *m = QueryChainConfigRespon
 func (m *QueryChainConfigResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryChainConfigResponse) ProtoMessage()    {}
 func (*QueryChainConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{3}
+	return fileDescriptor_18d604066d6ee842, []int{5}
 }
 func (m *QueryChainConfigResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -210,7 +293,7 @@ func (m *QueryAllChainConfigsRequest) Reset()         { *m = QueryAllChainConfig
 func (m *QueryAllChainConfigsRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryAllChainConfigsRequest) ProtoMessage()    {}
 func (*QueryAllChainConfigsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{4}
+	return fileDescriptor_18d604066d6ee842, []int{6}
 }
 func (m *QueryAllChainConfigsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -248,7 +331,7 @@ func (m *QueryAllChainConfigsResponse) Reset()         { *m = QueryAllChainConfi
 func (m *QueryAllChainConfigsResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryAllChainConfigsResponse) ProtoMessage()    {}
 func (*QueryAllChainConfigsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{5}
+	return fileDescriptor_18d604066d6ee842, []int{7}
 }
 func (m *QueryAllChainConfigsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -295,7 +378,7 @@ func (m *QueryTokenConfigRequest) Reset()         { *m = QueryTokenConfigRequest
 func (m *QueryTokenConfigRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryTokenConfigRequest) ProtoMessage()    {}
 func (*QueryTokenConfigRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{6}
+	return fileDescriptor_18d604066d6ee842, []int{8}
 }
 func (m *QueryTokenConfigRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -347,7 +430,7 @@ func (m *QueryTokenConfigResponse) Reset()         { *m = QueryTokenConfigRespon
 func (m *QueryTokenConfigResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryTokenConfigResponse) ProtoMessage()    {}
 func (*QueryTokenConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{7}
+	return fileDescriptor_18d604066d6ee842, []int{9}
 }
 func (m *QueryTokenConfigResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -391,7 +474,7 @@ func (m *QueryAllTokenConfigsRequest) Reset()         { *m = QueryAllTokenConfig
 func (m *QueryAllTokenConfigsRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryAllTokenConfigsRequest) ProtoMessage()    {}
 func (*QueryAllTokenConfigsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{8}
+	return fileDescriptor_18d604066d6ee842, []int{10}
 }
 func (m *QueryAllTokenConfigsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -429,7 +512,7 @@ func (m *QueryAllTokenConfigsResponse) Reset()         { *m = QueryAllTokenConfi
 func (m *QueryAllTokenConfigsResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryAllTokenConfigsResponse) ProtoMessage()    {}
 func (*QueryAllTokenConfigsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{9}
+	return fileDescriptor_18d604066d6ee842, []int{11}
 }
 func (m *QueryAllTokenConfigsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -474,7 +557,7 @@ func (m *QueryTokenConfigsByChainRequest) Reset()         { *m = QueryTokenConfi
 func (m *QueryTokenConfigsByChainRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryTokenConfigsByChainRequest) ProtoMessage()    {}
 func (*QueryTokenConfigsByChainRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{10}
+	return fileDescriptor_18d604066d6ee842, []int{12}
 }
 func (m *QueryTokenConfigsByChainRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -519,7 +602,7 @@ func (m *QueryTokenConfigsByChainResponse) Reset()         { *m = QueryTokenConf
 func (m *QueryTokenConfigsByChainResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryTokenConfigsByChainResponse) ProtoMessage()    {}
 func (*QueryTokenConfigsByChainResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_18d604066d6ee842, []int{11}
+	return fileDescriptor_18d604066d6ee842, []int{13}
 }
 func (m *QueryTokenConfigsByChainResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -558,6 +641,8 @@ func (m *QueryTokenConfigsByChainResponse) GetConfigs() []*TokenConfig {
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "uregistry.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "uregistry.v1.QueryParamsResponse")
+	proto.RegisterType((*QuerySystemConfigRequest)(nil), "uregistry.v1.QuerySystemConfigRequest")
+	proto.RegisterType((*QuerySystemConfigResponse)(nil), "uregistry.v1.QuerySystemConfigResponse")
 	proto.RegisterType((*QueryChainConfigRequest)(nil), "uregistry.v1.QueryChainConfigRequest")
 	proto.RegisterType((*QueryChainConfigResponse)(nil), "uregistry.v1.QueryChainConfigResponse")
 	proto.RegisterType((*QueryAllChainConfigsRequest)(nil), "uregistry.v1.QueryAllChainConfigsRequest")
@@ -573,44 +658,47 @@ func init() {
 func init() { proto.RegisterFile("uregistry/v1/query.proto", fileDescriptor_18d604066d6ee842) }
 
 var fileDescriptor_18d604066d6ee842 = []byte{
-	// 580 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0x41, 0x6f, 0xd3, 0x4c,
-	0x10, 0x8d, 0xfb, 0xa9, 0xa9, 0xbe, 0x09, 0x12, 0xd2, 0x36, 0x02, 0xe3, 0xa6, 0x26, 0xb8, 0x14,
-	0x41, 0x69, 0xbc, 0x4a, 0x8b, 0xe0, 0x4c, 0x73, 0xe2, 0x80, 0x54, 0x0a, 0x12, 0x12, 0x17, 0xe4,
-	0x26, 0x8b, 0x63, 0x35, 0xf5, 0xba, 0x5e, 0xbb, 0x22, 0xaa, 0xb8, 0x70, 0xe2, 0x82, 0x84, 0xe0,
-	0x17, 0xf0, 0x6f, 0x38, 0x56, 0xe2, 0xd2, 0x23, 0x4a, 0xf8, 0x21, 0x28, 0xeb, 0x8d, 0xb5, 0x9b,
-	0xac, 0x8d, 0x25, 0x6e, 0xf6, 0xce, 0x9b, 0x79, 0x6f, 0x9e, 0xf7, 0xc9, 0x60, 0xa6, 0x31, 0xf1,
-	0x03, 0x96, 0xc4, 0x63, 0x7c, 0xde, 0xc5, 0x67, 0x29, 0x89, 0xc7, 0x6e, 0x14, 0xd3, 0x84, 0xa2,
-	0x6b, 0x79, 0xc5, 0x3d, 0xef, 0x5a, 0x2d, 0x9f, 0x52, 0x7f, 0x44, 0xb0, 0x17, 0x05, 0xd8, 0x0b,
-	0x43, 0x9a, 0x78, 0x49, 0x40, 0x43, 0x96, 0x61, 0x2d, 0x4b, 0x99, 0xe2, 0x93, 0x90, 0xb0, 0x60,
-	0x5e, 0x53, 0x19, 0x92, 0x71, 0x44, 0x44, 0xc5, 0x69, 0x02, 0x7a, 0x31, 0x23, 0x3c, 0xf4, 0x62,
-	0xef, 0x94, 0x1d, 0x91, 0xb3, 0x94, 0xb0, 0xc4, 0xe9, 0xc1, 0xba, 0x72, 0xca, 0x22, 0x1a, 0x32,
-	0x82, 0x76, 0xa1, 0x1e, 0xf1, 0x13, 0xd3, 0x68, 0x1b, 0xf7, 0x1b, 0x7b, 0x4d, 0x57, 0xd6, 0xe7,
-	0x0a, 0xb4, 0xc0, 0x38, 0x18, 0x6e, 0xf2, 0x21, 0xbd, 0xa1, 0x17, 0x84, 0x3d, 0x1a, 0xbe, 0x0b,
-	0x7c, 0x31, 0x1f, 0x35, 0x61, 0xb5, 0x3f, 0x3b, 0xe5, 0x73, 0xfe, 0x3f, 0xca, 0x5e, 0x9c, 0xe7,
-	0x60, 0x2e, 0x37, 0x08, 0xea, 0x2e, 0xd4, 0xfb, 0xfc, 0x44, 0x50, 0xdf, 0x52, 0xa9, 0xe5, 0x16,
-	0x01, 0x74, 0x36, 0x61, 0x83, 0x8f, 0x7b, 0x3a, 0x1a, 0x49, 0xe5, 0x7c, 0xc7, 0x97, 0xd0, 0xd2,
-	0x97, 0x05, 0xe3, 0x3e, 0xac, 0x65, 0x83, 0x66, 0xdb, 0xfe, 0x57, 0x4e, 0x39, 0x47, 0x3a, 0xcf,
-	0xc4, 0xce, 0xaf, 0xe8, 0x09, 0xa9, 0xb2, 0x33, 0x32, 0x61, 0xcd, 0x1b, 0x0c, 0x62, 0xc2, 0x98,
-	0xb9, 0xc2, 0xcf, 0xe7, 0xaf, 0xb9, 0x1b, 0xca, 0xa8, 0x6a, 0x6e, 0xc8, 0x2d, 0x1a, 0x37, 0xa4,
-	0xb2, 0xce, 0x0d, 0xb5, 0x5c, 0xd1, 0x0d, 0x99, 0x32, 0x77, 0xe3, 0x09, 0xdc, 0x5e, 0x5c, 0x81,
-	0x1d, 0x64, 0x9f, 0xb7, 0xfc, 0x26, 0xbc, 0x86, 0x76, 0x71, 0xe3, 0x3f, 0x28, 0xda, 0xbb, 0xaa,
-	0xc3, 0x2a, 0x9f, 0x8c, 0x4e, 0xa0, 0x9e, 0xdd, 0x57, 0xd4, 0x56, 0xfb, 0x96, 0xe3, 0x60, 0xdd,
-	0x29, 0x41, 0x64, 0x6a, 0x9c, 0xd6, 0xc7, 0x9f, 0xbf, 0xbf, 0xad, 0xdc, 0x40, 0x4d, 0xac, 0x44,
-	0x2d, 0x8b, 0x02, 0xfa, 0x64, 0x40, 0x43, 0xba, 0x2f, 0x68, 0x5b, 0x33, 0x70, 0x39, 0x26, 0xd6,
-	0xbd, 0xbf, 0xc1, 0x04, 0xf9, 0x0e, 0x27, 0xbf, 0x8b, 0x1c, 0x95, 0x9c, 0x7b, 0xf9, 0x36, 0x5b,
-	0x1d, 0x5f, 0xf0, 0xb7, 0x0f, 0xe8, 0xb3, 0x01, 0xd7, 0x17, 0xae, 0x3c, 0x7a, 0xa0, 0xe1, 0xd1,
-	0xa7, 0xc6, 0xda, 0xa9, 0x02, 0x15, 0xb2, 0xb6, 0xb8, 0xac, 0x4d, 0xb4, 0x51, 0x2c, 0x8b, 0xa1,
-	0xaf, 0x06, 0x34, 0xa4, 0x4f, 0xa5, 0xb5, 0x66, 0x39, 0x4d, 0x5a, 0x6b, 0x34, 0x49, 0x71, 0x1e,
-	0x71, 0x0d, 0x2e, 0xda, 0x55, 0x35, 0x24, 0x33, 0xe8, 0x82, 0x35, 0xf8, 0x42, 0x44, 0x2f, 0x37,
-	0x49, 0xbe, 0x7e, 0x45, 0x26, 0x69, 0xc2, 0x54, 0x64, 0x92, 0x2e, 0x58, 0x45, 0x26, 0xc9, 0x02,
-	0x19, 0xfa, 0x6e, 0xc0, 0xba, 0x26, 0x0b, 0xa8, 0x53, 0xee, 0xc2, 0x42, 0xd8, 0x2c, 0xb7, 0x2a,
-	0x5c, 0x68, 0x7b, 0xc8, 0xb5, 0x6d, 0xa3, 0xad, 0x12, 0x6d, 0x73, 0xf7, 0x0e, 0x0e, 0x7f, 0x4c,
-	0x6c, 0xe3, 0x72, 0x62, 0x1b, 0xbf, 0x26, 0xb6, 0xf1, 0x65, 0x6a, 0xd7, 0x2e, 0xa7, 0x76, 0xed,
-	0x6a, 0x6a, 0xd7, 0xde, 0x3c, 0xf6, 0x83, 0x64, 0x98, 0x1e, 0xbb, 0x7d, 0x7a, 0x8a, 0xa3, 0x94,
-	0x0d, 0x79, 0x03, 0x7f, 0xea, 0xf0, 0xc7, 0x4e, 0x48, 0x07, 0x04, 0xbf, 0x97, 0x48, 0xf8, 0x1f,
-	0xea, 0xb8, 0xce, 0x7f, 0x51, 0xfb, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x8c, 0x55, 0x2b, 0x43,
-	0x20, 0x07, 0x00, 0x00,
+	// 637 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xc1, 0x6b, 0x13, 0x4f,
+	0x14, 0xee, 0xf6, 0x47, 0x53, 0x7e, 0x2f, 0x11, 0xe1, 0x35, 0x68, 0xba, 0x4d, 0xd7, 0xb8, 0xb5,
+	0x55, 0x6b, 0xb3, 0x4b, 0x5a, 0xd1, 0xa3, 0xd8, 0x9c, 0x3c, 0x08, 0xb5, 0x15, 0x04, 0x11, 0x64,
+	0x9b, 0x8c, 0x9b, 0xa5, 0xc9, 0xce, 0x76, 0x67, 0x53, 0x0c, 0xc5, 0x8b, 0x78, 0xf0, 0x22, 0x88,
+	0xfe, 0x05, 0xfe, 0x37, 0x1e, 0x0b, 0x5e, 0xbc, 0x29, 0x89, 0x7f, 0x88, 0x64, 0x76, 0x12, 0x66,
+	0x92, 0xc9, 0x36, 0xe0, 0x6d, 0x67, 0xde, 0xf7, 0xde, 0xf7, 0xcd, 0xb7, 0xf3, 0xed, 0x42, 0xa9,
+	0x1b, 0x13, 0x3f, 0x60, 0x49, 0xdc, 0x73, 0xcf, 0x6a, 0xee, 0x69, 0x97, 0xc4, 0x3d, 0x27, 0x8a,
+	0x69, 0x42, 0xb1, 0x30, 0xae, 0x38, 0x67, 0x35, 0xb3, 0xec, 0x53, 0xea, 0xb7, 0x89, 0xeb, 0x45,
+	0x81, 0xeb, 0x85, 0x21, 0x4d, 0xbc, 0x24, 0xa0, 0x21, 0x4b, 0xb1, 0xa6, 0xa9, 0x4c, 0xf1, 0x49,
+	0x48, 0x58, 0x30, 0xaa, 0xa9, 0x0c, 0x49, 0x2f, 0x22, 0xa2, 0x62, 0x17, 0x01, 0x9f, 0x0d, 0x09,
+	0x0f, 0xbc, 0xd8, 0xeb, 0xb0, 0x43, 0x72, 0xda, 0x25, 0x2c, 0xb1, 0xeb, 0xb0, 0xa2, 0xec, 0xb2,
+	0x88, 0x86, 0x8c, 0xe0, 0x0e, 0xe4, 0x22, 0xbe, 0x53, 0x32, 0x2a, 0xc6, 0x9d, 0xfc, 0x6e, 0xd1,
+	0x91, 0xf5, 0x39, 0x02, 0x2d, 0x30, 0xb6, 0x09, 0x25, 0x3e, 0xe4, 0xa8, 0xc7, 0x12, 0xd2, 0xa9,
+	0xd3, 0xf0, 0x4d, 0xe0, 0x8f, 0x08, 0x5e, 0xc1, 0xaa, 0xa6, 0x26, 0x68, 0x1e, 0xc1, 0x15, 0xc6,
+	0xf7, 0x5f, 0x37, 0x78, 0x41, 0xb0, 0x99, 0x2a, 0x9b, 0xd2, 0x5a, 0x60, 0xd2, 0xca, 0x76, 0xe1,
+	0x3a, 0x9f, 0x5e, 0x6f, 0x79, 0x41, 0xa8, 0x10, 0x63, 0x11, 0x96, 0x1a, 0xc3, 0x5d, 0x3e, 0xf3,
+	0xff, 0xc3, 0x74, 0x61, 0x3f, 0x15, 0x52, 0x95, 0x06, 0xa1, 0xa6, 0x06, 0x39, 0x45, 0xc6, 0xaa,
+	0x2a, 0x43, 0x6e, 0x11, 0x40, 0x7b, 0x1d, 0xd6, 0xf8, 0xb8, 0xc7, 0xed, 0xb6, 0x54, 0x1e, 0xbb,
+	0x7b, 0x04, 0x65, 0x7d, 0x59, 0x30, 0xee, 0xc1, 0x72, 0x3a, 0x68, 0xe8, 0xf3, 0x7f, 0xd9, 0x94,
+	0x23, 0xa4, 0xfd, 0x44, 0x9c, 0xf9, 0x39, 0x3d, 0x21, 0xf3, 0x9c, 0x19, 0x4b, 0xb0, 0xec, 0x35,
+	0x9b, 0x31, 0x61, 0xac, 0xb4, 0xc8, 0xf7, 0x47, 0xcb, 0xb1, 0x1b, 0xca, 0xa8, 0xf9, 0xdc, 0x90,
+	0x5b, 0x34, 0x6e, 0x48, 0x65, 0x9d, 0x1b, 0x6a, 0x79, 0x4e, 0x37, 0x64, 0xca, 0xb1, 0x1b, 0x0f,
+	0xe1, 0xc6, 0xe4, 0x11, 0xd8, 0x7e, 0xfa, 0x7a, 0xb3, 0x6f, 0xc2, 0x0b, 0xa8, 0xcc, 0x6e, 0xfc,
+	0x07, 0x45, 0xbb, 0xbf, 0x96, 0x61, 0x89, 0x4f, 0xc6, 0x13, 0xc8, 0xa5, 0x49, 0xc1, 0x8a, 0xda,
+	0x37, 0x1d, 0x44, 0xf3, 0x66, 0x06, 0x22, 0x55, 0x63, 0x97, 0xdf, 0xff, 0xf8, 0xf3, 0x75, 0xf1,
+	0x1a, 0x16, 0x5d, 0x25, 0xe4, 0x69, 0x08, 0xf1, 0x83, 0x01, 0x05, 0x39, 0x29, 0xb8, 0xa5, 0x99,
+	0xa8, 0x49, 0xa8, 0x79, 0xfb, 0x52, 0x9c, 0xe0, 0xdf, 0xe0, 0xfc, 0xeb, 0xb8, 0xa6, 0xf2, 0x2b,
+	0x09, 0xc6, 0x8f, 0x06, 0xe4, 0xa5, 0x6b, 0x8b, 0x9b, 0x9a, 0xe9, 0xd3, 0x69, 0x35, 0xb7, 0x2e,
+	0x83, 0x09, 0x0d, 0xdb, 0x5c, 0xc3, 0x2d, 0xb4, 0x55, 0x0d, 0xfc, 0x95, 0x0a, 0x09, 0xee, 0x39,
+	0x5f, 0xbd, 0xc3, 0x4f, 0x06, 0x5c, 0x9d, 0x48, 0x1e, 0xde, 0xd5, 0xf0, 0xe8, 0xc3, 0x6b, 0x6e,
+	0xcf, 0x03, 0xcd, 0xb6, 0x46, 0x96, 0xc5, 0xf0, 0x8b, 0x01, 0x79, 0xe9, 0xc6, 0x68, 0xad, 0x99,
+	0x0e, 0xb5, 0xd6, 0x1a, 0x4d, 0x60, 0xed, 0xfb, 0x5c, 0x83, 0x83, 0x3b, 0xaa, 0x86, 0x64, 0x08,
+	0x9d, 0xb0, 0xc6, 0x3d, 0x17, 0x5f, 0x80, 0xb1, 0x49, 0x72, 0x0a, 0x66, 0x99, 0xa4, 0xc9, 0xf4,
+	0x2c, 0x93, 0x74, 0xf9, 0x9e, 0x65, 0x92, 0x2c, 0x90, 0xe1, 0x37, 0x03, 0x56, 0x34, 0x91, 0xc4,
+	0x6a, 0xb6, 0x0b, 0x13, 0x99, 0x37, 0x9d, 0x79, 0xe1, 0x42, 0xdb, 0x3d, 0xae, 0x6d, 0x13, 0x37,
+	0x32, 0xb4, 0x8d, 0xdc, 0xdb, 0x3f, 0xf8, 0xde, 0xb7, 0x8c, 0x8b, 0xbe, 0x65, 0xfc, 0xee, 0x5b,
+	0xc6, 0xe7, 0x81, 0xb5, 0x70, 0x31, 0xb0, 0x16, 0x7e, 0x0e, 0xac, 0x85, 0x97, 0x0f, 0xfc, 0x20,
+	0x69, 0x75, 0x8f, 0x9d, 0x06, 0xed, 0xb8, 0x51, 0x97, 0xb5, 0x78, 0x03, 0x7f, 0xaa, 0xf2, 0xc7,
+	0x6a, 0x48, 0x9b, 0xc4, 0x7d, 0x2b, 0x91, 0xf0, 0x5f, 0xf4, 0x71, 0x8e, 0xff, 0xa3, 0xf7, 0xfe,
+	0x06, 0x00, 0x00, 0xff, 0xff, 0x0b, 0xfc, 0x0d, 0x35, 0x21, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -627,6 +715,8 @@ const _ = grpc.SupportPackageIsVersion4
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// SystemConfig queries SystemConfig of the module.
+	SystemConfig(ctx context.Context, in *QuerySystemConfigRequest, opts ...grpc.CallOption) (*QuerySystemConfigResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 	// AllChainConfigs returns all registered chain configs.
@@ -650,6 +740,15 @@ func NewQueryClient(cc grpc1.ClientConn) QueryClient {
 func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, "/uregistry.v1.Query/Params", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) SystemConfig(ctx context.Context, in *QuerySystemConfigRequest, opts ...grpc.CallOption) (*QuerySystemConfigResponse, error) {
+	out := new(QuerySystemConfigResponse)
+	err := c.cc.Invoke(ctx, "/uregistry.v1.Query/SystemConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -705,6 +804,8 @@ func (c *queryClient) TokenConfigsByChain(ctx context.Context, in *QueryTokenCon
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// SystemConfig queries SystemConfig of the module.
+	SystemConfig(context.Context, *QuerySystemConfigRequest) (*QuerySystemConfigResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 	// AllChainConfigs returns all registered chain configs.
@@ -723,6 +824,9 @@ type UnimplementedQueryServer struct {
 
 func (*UnimplementedQueryServer) Params(ctx context.Context, req *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (*UnimplementedQueryServer) SystemConfig(ctx context.Context, req *QuerySystemConfigRequest) (*QuerySystemConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SystemConfig not implemented")
 }
 func (*UnimplementedQueryServer) ChainConfig(ctx context.Context, req *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
@@ -758,6 +862,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_SystemConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuerySystemConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).SystemConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uregistry.v1.Query/SystemConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).SystemConfig(ctx, req.(*QuerySystemConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -861,6 +983,10 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Query_Params_Handler,
 		},
 		{
+			MethodName: "SystemConfig",
+			Handler:    _Query_SystemConfig_Handler,
+		},
+		{
 			MethodName: "ChainConfig",
 			Handler:    _Query_ChainConfig_Handler,
 		},
@@ -931,6 +1057,64 @@ func (m *QueryParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.Params != nil {
 		{
 			size, err := m.Params.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QuerySystemConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QuerySystemConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuerySystemConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *QuerySystemConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QuerySystemConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuerySystemConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.SystemConfig != nil {
+		{
+			size, err := m.SystemConfig.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1300,6 +1484,28 @@ func (m *QueryParamsResponse) Size() (n int) {
 	return n
 }
 
+func (m *QuerySystemConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *QuerySystemConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SystemConfig != nil {
+		l = m.SystemConfig.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
 func (m *QueryChainConfigRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1550,6 +1756,142 @@ func (m *QueryParamsResponse) Unmarshal(dAtA []byte) error {
 				m.Params = &Params{}
 			}
 			if err := m.Params.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QuerySystemConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QuerySystemConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QuerySystemConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QuerySystemConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QuerySystemConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QuerySystemConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SystemConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SystemConfig == nil {
+				m.SystemConfig = &SystemConfig{}
+			}
+			if err := m.SystemConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

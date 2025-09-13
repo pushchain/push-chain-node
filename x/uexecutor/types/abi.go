@@ -199,7 +199,7 @@ const UeaV1ABI = `[
     }
 ]`
 
-const HANDLER_CONTRACT_ABI = `[
+const UNIVERSAL_CORE_ABI = `[
     {
       "type": "function",
       "name": "depositPRC20Token",
@@ -648,8 +648,8 @@ func ParsePRC20ABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(PRC20ABI))
 }
 
-func ParseHandlerABI() (abi.ABI, error) {
-	return abi.JSON(strings.NewReader(HANDLER_CONTRACT_ABI))
+func ParseUniversalCoreABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(UNIVERSAL_CORE_ABI))
 }
 
 type AbiUniversalPayload struct {

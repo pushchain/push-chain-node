@@ -131,5 +131,5 @@ message SystemConfig {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
-  string handler_contract_address = 1;
+  string universal_core_address = 1;
 }

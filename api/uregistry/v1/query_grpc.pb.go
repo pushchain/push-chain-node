@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Query_Params_FullMethodName              = "/uregistry.v1.Query/Params"
+	Query_SystemConfig_FullMethodName        = "/uregistry.v1.Query/SystemConfig"
 	Query_ChainConfig_FullMethodName         = "/uregistry.v1.Query/ChainConfig"
 	Query_AllChainConfigs_FullMethodName     = "/uregistry.v1.Query/AllChainConfigs"
 	Query_TokenConfig_FullMethodName         = "/uregistry.v1.Query/TokenConfig"
@@ -33,6 +34,8 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// SystemConfig queries SystemConfig of the module.
+	SystemConfig(ctx context.Context, in *QuerySystemConfigRequest, opts ...grpc.CallOption) (*QuerySystemConfigResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
 	// AllChainConfigs returns all registered chain configs.
@@ -56,6 +59,15 @@ func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
 func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, Query_Params_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) SystemConfig(ctx context.Context, in *QuerySystemConfigRequest, opts ...grpc.CallOption) (*QuerySystemConfigResponse, error) {
+	out := new(QuerySystemConfigResponse)
+	err := c.cc.Invoke(ctx, Query_SystemConfig_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +125,8 @@ func (c *queryClient) TokenConfigsByChain(ctx context.Context, in *QueryTokenCon
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// SystemConfig queries SystemConfig of the module.
+	SystemConfig(context.Context, *QuerySystemConfigRequest) (*QuerySystemConfigResponse, error)
 	// ChainConfig queries a ChainConfig by chain.
 	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
 	// AllChainConfigs returns all registered chain configs.
@@ -132,6 +146,9 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (UnimplementedQueryServer) SystemConfig(context.Context, *QuerySystemConfigRequest) (*QuerySystemConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SystemConfig not implemented")
 }
 func (UnimplementedQueryServer) ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
@@ -175,6 +192,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_SystemConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuerySystemConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).SystemConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_SystemConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).SystemConfig(ctx, req.(*QuerySystemConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -279,6 +314,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "SystemConfig",
+			Handler:    _Query_SystemConfig_Handler,
 		},
 		{
 			MethodName: "ChainConfig",

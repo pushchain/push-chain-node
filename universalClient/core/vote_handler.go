@@ -2,10 +2,14 @@ package core
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	gogoproto "github.com/cosmos/gogoproto/proto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -165,7 +169,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}
 
-	return &uetypes.Inbound{
+	inboundMsg := &uetypes.Inbound{
 		SourceChain: eventData.SourceChain,
 		TxHash:      tx.TxHash,
 		Sender:      eventData.Sender,
@@ -174,7 +178,16 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		AssetAddr:   eventData.BridgeToken,
 		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
-	}, nil
+	}
+
+	up, err := decodeUniversalPayload(eventData.Data)
+	if err != nil {
+		inboundMsg.UniversalPayload = up
+		inboundMsg.VerificationData = tx.TxHash
+
+	}
+
+	return inboundMsg, nil
 }
 
 // executeVote executes the MsgVoteInbound transaction via AuthZ
@@ -289,4 +302,20 @@ func (vh *VoteHandler) GetPendingTransactions(minConfirmations uint64) ([]store.
 		Find(&pendingTxs).Error
 
 	return pendingTxs, err
+}
+
+// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
+	clean := strings.TrimPrefix(hexStr, "0x")
+
+	bz, err := hex.DecodeString(clean)
+	if err != nil {
+		return nil, fmt.Errorf("hex decode: %w", err)
+	}
+
+	up := new(uetypes.UniversalPayload)
+	if err := gogoproto.Unmarshal(bz, up); err != nil {
+		return nil, fmt.Errorf("gogo unmarshal UniversalPayload: %w", err)
+	}
+	return up, nil
 }

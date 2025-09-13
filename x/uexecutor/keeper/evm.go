@@ -134,13 +134,13 @@ func (k Keeper) CallPRC20Deposit(
 		return nil, errors.Wrap(err, "failed to get system config")
 	}
 
-	if sysCfg.HandlerContractAddress == "" {
-		return nil, fmt.Errorf("handler contract address not set in system config")
+	if sysCfg.UniversalCoreAddress == "" {
+		return nil, fmt.Errorf("universal core address not set in system config")
 	}
 
-	handlerAddr := common.HexToAddress(sysCfg.HandlerContractAddress)
+	handlerAddr := common.HexToAddress(sysCfg.UniversalCoreAddress)
 
-	abi, err := types.ParseHandlerABI()
+	abi, err := types.ParseUniversalCoreABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
 	}

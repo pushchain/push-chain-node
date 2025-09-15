@@ -1568,21 +1568,14 @@ on_fully_synced() {
 
 # Try WebSocket monitor first; if unavailable, fall back to the existing polling
 monitor_sync_auto() {
-    echo "[DEBUG] monitor_sync_auto called with args: $@" >&2
     # Don't run in subshells - that prevents proper exit when MONITOR_STOPPED is set
-    echo "[DEBUG] Calling monitor_sync_ws..." >&2
     monitor_sync_ws "$@"
     local ws_result=$?
-    echo "[DEBUG] monitor_sync_ws returned: $ws_result" >&2
     if [ $ws_result -eq 0 ]; then
-        echo "[DEBUG] monitor_sync_auto returning 0 (success from ws)" >&2
         return 0
     fi
-    echo "[DEBUG] Calling monitor_sync (fallback)..." >&2
     monitor_sync "$@"
     local sync_result=$?
-    echo "[DEBUG] monitor_sync returned: $sync_result" >&2
-    echo "[DEBUG] monitor_sync_auto returning: $sync_result" >&2
     return $sync_result
 }
 
@@ -1608,7 +1601,6 @@ detect_state_sync_phase() {
 
 # WebSocket monitor using websocat or wscat
 monitor_sync_ws() {
-    echo "[DEBUG] monitor_sync_ws started with args: $@" >&2
     MONITOR_STOPPED=0
     STATE_SYNC_COMPLETED_SHOWN=0
     
@@ -1616,7 +1608,6 @@ monitor_sync_ws() {
     local STATE_SYNC_MODE=0
     if [ "${1:-}" = "true" ]; then
         STATE_SYNC_MODE=1
-        echo "[DEBUG] STATE_SYNC_MODE enabled" >&2
     fi
     
     # File to track state sync completion (shared between processes)
@@ -1658,7 +1649,6 @@ monitor_sync_ws() {
                         # State sync completed - show the completion message
                         echo
                         print_success "✅ State sync completed successfully!"
-                        echo "[DEBUG] State sync completed, touching completion file: $completion_file" >&2
                         touch "$completion_file"
                         # Brief pause to let users see the message before block sync progress starts
                         sleep 2
@@ -1892,7 +1882,6 @@ monitor_sync_ws() {
         
         # After state sync completes, wait for node to report non-zero height
         if [ -f "$STATE_SYNC_COMPLETION_FILE" ] && [ "$STATE_SYNC_MODE" -eq 1 ]; then
-            echo "[DEBUG] State sync completed, waiting for non-zero height" >&2
             local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
             if [ -n "$NODE_STATUS" ]; then
                 LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
@@ -1914,7 +1903,6 @@ monitor_sync_ws() {
                     printf "\r\033[K"
                 fi
             fi
-            echo "[DEBUG] Height after wait: $LOCAL_HEIGHT" >&2
         fi
     fi
     
@@ -1984,7 +1972,6 @@ monitor_sync_ws() {
 
                 # Update STATE_SYNC_COMPLETED_SHOWN from completion file
                 if [ "$STATE_SYNC_COMPLETED_SHOWN" -eq 0 ] && [ -f "$STATE_SYNC_COMPLETION_FILE" ]; then
-                    echo "[DEBUG] State sync completion file detected, setting STATE_SYNC_COMPLETED_SHOWN=1" >&2
                     STATE_SYNC_COMPLETED_SHOWN=1
                 fi
                 
@@ -2003,23 +1990,18 @@ monitor_sync_ws() {
                     local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
                     if [ -n "$NODE_STATUS" ]; then
                         local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
-                        echo "[DEBUG] API catching_up status: $CATCHING_UP" >&2
                         
                         # Node is synced when catching_up is false
                         if [ "$CATCHING_UP" = "false" ]; then
-                            echo "[DEBUG] Node is fully synced (catching_up=false)" >&2
                             echo
                             on_fully_synced || true
                             FULLY_SYNCED_ONCE=1
-                            echo "[DEBUG] FULLY_SYNCED_ONCE set to 1" >&2
                             
                             # Exit if we're in state sync mode and sync is complete
                             if [ "$STATE_SYNC_MODE" -eq 1 ]; then
-                                echo "[DEBUG] Setting MONITOR_STOPPED=1 in STATE_SYNC_MODE" >&2
                                 MONITOR_STOPPED=1
                                 # Signal background checker to stop immediately
                                 touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
-                                echo "[DEBUG] MONITOR_STOPPED set, breaking from inner loop" >&2
                                 break
                             fi
                         fi
@@ -2027,11 +2009,9 @@ monitor_sync_ws() {
                 fi
             done
             exec 3<&-
-            echo "[DEBUG] Closed fd3, MONITOR_STOPPED=${MONITOR_STOPPED:-0}" >&2
 
             # Exit from for loop if monitoring was stopped
             if [ "${MONITOR_STOPPED:-0}" -eq 1 ]; then
-                echo "[DEBUG] Breaking from for loop due to MONITOR_STOPPED=1" >&2
                 break
             fi
 
@@ -2045,7 +2025,6 @@ monitor_sync_ws() {
         
         # Exit from outer while loop if monitoring was stopped
         if [ "${MONITOR_STOPPED:-0}" -eq 1 ]; then
-            echo "[DEBUG] Breaking from outer while loop due to MONITOR_STOPPED=1" >&2
             break
         fi
 
@@ -2074,30 +2053,23 @@ monitor_sync_ws() {
         sleep 2
     done
     
-    echo "[DEBUG] Exited main while loop, starting cleanup" >&2
     # Cleanup: signal background process to stop and clean up temp files
     touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
-    echo "[DEBUG] Created MONITOR_STOPPED_FILE" >&2
     
     if [ -n "${STATE_SYNC_CHECKER_PID:-}" ]; then
-        echo "[DEBUG] Killing STATE_SYNC_CHECKER_PID=${STATE_SYNC_CHECKER_PID}" >&2
         kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
         # Wait for background process to exit to avoid lingering
         wait "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
-        echo "[DEBUG] Waited for STATE_SYNC_CHECKER_PID to exit" >&2
     fi
     
     rm -f "$STATE_SYNC_COMPLETION_FILE" "$MONITOR_STOPPED_FILE" 2>/dev/null || true
-    echo "[DEBUG] Removed temp files" >&2
     
     # Ensure any child websocket clients are terminated
     pkill -P $$ websocat 2>/dev/null || true
     pkill -P $$ wscat 2>/dev/null || true
-    echo "[DEBUG] Killed any child websocket processes" >&2
     
     # Explicitly return success when in state sync mode and monitoring completed
     if [ "${STATE_SYNC_MODE:-0}" -eq 1 ]; then
-        echo "[DEBUG] In STATE_SYNC_MODE, checking if we need to wait for non-zero height" >&2
         
         # After state sync, wait for node to report non-zero height before returning
         local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
@@ -2122,10 +2094,8 @@ monitor_sync_ws() {
             fi
         fi
         
-        echo "[DEBUG] Returning 0 from monitor_sync_ws (STATE_SYNC_MODE=1, height=$LOCAL_HEIGHT)" >&2
         return 0
     fi
-    echo "[DEBUG] Returning from monitor_sync_ws (normal mode)" >&2
 }
 
 ###############################################################################
@@ -2273,7 +2243,6 @@ case "${1:-help}" in
         ;;
         
     monitor-state-sync)
-        echo "[DEBUG] monitor-state-sync command started" >&2
         # Enhanced state sync monitoring with visual progress bars
         if ! is_node_running; then
             print_error "❌ Node is not running"
@@ -2294,13 +2263,10 @@ case "${1:-help}" in
         fi
         
         # Start monitoring with enhanced progress display
-        echo "[DEBUG] Calling monitor_sync_auto true" >&2
         monitor_sync_auto true
         local monitor_result=$?
-        echo "[DEBUG] monitor_sync_auto returned: $monitor_result" >&2
         
         # Exit with success code after monitoring completes
-        echo "[DEBUG] Exiting monitor-state-sync with code: $monitor_result" >&2
         exit $monitor_result
         ;;
         

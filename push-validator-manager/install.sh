@@ -22,6 +22,24 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# Spinner function for long-running operations
+show_spinner() {
+    local msg="${1:-Processing}"
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    
+    # Run in background subshell
+    (
+        while true; do
+            printf "\r${CYAN}%s %s ${NC}" "$msg" "${spin:i++%${#spin}:1}"
+            sleep 0.1
+        done
+    ) &
+    
+    # Return the PID so caller can kill it
+    echo $!
+}
+
 # Read env or defaults
 MONIKER="${MONIKER:-push-validator}"
 GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
@@ -325,7 +343,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
       # Detect state sync activity
       if echo "$line" | grep -qE "Starting state sync|Discovered new snapshot"; then
         STATE_SYNC_DETECTED=true
-        echo -e "${CYAN}🔄 State sync detected - this may take several minutes...${NC}"
       fi
       
       # Handle state sync failures
@@ -446,13 +463,17 @@ if [[ "$AUTO_START" = "yes" ]]; then
   fi
 
   if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    echo -e "${CYAN}📡 State sync detected - monitoring with enhanced progress display...${NC}"
-    echo
+    # Start spinner while monitoring state sync
+    SPINNER_PID=$(show_spinner "📡 Syncing blockchain data")
     
     # Use the enhanced state sync monitoring from push-validator-manager
     # This provides visual progress bars, phase detection, and better user experience
-    # Run in background and capture exit status
-    "$MANAGER_LINK" monitor-state-sync 2>/dev/null || true
+    # Run monitor-state-sync but suppress its output, we'll show our own progress
+    "$MANAGER_LINK" monitor-state-sync >/dev/null 2>&1 || true
+    
+    # Stop the spinner
+    kill $SPINNER_PID 2>/dev/null || true
+    printf "\r\033[K"  # Clear the spinner line
     
     # State sync monitoring has completed (either successfully or via Ctrl+C)
     # Check if node is synced
@@ -460,7 +481,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
     if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
       SYNC_COMPLETE=true
       echo
-      echo -e "${GREEN}✅ Node is fully synced!${NC}"
     else
       # Node is still syncing, but monitoring completed - this is normal
       SYNC_COMPLETE=false
@@ -506,7 +526,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
     for i in {1..3}; do
       SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
       if echo "$SYNC_STATUS" | grep -q "Catching Up: false" || echo "$SYNC_STATUS" | grep -q "Fully Synced" || echo "$SYNC_STATUS" | grep -q "✅.*SYNCED"; then
-        echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
         SYNC_COMPLETE=true
         break
       fi
@@ -529,7 +548,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
       
       # Quick sync status check
       if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
-        echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
         SYNC_COMPLETE=true
       else
         echo -e "${CYAN}⏳ Node is synchronizing with the network...${NC}"
@@ -552,7 +570,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
         # Try to get status but don't fail if it's not ready
         FINAL_STATUS=$("$MANAGER_LINK" status 2>/dev/null || echo "")
         if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
-          echo -e "  ${GREEN}✅ Node is fully synchronized!${NC}"
+          echo -e "  ${GREEN}✅ Node is synced${NC}"
         else
           echo -e "  ${CYAN}⏳ Node is initializing/syncing with the network...${NC}"
           echo -e "  ${CYAN}This is normal and may take 5-15 minutes for state sync.${NC}"

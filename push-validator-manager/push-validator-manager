@@ -396,14 +396,14 @@ start_node() {
                 PERSISTENT_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
                 print_status "✅ Found $(echo "$PEER_LIST" | wc -l | tr -d ' ') properly configured peers"
             else
-                print_status "⚠️ No properly configured peers found, using fallback"
+                [ "${VERBOSE:-}" = "true" ] && print_status "⚠️ No properly configured peers found, using fallback"
             fi
         fi
         
         if [ -z "$PERSISTENT_PEERS" ]; then
             # Fallback to known testnet nodes
             # IMPORTANT: node2 has snapshots, both nodes provide P2P connectivity
-            print_status "🔗 Configuring known testnet peers..."
+            [ "${VERBOSE:-}" = "true" ] && print_status "🔗 Configuring known testnet peers..."
             NODE1_ID=$(curl -s https://rpc-testnet-donut-node1.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
             NODE2_ID=$(curl -s https://rpc-testnet-donut-node2.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
             
@@ -435,7 +435,7 @@ start_node() {
         fi
         
         # Configure pruning for validator (keep minimal history)
-        print_status "⚙️ Configuring validator pruning settings"
+        [ "${VERBOSE:-}" = "true" ] && print_status "⚙️ Configuring validator pruning settings"
         sed -i.bak \
             -e 's/^pruning = .*/pruning = "default"/' \
             -e 's/^pruning-keep-recent = .*/pruning-keep-recent = "100"/' \
@@ -791,8 +791,6 @@ configure_state_sync() {
     # State sync needs full URLs with https protocol
     local rpc_servers="https://${rpc_primary_host}:443,https://${rpc_secondary_host}:443"
 
-    print_status "🔧 Configuring state sync from $rpc_server..."
-
     # Get latest block info from RPC (keep protocol for curl)
     local latest_block=$(curl -s "$rpc_server/block" | jq -r '.result.block.header.height // empty' 2>/dev/null)
     if [ -z "$latest_block" ] || [ "$latest_block" = "null" ]; then
@@ -813,10 +811,13 @@ configure_state_sync() {
         return 1
     fi
     
-    print_status "📊 Configuring state sync with:"
-    echo "  Trust Height: $trust_height"
-    echo "  Trust Hash: $trust_hash"
-    echo "  RPC Servers: $rpc_servers"
+    # State sync parameters (only show in verbose mode)
+    [ "${VERBOSE:-}" = "true" ] && {
+        print_status "📊 Configuring state sync with:"
+        echo "  Trust Height: $trust_height"
+        echo "  Trust Hash: $trust_hash"
+        echo "  RPC Servers: $rpc_servers"
+    }
     
     # Update config.toml with state sync settings
     local config_file="$HOME_DIR/config/config.toml"
@@ -826,7 +827,6 @@ configure_state_sync() {
     
     # Configure persistent peers for state sync
     # IMPORTANT: State sync requires peers to discover snapshots
-    print_status "🔗 Configuring peers for state sync..."
     NODE1_ID=$(curl -s https://rpc-testnet-donut-node1.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
     NODE2_ID=$(curl -s https://rpc-testnet-donut-node2.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
     
@@ -1161,7 +1161,7 @@ monitor_sync() {
                         status_text="${GREEN}✅ SYNCED${NC}"
                         is_synced=1
                     elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
-                        status_text="${YELLOW}🔄 CATCHING UP${NC}"
+                        status_text="${YELLOW}🔄 Syncing${NC}"
                     else
                         status_text="${YELLOW}⏳ SYNCING${NC}"
                     fi
@@ -1193,7 +1193,7 @@ monitor_sync() {
                 # Build colored single-line summary with progress bar and print in place
                 # Only show when we have valid remote height (prevents /0 display)
                 if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                    local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                    local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
                     [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
                     printf "\r%b\033[K" "$line"
                     
@@ -1228,7 +1228,7 @@ monitor_sync() {
                         echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ FULLY SYNCED${NC}"
                         echo -e "  ${BOLD}Sync Rate:${NC} ${GREEN}Maintaining sync${NC}"
                     elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
-                        echo -e "  ${BOLD}Status:${NC} ${YELLOW}🔄 CATCHING UP${NC} (${HEIGHT_DIFF} blocks behind)"
+                        echo -e "  ${BOLD}Status:${NC} ${YELLOW}🔄 Syncing${NC} (${HEIGHT_DIFF} blocks behind)"
                     else
                         echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ SYNCING...${NC}"
                     fi
@@ -1361,7 +1361,7 @@ configure_genesis() {
                     NEW_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
                     print_status "✅ Found $(echo "$PEER_LIST" | wc -l | tr -d ' ') properly configured peers for new domain"
                 else
-                    print_status "⚠️ No properly configured peers found for new domain, using fallback"
+                    [ "${VERBOSE:-}" = "true" ] && print_status "⚠️ No properly configured peers found for new domain, using fallback"
                 fi
             fi
             
@@ -1780,7 +1780,7 @@ monitor_sync_ws() {
             if [ "$HEIGHT_DIFF" -le 5 ]; then
                 status_text="${GREEN}✅ SYNCED${NC}"
             elif [ "$HEIGHT_DIFF" -le 100 ]; then
-                status_text="${YELLOW}🔄 CATCHING UP${NC}"
+                status_text="${YELLOW}🔄 Syncing${NC}"
             fi
         fi
 
@@ -1809,7 +1809,7 @@ monitor_sync_ws() {
                 fi
             fi
             if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
                 [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
                 printf "\r%b\033[K" "$line"
             fi

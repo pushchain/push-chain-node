@@ -1836,12 +1836,12 @@ monitor_sync_ws() {
         local query="$1"
         local payload='{"jsonrpc":"2.0","method":"subscribe","params":{"query":"'"$query"'"},"id":1}'
         if [ "$WS_CLIENT" = "websocat" ]; then
-            # Send subscribe JSON and stream messages
+            # Send subscribe JSON and stream messages with inactivity timeout and ping timeout
             # shellcheck disable=SC2005
-            ( echo "$payload"; ) | websocat -t ws://localhost:26657/websocket 2>/dev/null
+            ( echo "$payload"; ) | timeout 300 websocat -t --ping-timeout 10 ws://localhost:26657/websocket 2>/dev/null
         else
-            # wscat can send once with -x and print responses
-            wscat -c ws://localhost:26657/websocket -x "$payload" 2>/dev/null
+            # wscat with overall timeout to avoid lingering
+            timeout 300 wscat -c ws://localhost:26657/websocket -x "$payload" 2>/dev/null
         fi
     }
 
@@ -1972,6 +1972,9 @@ monitor_sync_ws() {
         wait "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
     fi
     rm -f "$STATE_SYNC_COMPLETION_FILE" "$MONITOR_STOPPED_FILE" 2>/dev/null || true
+    # Ensure any child websocket clients are terminated
+    pkill -P $$ websocat 2>/dev/null || true
+    pkill -P $$ wscat 2>/dev/null || true
     # Explicitly return success when in state sync mode and monitoring completed
     if [ "${STATE_SYNC_MODE:-0}" -eq 1 ]; then
         return 0

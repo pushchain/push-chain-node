@@ -1691,6 +1691,16 @@ monitor_sync_ws() {
     local FULLY_SYNCED_ONCE=0
     local reconnects=0
     local LOCAL_HEIGHT=0
+    
+    # Initialize LOCAL_HEIGHT with current node height if available
+    local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+    if [ -n "$NODE_STATUS" ]; then
+        local CURRENT_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+        if [[ "$CURRENT_HEIGHT" =~ ^[0-9]+$ ]]; then
+            LOCAL_HEIGHT=$CURRENT_HEIGHT
+            previous_height=$CURRENT_HEIGHT  # Initialize to avoid huge rate on first update
+        fi
+    fi
 
     # Prepare terminal when TTY
     local is_tty=0

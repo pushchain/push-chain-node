@@ -866,6 +866,11 @@ STATEEOF
 
 # Safe sync monitoring that doesn't kill the node on Ctrl+C
 show_sync_after_start() {
+    # Skip monitoring if called from installer
+    if [ "${SKIP_SYNC_MONITOR:-}" = "true" ]; then
+        return 0
+    fi
+    
     # Check if this is initial state sync
     if [ -f "$HOME_DIR/.initial_state_sync" ]; then
         print_header "📡 State Sync Progress"
@@ -1203,7 +1208,25 @@ configure_state_sync() {
     # Backup original config
     cp "$config_file" "$config_file.backup"
     
-    # Enable state sync and set parameters
+    # Configure persistent peers for state sync
+    # IMPORTANT: State sync requires peers to discover snapshots
+    print_status "🔗 Configuring peers for state sync..."
+    NODE1_ID=$(curl -s https://rpc-testnet-donut-node1.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
+    NODE2_ID=$(curl -s https://rpc-testnet-donut-node2.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
+    
+    PEERS_LIST=""
+    if [ -n "$NODE1_ID" ] && [ "$NODE1_ID" != "null" ]; then
+        PEERS_LIST="${NODE1_ID}@rpc-testnet-donut-node1.push.org:26656"
+    fi
+    if [ -n "$NODE2_ID" ] && [ "$NODE2_ID" != "null" ]; then
+        if [ -n "$PEERS_LIST" ]; then
+            PEERS_LIST="${PEERS_LIST},${NODE2_ID}@rpc-testnet-donut-node2.push.org:26656"
+        else
+            PEERS_LIST="${NODE2_ID}@rpc-testnet-donut-node2.push.org:26656"
+        fi
+    fi
+    
+    # Enable state sync and set parameters including peers
     sed -i.tmp \
         -e '/^\[statesync\]/,/^\[/{' \
         -e 's/^enable = .*/enable = true/' \
@@ -1211,7 +1234,10 @@ configure_state_sync() {
         -e 's/^trust_height = .*/trust_height = '"$trust_height"'/' \
         -e 's/^trust_hash = .*/trust_hash = "'"$trust_hash"'"/' \
         -e 's/^trust_period = .*/trust_period = "336h0m0s"/' \
-        -e '}' "$config_file"
+        -e '}' \
+        -e "s/^persistent_peers = .*/persistent_peers = \"$PEERS_LIST\"/" \
+        -e "s/^addr_book_strict = .*/addr_book_strict = false/" \
+        "$config_file"
     
     print_success "✅ State sync configured"
     return 0

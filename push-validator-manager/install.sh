@@ -299,6 +299,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
   # Start the node and monitor startup
   NODE_STARTED=false
   STATE_SYNC_DETECTED=false
+  SYNC_COMPLETE=false
   
   # Start node in background and capture initial output (without timeout to get full feedback)
   {

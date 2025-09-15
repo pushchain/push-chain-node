@@ -685,7 +685,7 @@ show_status() {
                     
                     LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null)
                     LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null)
-                    CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
+                    CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null)
                     
                     # Fetch remote network height to determine actual sync status
                     REMOTE_HEIGHT=0
@@ -1034,7 +1034,7 @@ monitor_sync() {
     if [ "$STATE_SYNC_MODE" -eq 0 ]; then
         local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
         if [ -n "$NODE_STATUS" ]; then
-            local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+            local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
             if [ "$CATCHING_UP" = "false" ]; then
                 echo
                 print_success "✅ Node is already fully synced!"
@@ -1089,7 +1089,7 @@ monitor_sync() {
         if [ -n "$NODE_STATUS" ]; then
             # Extract sync information
             LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
-            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
             LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null || echo "unknown")
             
             # After state sync, wait for node to report non-zero height before showing progress
@@ -1655,7 +1655,7 @@ monitor_sync_ws() {
         local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
         local CATCHING_UP="true"
         if [ -n "$NODE_STATUS" ]; then
-            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
         fi
         
         if [ "$CATCHING_UP" = "false" ]; then
@@ -1775,9 +1775,9 @@ monitor_sync_ws() {
         local query="$1"
         local payload='{"jsonrpc":"2.0","method":"subscribe","params":{"query":"'"$query"'"},"id":1}'
         if [ "$WS_CLIENT" = "websocat" ]; then
-            # Send subscribe JSON and stream messages with inactivity timeout and ping timeout
+            # Send subscribe JSON and stream messages with keepalive pings
             # shellcheck disable=SC2005
-            ( echo "$payload"; ) | timeout 300 websocat -t --ping-timeout 10 ws://localhost:26657/websocket 2>/dev/null
+            ( echo "$payload"; ) | timeout 300 websocat -t --ping-interval 5 --ping-timeout 10 ws://localhost:26657/websocket 2>/dev/null
         else
             # wscat with overall timeout to avoid lingering
             timeout 300 wscat -c ws://localhost:26657/websocket -x "$payload" 2>/dev/null
@@ -1786,7 +1786,8 @@ monitor_sync_ws() {
 
     # Attempt multiple query forms; keep reconnecting. If we fail repeatedly
     # without receiving any events, let caller fallback to polling.
-    local queries=("cometbft.event='NewBlockHeader'" "tm.event='NewBlockHeader'" "tm.event='NewBlock'")
+    # Use tm.event first as it's proven to work, keep cometbft as fallback
+    local queries=("tm.event='NewBlockHeader'" "tm.event='NewBlock'" "cometbft.event='NewBlockHeader'")
     local noevent_streak=0
     local TMP_RECEIVED="/tmp/pnm_ws_${$}_received"
     # Use a function to clean up to avoid variable evaluation issues
@@ -1802,8 +1803,9 @@ monitor_sync_ws() {
         for q in "${queries[@]}"; do
             : > "$TMP_RECEIVED" 2>/dev/null || true
             # Use process substitution with read timeout so we don't block forever
+            # Use 8 second timeout since blocks come every ~6 seconds when synced
             exec 3< <(_run_subscription "$q")
-            while IFS= read -r -t 2 line <&3; do
+            while IFS= read -r -t 8 line <&3; do
             [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
             # Extract height from either NewBlock or NewBlockHeader shapes
             local h
@@ -1850,21 +1852,24 @@ monitor_sync_ws() {
                     
                     local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
                     if [ -n "$NODE_STATUS" ]; then
-                        local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
+                        local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null)
                         
                         # Node is synced when catching_up is false
                         if [ "$CATCHING_UP" = "false" ]; then
-                            echo
-                            on_fully_synced || true
-                            FULLY_SYNCED_ONCE=1
+                            if [ "$FULLY_SYNCED_ONCE" -eq 0 ]; then
+                                echo
+                                on_fully_synced || true
+                                FULLY_SYNCED_ONCE=1
+                            fi
                             
-                            # Exit if we're in state sync mode and sync is complete
+                            # Only exit if we're in state sync mode and sync is complete
                             if [ "$STATE_SYNC_MODE" -eq 1 ]; then
                                 MONITOR_STOPPED=1
                                 # Signal background checker to stop immediately
                                 touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
                                 break
                             fi
+                            # Otherwise continue monitoring indefinitely
                         fi
                     fi
                 fi
@@ -1900,6 +1905,15 @@ monitor_sync_ws() {
         # If we failed to get events several times in a row, fallback
         # During state sync, be more patient as events may be sparse
         local max_noevent_streak=3
+        
+        # Check current sync status to adjust patience
+        local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+        local CATCHING_UP="true"
+        if [ -n "$NODE_STATUS" ]; then
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
+        fi
+        
+        # Be more patient in different scenarios
         if [ "$STATE_SYNC_MODE" -eq 1 ]; then
             max_noevent_streak=10
             # Check if state sync completed while waiting
@@ -1909,10 +1923,21 @@ monitor_sync_ws() {
                 noevent_streak=0
                 continue
             fi
+        elif [ "$CATCHING_UP" = "false" ]; then
+            # When fully synced, blocks come less frequently, be very patient
+            max_noevent_streak=15
         fi
         
         if [ "$noevent_streak" -ge "$max_noevent_streak" ]; then
-            # Clean up background process before returning
+            # In manual mode, don't give up - keep trying
+            if [ "${STATE_SYNC_MODE:-0}" -eq 0 ]; then
+                # Reset the streak counter and try again
+                noevent_streak=0
+                sleep 5
+                continue
+            fi
+            
+            # For state sync mode, clean up and return
             touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
             if [ -n "${STATE_SYNC_CHECKER_PID:-}" ]; then
                 kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
@@ -1942,8 +1967,8 @@ monitor_sync_ws() {
     pkill -P $$ websocat 2>/dev/null || true
     pkill -P $$ wscat 2>/dev/null || true
     
-    # Explicitly return success when in state sync mode and monitoring completed
-    if [ "${STATE_SYNC_MODE:-0}" -eq 1 ]; then
+    # Only return success if we were in state sync mode and monitoring completed successfully
+    if [ "${STATE_SYNC_MODE:-0}" -eq 1 ] && [ "${MONITOR_STOPPED:-0}" -eq 1 ]; then
         
         # After state sync, wait for node to report non-zero height before returning
         local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
@@ -1970,6 +1995,17 @@ monitor_sync_ws() {
         
         return 0
     fi
+    
+    # For manual mode (STATE_SYNC_MODE=0), keep monitoring indefinitely
+    # WebSocket monitoring should continue until user interrupts
+    if [ "${STATE_SYNC_MODE:-0}" -eq 0 ]; then
+        # This allows the function to exit naturally or continue in the loop
+        # Don't force a fallback to polling
+        return 0
+    fi
+    
+    # Only return 1 (fallback to polling) if there was an actual WebSocket failure
+    return 1
 }
 
 ###############################################################################

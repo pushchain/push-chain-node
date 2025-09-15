@@ -278,12 +278,17 @@ detect_state_sync_phase() {
     else
         # Check if we're in block sync phase by looking for finalized block messages
         if echo "$recent_logs" | grep -qi "finalized block\|committed state\|indexed block"; then
-            local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
-            if [ -n "$node_status" ]; then
-                local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+            local node_status=$(curl -s --connect-timeout 5 localhost:26657/status 2>/dev/null)
+            if [ -n "$node_status" ] && echo "$node_status" | jq -e . >/dev/null 2>&1; then
+                # Ensure we have valid JSON and extract catching_up properly
+                local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up')
                 
-                # Debug: Log the API response for debugging
-                echo "$(date '+%H:%M:%S'): API catching_up=$catching_up" >> /tmp/state_sync_debug.log
+                # If jq returns null or empty, default to true (still catching up)
+                if [ "$catching_up" = "null" ] || [ -z "$catching_up" ]; then
+                    catching_up="true"
+                fi
+                
+                echo "$(date '+%H:%M:%S'): Fixed API catching_up=$catching_up" >> /tmp/state_sync_debug.log
                 
                 # Trust the node API - it knows when it's functionally synced
                 if [ "$catching_up" = "false" ]; then

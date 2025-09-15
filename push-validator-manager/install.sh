@@ -323,6 +323,19 @@ if [[ "$AUTO_START" = "yes" ]]; then
   # Check if node is running with multiple attempts - allow more time for state sync startup
   echo -e "${CYAN}⏳ Verifying node startup...${NC}"
   for i in {1..30}; do  # Increased from 15 to 30 attempts (60 seconds total)
+    # Show what we're checking at different stages
+    if [ $i -eq 1 ]; then
+      echo -e "${CYAN}  • Checking process initialization...${NC}"
+    elif [ $i -eq 5 ] && [ "$NODE_STARTED" != "true" ]; then
+      echo -e "${CYAN}  • Waiting for database setup...${NC}"
+    elif [ $i -eq 10 ] && [ "$NODE_STARTED" != "true" ]; then
+      echo -e "${CYAN}  • Waiting for network initialization...${NC}"
+    elif [ $i -eq 15 ] && [ "$NODE_STARTED" != "true" ]; then
+      echo -e "${CYAN}  • Waiting for RPC server to start...${NC}"
+    elif [ $i -eq 20 ] && [ "$NODE_STARTED" != "true" ]; then
+      echo -e "${CYAN}  • Waiting for peer connections...${NC}"
+    fi
+    
     STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
     
     # Check for various indicators that node is running
@@ -332,25 +345,43 @@ if [[ "$AUTO_START" = "yes" ]]; then
       break
     fi
     
-    # Also check if node process is running even if status command fails
-    if [ $i -gt 10 ]; then
-      # After 20 seconds, also check for running process
-      if pgrep -f "pchaind" >/dev/null 2>&1; then
-        echo -e "${CYAN}🔍 Node process detected, verifying status...${NC}"
-        # Give it a few more seconds and try status again
-        sleep 3
+    # Check if process exists (more detailed feedback)
+    if pgrep -f "pchaind" >/dev/null 2>&1; then
+      if [ $i -eq 3 ] || [ $i -eq 8 ]; then
+        echo -e "${CYAN}  ✓ Process running, initializing components...${NC}"
+      fi
+      
+      # After 10 attempts, try more aggressive status checking
+      if [ $i -gt 10 ]; then
+        # Check if RPC port is listening
+        if lsof -i:26657 >/dev/null 2>&1; then
+          if [ $i -eq 11 ]; then
+            echo -e "${CYAN}  ✓ RPC port active, waiting for full initialization...${NC}"
+          fi
+        fi
+        
+        # Give it a moment and try status again
+        sleep 1
         STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
         if echo "$STATUS_OUTPUT" | grep -q "Node is running\|Syncing\|height"; then
           NODE_STARTED=true
-          echo -e "${GREEN}✅ Node startup verified (process check)${NC}"
+          echo -e "${GREEN}✅ Node startup verified${NC}"
           break
         fi
       fi
+    else
+      # Process not found yet
+      if [ $i -eq 2 ]; then
+        echo -e "${CYAN}  • Waiting for process to start...${NC}"
+      fi
     fi
     
-    # Show progress messages at intervals
-    if [ $((i % 10)) -eq 0 ]; then
-      echo -e "${CYAN}⏳ Still checking node status (attempt $i/30)...${NC}"
+    # Show detailed progress at longer intervals
+    if [ $((i % 10)) -eq 0 ] && [ $i -gt 0 ] && [ "$NODE_STARTED" != "true" ]; then
+      echo -e "${YELLOW}  ⏱️ Startup taking longer than usual (${i}/30 attempts)...${NC}"
+      if [ $i -eq 20 ]; then
+        echo -e "${CYAN}  💡 This is normal for first-time initialization${NC}"
+      fi
     fi
     
     [ $i -lt 30 ] && sleep 2

@@ -1,87 +1,76 @@
 # Push Validator Manager
 
-**Push Chain validator management**
+**Fast validator setup with automatic recovery for Push Chain**
 
-## 🚀 Quick Start
+## 🚀 Quick Start (5-10 minutes)
 
 ### Step 1: Install & Start
 ```bash
 curl -fsSL https://get.push.network/node/install.sh | bash
 ```
-This installs and starts your validator automatically.
+Automatically installs and starts your validator using state sync (no full sync needed).
 
-> **Note:** After installation, restart your terminal or run `source ~/.bashrc` (or `~/.zshrc`) to use the `push-validator-manager` command from anywhere.
+> **Note:** Restart terminal or run `source ~/.bashrc` to use `push-validator-manager` from anywhere.
 
-### Step 2: Check Sync Status
+### Step 2: Verify Sync
 ```bash
 push-validator-manager status
 ```
-Wait for: `✅ Catching Up: false` (fully synced)
+Wait for: `✅ Catching Up: false` (takes ~5-10 minutes with state sync)
 
-### Step 3: Become a Validator
+### Step 3: Register Validator
 ```bash
 push-validator-manager register-validator
 ```
+**Requirements:** 2+ PC tokens from [faucet](https://faucet.push.org)
 
-**Requirements:**
-- Node must be synced (catching_up: false)
-- Need 2+ PC tokens from [faucet](https://faucet.push.org)
-- Account must be funded first
-
-**That's it! You're now running a Push Chain validator! 🎉**
+**Done! Your validator is running with automatic recovery enabled! 🎉**
 
 ## 📖 Commands
 
-### Essential Commands
+### Core
 ```bash
-push-validator-manager start                # Setup + start node  
+push-validator-manager start                # Start with state sync (5-10 min)
 push-validator-manager stop                 # Stop node
-push-validator-manager status               # Show sync status & validator info
-push-validator-manager register-validator   # Become a validator
-push-validator-manager logs                 # View live logs
+push-validator-manager status               # Check sync & validator status
+push-validator-manager register-validator   # Register as validator
+push-validator-manager logs                 # View logs
 ```
 
-### Additional Commands
+### Recovery & Monitoring
 ```bash
-push-validator-manager restart         # Restart node
-push-validator-manager sync            # Real-time sync monitor
-push-validator-manager validators      # List all validators
-push-validator-manager balance         # Check wallet balance
-push-validator-manager reset           # Reset blockchain data
-push-validator-manager help            # Show all commands
+push-validator-manager recover         # Manual snapshot recovery
+push-validator-manager recovery-status # Check auto-recovery status
+push-validator-manager sync            # Monitor sync progress
 ```
 
-### Public Setup Commands (Optional)
+### Management
 ```bash
-push-validator-manager setup-nginx <domain>  # Setup NGINX + SSL for public RPC
-push-validator-manager setup-logs            # Configure log rotation
-push-validator-manager backup                # Create node backup
+push-validator-manager restart    # Restart node
+push-validator-manager validators # List validators
+push-validator-manager balance    # Check balance
+push-validator-manager reset      # Reset data
+push-validator-manager backup     # Backup node
 ```
 
-## 📊 Network Info
+## ⚡ Features
 
-- **Chain ID**: `push_42101-1`
-- **Network**: Push Chain Testnet
+- **State Sync**: 5-10 minute setup (no full blockchain download)
+- **Auto Recovery**: Automatic snapshot recovery on sync failures
+- **Smart Detection**: Monitors for sync stalls (>120s)
+- **Reliable Snapshots**: Uses trusted RPC nodes for recovery
+
+## 📊 Network
+
+- **Chain**: `push_42101-1` (Testnet)
 - **Min Stake**: 2 PC
 - **Faucet**: https://faucet.push.org
 - **Explorer**: https://donut.push.network
 
-## 🔧 File Locations
 
-- **Binary**: `./build/pchaind`
-- **Config**: `~/.pchain/config/`
-- **Data**: `~/.pchain/data/`
-- **Keys**: `~/.pchain/keyring-test/`
-- **Logs**: `~/.pchain/logs/pchaind.log`
+## 🔧 Advanced Setup (Optional)
 
-
-## 🌍 Public Setup (Optional)
-
-### Making Your Node Publicly Accessible
-
-By default, your validator runs locally. These optional commands help set up public HTTPS endpoints:
-
-#### Setup NGINX with SSL
+### Setup NGINX with SSL
 ```bash
 push-validator-manager setup-nginx yourdomain.com
 ```
@@ -96,21 +85,16 @@ push-validator-manager setup-nginx yourdomain.com
 - Ports 80/443 open
 - Ubuntu/Debian system
 
-#### Setup Log Rotation
+### Log Rotation
 ```bash
 push-validator-manager setup-logs
 ```
-**Configures:**
-- Daily log rotation
-- 14-day retention
-- Automatic compression
-- System logrotate integration
+Configures daily rotation with 14-day retention and compression.
 
-#### Create Backups  
-```bash
-push-validator-manager backup
-```
-- Timestamped backup in `~/push-node-backups/`
-- Includes all config, keys, and blockchain data  
-- Compressed archive with integrity verification
+### File Locations
+- **Binary**: `./build/pchaind`
+- **Config**: `~/.pchain/config/`
+- **Data**: `~/.pchain/data/`
+- **Logs**: `~/.pchain/logs/pchaind.log`
+- **Backups**: `~/push-node-backups/`
 

@@ -651,8 +651,8 @@ show_status() {
 # Backup node data before recovery
 backup_node_data() {
     local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup_dir="$HOME_DIR/../pchain_backups"
-    local backup_file="$backup_dir/pchain_backup_${timestamp}.tar.gz"
+    local backup_dir="$HOME/push-node-backups"
+    local backup_file="$backup_dir/pchain_recovery_backup_${timestamp}.tar.gz"
     
     print_status "📦 Creating backup before recovery..."
     mkdir -p "$backup_dir"

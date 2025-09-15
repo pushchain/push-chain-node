@@ -459,10 +459,11 @@ if [[ "$AUTO_START" = "yes" ]]; then
     SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
     if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
       SYNC_COMPLETE=true
-      echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
+      echo
+      echo -e "${GREEN}✅ Node is fully synced!${NC}"
     else
-      echo -e "${RED}❌ Enhanced monitoring failed${NC}"
-      echo "Check logs manually: tail -f ~/.pchain/logs/pchaind.log"
+      # Node is still syncing, but monitoring completed - this is normal
+      SYNC_COMPLETE=false
     fi
   elif [ "$STATE_SYNC_DETECTED" = "true" ]; then
     # Monitoring completed - set SYNC_COMPLETE based on final status

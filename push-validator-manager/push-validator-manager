@@ -1530,8 +1530,9 @@ recover_from_snapshot() {
     # Step 6: Monitor recovery progress using reusable function
     print_status "📊 Monitoring state sync progress..."
     
-    # Use the reusable wait_for_sync_completion function
-    if wait_for_sync_completion 600 true; then
+    # Use the enhanced monitor with visual progress and proper message ordering
+    monitor_state_sync true
+    if [ $? -eq 0 ]; then
         # Sync completed successfully (message already shown during monitoring)
         # print_success "✅ State sync completed successfully!"  # Removed duplicate
         

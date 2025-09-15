@@ -1938,6 +1938,9 @@ monitor_sync_ws() {
             done
             exec 3<&-
 
+            # Exit from for loop if monitoring was stopped
+            [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
+
             if [ -s "$TMP_RECEIVED" ]; then
                 got_event=1
                 break
@@ -1945,6 +1948,9 @@ monitor_sync_ws() {
             # No events in this attempt; render to keep UI fresh
             render_ws_view || true
         done
+        
+        # Exit from outer while loop if monitoring was stopped
+        [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
 
         if [ "$got_event" -eq 1 ]; then
             noevent_streak=0

@@ -379,7 +379,14 @@ show_state_sync_progress() {
                 fi
             fi
             
-            show_phase_progress "⏳ State sync in progress" 1 4 "$sync_progress" "$time_text"
+            # For state sync, show the actual sync progress directly
+            # Don't divide by phases since block syncing is the main work
+            local progress_bar=$(render_progress_bar "$sync_progress")
+            printf "\r"
+            echo -en "${CYAN}⏳ State sync in progress${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+            if [ -n "$time_text" ]; then
+                echo -en " | $time_text"
+            fi
             ;;
     esac
 }

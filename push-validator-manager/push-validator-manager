@@ -692,6 +692,80 @@ backup_node_data() {
     fi
 }
 
+# Wait for node sync to complete with progress monitoring
+# Returns 0 if sync completes, 1 if timeout or error
+wait_for_sync_completion() {
+    local MAX_WAIT="${1:-600}"  # Default 10 minutes timeout
+    local SHOW_PROGRESS="${2:-true}"  # Show progress by default
+    
+    local SYNC_COMPLETE=false
+    local WAIT_TIME=0
+    local sync_start_time=$(date +%s)
+    
+    print_status "⏳ Waiting for node to sync..."
+    
+    while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+        # Check if node is still running
+        if ! is_node_running; then
+            print_error "❌ Node stopped during sync"
+            return 1
+        fi
+        
+        # Get sync status from RPC
+        local status=$(curl -s localhost:26657/status 2>/dev/null)
+        
+        if [ -n "$status" ]; then
+            local catching_up=$(echo "$status" | jq -r '.result.sync_info.catching_up // true')
+            local current_height=$(echo "$status" | jq -r '.result.sync_info.latest_block_height // "0"')
+            local network_height=$(echo "$status" | jq -r '.result.sync_info.earliest_block_height // "0"' 2>/dev/null)
+            
+            # Try to get network height from peers if not available
+            if [ "$network_height" = "0" ] || [ "$network_height" = "null" ]; then
+                # Get from net_info for a better estimate
+                local net_info=$(curl -s localhost:26657/net_info 2>/dev/null)
+                if [ -n "$net_info" ]; then
+                    # This is an approximation - get the highest peer height
+                    network_height=$(echo "$net_info" | jq -r '[.result.peers[].connection_status.SendMonitor.Start // 0] | max // 0' 2>/dev/null)
+                fi
+            fi
+            
+            # Check if fully synced
+            if [ "$catching_up" = "false" ] && [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
+                SYNC_COMPLETE=true
+                if [ "$SHOW_PROGRESS" = "true" ]; then
+                    echo  # New line after progress
+                    print_success "✅ Node is fully synced at height $current_height!"
+                fi
+                break
+            fi
+            
+            # Show progress if enabled and we have valid heights
+            if [ "$SHOW_PROGRESS" = "true" ] && [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
+                if [ "$network_height" != "0" ] && [ "$network_height" != "null" ] && [ $network_height -gt 0 ]; then
+                    local PERCENT=$((current_height * 100 / network_height))
+                    [ $PERCENT -gt 100 ] && PERCENT=100
+                    echo -ne "\r\033[K🔄 Syncing: ${current_height}/${network_height} (${PERCENT}%)  "
+                else
+                    echo -ne "\r\033[K🔄 Syncing: Block height ${current_height}  "
+                fi
+            fi
+        fi
+        
+        sleep 3
+        WAIT_TIME=$((WAIT_TIME + 3))
+    done
+    
+    if [ "$SYNC_COMPLETE" = true ]; then
+        return 0
+    else
+        if [ "$SHOW_PROGRESS" = "true" ]; then
+            echo  # New line after progress
+            print_warning "⚠️ Sync timeout after ${MAX_WAIT} seconds"
+        fi
+        return 1
+    fi
+}
+
 # Configure state sync in config.toml
 configure_state_sync() {
     local rpc_server="${1:-$SNAPSHOT_RPC}"
@@ -825,52 +899,27 @@ recover_from_snapshot() {
     print_status "🚀 Starting node with state sync..."
     start_node
     
-    # Step 6: Monitor recovery progress
+    # Step 6: Monitor recovery progress using reusable function
     print_status "📊 Monitoring state sync progress..."
-    local sync_start_time=$(date +%s)
-    local sync_timeout=600  # 10 minutes timeout for state sync
     
-    while true; do
-        sleep 5
+    # Use the reusable wait_for_sync_completion function
+    if wait_for_sync_completion 600 true; then
+        # Sync completed successfully
+        print_success "✅ State sync completed successfully!"
         
-        # Check if node is running
-        if ! is_node_running; then
-            print_error "❌ Node stopped during recovery"
-            return 1
-        fi
+        # Reset recovery tracking
+        recovery_attempts=0
+        last_recovery_time=0
         
-        # Check sync status
-        local status=$(curl -s localhost:26657/status 2>/dev/null)
-        if [ -n "$status" ]; then
-            local catching_up=$(echo "$status" | jq -r '.result.sync_info.catching_up // true')
-            local current_height=$(echo "$status" | jq -r '.result.sync_info.latest_block_height // "0"')
-            
-            if [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
-                print_status "📈 Current height: $current_height"
-                
-                if [ "$catching_up" = "false" ]; then
-                    print_success "✅ State sync completed successfully!"
-                    echo "Node is now fully synced at height $current_height"
-                    
-                    # Reset recovery tracking
-                    recovery_attempts=0
-                    last_recovery_time=0
-                    
-                    # Disable state sync for future restarts
-                    sed -i.tmp -e '/^\[statesync\]/,/^\[/{s/^enable = .*/enable = false/}' "$HOME_DIR/config/config.toml"
-                    
-                    return 0
-                fi
-            fi
-        fi
+        # Disable state sync for future restarts
+        sed -i.tmp -e '/^\[statesync\]/,/^\[/{s/^enable = .*/enable = false/}' "$HOME_DIR/config/config.toml"
         
-        # Check timeout
-        local elapsed=$(($(date +%s) - sync_start_time))
-        if [ $elapsed -gt $sync_timeout ]; then
-            print_error "❌ State sync timeout after $elapsed seconds"
-            return 1
-        fi
-    done
+        return 0
+    else
+        # Sync failed or timed out
+        print_error "❌ State sync failed or timed out"
+        return 1
+    fi
 }
 
 # Check for sync stall and trigger recovery if needed

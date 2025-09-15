@@ -273,9 +273,77 @@ if [[ "$AUTO_START" = "yes" ]]; then
   if "$MANAGER_LINK" start; then
     # Wait longer for node to stabilize
     sleep 2
-    # Go directly to sync progress display (exit gracefully if user interrupts)
-    "$MANAGER_LINK" sync 2>/dev/null || true
-    # After sync exits (user interrupt or completion), just continue silently
+    
+    # Monitor sync until complete
+    echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
+    
+    # Check sync status in a loop
+    SYNC_COMPLETE=false
+    MAX_WAIT=600  # 10 minutes max wait
+    WAIT_TIME=0
+    
+    while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+      # Get sync status
+      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up|Block Height" || true)
+      
+      # Check if fully synced
+      if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
+        SYNC_COMPLETE=true
+        break
+      fi
+      
+      # Check if we can extract heights for progress display
+      if echo "$SYNC_STATUS" | grep -q "Block Height"; then
+        CURRENT_HEIGHT=$(echo "$SYNC_STATUS" | grep "Block Height" | sed -E 's/.*Block Height:[[:space:]]*([0-9]+).*/\1/')
+        NETWORK_HEIGHT=$(echo "$SYNC_STATUS" | grep "Block Height" | sed -E 's/.*\/[[:space:]]*([0-9]+).*/\1/')
+        
+        if [ -n "$CURRENT_HEIGHT" ] && [ -n "$NETWORK_HEIGHT" ]; then
+          if [ "$CURRENT_HEIGHT" = "$NETWORK_HEIGHT" ] || [ $((NETWORK_HEIGHT - CURRENT_HEIGHT)) -le 2 ]; then
+            SYNC_COMPLETE=true
+            break
+          fi
+          
+          # Show progress
+          PERCENT=$((CURRENT_HEIGHT * 100 / NETWORK_HEIGHT))
+          echo -ne "\r\033[K🔄 Syncing: ${CURRENT_HEIGHT}/${NETWORK_HEIGHT} (${PERCENT}%)  "
+        fi
+      fi
+      
+      sleep 3
+      WAIT_TIME=$((WAIT_TIME + 3))
+    done
+    
+    echo  # New line after progress display
+    
+    if [ "$SYNC_COMPLETE" = true ]; then
+      echo -e "\033[0;32m✅ Node is fully synced!${NC}"
+      echo
+      
+      # Prompt for validator registration
+      echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+      echo -e "${BOLD}${YELLOW}🎯 Ready to become a validator!${NC}"
+      echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+      echo
+      echo -e "${BOLD}Next steps:${NC}"
+      echo -e "1. Get test tokens from: ${GREEN}https://faucet.push.org${NC}"
+      echo -e "2. Register as validator: ${GREEN}push-validator-manager register-validator${NC}"
+      echo
+      echo -e "${YELLOW}Would you like to register as a validator now? (y/N)${NC}"
+      read -r -p "> " REGISTER_NOW
+      
+      if [[ "$REGISTER_NOW" =~ ^[Yy]$ ]]; then
+        echo
+        "$MANAGER_LINK" register-validator
+      else
+        echo
+        echo -e "${CYAN}You can register later with:${NC}"
+        echo -e "${GREEN}  push-validator-manager register-validator${NC}"
+      fi
+    else
+      echo -e "${YELLOW}⚠️ Sync is taking longer than expected${NC}"
+      echo "Monitor sync status with: push-validator-manager sync"
+      echo "Register when ready with: push-validator-manager register-validator"
+    fi
   else
     echo -e "\033[0;31m❌ Failed to start node. Check logs for details.\033[0m"
     echo "You can try starting manually with: push-validator-manager start"

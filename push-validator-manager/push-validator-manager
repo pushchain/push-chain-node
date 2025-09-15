@@ -775,8 +775,8 @@ configure_state_sync() {
     local rpc_secondary_host=$(echo "$SNAPSHOT_RPC_SECONDARY" | sed 's|^https://||' | sed 's|^http://||')
     
     # Configure RPC servers - using primary and secondary (may be identical if only one available)
-    # State sync expects host:port format without protocol
-    local rpc_servers="${rpc_primary_host}:443,${rpc_secondary_host}:443"
+    # State sync needs full URLs with https protocol
+    local rpc_servers="https://${rpc_primary_host}:443,https://${rpc_secondary_host}:443"
 
     print_status "🔧 Configuring state sync from $rpc_server..."
 

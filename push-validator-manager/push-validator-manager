@@ -1910,6 +1910,13 @@ monitor_sync_ws() {
 
                 # Check if node is synced by querying the API
                 if [ "${MONITOR_STOPPED:-0}" -eq 0 ] && [ "$FULLY_SYNCED_ONCE" -eq 0 ]; then
+                    # In state sync mode, wait for state sync to complete before checking API
+                    # STATE_SYNC_COMPLETED_SHOWN is set when "Snapshot restored" is detected in logs
+                    if [ "$STATE_SYNC_MODE" -eq 1 ] && [ "$STATE_SYNC_COMPLETED_SHOWN" -eq 0 ]; then
+                        # State sync hasn't completed yet, keep monitoring
+                        continue
+                    fi
+                    
                     local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
                     if [ -n "$NODE_STATUS" ]; then
                         local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)

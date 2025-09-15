@@ -346,12 +346,25 @@ show_state_sync_progress() {
             show_phase_progress "❌ State sync failed" 4 4 0 "${BOLD}${RED}Failed${NC}"
             ;;
         *)
-            # Unknown phase - show basic progress based on time elapsed
-            local time_progress=0
-            if [ "$elapsed_seconds" -gt 0 ]; then
-                # Assume max 15 minutes for state sync, show time-based progress
-                time_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
-                [ "$(echo "$time_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && time_progress="100"
+            # Calculate progress based on height if available, otherwise use time
+            local sync_progress=0
+            
+            # If we have both current and target heights, calculate actual progress
+            if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
+                local blocks_to_sync=$((target_height - initial_height))
+                local blocks_synced=$((current_height - initial_height))
+                if [ "$blocks_to_sync" -gt 0 ]; then
+                    sync_progress=$(echo "scale=1; 100 * $blocks_synced / $blocks_to_sync" | bc 2>/dev/null || echo "0")
+                    # Ensure we don't exceed 100%
+                    [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
+                    # Ensure we show at least some progress if we've synced blocks
+                    [ "$blocks_synced" -gt 0 ] && [ "$(echo "$sync_progress < 1" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="1"
+                fi
+            elif [ "$elapsed_seconds" -gt 0 ]; then
+                # Fallback to time-based progress if heights not available
+                # Assume max 15 minutes for state sync
+                sync_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
+                [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
             fi
             
             local elapsed_min=$((elapsed_seconds / 60))
@@ -365,7 +378,7 @@ show_state_sync_progress() {
                 fi
             fi
             
-            show_phase_progress "⏳ State sync in progress" 1 4 "$time_progress" "$time_text"
+            show_phase_progress "⏳ State sync in progress" 1 4 "$sync_progress" "$time_text"
             ;;
     esac
 }
@@ -617,12 +630,6 @@ is_node_running() {
 
 # Start node in background
 start_node() {
-    echo "[DEBUG-PVM] start_node() called" >&2
-    echo "[DEBUG-PVM] Environment: SKIP_SYNC_MONITOR=${SKIP_SYNC_MONITOR:-not_set}" >&2
-    echo "[DEBUG-PVM] Caller: ${BASH_SOURCE[1]:-direct} at line ${BASH_LINENO[0]:-unknown}" >&2
-    echo "[DEBUG-PVM] All env vars:" >&2
-    env | grep -E "SKIP_SYNC_MONITOR|PATH|HOME" | sed 's/^/[DEBUG-PVM]   /' >&2
-    
     echo  # Add blank line for spacing
     print_status "🚀 Starting Push Chain node..."
     
@@ -674,55 +681,36 @@ start_node() {
     
     # Initialize if needed
     if [ ! -f "$HOME_DIR/config/config.toml" ]; then
-        echo "[DEBUG-PVM] config.toml not found, initializing..." >&2
         print_status "🧱 Initializing validator node: $MONIKER ($CHAIN_ID)"
         mkdir -p "$HOME_DIR/config" "$HOME_DIR/logs"
         
-        echo "[DEBUG-PVM] Running: $PCHAIND init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM --home $HOME_DIR --overwrite" >&2
-        # Initialize the chain - redirect to stderr to maintain output stream
-        # Use --overwrite flag since we may have restored genesis.json already
-        print_status "⚙️ Running initialization (this may take a moment)..."
-        "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" --overwrite >&2 2>&1
-        local init_result=$?
-        echo "[DEBUG-PVM] pchaind init returned: $init_result" >&2
-        if [ $init_result -ne 0 ]; then
+        # Initialize the chain with overwrite flag since we may have restored genesis.json already
+        "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" --overwrite >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
             print_error "❌ Initialization failed"
             exit 1
         fi
-        print_status "✅ Initialization completed"
         
         # For validators, we'll use state sync instead of syncing from genesis
         print_status "🚀 Validator mode: Will use state sync for quick initialization"
         
         # We still need genesis for chain config, but not for syncing
         print_status "⚙️ Fetching chain configuration from $GENESIS_RPC"
-        echo "[DEBUG-PVM] Fetching genesis from: $GENESIS_RPC/genesis" >&2
         # Use longer timeout for genesis as it can be large
         GENESIS_DATA=$(curl -fsS --connect-timeout 5 --max-time 30 "$GENESIS_RPC/genesis" 2>/dev/null)
-        echo "[DEBUG-PVM] Genesis fetch returned, data length: ${#GENESIS_DATA}" >&2
         if [ -z "$GENESIS_DATA" ]; then
-            echo "[DEBUG-PVM] ERROR: Genesis data is empty, exiting" >&2
             print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
             exit 1
         fi
         
         # Extract and save genesis
-        echo "[DEBUG-PVM] Extracting genesis to $HOME_DIR/config/genesis.json" >&2
         echo "$GENESIS_DATA" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"
         
         # Verify genesis was saved correctly
-        echo "[DEBUG-PVM] Verifying genesis file..." >&2
-        if [ ! -s "$HOME_DIR/config/genesis.json" ]; then
-            echo "[DEBUG-PVM] ERROR: Genesis file is empty or doesn't exist" >&2
+        if [ ! -s "$HOME_DIR/config/genesis.json" ] || ! jq -e '.chain_id' "$HOME_DIR/config/genesis.json" >/dev/null 2>&1; then
             print_error "❌ Invalid or empty genesis file"
             exit 1
         fi
-        if ! jq -e '.chain_id' "$HOME_DIR/config/genesis.json" >/dev/null 2>&1; then
-            echo "[DEBUG-PVM] ERROR: Genesis file is not valid JSON or missing chain_id" >&2
-            print_error "❌ Invalid genesis file format"
-            exit 1
-        fi
-        echo "[DEBUG-PVM] Genesis file verified successfully" >&2
         
         # Get peers for P2P network
         print_status "🔍 Fetching network peers"
@@ -818,8 +806,6 @@ start_node() {
         fi
     fi
     
-    echo "[DEBUG-PVM] Initialization section completed" >&2
-
     # Ensure priv_validator_state.json exists to avoid CometBFT panic when data was wiped
     if [ ! -f "$HOME_DIR/data/priv_validator_state.json" ]; then
         mkdir -p "$HOME_DIR/data"
@@ -835,24 +821,13 @@ STATEEOF
     # Start in background with proper signal isolation
     mkdir -p "$HOME_DIR/logs"
     
-    echo "[DEBUG-PVM] About to start pchaind process" >&2
-    echo "[DEBUG-PVM] PCHAIND=${PCHAIND}" >&2
-    echo "[DEBUG-PVM] HOME_DIR=${HOME_DIR}" >&2
-    echo "[DEBUG-PVM] PCHAIND_PID_FILE=${PCHAIND_PID_FILE}" >&2
-    
     # Use daemon launcher to create a truly detached process
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DAEMON_LAUNCHER="$SCRIPT_DIR/daemon-launcher.sh"
     
-    echo "[DEBUG-PVM] SCRIPT_DIR=${SCRIPT_DIR}" >&2
-    echo "[DEBUG-PVM] DAEMON_LAUNCHER=${DAEMON_LAUNCHER}" >&2
-    echo "[DEBUG-PVM] daemon-launcher.sh exists: $([ -f "$DAEMON_LAUNCHER" ] && echo "yes" || echo "no")" >&2
-    
     if [[ -f "$DAEMON_LAUNCHER" ]]; then
-        echo "[DEBUG-PVM] Using daemon launcher for complete detachment" >&2
         # Use the daemon launcher for complete detachment
         "$DAEMON_LAUNCHER" "$PCHAIND" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
-        echo "[DEBUG-PVM] daemon-launcher.sh returned: $?" >&2
         
         # Wait for PID file to be created
         local wait_count=0
@@ -868,19 +843,12 @@ STATEEOF
             return 1
         fi
     else
-        echo "[DEBUG-PVM] daemon-launcher.sh not found, using fallback method" >&2
         # Fallback to previous method if launcher script not found
         (
             trap '' INT TERM HUP
-            echo "[DEBUG-PVM-SUBSHELL] Starting pchaind in subshell" >&2
-            echo "[DEBUG-PVM-SUBSHELL] Command: $PCHAIND start --home $HOME_DIR" >&2
             nohup "$PCHAIND" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
-            local subshell_pid=$!
-            echo "[DEBUG-PVM-SUBSHELL] Started with PID: $subshell_pid" >&2
-            echo $subshell_pid > "$PCHAIND_PID_FILE"
-            echo "[DEBUG-PVM-SUBSHELL] Written PID to file: $PCHAIND_PID_FILE" >&2
+            echo $! > "$PCHAIND_PID_FILE"
         ) &
-        echo "[DEBUG-PVM] Subshell launched" >&2
         
         # Wait for PID file to be written
         sleep 0.5
@@ -895,14 +863,9 @@ STATEEOF
         echo $PID > "$PCHAIND_PID_FILE"
     fi
     
-    echo "[DEBUG-PVM] Node process started with PID: $PID" >&2
-    echo "[DEBUG-PVM] Verifying process is running..." >&2
-    ps aux | grep -E "^.*$PID" | grep -v grep >&2
-    
     # Wait a moment and verify the process actually started
     sleep 1
     if ! kill -0 "$PID" 2>/dev/null; then
-        echo "[DEBUG-PVM] Process $PID is NOT running after sleep" >&2
         print_error "❌ Node failed to start - process exited immediately"
         if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
             print_warning "Last log entries:"
@@ -914,28 +877,14 @@ STATEEOF
     
     print_success "✅ Node started successfully"
     
-    # DEBUG: Log before calling show_sync_after_start
-    echo "[DEBUG-PVM] About to call show_sync_after_start" >&2
-    echo "[DEBUG-PVM] Current PID: $$" >&2
-    echo "[DEBUG-PVM] pchaind PID from file: $(cat "$PCHAIND_PID_FILE" 2>/dev/null || echo 'NO_FILE')" >&2
-    
     # Show sync status (safe - won't kill node on Ctrl+C)
     show_sync_after_start
-    
-    echo "[DEBUG-PVM] Returned from show_sync_after_start" >&2
 }
 
 # Safe sync monitoring that doesn't kill the node on Ctrl+C
 show_sync_after_start() {
-    # DEBUG: Log environment and caller
-    echo "[DEBUG-PVM] show_sync_after_start called" >&2
-    echo "[DEBUG-PVM] SKIP_SYNC_MONITOR=${SKIP_SYNC_MONITOR:-not_set}" >&2
-    echo "[DEBUG-PVM] HOME_DIR=$HOME_DIR" >&2
-    echo "[DEBUG-PVM] Process check: $(pgrep -f 'pchaind.*start' | wc -l) pchaind processes running" >&2
-    
     # Skip monitoring if called from installer
     if [ "${SKIP_SYNC_MONITOR:-}" = "true" ]; then
-        echo "[DEBUG-PVM] Skipping sync monitor due to SKIP_SYNC_MONITOR=true" >&2
         return 0
     fi
     

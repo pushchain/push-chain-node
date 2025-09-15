@@ -300,21 +300,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
   NODE_STARTED=false
   STATE_SYNC_DETECTED=false
   
-  # DEBUG: Log start attempt
-  echo -e "${YELLOW}[DEBUG] Starting node with MANAGER_LINK=$MANAGER_LINK${NC}" >&2
-  echo -e "${YELLOW}[DEBUG] Current PATH=$PATH${NC}" >&2
-  echo -e "${YELLOW}[DEBUG] Which push-validator-manager: $(which push-validator-manager 2>/dev/null || echo 'NOT FOUND')${NC}" >&2
-  echo -e "${YELLOW}[DEBUG] MANAGER_LINK exists: $([ -f "$MANAGER_LINK" ] && echo 'YES' || echo 'NO')${NC}" >&2
-  echo -e "${YELLOW}[DEBUG] MANAGER_LINK executable: $([ -x "$MANAGER_LINK" ] && echo 'YES' || echo 'NO')${NC}" >&2
-  
   # Start node in background and capture initial output (without timeout to get full feedback)
   {
     export SKIP_SYNC_MONITOR=true
-    echo -e "${YELLOW}[DEBUG] Environment SKIP_SYNC_MONITOR=$SKIP_SYNC_MONITOR${NC}" >&2
-    echo -e "${YELLOW}[DEBUG] About to execute: $MANAGER_LINK start${NC}" >&2
     "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
-      # DEBUG: Log every line received
-      echo -e "${YELLOW}[DEBUG-OUTPUT] $line${NC}" >&2
       
       # Skip verbose logs that aren't useful for installer output
       if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
@@ -328,12 +317,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
       
       # Detect if node startup succeeded
       if echo "$line" | grep -q "Node started successfully\|Node already running"; then
-        echo -e "${YELLOW}[DEBUG] Detected 'Node started successfully' message${NC}" >&2
         NODE_STARTED=true
-        # Give the process a moment to actually start
-        sleep 2
-        echo -e "${YELLOW}[DEBUG] After sleep, checking for process...${NC}" >&2
-        ps aux | grep -E "pchaind.*start" | grep -v grep >&2
         break
       fi
       
@@ -352,36 +336,20 @@ if [[ "$AUTO_START" = "yes" ]]; then
     done
   } &
   START_PID=$!
-  echo -e "${YELLOW}[DEBUG] Background start process PID: $START_PID${NC}" >&2
   
   # Wait for start command to complete or timeout after 120 seconds (2 minutes for initialization)
   WAIT_COUNT=0
   MAX_WAIT=120
   while kill -0 $START_PID 2>/dev/null && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    if [ $((WAIT_COUNT % 5)) -eq 0 ]; then
-      echo -e "${YELLOW}[DEBUG] Waiting for start command... ($WAIT_COUNT/$MAX_WAIT)${NC}" >&2
-      echo -e "${YELLOW}[DEBUG] Background process $START_PID still running: $(kill -0 $START_PID 2>/dev/null && echo 'YES' || echo 'NO')${NC}" >&2
-      echo -e "${YELLOW}[DEBUG] Checking for pchaind process:${NC}" >&2
-      ps aux | grep -E "pchaind" | grep -v grep >&2 || echo -e "${YELLOW}[DEBUG] No pchaind process found yet${NC}" >&2
-    fi
     sleep 1
     ((WAIT_COUNT++))
   done
   
-  echo -e "${YELLOW}[DEBUG] Start command completed or timed out after $WAIT_COUNT seconds${NC}" >&2
-  
   # Kill the background start process if still running
   if kill -0 $START_PID 2>/dev/null; then
-    echo -e "${YELLOW}[DEBUG] Killing still-running background process $START_PID${NC}" >&2
     kill $START_PID 2>/dev/null || true
   fi
   
-  # Give the node process time to actually launch after start command returns
-  echo -e "${YELLOW}[DEBUG] Waiting 3 seconds for process to stabilize...${NC}" >&2
-  sleep 3
-  
-  echo -e "${YELLOW}[DEBUG] Final process check after sleep:${NC}" >&2
-  ps aux | grep -E "pchaind" | grep -v grep >&2 || echo -e "${YELLOW}[DEBUG] Still no pchaind process found${NC}" >&2
   
   # Check if node is running with multiple attempts - allow more time for state sync startup
   echo -e "${CYAN}⏳ Verifying node startup...${NC}"
@@ -399,20 +367,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo -e "${CYAN}  • Waiting for peer connections...${NC}"
     fi
     
-    # DEBUG: Log each verification attempt
-    if [ $i -eq 1 ] || [ $((i % 5)) -eq 0 ]; then
-      echo -e "${YELLOW}[DEBUG] Verification attempt $i/30${NC}" >&2
-      echo -e "${YELLOW}[DEBUG] Looking for process: pgrep -f 'pchaind.*start.*--home.*$HOME/.pchain'${NC}" >&2
-      echo -e "${YELLOW}[DEBUG] Process list:${NC}" >&2
-      ps aux | grep pchaind | grep -v grep >&2 || echo -e "${YELLOW}[DEBUG] No pchaind found in ps${NC}" >&2
-    fi
-    
     # First check if process exists (more reliable than status during init)
     if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
-      echo -e "${YELLOW}[DEBUG] Found pchaind process with pgrep!${NC}" >&2
       # Process is running, now check if status reports correctly
       STATUS_OUTPUT=$("$MANAGER_LINK" status 2>&1)
-      echo -e "${YELLOW}[DEBUG] Status output: $STATUS_OUTPUT${NC}" >&2
       
       # Accept various states as "started"
       if echo "$STATUS_OUTPUT" | grep -qE "Node is running|initializing|Syncing|height"; then
@@ -596,11 +554,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo
       echo -e "${YELLOW}🔍 Diagnosis:${NC}"
       
-      # DEBUG: Final check
-      echo -e "${YELLOW}[DEBUG] Final check for pchaind process...${NC}" >&2
-      echo -e "${YELLOW}[DEBUG] Running: pgrep -f 'pchaind.*start.*--home.*$HOME/.pchain'${NC}" >&2
+      # Final check
       PGREP_RESULT=$(pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" 2>&1 || echo "")
-      echo -e "${YELLOW}[DEBUG] pgrep result: '$PGREP_RESULT'${NC}" >&2
       
       # More lenient final check
       if [ -n "$PGREP_RESULT" ]; then

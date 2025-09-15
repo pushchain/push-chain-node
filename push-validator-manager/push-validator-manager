@@ -129,17 +129,17 @@ show_phase_progress() {
     
     if [ "$show_bar" = "true" ]; then
         local progress_bar=$(render_progress_bar "$overall_progress")
-        printf "\r${CYAN}%s${NC} (${BOLD}%d${NC}/${BOLD}%d${NC}) [%s] ${GREEN}%.1f%%${NC}" \
-               "$phase_name" "$phase_number" "$total_phases" "$progress_bar" "$overall_progress"
+        printf "\r"
+        echo -en "${CYAN}${phase_name}${NC} (${BOLD}${phase_number}${NC}/${BOLD}${total_phases}${NC}) [${progress_bar}] ${GREEN}${overall_progress}%${NC}"
     else
-        printf "\r${CYAN}%s${NC} (${BOLD}%d${NC}/${BOLD}%d${NC}) ${GREEN}%.1f%%${NC}" \
-               "$phase_name" "$phase_number" "$total_phases" "$overall_progress"
+        printf "\r"
+        echo -en "${CYAN}${phase_name}${NC} (${BOLD}${phase_number}${NC}/${BOLD}${total_phases}${NC}) ${GREEN}${overall_progress}%${NC}"
     fi
     
     if [ -n "$status_text" ]; then
-        printf " | %s" "$status_text"
+        echo -en " | ${status_text}"
     fi
-    printf "\033[K"  # Clear to end of line
+    echo -en "\033[K"  # Clear to end of line
 }
 
 # Show peer discovery progress
@@ -2393,7 +2393,7 @@ case "${1:-help}" in
         fi
         
         # Check if state sync is configured or in progress
-        local phase=$(detect_state_sync_phase)
+        phase=$(detect_state_sync_phase)
         if [ "$phase" = "completed" ]; then
             print_success "✅ State sync already completed"
             show_status

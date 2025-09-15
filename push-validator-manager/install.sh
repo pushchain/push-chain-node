@@ -101,6 +101,12 @@ bash scripts/setup-dependencies.sh
 # Ensure the push-validator-manager script is executable
 chmod +x "$INSTALL_DIR/push-validator-manager"
 
+# Safety patch: ensure enhanced monitor works (remove invalid 'local' usage)
+# This is defensive in case the bundled manager still contains the bug.
+if grep -q "monitor-state-sync)" "$INSTALL_DIR/push-validator-manager" 2>/dev/null; then
+  sed -i.bak 's/local phase=$(detect_state_sync_phase)/phase=$(detect_state_sync_phase)/' "$INSTALL_DIR/push-validator-manager" || true
+fi
+
 # Create symlink for binary in expected location
 # The register-validator script expects ../build/pchaind relative to scripts/ directory
 mkdir -p "$INSTALL_DIR/build"

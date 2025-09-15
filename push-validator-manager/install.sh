@@ -278,24 +278,35 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # Start the node but exit once it's running to avoid hanging on sync monitoring
   NODE_STARTED=false
+  STATE_SYNC_DETECTED=false
   {
-    timeout 20 "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
+    timeout 60 "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
       # Skip verbose logs that aren't useful for installer output
       if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
         continue  # Skip these verbose log lines
       fi
       
       # Only show important messages
-      if echo "$line" | grep -qE "Starting Push Chain|Initializing validator|Node started successfully|Node already running|Configuring|configured|failed"; then
+      if echo "$line" | grep -qE "Starting Push Chain|Initializing validator|Node started successfully|Node already running|Configuring|configured|failed|Starting state sync|Snapshot restored"; then
         echo "$line"
       fi
       
       # Check if node has started
       if echo "$line" | grep -q "Node started successfully\|Node already running"; then
         NODE_STARTED=true
+        # If state sync was detected, give it more time to complete
+        if [ "$STATE_SYNC_DETECTED" = "true" ]; then
+          echo -e "${CYAN}⏳ State sync in progress, waiting for completion...${NC}"
+          sleep 10
+        fi
         # Kill parent timeout to stop reading more output
         kill $(jobs -p) 2>/dev/null || true
         break
+      fi
+      
+      # Detect state sync activity
+      if echo "$line" | grep -qE "Starting state sync|Discovered new snapshot|Snapshot restored"; then
+        STATE_SYNC_DETECTED=true
       fi
       
       # Also check for state sync failures that would prevent starting
@@ -307,26 +318,39 @@ if [[ "$AUTO_START" = "yes" ]]; then
     done
   } || true
   
-  # Give node a moment to stabilize
-  sleep 3
-  
-  # Verify if node is actually running
-  if "$MANAGER_LINK" status 2>/dev/null | grep -q "Node is running"; then
-    NODE_STARTED=true
+  # Give node more time to stabilize, especially with state sync
+  if [ "$STATE_SYNC_DETECTED" = "true" ]; then
+    echo -e "${CYAN}⏳ Waiting for state sync to complete...${NC}"
+    sleep 15
   else
-    NODE_STARTED=false
+    sleep 3
   fi
+  
+  # Verify if node is actually running with multiple attempts
+  for i in {1..5}; do
+    if "$MANAGER_LINK" status 2>/dev/null | grep -q "Node is running"; then
+      NODE_STARTED=true
+      break
+    fi
+    [ $i -lt 5 ] && sleep 2
+  done
   
   # Check if node started successfully
   if [ "$NODE_STARTED" = true ]; then
-    # Check if it's already synced
-    SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up" || true)
-    if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
-      echo -e "${GREEN}✅ Node is already fully synced!${NC}"
-      SYNC_COMPLETE=true
-    else
+    # Check if it's already synced - retry a few times in case node is still starting up
+    SYNC_COMPLETE=false
+    for i in {1..3}; do
+      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up" || true)
+      if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
+        echo -e "${GREEN}✅ Node is already fully synced!${NC}"
+        SYNC_COMPLETE=true
+        break
+      fi
+      [ $i -lt 3 ] && sleep 3
+    done
+    
+    if [ "$SYNC_COMPLETE" = false ]; then
       echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
-      SYNC_COMPLETE=false
     fi
   else
     echo -e "${RED}❌ Failed to start node${NC}"

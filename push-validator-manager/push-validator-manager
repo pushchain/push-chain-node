@@ -706,27 +706,15 @@ show_status() {
                     fi
                     echo -e "  ${BOLD}Block Time:${NC} $LATEST_TIME"
                     
-                    # Determine actual sync status based on height comparison
-                    if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                        HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                        
-                        if [ "$HEIGHT_DIFF" -le 5 ]; then
-                            # Within 5 blocks of network height - considered synced
-                            echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
-                        elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
-                            # Slightly behind but catching up
-                            PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "99")
-                            echo -e "  ${BOLD}Status:${NC} ${YELLOW}🔄 Syncing new blocks${NC} (${GREEN}${PROGRESS_PERCENT}%${NC})"
-                        else
-                            # Significantly behind - show progress
-                            PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0")
-                            REMAINING_BLOCKS=$HEIGHT_DIFF
-                            echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC} (${GREEN}${PROGRESS_PERCENT}%${NC} - ${REMAINING_BLOCKS} blocks behind)"
-                        fi
+                    # Determine actual sync status based on catching_up flag only
+                    if [ "$CATCHING_UP" = "false" ]; then
+                        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
                     else
-                        # Fallback to original logic if can't fetch remote height
-                        if [ "$CATCHING_UP" = "false" ]; then
-                            echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
+                        # Node is still syncing
+                        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+                            HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+                            PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0")
+                            echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC} (${GREEN}${PROGRESS_PERCENT}%${NC} - ${HEIGHT_DIFF} blocks behind)"
                         else
                             echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC}"
                         fi
@@ -1056,18 +1044,6 @@ monitor_sync() {
         fi
     fi
     
-    # Options: default is compact single-line; use -d/--dashboard for full-screen
-    local COMPACT_MODE=1
-    for arg in "$@"; do
-        case "$arg" in
-            -d|--dashboard)
-                COMPACT_MODE=0
-                ;;
-            -c|--compact)
-                COMPACT_MODE=1
-                ;;
-        esac
-    done
 
     if ! is_node_running; then
         echo  # Add blank line for spacing
@@ -1106,10 +1082,6 @@ monitor_sync() {
         [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
         # Ensure is_synced is defined for this loop iteration (set -u safe)
         local is_synced=0
-        if [ "$is_tty" -eq 1 ] && [ "$COMPACT_MODE" -eq 0 ]; then
-            tput cup 0 0 2>/dev/null || printf '\033[H'
-            tput ed 2>/dev/null || printf '\033[J'
-        fi
         
         # Get node status
                 NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
@@ -1180,145 +1152,53 @@ monitor_sync() {
             BAR_EMPTY=$(printf "%0.s░" $(seq 1 ${EMPTY}))
             PROGRESS_BAR="${GREEN}${BAR_FILLED}${NC}${DIM}${BAR_EMPTY}${NC}"
             
-            if [ "$COMPACT_MODE" -eq 1 ]; then
-                # Single-line compact output with colors
-                local status_text="${YELLOW}⏳ SYNCING${NC}"
-                # Determine actual sync status based on height comparison
-                if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                    HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                    if [ "$HEIGHT_DIFF" -le 5 ]; then
-                        status_text="${GREEN}✅ SYNCED${NC}"
-                        is_synced=1
-                    elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
-                        status_text="${YELLOW}🔄 Syncing${NC}"
-                    else
-                        status_text="${YELLOW}⏳ SYNCING${NC}"
-                    fi
-                elif [ "$CATCHING_UP" = "false" ]; then
-                    status_text="${GREEN}✅ SYNCED${NC}"
-                    is_synced=1
-                fi
-                local eta_text=""
-                HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                if [ "$HEIGHT_DIFF" -gt 5 ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
-                    REMAINING_BLOCKS=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                    RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
-                    if [ "$RATE_POS" -eq 1 ]; then
-                        ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
-                        if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
-                            ETA_H=$((ETA_SECONDS / 3600))
-                            ETA_M=$(((ETA_SECONDS % 3600) / 60))
-                            ETA_S=$((ETA_SECONDS % 60))
-                            if [ "$ETA_H" -gt 0 ]; then
-                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
-                            elif [ "$ETA_M" -gt 0 ]; then
-                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
-                            else
-                                eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
-                            fi
-                        fi
-                    fi
-                fi
-                # Build colored single-line summary with progress bar and print in place
-                # Only show when we have valid remote height (prevents /0 display)
-                if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                    local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
-                    [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
-                    printf "\r%b\033[K" "$line"
-                    
-                    # If in state sync mode and synced, show completion message and exit
-                    if [ "$STATE_SYNC_MODE" -eq 1 ] && [ "$is_synced" -eq 1 ]; then
-                        echo
-                        print_success "✅ Node is fully synced!"
-                        tput cnorm 2>/dev/null || true
-                        return 0
-                    fi
-                fi
-                # Don't show "Fetching network height..." - just keep the last progress bar visible
+            # Single-line compact output with colors
+            local status_text="${YELLOW}⏳ SYNCING${NC}"
+            # Determine actual sync status based on catching_up flag only
+            if [ "$CATCHING_UP" = "false" ]; then
+                status_text="${GREEN}✅ SYNCED${NC}"
+                is_synced=1
             else
-                # Full-screen rich output
-                echo -e "${BOLD}${GREEN}Push Chain Sync Monitor${NC}"
-                echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-                echo
-                print_header "Node Information:"
-                echo -e "  ${BOLD}Moniker:${NC} ${WHITE}$MONIKER${NC}"
-                echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
-                echo
-                
-                print_header "Sync Status:"
-                echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$LOCAL_HEIGHT${NC}"
-                echo -e "  ${BOLD}Last Block:${NC} $LATEST_TIME"
-                
-                # Determine actual sync status based on height comparison
-                if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                    HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                    if [ "$HEIGHT_DIFF" -le 5 ]; then
-                        is_synced=1
-                        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ FULLY SYNCED${NC}"
-                        echo -e "  ${BOLD}Sync Rate:${NC} ${GREEN}Maintaining sync${NC}"
-                    elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
-                        echo -e "  ${BOLD}Status:${NC} ${YELLOW}🔄 Syncing${NC} (${HEIGHT_DIFF} blocks behind)"
-                    else
-                        echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ SYNCING...${NC}"
-                    fi
-                elif [ "$CATCHING_UP" = "false" ]; then
-                    is_synced=1
-                    echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ FULLY SYNCED${NC}"
-                    echo -e "  ${BOLD}Sync Rate:${NC} ${GREEN}Maintaining sync${NC}"
-                else
-                    echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ SYNCING...${NC}"
-                fi
-                
-                if [ "$is_synced" -eq 0 ]; then
-                    if [ "$blocks_per_sec" != "0" ]; then
-                        echo -e "  ${BOLD}Sync Rate:${NC} ${CYAN}${blocks_per_sec} blocks/sec${NC}"
-                        # Estimate ETA based on remaining blocks and current rate
-                        if [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
-                            REMAINING_BLOCKS=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                            RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
-                            if [ "$RATE_POS" -eq 1 ]; then
-                                ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
-                                if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
-                                    ETA_H=$((ETA_SECONDS / 3600))
-                                    ETA_M=$(((ETA_SECONDS % 3600) / 60))
-                                    ETA_S=$((ETA_SECONDS % 60))
-                                    if [ "$ETA_H" -gt 0 ]; then
-                                        echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_H}h ${ETA_M}m${NC}"
-                                    elif [ "$ETA_M" -gt 0 ]; then
-                                        echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_M}m ${ETA_S}s${NC}"
-                                    else
-                                        echo -e "  ${BOLD}ETA:${NC} ~${GREEN}${ETA_S}s${NC}"
-                                    fi
-                                fi
-                            fi
+                status_text="${YELLOW}⏳ SYNCING${NC}"
+                is_synced=0
+            fi
+            local eta_text=""
+            HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+            if [ "$HEIGHT_DIFF" -gt 5 ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
+                REMAINING_BLOCKS=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+                RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
+                if [ "$RATE_POS" -eq 1 ]; then
+                    ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
+                    if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
+                        ETA_H=$((ETA_SECONDS / 3600))
+                        ETA_M=$(((ETA_SECONDS % 3600) / 60))
+                        ETA_S=$((ETA_SECONDS % 60))
+                        if [ "$ETA_H" -gt 0 ]; then
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
+                        elif [ "$ETA_M" -gt 0 ]; then
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
+                        else
+                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
                         fi
                     fi
                 fi
-                
-                echo
-                print_header "Runtime Stats:"
-                echo -e "  ${BOLD}Monitoring Time:${NC} ${elapsed}s"
-                if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                    echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} (${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC})"
-                else
-                    echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${YELLOW}unknown target height${NC} (${MAGENTA}${LOCAL_HEIGHT}${NC}/?)"
-                fi
-                
-                if [ "$is_synced" -eq 1 ]; then
-                    echo
-                    echo -e "${BOLD}${GREEN}🎉 Node is fully synced and ready!${NC}"
-                    echo -e "You can now register as validator: ${BOLD}push-validator-manager register-validator${NC}"
-                    
-                    # If in state sync mode, exit successfully when synced
-                    if [ "$STATE_SYNC_MODE" -eq 1 ]; then
-                        tput cnorm 2>/dev/null || true
-                        return 0
-                    fi
-                fi
-                
-                echo
-                print_status "Press Ctrl+C to exit monitor"
             fi
+            # Build colored single-line summary with progress bar and print in place
+            # Only show when we have valid remote height (prevents /0 display)
+            if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
+                [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
+                printf "\r%b\033[K" "$line"
+                
+                # If in state sync mode and synced, show completion message and exit
+                if [ "$STATE_SYNC_MODE" -eq 1 ] && [ "$is_synced" -eq 1 ]; then
+                    echo
+                    print_success "✅ Node is fully synced!"
+                    tput cnorm 2>/dev/null || true
+                    return 0
+                fi
+            fi
+            # Don't show "Fetching network height..." - just keep the last progress bar visible
 
             # Check for sync stall and trigger recovery if needed
             if [ "$is_synced" -eq 0 ] && [ "$AUTO_RECOVERY_ENABLED" = "true" ]; then
@@ -1338,11 +1218,7 @@ monitor_sync() {
             :
         fi
         
-        if [ "$COMPACT_MODE" -eq 1 ]; then
-            sleep 1
-        else
-            sleep 3
-        fi
+        sleep 1
     done
 }
 
@@ -1534,8 +1410,7 @@ show_help() {
     printf "  ${BOLD}%-18s${NC}%s\n" "start" "Start the Push node"
     printf "  ${BOLD}%-18s${NC}%s\n" "stop" "Stop the Push node"
     printf "  ${BOLD}%-18s${NC}%s\n" "status" "Check node status"
-    printf "  ${BOLD}%-18s${NC}%s\n" "sync [-d]" "Monitor sync. Use -d for dashboard"
-    printf "  ${BOLD}%-18s${NC}%s\n" "monitor-state-sync" "Enhanced state sync monitoring"
+    printf "  ${BOLD}%-18s${NC}%s\n" "sync" "Monitor sync progress"
     printf "  ${BOLD}%-18s${NC}%s\n" "logs" "View node logs"
     echo
     echo -e "${BOLD}${CYAN}VALIDATOR${NC}"
@@ -1608,26 +1483,6 @@ monitor_sync_auto() {
     return $sync_result
 }
 
-# Simplified state sync phase detection
-detect_state_sync_phase() {
-    local log_file="$HOME_DIR/logs/pchaind.log"
-    [ ! -f "$log_file" ] && echo "unknown" && return
-    
-    local recent_logs=$(tail -50 "$log_file" 2>/dev/null || echo "")
-    [ -z "$recent_logs" ] && echo "unknown" && return
-    
-    # Simple phase detection
-    if echo "$recent_logs" | grep -qi "Snapshot restored"; then
-        echo "completed"
-    elif echo "$recent_logs" | grep -qi "state sync failed\|snapshot.*failed"; then
-        echo "failed"
-    elif echo "$recent_logs" | grep -qi "Fetching snapshot chunk\|Applying snapshot chunk\|Downloading.*snapshot"; then
-        echo "downloading"
-    else
-        echo "unknown"
-    fi
-}
-
 # WebSocket monitor using websocat or wscat
 monitor_sync_ws() {
     MONITOR_STOPPED=0
@@ -1688,14 +1543,6 @@ monitor_sync_ws() {
         done
     }
     
-    # Options: default is compact single-line; use -d/--dashboard for full-screen
-    local COMPACT_MODE=1
-    for arg in "$@"; do
-        case "$arg" in
-            -d|--dashboard) COMPACT_MODE=0 ;;
-            -c|--compact) COMPACT_MODE=1 ;;
-        esac
-    done
 
     # Require running node
     if ! is_node_running; then
@@ -1802,65 +1649,50 @@ monitor_sync_ws() {
             avg_block_time="0"
         fi
 
-        # Status text based on proximity to head
+        # Status text based on catching_up flag only
         local status_text="${YELLOW}⏳ SYNCING${NC}"
-        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-            local HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-            if [ "$HEIGHT_DIFF" -le 5 ]; then
-                status_text="${GREEN}✅ SYNCED${NC}"
-            elif [ "$HEIGHT_DIFF" -le 100 ]; then
-                status_text="${YELLOW}🔄 Syncing${NC}"
-            fi
+        # Get current catching_up status if available
+        local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+        local CATCHING_UP="true"
+        if [ -n "$NODE_STATUS" ]; then
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+        fi
+        
+        if [ "$CATCHING_UP" = "false" ]; then
+            status_text="${GREEN}✅ SYNCED${NC}"
+        else
+            status_text="${YELLOW}⏳ SYNCING${NC}"
         fi
 
         if [ "${MONITOR_STOPPED:-0}" -eq 1 ]; then return 0; fi
-        if [ "$COMPACT_MODE" -eq 1 ]; then
-            # Compose single-line summary with bar and ETA
-            local eta_text=""
-            local HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-            if [ "$HEIGHT_DIFF" -gt 5 ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
-                local REMAINING_BLOCKS=$HEIGHT_DIFF
-                local RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
-                if [ "$RATE_POS" -eq 1 ]; then
-                    local ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
-                    if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
-                        local ETA_H=$((ETA_SECONDS / 3600))
-                        local ETA_M=$(((ETA_SECONDS % 3600) / 60))
-                        local ETA_S=$((ETA_SECONDS % 60))
-                        if [ "$ETA_H" -gt 0 ]; then
-                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
-                        elif [ "$ETA_M" -gt 0 ]; then
-                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
-                        else
-                            eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
-                        fi
+        # Compose single-line summary with bar and ETA
+        local eta_text=""
+        local HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
+        if [ "$HEIGHT_DIFF" -gt 5 ] && [ "$REMOTE_HEIGHT" -gt "$LOCAL_HEIGHT" ]; then
+            local REMAINING_BLOCKS=$HEIGHT_DIFF
+            local RATE_POS=$(echo "$blocks_per_sec > 0" | bc 2>/dev/null || echo 0)
+            if [ "$RATE_POS" -eq 1 ]; then
+                local ETA_SECONDS=$(echo "$REMAINING_BLOCKS / $blocks_per_sec" | bc 2>/dev/null || echo 0)
+                if [ "$ETA_SECONDS" -gt 0 ] 2>/dev/null; then
+                    local ETA_H=$((ETA_SECONDS / 3600))
+                    local ETA_M=$(((ETA_SECONDS % 3600) / 60))
+                    local ETA_S=$((ETA_SECONDS % 60))
+                    if [ "$ETA_H" -gt 0 ]; then
+                        eta_text=" ${WHITE}~${NC}${GREEN}${ETA_H}h ${ETA_M}m${NC}"
+                    elif [ "$ETA_M" -gt 0 ]; then
+                        eta_text=" ${WHITE}~${NC}${GREEN}${ETA_M}m ${ETA_S}s${NC}"
+                    else
+                        eta_text=" ${WHITE}~${NC}${GREEN}${ETA_S}s${NC}"
                     fi
                 fi
             fi
-            if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
-                [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
-                printf "\r%b\033[K" "$line"
-            fi
-            # Don't show "Fetching network height..." - just keep the last progress bar visible
-        else
-            if [ "$is_tty" -eq 1 ]; then
-                tput cup 0 0 2>/dev/null || printf '\033[H'
-                tput ed 2>/dev/null || printf '\033[J'
-            fi
-            [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
-            echo -e "${BLUE}📊 Push Chain Sync (WebSocket)${NC}"
-            echo -e "${GREEN}══════════════════════════════════════════${NC}"
-            echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}${LOCAL_HEIGHT:-0}${NC}/${MAGENTA}${REMOTE_HEIGHT:-0}${NC}"
-            echo -e "  ${BOLD}Status:${NC} $status_text"
-            echo -e "  ${BOLD}Rate:${NC} ${CYAN}${blocks_per_sec} blocks/sec${NC}"
-            echo -e "  ${BOLD}Avg Block Time:${NC} ${CYAN}${avg_block_time}s${NC}"
-            echo -e "  ${BOLD}Connection:${NC} ${CYAN}${quality_text}${NC} (${quality}%)"
-            echo -e "  ${BOLD}Progress:${NC} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC}"
-            echo -e "  ${BOLD}Monitoring Time:${NC} $((elapsed))s"
-            echo
-            print_status "Press Ctrl+C to exit monitor"
         fi
+        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+            local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} blocks${eta_text}"
+            [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
+            printf "\r%b\033[K" "$line"
+        fi
+        # Don't show "Fetching network height..." - just keep the last progress bar visible
 
             [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
             previous_height=$LOCAL_HEIGHT
@@ -2282,34 +2114,6 @@ case "${1:-help}" in
         if [ $recovery_attempts -ge $MAX_RECOVERY_ATTEMPTS ]; then
             print_warning "⚠️ Maximum recovery attempts reached. Reset with: export recovery_attempts=0"
         fi
-        ;;
-        
-    monitor-state-sync)
-        # Enhanced state sync monitoring with visual progress bars
-        if ! is_node_running; then
-            print_error "❌ Node is not running"
-            echo "Start the node first: push-validator-manager start"
-            exit 1
-        fi
-        
-        # Check if state sync is configured or in progress
-        phase=$(detect_state_sync_phase)
-        if [ "$phase" = "completed" ]; then
-            print_success "✅ State sync already completed"
-            show_status
-            exit 0
-        elif [ "$phase" = "failed" ]; then
-            print_error "❌ State sync failed"
-            echo "Try recovery: push-validator-manager recover"
-            exit 1
-        fi
-        
-        # Start monitoring with enhanced progress display
-        monitor_sync_auto true
-        local monitor_result=$?
-        
-        # Exit with success code after monitoring completes
-        exit $monitor_result
         ;;
         
     help|--help|-h|"")

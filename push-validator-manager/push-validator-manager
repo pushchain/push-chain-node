@@ -217,6 +217,9 @@ GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
 GENESIS_RPC="https://$GENESIS_DOMAIN"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 
+# Binary path
+PCHAIND="$SCRIPT_DIR/build/pchaind"
+
 # Process management
 PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
 
@@ -717,13 +720,13 @@ configure_state_sync() {
     
     # Enable state sync and set parameters
     sed -i.tmp \
-        -e '/^\[statesync\]/,/^\[/{
-            s/^enable = .*/enable = true/
-            s/^rpc_servers = .*/rpc_servers = "'"$rpc_server:443,$rpc_server:443"'"/
-            s/^trust_height = .*/trust_height = '"$trust_height"'/
-            s/^trust_hash = .*/trust_hash = "'"$trust_hash"'"/
-            s/^trust_period = .*/trust_period = "336h0m0s"/
-        }' "$config_file"
+        -e '/^\[statesync\]/,/^\[/{'\
+        -e 's/^enable = .*/enable = true/' \
+        -e 's|^rpc_servers = .*|rpc_servers = "'"$rpc_server:443,$rpc_server:443"'"|' \
+        -e 's/^trust_height = .*/trust_height = '"$trust_height"'/' \
+        -e 's/^trust_hash = .*/trust_hash = "'"$trust_hash"'"/' \
+        -e 's/^trust_period = .*/trust_period = "336h0m0s"/' \
+        -e '}' "$config_file"
     
     print_success "✅ State sync configured"
     return 0

@@ -450,7 +450,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
     
     # Use the enhanced state sync monitoring from push-validator-manager
     # This provides visual progress bars, phase detection, and better user experience
-    if "$MANAGER_LINK" monitor-sync-auto 2>/dev/null; then
+    if "$MANAGER_LINK" monitor-state-sync 2>/dev/null; then
       echo -e "${GREEN}✅ State sync completed successfully!${NC}"
     else
       # Fallback to basic monitoring if enhanced version fails

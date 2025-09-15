@@ -59,7 +59,7 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 	}
 
 	systemConfigTest := uregistrytypes.SystemConfig{
-		HandlerContractAddress: utils.GetDefaultAddresses().HandlerAddr.String(),
+		UniversalCoreAddress: utils.GetDefaultAddresses().HandlerAddr.String(),
 	}
 
 	app.UregistryKeeper.AddChainConfig(ctx, &chainConfigTest)

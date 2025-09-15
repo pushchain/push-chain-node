@@ -36,7 +36,7 @@ func setupUESystem(
 	require.NoError(t, err)
 
 	// Parse Handler ABI
-	handlerABI, err := uetypes.ParseHandlerABI()
+	handlerABI, err := uetypes.ParseUniversalCoreABI()
 	require.NoError(t, err)
 
 	// Setup Handler contract

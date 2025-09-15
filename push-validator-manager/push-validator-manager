@@ -500,8 +500,9 @@ show_state_sync_progress() {
             fi
             ;;
         "completed")
-            printf "\r\033[K"
-            echo -en "${GREEN}✅ Fully synced${NC} - ${BOLD}${GREEN}Ready!${NC}"
+            # Completion should have been handled by state_sync_completed phase
+            # Just return without showing anything to avoid loops
+            return
             ;;
         "failed")
             printf "\r\033[K"
@@ -570,33 +571,34 @@ show_complete_state_sync_status() {
         fi
     fi
     
-    # Show phase-specific progress
-    show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
-    
-    # Return status: 0 = completed, 1 = in progress, 2 = failed
+    # Check completion status BEFORE displaying to avoid loops
     case "$phase" in
         "block_sync")
             # During block sync, we're still in progress until fully caught up
             if [ "$catching_up" = "false" ]; then
+                # Show final completion and return
+                printf "\r\033[K"
+                echo
                 return 0  # Fully synced
-            else
-                return 1  # Still syncing blocks
             fi
             ;;
         "completed")
             if [ "$catching_up" = "false" ]; then
+                # Show final completion and return  
+                printf "\r\033[K"
+                echo
                 return 0
-            else
-                return 1
             fi
             ;;
         "failed")
+            show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
             return 2
             ;;
-        *)
-            return 1
-            ;;
     esac
+    
+    # Show phase-specific progress (only for non-completed phases)
+    show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
+    return 1  # Still in progress
 }
 
 # Dependency helpers

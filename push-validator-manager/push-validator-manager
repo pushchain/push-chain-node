@@ -111,118 +111,6 @@ render_progress_bar() {
     echo "${color}${bar_filled}${NC}${DIM}${bar_empty}${NC}"
 }
 
-
-# Enhanced state sync phase detection from logs
-detect_state_sync_phase() {
-    local log_file="$HOME_DIR/logs/pchaind.log"
-    [ ! -f "$log_file" ] && echo "unknown" && return
-    
-    # Get recent log entries (last 50 lines for performance)
-    local recent_logs=$(tail -50 "$log_file" 2>/dev/null || echo "")
-    [ -z "$recent_logs" ] && echo "unknown" && return
-    
-    local detected_phase="unknown"
-    
-    # Phase detection based on log patterns (ordered by priority)
-    if echo "$recent_logs" | grep -qi "Starting state sync\|state sync.*starting"; then
-        detected_phase="starting"
-    elif echo "$recent_logs" | grep -qi "Discovering snapshots\|snapshot.*discovery"; then
-        detected_phase="peer_discovery"
-    elif echo "$recent_logs" | grep -qi "Discovered.*snapshot\|Found.*snapshot\|snapshot.*available"; then
-        detected_phase="snapshot_found"
-    elif echo "$recent_logs" | grep -qi "Downloading.*snapshot\|snapshot.*download\|Applying.*snapshot"; then
-        detected_phase="downloading"
-    elif echo "$recent_logs" | grep -qi "Restoring.*snapshot\|snapshot.*restore\|Verifying.*snapshot"; then
-        detected_phase="restoring"
-    elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
-        # Check if we've already shown state sync completion using timestamp-based marker
-        local marker_file="/tmp/state_sync_completed_$$"
-        if [ ! -f "$marker_file" ]; then
-            # First time seeing "Snapshot restored" - create timestamp marker
-            echo "$(date +%s)" > "$marker_file"
-            detected_phase="state_sync_completed"
-        else
-            # Check how long ago we started showing the completion message
-            local completion_start=$(cat "$marker_file" 2>/dev/null || echo "0")
-            local current_time=$(date +%s)
-            local elapsed=$((current_time - completion_start))
-            
-            # Show completion message for 8 seconds before transitioning to block sync
-            if [ "$elapsed" -lt 8 ]; then
-                detected_phase="state_sync_completed"
-            else
-                # Completion message shown long enough, now check block sync status
-                local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
-                if [ -n "$node_status" ]; then
-                    local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
-                    
-                    # Trust the node API - it knows when it's functionally synced
-                    if [ "$catching_up" = "false" ]; then
-                        detected_phase="completed"
-                    else
-                        detected_phase="block_sync"
-                    fi
-                else
-                    detected_phase="block_sync"
-                fi
-            fi
-        fi
-    elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
-        detected_phase="completed"
-    elif echo "$recent_logs" | grep -qi "state sync.*failed\|snapshot.*failed\|state sync.*error"; then
-        detected_phase="failed"
-    else
-        # Check if we're in block sync phase by looking for finalized block messages
-        if echo "$recent_logs" | grep -qi "finalized block\|committed state\|indexed block"; then
-            local node_status=$(curl -s --connect-timeout 5 localhost:26657/status 2>/dev/null)
-            if [ -n "$node_status" ] && echo "$node_status" | jq -e . >/dev/null 2>&1; then
-                # Ensure we have valid JSON and extract catching_up properly
-                local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up')
-                
-                # If jq returns null or empty, default to true (still catching up)
-                if [ "$catching_up" = "null" ] || [ -z "$catching_up" ]; then
-                    catching_up="true"
-                fi
-                
-                echo "$(date '+%H:%M:%S'): Fixed API catching_up=$catching_up" >> /tmp/state_sync_debug.log
-                
-                # Trust the node API - it knows when it's functionally synced
-                if [ "$catching_up" = "false" ]; then
-                    detected_phase="completed"
-                    echo "$(date '+%H:%M:%S'): Should be completed! catching_up=$catching_up" >> /tmp/state_sync_debug.log
-                else
-                    detected_phase="block_sync"
-                    echo "$(date '+%H:%M:%S'): Still block_sync, catching_up=$catching_up" >> /tmp/state_sync_debug.log
-                fi
-            else
-                detected_phase="unknown"
-                echo "$(date '+%H:%M:%S'): No node_status received" >> /tmp/state_sync_debug.log
-            fi
-        fi
-    fi
-    
-    # Debug logging - show which condition was matched
-    if echo "$recent_logs" | grep -qi "Starting state sync\|state sync.*starting"; then
-        echo "$(date '+%H:%M:%S'): Matched 'starting' condition" >> /tmp/state_sync_debug.log
-    elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
-        echo "$(date '+%H:%M:%S'): Matched 'Snapshot restored' condition" >> /tmp/state_sync_debug.log
-    elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
-        echo "$(date '+%H:%M:%S'): Matched 'complete' condition" >> /tmp/state_sync_debug.log
-    elif echo "$recent_logs" | grep -qi "finalized block\|committed state\|indexed block"; then
-        echo "$(date '+%H:%M:%S'): Matched 'finalized block' condition" >> /tmp/state_sync_debug.log
-    else
-        echo "$(date '+%H:%M:%S'): Reached fallback (unknown)" >> /tmp/state_sync_debug.log
-    fi
-    
-    echo "$(date '+%H:%M:%S'): Phase=$detected_phase" >> /tmp/state_sync_debug.log
-    echo "$detected_phase"
-}
-
-
-
-
-
-
 # Dependency helpers
 require_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -1664,12 +1552,34 @@ monitor_sync_ws() {
     _check_state_sync_completion() {
         local monitor_stopped_file="$1"
         local completion_file="$2"
+        local state_sync_shown=0
+        local dots_count=0
+        
         while [ ! -f "$monitor_stopped_file" ]; do
             if [ ! -f "$completion_file" ]; then
                 # Check if state sync just completed by looking for "Snapshot restored" in recent logs
                 local log_file="$HOME_DIR/logs/pchaind.log"
                 if [ -f "$log_file" ]; then
                     local recent_logs=$(tail -20 "$log_file" 2>/dev/null || echo "")
+                    
+                    # Show state sync progress while waiting
+                    if echo "$recent_logs" | grep -qi "Fetching snapshot chunk\|Applying snapshot chunk"; then
+                        if [ "$state_sync_shown" -eq 0 ]; then
+                            echo
+                            echo -e "${CYAN}📥 Downloading and applying state sync snapshot...${NC}"
+                            state_sync_shown=1
+                        fi
+                        # Show animated dots
+                        dots_count=$((dots_count + 1))
+                        if [ $((dots_count % 3)) -eq 0 ]; then
+                            printf "\r${CYAN}📥 Downloading and applying state sync snapshot...   ${NC}"
+                        elif [ $((dots_count % 3)) -eq 1 ]; then
+                            printf "\r${CYAN}📥 Downloading and applying state sync snapshot.     ${NC}"
+                        else
+                            printf "\r${CYAN}📥 Downloading and applying state sync snapshot..    ${NC}"
+                        fi
+                    fi
+                    
                     if echo "$recent_logs" | grep -qi "Snapshot restored"; then
                         # State sync completed - show the completion message
                         echo
@@ -1872,15 +1782,36 @@ monitor_sync_ws() {
         [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]] || REMOTE_HEIGHT=0
     fi
 
-    # Render once immediately so users see progress without waiting for first event
-    render_ws_view || true
-
+    # Wait for state sync to complete before starting monitoring
+    local state_sync_in_progress=0
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    if [ -f "$log_file" ]; then
+        local recent_logs=$(tail -50 "$log_file" 2>/dev/null || echo "")
+        # Check if state sync is in progress
+        if echo "$recent_logs" | grep -qi "Starting state sync\|Discovering snapshots\|Fetching snapshot"; then
+            if ! echo "$recent_logs" | grep -qi "Snapshot restored"; then
+                state_sync_in_progress=1
+            fi
+        fi
+    fi
+    
     # Create monitor stopped file for background process communication
     local MONITOR_STOPPED_FILE="/tmp/pnm_monitor_stopped_$$"
     
     # Start background state sync completion checker
     _check_state_sync_completion "$MONITOR_STOPPED_FILE" "$STATE_SYNC_COMPLETION_FILE" &
     local STATE_SYNC_CHECKER_PID=$!
+    
+    # If state sync is in progress, wait for it to complete
+    if [ "$state_sync_in_progress" -eq 1 ]; then
+        echo -e "${CYAN}⏳ Waiting for state sync to complete...${NC}"
+        while [ ! -f "$STATE_SYNC_COMPLETION_FILE" ] && [ ! -f "$MONITOR_STOPPED_FILE" ]; do
+            sleep 1
+        done
+    fi
+    
+    # Only render and start monitoring after state sync is done
+    render_ws_view || true
 
     # Subscribe helper: run client and stream events; returns on disconnect
     _run_subscription() {
@@ -2131,31 +2062,7 @@ case "${1:-help}" in
         if [ $recovery_attempts -ge $MAX_RECOVERY_ATTEMPTS ]; then
             print_warning "⚠️ Maximum recovery attempts reached. Reset with: export recovery_attempts=0"
         fi
-        ;;
-        
-    monitor-state-sync)
-        # Enhanced state sync monitoring with visual progress bars
-        if ! is_node_running; then
-            print_error "❌ Node is not running"
-            echo "Start the node first: push-validator-manager start"
-            exit 1
-        fi
-        
-        # Check if state sync is configured or in progress
-        phase=$(detect_state_sync_phase)
-        if [ "$phase" = "completed" ]; then
-            print_success "✅ State sync already completed"
-            show_status
-            exit 0
-        elif [ "$phase" = "failed" ]; then
-            print_error "❌ State sync failed"
-            echo "Try recovery: push-validator-manager recover"
-            exit 1
-        fi
-        
-        # Start monitoring with enhanced progress display
-        monitor_sync_auto true
-        ;;
+        ;; 
         
     help|--help|-h|"")
         show_help

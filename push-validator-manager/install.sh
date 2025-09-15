@@ -450,11 +450,16 @@ if [[ "$AUTO_START" = "yes" ]]; then
     
     # Use the enhanced state sync monitoring from push-validator-manager
     # This provides visual progress bars, phase detection, and better user experience
-    if "$MANAGER_LINK" monitor-state-sync 2>/dev/null; then
-      echo -e "${GREEN}✅ State sync completed successfully!${NC}"
+    # Run in background and capture exit status
+    "$MANAGER_LINK" monitor-state-sync 2>/dev/null || true
+    
+    # State sync monitoring has completed (either successfully or via Ctrl+C)
+    # Check if node is synced
+    SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
+    if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
+      SYNC_COMPLETE=true
+      echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
     else
-      # Fallback to basic monitoring if enhanced version fails
-      echo -e "${YELLOW}⚠️ Enhanced monitoring failed, falling back to basic monitoring...${NC}"
       
       # Basic fallback monitoring (simplified version of original)
       SYNC_TIMEOUT=600  # 10 minutes
@@ -486,6 +491,12 @@ if [[ "$AUTO_START" = "yes" ]]; then
         
         sleep 3
       done
+    fi
+  elif [ "$STATE_SYNC_DETECTED" = "true" ]; then
+    # Monitoring completed - set SYNC_COMPLETE based on final status
+    FINAL_SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
+    if echo "$FINAL_SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
+      SYNC_COMPLETE=true
     fi
   fi
   

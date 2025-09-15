@@ -62,6 +62,20 @@ cd "$ROOT_DIR"
 # Reset blockchain data by default (preserve keyring)
 if [[ "$RESET_DATA" = "yes" ]] && [[ -d "$HOME/.pchain" ]]; then
     echo -e "${CYAN}🧹 Resetting blockchain data (wallets preserved)...${NC}"
+    
+    # Check if node is running and stop it first
+    if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
+        echo -e "${CYAN}  • Stopping running node for clean reset...${NC}"
+        # Try to stop gracefully if manager exists
+        if [[ -x "$HOME/.local/bin/push-validator-manager" ]]; then
+            "$HOME/.local/bin/push-validator-manager" stop >/dev/null 2>&1 || true
+        else
+            # Force kill if manager not available
+            pkill -f "pchaind.*start.*--home.*$HOME/.pchain" 2>/dev/null || true
+        fi
+        sleep 2  # Give it time to shut down
+    fi
+    
     # Remove entire directories to ensure clean state
     rm -rf "$HOME/.pchain/data" 2>/dev/null || true
     rm -rf "$HOME/.pchain/config" 2>/dev/null || true

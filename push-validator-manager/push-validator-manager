@@ -574,8 +574,9 @@ MAX_RECOVERY_ATTEMPTS="${MAX_RECOVERY_ATTEMPTS:-3}"
 RECOVERY_BACKOFF="${RECOVERY_BACKOFF:-300}"  # 5 minutes between attempts
 
 # RPC Configuration for State Sync
-# TODO: Currently using single RPC due to limited availability
-# When additional RPC nodes become available, update to use distinct primary/secondary
+# IMPORTANT: Only rpc-testnet-donut-node2.push.org has snapshots available
+# Other nodes (node1, etc.) are for P2P connectivity but don't provide snapshots
+# TODO: When additional snapshot-enabled RPC nodes become available, update to use distinct primary/secondary
 SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
 SNAPSHOT_RPC_PRIMARY="${SNAPSHOT_RPC_PRIMARY:-$SNAPSHOT_RPC}"
 SNAPSHOT_RPC_SECONDARY="${SNAPSHOT_RPC_SECONDARY:-$SNAPSHOT_RPC_PRIMARY}"  # Fallback to primary until second RPC available
@@ -618,6 +619,9 @@ is_node_running() {
 start_node() {
     echo  # Add blank line for spacing
     print_status "🚀 Starting Push Chain node..."
+    
+    # Ensure logs directory exists
+    mkdir -p "$HOME_DIR/logs"
     
     # If already running, do not disturb the running process
     if is_node_running; then
@@ -709,10 +713,29 @@ start_node() {
         fi
         
         if [ -z "$PERSISTENT_PEERS" ]; then
-            VALIDATOR_NODE_ID=$(http_get_quick "$GENESIS_RPC/status" 3 | jq -r '.result.node_info.id // empty')
-            VALIDATOR_IP=$(resolve_host_ip "$GENESIS_DOMAIN")
-            if [ -n "$VALIDATOR_NODE_ID" ] && [ -n "$VALIDATOR_IP" ]; then
-                PERSISTENT_PEERS="$VALIDATOR_NODE_ID@$VALIDATOR_IP:26656"
+            # Fallback to known testnet nodes
+            # IMPORTANT: node2 has snapshots, both nodes provide P2P connectivity
+            print_status "🔗 Configuring known testnet peers..."
+            NODE1_ID=$(curl -s https://rpc-testnet-donut-node1.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
+            NODE2_ID=$(curl -s https://rpc-testnet-donut-node2.push.org/status 2>/dev/null | jq -r '.result.node_info.id // empty')
+            
+            PEERS_LIST=""
+            if [ -n "$NODE1_ID" ] && [ "$NODE1_ID" != "null" ]; then
+                PEERS_LIST="${NODE1_ID}@rpc-testnet-donut-node1.push.org:26656"
+            fi
+            if [ -n "$NODE2_ID" ] && [ "$NODE2_ID" != "null" ]; then
+                if [ -n "$PEERS_LIST" ]; then
+                    PEERS_LIST="${PEERS_LIST},${NODE2_ID}@rpc-testnet-donut-node2.push.org:26656"
+                else
+                    PEERS_LIST="${NODE2_ID}@rpc-testnet-donut-node2.push.org:26656"
+                fi
+            fi
+            
+            if [ -n "$PEERS_LIST" ]; then
+                PERSISTENT_PEERS="$PEERS_LIST"
+                print_status "✅ Configured testnet peers"
+            else
+                print_warning "⚠️ Could not fetch peer IDs, node may have connection issues"
             fi
         fi
         

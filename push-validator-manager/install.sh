@@ -446,9 +446,16 @@ if [[ "$AUTO_START" = "yes" ]]; then
   # If state sync was detected, use enhanced monitoring with visual progress bars
   # If node was already running, try to detect sync state from status output
   if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    STATUS_SNAPSHOT=$("$MANAGER_LINK" status 2>/dev/null || true)
+    # Wait a moment for node to stabilize
+    sleep 3
+    STATUS_SNAPSHOT=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+    
+    # If status command fails or returns empty, assume syncing
+    if [ -z "$STATUS_SNAPSHOT" ]; then
+      echo -e "${CYAN}📡 Syncing blockchain data...${NC}"
+      STATE_SYNC_DETECTED=true
     # Check if already synced
-    if echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*false|Fully Synced"; then
+    elif echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*false|Fully Synced|✅.*SYNCED"; then
       # Already synced, no need for state sync monitoring
       SYNC_COMPLETE=true
       echo -e "${GREEN}✅ Node is fully synced!${NC}"
@@ -499,6 +506,23 @@ if [[ "$AUTO_START" = "yes" ]]; then
       if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
         SYNC_COMPLETE=true
         echo -e "${GREEN}✅ Node is fully synced!${NC}"
+      fi
+    fi
+  fi
+  
+  # If no state sync was detected but node is running, check sync status one more time
+  if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ] && [ "$SYNC_COMPLETE" != "true" ]; then
+    # Give it a moment and check final status
+    sleep 2
+    FINAL_CHECK=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+    if [ -n "$FINAL_CHECK" ]; then
+      if echo "$FINAL_CHECK" | grep -qE "Catching Up:\s*false|Fully Synced|✅.*SYNCED"; then
+        SYNC_COMPLETE=true
+        echo -e "${GREEN}✅ Node is fully synced!${NC}"
+      else
+        # Node is syncing but we couldn't detect state sync properly
+        echo -e "${CYAN}📡 Node is syncing with the network...${NC}"
+        echo -e "${CYAN}Check status with: ${BOLD}push-validator-manager status${NC}"
       fi
     fi
   fi

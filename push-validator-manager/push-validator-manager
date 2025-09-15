@@ -674,32 +674,47 @@ start_node() {
     
     # Initialize if needed
     if [ ! -f "$HOME_DIR/config/config.toml" ]; then
+        echo "[DEBUG-PVM] config.toml not found, initializing..." >&2
         print_status "🧱 Initializing validator node: $MONIKER ($CHAIN_ID)"
         mkdir -p "$HOME_DIR/config" "$HOME_DIR/logs"
         
+        echo "[DEBUG-PVM] Running: $PCHAIND init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM --home $HOME_DIR" >&2
         # Initialize the chain (suppress verbose output)
         "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
+        echo "[DEBUG-PVM] pchaind init returned: $?" >&2
         
         # For validators, we'll use state sync instead of syncing from genesis
         print_status "🚀 Validator mode: Will use state sync for quick initialization"
         
         # We still need genesis for chain config, but not for syncing
         print_status "⚙️ Fetching chain configuration from $GENESIS_RPC"
+        echo "[DEBUG-PVM] Fetching genesis from: $GENESIS_RPC/genesis" >&2
         # Use longer timeout for genesis as it can be large
         GENESIS_DATA=$(curl -fsS --connect-timeout 5 --max-time 30 "$GENESIS_RPC/genesis" 2>/dev/null)
+        echo "[DEBUG-PVM] Genesis fetch returned, data length: ${#GENESIS_DATA}" >&2
         if [ -z "$GENESIS_DATA" ]; then
+            echo "[DEBUG-PVM] ERROR: Genesis data is empty, exiting" >&2
             print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
             exit 1
         fi
         
         # Extract and save genesis
+        echo "[DEBUG-PVM] Extracting genesis to $HOME_DIR/config/genesis.json" >&2
         echo "$GENESIS_DATA" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"
         
         # Verify genesis was saved correctly
-        if [ ! -s "$HOME_DIR/config/genesis.json" ] || ! jq -e '.chain_id' "$HOME_DIR/config/genesis.json" >/dev/null 2>&1; then
+        echo "[DEBUG-PVM] Verifying genesis file..." >&2
+        if [ ! -s "$HOME_DIR/config/genesis.json" ]; then
+            echo "[DEBUG-PVM] ERROR: Genesis file is empty or doesn't exist" >&2
             print_error "❌ Invalid or empty genesis file"
             exit 1
         fi
+        if ! jq -e '.chain_id' "$HOME_DIR/config/genesis.json" >/dev/null 2>&1; then
+            echo "[DEBUG-PVM] ERROR: Genesis file is not valid JSON or missing chain_id" >&2
+            print_error "❌ Invalid genesis file format"
+            exit 1
+        fi
+        echo "[DEBUG-PVM] Genesis file verified successfully" >&2
         
         # Get peers for P2P network
         print_status "🔍 Fetching network peers"
@@ -794,6 +809,8 @@ start_node() {
             sed -i.bak -e '/^\[statesync\]/,/^\[/{s/^enable = .*/enable = false/}' "$HOME_DIR/config/config.toml"
         fi
     fi
+    
+    echo "[DEBUG-PVM] Initialization section completed" >&2
 
     # Ensure priv_validator_state.json exists to avoid CometBFT panic when data was wiped
     if [ ! -f "$HOME_DIR/data/priv_validator_state.json" ]; then

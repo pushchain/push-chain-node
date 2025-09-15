@@ -354,11 +354,13 @@ if [[ "$AUTO_START" = "yes" ]]; then
   START_PID=$!
   echo -e "${YELLOW}[DEBUG] Background start process PID: $START_PID${NC}" >&2
   
-  # Wait for start command to complete or timeout after 45 seconds
+  # Wait for start command to complete or timeout after 120 seconds (2 minutes for initialization)
   WAIT_COUNT=0
-  while kill -0 $START_PID 2>/dev/null && [ $WAIT_COUNT -lt 45 ]; do
+  MAX_WAIT=120
+  while kill -0 $START_PID 2>/dev/null && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
     if [ $((WAIT_COUNT % 5)) -eq 0 ]; then
-      echo -e "${YELLOW}[DEBUG] Waiting for start command... ($WAIT_COUNT/45)${NC}" >&2
+      echo -e "${YELLOW}[DEBUG] Waiting for start command... ($WAIT_COUNT/$MAX_WAIT)${NC}" >&2
+      echo -e "${YELLOW}[DEBUG] Background process $START_PID still running: $(kill -0 $START_PID 2>/dev/null && echo 'YES' || echo 'NO')${NC}" >&2
       echo -e "${YELLOW}[DEBUG] Checking for pchaind process:${NC}" >&2
       ps aux | grep -E "pchaind" | grep -v grep >&2 || echo -e "${YELLOW}[DEBUG] No pchaind process found yet${NC}" >&2
     fi

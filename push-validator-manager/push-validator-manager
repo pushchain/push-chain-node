@@ -678,10 +678,11 @@ start_node() {
         print_status "🧱 Initializing validator node: $MONIKER ($CHAIN_ID)"
         mkdir -p "$HOME_DIR/config" "$HOME_DIR/logs"
         
-        echo "[DEBUG-PVM] Running: $PCHAIND init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM --home $HOME_DIR" >&2
+        echo "[DEBUG-PVM] Running: $PCHAIND init $MONIKER --chain-id $CHAIN_ID --default-denom $DENOM --home $HOME_DIR --overwrite" >&2
         # Initialize the chain - redirect to stderr to maintain output stream
+        # Use --overwrite flag since we may have restored genesis.json already
         print_status "⚙️ Running initialization (this may take a moment)..."
-        "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >&2 2>&1
+        "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" --overwrite >&2 2>&1
         local init_result=$?
         echo "[DEBUG-PVM] pchaind init returned: $init_result" >&2
         if [ $init_result -ne 0 ]; then

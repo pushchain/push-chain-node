@@ -274,24 +274,41 @@ mv "$tmp" "$ENV_FILE"
 
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
-  START_OUTPUT=$("$MANAGER_LINK" start 2>&1)
-  echo "$START_OUTPUT"
+  echo -e "${CYAN}Starting Push Chain node...${NC}"
   
-  # Check if node was already running and synced
-  if echo "$START_OUTPUT" | grep -q "Node already running"; then
-    # Node was already running, check if it's synced
+  # Start the node in background to avoid hanging on sync monitoring
+  # The start command includes sync monitoring which we'll handle separately
+  timeout 30 "$MANAGER_LINK" start 2>&1 | {
+    while IFS= read -r line; do
+      echo "$line"
+      # Stop reading output once node is started
+      if echo "$line" | grep -q "Node started successfully\|Node already running"; then
+        break
+      fi
+    done
+  } &
+  
+  # Wait for the background start to complete or timeout
+  wait $! 2>/dev/null || true
+  
+  # Give node time to stabilize
+  sleep 5
+  
+  # Check if node started successfully
+  if "$MANAGER_LINK" status 2>/dev/null | grep -q "Node is running"; then
+    # Check if it's already synced
     SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up" || true)
     if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
       echo -e "${GREEN}✅ Node is already fully synced!${NC}"
       SYNC_COMPLETE=true
     else
-      echo -e "${CYAN}⏳ Node is running but still syncing...${NC}"
+      echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
       SYNC_COMPLETE=false
     fi
   else
-    # Node was just started, needs to sync
-    echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
-    SYNC_COMPLETE=false
+    echo -e "${RED}❌ Failed to start node${NC}"
+    echo "Check logs with: push-validator-manager logs"
+    exit 1
   fi
   
   # Only monitor sync if not already complete

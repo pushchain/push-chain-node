@@ -310,8 +310,19 @@ start_node() {
         
         # We still need genesis for chain config, but not for syncing
         print_status "⚙️ Fetching chain configuration from $GENESIS_RPC"
-        if ! http_get_quick "$GENESIS_RPC/genesis" 5 | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"; then
-            print_error "❌ Failed to fetch genesis configuration"
+        # Use longer timeout for genesis as it can be large
+        GENESIS_DATA=$(curl -fsS --connect-timeout 5 --max-time 30 "$GENESIS_RPC/genesis" 2>/dev/null)
+        if [ -z "$GENESIS_DATA" ]; then
+            print_error "❌ Failed to fetch genesis from $GENESIS_RPC"
+            exit 1
+        fi
+        
+        # Extract and save genesis
+        echo "$GENESIS_DATA" | jq -r '.result.genesis' > "$HOME_DIR/config/genesis.json"
+        
+        # Verify genesis was saved correctly
+        if [ ! -s "$HOME_DIR/config/genesis.json" ] || ! jq -e '.chain_id' "$HOME_DIR/config/genesis.json" >/dev/null 2>&1; then
+            print_error "❌ Invalid or empty genesis file"
             exit 1
         fi
         
@@ -359,8 +370,7 @@ start_node() {
     
     # Check if this is first start or recovery needed
     if [ -f "$HOME_DIR/.needs_state_sync" ] || [ ! -d "$HOME_DIR/data/blockstore.db" ]; then
-        print_header "🔄 Initial State Sync Setup"
-        print_status "Validator will use state sync for quick initialization..."
+        print_header "🔄 Configuring State Sync"
         
         # Configure and perform state sync
         if configure_state_sync "$SNAPSHOT_RPC"; then
@@ -374,8 +384,6 @@ start_node() {
             fi
             
             print_status "📡 Starting with state sync enabled..."
-            print_status "This will download a recent snapshot instead of syncing from block 1"
-            print_status "Expected time: 5-10 minutes vs 24-48 hours for full sync"
             
             # Mark that we're doing initial state sync
             touch "$HOME_DIR/.initial_state_sync"
@@ -468,9 +476,7 @@ STATEEOF
 show_sync_after_start() {
     # Check if this is initial state sync
     if [ -f "$HOME_DIR/.initial_state_sync" ]; then
-        print_header "📡 Initial State Sync"
-        print_status "Node is using state sync for quick initialization"
-        echo
+        print_header "📡 State Sync Progress"
         
         # Monitor state sync progress
         if monitor_state_sync; then
@@ -689,12 +695,18 @@ backup_node_data() {
 # Configure state sync in config.toml
 configure_state_sync() {
     local rpc_server="${1:-$SNAPSHOT_RPC}"
+    
+    # Strip protocol from RPC URLs for state sync (expects host:port format)
+    local rpc_primary_host=$(echo "$SNAPSHOT_RPC_PRIMARY" | sed 's|^https://||' | sed 's|^http://||')
+    local rpc_secondary_host=$(echo "$SNAPSHOT_RPC_SECONDARY" | sed 's|^https://||' | sed 's|^http://||')
+    
     # Configure RPC servers - using primary and secondary (may be identical if only one available)
-    local rpc_servers="${SNAPSHOT_RPC_PRIMARY}:443,${SNAPSHOT_RPC_SECONDARY}:443"
+    # State sync expects host:port format without protocol
+    local rpc_servers="${rpc_primary_host}:443,${rpc_secondary_host}:443"
 
     print_status "🔧 Configuring state sync from $rpc_server..."
 
-    # Get latest block info from RPC
+    # Get latest block info from RPC (keep protocol for curl)
     local latest_block=$(curl -s "$rpc_server/block" | jq -r '.result.block.header.height // empty' 2>/dev/null)
     if [ -z "$latest_block" ] || [ "$latest_block" = "null" ]; then
         print_error "❌ Failed to get latest block from RPC"
@@ -725,15 +737,15 @@ configure_state_sync() {
     # Backup original config
     cp "$config_file" "$config_file.backup"
     
-    # Enable state sync and set parameters (single sed program for readability/portability)
+    # Enable state sync and set parameters
     sed -i.tmp \
-        -e "/^\[statesync\]/,/^\[/{ \
-            s/^enable = .*/enable = true/; \
-            s|^rpc_servers = .*|rpc_servers = \"$rpc_servers\"|; \
-            s/^trust_height = .*/trust_height = $trust_height/; \
-            s/^trust_hash = .*/trust_hash = \"$trust_hash\"/; \
-            s/^trust_period = .*/trust_period = \"336h0m0s\"/ \
-        }" "$config_file"
+        -e '/^\[statesync\]/,/^\[/{' \
+        -e 's/^enable = .*/enable = true/' \
+        -e 's|^rpc_servers = .*|rpc_servers = "'"$rpc_servers"'"|' \
+        -e 's/^trust_height = .*/trust_height = '"$trust_height"'/' \
+        -e 's/^trust_hash = .*/trust_hash = "'"$trust_hash"'"/' \
+        -e 's/^trust_period = .*/trust_period = "336h0m0s"/' \
+        -e '}' "$config_file"
     
     print_success "✅ State sync configured"
     return 0

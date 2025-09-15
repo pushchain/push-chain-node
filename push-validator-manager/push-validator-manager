@@ -617,6 +617,12 @@ is_node_running() {
 
 # Start node in background
 start_node() {
+    echo "[DEBUG-PVM] start_node() called" >&2
+    echo "[DEBUG-PVM] Environment: SKIP_SYNC_MONITOR=${SKIP_SYNC_MONITOR:-not_set}" >&2
+    echo "[DEBUG-PVM] Caller: ${BASH_SOURCE[1]:-direct} at line ${BASH_LINENO[0]:-unknown}" >&2
+    echo "[DEBUG-PVM] All env vars:" >&2
+    env | grep -E "SKIP_SYNC_MONITOR|PATH|HOME" | sed 's/^/[DEBUG-PVM]   /' >&2
+    
     echo  # Add blank line for spacing
     print_status "🚀 Starting Push Chain node..."
     
@@ -804,13 +810,24 @@ STATEEOF
     # Start in background with proper signal isolation
     mkdir -p "$HOME_DIR/logs"
     
+    echo "[DEBUG-PVM] About to start pchaind process" >&2
+    echo "[DEBUG-PVM] PCHAIND=${PCHAIND}" >&2
+    echo "[DEBUG-PVM] HOME_DIR=${HOME_DIR}" >&2
+    echo "[DEBUG-PVM] PCHAIND_PID_FILE=${PCHAIND_PID_FILE}" >&2
+    
     # Use daemon launcher to create a truly detached process
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DAEMON_LAUNCHER="$SCRIPT_DIR/daemon-launcher.sh"
     
+    echo "[DEBUG-PVM] SCRIPT_DIR=${SCRIPT_DIR}" >&2
+    echo "[DEBUG-PVM] DAEMON_LAUNCHER=${DAEMON_LAUNCHER}" >&2
+    echo "[DEBUG-PVM] daemon-launcher.sh exists: $([ -f "$DAEMON_LAUNCHER" ] && echo "yes" || echo "no")" >&2
+    
     if [[ -f "$DAEMON_LAUNCHER" ]]; then
+        echo "[DEBUG-PVM] Using daemon launcher for complete detachment" >&2
         # Use the daemon launcher for complete detachment
         "$DAEMON_LAUNCHER" "$PCHAIND" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
+        echo "[DEBUG-PVM] daemon-launcher.sh returned: $?" >&2
         
         # Wait for PID file to be created
         local wait_count=0
@@ -826,12 +843,19 @@ STATEEOF
             return 1
         fi
     else
+        echo "[DEBUG-PVM] daemon-launcher.sh not found, using fallback method" >&2
         # Fallback to previous method if launcher script not found
         (
             trap '' INT TERM HUP
+            echo "[DEBUG-PVM-SUBSHELL] Starting pchaind in subshell" >&2
+            echo "[DEBUG-PVM-SUBSHELL] Command: $PCHAIND start --home $HOME_DIR" >&2
             nohup "$PCHAIND" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
-            echo $! > "$PCHAIND_PID_FILE"
+            local subshell_pid=$!
+            echo "[DEBUG-PVM-SUBSHELL] Started with PID: $subshell_pid" >&2
+            echo $subshell_pid > "$PCHAIND_PID_FILE"
+            echo "[DEBUG-PVM-SUBSHELL] Written PID to file: $PCHAIND_PID_FILE" >&2
         ) &
+        echo "[DEBUG-PVM] Subshell launched" >&2
         
         # Wait for PID file to be written
         sleep 0.5
@@ -846,9 +870,14 @@ STATEEOF
         echo $PID > "$PCHAIND_PID_FILE"
     fi
     
+    echo "[DEBUG-PVM] Node process started with PID: $PID" >&2
+    echo "[DEBUG-PVM] Verifying process is running..." >&2
+    ps aux | grep -E "^.*$PID" | grep -v grep >&2
+    
     # Wait a moment and verify the process actually started
     sleep 1
     if ! kill -0 "$PID" 2>/dev/null; then
+        echo "[DEBUG-PVM] Process $PID is NOT running after sleep" >&2
         print_error "❌ Node failed to start - process exited immediately"
         if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
             print_warning "Last log entries:"
@@ -860,14 +889,28 @@ STATEEOF
     
     print_success "✅ Node started successfully"
     
+    # DEBUG: Log before calling show_sync_after_start
+    echo "[DEBUG-PVM] About to call show_sync_after_start" >&2
+    echo "[DEBUG-PVM] Current PID: $$" >&2
+    echo "[DEBUG-PVM] pchaind PID from file: $(cat "$PCHAIND_PID_FILE" 2>/dev/null || echo 'NO_FILE')" >&2
+    
     # Show sync status (safe - won't kill node on Ctrl+C)
     show_sync_after_start
+    
+    echo "[DEBUG-PVM] Returned from show_sync_after_start" >&2
 }
 
 # Safe sync monitoring that doesn't kill the node on Ctrl+C
 show_sync_after_start() {
+    # DEBUG: Log environment and caller
+    echo "[DEBUG-PVM] show_sync_after_start called" >&2
+    echo "[DEBUG-PVM] SKIP_SYNC_MONITOR=${SKIP_SYNC_MONITOR:-not_set}" >&2
+    echo "[DEBUG-PVM] HOME_DIR=$HOME_DIR" >&2
+    echo "[DEBUG-PVM] Process check: $(pgrep -f 'pchaind.*start' | wc -l) pchaind processes running" >&2
+    
     # Skip monitoring if called from installer
     if [ "${SKIP_SYNC_MONITOR:-}" = "true" ]; then
+        echo "[DEBUG-PVM] Skipping sync monitor due to SKIP_SYNC_MONITOR=true" >&2
         return 0
     fi
     

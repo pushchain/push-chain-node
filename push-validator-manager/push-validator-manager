@@ -1091,6 +1091,23 @@ monitor_sync() {
             CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
             LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null || echo "unknown")
             
+            # After state sync, wait for node to report non-zero height before showing progress
+            if [ "$STATE_SYNC_MODE" -eq 1 ] && [ "$LOCAL_HEIGHT" -eq 0 ]; then
+                local wait_count=0
+                printf "\r${CYAN}⏳ Initializing blockchain...${NC}\033[K"
+                while [ "$LOCAL_HEIGHT" -eq 0 ] && [ $wait_count -lt 10 ]; do
+                    sleep 1
+                    NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
+                    if [ -n "$NODE_STATUS" ]; then
+                        LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+                        [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
+                    fi
+                    wait_count=$((wait_count + 1))
+                done
+                # Clear the initializing message
+                printf "\r\033[K"
+            fi
+            
             # Fetch remote (network) latest height to compute progress
                     REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
             REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")

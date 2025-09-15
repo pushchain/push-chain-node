@@ -1922,6 +1922,8 @@ monitor_sync_ws() {
                             # Exit if we're in state sync mode and sync is complete
                             if [ "$STATE_SYNC_MODE" -eq 1 ]; then
                                 MONITOR_STOPPED=1
+                                # Signal background checker to stop immediately
+                                touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
                                 break
                             fi
                         fi
@@ -1964,8 +1966,16 @@ monitor_sync_ws() {
     
     # Cleanup: signal background process to stop and clean up temp files
     touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
-    [ -n "${STATE_SYNC_CHECKER_PID:-}" ] && kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+    if [ -n "${STATE_SYNC_CHECKER_PID:-}" ]; then
+        kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+        # Wait for background process to exit to avoid lingering
+        wait "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+    fi
     rm -f "$STATE_SYNC_COMPLETION_FILE" "$MONITOR_STOPPED_FILE" 2>/dev/null || true
+    # Explicitly return success when in state sync mode and monitoring completed
+    if [ "${STATE_SYNC_MODE:-0}" -eq 1 ]; then
+        return 0
+    fi
 }
 
 ###############################################################################

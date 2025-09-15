@@ -236,12 +236,41 @@ detect_state_sync_phase() {
         echo "downloading"
     elif echo "$recent_logs" | grep -qi "Restoring.*snapshot\|snapshot.*restore\|Verifying.*snapshot"; then
         echo "restoring"
+    elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
+        # State sync is complete, now we're in block sync phase
+        # Check if node is still catching up
+        local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+        if [ -n "$node_status" ]; then
+            local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+            if [ "$catching_up" = "true" ]; then
+                echo "block_sync"
+            else
+                echo "completed"
+            fi
+        else
+            echo "block_sync"
+        fi
     elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
         echo "completed"
     elif echo "$recent_logs" | grep -qi "state sync.*failed\|snapshot.*failed\|state sync.*error"; then
         echo "failed"
     else
-        echo "unknown"
+        # Check if we're in block sync phase by looking for finalized block messages
+        if echo "$recent_logs" | grep -qi "finalized block\|committed state\|indexed block"; then
+            local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+            if [ -n "$node_status" ]; then
+                local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+                if [ "$catching_up" = "true" ]; then
+                    echo "block_sync"
+                else
+                    echo "completed"
+                fi
+            else
+                echo "unknown"
+            fi
+        else
+            echo "unknown"
+        fi
     fi
 }
 
@@ -339,20 +368,12 @@ show_state_sync_progress() {
         "restoring")
             show_phase_progress "🔧 Applying snapshot" 3 4 85 "${BOLD}${WHITE}Restoring state...${NC}"
             ;;
-        "completed")
-            show_phase_progress "✅ State sync complete" 4 4 100 "${BOLD}${GREEN}Ready!${NC}"
-            ;;
-        "failed")
-            show_phase_progress "❌ State sync failed" 4 4 0 "${BOLD}${RED}Failed${NC}"
-            ;;
-        *)
-            # Calculate progress based on height if available, otherwise use time
+        "block_sync")
+            # This is the block sync phase after state sync completes
             local sync_progress=0
             
-            # If we have both current and target heights, calculate actual progress
+            # Calculate block sync progress
             if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
-                # For state sync, we typically jump from a low height to near the target
-                # So we calculate progress as how close we are to the target
                 if [ "$current_height" -ge "$target_height" ]; then
                     sync_progress="100"
                 else
@@ -361,11 +382,6 @@ show_state_sync_progress() {
                     # Ensure we show at least some progress if we have a height
                     [ "$current_height" -gt 0 ] && [ "$(echo "$sync_progress < 1" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="1"
                 fi
-            elif [ "$elapsed_seconds" -gt 0 ]; then
-                # Fallback to time-based progress if heights not available
-                # Assume max 15 minutes for state sync
-                sync_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
-                [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
             fi
             
             local elapsed_min=$((elapsed_seconds / 60))
@@ -376,11 +392,42 @@ show_state_sync_progress() {
                 time_text="$time_text | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${current_height}${NC}"
                 if [ "$target_height" -gt 0 ]; then
                     time_text="$time_text/${MAGENTA}${target_height}${NC}"
+                    local remaining=$((target_height - current_height))
+                    time_text="$time_text (${remaining} blocks remaining)"
                 fi
             fi
             
-            # For state sync, show the actual sync progress directly
-            # Don't divide by phases since block syncing is the main work
+            # Show block sync progress
+            local progress_bar=$(render_progress_bar "$sync_progress")
+            printf "\r"
+            echo -en "${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+            if [ -n "$time_text" ]; then
+                echo -en " | $time_text"
+            fi
+            ;;
+        "completed")
+            show_phase_progress "✅ Fully synced" 4 4 100 "${BOLD}${GREEN}Ready!${NC}"
+            ;;
+        "failed")
+            show_phase_progress "❌ State sync failed" 4 4 0 "${BOLD}${RED}Failed${NC}"
+            ;;
+        *)
+            # For unknown phase during state sync, show time-based progress
+            local sync_progress=0
+            
+            # Use time-based progress for state sync phases
+            if [ "$elapsed_seconds" -gt 0 ]; then
+                # Assume max 15 minutes for state sync
+                sync_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
+                [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
+            fi
+            
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            local time_text="${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_min}m${elapsed_sec}s${NC}"
+            
+            # For state sync phases, don't show block heights
+            # State sync is about downloading/restoring snapshot, not syncing blocks
             local progress_bar=$(render_progress_bar "$sync_progress")
             printf "\r"
             echo -en "${CYAN}⏳ State sync in progress${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
@@ -432,6 +479,14 @@ show_complete_state_sync_status() {
     
     # Return status: 0 = completed, 1 = in progress, 2 = failed
     case "$phase" in
+        "block_sync")
+            # During block sync, we're still in progress until fully caught up
+            if [ "$catching_up" = "false" ]; then
+                return 0  # Fully synced
+            else
+                return 1  # Still syncing blocks
+            fi
+            ;;
         "completed")
             if [ "$catching_up" = "false" ]; then
                 return 0
@@ -1425,10 +1480,10 @@ monitor_state_sync() {
     while true; do
         # Use our comprehensive status function
         if show_complete_state_sync_status "$sync_start_time" "false"; then
-            # State sync completed successfully
+            # Node is fully synced
             echo
             echo
-            print_success "✅ State sync completed successfully!"
+            print_success "✅ Node fully synced!"
             
             # Get final stats
             local elapsed=$(($(date +%s) - sync_start_time))
@@ -1673,6 +1728,11 @@ monitor_sync() {
                 # Only show when we have valid remote height (prevents /0 display)
                 if [ "$REMOTE_HEIGHT" -gt 0 ]; then
                     local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                    [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
+                    printf "\r%b\033[K" "$line"
+                else
+                    # Show a simple message while fetching remote height
+                    local line="${YELLOW}⏳ Fetching network height...${NC}"
                     [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
                     printf "\r%b\033[K" "$line"
                 fi
@@ -2180,9 +2240,16 @@ monitor_sync_ws() {
                     fi
                 fi
             fi
-            local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
-            [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
-            printf "\r%b\033[K" "$line"
+            if [ "$REMOTE_HEIGHT" -gt 0 ]; then
+                local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
+                [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
+                printf "\r%b\033[K" "$line"
+            else
+                # Show a simple message while fetching remote height
+                local line="${YELLOW}⏳ Fetching network height...${NC}"
+                [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
+                printf "\r%b\033[K" "$line"
+            fi
         else
             if [ "$is_tty" -eq 1 ]; then
                 tput cup 0 0 2>/dev/null || printf '\033[H'
@@ -2214,6 +2281,14 @@ monitor_sync_ws() {
         [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
         previous_height=$LOCAL_HEIGHT
     fi
+
+    # Also fetch remote height initially to avoid showing 0
+    local REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
+    if [ -n "$REMOTE_STATUS" ]; then
+        REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+        [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]] || REMOTE_HEIGHT=0
+    fi
+
     # Render once immediately so users see progress without waiting for first event
     render_ws_view || true
 

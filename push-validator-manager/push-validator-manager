@@ -562,14 +562,18 @@ show_complete_state_sync_status() {
     local phase=$(detect_state_sync_phase)
     local is_progressing=$(is_state_sync_progressing)
     
-    # Get node status for height information
-    local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+    # Get node status for height information - use same improved API call
+    local node_status=$(curl -s --connect-timeout 5 localhost:26657/status 2>/dev/null)
     local current_height="0"
     local catching_up="true"
     
-    if [ -n "$node_status" ]; then
+    if [ -n "$node_status" ] && echo "$node_status" | jq -e . >/dev/null 2>&1; then
         current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-        catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+        catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up')
+        if [ "$catching_up" = "null" ] || [ -z "$catching_up" ]; then
+            catching_up="true"
+        fi
+        echo "$(date '+%H:%M:%S'): Main API catching_up=$catching_up" >> /tmp/state_sync_debug.log
     fi
     
     # Try to get target height from network
@@ -593,11 +597,15 @@ show_complete_state_sync_status() {
             fi
             ;;
         "completed")
+            echo "$(date '+%H:%M:%S'): Completed phase check - catching_up=$catching_up" >> /tmp/state_sync_debug.log
             if [ "$catching_up" = "false" ]; then
+                echo "$(date '+%H:%M:%S'): RETURNING 0 - Node is fully synced!" >> /tmp/state_sync_debug.log
                 # Show final completion and return  
                 printf "\r\033[K"
                 echo
                 return 0
+            else
+                echo "$(date '+%H:%M:%S'): Still catching up, continuing monitor" >> /tmp/state_sync_debug.log
             fi
             ;;
         "failed")

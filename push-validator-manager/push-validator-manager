@@ -1657,6 +1657,33 @@ monitor_sync_ws() {
     MONITOR_STOPPED=0
     STATE_SYNC_COMPLETED_SHOWN=0
     
+    # File to track state sync completion (shared between processes)
+    local STATE_SYNC_COMPLETION_FILE="/tmp/pnm_state_sync_completed_$$"
+    
+    # Background state sync completion checker
+    _check_state_sync_completion() {
+        local monitor_stopped_file="$1"
+        local completion_file="$2"
+        while [ ! -f "$monitor_stopped_file" ]; do
+            if [ ! -f "$completion_file" ]; then
+                # Check if state sync just completed by looking for "Snapshot restored" in recent logs
+                local log_file="$HOME_DIR/logs/pchaind.log"
+                if [ -f "$log_file" ]; then
+                    local recent_logs=$(tail -20 "$log_file" 2>/dev/null || echo "")
+                    if echo "$recent_logs" | grep -qi "Snapshot restored"; then
+                        # State sync completed - show the completion message
+                        echo
+                        print_success "✅ State sync completed successfully!"
+                        touch "$completion_file"
+                        # Brief pause to let users see the message before block sync progress starts
+                        sleep 2
+                    fi
+                fi
+            fi
+            sleep 2  # Check every 2 seconds
+        done
+    }
+    
     # Options: default is compact single-line; use -d/--dashboard for full-screen
     local COMPACT_MODE=1
     for arg in "$@"; do
@@ -1702,7 +1729,7 @@ monitor_sync_ws() {
     if [ -t 1 ]; then
         is_tty=1
         tput civis 2>/dev/null || true
-        trap 'MONITOR_STOPPED=1; tput cnorm 2>/dev/null || true; echo; echo "📊 Sync monitoring stopped. Node continues running in background."; exit 0' INT
+        trap 'MONITOR_STOPPED=1; touch "${MONITOR_STOPPED_FILE}" 2>/dev/null || true; [ -n "${STATE_SYNC_CHECKER_PID:-}" ] && kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true; rm -f "${STATE_SYNC_COMPLETION_FILE}" "${MONITOR_STOPPED_FILE}" 2>/dev/null || true; tput cnorm 2>/dev/null || true; echo; echo "📊 Sync monitoring stopped. Node continues running in background."; exit 0' INT
     fi
 
     # Helper: render current status in compact or dashboard mode
@@ -1848,6 +1875,13 @@ monitor_sync_ws() {
     # Render once immediately so users see progress without waiting for first event
     render_ws_view || true
 
+    # Create monitor stopped file for background process communication
+    local MONITOR_STOPPED_FILE="/tmp/pnm_monitor_stopped_$$"
+    
+    # Start background state sync completion checker
+    _check_state_sync_completion "$MONITOR_STOPPED_FILE" "$STATE_SYNC_COMPLETION_FILE" &
+    local STATE_SYNC_CHECKER_PID=$!
+
     # Subscribe helper: run client and stream events; returns on disconnect
     _run_subscription() {
         local query="$1"
@@ -1906,21 +1940,11 @@ monitor_sync_ws() {
                 fi
                 last_event_time=$now
 
-                # Check for state sync completion before rendering
-                if [ "$STATE_SYNC_COMPLETED_SHOWN" -eq 0 ]; then
-                    # Check if state sync just completed by looking for "Snapshot restored" in recent logs
-                    local log_file="$HOME_DIR/logs/pchaind.log"
-                    if [ -f "$log_file" ]; then
-                        local recent_logs=$(tail -20 "$log_file" 2>/dev/null || echo "")
-                        if echo "$recent_logs" | grep -qi "Snapshot restored"; then
-                            # State sync completed - show the completion message
-                            echo
-                            print_success "✅ State sync completed successfully!"
-                            STATE_SYNC_COMPLETED_SHOWN=1
-                        fi
-                    fi
+                # Update STATE_SYNC_COMPLETED_SHOWN from completion file
+                if [ "$STATE_SYNC_COMPLETED_SHOWN" -eq 0 ] && [ -f "$STATE_SYNC_COMPLETION_FILE" ]; then
+                    STATE_SYNC_COMPLETED_SHOWN=1
                 fi
-
+                
                 # Render UI and possibly invoke hook when considered synced
                 render_ws_view
 
@@ -1958,6 +1982,11 @@ monitor_sync_ws() {
         # Small backoff before trying again
         sleep 2
     done
+    
+    # Cleanup: signal background process to stop and clean up temp files
+    touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
+    [ -n "${STATE_SYNC_CHECKER_PID:-}" ] && kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+    rm -f "$STATE_SYNC_COMPLETION_FILE" "$MONITOR_STOPPED_FILE" 2>/dev/null || true
 }
 
 ###############################################################################

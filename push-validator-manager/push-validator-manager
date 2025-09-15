@@ -2005,6 +2005,13 @@ monitor_sync_ws() {
 
         # If we failed to get events several times in a row, fallback
         if [ "$noevent_streak" -ge 3 ]; then
+            # Clean up background process before returning
+            touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
+            if [ -n "${STATE_SYNC_CHECKER_PID:-}" ]; then
+                kill "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+                wait "${STATE_SYNC_CHECKER_PID}" 2>/dev/null || true
+            fi
+            rm -f "$STATE_SYNC_COMPLETION_FILE" "$MONITOR_STOPPED_FILE" 2>/dev/null || true
             # Do not print a newline; let the fallback monitor redraw on the same line
             return 1
         fi

@@ -332,61 +332,50 @@ if [[ "$AUTO_START" = "yes" ]]; then
     [ $i -lt 15 ] && sleep 2
   done
   
-  # If state sync was detected, monitor it until completion
+  # If state sync was detected, use enhanced monitoring with visual progress bars
   if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    echo -e "${CYAN}📡 State sync detected - downloading blockchain snapshot...${NC}"
+    echo -e "${CYAN}📡 State sync detected - monitoring with enhanced progress display...${NC}"
+    echo
     
-    # Monitor state sync completion for up to 10 minutes
-    SYNC_TIMEOUT=600  # 10 minutes
-    SYNC_START_TIME=$(date +%s)
-    LAST_UPDATE_TIME=0
-    LAST_HEIGHT=0
-    
-    while true; do
-      CURRENT_TIME=$(date +%s)
-      ELAPSED=$((CURRENT_TIME - SYNC_START_TIME))
+    # Use the enhanced state sync monitoring from push-validator-manager
+    # This provides visual progress bars, phase detection, and better user experience
+    if "$MANAGER_LINK" monitor-state-sync 2>/dev/null; then
+      echo -e "${GREEN}✅ State sync completed successfully!${NC}"
+    else
+      # Fallback to basic monitoring if enhanced version fails
+      echo -e "${YELLOW}⚠️ Enhanced monitoring failed, falling back to basic monitoring...${NC}"
       
-      if [ $ELAPSED -gt $SYNC_TIMEOUT ]; then
-        echo -e "${YELLOW}⚠️ State sync taking longer than expected, but node is running${NC}"
-        break
-      fi
+      # Basic fallback monitoring (simplified version of original)
+      SYNC_TIMEOUT=600  # 10 minutes
+      SYNC_START_TIME=$(date +%s)
       
-      # Check sync status
-      SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Status:|network" || true)
-      CURRENT_HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "0")
-      NETWORK_HEIGHT=$(echo "$SYNC_INFO" | grep "network" | grep -o "[0-9]\+" | tail -1 || echo "0")
-      
-      # Check if sync is complete
-      if echo "$SYNC_INFO" | grep -q "Catching Up: false" || echo "$SYNC_INFO" | grep -q "✅.*SYNCED" || echo "$SYNC_INFO" | grep -q "Fully Synced"; then
-        echo -e "${GREEN}✅ State sync completed! Node synchronized to block ${CURRENT_HEIGHT}${NC}"
-        break
-      fi
-      
-      # Show progress every 10 seconds if height is changing
-      if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-        if [ "$CURRENT_HEIGHT" -gt 0 ]; then
-          # Calculate progress if we have network height
-          if [ "$NETWORK_HEIGHT" -gt 0 ] && [ "$CURRENT_HEIGHT" -lt "$NETWORK_HEIGHT" ]; then
-            PROGRESS=$((CURRENT_HEIGHT * 100 / NETWORK_HEIGHT))
-            REMAINING=$((NETWORK_HEIGHT - CURRENT_HEIGHT))
-            echo -e "${CYAN}📊 Synchronizing: ${CURRENT_HEIGHT}/${NETWORK_HEIGHT} blocks (${PROGRESS}% - ${REMAINING} remaining)${NC}"
-          else
-            # Show height progression
-            if [ "$CURRENT_HEIGHT" -gt "$LAST_HEIGHT" ]; then
-              BLOCKS_ADDED=$((CURRENT_HEIGHT - LAST_HEIGHT))
-              echo -e "${CYAN}📊 Sync progress: Block ${CURRENT_HEIGHT} (+${BLOCKS_ADDED} since last update)${NC}"
-            else
-              echo -e "${CYAN}📊 Syncing at block height: ${CURRENT_HEIGHT}${NC}"
-            fi
-          fi
-          LAST_HEIGHT=$CURRENT_HEIGHT
-        else
-          echo -e "${CYAN}🔄 State sync in progress... Waiting for block data...${NC}"
+      while true; do
+        CURRENT_TIME=$(date +%s)
+        ELAPSED=$((CURRENT_TIME - SYNC_START_TIME))
+        
+        if [ $ELAPSED -gt $SYNC_TIMEOUT ]; then
+          echo -e "${YELLOW}⚠️ State sync taking longer than expected, but node is running${NC}"
+          break
         fi
-      fi
-      
-      sleep 3
-    done
+        
+        # Check sync status using push-validator-manager status
+        SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Status:|network" || true)
+        
+        # Check if sync is complete
+        if echo "$SYNC_INFO" | grep -q "Catching Up: false" || echo "$SYNC_INFO" | grep -q "✅.*SYNCED" || echo "$SYNC_INFO" | grep -q "Fully Synced"; then
+          CURRENT_HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "unknown")
+          echo -e "${GREEN}✅ State sync completed! Node synchronized to block ${CURRENT_HEIGHT}${NC}"
+          break
+        fi
+        
+        # Show simple progress every 15 seconds
+        if [ $((ELAPSED % 15)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+          echo -e "${CYAN}🔄 State sync in progress... (${ELAPSED}s elapsed)${NC}"
+        fi
+        
+        sleep 3
+      done
+    fi
   fi
   
   # Check if node started successfully

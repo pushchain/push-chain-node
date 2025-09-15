@@ -81,6 +81,352 @@ compute_bar_width() {
     fi
 }
 
+# Enhanced progress bar utilities for state sync and block sync
+render_progress_bar() {
+    local percentage="$1"
+    local bar_width="${2:-$(compute_bar_width)}"
+    local filled_char="${3:-█}"
+    local empty_char="${4:-░}"
+    local color="${5:-${GREEN}}"
+    
+    # Ensure percentage is numeric and within bounds
+    [[ "$percentage" =~ ^[0-9]+\.?[0-9]*$ ]] || percentage="0"
+    local percentage_int=$(echo "$percentage" | cut -d'.' -f1)
+    [ "$percentage_int" -gt 100 ] && percentage_int=100
+    [ "$percentage_int" -lt 0 ] && percentage_int=0
+    
+    local filled=$(echo "$percentage_int * $bar_width / 100" | bc 2>/dev/null | cut -d'.' -f1)
+    [ -z "$filled" ] && filled=0
+    
+    # Ensure at least 1 cell shows when progress > 0
+    if [ "$filled" -eq 0 ] && [ "$percentage_int" -gt 0 ]; then
+        filled=1
+    fi
+    [ "$filled" -gt "$bar_width" ] && filled=$bar_width
+    
+    local empty=$((bar_width - filled))
+    local bar_filled=$(printf "%0.s${filled_char}" $(seq 1 ${filled}))
+    local bar_empty=$(printf "%0.s${empty_char}" $(seq 1 ${empty}))
+    
+    echo "${color}${bar_filled}${NC}${DIM}${bar_empty}${NC}"
+}
+
+# Show phase-based progress for multi-stage operations
+show_phase_progress() {
+    local phase_name="$1"
+    local phase_number="$2"
+    local total_phases="$3"
+    local phase_percentage="$4"
+    local status_text="${5:-}"
+    local show_bar="${6:-true}"
+    
+    local overall_progress=0
+    if [ "$total_phases" -gt 0 ]; then
+        # Calculate overall progress based on completed phases plus current phase progress
+        local completed_phases=$((phase_number - 1))
+        overall_progress=$(echo "scale=1; ($completed_phases * 100 + $phase_percentage) / $total_phases" | bc 2>/dev/null || echo "0")
+    fi
+    
+    if [ "$show_bar" = "true" ]; then
+        local progress_bar=$(render_progress_bar "$overall_progress")
+        printf "\r${CYAN}%s${NC} (${BOLD}%d${NC}/${BOLD}%d${NC}) [%s] ${GREEN}%.1f%%${NC}" \
+               "$phase_name" "$phase_number" "$total_phases" "$progress_bar" "$overall_progress"
+    else
+        printf "\r${CYAN}%s${NC} (${BOLD}%d${NC}/${BOLD}%d${NC}) ${GREEN}%.1f%%${NC}" \
+               "$phase_name" "$phase_number" "$total_phases" "$overall_progress"
+    fi
+    
+    if [ -n "$status_text" ]; then
+        printf " | %s" "$status_text"
+    fi
+    printf "\033[K"  # Clear to end of line
+}
+
+# Show peer discovery progress
+show_peer_discovery_progress() {
+    local peers_found="$1"
+    local peers_target="${2:-10}"
+    local elapsed_seconds="$3"
+    local timeout_seconds="${4:-30}"
+    
+    local percentage=0
+    if [ "$peers_target" -gt 0 ]; then
+        percentage=$(echo "scale=1; 100 * $peers_found / $peers_target" | bc 2>/dev/null || echo "0")
+    fi
+    
+    # Also consider time-based progress
+    local time_progress=0
+    if [ "$timeout_seconds" -gt 0 ]; then
+        time_progress=$(echo "scale=1; 100 * $elapsed_seconds / $timeout_seconds" | bc 2>/dev/null || echo "0")
+    fi
+    
+    # Use the higher of the two progress indicators
+    local display_progress="$percentage"
+    if [ "$(echo "$time_progress > $percentage" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
+        display_progress="$time_progress"
+    fi
+    
+    local status_text="${BOLD}${WHITE}Peers${NC} ${MAGENTA}${peers_found}${NC}/${MAGENTA}${peers_target}${NC}"
+    if [ "$elapsed_seconds" -gt 0 ]; then
+        status_text="$status_text | ${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_seconds}s${NC}"
+    fi
+    
+    show_phase_progress "🔍 Discovering peers" 1 3 "$display_progress" "$status_text"
+}
+
+# Show snapshot download progress
+show_snapshot_progress() {
+    local downloaded_mb="${1:-0}"
+    local total_mb="${2:-0}"
+    local speed_mbps="${3:-0}"
+    
+    local percentage=0
+    if [ "$total_mb" -gt 0 ]; then
+        percentage=$(echo "scale=1; 100 * $downloaded_mb / $total_mb" | bc 2>/dev/null || echo "0")
+    fi
+    
+    local status_text=""
+    if [ "$total_mb" -gt 0 ]; then
+        status_text="${BOLD}${WHITE}Download${NC} ${MAGENTA}${downloaded_mb}MB${NC}/${MAGENTA}${total_mb}MB${NC}"
+    else
+        status_text="${BOLD}${WHITE}Downloading${NC} ${MAGENTA}${downloaded_mb}MB${NC}"
+    fi
+    
+    if [ "$(echo "$speed_mbps > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
+        status_text="$status_text | ${BOLD}${WHITE}Speed${NC} ${CYAN}${speed_mbps}MB/s${NC}"
+        
+        # Calculate ETA if we know total size
+        if [ "$total_mb" -gt 0 ] && [ "$(echo "$speed_mbps > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
+            local remaining_mb=$(echo "$total_mb - $downloaded_mb" | bc 2>/dev/null || echo "0")
+            if [ "$(echo "$remaining_mb > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
+                local eta_seconds=$(echo "scale=0; $remaining_mb / $speed_mbps" | bc 2>/dev/null || echo "0")
+                if [ "$eta_seconds" -gt 0 ]; then
+                    local eta_min=$((eta_seconds / 60))
+                    local eta_sec=$((eta_seconds % 60))
+                    if [ "$eta_min" -gt 0 ]; then
+                        status_text="$status_text | ${BOLD}${WHITE}ETA${NC} ${GREEN}${eta_min}m${eta_sec}s${NC}"
+                    else
+                        status_text="$status_text | ${BOLD}${WHITE}ETA${NC} ${GREEN}${eta_sec}s${NC}"
+                    fi
+                fi
+            fi
+        fi
+    fi
+    
+    show_phase_progress "📦 Downloading snapshot" 2 3 "$percentage" "$status_text"
+}
+
+# Enhanced state sync phase detection from logs
+detect_state_sync_phase() {
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    [ ! -f "$log_file" ] && echo "unknown" && return
+    
+    # Get recent log entries (last 50 lines for performance)
+    local recent_logs=$(tail -50 "$log_file" 2>/dev/null || echo "")
+    [ -z "$recent_logs" ] && echo "unknown" && return
+    
+    # Phase detection based on log patterns (ordered by priority)
+    if echo "$recent_logs" | grep -qi "Starting state sync\|state sync.*starting"; then
+        echo "starting"
+    elif echo "$recent_logs" | grep -qi "Discovering snapshots\|snapshot.*discovery"; then
+        echo "peer_discovery"
+    elif echo "$recent_logs" | grep -qi "Discovered.*snapshot\|Found.*snapshot\|snapshot.*available"; then
+        echo "snapshot_found"
+    elif echo "$recent_logs" | grep -qi "Downloading.*snapshot\|snapshot.*download\|Applying.*snapshot"; then
+        echo "downloading"
+    elif echo "$recent_logs" | grep -qi "Restoring.*snapshot\|snapshot.*restore\|Verifying.*snapshot"; then
+        echo "restoring"
+    elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
+        echo "completed"
+    elif echo "$recent_logs" | grep -qi "state sync.*failed\|snapshot.*failed\|state sync.*error"; then
+        echo "failed"
+    else
+        echo "unknown"
+    fi
+}
+
+# Parse peer information from logs
+get_peer_count() {
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    [ ! -f "$log_file" ] && echo "0" && return
+    
+    # Try to extract peer count from recent logs
+    local peer_info=$(tail -20 "$log_file" 2>/dev/null | grep -E "peers|numInPeers|numOutPeers" | tail -1 || echo "")
+    if [ -n "$peer_info" ]; then
+        # Extract numbers from peer information
+        local in_peers=$(echo "$peer_info" | grep -o "numInPeers=[0-9]*" | cut -d'=' -f2 || echo "0")
+        local out_peers=$(echo "$peer_info" | grep -o "numOutPeers=[0-9]*" | cut -d'=' -f2 || echo "0")
+        local total_peers=$((in_peers + out_peers))
+        echo "$total_peers"
+    else
+        echo "0"
+    fi
+}
+
+# Extract snapshot progress information if available
+get_snapshot_progress() {
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    [ ! -f "$log_file" ] && return
+    
+    # Look for snapshot progress indicators in recent logs
+    local progress_info=$(tail -30 "$log_file" 2>/dev/null | grep -E "snapshot.*progress|downloaded.*MB|restoring.*chunk" | tail -1 || echo "")
+    
+    if [ -n "$progress_info" ]; then
+        # Try to extract progress percentage or size information
+        local percentage=$(echo "$progress_info" | grep -o "[0-9]*%" | tail -1 | tr -d '%' || echo "")
+        local mb_downloaded=$(echo "$progress_info" | grep -o "[0-9]*\.?[0-9]*\s*MB" | head -1 | tr -d 'MB ' || echo "")
+        local mb_total=$(echo "$progress_info" | grep -o "of [0-9]*\.?[0-9]*\s*MB" | head -1 | tr -d 'ofMB ' || echo "")
+        
+        # Return structured data
+        echo "percentage:${percentage:-0} downloaded:${mb_downloaded:-0} total:${mb_total:-0}"
+    fi
+}
+
+# Check if state sync is actively progressing
+is_state_sync_progressing() {
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    [ ! -f "$log_file" ] && echo "false" && return
+    
+    # Check for recent activity (last 30 seconds worth of logs)
+    local current_time=$(date +%s)
+    local recent_activity=$(tail -10 "$log_file" 2>/dev/null | head -5 || echo "")
+    
+    # Look for signs of ongoing activity
+    if echo "$recent_activity" | grep -qi "sync\|snapshot\|downloading\|restoring\|discovering"; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# Multi-phase state sync progress display
+show_state_sync_progress() {
+    local phase="$1"
+    local elapsed_seconds="$2"
+    local current_height="${3:-0}"
+    local target_height="${4:-0}"
+    
+    case "$phase" in
+        "starting")
+            show_phase_progress "🚀 Initializing state sync" 1 4 10 "${BOLD}${WHITE}Preparing...${NC}"
+            ;;
+        "peer_discovery")
+            local peers=$(get_peer_count)
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            show_peer_discovery_progress "$peers" 10 "$elapsed_seconds" 60
+            ;;
+        "snapshot_found")
+            show_phase_progress "🎯 Snapshot located" 2 4 75 "${BOLD}${WHITE}Preparing download...${NC}"
+            ;;
+        "downloading")
+            # Try to get snapshot progress info
+            local progress_info=$(get_snapshot_progress)
+            if [ -n "$progress_info" ]; then
+                local downloaded=$(echo "$progress_info" | grep -o "downloaded:[0-9]*" | cut -d':' -f2 || echo "0")
+                local total=$(echo "$progress_info" | grep -o "total:[0-9]*" | cut -d':' -f2 || echo "0")
+                local percentage=$(echo "$progress_info" | grep -o "percentage:[0-9]*" | cut -d':' -f2 || echo "0")
+                
+                if [ "$total" -gt 0 ]; then
+                    show_snapshot_progress "$downloaded" "$total" "0"
+                else
+                    show_phase_progress "📦 Downloading snapshot" 2 4 "$percentage" "${BOLD}${WHITE}Downloading...${NC}"
+                fi
+            else
+                show_phase_progress "📦 Downloading snapshot" 2 4 50 "${BOLD}${WHITE}Downloading...${NC}"
+            fi
+            ;;
+        "restoring")
+            show_phase_progress "🔧 Applying snapshot" 3 4 85 "${BOLD}${WHITE}Restoring state...${NC}"
+            ;;
+        "completed")
+            show_phase_progress "✅ State sync complete" 4 4 100 "${BOLD}${GREEN}Ready!${NC}"
+            ;;
+        "failed")
+            show_phase_progress "❌ State sync failed" 4 4 0 "${BOLD}${RED}Failed${NC}"
+            ;;
+        *)
+            # Unknown phase - show basic progress based on time elapsed
+            local time_progress=0
+            if [ "$elapsed_seconds" -gt 0 ]; then
+                # Assume max 15 minutes for state sync, show time-based progress
+                time_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
+                [ "$(echo "$time_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && time_progress="100"
+            fi
+            
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            local time_text="${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_min}m${elapsed_sec}s${NC}"
+            
+            if [ "$current_height" -gt 0 ]; then
+                time_text="$time_text | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${current_height}${NC}"
+                if [ "$target_height" -gt 0 ]; then
+                    time_text="$time_text/${MAGENTA}${target_height}${NC}"
+                fi
+            fi
+            
+            show_phase_progress "⏳ State sync in progress" 1 4 "$time_progress" "$time_text"
+            ;;
+    esac
+}
+
+# Show comprehensive state sync status with all phases
+show_complete_state_sync_status() {
+    local sync_start_time="$1"
+    local show_header="${2:-true}"
+    
+    if [ "$show_header" = "true" ]; then
+        echo
+        print_header "📡 State Sync Progress"
+        echo
+    fi
+    
+    # Get current status
+    local current_time=$(date +%s)
+    local elapsed=$((current_time - sync_start_time))
+    local phase=$(detect_state_sync_phase)
+    local is_progressing=$(is_state_sync_progressing)
+    
+    # Get node status for height information
+    local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+    local current_height="0"
+    local catching_up="true"
+    
+    if [ -n "$node_status" ]; then
+        current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+        catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+    fi
+    
+    # Try to get target height from network
+    local target_height="0"
+    if command -v curl >/dev/null 2>&1; then
+        local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
+        if [ -n "$network_status" ]; then
+            target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+        fi
+    fi
+    
+    # Show phase-specific progress
+    show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
+    
+    # Return status: 0 = completed, 1 = in progress, 2 = failed
+    case "$phase" in
+        "completed")
+            if [ "$catching_up" = "false" ]; then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+        "failed")
+            return 2
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Dependency helpers
 require_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -988,70 +1334,99 @@ check_sync_stall() {
     return 1
 }
 
-# Monitor state sync progress
+# Enhanced monitor state sync progress with visual progress bars
 monitor_state_sync() {
-    print_status "📊 Monitoring state sync progress..."
-    
     local sync_start_time=$(date +%s)
-    local last_status=""
+    local last_phase=""
+    local consecutive_same_phase=0
+    local show_detailed_progress="${1:-true}"
+    
+    # Show initial header
+    if [ "$show_detailed_progress" = "true" ]; then
+        echo
+        print_header "📡 State Sync Progress"
+        echo
+    fi
     
     while true; do
-        sleep 3
+        # Use our comprehensive status function
+        if show_complete_state_sync_status "$sync_start_time" "false"; then
+            # State sync completed successfully
+            echo
+            echo
+            print_success "✅ State sync completed successfully!"
+            
+            # Get final stats
+            local elapsed=$(($(date +%s) - sync_start_time))
+            local elapsed_min=$((elapsed / 60))
+            local elapsed_sec=$((elapsed % 60))
+            
+            local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+            local final_height="unknown"
+            if [ -n "$node_status" ]; then
+                final_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "unknown"')
+            fi
+            
+            echo "📈 Final height: $final_height"
+            echo "⏱️ Total time: ${elapsed_min}m ${elapsed_sec}s"
+            echo
+            return 0
+        fi
         
-        # Check if node is responding
-        local status=$(curl -s localhost:26657/status 2>/dev/null)
-        if [ -n "$status" ]; then
-            local catching_up=$(echo "$status" | jq -r '.result.sync_info.catching_up // true')
-            local current_height=$(echo "$status" | jq -r '.result.sync_info.latest_block_height // "0"')
+        local exit_code=$?
+        if [ $exit_code -eq 2 ]; then
+            # State sync failed
+            echo
+            echo
+            print_error "❌ State sync failed"
             
-            # Check logs for state sync status
-            local sync_status=""
-            if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
-                sync_status=$(tail -100 "$HOME_DIR/logs/pchaind.log" | grep -i "state sync" | tail -1 || true)
-            fi
-            
-            if [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
-                local elapsed=$(($(date +%s) - sync_start_time))
-                local elapsed_min=$((elapsed / 60))
-                local elapsed_sec=$((elapsed % 60))
-                
-                # Clear previous line if TTY
-                if [ -t 1 ]; then
-                    printf "\r\033[K"
-                fi
-                
-                if [ "$catching_up" = "false" ]; then
-                    print_success "✅ State sync completed!"
-                    echo "📈 Current height: $current_height"
-                    echo "⏱️ Time taken: ${elapsed_min}m ${elapsed_sec}s"
-                    return 0
-                else
-                    printf "📡 State sync in progress... Height: ${GREEN}$current_height${NC} | Time: ${elapsed_min}m ${elapsed_sec}s"
-                fi
-            else
-                # Still waiting for state sync to start
-                if [ -n "$sync_status" ] && [ "$sync_status" != "$last_status" ]; then
-                    echo
-                    print_status "State sync: $sync_status"
-                    last_status="$sync_status"
-                else
-                    if [ -t 1 ]; then
-                        printf "\r\033[K"
-                    fi
-                    printf "⏳ Waiting for state sync to begin..."
-                fi
-            fi
-        else
-            printf "⏳ Waiting for node to start..."
+            # Show some troubleshooting hints
+            echo
+            print_status "💡 Troubleshooting hints:"
+            echo "  • Check logs: push-validator-manager logs"
+            echo "  • Try recovery: push-validator-manager recover"
+            echo "  • Check network connectivity"
+            return 1
         fi
         
         # Check for timeout (15 minutes)
         local elapsed=$(($(date +%s) - sync_start_time))
         if [ $elapsed -gt 900 ]; then
             echo
+            echo
             print_error "❌ State sync timeout after 15 minutes"
+            
+            # Show current phase for debugging
+            local current_phase=$(detect_state_sync_phase)
+            echo "📊 Last known phase: $current_phase"
+            
+            # Show troubleshooting hints
+            echo
+            print_status "💡 Troubleshooting:"
+            echo "  • State sync may still be progressing"
+            echo "  • Check logs: push-validator-manager logs"
+            echo "  • Monitor status: push-validator-manager status"
             return 1
         fi
+        
+        # Detect if we're stuck in the same phase
+        local current_phase=$(detect_state_sync_phase)
+        if [ "$current_phase" = "$last_phase" ]; then
+            consecutive_same_phase=$((consecutive_same_phase + 1))
+        else
+            consecutive_same_phase=0
+            last_phase="$current_phase"
+        fi
+        
+        # Show warning if stuck in the same phase for too long
+        if [ $consecutive_same_phase -gt 20 ] && [ "$current_phase" != "unknown" ]; then
+            if [ -t 1 ]; then
+                printf "\n${YELLOW}⚠️ Phase '$current_phase' taking longer than expected...${NC}\n"
+            fi
+            consecutive_same_phase=0  # Reset to avoid spam
+        fi
+        
+        sleep 3
     done
 }
 
@@ -1521,6 +1896,7 @@ show_help() {
     printf "  ${BOLD}%-18s${NC}%s\n" "stop" "Stop the Push node"
     printf "  ${BOLD}%-18s${NC}%s\n" "status" "Check node status"
     printf "  ${BOLD}%-18s${NC}%s\n" "sync [-d]" "Monitor sync. Use -d for dashboard"
+    printf "  ${BOLD}%-18s${NC}%s\n" "monitor-state-sync" "Enhanced state sync monitoring"
     printf "  ${BOLD}%-18s${NC}%s\n" "logs" "View node logs"
     echo
     echo -e "${BOLD}${CYAN}VALIDATOR${NC}"
@@ -2006,6 +2382,30 @@ case "${1:-help}" in
         if [ $recovery_attempts -ge $MAX_RECOVERY_ATTEMPTS ]; then
             print_warning "⚠️ Maximum recovery attempts reached. Reset with: export recovery_attempts=0"
         fi
+        ;;
+        
+    monitor-state-sync)
+        # Enhanced state sync monitoring with visual progress bars
+        if ! is_node_running; then
+            print_error "❌ Node is not running"
+            echo "Start the node first: push-validator-manager start"
+            exit 1
+        fi
+        
+        # Check if state sync is configured or in progress
+        local phase=$(detect_state_sync_phase)
+        if [ "$phase" = "completed" ]; then
+            print_success "✅ State sync already completed"
+            show_status
+            exit 0
+        elif [ "$phase" = "failed" ]; then
+            print_error "❌ State sync failed"
+            echo "Try recovery: push-validator-manager recover"
+            exit 1
+        fi
+        
+        # Start monitoring with enhanced progress display
+        monitor_state_sync true
         ;;
         
     help|--help|-h|"")

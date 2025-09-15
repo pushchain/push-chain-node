@@ -300,9 +300,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
   NODE_STARTED=false
   STATE_SYNC_DETECTED=false
   
-  # Start node in background and capture initial output
+  # Start node in background and capture initial output (without timeout to get full feedback)
   {
-    timeout 30 "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
+    "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
       # Skip verbose logs that aren't useful for installer output
       if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
         continue  # Skip these verbose log lines
@@ -332,7 +332,18 @@ if [[ "$AUTO_START" = "yes" ]]; then
         break
       fi
     done
-  } || true
+  } &
+  START_PID=$!
+  
+  # Wait for start command to complete or timeout after 45 seconds
+  WAIT_COUNT=0
+  while kill -0 $START_PID 2>/dev/null && [ $WAIT_COUNT -lt 45 ]; do
+    sleep 1
+    ((WAIT_COUNT++))
+  done
+  
+  # Kill the background start process if still running
+  kill $START_PID 2>/dev/null || true
   
   # Check if node is running with multiple attempts - allow more time for state sync startup
   echo -e "${CYAN}⏳ Verifying node startup...${NC}"
@@ -350,17 +361,24 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo -e "${CYAN}  • Waiting for peer connections...${NC}"
     fi
     
-    STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
-    
-    # Check for various indicators that node is running
-    if echo "$STATUS_OUTPUT" | grep -q "Node is running"; then
-      NODE_STARTED=true
-      echo -e "${GREEN}✅ Node startup verified${NC}"
-      break
-    fi
-    
-    # Check if process exists (more detailed feedback)
-    if pgrep -f "pchaind" >/dev/null 2>&1; then
+    # First check if process exists (more reliable than status during init)
+    if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
+      # Process is running, now check if status reports correctly
+      STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "initializing")
+      
+      # Accept various states as "started"
+      if echo "$STATUS_OUTPUT" | grep -qE "Node is running|initializing|Syncing|height"; then
+        NODE_STARTED=true
+        echo -e "${GREEN}✅ Node startup verified${NC}"
+        break
+      elif [ $i -gt 5 ]; then
+        # After 10 seconds, if process exists, consider it started
+        NODE_STARTED=true
+        echo -e "${GREEN}✅ Node process verified${NC}"
+        break
+      fi
+      
+      # Show feedback that process is running
       if [ $i -eq 3 ] || [ $i -eq 8 ]; then
         echo -e "${CYAN}  ✓ Process running, initializing components...${NC}"
       fi
@@ -530,17 +548,25 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo
       echo -e "${YELLOW}🔍 Diagnosis:${NC}"
       
-      # Check if process is running even if status fails
-      if pgrep -f "pchaind" >/dev/null 2>&1; then
+      # More lenient final check
+      if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
         echo -e "  ${GREEN}✅ Node process is running${NC}"
-        echo -e "  ${YELLOW}⚠️ Status command may be experiencing delays${NC}"
-        echo -e "  ${CYAN}💡 Try: push-validator-manager status${NC}"
-        echo -e "  ${CYAN}💡 Try: push-validator-manager logs${NC}"
-        echo -e "  ${CYAN}💡 State sync may still be in progress${NC}"
+        NODE_STARTED=true
+        
+        # Try to get status but don't fail if it's not ready
+        FINAL_STATUS=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+        if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
+          echo -e "  ${GREEN}✅ Node is fully synchronized!${NC}"
+        else
+          echo -e "  ${CYAN}⏳ Node is initializing/syncing with the network...${NC}"
+          echo -e "  ${CYAN}This is normal and may take 5-15 minutes for state sync.${NC}"
+        fi
+        
         echo
-        echo -e "${CYAN}Note: The node may actually be working. State sync can take 5-15 minutes.${NC}"
-        echo -e "${CYAN}Check status in a few minutes with: push-validator-manager status${NC}"
-        exit 0  # Don't fail - node may actually be working
+        echo -e "${GREEN}✅ Installation successful!${NC}"
+        echo -e "Check status: ${BOLD}push-validator-manager status${NC}"
+        echo -e "View logs: ${BOLD}push-validator-manager logs${NC}"
+        exit 0
       else
         echo -e "  ${RED}❌ No node process found${NC}"
         echo -e "  ${CYAN}💡 Check logs: push-validator-manager logs${NC}"

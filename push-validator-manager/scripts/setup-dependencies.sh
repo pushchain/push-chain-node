@@ -54,20 +54,116 @@ print_status "🔍 Detected OS: $OS"
 install_linux_deps() {
     print_status "📦 Installing Linux dependencies..."
     
-    # Update package list
-    sudo apt-get update
+    # Detect Linux distribution
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO=$ID
+        DISTRO_FAMILY=$ID_LIKE
+    else
+        print_error "❌ Cannot detect Linux distribution"
+        exit 1
+    fi
     
-    # Install required packages
-    sudo apt-get install -y \
-        build-essential \
-        git \
-        golang-go \
-        jq \
-        python3 \
-        python3-venv \
-        curl \
-        wget \
-        netcat-traditional
+    print_status "📦 Detected distribution: $DISTRO"
+    
+    # Install based on distribution
+    if command -v apt-get >/dev/null 2>&1; then
+        # Debian/Ubuntu based
+        print_status "Installing via apt-get..."
+        sudo apt-get update
+        sudo apt-get install -y \
+            build-essential \
+            git \
+            golang-go \
+            jq \
+            python3 \
+            python3-venv \
+            python3-pip \
+            curl \
+            wget
+        # Prefer netcat-openbsd; fall back to netcat-traditional if needed
+        sudo apt-get install -y netcat-openbsd || sudo apt-get install -y netcat-traditional
+            
+    elif command -v dnf >/dev/null 2>&1; then
+        # Fedora/RHEL 8+ based
+        print_status "Installing via dnf..."
+        sudo dnf install -y \
+            @development-tools \
+            git \
+            golang \
+            jq \
+            python3 \
+            python3-pip \
+            curl \
+            wget \
+            nmap-ncat
+            
+    elif command -v yum >/dev/null 2>&1; then
+        # RHEL/CentOS 7 based
+        print_status "Installing via yum..."
+        sudo yum groupinstall -y "Development Tools"
+        sudo yum install -y \
+            git \
+            golang \
+            jq \
+            python3 \
+            python3-pip \
+            curl \
+            wget \
+            nmap-ncat
+            
+    elif command -v pacman >/dev/null 2>&1; then
+        # Arch Linux based
+        print_status "Installing via pacman..."
+        sudo pacman -Syu --noconfirm
+        sudo pacman -S --noconfirm \
+            base-devel \
+            git \
+            go \
+            jq \
+            python \
+            python-pip \
+            python-virtualenv \
+            curl \
+            wget \
+            gnu-netcat
+            
+    elif command -v apk >/dev/null 2>&1; then
+        # Alpine Linux based
+        print_status "Installing via apk..."
+        sudo apk update
+        sudo apk add \
+            build-base \
+            git \
+            go \
+            jq \
+            python3 \
+            py3-pip \
+            py3-virtualenv \
+            curl \
+            wget \
+            netcat-openbsd
+            
+    elif command -v zypper >/dev/null 2>&1; then
+        # openSUSE based
+        print_status "Installing via zypper..."
+        sudo zypper install -y \
+            -t pattern devel_basis \
+            git \
+            go \
+            jq \
+            python3 \
+            python3-pip \
+            python3-virtualenv \
+            curl \
+            wget \
+            netcat-openbsd
+            
+    else
+        print_error "❌ Unsupported Linux distribution: $DISTRO"
+        print_status "Please manually install: build tools, git, go, jq, python3, python3-venv, curl, wget, netcat"
+        exit 1
+    fi
     
     # Setup Python virtual environment for dependencies
     VENV_DIR="$ROOT_TOP/venv"
@@ -208,11 +304,65 @@ install_ws_client() {
         fi
         if [[ -n "$ASSET_FILTER" ]]; then
             RELEASE_API="https://api.github.com/repos/vi/websocat/releases/latest"
-            ASSET_URL=$(curl -fsSL "$RELEASE_API" | jq -r \
+            # Get both download URL and SHA256 checksum URL
+            RELEASE_INFO=$(curl -fsSL "$RELEASE_API" 2>/dev/null || true)
+            ASSET_URL=$(echo "$RELEASE_INFO" | jq -r \
                 '.assets[] | select(.name | contains("'"$ASSET_FILTER"'")) | .browser_download_url' | head -n1 2>/dev/null || true)
+            CHECKSUM_URL=$(echo "$RELEASE_INFO" | jq -r \
+                '.assets[] | select(.name | contains("sha256sum")) | .browser_download_url' | head -n1 2>/dev/null || true)
+            
             if [[ -n "$ASSET_URL" ]]; then
                 mkdir -p "$HOME/.local/bin"
-                curl -fsSL "$ASSET_URL" -o "$HOME/.local/bin/websocat" >/dev/null 2>&1 || true
+                TEMP_DIR=$(mktemp -d)
+                trap "rm -rf $TEMP_DIR" EXIT
+                
+                # Download with retry logic
+                local retry_count=0
+                local max_retries=3
+                while [ $retry_count -lt $max_retries ]; do
+                    if curl -fsSL "$ASSET_URL" -o "$TEMP_DIR/websocat" 2>/dev/null; then
+                        break
+                    fi
+                    retry_count=$((retry_count + 1))
+                    print_warning "⚠️ Download attempt $retry_count failed, retrying..."
+                    sleep $((retry_count * 2))  # Exponential backoff
+                done
+                
+                if [ $retry_count -eq $max_retries ]; then
+                    print_error "❌ Failed to download websocat after $max_retries attempts"
+                    return 1
+                fi
+                
+                # Verify checksum if available
+                if [[ -n "$CHECKSUM_URL" ]]; then
+                    curl -fsSL "$CHECKSUM_URL" -o "$TEMP_DIR/checksums.txt" 2>/dev/null || true
+                    if [ -f "$TEMP_DIR/checksums.txt" ]; then
+                        # Extract checksum for our specific file
+                        EXPECTED_CHECKSUM=$(grep "$ASSET_FILTER" "$TEMP_DIR/checksums.txt" | awk '{print $1}' 2>/dev/null || true)
+                        if [[ -n "$EXPECTED_CHECKSUM" ]]; then
+                            # Calculate actual checksum
+                            if command -v sha256sum >/dev/null 2>&1; then
+                                ACTUAL_CHECKSUM=$(sha256sum "$TEMP_DIR/websocat" | awk '{print $1}')
+                            elif command -v shasum >/dev/null 2>&1; then
+                                ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_DIR/websocat" | awk '{print $1}')
+                            fi
+                            
+                            if [[ -n "$ACTUAL_CHECKSUM" ]]; then
+                                if [[ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]]; then
+                                    print_error "❌ Checksum verification failed for websocat"
+                                    print_status "Expected: $EXPECTED_CHECKSUM"
+                                    print_status "Actual: $ACTUAL_CHECKSUM"
+                                    return 1
+                                else
+                                    print_success "✅ Checksum verified for websocat"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+                
+                # Move to final location
+                mv "$TEMP_DIR/websocat" "$HOME/.local/bin/websocat"
                 chmod +x "$HOME/.local/bin/websocat" 2>/dev/null || true
                 # Add to PATH for current shell
                 case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac

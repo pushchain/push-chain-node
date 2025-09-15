@@ -131,23 +131,22 @@ kill_pchaind_on_port() {
 # Native binary path (prefer build/, fallback to scripts/build/)
 BUILD_DIR="$SCRIPT_DIR/build"
 SCRIPTS_BUILD_DIR="$SCRIPT_DIR/scripts/build"
-NATIVE_BINARY="$BUILD_DIR/pchaind"
 
 resolve_binary_path() {
     if [ -f "$BUILD_DIR/pchaind" ]; then
-        NATIVE_BINARY="$BUILD_DIR/pchaind"
+        PCHAIND="$BUILD_DIR/pchaind"
     elif [ -f "$SCRIPTS_BUILD_DIR/pchaind" ]; then
-        NATIVE_BINARY="$SCRIPTS_BUILD_DIR/pchaind"
+        PCHAIND="$SCRIPTS_BUILD_DIR/pchaind"
     else
-        NATIVE_BINARY="$BUILD_DIR/pchaind" # default
+        PCHAIND="$BUILD_DIR/pchaind" # default
     fi
 }
 
 resolve_binary_path
 
 # Check if binary exists and auto-setup if missing
-if [ ! -f "$NATIVE_BINARY" ]; then
-    print_warning "❌ Native binary not found at: $NATIVE_BINARY"
+if [ ! -f "$PCHAIND" ]; then
+    print_warning "❌ Native binary not found at: $PCHAIND"
     print_status "🔧 Running automatic dependency setup and build..."
     echo
     
@@ -170,7 +169,7 @@ if [ ! -f "$NATIVE_BINARY" ]; then
     fi
     
     # Verify binary was created
-    if [ ! -f "$NATIVE_BINARY" ]; then
+    if [ ! -f "$PCHAIND" ]; then
         print_error "❌ Binary creation failed during auto-setup"
         exit 1
     fi
@@ -217,8 +216,7 @@ GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
 GENESIS_RPC="https://$GENESIS_DOMAIN"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 
-# Binary path
-PCHAIND="$SCRIPT_DIR/build/pchaind"
+# Binary path already set by resolve_binary_path function above
 
 # Process management
 PCHAIND_PID_FILE="$HOME_DIR/pchaind.pid"
@@ -228,7 +226,14 @@ AUTO_RECOVERY_ENABLED="${AUTO_RECOVERY_ENABLED:-true}"
 SYNC_STALL_THRESHOLD="${SYNC_STALL_THRESHOLD:-120}"  # seconds before triggering recovery
 MAX_RECOVERY_ATTEMPTS="${MAX_RECOVERY_ATTEMPTS:-3}"
 RECOVERY_BACKOFF="${RECOVERY_BACKOFF:-300}"  # 5 minutes between attempts
+
+# RPC Configuration for State Sync
+# TODO: Currently using single RPC due to limited availability
+# When additional RPC nodes become available, update to use distinct primary/secondary
 SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
+SNAPSHOT_RPC_PRIMARY="${SNAPSHOT_RPC_PRIMARY:-$SNAPSHOT_RPC}"
+SNAPSHOT_RPC_SECONDARY="${SNAPSHOT_RPC_SECONDARY:-$SNAPSHOT_RPC_PRIMARY}"  # Fallback to primary until second RPC available
+
 BACKUP_BEFORE_RECOVERY="${BACKUP_BEFORE_RECOVERY:-true}"
 
 # Recovery tracking variables
@@ -298,7 +303,7 @@ start_node() {
         mkdir -p "$HOME_DIR/config" "$HOME_DIR/logs"
         
         # Initialize the chain (suppress verbose output)
-        "$NATIVE_BINARY" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
+        "$PCHAIND" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR" >/dev/null 2>&1
         
         # For validators, we'll use state sync instead of syncing from genesis
         print_status "🚀 Validator mode: Will use state sync for quick initialization"
@@ -405,7 +410,7 @@ STATEEOF
     
     if [[ -f "$DAEMON_LAUNCHER" ]]; then
         # Use the daemon launcher for complete detachment
-        "$DAEMON_LAUNCHER" "$NATIVE_BINARY" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
+        "$DAEMON_LAUNCHER" "$PCHAIND" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
         
         # Wait for PID file to be created
         local wait_count=0
@@ -424,7 +429,7 @@ STATEEOF
         # Fallback to previous method if launcher script not found
         (
             trap '' INT TERM HUP
-            nohup "$NATIVE_BINARY" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
+            nohup "$PCHAIND" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
             echo $! > "$PCHAIND_PID_FILE"
         ) &
         
@@ -541,10 +546,10 @@ show_status() {
     echo -e "${GREEN}══════════════════════════════════════════${NC}"
     
     echo -e "${BOLD}${BLUE}Runtime Mode: ${GREEN}Native Execution${NC}"
-    echo -e "  ${BOLD}Binary:${NC} $NATIVE_BINARY"
+    echo -e "  ${BOLD}Binary:${NC} $PCHAIND"
     # Get version safely with better error handling
-    if [ -f "$NATIVE_BINARY" ]; then
-        VERSION=$("$NATIVE_BINARY" version 2>&1 | grep -v "WARNING" | head -n1 || echo "v1.0.1-native")
+    if [ -f "$PCHAIND" ]; then
+        VERSION=$("$PCHAIND" version 2>&1 | grep -v "WARNING" | head -n1 || echo "v1.0.1-native")
         # Fallback if version command doesn't work
         if [ -z "$VERSION" ] || [ "$VERSION" = "" ]; then
             VERSION="v1.0.1-native"
@@ -684,9 +689,11 @@ backup_node_data() {
 # Configure state sync in config.toml
 configure_state_sync() {
     local rpc_server="${1:-$SNAPSHOT_RPC}"
-    
+    # Configure RPC servers - using primary and secondary (may be identical if only one available)
+    local rpc_servers="${SNAPSHOT_RPC_PRIMARY}:443,${SNAPSHOT_RPC_SECONDARY}:443"
+
     print_status "🔧 Configuring state sync from $rpc_server..."
-    
+
     # Get latest block info from RPC
     local latest_block=$(curl -s "$rpc_server/block" | jq -r '.result.block.header.height // empty' 2>/dev/null)
     if [ -z "$latest_block" ] || [ "$latest_block" = "null" ]; then
@@ -710,7 +717,7 @@ configure_state_sync() {
     print_status "📊 Configuring state sync with:"
     echo "  Trust Height: $trust_height"
     echo "  Trust Hash: $trust_hash"
-    echo "  RPC Servers: $rpc_server"
+    echo "  RPC Servers: $rpc_servers"
     
     # Update config.toml with state sync settings
     local config_file="$HOME_DIR/config/config.toml"
@@ -718,15 +725,15 @@ configure_state_sync() {
     # Backup original config
     cp "$config_file" "$config_file.backup"
     
-    # Enable state sync and set parameters
+    # Enable state sync and set parameters (single sed program for readability/portability)
     sed -i.tmp \
-        -e '/^\[statesync\]/,/^\[/{'\
-        -e 's/^enable = .*/enable = true/' \
-        -e 's|^rpc_servers = .*|rpc_servers = "'"$rpc_server:443,$rpc_server:443"'"|' \
-        -e 's/^trust_height = .*/trust_height = '"$trust_height"'/' \
-        -e 's/^trust_hash = .*/trust_hash = "'"$trust_hash"'"/' \
-        -e 's/^trust_period = .*/trust_period = "336h0m0s"/' \
-        -e '}' "$config_file"
+        -e "/^\[statesync\]/,/^\[/{ \
+            s/^enable = .*/enable = true/; \
+            s|^rpc_servers = .*|rpc_servers = \"$rpc_servers\"|; \
+            s/^trust_height = .*/trust_height = $trust_height/; \
+            s/^trust_hash = .*/trust_hash = \"$trust_hash\"/; \
+            s/^trust_period = .*/trust_period = \"336h0m0s\"/ \
+        }" "$config_file"
     
     print_success "✅ State sync configured"
     return 0
@@ -1314,20 +1321,20 @@ check_balance() {
     print_status "💰 Checking wallet balance..."
     
     # Check if wallet exists
-    if ! "$NATIVE_BINARY" keys show "$WALLET_NAME" --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" >/dev/null 2>&1; then
+    if ! "$PCHAIND" keys show "$WALLET_NAME" --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" >/dev/null 2>&1; then
         print_error "❌ Wallet '$WALLET_NAME' not found!"
         echo "Create a wallet first using: push-validator-manager register-validator"
         exit 1
     fi
     
     # Get address
-    ADDRESS=$("$NATIVE_BINARY" keys show "$WALLET_NAME" -a --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" 2>/dev/null)
+    ADDRESS=$("$PCHAIND" keys show "$WALLET_NAME" -a --keyring-backend "$KEYRING_BACKEND" --home "$HOME_DIR" 2>/dev/null)
     
     echo "Wallet: $WALLET_NAME"
     echo "Address: $ADDRESS"
     
     # Get balance from remote RPC for accuracy
-    BALANCE=$("$NATIVE_BINARY" query bank balances "$ADDRESS" --node "tcp://$GENESIS_DOMAIN:26657" -o json 2>/dev/null | \
+    BALANCE=$("$PCHAIND" query bank balances "$ADDRESS" --node "tcp://$GENESIS_DOMAIN:26657" -o json 2>/dev/null | \
         jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' || echo "0")
     
     if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
@@ -1338,7 +1345,7 @@ check_balance() {
         print_warning "Balance: 0 PUSH"
         
         # Convert to EVM address for faucet
-        EVM_ADDRESS=$("$NATIVE_BINARY" debug addr "$ADDRESS" --home "$HOME_DIR" 2>/dev/null | grep "hex" | awk '{print "0x"$3}')
+        EVM_ADDRESS=$("$PCHAIND" debug addr "$ADDRESS" --home "$HOME_DIR" 2>/dev/null | grep "hex" | awk '{print "0x"$3}')
         
         if [ -n "$EVM_ADDRESS" ]; then
             echo
@@ -1360,7 +1367,7 @@ list_validators() {
         # Always use remote RPC for validator queries since we need network-wide data
         NODE_ENDPOINT="tcp://$GENESIS_DOMAIN:26657"
         
-        VALIDATORS=$("$NATIVE_BINARY" query staking validators --output json --node "$NODE_ENDPOINT" 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
+        VALIDATORS=$("$PCHAIND" query staking validators --output json --node "$NODE_ENDPOINT" 2>/dev/null | jq -r '.validators[]' 2>/dev/null || echo "")
         
         if [ -n "$VALIDATORS" ]; then
             echo

@@ -6,6 +6,7 @@
 #   curl -fsSL https://get.push.network/pnm/install.sh | bash                    # Clean install (default)
 #   curl -fsSL https://get.push.network/pnm/install.sh | bash -s -- --no-reset   # Keep existing data
 #   curl -fsSL https://get.push.network/pnm/install.sh | bash -s -- --no-start   # Don't auto-start
+#   PNM_REF=v1.0.0 curl -fsSL https://get.push.network/pnm/install.sh | bash     # Install specific version
 #   MONIKER=my-node GENESIS_DOMAIN=rpc-testnet-donut-node1.push.org KEYRING_BACKEND=os \
 #     curl -fsSL https://get.push.network/pnm/install.sh | bash
 
@@ -70,9 +71,14 @@ fi
 
 echo -e "${CYAN}📦 Installing Push Validator Manager into $ROOT_DIR${NC}"
 
+# Repository version configuration
+# Allow override via environment variable for specific version/branch/tag
+PNM_REF="${PNM_REF:-feature/pnm}"  # Default to feature branch, can be overridden to stable tag
+
 # Always clone fresh repository to ensure latest version
 rm -rf "$REPO_DIR"
-git clone --quiet --depth 1 --branch feature/pnm https://github.com/pushchain/push-chain-node "$REPO_DIR"
+echo -e "${CYAN}📥 Fetching Push Validator Manager (ref: $PNM_REF)...${NC}"
+git clone --quiet --depth 1 --branch "$PNM_REF" https://github.com/pushchain/push-chain-node "$REPO_DIR"
 
 # Build native binary and ensure manager script
 

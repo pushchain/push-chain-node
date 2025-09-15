@@ -31,17 +31,17 @@ STAKE_AMOUNT="2000000000000000000"  # 2 * 10^18
 
 # === Resolve Paths ===
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NATIVE_BINARY="$SCRIPT_DIR/../build/pchaind"
+PCHAIND="$SCRIPT_DIR/../build/pchaind"
 
 # Native-only mode
-if [ ! -f "$NATIVE_BINARY" ]; then
-    print_error "❌ Native binary not found at: $NATIVE_BINARY"
+if [ ! -f "$PCHAIND" ]; then
+    print_error "❌ Binary not found at: $PCHAIND"
     echo "🔧 Run './scripts/setup-dependencies.sh' to build the binary"
     exit 1
 fi
 
 HOME_DIR="$HOME/.pchain"
-BINARY="$NATIVE_BINARY"
+BINARY="$PCHAIND"
 
 # Check sync status FIRST before asking for any input
 print_status "🔍 Checking node sync status..."

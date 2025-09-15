@@ -1885,7 +1885,7 @@ monitor_sync_ws() {
     # Subscribe helper: run client and stream events; returns on disconnect
     _run_subscription() {
         local query="$1"
-        local payload='{\"jsonrpc\":\"2.0\",\"method\":\"subscribe\",\"params\":{\"query\":'"\"$query\""'},\"id\":1}'
+        local payload='{"jsonrpc":"2.0","method":"subscribe","params":{"query":"'"$query"'"},"id":1}'
         if [ "$WS_CLIENT" = "websocat" ]; then
             # Send subscribe JSON and stream messages
             # shellcheck disable=SC2005

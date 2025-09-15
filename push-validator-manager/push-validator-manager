@@ -2062,7 +2062,34 @@ case "${1:-help}" in
         if [ $recovery_attempts -ge $MAX_RECOVERY_ATTEMPTS ]; then
             print_warning "⚠️ Maximum recovery attempts reached. Reset with: export recovery_attempts=0"
         fi
-        ;; 
+        ;;
+        
+    monitor-state-sync)
+        # Enhanced state sync monitoring with visual progress bars
+        if ! is_node_running; then
+            print_error "❌ Node is not running"
+            echo "Start the node first: push-validator-manager start"
+            exit 1
+        fi
+        
+        # Check if state sync is configured or in progress
+        phase=$(detect_state_sync_phase)
+        if [ "$phase" = "completed" ]; then
+            print_success "✅ State sync already completed"
+            show_status
+            exit 0
+        elif [ "$phase" = "failed" ]; then
+            print_error "❌ State sync failed"
+            echo "Try recovery: push-validator-manager recover"
+            exit 1
+        fi
+        
+        # Start monitoring with enhanced progress display
+        monitor_sync_auto true
+        
+        # Exit with success code after monitoring completes
+        exit 0
+        ;;
         
     help|--help|-h|"")
         show_help

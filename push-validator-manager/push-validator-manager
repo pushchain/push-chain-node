@@ -388,250 +388,6 @@ get_spinner_char() {
     esac
 }
 
-# Multi-phase state sync progress display
-show_state_sync_progress() {
-    local phase="$1"
-    local elapsed_seconds="$2"
-    local current_height="${3:-0}"
-    local target_height="${4:-0}"
-    
-    case "$phase" in
-        "starting")
-            local spinner=$(get_spinner_char "$elapsed_seconds")
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            printf "\r\033[K"
-            echo -en "${spinner} ${CYAN}Initializing state sync...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            ;;
-        "peer_discovery")
-            local spinner=$(get_spinner_char "$elapsed_seconds")
-            local peers=$(get_peer_count)
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            printf "\r\033[K"
-            if [ "$peers" -gt 0 ]; then
-                echo -en "${spinner} ${CYAN}Discovering peers...${NC} ${GREEN}${peers} peers found${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            else
-                echo -en "${spinner} ${CYAN}Discovering peers...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            fi
-            ;;
-        "snapshot_found")
-            local spinner=$(get_spinner_char "$elapsed_seconds")
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            printf "\r\033[K"
-            echo -en "${GREEN}✓${NC} ${CYAN}Snapshot found, preparing download...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            ;;
-        "downloading")
-            local spinner=$(get_spinner_char "$elapsed_seconds")
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            # Try to get snapshot progress info
-            local progress_info=$(get_snapshot_progress)
-            printf "\r\033[K"
-            if [ -n "$progress_info" ]; then
-                local downloaded=$(echo "$progress_info" | grep -o "downloaded:[0-9]*" | cut -d':' -f2 || echo "0")
-                local total=$(echo "$progress_info" | grep -o "total:[0-9]*" | cut -d':' -f2 || echo "0")
-                
-                if [ "$total" -gt 0 ] && [ "$downloaded" -gt 0 ]; then
-                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${MAGENTA}${downloaded}MB${NC}/${MAGENTA}${total}MB${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-                elif [ "$downloaded" -gt 0 ]; then
-                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${MAGENTA}${downloaded}MB${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-                else
-                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-                fi
-            else
-                echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            fi
-            ;;
-        "restoring")
-            local spinner=$(get_spinner_char "$elapsed_seconds")
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            printf "\r\033[K"
-            echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            ;;
-        "state_sync_completed")
-            # State sync has completed - show completion message permanently (only once)
-            local completion_shown_file="/tmp/state_sync_completion_shown_$$"
-            
-            # Only show the completion message once
-            if [ ! -f "$completion_shown_file" ]; then
-                local elapsed_min=$((elapsed_seconds / 60))
-                local elapsed_sec=$((elapsed_seconds % 60))
-                
-                # Clear the current progress line and show permanent completion message
-                printf "\r\033[K"
-                echo -e "${GREEN}✅ State sync completed successfully!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-                
-                # Mark that we've shown the completion message
-                touch "$completion_shown_file"
-            fi
-            ;;
-        "block_sync")
-            # This is the block sync phase after state sync completes
-            local sync_progress=0
-            local height_diff=0
-            local completion_shown_file="/tmp/state_sync_completion_shown_$$"
-            
-            # Check if we're effectively synced (within 5 blocks)
-            if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
-                height_diff=$((target_height - current_height))
-                
-                # Note: Don't return here - let the main monitoring loop detect completion
-                # The detect_state_sync_phase function will handle transitioning to "completed"
-                
-                # Calculate block sync progress
-                if [ "$current_height" -ge "$target_height" ]; then
-                    sync_progress="100"
-                else
-                    # Calculate how far we've progressed toward the target
-                    sync_progress=$(echo "scale=1; 100 * $current_height / $target_height" | bc 2>/dev/null || echo "0")
-                    # Ensure we show at least some progress if we have a height
-                    [ "$current_height" -gt 0 ] && [ "$(echo "$sync_progress < 1" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="1"
-                fi
-            fi
-            
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            local time_text="${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_min}m${elapsed_sec}s${NC}"
-            
-            if [ "$current_height" -gt 0 ]; then
-                time_text="$time_text | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${current_height}${NC}"
-                if [ "$target_height" -gt 0 ]; then
-                    time_text="$time_text/${MAGENTA}${target_height}${NC}"
-                    local remaining=$((target_height - current_height))
-                    time_text="$time_text (${remaining} blocks remaining)"
-                fi
-            fi
-            
-            # Show block sync progress - start fresh if state sync completion was just shown
-            local progress_bar=$(render_progress_bar "$sync_progress")
-            local block_sync_started_file="/tmp/block_sync_started_$$"
-            
-            if [ -f "$completion_shown_file" ] && [ ! -f "$block_sync_started_file" ]; then
-                # First time showing block sync after state sync completion - start on new line
-                echo  # Add a blank line after completion message
-                printf "${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
-                touch "$block_sync_started_file"
-            else
-                # Update existing block sync progress
-                printf "\r${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
-            fi
-            
-            if [ -n "$time_text" ]; then
-                printf " | $time_text"
-            fi
-            ;;
-        "completed")
-            # Completion should have been handled by state_sync_completed phase
-            # Just return without showing anything to avoid loops
-            return
-            ;;
-        "failed")
-            printf "\r\033[K"
-            echo -en "${RED}❌ State sync failed${NC}"
-            ;;
-        *)
-            # For unknown phase during state sync, show time-based progress
-            local sync_progress=0
-            
-            # Use time-based progress for state sync phases
-            if [ "$elapsed_seconds" -gt 0 ]; then
-                # Assume max 15 minutes for state sync
-                sync_progress=$(echo "scale=1; 100 * $elapsed_seconds / 900" | bc 2>/dev/null || echo "0")
-                [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
-            fi
-            
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
-            local time_text="${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_min}m${elapsed_sec}s${NC}"
-            
-            # For state sync phases, don't show block heights
-            # State sync is about downloading/restoring snapshot, not syncing blocks
-            local progress_bar=$(render_progress_bar "$sync_progress")
-            printf "\r\033[K"
-            echo -en "${CYAN}⏳ State sync in progress${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
-            if [ -n "$time_text" ]; then
-                echo -en " | $time_text"
-            fi
-            ;;
-    esac
-}
-
-# Show comprehensive state sync status with all phases
-show_complete_state_sync_status() {
-    local sync_start_time="$1"
-    local show_header="${2:-true}"
-    
-    if [ "$show_header" = "true" ]; then
-        echo
-        print_header "📡 State Sync Progress"
-        echo
-    fi
-    
-    # Get current status
-    local current_time=$(date +%s)
-    local elapsed=$((current_time - sync_start_time))
-    local phase=$(detect_state_sync_phase)
-    local is_progressing=$(is_state_sync_progressing)
-    
-    # Get node status for height information - use same improved API call
-    local node_status=$(curl -s --connect-timeout 5 localhost:26657/status 2>/dev/null)
-    local current_height="0"
-    local catching_up="true"
-    
-    if [ -n "$node_status" ] && echo "$node_status" | jq -e . >/dev/null 2>&1; then
-        current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-        catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up')
-        if [ "$catching_up" = "null" ] || [ -z "$catching_up" ]; then
-            catching_up="true"
-        fi
-        echo "$(date '+%H:%M:%S'): Main API catching_up=$catching_up" >> /tmp/state_sync_debug.log
-    fi
-    
-    # Try to get target height from network
-    local target_height="0"
-    if command -v curl >/dev/null 2>&1; then
-        local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
-        if [ -n "$network_status" ]; then
-            target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-        fi
-    fi
-    
-    # Check completion status BEFORE displaying to avoid loops
-    case "$phase" in
-        "block_sync")
-            # During block sync, we're still in progress until fully caught up
-            if [ "$catching_up" = "false" ]; then
-                # Show final completion and return
-                printf "\r\033[K"
-                echo
-                return 0  # Fully synced
-            fi
-            ;;
-        "completed")
-            echo "$(date '+%H:%M:%S'): Completed phase check - catching_up=$catching_up" >> /tmp/state_sync_debug.log
-            if [ "$catching_up" = "false" ]; then
-                echo "$(date '+%H:%M:%S'): RETURNING 0 - Node is fully synced!" >> /tmp/state_sync_debug.log
-                # Show final completion and return  
-                printf "\r\033[K"
-                echo
-                return 0
-            else
-                echo "$(date '+%H:%M:%S'): Still catching up, continuing monitor" >> /tmp/state_sync_debug.log
-            fi
-            ;;
-        "failed")
-            show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
-            return 2
-            ;;
-    esac
-    
-    # Show phase-specific progress (only for non-completed phases)
-    show_state_sync_progress "$phase" "$elapsed" "$current_height" "$target_height"
-    return 1  # Still in progress
-}
 
 # Dependency helpers
 require_cmd() {
@@ -1299,79 +1055,7 @@ backup_node_data() {
     fi
 }
 
-# Wait for node sync to complete with progress monitoring
-# Returns 0 if sync completes, 1 if timeout or error
-wait_for_sync_completion() {
-    local MAX_WAIT="${1:-600}"  # Default 10 minutes timeout
-    local SHOW_PROGRESS="${2:-true}"  # Show progress by default
-    
-    local SYNC_COMPLETE=false
-    local WAIT_TIME=0
-    local sync_start_time=$(date +%s)
-    
-    print_status "⏳ Waiting for node to sync..."
-    
-    while [ $WAIT_TIME -lt $MAX_WAIT ]; do
-        # Check if node is still running
-        if ! is_node_running; then
-            print_error "❌ Node stopped during sync"
-            return 1
-        fi
-        
-        # Get sync status from RPC
-        local status=$(curl -s localhost:26657/status 2>/dev/null)
-        
-        if [ -n "$status" ]; then
-            local catching_up=$(echo "$status" | jq -r '.result.sync_info.catching_up // true')
-            local current_height=$(echo "$status" | jq -r '.result.sync_info.latest_block_height // "0"')
-            local network_height=$(echo "$status" | jq -r '.result.sync_info.earliest_block_height // "0"' 2>/dev/null)
-            
-            # Try to get network height from peers if not available
-            if [ "$network_height" = "0" ] || [ "$network_height" = "null" ]; then
-                # Get from net_info for a better estimate
-                local net_info=$(curl -s localhost:26657/net_info 2>/dev/null)
-                if [ -n "$net_info" ]; then
-                    # This is an approximation - get the highest peer height
-                    network_height=$(echo "$net_info" | jq -r '[.result.peers[].connection_status.SendMonitor.Start // 0] | max // 0' 2>/dev/null)
-                fi
-            fi
-            
-            # Check if fully synced
-            if [ "$catching_up" = "false" ] && [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
-                SYNC_COMPLETE=true
-                if [ "$SHOW_PROGRESS" = "true" ]; then
-                    echo  # New line after progress
-                    print_success "✅ Node is fully synced at height $current_height!"
-                fi
-                break
-            fi
-            
-            # Show progress if enabled and we have valid heights
-            if [ "$SHOW_PROGRESS" = "true" ] && [ "$current_height" != "0" ] && [ "$current_height" != "null" ]; then
-                if [ "$network_height" != "0" ] && [ "$network_height" != "null" ] && [ $network_height -gt 0 ]; then
-                    local PERCENT=$((current_height * 100 / network_height))
-                    [ $PERCENT -gt 100 ] && PERCENT=100
-                    echo -ne "\r\033[K🔄 Syncing: ${current_height}/${network_height} (${PERCENT}%)  "
-                else
-                    echo -ne "\r\033[K🔄 Syncing: Block height ${current_height}  "
-                fi
-            fi
-        fi
-        
-        sleep 3
-        WAIT_TIME=$((WAIT_TIME + 3))
-    done
-    
-    if [ "$SYNC_COMPLETE" = true ]; then
-        return 0
-    else
-        if [ "$SHOW_PROGRESS" = "true" ]; then
-            echo  # New line after progress
-            print_warning "⚠️ Sync timeout after ${MAX_WAIT} seconds"
-        fi
-        return 1
-    fi
-}
+# [Removed unused wait_for_sync_completion function]
 
 # Configure state sync in config.toml
 configure_state_sync() {
@@ -1594,70 +1278,7 @@ check_sync_stall() {
     return 1
 }
 
-# Enhanced monitor state sync progress with visual progress bars
-monitor_state_sync() {
-    local sync_start_time=$(date +%s)
-    local show_detailed_progress="${1:-true}"
-    
-    # Show initial header
-    if [ "$show_detailed_progress" = "true" ]; then
-        echo
-        print_header "📡 State Sync Progress"
-        echo
-    fi
-    
-    while true; do
-        # Use our comprehensive status function
-        if show_complete_state_sync_status "$sync_start_time" "false"; then
-            # Node is fully synced - clean up and exit
-            printf "\r\033[K"  # Clear current line
-            echo
-            
-            # Clean up debug files
-            rm -f /tmp/state_sync_debug.log /tmp/state_sync_completed_$$
-            
-            return 0
-        fi
-        
-        local exit_code=$?
-        if [ $exit_code -eq 2 ]; then
-            # State sync failed
-            echo
-            echo
-            print_error "❌ State sync failed"
-            
-            # Show some troubleshooting hints
-            echo
-            print_status "💡 Troubleshooting hints:"
-            echo "  • Check logs: push-validator-manager logs"
-            echo "  • Try recovery: push-validator-manager recover"
-            echo "  • Check network connectivity"
-            return 1
-        fi
-        
-        # Check for timeout (20 minutes - increased from 15)
-        local elapsed=$(($(date +%s) - sync_start_time))
-        if [ $elapsed -gt 1200 ]; then
-            echo
-            echo
-            print_error "❌ State sync timeout after 20 minutes"
-            
-            # Show current phase for debugging
-            local current_phase=$(detect_state_sync_phase)
-            echo "📊 Last known phase: $current_phase"
-            
-            # Show troubleshooting hints
-            echo
-            print_status "💡 Troubleshooting:"
-            echo "  • State sync may still be progressing"
-            echo "  • Check logs: push-validator-manager logs"
-            echo "  • Monitor status: push-validator-manager status"
-            return 1
-        fi
-        
-        sleep 3
-    done
-}
+# [Removed unused monitor_state_sync function]
 
 # Show logs
 show_logs() {
@@ -2200,6 +1821,7 @@ monitor_sync_auto() {
 # WebSocket monitor using websocat or wscat
 monitor_sync_ws() {
     MONITOR_STOPPED=0
+    STATE_SYNC_COMPLETED_SHOWN=0
     
     # Options: default is compact single-line; use -d/--dashboard for full-screen
     local COMPACT_MODE=1
@@ -2449,6 +2071,21 @@ monitor_sync_ws() {
                     avg_interval_count=$((avg_interval_count + 1))
                 fi
                 last_event_time=$now
+
+                # Check for state sync completion before rendering
+                if [ "$STATE_SYNC_COMPLETED_SHOWN" -eq 0 ]; then
+                    # Check if state sync just completed by looking for "Snapshot restored" in recent logs
+                    local log_file="$HOME_DIR/logs/pchaind.log"
+                    if [ -f "$log_file" ]; then
+                        local recent_logs=$(tail -20 "$log_file" 2>/dev/null || echo "")
+                        if echo "$recent_logs" | grep -qi "Snapshot restored"; then
+                            # State sync completed - show the completion message
+                            echo
+                            print_success "✅ State sync completed successfully!"
+                            STATE_SYNC_COMPLETED_SHOWN=1
+                        fi
+                    fi
+                fi
 
                 # Render UI and possibly invoke hook when considered synced
                 render_ws_view

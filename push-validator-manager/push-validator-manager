@@ -451,7 +451,9 @@ show_state_sync_progress() {
             printf "\r\033[K"
             echo -e "${GREEN}✅ State sync completed!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             echo
-            echo -en "${CYAN}📊 Starting block sync...${NC}"
+            echo -e "${CYAN}📊 Starting block sync...${NC}"
+            # Give a moment for user to see the completion message
+            sleep 1
             ;;
         "block_sync")
             # This is the block sync phase after state sync completes
@@ -1560,10 +1562,7 @@ check_sync_stall() {
 # Enhanced monitor state sync progress with visual progress bars
 monitor_state_sync() {
     local sync_start_time=$(date +%s)
-    local last_phase=""
-    local consecutive_same_phase=0
     local show_detailed_progress="${1:-true}"
-    local completed_phase_seen=0
     
     # Show initial header
     if [ "$show_detailed_progress" = "true" ]; then
@@ -1575,24 +1574,8 @@ monitor_state_sync() {
     while true; do
         # Use our comprehensive status function
         if show_complete_state_sync_status "$sync_start_time" "false"; then
-            # Node is fully synced - clear the line and show completion
+            # Node is fully synced - clean up and exit
             printf "\r\033[K"  # Clear current line
-            echo
-            print_success "✅ Node fully synced!"
-            
-            # Get final stats
-            local elapsed=$(($(date +%s) - sync_start_time))
-            local elapsed_min=$((elapsed / 60))
-            local elapsed_sec=$((elapsed % 60))
-            
-            local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
-            local final_height="unknown"
-            if [ -n "$node_status" ]; then
-                final_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "unknown"')
-            fi
-            
-            echo "📈 Final height: $final_height"
-            echo "⏱️ Total time: ${elapsed_min}m ${elapsed_sec}s"
             echo
             
             # Clean up debug files
@@ -1635,46 +1618,6 @@ monitor_state_sync() {
             echo "  • Check logs: push-validator-manager logs"
             echo "  • Monitor status: push-validator-manager status"
             return 1
-        fi
-        
-        # Detect if we're stuck in the same phase
-        local current_phase=$(detect_state_sync_phase)
-        if [ "$current_phase" = "$last_phase" ]; then
-            consecutive_same_phase=$((consecutive_same_phase + 1))
-        else
-            consecutive_same_phase=0
-            last_phase="$current_phase"
-        fi
-        
-        # Track if we've seen the completed phase
-        if [ "$current_phase" = "completed" ]; then
-            completed_phase_seen=$((completed_phase_seen + 1))
-            # If we've consistently seen "completed" phase multiple times, exit
-            if [ $completed_phase_seen -ge 3 ]; then
-                printf "\r\033[K"
-                echo
-                print_success "✅ Node fully synced!"
-                echo "📊 Final phase detected: $current_phase"
-                return 0
-            fi
-        else
-            completed_phase_seen=0
-        fi
-        
-        # Show warning if stuck in the same phase for too long
-        if [ $consecutive_same_phase -gt 20 ] && [ "$current_phase" != "unknown" ]; then
-            if [ -t 1 ]; then
-                printf "\n${YELLOW}⚠️ Phase '$current_phase' taking longer than expected...${NC}\n"
-            fi
-            consecutive_same_phase=0  # Reset to avoid spam
-        fi
-        
-        # Emergency exit if we've been in "completed" state too long
-        if [ "$current_phase" = "completed" ] && [ $consecutive_same_phase -gt 5 ]; then
-            printf "\r\033[K"
-            echo
-            print_success "✅ Node appears to be synced (emergency exit)"
-            return 0
         fi
         
         sleep 3

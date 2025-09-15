@@ -238,10 +238,25 @@ detect_state_sync_phase() {
         echo "restoring"
     elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
         # State sync is complete, now we're in block sync phase
-        # Check if node is still catching up
+        # Check if node is still catching up or if we're effectively synced
         local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
         if [ -n "$node_status" ]; then
             local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+            local current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+            
+            # Get network height to check if we're within 5 blocks
+            local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
+            if [ -n "$network_status" ]; then
+                local target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+                if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
+                    local height_diff=$((target_height - current_height))
+                    if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
+                        echo "completed"
+                        return
+                    fi
+                fi
+            fi
+            
             if [ "$catching_up" = "true" ]; then
                 echo "block_sync"
             else
@@ -260,6 +275,21 @@ detect_state_sync_phase() {
             local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
             if [ -n "$node_status" ]; then
                 local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+                local current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+                
+                # Get network height to check if we're within 5 blocks
+                local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
+                if [ -n "$network_status" ]; then
+                    local target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
+                    if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
+                        local height_diff=$((target_height - current_height))
+                        if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
+                            echo "completed"
+                            return
+                        fi
+                    fi
+                fi
+                
                 if [ "$catching_up" = "true" ]; then
                     echo "block_sync"
                 else
@@ -328,6 +358,18 @@ is_state_sync_progressing() {
     fi
 }
 
+# Get spinner character for animation
+get_spinner_char() {
+    local elapsed_seconds="${1:-0}"
+    local index=$((elapsed_seconds % 4))
+    case $index in
+        0) echo "⠋";;
+        1) echo "⠙";;
+        2) echo "⠹";;
+        3) echo "⠸";;
+    esac
+}
+
 # Multi-phase state sync progress display
 show_state_sync_progress() {
     local phase="$1"
@@ -337,43 +379,78 @@ show_state_sync_progress() {
     
     case "$phase" in
         "starting")
-            show_phase_progress "🚀 Initializing state sync" 1 4 10 "${BOLD}${WHITE}Preparing...${NC}"
+            local spinner=$(get_spinner_char "$elapsed_seconds")
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            printf "\r"
+            echo -en "${spinner} ${CYAN}Initializing state sync...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "peer_discovery")
+            local spinner=$(get_spinner_char "$elapsed_seconds")
             local peers=$(get_peer_count)
             local elapsed_min=$((elapsed_seconds / 60))
             local elapsed_sec=$((elapsed_seconds % 60))
-            show_peer_discovery_progress "$peers" 10 "$elapsed_seconds" 60
+            printf "\r"
+            if [ "$peers" -gt 0 ]; then
+                echo -en "${spinner} ${CYAN}Discovering peers...${NC} ${GREEN}${peers} peers found${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
+            else
+                echo -en "${spinner} ${CYAN}Discovering peers...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
+            fi
             ;;
         "snapshot_found")
-            show_phase_progress "🎯 Snapshot located" 2 4 75 "${BOLD}${WHITE}Preparing download...${NC}"
+            local spinner=$(get_spinner_char "$elapsed_seconds")
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            printf "\r"
+            echo -en "${GREEN}✓${NC} ${CYAN}Snapshot found, preparing download...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "downloading")
+            local spinner=$(get_spinner_char "$elapsed_seconds")
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
             # Try to get snapshot progress info
             local progress_info=$(get_snapshot_progress)
+            printf "\r"
             if [ -n "$progress_info" ]; then
                 local downloaded=$(echo "$progress_info" | grep -o "downloaded:[0-9]*" | cut -d':' -f2 || echo "0")
                 local total=$(echo "$progress_info" | grep -o "total:[0-9]*" | cut -d':' -f2 || echo "0")
-                local percentage=$(echo "$progress_info" | grep -o "percentage:[0-9]*" | cut -d':' -f2 || echo "0")
                 
-                if [ "$total" -gt 0 ]; then
-                    show_snapshot_progress "$downloaded" "$total" "0"
+                if [ "$total" -gt 0 ] && [ "$downloaded" -gt 0 ]; then
+                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${MAGENTA}${downloaded}MB${NC}/${MAGENTA}${total}MB${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
+                elif [ "$downloaded" -gt 0 ]; then
+                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${MAGENTA}${downloaded}MB${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
                 else
-                    show_phase_progress "📦 Downloading snapshot" 2 4 "$percentage" "${BOLD}${WHITE}Downloading...${NC}"
+                    echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
                 fi
             else
-                show_phase_progress "📦 Downloading snapshot" 2 4 50 "${BOLD}${WHITE}Downloading...${NC}"
+                echo -en "${spinner} ${CYAN}Downloading snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             fi
             ;;
         "restoring")
-            show_phase_progress "🔧 Applying snapshot" 3 4 85 "${BOLD}${WHITE}Restoring state...${NC}"
+            local spinner=$(get_spinner_char "$elapsed_seconds")
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            printf "\r"
+            echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "block_sync")
             # This is the block sync phase after state sync completes
             local sync_progress=0
+            local height_diff=0
             
-            # Calculate block sync progress
+            # Check if we're effectively synced (within 5 blocks)
             if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
+                height_diff=$((target_height - current_height))
+                
+                # If we're within 5 blocks, we're synced!
+                if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
+                    printf "\r"
+                    echo -en "${GREEN}✅ Fully synced${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${current_height}${NC}/${MAGENTA}${target_height}${NC}"
+                    # Return to signal we're synced (this display will be brief before transitioning)
+                    return
+                fi
+                
+                # Calculate block sync progress
                 if [ "$current_height" -ge "$target_height" ]; then
                     sync_progress="100"
                 else
@@ -406,10 +483,12 @@ show_state_sync_progress() {
             fi
             ;;
         "completed")
-            show_phase_progress "✅ Fully synced" 4 4 100 "${BOLD}${GREEN}Ready!${NC}"
+            printf "\r"
+            echo -en "${GREEN}✅ Fully synced${NC} - ${BOLD}${GREEN}Ready!${NC}"
             ;;
         "failed")
-            show_phase_progress "❌ State sync failed" 4 4 0 "${BOLD}${RED}Failed${NC}"
+            printf "\r"
+            echo -en "${RED}❌ State sync failed${NC}"
             ;;
         *)
             # For unknown phase during state sync, show time-based progress

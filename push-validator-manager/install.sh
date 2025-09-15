@@ -302,7 +302,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # Start node in background and capture initial output (without timeout to get full feedback)
   {
-    SKIP_SYNC_MONITOR=true "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
+    export SKIP_SYNC_MONITOR=true
+    "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
       # Skip verbose logs that aren't useful for installer output
       if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
         continue  # Skip these verbose log lines

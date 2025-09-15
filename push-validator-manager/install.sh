@@ -498,7 +498,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo -e "${CYAN}📊 Syncing blocks...${NC}"
       # Use the sync command which shows progress bar
       timeout 300 "$MANAGER_LINK" sync || true
-      echo -e "${GREEN}✅ Sync monitoring complete!${NC}"
+      echo  # Add newline after progress bar
+      echo -e "${GREEN}✅ Block sync complete!${NC}"
       SYNC_COMPLETE=true
     fi
   fi

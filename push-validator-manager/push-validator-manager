@@ -111,110 +111,6 @@ render_progress_bar() {
     echo "${color}${bar_filled}${NC}${DIM}${bar_empty}${NC}"
 }
 
-# Show phase-based progress for multi-stage operations
-show_phase_progress() {
-    local phase_name="$1"
-    local phase_number="$2"
-    local total_phases="$3"
-    local phase_percentage="$4"
-    local status_text="${5:-}"
-    local show_bar="${6:-true}"
-    
-    local overall_progress=0
-    if [ "$total_phases" -gt 0 ]; then
-        # Calculate overall progress based on completed phases plus current phase progress
-        local completed_phases=$((phase_number - 1))
-        overall_progress=$(echo "scale=1; ($completed_phases * 100 + $phase_percentage) / $total_phases" | bc 2>/dev/null || echo "0")
-    fi
-    
-    if [ "$show_bar" = "true" ]; then
-        local progress_bar=$(render_progress_bar "$overall_progress")
-        printf "\r"
-        echo -en "${CYAN}${phase_name}${NC} (${BOLD}${phase_number}${NC}/${BOLD}${total_phases}${NC}) [${progress_bar}] ${GREEN}${overall_progress}%${NC}"
-    else
-        printf "\r"
-        echo -en "${CYAN}${phase_name}${NC} (${BOLD}${phase_number}${NC}/${BOLD}${total_phases}${NC}) ${GREEN}${overall_progress}%${NC}"
-    fi
-    
-    if [ -n "$status_text" ]; then
-        echo -en " | ${status_text}"
-    fi
-    echo -en "\033[K"  # Clear to end of line
-}
-
-# Show peer discovery progress
-show_peer_discovery_progress() {
-    local peers_found="$1"
-    local peers_target="${2:-10}"
-    local elapsed_seconds="$3"
-    local timeout_seconds="${4:-30}"
-    
-    local percentage=0
-    if [ "$peers_target" -gt 0 ]; then
-        percentage=$(echo "scale=1; 100 * $peers_found / $peers_target" | bc 2>/dev/null || echo "0")
-    fi
-    
-    # Also consider time-based progress
-    local time_progress=0
-    if [ "$timeout_seconds" -gt 0 ]; then
-        time_progress=$(echo "scale=1; 100 * $elapsed_seconds / $timeout_seconds" | bc 2>/dev/null || echo "0")
-    fi
-    
-    # Use the higher of the two progress indicators
-    local display_progress="$percentage"
-    if [ "$(echo "$time_progress > $percentage" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
-        display_progress="$time_progress"
-    fi
-    
-    local status_text="${BOLD}${WHITE}Peers${NC} ${MAGENTA}${peers_found}${NC}/${MAGENTA}${peers_target}${NC}"
-    if [ "$elapsed_seconds" -gt 0 ]; then
-        status_text="$status_text | ${BOLD}${WHITE}Time${NC} ${CYAN}${elapsed_seconds}s${NC}"
-    fi
-    
-    show_phase_progress "🔍 Discovering peers" 1 3 "$display_progress" "$status_text"
-}
-
-# Show snapshot download progress
-show_snapshot_progress() {
-    local downloaded_mb="${1:-0}"
-    local total_mb="${2:-0}"
-    local speed_mbps="${3:-0}"
-    
-    local percentage=0
-    if [ "$total_mb" -gt 0 ]; then
-        percentage=$(echo "scale=1; 100 * $downloaded_mb / $total_mb" | bc 2>/dev/null || echo "0")
-    fi
-    
-    local status_text=""
-    if [ "$total_mb" -gt 0 ]; then
-        status_text="${BOLD}${WHITE}Download${NC} ${MAGENTA}${downloaded_mb}MB${NC}/${MAGENTA}${total_mb}MB${NC}"
-    else
-        status_text="${BOLD}${WHITE}Downloading${NC} ${MAGENTA}${downloaded_mb}MB${NC}"
-    fi
-    
-    if [ "$(echo "$speed_mbps > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
-        status_text="$status_text | ${BOLD}${WHITE}Speed${NC} ${CYAN}${speed_mbps}MB/s${NC}"
-        
-        # Calculate ETA if we know total size
-        if [ "$total_mb" -gt 0 ] && [ "$(echo "$speed_mbps > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
-            local remaining_mb=$(echo "$total_mb - $downloaded_mb" | bc 2>/dev/null || echo "0")
-            if [ "$(echo "$remaining_mb > 0" | bc 2>/dev/null || echo 0)" -eq 1 ]; then
-                local eta_seconds=$(echo "scale=0; $remaining_mb / $speed_mbps" | bc 2>/dev/null || echo "0")
-                if [ "$eta_seconds" -gt 0 ]; then
-                    local eta_min=$((eta_seconds / 60))
-                    local eta_sec=$((eta_seconds % 60))
-                    if [ "$eta_min" -gt 0 ]; then
-                        status_text="$status_text | ${BOLD}${WHITE}ETA${NC} ${GREEN}${eta_min}m${eta_sec}s${NC}"
-                    else
-                        status_text="$status_text | ${BOLD}${WHITE}ETA${NC} ${GREEN}${eta_sec}s${NC}"
-                    fi
-                fi
-            fi
-        fi
-    fi
-    
-    show_phase_progress "📦 Downloading snapshot" 2 3 "$percentage" "$status_text"
-}
 
 # Enhanced state sync phase detection from logs
 detect_state_sync_phase() {
@@ -322,71 +218,9 @@ detect_state_sync_phase() {
     echo "$detected_phase"
 }
 
-# Parse peer information from logs
-get_peer_count() {
-    local log_file="$HOME_DIR/logs/pchaind.log"
-    [ ! -f "$log_file" ] && echo "0" && return
-    
-    # Try to extract peer count from recent logs
-    local peer_info=$(tail -20 "$log_file" 2>/dev/null | grep -E "peers|numInPeers|numOutPeers" | tail -1 || echo "")
-    if [ -n "$peer_info" ]; then
-        # Extract numbers from peer information
-        local in_peers=$(echo "$peer_info" | grep -o "numInPeers=[0-9]*" | cut -d'=' -f2 || echo "0")
-        local out_peers=$(echo "$peer_info" | grep -o "numOutPeers=[0-9]*" | cut -d'=' -f2 || echo "0")
-        local total_peers=$((in_peers + out_peers))
-        echo "$total_peers"
-    else
-        echo "0"
-    fi
-}
 
-# Extract snapshot progress information if available
-get_snapshot_progress() {
-    local log_file="$HOME_DIR/logs/pchaind.log"
-    [ ! -f "$log_file" ] && return
-    
-    # Look for snapshot progress indicators in recent logs
-    local progress_info=$(tail -30 "$log_file" 2>/dev/null | grep -E "snapshot.*progress|downloaded.*MB|restoring.*chunk" | tail -1 || echo "")
-    
-    if [ -n "$progress_info" ]; then
-        # Try to extract progress percentage or size information
-        local percentage=$(echo "$progress_info" | grep -o "[0-9]*%" | tail -1 | tr -d '%' || echo "")
-        local mb_downloaded=$(echo "$progress_info" | grep -o "[0-9]*\.?[0-9]*\s*MB" | head -1 | tr -d 'MB ' || echo "")
-        local mb_total=$(echo "$progress_info" | grep -o "of [0-9]*\.?[0-9]*\s*MB" | head -1 | tr -d 'ofMB ' || echo "")
-        
-        # Return structured data
-        echo "percentage:${percentage:-0} downloaded:${mb_downloaded:-0} total:${mb_total:-0}"
-    fi
-}
 
-# Check if state sync is actively progressing
-is_state_sync_progressing() {
-    local log_file="$HOME_DIR/logs/pchaind.log"
-    [ ! -f "$log_file" ] && echo "false" && return
-    
-    # Check for recent activity (last 30 seconds worth of logs)
-    local current_time=$(date +%s)
-    local recent_activity=$(tail -10 "$log_file" 2>/dev/null | head -5 || echo "")
-    
-    # Look for signs of ongoing activity
-    if echo "$recent_activity" | grep -qi "sync\|snapshot\|downloading\|restoring\|discovering"; then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
 
-# Get spinner character for animation
-get_spinner_char() {
-    local elapsed_seconds="${1:-0}"
-    local index=$((elapsed_seconds % 4))
-    case $index in
-        0) echo "⠋";;
-        1) echo "⠙";;
-        2) echo "⠹";;
-        3) echo "⠸";;
-    esac
-}
 
 
 # Dependency helpers
@@ -842,7 +676,7 @@ show_sync_after_start() {
         print_header "📡 State Sync Progress"
         
         # Monitor state sync progress
-        if monitor_state_sync; then
+        if monitor_sync_auto; then
             # State sync completed successfully
             rm -f "$HOME_DIR/.initial_state_sync"
             
@@ -1215,7 +1049,7 @@ recover_from_snapshot() {
     print_status "📊 Monitoring state sync progress..."
     
     # Use the enhanced monitor with visual progress and proper message ordering
-    monitor_state_sync true
+    monitor_sync_auto true
     if [ $? -eq 0 ]; then
         # Sync completed successfully (message already shown during monitoring)
         # print_success "✅ State sync completed successfully!"  # Removed duplicate
@@ -2291,7 +2125,7 @@ case "${1:-help}" in
         fi
         
         # Start monitoring with enhanced progress display
-        monitor_state_sync true
+        monitor_sync_auto true
         ;;
         
     help|--help|-h|"")

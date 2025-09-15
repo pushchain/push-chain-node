@@ -21,6 +21,7 @@ CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
 
@@ -483,19 +484,121 @@ if [[ "$AUTO_START" = "yes" ]]; then
     sleep 3
     
     # Check catching_up from API
-    CATCHING_UP=$(curl -s http://localhost:26657/status 2>/dev/null | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+    CATCHING_UP=$(curl -s http://localhost:26657/status 2>/dev/null | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
     
     if [ "$CATCHING_UP" = "false" ]; then
       echo -e "${GREEN}✅ Node is fully synced!${NC}"
       SYNC_COMPLETE=true
     else
-      # Show sync progress using the monitor command
+      # Show sync progress using WebSocket monitoring if available
       echo -e "${CYAN}📊 Syncing blocks...${NC}"
-      # Use the sync command which shows progress bar
-      timeout 300 "$MANAGER_LINK" sync || true
-      echo  # Add newline after progress bar
-      echo -e "${GREEN}✅ Block sync complete!${NC}"
-      SYNC_COMPLETE=true
+      
+      # Check if we have a WebSocket client
+      if command -v websocat >/dev/null 2>&1; then
+        # Use WebSocket monitoring for real-time updates
+        MAX_WAIT=300  # 5 minutes max
+        START_TIME=$(date +%s)
+        
+        # Start WebSocket subscription and monitor
+        (
+          echo '{"jsonrpc":"2.0","method":"subscribe","params":{"query":"tm.event='\''NewBlockHeader'\''"},"id":1}'
+          # Keep stdin open
+          while true; do sleep 1; done
+        ) | websocat -t --ping-interval 5 ws://localhost:26657/websocket 2>/dev/null | \
+        while IFS= read -r line; do
+          # Extract height from event
+          height=$(echo "$line" | jq -r '.result.data.value.header.height // empty' 2>/dev/null)
+          
+          if [ -n "$height" ] && [ "$height" != "null" ]; then
+            # Get current sync status
+            NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null)
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
+            LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            
+            # Get remote height for progress (use configured RPC)
+            GENESIS_RPC="https://${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
+            REMOTE_STATUS=$(curl -s "$GENESIS_RPC/status" 2>/dev/null)
+            REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            
+            # Calculate progress and bar
+            if [ "$REMOTE_HEIGHT" -gt 0 ] && [ "$LOCAL_HEIGHT" -gt 0 ]; then
+              PROGRESS_PERCENT=$(awk "BEGIN { printf \"%.2f\", ($LOCAL_HEIGHT / $REMOTE_HEIGHT) * 100 }")
+              
+              # Create progress bar (30 chars wide)
+              BAR_WIDTH=30
+              FILLED=$(awk "BEGIN { printf \"%.0f\", ($LOCAL_HEIGHT / $REMOTE_HEIGHT) * $BAR_WIDTH }")
+              EMPTY=$((BAR_WIDTH - FILLED))
+              
+              # Build the bar
+              BAR="${GREEN}"
+              for ((i=0; i<FILLED; i++)); do BAR="${BAR}█"; done
+              BAR="${BAR}${NC}\033[90m"
+              for ((i=0; i<EMPTY; i++)); do BAR="${BAR}░"; done
+              BAR="${BAR}${NC}"
+            else
+              PROGRESS_PERCENT="?"
+              BAR="\033[90m░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░${NC}"
+            fi
+            
+            # Determine status and display
+            if [ "$CATCHING_UP" = "false" ]; then
+              printf "\r${GREEN}✅ SYNCED${NC} [${BAR}] ${GREEN}100%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K\n" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
+              SYNC_COMPLETE=true
+              break
+            else
+              printf "\r${YELLOW}⏳ SYNCING${NC} [${BAR}] ${GREEN}%s%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K" "$PROGRESS_PERCENT" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
+            fi
+            
+            # Check timeout
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
+            if [ $ELAPSED -gt $MAX_WAIT ]; then
+              echo  # New line
+              echo -e "${YELLOW}⚠️ Sync monitoring timeout${NC}"
+              break
+            fi
+          fi
+        done
+        
+        # Kill the websocat background process
+        pkill -f "websocat.*ws://localhost:26657/websocket" 2>/dev/null || true
+        
+      else
+        # Fallback to using the sync command if no WebSocket client
+        "$MANAGER_LINK" sync &
+        SYNC_PID=$!
+        
+        # Monitor for up to 5 minutes
+        MAX_WAIT=300
+        WAIT_TIME=0
+        
+        while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+          # Check if sync is complete
+          CATCHING_UP=$(curl -s localhost:26657/status 2>/dev/null | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
+          
+          if [ "$CATCHING_UP" = "false" ]; then
+            # Sync complete, kill the sync command
+            kill $SYNC_PID 2>/dev/null || true
+            wait $SYNC_PID 2>/dev/null || true
+            SYNC_COMPLETE=true
+            break
+          fi
+          
+          sleep 3
+          WAIT_TIME=$((WAIT_TIME + 3))
+        done
+        
+        # Ensure sync command is killed if timeout
+        kill $SYNC_PID 2>/dev/null || true
+        wait $SYNC_PID 2>/dev/null || true
+      fi
+      
+      echo  # Add newline after progress
+      if [ "$SYNC_COMPLETE" = true ]; then
+        echo -e "${GREEN}✅ Block sync complete!${NC}"
+      else
+        echo -e "${YELLOW}⏳ Sync in progress, continuing...${NC}"
+      fi
     fi
   fi
   

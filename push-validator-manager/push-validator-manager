@@ -333,9 +333,13 @@ start_node() {
         PERSISTENT_PEERS=""
         
         if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
-            PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
+            # Filter out peers with misconfigured listen_addr (0.0.0.0) and get only properly configured peers
+            PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | select(.node_info.listen_addr | contains("0.0.0.0") | not) | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
             if [ -n "$PEER_LIST" ]; then
                 PERSISTENT_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
+                print_status "✅ Found $(echo "$PEER_LIST" | wc -l | tr -d ' ') properly configured peers"
+            else
+                print_status "⚠️ No properly configured peers found, using fallback"
             fi
         fi
         
@@ -1341,9 +1345,13 @@ configure_genesis() {
             [ -n "$PEERS_JSON" ] || PEERS_JSON='{}'
             
             if [ -n "$PEERS_JSON" ] && [ "$PEERS_JSON" != '{}' ]; then
-                PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
+                # Filter out peers with misconfigured listen_addr (0.0.0.0) and get only properly configured peers
+                PEER_LIST=$(echo "$PEERS_JSON" | jq -r '.result.peers[]? | select(.node_info.listen_addr | contains("0.0.0.0") | not) | "\(.node_info.id)@\(.remote_ip):26656"' 2>/dev/null | head -3 || true)
                 if [ -n "$PEER_LIST" ]; then
                     NEW_PEERS=$(echo "$PEER_LIST" | tr '\n' ',' | sed 's/,$//')
+                    print_status "✅ Found $(echo "$PEER_LIST" | wc -l | tr -d ' ') properly configured peers for new domain"
+                else
+                    print_status "⚠️ No properly configured peers found for new domain, using fallback"
                 fi
             fi
             

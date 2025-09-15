@@ -239,40 +239,36 @@ detect_state_sync_phase() {
     elif echo "$recent_logs" | grep -qi "Restoring.*snapshot\|snapshot.*restore\|Verifying.*snapshot"; then
         detected_phase="restoring"
     elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
-        # Check if we've already shown state sync completion using file marker
+        # Check if we've already shown state sync completion using timestamp-based marker
         local marker_file="/tmp/state_sync_completed_$$"
         if [ ! -f "$marker_file" ]; then
-            # First time seeing "Snapshot restored" - show completion message
-            touch "$marker_file"
+            # First time seeing "Snapshot restored" - create timestamp marker
+            echo "$(date +%s)" > "$marker_file"
             detected_phase="state_sync_completed"
         else
-            # State sync completion already shown, now check block sync status
-            local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
-            if [ -n "$node_status" ]; then
-                local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
-                local current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-                
-                # Get network height to check if we're within 5 blocks
-                local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
-                if [ -n "$network_status" ]; then
-                    local target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-                    if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
-                        local height_diff=$((target_height - current_height))
-                        if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
-                            detected_phase="completed"
-                        elif [ "$catching_up" = "false" ]; then
-                            detected_phase="completed"
-                        else
-                            detected_phase="block_sync"
-                        fi
+            # Check how long ago we started showing the completion message
+            local completion_start=$(cat "$marker_file" 2>/dev/null || echo "0")
+            local current_time=$(date +%s)
+            local elapsed=$((current_time - completion_start))
+            
+            # Show completion message for 8 seconds before transitioning to block sync
+            if [ "$elapsed" -lt 8 ]; then
+                detected_phase="state_sync_completed"
+            else
+                # Completion message shown long enough, now check block sync status
+                local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+                if [ -n "$node_status" ]; then
+                    local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
+                    
+                    # Trust the node API - it knows when it's functionally synced
+                    if [ "$catching_up" = "false" ]; then
+                        detected_phase="completed"
                     else
-                        detected_phase=$([ "$catching_up" = "true" ] && echo "block_sync" || echo "completed")
+                        detected_phase="block_sync"
                     fi
                 else
-                    detected_phase=$([ "$catching_up" = "true" ] && echo "block_sync" || echo "completed")
+                    detected_phase="block_sync"
                 fi
-            else
-                detected_phase="block_sync"
             fi
         fi
     elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
@@ -285,24 +281,12 @@ detect_state_sync_phase() {
             local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
             if [ -n "$node_status" ]; then
                 local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
-                local current_height=$(echo "$node_status" | jq -r '.result.sync_info.latest_block_height // "0"')
                 
-                # Get network height to check if we're within 5 blocks
-                local network_status=$(curl -s --connect-timeout 3 https://rpc-testnet-donut-node2.push.org/status 2>/dev/null || echo "")
-                if [ -n "$network_status" ]; then
-                    local target_height=$(echo "$network_status" | jq -r '.result.sync_info.latest_block_height // "0"')
-                    if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
-                        local height_diff=$((target_height - current_height))
-                        if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
-                            detected_phase="completed"
-                        else
-                            detected_phase=$([ "$catching_up" = "true" ] && echo "block_sync" || echo "completed")
-                        fi
-                    else
-                        detected_phase=$([ "$catching_up" = "true" ] && echo "block_sync" || echo "completed")
-                    fi
+                # Trust the node API - it knows when it's functionally synced
+                if [ "$catching_up" = "false" ]; then
+                    detected_phase="completed"
                 else
-                    detected_phase=$([ "$catching_up" = "true" ] && echo "block_sync" || echo "completed")
+                    detected_phase="block_sync"
                 fi
             else
                 detected_phase="unknown"
@@ -445,15 +429,18 @@ show_state_sync_progress() {
             echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "state_sync_completed")
-            # State sync has completed - show completion message
+            # State sync has completed - show completion message persistently
             local elapsed_min=$((elapsed_seconds / 60))
             local elapsed_sec=$((elapsed_seconds % 60))
+            
+            # Clear the line and show completion message
             printf "\r\033[K"
             echo -e "${GREEN}✅ State sync completed!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             echo
-            echo -e "${CYAN}📊 Starting block sync...${NC}"
-            # Give a moment for user to see the completion message
-            sleep 1
+            
+            # Show transition message but don't advance to block sync display yet
+            # The phase detection will handle the transition timing
+            echo -en "${CYAN}📊 Starting block sync...${NC}"
             ;;
         "block_sync")
             # This is the block sync phase after state sync completes

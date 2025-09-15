@@ -1027,6 +1027,35 @@ monitor_sync() {
         STATE_SYNC_MODE=1
     fi
     
+    # Check if state sync already completed before starting monitor loop
+    if [ "$STATE_SYNC_MODE" -eq 1 ]; then
+        local log_file="$HOME_DIR/logs/pchaind.log"
+        if [ -f "$log_file" ]; then
+            if grep -q "Snapshot restored" "$log_file" 2>/dev/null; then
+                echo
+                print_success "✅ State sync already completed (snapshot restored)!"
+                # Remove the initial state sync marker file if it exists
+                rm -f "$HOME_DIR/.initial_state_sync" 2>/dev/null
+                tput cnorm 2>/dev/null || true
+                return 0
+            fi
+        fi
+    fi
+    
+    # Check if node is already fully synced (skip if not in state sync mode and monitoring normally)
+    if [ "$STATE_SYNC_MODE" -eq 0 ]; then
+        local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
+        if [ -n "$NODE_STATUS" ]; then
+            local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+            if [ "$CATCHING_UP" = "false" ]; then
+                echo
+                print_success "✅ Node is already fully synced!"
+                tput cnorm 2>/dev/null || true
+                return 0
+            fi
+        fi
+    fi
+    
     # Options: default is compact single-line; use -d/--dashboard for full-screen
     local COMPACT_MODE=1
     for arg in "$@"; do
@@ -2037,7 +2066,20 @@ monitor_sync_ws() {
         reconnects=$((reconnects + 1))
 
         # If we failed to get events several times in a row, fallback
-        if [ "$noevent_streak" -ge 3 ]; then
+        # During state sync, be more patient as events may be sparse
+        local max_noevent_streak=3
+        if [ "$STATE_SYNC_MODE" -eq 1 ]; then
+            max_noevent_streak=10
+            # Check if state sync completed while waiting
+            if [ -f "$log_file" ] && grep -q "Snapshot restored" "$log_file" 2>/dev/null; then
+                # State sync completed, wait a bit for events to start flowing
+                sleep 5
+                noevent_streak=0
+                continue
+            fi
+        fi
+        
+        if [ "$noevent_streak" -ge "$max_noevent_streak" ]; then
             # Clean up background process before returning
             touch "$MONITOR_STOPPED_FILE" 2>/dev/null || true
             if [ -n "${STATE_SYNC_CHECKER_PID:-}" ]; then

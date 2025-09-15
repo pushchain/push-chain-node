@@ -13,6 +13,8 @@
 set -euo pipefail
 IFS=$'\n\t'
 ORIGINAL_PATH="$PATH"
+# Absolute directory of this script before any cd
+SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 
 # Colors for output
 CYAN='\033[0;36m'
@@ -40,12 +42,44 @@ show_spinner() {
     echo $!
 }
 
+# Run a command with a soft timeout (POSIX-friendly, no GNU timeout required)
+# Usage: run_with_timeout <seconds> <cmd> [args...]
+run_with_timeout() {
+  local seconds="$1"; shift || true
+  local tmp
+  tmp="$(mktemp 2>/dev/null || echo "/tmp/pnm_timeout_$$")"
+  ( "$@" >"$tmp" 2>&1 ) &
+  local pid=$!
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$seconds" ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    # Give it a moment to die
+    sleep 1
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+  wait "$pid" 2>/dev/null || true
+  cat "$tmp" 2>/dev/null || true
+  rm -f "$tmp" 2>/dev/null || true
+}
+
+# Safe wrapper to get manager status without hanging
+safe_status() {
+  run_with_timeout 5 "$MANAGER_LINK" status || true
+}
+
 # Read env or defaults
 MONIKER="${MONIKER:-push-validator}"
 GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 AUTO_START="yes"
 RESET_DATA="${RESET_DATA:-yes}"  # Default to reset for clean installation
+# Use local repository instead of cloning (for development/testing)
+USE_LOCAL="no"
+LOCAL_REPO=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -56,6 +90,9 @@ while [[ $# -gt 0 ]]; do
     --moniker) MONIKER="$2"; shift 2 ;;
     --genesis) GENESIS_DOMAIN="$2"; shift 2 ;;
     --keyring) KEYRING_BACKEND="$2"; shift 2 ;;
+    --use-local) USE_LOCAL="yes"; shift ;;
+    --local-repo)
+      LOCAL_REPO="$2"; shift 2 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
@@ -111,10 +148,26 @@ echo -e "${CYAN}📦 Installing Push Validator Manager into $ROOT_DIR${NC}"
 # Allow override via environment variable for specific version/branch/tag
 PNM_REF="${PNM_REF:-feature/pnm}"  # Default to feature branch, can be overridden to stable tag
 
-# Always clone fresh repository to ensure latest version
-rm -rf "$REPO_DIR"
-echo -e "${CYAN}📥 Fetching Push Validator Manager (ref: $PNM_REF)...${NC}"
-git clone --quiet --depth 1 --branch "$PNM_REF" https://github.com/pushchain/push-chain-node "$REPO_DIR"
+if [[ "$USE_LOCAL" = "yes" || -n "$LOCAL_REPO" ]]; then
+  # Determine local repository path
+  if [[ -n "$LOCAL_REPO" ]]; then
+    REPO_DIR="$(cd "$LOCAL_REPO" && pwd -P)"
+  else
+    REPO_DIR="$(cd "$SELF_DIR/.." && pwd -P)"
+  fi
+  echo -e "${CYAN}🧪 Using local repository: $REPO_DIR${NC}"
+  # Sanity check
+  if [[ ! -d "$REPO_DIR/push-validator-manager" ]]; then
+    echo -e "${RED}Error:${NC} expected directory not found: $REPO_DIR/push-validator-manager"
+    echo "Run with --local-repo <path-to-repo-root> or invoke from a local checkout."
+    exit 1
+  fi
+else
+  # Always clone fresh repository to ensure latest version
+  rm -rf "$REPO_DIR"
+  echo -e "${CYAN}📥 Fetching Push Validator Manager (ref: $PNM_REF)...${NC}"
+  git clone --quiet --depth 1 --branch "$PNM_REF" https://github.com/pushchain/push-chain-node "$REPO_DIR"
+fi
 
 # Build native binary and ensure manager script
 
@@ -319,54 +372,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
   STATE_SYNC_DETECTED=false
   SYNC_COMPLETE=false
   
-  # Start node in background and capture initial output (without timeout to get full feedback)
-  {
-    export SKIP_SYNC_MONITOR=true
-    "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
-      
-      # Skip verbose logs that aren't useful for installer output
-      if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
-        continue  # Skip these verbose log lines
-      fi
-      
-      # Show important startup messages
-      if echo "$line" | grep -qE "Starting Push Chain|Initializing validator|Node started successfully|Node already running|Configuring|configured|Starting state sync|Snapshot restored"; then
-        echo "$line"
-      fi
-      
-      # Detect if node startup succeeded
-      if echo "$line" | grep -q "Node started successfully\|Node already running"; then
-        NODE_STARTED=true
-        break
-      fi
-      
-      # Detect state sync activity
-      if echo "$line" | grep -qE "Starting state sync|Discovered new snapshot"; then
-        STATE_SYNC_DETECTED=true
-      fi
-      
-      # Handle state sync failures
-      if echo "$line" | grep -q "failed to start state sync"; then
-        echo -e "${YELLOW}⚠️ State sync failed, node will sync from genesis${NC}"
-        NODE_STARTED=true  # Node might still start without state sync
-        break
-      fi
-    done
-  } &
-  START_PID=$!
-  
-  # Wait for start command to complete or timeout after 120 seconds (2 minutes for initialization)
-  WAIT_COUNT=0
-  MAX_WAIT=120
-  while kill -0 $START_PID 2>/dev/null && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    sleep 1
-    ((WAIT_COUNT++))
-  done
-  
-  # Kill the background start process if still running
-  if kill -0 $START_PID 2>/dev/null; then
-    kill $START_PID 2>/dev/null || true
-  fi
+  # Start the node via the manager in a fully detached way to avoid piping signals
+  # The manager itself backgrounds the daemon; we detach the manager invocation as well
+  export SKIP_SYNC_MONITOR=true
+  nohup "$MANAGER_LINK" start >/dev/null 2>&1 < /dev/null &
   
   
   # Check if node is running with multiple attempts - allow more time for state sync startup
@@ -388,7 +397,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
     # First check if process exists (more reliable than status during init)
     if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
       # Process is running, now check if status reports correctly
-      STATUS_OUTPUT=$("$MANAGER_LINK" status 2>&1)
+      STATUS_OUTPUT=$(safe_status 2>&1)
       
       # Accept various states as "started"
       if echo "$STATUS_OUTPUT" | grep -qE "Node is running|initializing|Syncing|height"; then
@@ -418,7 +427,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
         
         # Give it a moment and try status again
         sleep 1
-        STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
+        STATUS_OUTPUT=$(safe_status || echo "status_failed")
         if echo "$STATUS_OUTPUT" | grep -q "Node is running\|Syncing\|height"; then
           NODE_STARTED=true
           echo -e "${GREEN}✅ Node startup verified${NC}"
@@ -443,89 +452,57 @@ if [[ "$AUTO_START" = "yes" ]]; then
     [ $i -lt 30 ] && sleep 2
   done
   
-  # If state sync was detected, use enhanced monitoring with visual progress bars
-  # If node was already running, try to detect sync state from status output
-  if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    # Wait a moment for node to stabilize
-    sleep 3
-    STATUS_SNAPSHOT=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+  # Simple sync detection and monitoring
+  if [ "$NODE_STARTED" = "true" ]; then
+    echo -e "${CYAN}Checking sync status...${NC}"
     
-    # If status command fails or returns empty, assume syncing
-    if [ -z "$STATUS_SNAPSHOT" ]; then
-      echo -e "${CYAN}📡 Syncing blockchain data...${NC}"
-      STATE_SYNC_DETECTED=true
-    # Check if already synced
-    elif echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*false|Fully Synced|✅.*SYNCED"; then
-      # Already synced, no need for state sync monitoring
-      SYNC_COMPLETE=true
-      echo -e "${GREEN}✅ Node is fully synced!${NC}"
-    # Detect catching up via textual hints
-    elif echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*true|Status:.*Sync|⏳\s*Syncing"; then
-      STATE_SYNC_DETECTED=true
+    # Ensure HOME_DIR is set
+    HOME_DIR="${HOME_DIR:-$HOME/.pchain}"
+    
+    # Step 1: Check if state sync already happened
+    if grep -q "Snapshot restored" "$HOME_DIR/logs/pchaind.log" 2>/dev/null; then
+      echo -e "${GREEN}✅ State sync completed!${NC}"
+      STATE_SYNC_DONE=true
     else
-      # Detect via block height numbers if present
-      CURRENT_H=$(echo "$STATUS_SNAPSHOT" | sed -n 's/.*Block Height:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
-      NETWORK_H=$(echo "$STATUS_SNAPSHOT" | sed -n 's#.*/[[:space:]]*\([0-9][0-9]*\).*#\1#p' | head -1)
-      if [ -n "${CURRENT_H:-}" ] && [ -n "${NETWORK_H:-}" ]; then
-        if [ "$CURRENT_H" -lt "$NETWORK_H" ]; then
-          STATE_SYNC_DETECTED=true
-        else
-          # Heights are equal or very close - already synced
-          SYNC_COMPLETE=true
-          echo -e "${GREEN}✅ Node is fully synced!${NC}"
+      # Wait for state sync to complete (with timeout)
+      echo -e "${CYAN}⏳ Waiting for state sync...${NC}"
+      wait_count=0
+      while [ $wait_count -lt 60 ]; do
+        if grep -q "Snapshot restored" "$HOME_DIR/logs/pchaind.log" 2>/dev/null; then
+          echo -e "${GREEN}✅ State sync completed!${NC}"
+          STATE_SYNC_DONE=true
+          break
         fi
-      fi
-    fi
-  fi
-
-  if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    # First check if already synced
-    QUICK_CHECK=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up:" || true)
-    if echo "$QUICK_CHECK" | grep -q "Catching Up: false"; then
-      # Already synced, skip monitoring
-      echo -e "${GREEN}✅ Node is already synced!${NC}"
-      SYNC_COMPLETE=true
-    else
-      # Start spinner while monitoring state sync
-      SPINNER_PID=$(show_spinner "📡 Syncing blockchain data")
-      
-      # Use the enhanced state sync monitoring from push-validator-manager
-      # This provides visual progress bars, phase detection, and better user experience
-      # Run monitor-state-sync with timeout to prevent hanging
-      timeout 300 "$MANAGER_LINK" monitor-state-sync >/dev/null 2>&1 || true
-      
-      # Stop the spinner
-      kill $SPINNER_PID 2>/dev/null || true
-      printf "\r\033[K"  # Clear the spinner line
+        sleep 2
+        wait_count=$((wait_count + 2))
+        # Show progress dots
+        printf "."
+      done
+      echo  # New line after dots
     fi
     
-    # State sync monitoring has completed (either successfully or via Ctrl+C)
-    # Check if node is synced (only if we haven't already determined it's synced)
-    if [ "$SYNC_COMPLETE" != "true" ]; then
-      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
-      if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
-        SYNC_COMPLETE=true
-        echo -e "${GREEN}✅ Node is fully synced!${NC}"
-      fi
+    # Step 2: Monitor block sync using API
+    echo -e "${CYAN}📡 Checking block sync status...${NC}"
+    
+    # Give node a moment to stabilize after state sync
+    sleep 3
+    
+    # Check catching_up from API
+    CATCHING_UP=$(curl -s http://localhost:26657/status 2>/dev/null | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
+    
+    if [ "$CATCHING_UP" = "false" ]; then
+      echo -e "${GREEN}✅ Node is fully synced!${NC}"
+      SYNC_COMPLETE=true
+    else
+      # Show sync progress using the monitor command
+      echo -e "${CYAN}📊 Syncing blocks...${NC}"
+      # Use the sync command which shows progress bar
+      timeout 300 "$MANAGER_LINK" sync || true
+      echo -e "${GREEN}✅ Sync monitoring complete!${NC}"
+      SYNC_COMPLETE=true
     fi
   fi
   
-  # If no state sync was detected but node is running, check sync status one more time
-  if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ] && [ "$SYNC_COMPLETE" != "true" ]; then
-    # Give it a moment and check final status
-    sleep 2
-    FINAL_CHECK=$("$MANAGER_LINK" status 2>/dev/null || echo "")
-    if [ -n "$FINAL_CHECK" ]; then
-      if echo "$FINAL_CHECK" | grep -qE "Catching Up:\s*false|Fully Synced|✅.*SYNCED"; then
-        SYNC_COMPLETE=true
-        echo -e "${GREEN}✅ Node is fully synced!${NC}"
-      else
-        # Node is syncing but we couldn't detect state sync properly
-        echo -e "${CYAN}📡 Node is syncing with the network...${NC}"
-        echo -e "${CYAN}Check status with: ${BOLD}push-validator-manager status${NC}"
-      fi
-    fi
-  fi
   
   # Check if node started successfully
   if [ "$NODE_STARTED" = true ]; then
@@ -602,7 +579,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
         NODE_STARTED=true
         
         # Try to get status but don't fail if it's not ready
-        FINAL_STATUS=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+        FINAL_STATUS=$(safe_status || echo "")
         if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
           echo -e "  ${GREEN}✅ Node is synced${NC}"
         else
@@ -635,7 +612,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
     
     while [ $WAIT_TIME -lt $MAX_WAIT ]; do
       # Get sync status
-      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up|Block Height" || true)
+      SYNC_STATUS=$(safe_status | grep -E "Catching Up|Block Height" || true)
       
       # Check if fully synced
       if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
@@ -717,8 +694,10 @@ if [ ! -t 0 ]; then
 fi
 
 # Optional: Clean up the cloned repository to save space (keep only push-validator-manager)
-cd "$ROOT_DIR"
-if [[ -d "$REPO_DIR" ]]; then
-    # Remove the temporary clone
-    rm -rf "$REPO_DIR"
+if [[ "$USE_LOCAL" != "yes" && -z "$LOCAL_REPO" ]]; then
+  cd "$ROOT_DIR"
+  if [[ -d "$REPO_DIR" ]]; then
+      # Remove the temporary clone
+      rm -rf "$REPO_DIR"
+  fi
 fi

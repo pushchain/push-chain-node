@@ -1540,6 +1540,26 @@ monitor_sync_auto() {
     ( monitor_sync "$@" )
 }
 
+# Simplified state sync phase detection
+detect_state_sync_phase() {
+    local log_file="$HOME_DIR/logs/pchaind.log"
+    [ ! -f "$log_file" ] && echo "unknown" && return
+    
+    local recent_logs=$(tail -50 "$log_file" 2>/dev/null || echo "")
+    [ -z "$recent_logs" ] && echo "unknown" && return
+    
+    # Simple phase detection
+    if echo "$recent_logs" | grep -qi "Snapshot restored"; then
+        echo "completed"
+    elif echo "$recent_logs" | grep -qi "state sync failed\|snapshot.*failed"; then
+        echo "failed"
+    elif echo "$recent_logs" | grep -qi "Fetching snapshot chunk\|Applying snapshot chunk\|Downloading.*snapshot"; then
+        echo "downloading"
+    else
+        echo "unknown"
+    fi
+}
+
 # WebSocket monitor using websocat or wscat
 monitor_sync_ws() {
     MONITOR_STOPPED=0

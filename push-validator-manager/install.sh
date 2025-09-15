@@ -460,37 +460,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
       SYNC_COMPLETE=true
       echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
     else
-      
-      # Basic fallback monitoring (simplified version of original)
-      SYNC_TIMEOUT=600  # 10 minutes
-      SYNC_START_TIME=$(date +%s)
-      
-      while true; do
-        CURRENT_TIME=$(date +%s)
-        ELAPSED=$((CURRENT_TIME - SYNC_START_TIME))
-        
-        if [ $ELAPSED -gt $SYNC_TIMEOUT ]; then
-          echo -e "${YELLOW}⚠️ State sync taking longer than expected, but node is running${NC}"
-          break
-        fi
-        
-        # Check sync status using push-validator-manager status
-        SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Status:|network" || true)
-        
-        # Check if sync is complete
-        if echo "$SYNC_INFO" | grep -q "Catching Up: false" || echo "$SYNC_INFO" | grep -q "✅.*SYNCED" || echo "$SYNC_INFO" | grep -q "Fully Synced"; then
-          CURRENT_HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "unknown")
-          echo -e "${GREEN}✅ State sync completed! Node synchronized to block ${CURRENT_HEIGHT}${NC}"
-          break
-        fi
-        
-        # Show simple progress every 15 seconds
-        if [ $((ELAPSED % 15)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-          echo -e "${CYAN}🔄 State sync in progress... (${ELAPSED}s elapsed)${NC}"
-        fi
-        
-        sleep 3
-      done
+      echo -e "${RED}❌ Enhanced monitoring failed${NC}"
+      echo "Check logs manually: tail -f ~/.pchain/logs/pchaind.log"
     fi
   elif [ "$STATE_SYNC_DETECTED" = "true" ]; then
     # Monitoring completed - set SYNC_COMPLETE based on final status

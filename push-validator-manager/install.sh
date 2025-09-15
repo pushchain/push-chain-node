@@ -500,12 +500,19 @@ if [[ "$AUTO_START" = "yes" ]]; then
         START_TIME=$(date +%s)
         
         # Start WebSocket subscription and monitor
+        # Create a named pipe for clean shutdown
+        PIPE_FILE="/tmp/installer_ws_$$"
+        mkfifo "$PIPE_FILE" 2>/dev/null || true
+        
+        # Start WebSocket monitoring in a subshell to prevent pipeline failures from exiting script
         (
-          echo '{"jsonrpc":"2.0","method":"subscribe","params":{"query":"tm.event='\''NewBlockHeader'\''"},"id":1}'
-          # Keep stdin open
-          while true; do sleep 1; done
-        ) | websocat -t --ping-interval 5 ws://localhost:26657/websocket 2>/dev/null | \
-        while IFS= read -r line; do
+          # Start background process to keep stdin open
+          (
+            echo '{"jsonrpc":"2.0","method":"subscribe","params":{"query":"tm.event='\''NewBlockHeader'\''"},"id":1}'
+            # Keep stdin open until pipe signals stop
+            while [ ! -f "${PIPE_FILE}.stop" ]; do sleep 1; done
+          ) | websocat -t --ping-interval 5 ws://localhost:26657/websocket 2>/dev/null | \
+          while IFS= read -r line; do
           # Extract height from event
           height=$(echo "$line" | jq -r '.result.data.value.header.height // empty' 2>/dev/null)
           
@@ -544,6 +551,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
             if [ "$CATCHING_UP" = "false" ]; then
               printf "\r${GREEN}✅ SYNCED${NC} [${BAR}] ${GREEN}100%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K\n" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
               SYNC_COMPLETE=true
+              # Signal background process to stop before breaking
+              touch "${PIPE_FILE}.stop" 2>/dev/null || true
+              sleep 0.5  # Give background process time to exit cleanly
               break
             else
               printf "\r${YELLOW}⏳ SYNCING${NC} [${BAR}] ${GREEN}%s%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K" "$PROGRESS_PERCENT" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
@@ -555,13 +565,26 @@ if [[ "$AUTO_START" = "yes" ]]; then
             if [ $ELAPSED -gt $MAX_WAIT ]; then
               echo  # New line
               echo -e "${YELLOW}⚠️ Sync monitoring timeout${NC}"
+              # Signal background process to stop before breaking
+              touch "${PIPE_FILE}.stop" 2>/dev/null || true
+              sleep 0.5  # Give background process time to exit cleanly
               break
             fi
           fi
-        done
+          done
+        ) || true  # Ignore pipeline failures when breaking from loop
         
-        # Kill the websocat background process
-        pkill -f "websocat.*ws://localhost:26657/websocket" 2>/dev/null || true
+        # Clean shutdown: signal the background process to stop and cleanup
+        (
+          touch "${PIPE_FILE}.stop" 2>/dev/null || true
+          sleep 0.5  # Give background process time to exit cleanly
+          
+          # Kill the websocat background process if still running
+          pkill -f "websocat.*ws://localhost:26657/websocket" 2>/dev/null || true
+          
+          # Clean up pipe files
+          rm -f "$PIPE_FILE" "${PIPE_FILE}.stop" 2>/dev/null || true
+        ) || true
         
       else
         # Fallback to using the sync command if no WebSocket client

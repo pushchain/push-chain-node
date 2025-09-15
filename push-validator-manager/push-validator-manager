@@ -282,19 +282,37 @@ detect_state_sync_phase() {
             if [ -n "$node_status" ]; then
                 local catching_up=$(echo "$node_status" | jq -r '.result.sync_info.catching_up // true')
                 
+                # Debug: Log the API response for debugging
+                echo "$(date '+%H:%M:%S'): API catching_up=$catching_up" >> /tmp/state_sync_debug.log
+                
                 # Trust the node API - it knows when it's functionally synced
                 if [ "$catching_up" = "false" ]; then
                     detected_phase="completed"
+                    echo "$(date '+%H:%M:%S'): Should be completed! catching_up=$catching_up" >> /tmp/state_sync_debug.log
                 else
                     detected_phase="block_sync"
+                    echo "$(date '+%H:%M:%S'): Still block_sync, catching_up=$catching_up" >> /tmp/state_sync_debug.log
                 fi
             else
                 detected_phase="unknown"
+                echo "$(date '+%H:%M:%S'): No node_status received" >> /tmp/state_sync_debug.log
             fi
         fi
     fi
     
-    # Debug logging
+    # Debug logging - show which condition was matched
+    if echo "$recent_logs" | grep -qi "Starting state sync\|state sync.*starting"; then
+        echo "$(date '+%H:%M:%S'): Matched 'starting' condition" >> /tmp/state_sync_debug.log
+    elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
+        echo "$(date '+%H:%M:%S'): Matched 'Snapshot restored' condition" >> /tmp/state_sync_debug.log
+    elif echo "$recent_logs" | grep -qi "state sync.*complete\|Switching to fastsync\|Switching to consensus"; then
+        echo "$(date '+%H:%M:%S'): Matched 'complete' condition" >> /tmp/state_sync_debug.log
+    elif echo "$recent_logs" | grep -qi "finalized block\|committed state\|indexed block"; then
+        echo "$(date '+%H:%M:%S'): Matched 'finalized block' condition" >> /tmp/state_sync_debug.log
+    else
+        echo "$(date '+%H:%M:%S'): Reached fallback (unknown)" >> /tmp/state_sync_debug.log
+    fi
+    
     echo "$(date '+%H:%M:%S'): Phase=$detected_phase" >> /tmp/state_sync_debug.log
     echo "$detected_phase"
 }

@@ -497,7 +497,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
       fi
     fi
     # Check if it's already synced - retry a few times in case node is still starting up
-    SYNC_COMPLETE=false
+    # Only reset SYNC_COMPLETE if not already set by state sync monitoring
+    if [ "$SYNC_COMPLETE" != true ]; then
+      SYNC_COMPLETE=false
+    fi
     for i in {1..3}; do
       SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
       if echo "$SYNC_STATUS" | grep -q "Catching Up: false" || echo "$SYNC_STATUS" | grep -q "Fully Synced" || echo "$SYNC_STATUS" | grep -q "✅.*SYNCED"; then

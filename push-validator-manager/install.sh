@@ -276,40 +276,36 @@ mv "$tmp" "$ENV_FILE"
 if [[ "$AUTO_START" = "yes" ]]; then
   echo -e "${CYAN}Starting Push Chain node...${NC}"
   
-  # Start the node but exit once it's running to avoid hanging on sync monitoring
+  # Start the node and monitor startup
   NODE_STARTED=false
   STATE_SYNC_DETECTED=false
+  
+  # Start node in background and capture initial output
   {
-    timeout 60 "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
+    timeout 30 "$MANAGER_LINK" start 2>&1 | while IFS= read -r line; do
       # Skip verbose logs that aren't useful for installer output
       if echo "$line" | grep -qE "Trust Height:|Trust Hash:|RPC Servers:|I\[.*\]|Reset private validator|Removed all blockchain|The address book"; then
         continue  # Skip these verbose log lines
       fi
       
-      # Only show important messages
-      if echo "$line" | grep -qE "Starting Push Chain|Initializing validator|Node started successfully|Node already running|Configuring|configured|failed|Starting state sync|Snapshot restored"; then
+      # Show important startup messages
+      if echo "$line" | grep -qE "Starting Push Chain|Initializing validator|Node started successfully|Node already running|Configuring|configured|Starting state sync|Snapshot restored"; then
         echo "$line"
       fi
       
-      # Check if node has started
+      # Detect if node startup succeeded
       if echo "$line" | grep -q "Node started successfully\|Node already running"; then
         NODE_STARTED=true
-        # If state sync was detected, give it more time to complete
-        if [ "$STATE_SYNC_DETECTED" = "true" ]; then
-          echo -e "${CYAN}⏳ State sync in progress, waiting for completion...${NC}"
-          sleep 10
-        fi
-        # Kill parent timeout to stop reading more output
-        kill $(jobs -p) 2>/dev/null || true
         break
       fi
       
       # Detect state sync activity
-      if echo "$line" | grep -qE "Starting state sync|Discovered new snapshot|Snapshot restored"; then
+      if echo "$line" | grep -qE "Starting state sync|Discovered new snapshot"; then
         STATE_SYNC_DETECTED=true
+        echo -e "${CYAN}🔄 State sync detected - this may take several minutes...${NC}"
       fi
       
-      # Also check for state sync failures that would prevent starting
+      # Handle state sync failures
       if echo "$line" | grep -q "failed to start state sync"; then
         echo -e "${YELLOW}⚠️ State sync failed, node will sync from genesis${NC}"
         NODE_STARTED=true  # Node might still start without state sync
@@ -318,22 +314,59 @@ if [[ "$AUTO_START" = "yes" ]]; then
     done
   } || true
   
-  # Give node more time to stabilize, especially with state sync
-  if [ "$STATE_SYNC_DETECTED" = "true" ]; then
-    echo -e "${CYAN}⏳ Waiting for state sync to complete...${NC}"
-    sleep 15
-  else
-    sleep 3
-  fi
+  # Wait for node to be responsive
+  echo -e "${CYAN}⏳ Waiting for node to become responsive...${NC}"
+  sleep 5
   
-  # Verify if node is actually running with multiple attempts
-  for i in {1..5}; do
-    if "$MANAGER_LINK" status 2>/dev/null | grep -q "Node is running"; then
+  # Check if node is running with multiple attempts
+  for i in {1..15}; do
+    STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
+    if echo "$STATUS_OUTPUT" | grep -q "Node is running"; then
       NODE_STARTED=true
       break
     fi
-    [ $i -lt 5 ] && sleep 2
+    
+    # Debug output every few attempts
+    if [ $((i % 5)) -eq 0 ]; then
+      echo -e "${CYAN}⏳ Checking node status (attempt $i/15)...${NC}"
+    fi
+    
+    [ $i -lt 15 ] && sleep 2
   done
+  
+  # If state sync was detected, monitor it until completion
+  if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
+    echo -e "${CYAN}📡 Monitoring state sync progress...${NC}"
+    
+    # Monitor state sync completion for up to 10 minutes
+    SYNC_TIMEOUT=600  # 10 minutes
+    SYNC_START_TIME=$(date +%s)
+    
+    while true; do
+      CURRENT_TIME=$(date +%s)
+      ELAPSED=$((CURRENT_TIME - SYNC_START_TIME))
+      
+      if [ $ELAPSED -gt $SYNC_TIMEOUT ]; then
+        echo -e "${YELLOW}⚠️ State sync taking longer than expected, but node is running${NC}"
+        break
+      fi
+      
+      # Check sync status
+      SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Catching Up:" || true)
+      if echo "$SYNC_INFO" | grep -q "Catching Up: false"; then
+        echo -e "${GREEN}✅ State sync completed successfully!${NC}"
+        break
+      fi
+      
+      # Show progress every 30 seconds
+      if [ $((ELAPSED % 30)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+        HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "0")
+        echo -e "${CYAN}📊 State sync in progress... Current height: ${HEIGHT}${NC}"
+      fi
+      
+      sleep 5
+    done
+  fi
   
   # Check if node started successfully
   if [ "$NODE_STARTED" = true ]; then
@@ -353,9 +386,28 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
     fi
   else
-    echo -e "${RED}❌ Failed to start node${NC}"
-    echo "Check logs with: push-validator-manager logs"
-    exit 1
+    # Final attempt - check if node is actually running despite detection failure
+    echo -e "${YELLOW}⚠️ Node startup detection failed, performing final check...${NC}"
+    sleep 5
+    
+    FINAL_STATUS=$("$MANAGER_LINK" status 2>/dev/null || echo "")
+    if echo "$FINAL_STATUS" | grep -q "Node is running"; then
+      echo -e "${GREEN}✅ Node is actually running! Continuing...${NC}"
+      NODE_STARTED=true
+      
+      # Quick sync status check
+      if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
+        echo -e "${GREEN}✅ Node is already fully synced!${NC}"
+        SYNC_COMPLETE=true
+      else
+        echo -e "${CYAN}⏳ Node is syncing...${NC}"
+        SYNC_COMPLETE=false
+      fi
+    else
+      echo -e "${RED}❌ Failed to start node${NC}"
+      echo "Check logs with: push-validator-manager logs"
+      exit 1
+    fi
   fi
   
   # Only monitor sync if not already complete

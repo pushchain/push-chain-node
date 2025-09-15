@@ -1099,6 +1099,8 @@ monitor_sync() {
     while true; do
         # Move cursor to top-left and clear to end (TTY only)
         [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
+        # Ensure is_synced is defined for this loop iteration (set -u safe)
+        local is_synced=0
         if [ "$is_tty" -eq 1 ] && [ "$COMPACT_MODE" -eq 0 ]; then
             tput cup 0 0 2>/dev/null || printf '\033[H'
             tput ed 2>/dev/null || printf '\033[J'
@@ -1161,6 +1163,7 @@ monitor_sync() {
                     HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
                     if [ "$HEIGHT_DIFF" -le 5 ]; then
                         status_text="${GREEN}✅ SYNCED${NC}"
+                        is_synced=1
                     elif [ "$HEIGHT_DIFF" -gt 5 ] && [ "$HEIGHT_DIFF" -le 100 ]; then
                         status_text="${YELLOW}🔄 CATCHING UP${NC}"
                     else
@@ -1168,6 +1171,7 @@ monitor_sync() {
                     fi
                 elif [ "$CATCHING_UP" = "false" ]; then
                     status_text="${GREEN}✅ SYNCED${NC}"
+                    is_synced=1
                 fi
                 local eta_text=""
                 HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
@@ -1209,7 +1213,6 @@ monitor_sync() {
                 echo -e "  ${BOLD}Last Block:${NC} $LATEST_TIME"
                 
                 # Determine actual sync status based on height comparison
-                local is_synced=0
                 if [ "$REMOTE_HEIGHT" -gt 0 ]; then
                     HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
                     if [ "$HEIGHT_DIFF" -le 5 ]; then

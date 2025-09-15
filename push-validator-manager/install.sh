@@ -316,6 +316,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
       # Detect if node startup succeeded
       if echo "$line" | grep -q "Node started successfully\|Node already running"; then
         NODE_STARTED=true
+        # Give the process a moment to actually start
+        sleep 2
         break
       fi
       
@@ -344,6 +346,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # Kill the background start process if still running
   kill $START_PID 2>/dev/null || true
+  
+  # Give the node process time to actually launch after start command returns
+  sleep 3
   
   # Check if node is running with multiple attempts - allow more time for state sync startup
   echo -e "${CYAN}⏳ Verifying node startup...${NC}"

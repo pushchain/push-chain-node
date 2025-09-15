@@ -351,6 +351,24 @@ if [[ "$AUTO_START" = "yes" ]]; then
   done
   
   # If state sync was detected, use enhanced monitoring with visual progress bars
+  # If node was already running, try to detect sync state from status output
+  if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ]; then
+    STATUS_SNAPSHOT=$("$MANAGER_LINK" status 2>/dev/null || true)
+    # Detect catching up via textual hints
+    if echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*true|Status:.*Sync|⏳\s*Syncing"; then
+      STATE_SYNC_DETECTED=true
+    else
+      # Detect via block height numbers if present
+      CURRENT_H=$(echo "$STATUS_SNAPSHOT" | sed -n 's/.*Block Height:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
+      NETWORK_H=$(echo "$STATUS_SNAPSHOT" | sed -n 's#.*/[[:space:]]*\([0-9][0-9]*\).*#\1#p' | head -1)
+      if [ -n "${CURRENT_H:-}" ] && [ -n "${NETWORK_H:-}" ]; then
+        if [ "$CURRENT_H" -lt "$NETWORK_H" ]; then
+          STATE_SYNC_DETECTED=true
+        fi
+      fi
+    fi
+  fi
+
   if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
     echo -e "${CYAN}📡 State sync detected - monitoring with enhanced progress display...${NC}"
     echo
@@ -398,6 +416,29 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # Check if node started successfully
   if [ "$NODE_STARTED" = true ]; then
+    # Ensure log directory exists and wire file logging
+    LOG_DIR="$HOME/.pchain/logs"
+    LOG_FILE="$LOG_DIR/pchaind.log"
+    mkdir -p "$LOG_DIR"
+    if [ ! -f "$LOG_FILE" ]; then
+      echo -e "${YELLOW}⚠️ Logs not found at ${BOLD}$LOG_FILE${NC}"
+      echo -e "${CYAN}🔧 Restarting node to enable file logging...${NC}"
+      # Safe restart to attach stdout/stderr to log file via manager
+      "$MANAGER_LINK" stop >/dev/null 2>&1 || true
+      # Small delay to ensure clean shutdown
+      sleep 1
+      "$MANAGER_LINK" start >/dev/null 2>&1 || true
+      # Verify log file appears (best-effort)
+      for _ in {1..10}; do
+        [ -f "$LOG_FILE" ] && break
+        sleep 0.5
+      done
+      if [ -f "$LOG_FILE" ]; then
+        echo -e "${GREEN}✅ Logging enabled: ${BOLD}$LOG_FILE${NC}"
+      else
+        echo -e "${YELLOW}⚠️ Log file still not present; use 'push-validator-manager logs' or 'status'${NC}"
+      fi
+    fi
     # Check if it's already synced - retry a few times in case node is still starting up
     SYNC_COMPLETE=false
     for i in {1..3}; do

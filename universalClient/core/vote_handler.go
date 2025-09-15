@@ -180,11 +180,16 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		TxType:      txType,
 	}
 
+	// Check if VerificationData is zero hash and replace with TxHash
+	if strings.ToLower(strings.TrimPrefix(eventData.VerificationData, "0x")) == strings.Repeat("0", 64) {
+		inboundMsg.VerificationData = tx.TxHash
+	} else {
+		inboundMsg.VerificationData = eventData.VerificationData
+	}
+
 	up, err := decodeUniversalPayload(eventData.Data)
 	if err != nil {
 		inboundMsg.UniversalPayload = up
-		inboundMsg.VerificationData = tx.TxHash
-
 	}
 
 	return inboundMsg, nil
@@ -223,7 +228,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 	msgs := []sdk.Msg{msg}
 
 	// Execute via AuthZ with reasonable gas and fees
-	gasLimit := uint64(500000)
+	gasLimit := uint64(500000000)
 	feeAmount, err := sdk.ParseCoinsNormalized("500000000000000upc")
 	if err != nil {
 		return fmt.Errorf("failed to parse fee amount: %w", err)

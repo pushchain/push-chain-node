@@ -24,6 +24,7 @@ type TxWithFundsPayload struct {
 	BridgeToken         string `json:"bridgeToken"`
 	BridgeAmount        string `json:"bridgeAmount"` // uint256 as decimal string
 	Data                string `json:"data"`         // hex-encoded bytes (0x…)
+	VerificationData    string `json:"verificationData"`
 	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
 	RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
 	TxType              uint   `json:"txType"`              // enum backing uint as decimal string

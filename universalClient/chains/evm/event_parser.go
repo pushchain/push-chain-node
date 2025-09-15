@@ -87,8 +87,8 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		}
 	}
 
-	// TODO: Remove temp code
-	if eventID.String() != "0x20c05737f181a64c7a88fcafce3afbb409f162f97a71661dd939e384a0960766" {
+	// TODO: Remove temp code avoid listing add_funds
+	if eventID.String() == "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd" {
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 }
 
 // parseEventData extracts specific data from the event based on method type.
-// For TxWithFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType)
+// For TxWithFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType, signatureData?)
 // it JSON-marshals the decoded fields into event.Payload.
 //
 // Encoding layout in log.Data (non-indexed):
@@ -116,13 +116,13 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 // [2] offset   payload (bytes)          (32 bytes; offset from start of log.Data)
 // [3] offset   revertCFG (tuple)        (32 bytes; offset from start of log.Data)
 // [4] uint     txType                   (32 bytes)
+// [5] bytes32  signatureData            (32 bytes)   <-- OPTIONAL, may also be appended at very end
 //
 // tuple RevertSettings head (at revertOffset):
 // [0] address fundRecipient
 // [1] offset  revertMsg (bytes)         (offset from start of the tuple)
 // ... tail for revertMsg follows
 func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log) {
-
 	if len(log.Topics) < 3 {
 		// Not enough indexed fields; nothing to do.
 		return
@@ -145,7 +145,7 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 		return log.Data[start:end]
 	}
 
-	// Need at least 5 words for the head.
+	// Need at least 5 words for the static head we rely on.
 	if len(log.Data) < 32*5 {
 		b, _ := json.Marshal(payload)
 		event.Payload = b
@@ -223,8 +223,7 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 			payload.RevertFundRecipient = addr
 		}
 
-		// revertMsg offset word @ tupleBase + 32
-		// It's an offset from tupleBase.
+		// revertMsg offset word @ tupleBase + 32 (relative to tupleBase)
 		offWordStart := tupleBase + 32
 		offWordEnd := offWordStart + 32
 		revertMsgRelOff := new(big.Int).SetBytes(log.Data[offWordStart:offWordEnd]).Uint64()
@@ -232,6 +231,13 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 		revertMsgAbsOff := tupleBase + revertMsgRelOff
 		if hexStr, ok := readBytesAt(revertMsgAbsOff); ok {
 			payload.RevertMsg = hexStr
+		}
+	}
+
+	// --- signatureData (bytes32) ---
+	if len(log.Data) >= 32*6 {
+		if w := word(5); w != nil {
+			payload.VerificationData = "0x" + hex.EncodeToString(w)
 		}
 	}
 

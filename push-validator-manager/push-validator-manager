@@ -1173,12 +1173,8 @@ monitor_sync() {
                     local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
                     [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
                     printf "\r%b\033[K" "$line"
-                else
-                    # Show a simple message while fetching remote height
-                    local line="${YELLOW}⏳ Fetching network height...${NC}"
-                    [ "${MONITOR_STOPPED:-0}" -eq 1 ] && break
-                    printf "\r%b\033[K" "$line"
                 fi
+                # Don't show "Fetching network height..." - just keep the last progress bar visible
             else
                 # Full-screen rich output
                 echo -e "${BOLD}${GREEN}Push Chain Sync Monitor${NC}"
@@ -1763,12 +1759,8 @@ monitor_sync_ws() {
                 local line="${status_text} [${PROGRESS_BAR}] ${GREEN}${PROGRESS_PERCENT}%${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${LOCAL_HEIGHT}${NC}/${MAGENTA}${REMOTE_HEIGHT}${NC} | ${BOLD}${WHITE}Rate${NC} ${CYAN}${blocks_per_sec}${NC} blk/s${eta_text}"
                 [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
                 printf "\r%b\033[K" "$line"
-            else
-                # Show a simple message while fetching remote height
-                local line="${YELLOW}⏳ Fetching network height...${NC}"
-                [ "${MONITOR_STOPPED:-0}" -eq 1 ] && return 0
-                printf "\r%b\033[K" "$line"
             fi
+            # Don't show "Fetching network height..." - just keep the last progress bar visible
         else
             if [ "$is_tty" -eq 1 ]; then
                 tput cup 0 0 2>/dev/null || printf '\033[H'

@@ -1908,16 +1908,24 @@ monitor_sync_ws() {
                 # Render UI and possibly invoke hook when considered synced
                 render_ws_view
 
-                # Trigger on_fully_synced once when near head
-                if [ "${MONITOR_STOPPED:-0}" -eq 0 ] && [ "$FULLY_SYNCED_ONCE" -eq 0 ] && [ "$REMOTE_HEIGHT" -gt 0 ] && [ $((REMOTE_HEIGHT - LOCAL_HEIGHT)) -le 5 ]; then
-                    echo
-                    on_fully_synced || true
-                    FULLY_SYNCED_ONCE=1
-                    
-                    # Exit if we're in state sync mode and sync is complete
-                    if [ "$STATE_SYNC_MODE" -eq 1 ]; then
-                        MONITOR_STOPPED=1
-                        break
+                # Check if node is synced by querying the API
+                if [ "${MONITOR_STOPPED:-0}" -eq 0 ] && [ "$FULLY_SYNCED_ONCE" -eq 0 ]; then
+                    local NODE_STATUS=$(curl -s localhost:26657/status 2>/dev/null || echo "")
+                    if [ -n "$NODE_STATUS" ]; then
+                        local CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up // "true"' 2>/dev/null)
+                        
+                        # Node is synced when catching_up is false
+                        if [ "$CATCHING_UP" = "false" ]; then
+                            echo
+                            on_fully_synced || true
+                            FULLY_SYNCED_ONCE=1
+                            
+                            # Exit if we're in state sync mode and sync is complete
+                            if [ "$STATE_SYNC_MODE" -eq 1 ]; then
+                                MONITOR_STOPPED=1
+                                break
+                            fi
+                        fi
                     fi
                 fi
             done

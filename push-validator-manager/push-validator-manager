@@ -2070,7 +2070,32 @@ monitor_sync_ws() {
     
     # Explicitly return success when in state sync mode and monitoring completed
     if [ "${STATE_SYNC_MODE:-0}" -eq 1 ]; then
-        echo "[DEBUG] Returning 0 from monitor_sync_ws (STATE_SYNC_MODE=1)" >&2
+        echo "[DEBUG] In STATE_SYNC_MODE, checking if we need to wait for non-zero height" >&2
+        
+        # After state sync, wait for node to report non-zero height before returning
+        local NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
+        if [ -n "$NODE_STATUS" ]; then
+            LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
+            
+            if [ "$LOCAL_HEIGHT" -eq 0 ]; then
+                local wait_count=0
+                printf "\r${CYAN}⏳ Initializing blockchain...${NC}\033[K"
+                while [ "$LOCAL_HEIGHT" -eq 0 ] && [ $wait_count -lt 10 ]; do
+                    sleep 1
+                    NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
+                    if [ -n "$NODE_STATUS" ]; then
+                        LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+                        [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
+                    fi
+                    wait_count=$((wait_count + 1))
+                done
+                # Clear the initializing message
+                printf "\r\033[K"
+            fi
+        fi
+        
+        echo "[DEBUG] Returning 0 from monitor_sync_ws (STATE_SYNC_MODE=1, height=$LOCAL_HEIGHT)" >&2
         return 0
     fi
     echo "[DEBUG] Returning from monitor_sync_ws (normal mode)" >&2

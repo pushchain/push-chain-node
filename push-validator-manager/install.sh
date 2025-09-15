@@ -447,8 +447,13 @@ if [[ "$AUTO_START" = "yes" ]]; then
   # If node was already running, try to detect sync state from status output
   if [ "$STATE_SYNC_DETECTED" != "true" ] && [ "$NODE_STARTED" = "true" ]; then
     STATUS_SNAPSHOT=$("$MANAGER_LINK" status 2>/dev/null || true)
+    # Check if already synced
+    if echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*false|Fully Synced"; then
+      # Already synced, no need for state sync monitoring
+      SYNC_COMPLETE=true
+      echo -e "${GREEN}✅ Node is fully synced!${NC}"
     # Detect catching up via textual hints
-    if echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*true|Status:.*Sync|⏳\s*Syncing"; then
+    elif echo "$STATUS_SNAPSHOT" | grep -qE "Catching Up:\s*true|Status:.*Sync|⏳\s*Syncing"; then
       STATE_SYNC_DETECTED=true
     else
       # Detect via block height numbers if present
@@ -457,39 +462,44 @@ if [[ "$AUTO_START" = "yes" ]]; then
       if [ -n "${CURRENT_H:-}" ] && [ -n "${NETWORK_H:-}" ]; then
         if [ "$CURRENT_H" -lt "$NETWORK_H" ]; then
           STATE_SYNC_DETECTED=true
+        else
+          # Heights are equal or very close - already synced
+          SYNC_COMPLETE=true
+          echo -e "${GREEN}✅ Node is fully synced!${NC}"
         fi
       fi
     fi
   fi
 
   if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    # Start spinner while monitoring state sync
-    SPINNER_PID=$(show_spinner "📡 Syncing blockchain data")
-    
-    # Use the enhanced state sync monitoring from push-validator-manager
-    # This provides visual progress bars, phase detection, and better user experience
-    # Run monitor-state-sync but suppress its output, we'll show our own progress
-    "$MANAGER_LINK" monitor-state-sync >/dev/null 2>&1 || true
-    
-    # Stop the spinner
-    kill $SPINNER_PID 2>/dev/null || true
-    printf "\r\033[K"  # Clear the spinner line
+    # First check if already synced
+    QUICK_CHECK=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up:" || true)
+    if echo "$QUICK_CHECK" | grep -q "Catching Up: false"; then
+      # Already synced, skip monitoring
+      echo -e "${GREEN}✅ Node is already synced!${NC}"
+      SYNC_COMPLETE=true
+    else
+      # Start spinner while monitoring state sync
+      SPINNER_PID=$(show_spinner "📡 Syncing blockchain data")
+      
+      # Use the enhanced state sync monitoring from push-validator-manager
+      # This provides visual progress bars, phase detection, and better user experience
+      # Run monitor-state-sync with timeout to prevent hanging
+      timeout 300 "$MANAGER_LINK" monitor-state-sync >/dev/null 2>&1 || true
+      
+      # Stop the spinner
+      kill $SPINNER_PID 2>/dev/null || true
+      printf "\r\033[K"  # Clear the spinner line
+    fi
     
     # State sync monitoring has completed (either successfully or via Ctrl+C)
-    # Check if node is synced
-    SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
-    if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
-      SYNC_COMPLETE=true
-      echo
-    else
-      # Node is still syncing, but monitoring completed - this is normal
-      SYNC_COMPLETE=false
-    fi
-  elif [ "$STATE_SYNC_DETECTED" = "true" ]; then
-    # Monitoring completed - set SYNC_COMPLETE based on final status
-    FINAL_SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
-    if echo "$FINAL_SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
-      SYNC_COMPLETE=true
+    # Check if node is synced (only if we haven't already determined it's synced)
+    if [ "$SYNC_COMPLETE" != "true" ]; then
+      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
+      if echo "$SYNC_STATUS" | grep -q "Catching Up: false\|Fully Synced"; then
+        SYNC_COMPLETE=true
+        echo -e "${GREEN}✅ Node is fully synced!${NC}"
+      fi
     fi
   fi
   

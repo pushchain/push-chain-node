@@ -314,11 +314,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
     done
   } || true
   
-  # Wait for node to be responsive
-  echo -e "${CYAN}⏳ Waiting for node to become responsive...${NC}"
-  sleep 5
-  
-  # Check if node is running with multiple attempts
+  # Check if node is running with multiple attempts (no misleading messages after successful startup)
   for i in {1..15}; do
     STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
     if echo "$STATUS_OUTPUT" | grep -q "Node is running"; then
@@ -326,9 +322,11 @@ if [[ "$AUTO_START" = "yes" ]]; then
       break
     fi
     
-    # Debug output every few attempts
-    if [ $((i % 5)) -eq 0 ]; then
-      echo -e "${CYAN}⏳ Checking node status (attempt $i/15)...${NC}"
+    # Only show waiting messages if we're having trouble detecting the node
+    if [ $i -eq 1 ]; then
+      echo -e "${CYAN}⏳ Verifying node startup...${NC}"
+    elif [ $((i % 5)) -eq 0 ]; then
+      echo -e "${CYAN}⏳ Still checking node status (attempt $i/15)...${NC}"
     fi
     
     [ $i -lt 15 ] && sleep 2
@@ -336,11 +334,13 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # If state sync was detected, monitor it until completion
   if [ "$STATE_SYNC_DETECTED" = "true" ] && [ "$NODE_STARTED" = "true" ]; then
-    echo -e "${CYAN}📡 Monitoring state sync progress...${NC}"
+    echo -e "${CYAN}📡 State sync detected - downloading blockchain snapshot...${NC}"
     
     # Monitor state sync completion for up to 10 minutes
     SYNC_TIMEOUT=600  # 10 minutes
     SYNC_START_TIME=$(date +%s)
+    LAST_UPDATE_TIME=0
+    LAST_HEIGHT=0
     
     while true; do
       CURRENT_TIME=$(date +%s)
@@ -352,19 +352,40 @@ if [[ "$AUTO_START" = "yes" ]]; then
       fi
       
       # Check sync status
-      SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Catching Up:" || true)
-      if echo "$SYNC_INFO" | grep -q "Catching Up: false"; then
-        echo -e "${GREEN}✅ State sync completed successfully!${NC}"
+      SYNC_INFO=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Block Height:|Status:|network" || true)
+      CURRENT_HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "0")
+      NETWORK_HEIGHT=$(echo "$SYNC_INFO" | grep "network" | grep -o "[0-9]\+" | tail -1 || echo "0")
+      
+      # Check if sync is complete
+      if echo "$SYNC_INFO" | grep -q "Catching Up: false" || echo "$SYNC_INFO" | grep -q "✅.*SYNCED" || echo "$SYNC_INFO" | grep -q "Fully Synced"; then
+        echo -e "${GREEN}✅ State sync completed! Node synchronized to block ${CURRENT_HEIGHT}${NC}"
         break
       fi
       
-      # Show progress every 30 seconds
-      if [ $((ELAPSED % 30)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-        HEIGHT=$(echo "$SYNC_INFO" | grep "Block Height:" | grep -o "[0-9]\+" | head -1 || echo "0")
-        echo -e "${CYAN}📊 State sync in progress... Current height: ${HEIGHT}${NC}"
+      # Show progress every 10 seconds if height is changing
+      if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+        if [ "$CURRENT_HEIGHT" -gt 0 ]; then
+          # Calculate progress if we have network height
+          if [ "$NETWORK_HEIGHT" -gt 0 ] && [ "$CURRENT_HEIGHT" -lt "$NETWORK_HEIGHT" ]; then
+            PROGRESS=$((CURRENT_HEIGHT * 100 / NETWORK_HEIGHT))
+            REMAINING=$((NETWORK_HEIGHT - CURRENT_HEIGHT))
+            echo -e "${CYAN}📊 Synchronizing: ${CURRENT_HEIGHT}/${NETWORK_HEIGHT} blocks (${PROGRESS}% - ${REMAINING} remaining)${NC}"
+          else
+            # Show height progression
+            if [ "$CURRENT_HEIGHT" -gt "$LAST_HEIGHT" ]; then
+              BLOCKS_ADDED=$((CURRENT_HEIGHT - LAST_HEIGHT))
+              echo -e "${CYAN}📊 Sync progress: Block ${CURRENT_HEIGHT} (+${BLOCKS_ADDED} since last update)${NC}"
+            else
+              echo -e "${CYAN}📊 Syncing at block height: ${CURRENT_HEIGHT}${NC}"
+            fi
+          fi
+          LAST_HEIGHT=$CURRENT_HEIGHT
+        else
+          echo -e "${CYAN}🔄 State sync in progress... Waiting for block data...${NC}"
+        fi
       fi
       
-      sleep 5
+      sleep 3
     done
   fi
   
@@ -373,17 +394,18 @@ if [[ "$AUTO_START" = "yes" ]]; then
     # Check if it's already synced - retry a few times in case node is still starting up
     SYNC_COMPLETE=false
     for i in {1..3}; do
-      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up" || true)
-      if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
-        echo -e "${GREEN}✅ Node is already fully synced!${NC}"
+      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
+      if echo "$SYNC_STATUS" | grep -q "Catching Up: false" || echo "$SYNC_STATUS" | grep -q "Fully Synced" || echo "$SYNC_STATUS" | grep -q "✅.*SYNCED"; then
+        echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
         SYNC_COMPLETE=true
         break
       fi
       [ $i -lt 3 ] && sleep 3
     done
     
-    if [ "$SYNC_COMPLETE" = false ]; then
-      echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
+    # Only show waiting message if state sync wasn't detected
+    if [ "$SYNC_COMPLETE" = false ] && [ "$STATE_SYNC_DETECTED" != "true" ]; then
+      echo -e "${CYAN}⏳ Node is synchronizing with the network...${NC}"
     fi
   else
     # Final attempt - check if node is actually running despite detection failure
@@ -397,10 +419,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
       
       # Quick sync status check
       if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
-        echo -e "${GREEN}✅ Node is already fully synced!${NC}"
+        echo -e "${GREEN}✅ Node is fully synchronized!${NC}"
         SYNC_COMPLETE=true
       else
-        echo -e "${CYAN}⏳ Node is syncing...${NC}"
+        echo -e "${CYAN}⏳ Node is synchronizing with the network...${NC}"
         SYNC_COMPLETE=false
       fi
     else

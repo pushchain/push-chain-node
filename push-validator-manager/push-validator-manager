@@ -1532,9 +1532,9 @@ on_fully_synced() {
 # Try WebSocket monitor first; if unavailable, fall back to the existing polling
 monitor_sync_auto() {
     echo "[DEBUG] monitor_sync_auto called with args: $@" >&2
-    # Run monitors in subshells to isolate traps and avoid double-handling Ctrl+C
+    # Don't run in subshells - that prevents proper exit when MONITOR_STOPPED is set
     echo "[DEBUG] Calling monitor_sync_ws..." >&2
-    ( monitor_sync_ws "$@" )
+    monitor_sync_ws "$@"
     local ws_result=$?
     echo "[DEBUG] monitor_sync_ws returned: $ws_result" >&2
     if [ $ws_result -eq 0 ]; then
@@ -1542,7 +1542,7 @@ monitor_sync_auto() {
         return 0
     fi
     echo "[DEBUG] Calling monitor_sync (fallback)..." >&2
-    ( monitor_sync "$@" )
+    monitor_sync "$@"
     local sync_result=$?
     echo "[DEBUG] monitor_sync returned: $sync_result" >&2
     echo "[DEBUG] monitor_sync_auto returning: $sync_result" >&2

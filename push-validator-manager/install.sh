@@ -314,22 +314,40 @@ if [[ "$AUTO_START" = "yes" ]]; then
     done
   } || true
   
-  # Check if node is running with multiple attempts (no misleading messages after successful startup)
-  for i in {1..15}; do
+  # Check if node is running with multiple attempts - allow more time for state sync startup
+  echo -e "${CYAN}⏳ Verifying node startup...${NC}"
+  for i in {1..30}; do  # Increased from 15 to 30 attempts (60 seconds total)
     STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
+    
+    # Check for various indicators that node is running
     if echo "$STATUS_OUTPUT" | grep -q "Node is running"; then
       NODE_STARTED=true
+      echo -e "${GREEN}✅ Node startup verified${NC}"
       break
     fi
     
-    # Only show waiting messages if we're having trouble detecting the node
-    if [ $i -eq 1 ]; then
-      echo -e "${CYAN}⏳ Verifying node startup...${NC}"
-    elif [ $((i % 5)) -eq 0 ]; then
-      echo -e "${CYAN}⏳ Still checking node status (attempt $i/15)...${NC}"
+    # Also check if node process is running even if status command fails
+    if [ $i -gt 10 ]; then
+      # After 20 seconds, also check for running process
+      if pgrep -f "pchaind" >/dev/null 2>&1; then
+        echo -e "${CYAN}🔍 Node process detected, verifying status...${NC}"
+        # Give it a few more seconds and try status again
+        sleep 3
+        STATUS_OUTPUT=$("$MANAGER_LINK" status 2>/dev/null || echo "status_failed")
+        if echo "$STATUS_OUTPUT" | grep -q "Node is running\|Syncing\|height"; then
+          NODE_STARTED=true
+          echo -e "${GREEN}✅ Node startup verified (process check)${NC}"
+          break
+        fi
+      fi
     fi
     
-    [ $i -lt 15 ] && sleep 2
+    # Show progress messages at intervals
+    if [ $((i % 10)) -eq 0 ]; then
+      echo -e "${CYAN}⏳ Still checking node status (attempt $i/30)...${NC}"
+    fi
+    
+    [ $i -lt 30 ] && sleep 2
   done
   
   # If state sync was detected, use enhanced monitoring with visual progress bars
@@ -415,9 +433,28 @@ if [[ "$AUTO_START" = "yes" ]]; then
         SYNC_COMPLETE=false
       fi
     else
+      # Enhanced failure diagnosis
       echo -e "${RED}❌ Failed to start node${NC}"
-      echo "Check logs with: push-validator-manager logs"
-      exit 1
+      echo
+      echo -e "${YELLOW}🔍 Diagnosis:${NC}"
+      
+      # Check if process is running even if status fails
+      if pgrep -f "pchaind" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✅ Node process is running${NC}"
+        echo -e "  ${YELLOW}⚠️ Status command may be experiencing delays${NC}"
+        echo -e "  ${CYAN}💡 Try: push-validator-manager status${NC}"
+        echo -e "  ${CYAN}💡 Try: push-validator-manager logs${NC}"
+        echo -e "  ${CYAN}💡 State sync may still be in progress${NC}"
+        echo
+        echo -e "${CYAN}Note: The node may actually be working. State sync can take 5-15 minutes.${NC}"
+        echo -e "${CYAN}Check status in a few minutes with: push-validator-manager status${NC}"
+        exit 0  # Don't fail - node may actually be working
+      else
+        echo -e "  ${RED}❌ No node process found${NC}"
+        echo -e "  ${CYAN}💡 Check logs: push-validator-manager logs${NC}"
+        echo -e "  ${CYAN}💡 Try manual start: push-validator-manager start${NC}"
+        exit 1
+      fi
     fi
   fi
   

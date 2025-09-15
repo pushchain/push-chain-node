@@ -452,18 +452,14 @@ show_state_sync_progress() {
             echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "state_sync_completed")
-            # State sync has completed - show completion message persistently
+            # State sync has completed - show completion message permanently
             local elapsed_min=$((elapsed_seconds / 60))
             local elapsed_sec=$((elapsed_seconds % 60))
             
-            # Clear the line and show completion message
+            # Clear the current progress line and show permanent completion message
             printf "\r\033[K"
             echo -e "${GREEN}✅ State sync completed!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            echo
-            
-            # Show transition message but don't advance to block sync display yet
-            # The phase detection will handle the transition timing
-            echo -en "${CYAN}📊 Starting block sync...${NC}"
+            # Don't show any transition message here - let block_sync handle its own display
             ;;
         "block_sync")
             # This is the block sync phase after state sync completes
@@ -501,10 +497,9 @@ show_state_sync_progress() {
                 fi
             fi
             
-            # Show block sync progress
+            # Show block sync progress on a new line (don't overwrite state sync completion)
             local progress_bar=$(render_progress_bar "$sync_progress")
-            printf "\r\033[K"
-            echo -en "${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+            echo -en "\r${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
             if [ -n "$time_text" ]; then
                 echo -en " | $time_text"
             fi

@@ -237,7 +237,15 @@ detect_state_sync_phase() {
     elif echo "$recent_logs" | grep -qi "Restoring.*snapshot\|snapshot.*restore\|Verifying.*snapshot"; then
         echo "restoring"
     elif echo "$recent_logs" | grep -qi "Snapshot restored"; then
-        # State sync is complete, now we're in block sync phase
+        # Check if we've already shown state sync completion
+        if [ "${STATE_SYNC_COMPLETED_SHOWN:-false}" != "true" ]; then
+            # First time seeing "Snapshot restored" - show completion message
+            export STATE_SYNC_COMPLETED_SHOWN=true
+            echo "state_sync_completed"
+            return
+        fi
+        
+        # State sync completion already shown, now we're in block sync phase
         # Check if node is still catching up or if we're effectively synced
         local node_status=$(curl -s localhost:26657/status 2>/dev/null || echo "")
         if [ -n "$node_status" ]; then
@@ -433,6 +441,15 @@ show_state_sync_progress() {
             printf "\r"
             echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
+        "state_sync_completed")
+            # State sync has completed - show completion message
+            local elapsed_min=$((elapsed_seconds / 60))
+            local elapsed_sec=$((elapsed_seconds % 60))
+            printf "\r"
+            echo -e "${GREEN}✅ State sync completed!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
+            echo
+            echo -en "${CYAN}📊 Starting block sync...${NC}"
+            ;;
         "block_sync")
             # This is the block sync phase after state sync completes
             local sync_progress=0
@@ -442,13 +459,8 @@ show_state_sync_progress() {
             if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
                 height_diff=$((target_height - current_height))
                 
-                # If we're within 5 blocks, we're synced!
-                if [ "$height_diff" -le 5 ] && [ "$height_diff" -ge 0 ]; then
-                    printf "\r"
-                    echo -en "${GREEN}✅ Fully synced${NC} | ${BOLD}${WHITE}Height${NC} ${MAGENTA}${current_height}${NC}/${MAGENTA}${target_height}${NC}"
-                    # Return to signal we're synced (this display will be brief before transitioning)
-                    return
-                fi
+                # Note: Don't return here - let the main monitoring loop detect completion
+                # The detect_state_sync_phase function will handle transitioning to "completed"
                 
                 # Calculate block sync progress
                 if [ "$current_height" -ge "$target_height" ]; then
@@ -1559,8 +1571,8 @@ monitor_state_sync() {
     while true; do
         # Use our comprehensive status function
         if show_complete_state_sync_status "$sync_start_time" "false"; then
-            # Node is fully synced
-            echo
+            # Node is fully synced - clear the line and show completion
+            printf "\r\033[K"  # Clear current line
             echo
             print_success "✅ Node fully synced!"
             
@@ -1578,6 +1590,9 @@ monitor_state_sync() {
             echo "📈 Final height: $final_height"
             echo "⏱️ Total time: ${elapsed_min}m ${elapsed_sec}s"
             echo
+            
+            # Give user a moment to see completion
+            sleep 1
             return 0
         fi
         

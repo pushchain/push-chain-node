@@ -452,19 +452,27 @@ show_state_sync_progress() {
             echo -en "${spinner} ${CYAN}Restoring snapshot...${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
             ;;
         "state_sync_completed")
-            # State sync has completed - show completion message permanently
-            local elapsed_min=$((elapsed_seconds / 60))
-            local elapsed_sec=$((elapsed_seconds % 60))
+            # State sync has completed - show completion message permanently (only once)
+            local completion_shown_file="/tmp/state_sync_completion_shown_$$"
             
-            # Clear the current progress line and show permanent completion message
-            printf "\r\033[K"
-            echo -e "${GREEN}✅ State sync completed!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
-            # Don't show any transition message here - let block_sync handle its own display
+            # Only show the completion message once
+            if [ ! -f "$completion_shown_file" ]; then
+                local elapsed_min=$((elapsed_seconds / 60))
+                local elapsed_sec=$((elapsed_seconds % 60))
+                
+                # Clear the current progress line and show permanent completion message
+                printf "\r\033[K"
+                echo -e "${GREEN}✅ State sync completed successfully!${NC} ${WHITE}(${elapsed_min}m${elapsed_sec}s)${NC}"
+                
+                # Mark that we've shown the completion message
+                touch "$completion_shown_file"
+            fi
             ;;
         "block_sync")
             # This is the block sync phase after state sync completes
             local sync_progress=0
             local height_diff=0
+            local completion_shown_file="/tmp/state_sync_completion_shown_$$"
             
             # Check if we're effectively synced (within 5 blocks)
             if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
@@ -497,11 +505,22 @@ show_state_sync_progress() {
                 fi
             fi
             
-            # Show block sync progress on a new line (don't overwrite state sync completion)
+            # Show block sync progress - start fresh if state sync completion was just shown
             local progress_bar=$(render_progress_bar "$sync_progress")
-            echo -en "\r${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+            local block_sync_started_file="/tmp/block_sync_started_$$"
+            
+            if [ -f "$completion_shown_file" ] && [ ! -f "$block_sync_started_file" ]; then
+                # First time showing block sync after state sync completion - start on new line
+                echo  # Add a blank line after completion message
+                printf "${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+                touch "$block_sync_started_file"
+            else
+                # Update existing block sync progress
+                printf "\r${CYAN}📊 Syncing blocks${NC} [${progress_bar}] ${GREEN}${sync_progress}%${NC}"
+            fi
+            
             if [ -n "$time_text" ]; then
-                echo -en " | $time_text"
+                printf " | $time_text"
             fi
             ;;
         "completed")
@@ -1513,8 +1532,8 @@ recover_from_snapshot() {
     
     # Use the reusable wait_for_sync_completion function
     if wait_for_sync_completion 600 true; then
-        # Sync completed successfully
-        print_success "✅ State sync completed successfully!"
+        # Sync completed successfully (message already shown during monitoring)
+        # print_success "✅ State sync completed successfully!"  # Removed duplicate
         
         # Reset recovery tracking
         recovery_attempts=0

@@ -351,14 +351,15 @@ show_state_sync_progress() {
             
             # If we have both current and target heights, calculate actual progress
             if [ "$current_height" -gt 0 ] && [ "$target_height" -gt 0 ]; then
-                local blocks_to_sync=$((target_height - initial_height))
-                local blocks_synced=$((current_height - initial_height))
-                if [ "$blocks_to_sync" -gt 0 ]; then
-                    sync_progress=$(echo "scale=1; 100 * $blocks_synced / $blocks_to_sync" | bc 2>/dev/null || echo "0")
-                    # Ensure we don't exceed 100%
-                    [ "$(echo "$sync_progress > 100" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="100"
-                    # Ensure we show at least some progress if we've synced blocks
-                    [ "$blocks_synced" -gt 0 ] && [ "$(echo "$sync_progress < 1" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="1"
+                # For state sync, we typically jump from a low height to near the target
+                # So we calculate progress as how close we are to the target
+                if [ "$current_height" -ge "$target_height" ]; then
+                    sync_progress="100"
+                else
+                    # Calculate how far we've progressed toward the target
+                    sync_progress=$(echo "scale=1; 100 * $current_height / $target_height" | bc 2>/dev/null || echo "0")
+                    # Ensure we show at least some progress if we have a height
+                    [ "$current_height" -gt 0 ] && [ "$(echo "$sync_progress < 1" | bc 2>/dev/null || echo 0)" -eq 1 ] && sync_progress="1"
                 fi
             elif [ "$elapsed_seconds" -gt 0 ]; then
                 # Fallback to time-based progress if heights not available

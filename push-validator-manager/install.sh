@@ -16,6 +16,10 @@ ORIGINAL_PATH="$PATH"
 
 # Colors for output
 CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 # Read env or defaults
@@ -270,15 +274,32 @@ mv "$tmp" "$ENV_FILE"
 
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
-  if "$MANAGER_LINK" start; then
+  START_OUTPUT=$("$MANAGER_LINK" start 2>&1)
+  echo "$START_OUTPUT"
+  
+  # Check if node was already running and synced
+  if echo "$START_OUTPUT" | grep -q "Node already running"; then
+    # Node was already running, check if it's synced
+    SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Catching Up" || true)
+    if echo "$SYNC_STATUS" | grep -q "Catching Up: false"; then
+      echo -e "${GREEN}✅ Node is already fully synced!${NC}"
+      SYNC_COMPLETE=true
+    else
+      echo -e "${CYAN}⏳ Node is running but still syncing...${NC}"
+      SYNC_COMPLETE=false
+    fi
+  else
+    # Node was just started, needs to sync
+    echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
+    SYNC_COMPLETE=false
+  fi
+  
+  # Only monitor sync if not already complete
+  if [ "$SYNC_COMPLETE" = false ]; then
     # Wait longer for node to stabilize
     sleep 2
     
-    # Monitor sync until complete
-    echo -e "${CYAN}⏳ Waiting for node to sync...${NC}"
-    
     # Check sync status in a loop
-    SYNC_COMPLETE=false
     MAX_WAIT=600  # 10 minutes max wait
     WAIT_TIME=0
     
@@ -316,8 +337,13 @@ if [[ "$AUTO_START" = "yes" ]]; then
     echo  # New line after progress display
     
     if [ "$SYNC_COMPLETE" = true ]; then
-      echo -e "\033[0;32m✅ Node is fully synced!${NC}"
-      echo
+      echo -e "${GREEN}✅ Node is fully synced!${NC}"
+    fi
+  fi
+  
+  # Show result and prompt for registration if synced
+  if [ "$SYNC_COMPLETE" = true ]; then
+    echo
       
       # Prompt for validator registration
       echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
@@ -339,14 +365,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
         echo -e "${CYAN}You can register later with:${NC}"
         echo -e "${GREEN}  push-validator-manager register-validator${NC}"
       fi
-    else
-      echo -e "${YELLOW}⚠️ Sync is taking longer than expected${NC}"
-      echo "Monitor sync status with: push-validator-manager sync"
-      echo "Register when ready with: push-validator-manager register-validator"
-    fi
   else
-    echo -e "\033[0;31m❌ Failed to start node. Check logs for details.\033[0m"
-    echo "You can try starting manually with: push-validator-manager start"
+    echo -e "${YELLOW}⚠️ Sync is taking longer than expected${NC}"
+    echo "Monitor sync status with: push-validator-manager sync"
+    echo "Register when ready with: push-validator-manager register-validator"
   fi
 fi
 

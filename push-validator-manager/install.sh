@@ -373,23 +373,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
   export SKIP_SYNC_MONITOR=true
   nohup "$MANAGER_LINK" start >/dev/null 2>&1 < /dev/null &
   
-  
   # Check if node is running with multiple attempts - allow more time for state sync startup
-  echo -e "${CYAN}⏳ Verifying node startup...${NC}"
-  for i in {1..30}; do  # Increased from 15 to 30 attempts (60 seconds total)
-    # Show what we're checking at different stages
-    if [ $i -eq 1 ]; then
-      echo -e "${CYAN}  • Checking process initialization...${NC}"
-    elif [ $i -eq 5 ] && [ "$NODE_STARTED" != "true" ]; then
-      echo -e "${CYAN}  • Waiting for database setup...${NC}"
-    elif [ $i -eq 10 ] && [ "$NODE_STARTED" != "true" ]; then
-      echo -e "${CYAN}  • Waiting for network initialization...${NC}"
-    elif [ $i -eq 15 ] && [ "$NODE_STARTED" != "true" ]; then
-      echo -e "${CYAN}  • Waiting for RPC server to start...${NC}"
-    elif [ $i -eq 20 ] && [ "$NODE_STARTED" != "true" ]; then
-      echo -e "${CYAN}  • Waiting for peer connections...${NC}"
-    fi
-    
+  for i in {1..30}; do  # 30 attempts (60 seconds total)
     # First check if process exists (more reliable than status during init)
     if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
       # Process is running, now check if status reports correctly
@@ -398,50 +383,28 @@ if [[ "$AUTO_START" = "yes" ]]; then
       # Accept various states as "started"
       if echo "$STATUS_OUTPUT" | grep -qE "Node is running|initializing|Syncing|height"; then
         NODE_STARTED=true
-        echo -e "${GREEN}✅ Node startup verified${NC}"
+        echo -e "${GREEN}✅ Node started successfully${NC}"
         break
       elif [ $i -gt 5 ]; then
         # After 10 seconds, if process exists, consider it started
         NODE_STARTED=true
-        echo -e "${GREEN}✅ Node process verified${NC}"
+        echo -e "${GREEN}✅ Node started successfully${NC}"
         break
-      fi
-      
-      # Show feedback that process is running
-      if [ $i -eq 3 ] || [ $i -eq 8 ]; then
-        echo -e "${CYAN}  ✓ Process running, initializing components...${NC}"
       fi
       
       # After 10 attempts, try more aggressive status checking
       if [ $i -gt 10 ]; then
         # Check if RPC port is listening
         if lsof -i:26657 >/dev/null 2>&1; then
-          if [ $i -eq 11 ]; then
-            echo -e "${CYAN}  ✓ RPC port active, waiting for full initialization...${NC}"
+          # Give it a moment and try status again
+          sleep 1
+          STATUS_OUTPUT=$(safe_status || echo "status_failed")
+          if echo "$STATUS_OUTPUT" | grep -q "Node is running\|Syncing\|height"; then
+            NODE_STARTED=true
+            echo -e "${GREEN}✅ Node started successfully${NC}"
+            break
           fi
         fi
-        
-        # Give it a moment and try status again
-        sleep 1
-        STATUS_OUTPUT=$(safe_status || echo "status_failed")
-        if echo "$STATUS_OUTPUT" | grep -q "Node is running\|Syncing\|height"; then
-          NODE_STARTED=true
-          echo -e "${GREEN}✅ Node startup verified${NC}"
-          break
-        fi
-      fi
-    else
-      # Process not found yet
-      if [ $i -eq 2 ]; then
-        echo -e "${CYAN}  • Waiting for process to start...${NC}"
-      fi
-    fi
-    
-    # Show detailed progress at longer intervals
-    if [ $((i % 10)) -eq 0 ] && [ $i -gt 0 ] && [ "$NODE_STARTED" != "true" ]; then
-      echo -e "${YELLOW}  ⏱️ Startup taking longer than usual (${i}/30 attempts)...${NC}"
-      if [ $i -eq 20 ]; then
-        echo -e "${CYAN}  💡 This is normal for first-time initialization${NC}"
       fi
     fi
     
@@ -450,8 +413,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
   
   # Simple sync detection and monitoring
   if [ "$NODE_STARTED" = "true" ]; then
-    echo -e "${CYAN}Checking sync status...${NC}"
-    
     # Ensure HOME_DIR is set
     HOME_DIR="${HOME_DIR:-$HOME/.pchain}"
     
@@ -617,14 +578,12 @@ if [[ "$AUTO_START" = "yes" ]]; then
       fi
       
       echo  # Add newline after progress
-      if [ "$SYNC_COMPLETE" = true ]; then
-        echo -e "${GREEN}✅ Block sync complete!${NC}"
-      else
+      # Only show additional message if sync didn't complete
+      if [ "$SYNC_COMPLETE" != true ]; then
         echo -e "${YELLOW}⏳ Sync in progress, continuing...${NC}"
       fi
     fi
   fi
-  
   
   # Check if node started successfully
   if [ "$NODE_STARTED" = true ]; then
@@ -671,12 +630,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
     fi
   else
     # Final attempt - check if node is actually running despite detection failure
-    echo -e "${YELLOW}⚠️ Node startup detection failed, performing final check...${NC}"
     sleep 5
-    
     FINAL_STATUS=$("$MANAGER_LINK" status 2>/dev/null || echo "")
     if echo "$FINAL_STATUS" | grep -q "Node is running"; then
-      echo -e "${GREEN}✅ Node is actually running! Continuing...${NC}"
+      echo -e "${GREEN}✅ Node is running${NC}"
       NODE_STARTED=true
       
       # Quick sync status check
@@ -687,37 +644,15 @@ if [[ "$AUTO_START" = "yes" ]]; then
         SYNC_COMPLETE=false
       fi
     else
-      # Enhanced failure diagnosis
-      echo -e "${RED}❌ Failed to start node${NC}"
-      echo
-      echo -e "${YELLOW}🔍 Diagnosis:${NC}"
-      
-      # Final check
-      PGREP_RESULT=$(pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" 2>&1 || echo "")
-      
-      # More lenient final check
-      if [ -n "$PGREP_RESULT" ]; then
-        echo -e "  ${GREEN}✅ Node process is running${NC}"
+      # Final check for process
+      if pgrep -f "pchaind.*start.*--home.*$HOME/.pchain" >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Node process is running${NC}"
+        echo -e "${CYAN}⏳ Node is initializing. This may take 5-15 minutes for state sync.${NC}"
         NODE_STARTED=true
-        
-        # Try to get status but don't fail if it's not ready
-        FINAL_STATUS=$(safe_status || echo "")
-        if echo "$FINAL_STATUS" | grep -q "Fully Synced"; then
-          echo -e "  ${GREEN}✅ Node is synced${NC}"
-        else
-          echo -e "  ${CYAN}⏳ Node is initializing/syncing with the network...${NC}"
-          echo -e "  ${CYAN}This is normal and may take 5-15 minutes for state sync.${NC}"
-        fi
-        
-        echo
-        echo -e "${GREEN}✅ Installation successful!${NC}"
-        echo -e "Check status: ${BOLD}push-validator-manager status${NC}"
-        echo -e "View logs: ${BOLD}push-validator-manager logs${NC}"
-        exit 0
       else
-        echo -e "  ${RED}❌ No node process found${NC}"
-        echo -e "  ${CYAN}💡 Check logs: push-validator-manager logs${NC}"
-        echo -e "  ${CYAN}💡 Try manual start: push-validator-manager start${NC}"
+        echo -e "${RED}❌ Failed to start node${NC}"
+        echo -e "${CYAN}Check logs: push-validator-manager logs${NC}"
+        echo -e "${CYAN}Try manual start: push-validator-manager start${NC}"
         exit 1
       fi
     fi
@@ -773,26 +708,19 @@ if [[ "$AUTO_START" = "yes" ]]; then
   # Show result and prompt for registration if synced
   if [ "$SYNC_COMPLETE" = true ]; then
     echo
-      
-      # Prompt for validator registration
-      echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
-      echo -e "${BOLD}${YELLOW}🎯 Ready to become a validator!${NC}"
-      echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
-      echo
-      echo -e "${BOLD}Next steps:${NC}"
-      echo -e "1. Get test tokens from: ${GREEN}https://faucet.push.org${NC}"
-      echo -e "2. Register as validator: ${GREEN}push-validator-manager register-validator${NC}"
-      echo
-      echo -e "${YELLOW}Would you like to register as a validator now? (y/N)${NC}"
-      read -r -p "> " REGISTER_NOW
+    echo -e "${GREEN}✅ Ready to become a validator!${NC}"
+    echo
+    echo -e "${YELLOW}Register as a validator now? (y/N)${NC}"
+    read -r -p "> " REGISTER_NOW
       
       if [[ "$REGISTER_NOW" =~ ^[Yy]$ ]]; then
         echo
         "$MANAGER_LINK" register-validator
       else
         echo
-        echo -e "${CYAN}You can register later with:${NC}"
-        echo -e "${GREEN}  push-validator-manager register-validator${NC}"
+        echo -e "${BOLD}Next steps:${NC}"
+        echo -e "1. Get test tokens from: ${GREEN}https://faucet.push.org${NC}"
+        echo -e "2. Register as validator: ${GREEN}push-validator-manager register-validator${NC}"
       fi
   else
     echo -e "${YELLOW}⚠️ Sync is taking longer than expected${NC}"

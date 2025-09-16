@@ -15,8 +15,9 @@ IFS=$'\n\t'
 ORIGINAL_PATH="$PATH"
 # Absolute directory of this script before any cd
 # Use $0 as fallback when BASH_SOURCE is not available (e.g., when piped)
-if [ -n "${BASH_SOURCE:-}" ]; then
-    SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+# When script is piped, BASH_SOURCE may not exist, so we use eval to avoid parse errors
+if [ -n "${BASH_SOURCE+x}" ]; then
+    eval 'SCRIPT_SOURCE="${BASH_SOURCE[0]}"'
 else
     SCRIPT_SOURCE="$0"
 fi

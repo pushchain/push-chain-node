@@ -452,7 +452,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
       SYNC_COMPLETE=true
     else
       # Show sync progress using WebSocket monitoring if available
-      echo -e "${CYAN}📊 Syncing blocks...${NC}"
+      #echo -e "${CYAN}📊 Syncing blocks...${NC}"
       
       # Check if we have a WebSocket client
       if command -v websocat >/dev/null 2>&1; then
@@ -578,10 +578,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
       fi
       
       echo  # Add newline after progress
-      # Only show additional message if sync didn't complete
-      if [ "$SYNC_COMPLETE" != true ]; then
-        echo -e "${YELLOW}⏳ Sync in progress, continuing...${NC}"
-      fi
     fi
   fi
   

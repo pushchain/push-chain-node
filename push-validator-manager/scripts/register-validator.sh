@@ -37,7 +37,7 @@ CHAIN_ID="push_42101-1"
 DENOM="upc"
 KEYRING="test"
 KEYALGO="eth_secp256k1"
-STAKE_AMOUNT="2000000000000000000"  # 2 * 10^18
+STAKE_AMOUNT="1500000000000000000"  # 1.5 * 10^18
 
 # === Resolve Paths ===
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,7 +54,6 @@ HOME_DIR="$HOME/.pchain"
 BINARY="$PCHAIND"
 
 # Check sync status FIRST before asking for any input
-print_status "Checking node sync status..."
 SYNC_STATUS=$("$BINARY" status --node tcp://localhost:26657 2>/dev/null | jq -r '.sync_info.catching_up // "true"' 2>/dev/null || echo "true")
 
 # Get block heights for more accurate sync assessment
@@ -83,8 +82,6 @@ else
     exit 1
 fi
 
-echo -e "${BOLD}=== Validator Registration ===${NC}"
-
 # Get moniker
 read -p "Enter validator name (moniker): " MONIKER
 MONIKER=${MONIKER:-push-validator}
@@ -108,15 +105,18 @@ if [ -n "$PUBKEY_BASE64" ]; then
 fi
 
 # Check if key already exists
-if run_silent "$BINARY" keys show "$KEY_NAME" --keyring-backend "$KEYRING" --home "$HOME_DIR" >/dev/null; then
+if "$BINARY" keys show "$KEY_NAME" --keyring-backend "$KEYRING" --home "$HOME_DIR" >/dev/null 2>&1; then
     print_success "✅ Key '$KEY_NAME' exists"
     VALIDATOR_ADDR=$(run_silent "$BINARY" keys show "$KEY_NAME" -a --keyring-backend "$KEYRING" --home "$HOME_DIR")
 else
     print_status "Creating validator key..."
-    if ! run_silent "$BINARY" keys add "$KEY_NAME" --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$HOME_DIR"; then
+    echo  # Add spacing before key creation
+    # Suppress Go warnings but keep interactive output
+    if ! "$BINARY" keys add "$KEY_NAME" --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$HOME_DIR" 2> >(grep -v "WARNING:(ast)" >&2); then
         print_error "❌ Key creation failed"
         exit 1
     fi
+    echo  # Add spacing after key creation
     VALIDATOR_ADDR=$(run_silent "$BINARY" keys show "$KEY_NAME" -a --keyring-backend "$KEYRING" --home "$HOME_DIR")
 fi
 
@@ -130,41 +130,42 @@ BALANCE=$("$BINARY" query bank balances "$VALIDATOR_ADDR" --node "$GENESIS_TCP_R
 # Convert to PC for display
 if [ "$BALANCE" != "0" ] && [ -n "$BALANCE" ]; then
     PC_AMOUNT=$(awk -v bal="$BALANCE" 'BEGIN {printf "%.6f", bal/1000000000000000000}')
-    print_success "Balance: $PC_AMOUNT PC"
 else
     PC_AMOUNT="0.000000"
-    print_warning "Balance: 0 PC"
 fi
 
-# Check if balance is sufficient (need balance for 2 PC stake + gas fees)
-REQUIRED_FOR_STAKE_AND_GAS="2100000000000000000"  # 2.1 PC (2 PC stake + 0.1 PC for gas buffer)
+# Check if balance is sufficient (need balance for 1.5 PC stake + gas fees)
+REQUIRED_FOR_STAKE_AND_GAS="1600000000000000000"  # 1.6 PC (1.5 PC stake + 0.1 PC for gas buffer)
 
 if [ "$BALANCE" -ge "$REQUIRED_FOR_STAKE_AND_GAS" ] 2>/dev/null; then
     print_success "✅ Sufficient balance"
+    echo  # Add spacing
 else
     # Current balance is less than ideal, but might still work
-    STAKE_AMOUNT_NUM="2000000000000000000"
+    STAKE_AMOUNT_NUM="1500000000000000000"
     if [ "$BALANCE" -ge "$STAKE_AMOUNT_NUM" ] 2>/dev/null; then
         print_warning "⚠️  Balance tight but proceeding"
+        echo  # Add spacing
     else
         # Show funding information
-        print_warning "Need 2.1 PC (current: $PC_AMOUNT PC)"
-        print_status "Fund via faucet: https://faucet.push.org"
-        print_status "EVM address: $EVM_ADDR"
-        read -p "Press ENTER once funded..."
+        echo  # Add spacing before funding section
+        print_warning "Balance: $PC_AMOUNT PC (need 1.6 PC)"
+        print_status "Faucet: https://faucet.push.org | EVM: $EVM_ADDR"
+        read -p "Press ENTER after funding..."
         
         # Re-check balance after funding
         BALANCE=$("$BINARY" query bank balances "$VALIDATOR_ADDR" --node "$GENESIS_TCP_RPC" -o json 2>/dev/null | \
             jq -r '.balances[] | select(.denom=="upc") | .amount // "0"' 2>/dev/null || echo "0")
 
         if [ "$BALANCE" = "0" ] || [ -z "$BALANCE" ]; then
-            print_error "❌ Still no balance. Fund account: $EVM_ADDR"
+            print_error "❌ Still no balance. Fund EVM: $EVM_ADDR"
             exit 1
         fi
 
         # Convert to PC for display
         PC_AMOUNT=$(awk -v bal="$BALANCE" 'BEGIN {printf "%.6f", bal/1000000000000000000}')
-        print_success "Updated balance: $PC_AMOUNT PC"
+        echo  # Add spacing
+        print_success "Balance: $PC_AMOUNT PC"
     fi
 fi
 
@@ -280,10 +281,13 @@ fi
 if [ $TX_EXIT_CODE -eq 0 ]; then
     # Check if transaction was successful (look for txhash)
     if echo "$TX_OUTPUT" | grep -q "txhash"; then
+        echo  # Add spacing before success
         print_success "✅ Validator '$MONIKER' registered successfully!"
+        echo
         TXHASH=$(echo "$TX_OUTPUT" | awk -F'txhash: ' '/txhash/{print $2; exit}')
         print_status "TxHash: $TXHASH"
-        print_status "Stake: 2 PC | Commission: 10%"
+        print_status "Stake: 1.5 PC | Commission: 10%"
+        echo  # Add spacing after output
         [ "${DEBUG_MODE}" = "1" ] && echo "$TX_OUTPUT"
     else
         print_error "❌ Transaction status unclear"
@@ -294,8 +298,7 @@ else
     if echo "$TX_OUTPUT" | grep -q "validator already exist"; then
         print_error "❌ Validator key already registered"
     elif echo "$TX_OUTPUT" | grep -q "insufficient funds"; then
-        print_error "❌ Insufficient funds - get tokens from faucet: https://faucet.push.org"
-        print_status "EVM address: $EVM_ADDR"
+        print_error "❌ Insufficient funds. Faucet: https://faucet.push.org | EVM: $EVM_ADDR"
     elif echo "$TX_OUTPUT" | grep -q "account sequence mismatch"; then
         print_error "❌ Sequence error - try again in a few seconds"
     else

@@ -1224,8 +1224,10 @@ monitor_sync() {
 
 # Register validator
 register_validator() {
-    echo  # Add blank line for spacing
-    print_status "🚀 Starting validator registration..."
+    # Show minimal header instead of full banner
+    echo
+    echo -e "${BOLD}${GREEN}Push Validator Manager - Registration${NC}"
+    echo -e "${GREEN}══════════════════════════════════════${NC}"
     
     if [ -f "$SCRIPT_DIR/scripts/register-validator.sh" ]; then
         bash "$SCRIPT_DIR/scripts/register-validator.sh"
@@ -2041,7 +2043,6 @@ case "${1:-help}" in
         ;;
         
     register-validator|setup)
-        show_banner
         register_validator
         ;;
         

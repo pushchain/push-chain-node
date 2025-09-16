@@ -223,8 +223,14 @@ http_get_quick() {
     curl -fsS --connect-timeout 1 --max-time "$max_time" "$url" 2>/dev/null || echo ""
 }
 
-# ASCII Art Banner
+# ASCII Art Banner - simplified version
 show_banner() {
+    echo -e "${BOLD}${GREEN}Push Validator Manager${NC}"
+    echo
+}
+
+# Full banner for installation/setup
+show_full_banner() {
     echo -e "${BOLD}${GREEN}"
     echo "    ____             __       ________          _      "
     echo "   / __ \\__  _______/ /_     / ____/ /_  ____ _(_)___  "
@@ -301,12 +307,9 @@ is_node_running() {
 
 # Start node in background
 start_node() {
-    echo  # Add blank line for spacing
-    print_status "🚀 Starting Push Chain node..."
-    
     # Ensure logs directory exists
     mkdir -p "$HOME_DIR/logs"
-    
+
     # If already running, do not disturb the running process
     if is_node_running; then
         if [ -f "$PCHAIND_PID_FILE" ]; then
@@ -315,9 +318,10 @@ start_node() {
         else
             print_success "✅ Node already running"
         fi
-        print_status "Use: ${BOLD}push-validator-manager sync${NC} to monitor or ${BOLD}push-validator-manager status${NC}"
         return 0
     fi
+
+    print_status "🚀 Starting Push Chain node..."
     
     # Comprehensive cleanup of port conflicts and stale processes (silent)
     
@@ -546,8 +550,8 @@ STATEEOF
         return 1
     fi
     
-    print_success "✅ Node started successfully"
-    
+    print_success "✅ Node started (PID: $PID)"
+
     # Show sync status (safe - won't kill node on Ctrl+C)
     show_sync_after_start
 }
@@ -593,9 +597,6 @@ show_sync_after_start() {
 
 # Stop node
 stop_node() {
-    echo  # Add blank line for spacing
-    print_status "🛑 Stopping Push Chain node..."
-    
     if is_node_running; then
         PID=$(cat "$PCHAIND_PID_FILE")
         kill "$PID" 2>/dev/null || true
@@ -610,128 +611,134 @@ stop_node() {
             kill -9 "$PID" 2>/dev/null || true
         fi
         rm -f "$PCHAIND_PID_FILE" 2>/dev/null || true
-        print_success "✅ Node stop signal sent (PID: $PID)"
         # Extra safety: ensure no stray pchaind still listens on known ports
         kill_pchaind_on_port 26657
         kill_pchaind_on_port 26656
         # Brief wait and verify
         sleep 1
         if lsof -tiTCP:26657 -sTCP:LISTEN 2>/dev/null | xargs -I{} ps -o comm= -p {} 2>/dev/null | grep -q "pchaind"; then
-            print_warning "⚠️ pchaind still detected on 26657; forcing termination"
             kill_pchaind_on_port 26657
         fi
         if lsof -tiTCP:26656 -sTCP:LISTEN 2>/dev/null | xargs -I{} ps -o comm= -p {} 2>/dev/null | grep -q "pchaind"; then
-            print_warning "⚠️ pchaind still detected on 26656; forcing termination"
             kill_pchaind_on_port 26656
         fi
-        print_success "✅ Node stopped"
+        print_success "✅ Node stopped (PID: $PID)"
     else
         print_warning "⚠️ Node is not running"
     fi
 }
 
-# Show node status
-show_status() {
-    echo  # Add blank line for spacing
-    print_header "📊 Push Chain Node Status"
-    echo -e "${GREEN}══════════════════════════════════════════${NC}"
-    
-    echo -e "${BOLD}${BLUE}Runtime Mode: ${GREEN}Native Execution${NC}"
-    echo -e "  ${BOLD}Binary:${NC} $PCHAIND"
-    # Get version safely with better error handling
-    if [ -f "$PCHAIND" ]; then
-        VERSION=$("$PCHAIND" version 2>&1 | grep -v "WARNING" | head -n1 || echo "v1.0.1-native")
-        # Fallback if version command doesn't work
-        if [ -z "$VERSION" ] || [ "$VERSION" = "" ]; then
-            VERSION="v1.0.1-native"
-        fi
-    else
-        VERSION="Binary not found"
-    fi
-    echo -e "  ${BOLD}Version:${NC} $VERSION"
-    echo
-    
-    if [ -f "$HOME_DIR/config/config.toml" ]; then
-        print_success "✅ Node initialized"
-        
-        if is_node_running; then
-            if [ -f "$PCHAIND_PID_FILE" ]; then
-                PID=$(cat "$PCHAIND_PID_FILE" 2>/dev/null)
-                print_success "✅ Node is running (PID: $PID)"
-            else
-                print_success "✅ Node is running"
-            fi
-            
-            # Get detailed status
-            if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-                NODE_STATUS=$(http_get_quick http://localhost:26657/status 2)
-                
-                if [ -n "$NODE_STATUS" ]; then
-                    echo
-                    print_header "Node Information:"
-                    echo -e "${GREEN}─────────────────────────────────────────${NC}"
-                    
-                    NODE_ID=$(echo "$NODE_STATUS" | jq -r '.result.node_info.id // "unknown"' 2>/dev/null)
-                    NETWORK=$(echo "$NODE_STATUS" | jq -r '.result.node_info.network // "unknown"' 2>/dev/null)  
-                    MONIKER=$(echo "$NODE_STATUS" | jq -r '.result.node_info.moniker // "unknown"' 2>/dev/null)
-                    
-                    echo -e "  ${BOLD}Node ID:${NC} ${MAGENTA}$NODE_ID${NC}"
-                    echo -e "  ${BOLD}Network:${NC} ${GREEN}$NETWORK${NC}"
-                    echo -e "  ${BOLD}Moniker:${NC} ${BOLD}${WHITE}$MONIKER${NC}"
-                    
-                    echo
-                    print_header "Sync Status:"
-                    echo -e "${GREEN}─────────────────────────────────────────${NC}"
-                    
-                    LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null)
-                    LATEST_TIME=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_time // "unknown"' 2>/dev/null)
-                    CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null)
-                    
-                    # Fetch remote network height to determine actual sync status
-                    REMOTE_HEIGHT=0
-                    REMOTE_STATUS=$(http_get_quick "$GENESIS_RPC/status" 3)
-                    if [ -n "$REMOTE_STATUS" ]; then
-                        REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
-                    fi
-                    
-                    # Normalize to integers
-                    [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || LOCAL_HEIGHT=0
-                    [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]] || REMOTE_HEIGHT=0
-                    
-                    # Display block height with network comparison if available
-                    if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                        echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$LOCAL_HEIGHT${NC} / ${MAGENTA}$REMOTE_HEIGHT${NC} (network)"
-                    else
-                        echo -e "  ${BOLD}Block Height:${NC} ${MAGENTA}$LOCAL_HEIGHT${NC}"
-                    fi
-                    echo -e "  ${BOLD}Block Time:${NC} $LATEST_TIME"
-                    
-                    # Determine actual sync status based on catching_up flag only
-                    if [ "$CATCHING_UP" = "false" ]; then
-                        echo -e "  ${BOLD}Status:${NC} ${GREEN}✅ Fully Synced${NC}"
-                    else
-                        # Node is still syncing
-                        if [ "$REMOTE_HEIGHT" -gt 0 ]; then
-                            HEIGHT_DIFF=$((REMOTE_HEIGHT - LOCAL_HEIGHT))
-                            PROGRESS_PERCENT=$(echo "scale=2; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0")
-                            echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC} (${GREEN}${PROGRESS_PERCENT}%${NC} - ${HEIGHT_DIFF} blocks behind)"
-                        else
-                            echo -e "  ${BOLD}Status:${NC} ${YELLOW}⏳ Syncing...${NC}"
-                        fi
-                    fi
-                else
-                    print_warning "⚠️ Node is starting up..."
-                fi
-            else
-                print_warning "⚠️ curl or jq not available - install for detailed status"
-            fi
+# Simple start for user commands - just starts and shows logs
+simple_start() {
+    # Ensure logs directory exists
+    mkdir -p "$HOME_DIR/logs"
+    touch "$HOME_DIR/logs/pchaind.log"
+
+    # Check if already running
+    if is_node_running; then
+        if [ -f "$PCHAIND_PID_FILE" ]; then
+            PID=$(cat "$PCHAIND_PID_FILE" 2>/dev/null)
+            echo "Node already running (PID: $PID)"
         else
-            print_error "❌ Node is not running"
-            echo "Use: push-validator-manager start"
+            echo "Node already running"
+        fi
+        echo "Showing logs (Ctrl+C to exit)..."
+        tail -f "$HOME_DIR/logs/pchaind.log"
+        return 0
+    fi
+
+    # Check if node is configured
+    if [ ! -f "$HOME_DIR/config/config.toml" ] || [ ! -f "$HOME_DIR/config/genesis.json" ]; then
+        echo "Node not configured. Please run installer first."
+        return 1
+    fi
+
+    # Start the node using daemon launcher for complete detachment
+    echo "Starting node..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    DAEMON_LAUNCHER="$SCRIPT_DIR/daemon-launcher.sh"
+
+    if [[ -f "$DAEMON_LAUNCHER" ]]; then
+        # Use the daemon launcher for complete detachment
+        "$DAEMON_LAUNCHER" "$PCHAIND" "$HOME_DIR" "$PCHAIND_PID_FILE" "$HOME_DIR/logs/pchaind.log"
+
+        # Wait for PID file to be created
+        local wait_count=0
+        while [[ ! -f "$PCHAIND_PID_FILE" ]] && [[ $wait_count -lt 20 ]]; do
+            sleep 0.1
+            ((wait_count++))
+        done
+
+        if [[ -f "$PCHAIND_PID_FILE" ]]; then
+            PID=$(cat "$PCHAIND_PID_FILE")
+        else
+            echo "Failed to start node"
+            return 1
         fi
     else
-        print_error "❌ Node not initialized"
+        # Fallback if launcher not found
+        nohup "$PCHAIND" start --home "$HOME_DIR" > "$HOME_DIR/logs/pchaind.log" 2>&1 < /dev/null &
+        PID=$!
+        echo $PID > "$PCHAIND_PID_FILE"
+    fi
+
+    # Verify it started
+    sleep 2
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "Node started (PID: $PID)"
+        echo "Showing logs (Ctrl+C to exit)..."
+        tail -f "$HOME_DIR/logs/pchaind.log"
+    else
+        echo "Failed to start node"
+        if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
+            echo "Last log entries:"
+            tail -20 "$HOME_DIR/logs/pchaind.log"
+        fi
+        rm -f "$PCHAIND_PID_FILE"
+        return 1
+    fi
+}
+
+# Show node status - simplified output
+show_status() {
+    if ! is_node_running; then
+        echo "Node is not running"
         echo "Use: push-validator-manager start"
+        return 1
+    fi
+
+    # Get PID if available
+    if [ -f "$PCHAIND_PID_FILE" ]; then
+        PID=$(cat "$PCHAIND_PID_FILE" 2>/dev/null)
+        echo "Node running (PID: $PID)"
+    else
+        echo "Node running"
+    fi
+
+    # Get sync status
+    if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+        NODE_STATUS=$(curl -s http://localhost:26657/status 2>/dev/null)
+        if [ -n "$NODE_STATUS" ]; then
+            LOCAL_HEIGHT=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null)
+            CATCHING_UP=$(echo "$NODE_STATUS" | jq -r '.result.sync_info.catching_up' 2>/dev/null)
+
+            # Get network height
+            REMOTE_STATUS=$(curl -s --max-time 3 "$GENESIS_RPC/status" 2>/dev/null)
+            REMOTE_HEIGHT=$(echo "$REMOTE_STATUS" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+
+            # Clean output
+            echo "Height: $LOCAL_HEIGHT/$REMOTE_HEIGHT"
+            if [ "$CATCHING_UP" = "false" ]; then
+                echo "Status: Synced"
+            else
+                if [ "$REMOTE_HEIGHT" -gt 0 ] && [ "$LOCAL_HEIGHT" -gt 0 ]; then
+                    PROGRESS=$(echo "scale=1; 100 * $LOCAL_HEIGHT / $REMOTE_HEIGHT" | bc 2>/dev/null || echo "0")
+                    echo "Status: Syncing ($PROGRESS%)"
+                else
+                    echo "Status: Syncing"
+                fi
+            fi
+        fi
     fi
 }
 
@@ -992,17 +999,16 @@ check_sync_stall() {
 
 # Show logs
 show_logs() {
-    print_status "📜 Showing Push Chain logs..."
-    
-    if [ -f "$HOME_DIR/logs/pchaind.log" ]; then
+    # Ensure logs directory and file exist
+    mkdir -p "$HOME_DIR/logs"
+    touch "$HOME_DIR/logs/pchaind.log"
+
+    if is_node_running; then
+        print_status "📜 Showing Push Chain logs..."
         tail -f "$HOME_DIR/logs/pchaind.log"
     else
-        print_warning "⚠️ No log file found"
-        if is_node_running; then
-            print_status "Node is running but logs not found at expected location"
-        else
-            print_status "Start the node first: push-validator-manager start"
-        fi
+        print_warning "⚠️ Node is not running"
+        print_status "Start the node first: push-validator-manager start"
     fi
 }
 
@@ -2016,18 +2022,17 @@ monitor_sync_ws() {
 
 case "${1:-help}" in
     start|run)
-        show_banner
-        start_node
+        simple_start
         ;;
-        
+
     stop)
         stop_node
         ;;
-        
+
     restart)
         stop_node
         sleep 2
-        start_node
+        simple_start
         ;;
         
     status)
@@ -2122,7 +2127,7 @@ case "${1:-help}" in
         ;;
         
     recover|snapshot-recover)
-        show_banner
+        show_full_banner
         print_header "🔄 Manual Snapshot Recovery"
         echo
         print_status "This will recover the node using state sync from snapshots"

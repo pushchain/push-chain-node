@@ -15,11 +15,9 @@ var (
 	// ParamsName is the name of the params collection.
 	ParamsName = "params"
 
-	// ChainConfigsKey saves the current module chainConfigs collection prefix
-	ChainConfigsKey = collections.NewPrefix(1)
-
-	// ChainConfigsName is the name of the chainConfigs collection.
-	ChainConfigsName = "chain_configs"
+	// Old storage in V1
+	ChainConfigsKey  = collections.NewPrefix(1) // ChainConfigsKey saves the current module chainConfigs collection prefix
+	ChainConfigsName = "chain_configs"          // ChainConfigsName is the name of the chainConfigs collection.
 
 	InboundsKey  = collections.NewPrefix(2)
 	InboundsName = "inbound_synthetics"

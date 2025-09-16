@@ -19,7 +19,8 @@ import (
 type Keeper struct {
 	cdc codec.BinaryCodec
 
-	logger log.Logger
+	logger        log.Logger
+	schemaBuilder *collections.SchemaBuilder
 
 	// state management
 	storeService      storetypes.KVStoreService
@@ -63,10 +64,11 @@ func NewKeeper(
 	}
 
 	k := Keeper{
-		cdc:          cdc,
-		logger:       logger,
-		storeService: storeService,
-		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		cdc:           cdc,
+		logger:        logger,
+		schemaBuilder: sb,
+		storeService:  storeService,
+		Params:        collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
 		authority:         authority,
 		evmKeeper:         evmKeeper,
@@ -132,4 +134,8 @@ func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string
 	copy(ethSenderUEAddr[:], ueModuleAddr.Bytes())
 
 	return ethSenderUEAddr, ethSenderUEAddr.Hex()
+}
+
+func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
+	return k.schemaBuilder
 }

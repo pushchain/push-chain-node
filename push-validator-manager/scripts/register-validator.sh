@@ -151,7 +151,12 @@ else
         echo  # Add spacing before funding section
         print_warning "Balance: $PC_AMOUNT PC (need 1.6 PC)"
         print_status "Faucet: https://faucet.push.org | EVM: $EVM_ADDR"
-        read -p "Press ENTER after funding..."
+        # Read from /dev/tty to handle both normal and piped execution
+        if [ -t 0 ]; then
+            read -p "Press ENTER after funding..."
+        else
+            read -p "Press ENTER after funding..." </dev/tty
+        fi
         
         # Re-check balance after funding
         BALANCE=$("$BINARY" query bank balances "$VALIDATOR_ADDR" --node "$GENESIS_TCP_RPC" -o json 2>/dev/null | \

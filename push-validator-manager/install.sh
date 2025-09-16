@@ -14,7 +14,9 @@ set -euo pipefail
 IFS=$'\n\t'
 ORIGINAL_PATH="$PATH"
 # Absolute directory of this script before any cd
-SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
+# Use $0 as fallback when BASH_SOURCE is not available (e.g., when piped)
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
+SELF_DIR="$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" >/dev/null 2>&1 && pwd -P || echo "$(pwd)")"
 
 # Colors for output
 CYAN='\033[0;36m'

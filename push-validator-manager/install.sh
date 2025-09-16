@@ -746,25 +746,33 @@ if [[ "$AUTO_START" = "yes" ]]; then
     echo
     echo -e "${GREEN}✅ Ready to become a validator!${NC}"
     echo
+    # Interactive prompt for validator registration
     echo -e "${YELLOW}Register as a validator now? (y/N)${NC}"
+
     # Read from /dev/tty to get user input when script is piped
+    # Also handle non-interactive environments gracefully
+    REGISTER_NOW=""
     if [ -t 0 ]; then
       # Normal execution (not piped)
       read -r -p "> " REGISTER_NOW
+    elif [ -e /dev/tty ]; then
+      # Piped execution - read from terminal if available
+      read -r -p "> " REGISTER_NOW </dev/tty || REGISTER_NOW=""
     else
-      # Piped execution - read from terminal
-      read -r -p "> " REGISTER_NOW </dev/tty
+      # Non-interactive environment
+      echo "Non-interactive environment detected. Skipping prompt."
+      REGISTER_NOW=""
     fi
 
-      if [[ "$REGISTER_NOW" =~ ^[Yy]$ ]]; then
-        echo
-        "$MANAGER_LINK" register-validator
-      else
-        echo
-        echo -e "${BOLD}Next steps:${NC}"
-        echo -e "1. Get test tokens from: ${GREEN}https://faucet.push.org${NC}"
-        echo -e "2. Register as validator: ${GREEN}push-validator-manager register-validator${NC}"
-      fi
+    if [[ "$REGISTER_NOW" =~ ^[Yy]$ ]]; then
+      echo
+      "$MANAGER_LINK" register-validator
+    else
+      echo
+      echo -e "${BOLD}Next steps:${NC}"
+      echo -e "1. Get test tokens from: ${GREEN}https://faucet.push.org${NC}"
+      echo -e "2. Register as validator: ${GREEN}push-validator-manager register-validator${NC}"
+    fi
   else
     echo -e "${YELLOW}⚠️ Sync is taking longer than expected${NC}"
     echo "Monitor sync status with: push-validator-manager sync"

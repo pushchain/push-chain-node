@@ -747,8 +747,15 @@ if [[ "$AUTO_START" = "yes" ]]; then
     echo -e "${GREEN}✅ Ready to become a validator!${NC}"
     echo
     echo -e "${YELLOW}Register as a validator now? (y/N)${NC}"
-    read -r -p "> " REGISTER_NOW
-      
+    # Read from /dev/tty to get user input when script is piped
+    if [ -t 0 ]; then
+      # Normal execution (not piped)
+      read -r -p "> " REGISTER_NOW
+    else
+      # Piped execution - read from terminal
+      read -r -p "> " REGISTER_NOW </dev/tty
+    fi
+
       if [[ "$REGISTER_NOW" =~ ^[Yy]$ ]]; then
         echo
         "$MANAGER_LINK" register-validator

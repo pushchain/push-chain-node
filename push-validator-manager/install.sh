@@ -467,12 +467,20 @@ if [[ "$AUTO_START" = "yes" ]]; then
         
         # Start WebSocket monitoring in a subshell to prevent pipeline failures from exiting script
         (
-          # Start background process to keep stdin open
+          # Start background process to keep stdin open with proper closure
           (
+            # Subscribe to block headers
             echo '{"jsonrpc":"2.0","method":"subscribe","params":{"query":"tm.event='\''NewBlockHeader'\''"},"id":1}'
-            # Keep stdin open until pipe signals stop
-            while [ ! -f "${PIPE_FILE}.stop" ]; do sleep 1; done
-          ) | websocat -t --ping-interval 5 ws://localhost:26657/websocket 2>/dev/null | \
+
+            # Keep connection alive and monitor for stop signal
+            while [ ! -f "${PIPE_FILE}.stop" ]; do
+              sleep 5
+            done
+
+            # Send proper unsubscribe before closing
+            echo '{"jsonrpc":"2.0","method":"unsubscribe","params":{"query":"tm.event='\''NewBlockHeader'\''"},"id":2}'
+            sleep 1  # Allow time for unsubscribe to be processed
+          ) | websocat -t --ping-interval 30 --ping-timeout 60 ws://localhost:26657/websocket 2>/dev/null | \
           while IFS= read -r line; do
           # Extract height from event
           height=$(echo "$line" | jq -r '.result.data.value.header.height // empty' 2>/dev/null)
@@ -514,7 +522,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
               SYNC_COMPLETE=true
               # Signal background process to stop before breaking
               touch "${PIPE_FILE}.stop" 2>/dev/null || true
-              sleep 0.5  # Give background process time to exit cleanly
+              sleep 2  # Give time for unsubscribe message to be sent
               break
             else
               printf "\r${YELLOW}⏳ SYNCING${NC} [${BAR}] ${GREEN}%s%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K" "$PROGRESS_PERCENT" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
@@ -528,7 +536,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
               echo -e "${YELLOW}⚠️ Sync monitoring timeout${NC}"
               # Signal background process to stop before breaking
               touch "${PIPE_FILE}.stop" 2>/dev/null || true
-              sleep 0.5  # Give background process time to exit cleanly
+              sleep 2  # Give time for unsubscribe message to be sent
               break
             fi
           fi
@@ -538,11 +546,14 @@ if [[ "$AUTO_START" = "yes" ]]; then
         # Clean shutdown: signal the background process to stop and cleanup
         (
           touch "${PIPE_FILE}.stop" 2>/dev/null || true
-          sleep 0.5  # Give background process time to exit cleanly
-          
-          # Kill the websocat background process if still running
-          pkill -f "websocat.*ws://localhost:26657/websocket" 2>/dev/null || true
-          
+          sleep 2  # Give more time for unsubscribe message to be sent and processed
+
+          # Only kill websocat if still running after graceful shutdown attempt
+          if pgrep -f "websocat.*ws://localhost:26657/websocket" >/dev/null 2>&1; then
+            sleep 1  # Extra grace period
+            pkill -f "websocat.*ws://localhost:26657/websocket" 2>/dev/null || true
+          fi
+
           # Clean up pipe files
           rm -f "$PIPE_FILE" "${PIPE_FILE}.stop" 2>/dev/null || true
         ) || true

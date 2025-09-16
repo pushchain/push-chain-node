@@ -1369,7 +1369,7 @@ list_validators() {
                  elif .status == "BOND_STATUS_UNBONDING" then "UNBONDING"
                  elif .status == "BOND_STATUS_UNBONDED" then "UNBONDED"
                  else .status end) + "|" +
-                ((.tokens | tonumber / 1000000000000000000) | tostring | split(".")[0]) + "|" +
+                ((.tokens | tonumber / 1000000000000000000 * 10 | floor / 10) | tostring) + "|" +
                 ((.commission.commission_rates.rate | tonumber * 100) | tostring | split(".")[0]) + "%"
             ' 2>/dev/null | while IFS='|' read -r moniker status tokens commission; do
                 # Pre-pad fields WITHOUT color so width counts are correct

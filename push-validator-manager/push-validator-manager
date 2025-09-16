@@ -1416,6 +1416,7 @@ show_help() {
     echo
     echo -e "${BOLD}${CYAN}CORE COMMANDS${NC}"
     printf "  ${BOLD}%-18s${NC}%s\n" "start" "Start the Push node"
+    printf "  ${BOLD}%-18s${NC}%s\n" "init-and-start" "Initialize and start node (fresh setup)"
     printf "  ${BOLD}%-18s${NC}%s\n" "stop" "Stop the Push node"
     printf "  ${BOLD}%-18s${NC}%s\n" "status" "Check node status"
     printf "  ${BOLD}%-18s${NC}%s\n" "sync" "Monitor sync progress"
@@ -2023,6 +2024,19 @@ monitor_sync_ws() {
 case "${1:-help}" in
     start|run)
         simple_start
+        ;;
+
+    init-and-start)
+        # Full initialization and start - used by installer after reset
+        show_banner
+        print_header "🚀 Initializing and Starting Node"
+        start_node
+        if [ $? -eq 0 ]; then
+            print_success "✅ Node initialized and started successfully"
+            # Monitor initial sync
+            sleep 2
+            monitor_sync_auto
+        fi
         ;;
 
     stop)

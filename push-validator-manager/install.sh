@@ -362,16 +362,17 @@ mv "$tmp" "$ENV_FILE"
 # Run auto-start before cleanup to ensure wrapper script is available
 if [[ "$AUTO_START" = "yes" ]]; then
   echo -e "${CYAN}Starting Push Chain node...${NC}"
-  
+
   # Start the node and monitor startup
   NODE_STARTED=false
   STATE_SYNC_DETECTED=false
   SYNC_COMPLETE=false
-  
+
   # Start the node via the manager in a fully detached way to avoid piping signals
   # The manager itself backgrounds the daemon; we detach the manager invocation as well
+  # Use init-and-start for fresh installations to ensure proper initialization
   export SKIP_SYNC_MONITOR=true
-  nohup "$MANAGER_LINK" start >/dev/null 2>&1 < /dev/null &
+  nohup "$MANAGER_LINK" init-and-start >/dev/null 2>&1 < /dev/null &
   
   # Check if node is running with multiple attempts - allow more time for state sync startup
   for i in {1..30}; do  # 30 attempts (60 seconds total)
@@ -465,6 +466,10 @@ if [[ "$AUTO_START" = "yes" ]]; then
         PIPE_FILE="/tmp/installer_ws_$$"
         mkfifo "$PIPE_FILE" 2>/dev/null || true
         
+        # Create a file to communicate sync status from subshell
+        SYNC_STATUS_FILE="/tmp/installer_sync_status_$$"
+        rm -f "$SYNC_STATUS_FILE" 2>/dev/null || true
+
         # Start WebSocket monitoring in a subshell to prevent pipeline failures from exiting script
         (
           # Start background process to keep stdin open with proper closure
@@ -520,6 +525,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
             if [ "$CATCHING_UP" = "false" ]; then
               printf "\r${GREEN}✅ SYNCED${NC} [${BAR}] ${GREEN}100%%${NC} | ${MAGENTA}%s${NC}/${MAGENTA}%s${NC} blocks\033[K\n" "$LOCAL_HEIGHT" "$REMOTE_HEIGHT"
               SYNC_COMPLETE=true
+              # Communicate sync status to parent shell
+              echo "true" > "$SYNC_STATUS_FILE" 2>/dev/null || true
               # Signal background process to stop before breaking
               touch "${PIPE_FILE}.stop" 2>/dev/null || true
               sleep 2  # Give time for unsubscribe message to be sent
@@ -543,6 +550,15 @@ if [[ "$AUTO_START" = "yes" ]]; then
           done
         ) || true  # Ignore pipeline failures when breaking from loop
         
+        # Check if sync completed in the subshell
+        if [ -f "$SYNC_STATUS_FILE" ]; then
+          SYNC_STATUS_FROM_FILE=$(cat "$SYNC_STATUS_FILE" 2>/dev/null || echo "false")
+          if [ "$SYNC_STATUS_FROM_FILE" = "true" ]; then
+            SYNC_COMPLETE=true
+          fi
+          rm -f "$SYNC_STATUS_FILE" 2>/dev/null || true
+        fi
+
         # Clean shutdown: signal the background process to stop and cleanup
         (
           touch "${PIPE_FILE}.stop" 2>/dev/null || true
@@ -601,11 +617,15 @@ if [[ "$AUTO_START" = "yes" ]]; then
     if [ ! -f "$LOG_FILE" ]; then
       echo -e "${YELLOW}⚠️ Logs not found at ${BOLD}$LOG_FILE${NC}"
       echo -e "${CYAN}🔧 Restarting node to enable file logging...${NC}"
+      # Save sync status before restart
+      SAVED_SYNC_STATUS="$SYNC_COMPLETE"
       # Safe restart to attach stdout/stderr to log file via manager
       "$MANAGER_LINK" stop >/dev/null 2>&1 || true
       # Small delay to ensure clean shutdown
       sleep 1
-      "$MANAGER_LINK" start >/dev/null 2>&1 || true
+      "$MANAGER_LINK" init-and-start >/dev/null 2>&1 || true
+      # Restore sync status after restart
+      SYNC_COMPLETE="$SAVED_SYNC_STATUS"
       # Verify log file appears (best-effort)
       for _ in {1..10}; do
         [ -f "$LOG_FILE" ] && break
@@ -618,22 +638,24 @@ if [[ "$AUTO_START" = "yes" ]]; then
       fi
     fi
     # Check if it's already synced - retry a few times in case node is still starting up
-    # Only reset SYNC_COMPLETE if not already set by state sync monitoring
+    # Only check if not already determined to be synced
     if [ "$SYNC_COMPLETE" != true ]; then
-      SYNC_COMPLETE=false
+      for i in {1..3}; do
+        SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
+        if echo "$SYNC_STATUS" | grep -q "Catching Up: false" || echo "$SYNC_STATUS" | grep -q "Fully Synced" || echo "$SYNC_STATUS" | grep -q "✅.*SYNCED"; then
+          SYNC_COMPLETE=true
+          break
+        fi
+        [ $i -lt 3 ] && sleep 3
+      done
     fi
-    for i in {1..3}; do
-      SYNC_STATUS=$("$MANAGER_LINK" status 2>/dev/null | grep -E "Status:|Catching Up:" || true)
-      if echo "$SYNC_STATUS" | grep -q "Catching Up: false" || echo "$SYNC_STATUS" | grep -q "Fully Synced" || echo "$SYNC_STATUS" | grep -q "✅.*SYNCED"; then
-        SYNC_COMPLETE=true
-        break
-      fi
-      [ $i -lt 3 ] && sleep 3
-    done
     
-    # Only show waiting message if state sync wasn't detected
+    # Only show waiting message if state sync wasn't detected and not already synced
     if [ "$SYNC_COMPLETE" = false ] && [ "$STATE_SYNC_DETECTED" != "true" ]; then
       echo -e "${CYAN}⏳ Node is synchronizing with the network...${NC}"
+    elif [ "$SYNC_COMPLETE" = true ]; then
+      # Already synced, no need to wait
+      echo -e "${GREEN}✅ Node is fully synced!${NC}"
     fi
   else
     # Final attempt - check if node is actually running despite detection failure
@@ -666,14 +688,14 @@ if [[ "$AUTO_START" = "yes" ]]; then
   fi
   
   # Only monitor sync if not already complete
-  if [ "$SYNC_COMPLETE" = false ]; then
+  if [ "$SYNC_COMPLETE" != true ]; then
     # Wait longer for node to stabilize
     sleep 2
-    
+
     # Check sync status in a loop
     MAX_WAIT=600  # 10 minutes max wait
     WAIT_TIME=0
-    
+
     while [ $WAIT_TIME -lt $MAX_WAIT ]; do
       # Get sync status
       SYNC_STATUS=$(safe_status | grep -E "Catching Up|Block Height" || true)

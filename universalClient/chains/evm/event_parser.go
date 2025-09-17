@@ -67,9 +67,11 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 	// Find matching method by event topic
 	var eventID ethcommon.Hash
 	var methodName, confirmationType string
+	var found bool
 	for id, topic := range ep.eventTopics {
 		if log.Topics[0] == topic {
 			eventID = topic
+			found = true
 			// Find method name and confirmation type from config
 			for _, method := range ep.config.GatewayMethods {
 				if method.Identifier == id {
@@ -85,6 +87,11 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 			}
 			break
 		}
+	}
+
+	// Return nil if no matching event topic found
+	if !found {
+		return nil
 	}
 
 	// TODO: Remove temp code avoid listing add_funds

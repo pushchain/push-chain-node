@@ -36,21 +36,6 @@ func TestSetupRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Token configs endpoint",
-			path:           "/api/v1/token-configs",
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "Token configs by chain endpoint",
-			path:           "/api/v1/token-configs-by-chain?chain=eip155:1",
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "Token config endpoint",
-			path:           "/api/v1/token-config?chain=eip155:1&address=0xAAA",
-			expectedStatus: http.StatusOK,
-		},
-		{
 			name:           "Non-existent endpoint",
 			path:           "/api/v1/non-existent",
 			expectedStatus: http.StatusNotFound,

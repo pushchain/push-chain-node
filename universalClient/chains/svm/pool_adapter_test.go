@@ -184,32 +184,6 @@ func TestSVMHealthChecker_PoolAdapter_CheckHealth(t *testing.T) {
 	}
 }
 
-func TestGetSolanaClientFromPool(t *testing.T) {
-	tests := []struct {
-		name          string
-		endpoint      *rpcpool.Endpoint
-		expectError   bool
-		errorContains string
-	}{
-		{
-			name: "successfully extracts solana client",
-			endpoint: func() *rpcpool.Endpoint {
-				// Create a mock endpoint with our adapter
-				// This requires a proper rpcpool.Endpoint mock
-				return nil
-			}(),
-			expectError:   true,
-			errorContains: "no client available",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// This function requires a proper rpcpool.Endpoint mock
-			t.Skip("Requires rpcpool.Endpoint mock")
-		})
-	}
-}
 
 func TestSVMClientAdapter_InterfaceCompliance(t *testing.T) {
 	// Verify that svmClientAdapter implements rpcpool.Client

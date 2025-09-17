@@ -112,7 +112,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:    0,
@@ -137,7 +137,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:   1,
@@ -155,13 +155,14 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				Method:        "addFunds",
 				Status:        "pending",
 				Confirmations: 20,
+				Data:          json.RawMessage(`{}`),
 			},
 			setupMock: func(m *MockTxSigner) {
 				m.On("SignAndBroadcastAuthZTx",
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(nil, errors.New("network error"))
 			},
@@ -215,9 +216,10 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 	vh := &VoteHandler{log: zerolog.Nop()}
 
 	tests := []struct {
-		name     string
-		tx       *store.ChainTransaction
-		expected *uetypes.Inbound
+		name      string
+		tx        *store.ChainTransaction
+		expected  *uetypes.Inbound
+		wantError bool
 	}{
 		{
 			name: "complete data for EVM transaction",
@@ -225,13 +227,13 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				TxHash: "0xabc123",
 				Method: "addFunds",
 				Data: json.RawMessage(`{
-					"source_chain": "eip155:1",
+					"sourceChain": "eip155:1",
 					"sender": "0x111",
 					"recipient": "0x222",
-					"amount": "1000000",
-					"asset_address": "0x333",
-					"log_index": "5",
-					"tx_type": "FEE_ABSTRACTION"
+					"bridgeAmount": "1000000",
+					"bridgeToken": "0x333",
+					"logIndex": 5,
+					"txType": 3
 				}`),
 			},
 			expected: &uetypes.Inbound{
@@ -253,53 +255,24 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Data:   json.RawMessage(`{}`),
 			},
 			expected: &uetypes.Inbound{
-				SourceChain: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+				SourceChain: "",
 				TxHash:      "0xdef456",
-				Sender:      "0x0000000000000000000000000000000000000000",
-				Recipient:   "0x0000000000000000000000000000000000000000",
-				Amount:      "0",
-				AssetAddr:   "0x0000000000000000000000000000000000000000",
+				Sender:      "",
+				Recipient:   "",
+				Amount:      "",
+				AssetAddr:   "",
 				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD,
+				TxType:      uetypes.InboundTxType_GAS,
 			},
 		},
 		{
-			name: "nil data with method-based chain inference",
+			name: "nil data returns error",
 			tx: &store.ChainTransaction{
 				TxHash: "0x789",
 				Method: "addFunds",
 				Data:   nil,
 			},
-			expected: &uetypes.Inbound{
-				SourceChain: "eip155:11155111",
-				TxHash:      "0x789",
-				Sender:      "0x0000000000000000000000000000000000000000",
-				Recipient:   "0x0000000000000000000000000000000000000000",
-				Amount:      "0",
-				AssetAddr:   "0x0000000000000000000000000000000000000000",
-				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD,
-			},
-		},
-		{
-			name: "chain_id fallback",
-			tx: &store.ChainTransaction{
-				TxHash: "0xchain",
-				Method: "unknown",
-				Data: json.RawMessage(`{
-					"chain_id": "eip155:42161"
-				}`),
-			},
-			expected: &uetypes.Inbound{
-				SourceChain: "eip155:42161",
-				TxHash:      "0xchain",
-				Sender:      "0x0000000000000000000000000000000000000000",
-				Recipient:   "0x0000000000000000000000000000000000000000",
-				Amount:      "0",
-				AssetAddr:   "0x0000000000000000000000000000000000000000",
-				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD,
-			},
+			wantError: true,
 		},
 	}
 
@@ -307,15 +280,20 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			inbound, err := vh.constructInbound(tt.tx)
 
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expected.SourceChain, inbound.SourceChain)
-			assert.Equal(t, tt.expected.TxHash, inbound.TxHash)
-			assert.Equal(t, tt.expected.Sender, inbound.Sender)
-			assert.Equal(t, tt.expected.Recipient, inbound.Recipient)
-			assert.Equal(t, tt.expected.Amount, inbound.Amount)
-			assert.Equal(t, tt.expected.AssetAddr, inbound.AssetAddr)
-			assert.Equal(t, tt.expected.LogIndex, inbound.LogIndex)
-			assert.Equal(t, tt.expected.TxType, inbound.TxType)
+			if tt.wantError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "transaction data is missing")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.SourceChain, inbound.SourceChain)
+				assert.Equal(t, tt.expected.TxHash, inbound.TxHash)
+				assert.Equal(t, tt.expected.Sender, inbound.Sender)
+				assert.Equal(t, tt.expected.Recipient, inbound.Recipient)
+				assert.Equal(t, tt.expected.Amount, inbound.Amount)
+				assert.Equal(t, tt.expected.AssetAddr, inbound.AssetAddr)
+				assert.Equal(t, tt.expected.LogIndex, inbound.LogIndex)
+				assert.Equal(t, tt.expected.TxType, inbound.TxType)
+			}
 		})
 	}
 }
@@ -346,7 +324,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 					mock.MatchedBy(func(memo string) bool {
 						return memo == "Vote on inbound tx 0x123"
 					}),
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:    0,
@@ -366,7 +344,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(nil, errors.New("connection timeout"))
 			},
@@ -383,7 +361,7 @@ func TestVoteHandler_executeVote(t *testing.T) {
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,
-					uint64(500000),
+					uint64(500000000),
 					mock.Anything,
 				).Return(&sdk.TxResponse{
 					Code:   5,

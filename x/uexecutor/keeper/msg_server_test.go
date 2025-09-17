@@ -15,9 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/utils"
-	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uekeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
-	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	ue "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 func TestParams(t *testing.T) {
@@ -90,6 +91,44 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 		require.ErrorContains(err, "failed to parse signer address")
 	})
 
+	t.Run("fail; gateway interaction tx not verified", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgDeployUEA{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             "invalid_tx",
+		}
+		f.mockUTVKeeper.
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, "invalid_tx", validUA.GetCAIP2()).
+			Return(errors.New("Gateway interaction failed"))
+
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.ErrorContains(err, "failed to verify gateway interaction transaction")
+	})
+
+	t.Run("fail: CallFactoryToDeployUEA Fails", func(t *testing.T) {
+		msg := &types.MsgDeployUEA{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+
+		padded := common.LeftPadBytes(addr.Bytes(), 64)
+		receipt := &evmtypes.MsgEthereumTxResponse{
+			Ret: padded,
+		}
+		f.mockUTVKeeper.
+			EXPECT().VerifyGatewayInteractionTx(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
+			Return(nil)
+
+		f.mockEVMKeeper.EXPECT().
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+			Return(receipt, errors.New("unable to deploy UEA"))
+		_, err := f.msgServer.DeployUEA(f.ctx, msg)
+		require.ErrorContains(err, "unable to deploy UEA")
+	})
+
 	t.Run("success; valid input returns UEA", func(t *testing.T) {
 		msg := &types.MsgDeployUEA{
 			Signer:             validSigner.String(),
@@ -99,7 +138,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32)
+		padded := common.LeftPadBytes(addr.Bytes(), 64)
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -108,7 +147,7 @@ func TestMsgServer_DeployUEA(t *testing.T) {
 			Return(nil)
 
 		f.mockEVMKeeper.EXPECT().
-			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DerivedEVMCall(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(receipt, nil)
 
 		_, err := f.msgServer.DeployUEA(f.ctx, msg)
@@ -127,6 +166,21 @@ func TestMsgServer_MintPC(t *testing.T) {
 	}
 	validTxHash := "0xabc123"
 
+	t.Run("fail: VerifyAndGetLockedFunds fails", func(t *testing.T) {
+		msg := &types.MsgMintPC{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		f.mockUTVKeeper.EXPECT().
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
+			Return(*big.NewInt(0), uint32(0), errors.New("some error"))
+
+		_, err := f.msgServer.MintPC(f.ctx, msg)
+		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
+	})
+
 	t.Run("fail: CallFactoryToComputeUEAAddress returns error", func(t *testing.T) {
 		usdAmount := new(big.Int)
 		usdAmount.SetString("10000000000000000000", 10)
@@ -134,7 +188,7 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
-		padded := common.LeftPadBytes(addr.Bytes(), 32) // Incorrect 40 bytes padding to initiate the error
+		padded := common.LeftPadBytes(addr.Bytes(), 64) // Incorrect 40 bytes padding to initiate the error
 		receipt := &evmtypes.MsgEthereumTxResponse{
 			Ret: padded,
 		}
@@ -154,7 +208,34 @@ func TestMsgServer_MintPC(t *testing.T) {
 		require.ErrorContains(t, err, "call-factory fails")
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("bad-address", func(t *testing.T) {
+		usdAmount := new(big.Int)
+		usdAmount.SetString("10000000000000000000", 10)
+		decimals := uint32(18)
+
+		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+
+		padded := common.LeftPadBytes(addr.Bytes(), 40) // Incorrect 40 bytes padding to initiate the error
+		receipt := &evmtypes.MsgEthereumTxResponse{
+			Ret: padded,
+		}
+
+		f.mockUTVKeeper.EXPECT().
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
+			Return(*usdAmount, decimals, nil)
+
+		f.mockEVMKeeper.EXPECT().
+			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(receipt, nil)
+
+		msg := &types.MsgMintPC{
+			Signer: validSigner.String(), UniversalAccountId: validUA, TxHash: validTxHash,
+		}
+		_, err := f.msgServer.MintPC(f.ctx, msg)
+		require.ErrorContains(t, err, "length insufficient 40 require 64")
+	})
+
+	t.Run("fail: Mint Fails", func(t *testing.T) {
 		msg := &types.MsgMintPC{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
@@ -163,14 +244,62 @@ func TestMsgServer_MintPC(t *testing.T) {
 
 		addr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
+
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
 		receipt := &evmtypes.MsgEthereumTxResponse{
-			Ret: encodeReturn(addr, true), // or false depending on the test
+			Ret: padded,
 		}
 
 		usdAmount := new(big.Int)
 		usdAmount.SetString("1000000000000000000", 10) // 10 USD, 18 decimals
 		decimals := uint32(18)
-		amountToMint := uexecutorkeeper.ConvertUsdToPCTokens(usdAmount, decimals)
+		amountToMint := uekeeper.ConvertUsdToPCTokens(usdAmount, decimals)
+		expectedCoins := sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint))
+
+		// Mock VerifyAndGetLockedFunds
+		f.mockUTVKeeper.EXPECT().
+			VerifyAndGetLockedFunds(gomock.Any(), validUA.Owner, validTxHash, validUA.GetCAIP2()).
+			Return(*big.NewInt(1_000_000), uint32(6), nil)
+
+		f.mockEVMKeeper.EXPECT().
+			CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(receipt, nil)
+
+		// MintCoins should be called with correct args
+		f.mockBankKeeper.EXPECT().
+			MintCoins(gomock.Any(), types.ModuleName, expectedCoins).
+			Return(errors.New("minting failed"))
+
+		_, err := f.msgServer.MintPC(f.ctx, msg)
+		require.ErrorContains(t, err, "failed to mint coins")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		msg := &types.MsgMintPC{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+		addr := common.HexToAddress("0x8669BED121FEFA3D9CF282127384F489E717CC95")
+
+		// Create a 64-byte buffer (two 32-byte words).
+		padded := make([]byte, 64)
+
+		// Put the address into the first 32-byte word, left-padded.
+		copy(padded[32-len(addr.Bytes()):32], addr.Bytes())
+
+		receipt := &evmtypes.MsgEthereumTxResponse{
+			Ret: padded,
+		}
+
+		usdAmount := new(big.Int)
+		usdAmount.SetString("1000000000000000000", 10) // 10 USD, 18 decimals
+		decimals := uint32(18)
+		amountToMint := uekeeper.ConvertUsdToPCTokens(usdAmount, decimals)
 		expectedCoins := sdk.NewCoins(sdk.NewCoin(pchaintypes.BaseDenom, amountToMint))
 
 		// Mock VerifyAndGetLockedFunds
@@ -212,7 +341,17 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	validUP := &types.UniversalPayload{
 		To:                   "0x1234567890abcdef1234567890abcdef12345670",
 		Value:                "10",
-		Data:                 "test-data",
+		Data:                 "0x",
+		GasLimit:             "1000000000000",
+		MaxFeePerGas:         "10",
+		MaxPriorityFeePerGas: "10",
+		Nonce:                "1",
+		Deadline:             "some-deadline",
+	}
+	invalidUP := &types.UniversalPayload{
+		To:                   "0x1234567890abcdef1234567890abcdef12345670",
+		Value:                "10",
+		Data:                 "wrong-data",
 		GasLimit:             "1000000000000",
 		MaxFeePerGas:         "10",
 		MaxPriorityFeePerGas: "10",
@@ -225,7 +364,7 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 			Signer:             "invalid_address",
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			VerificationData:   "0x",
 		}
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
@@ -233,145 +372,88 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 	})
 
 	t.Run("Fail : ChainConfig for Universal Accout not set", func(t *testing.T) {
-		// You can inject failure in f.app or f.k.utxverifierKeeper if mockable
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
 		msg := &types.MsgExecutePayload{
 			Signer:             validSigner.String(),
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "test-signature",
+			VerificationData:   "0x",
 		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(uregistrytypes.ChainConfig{}, errors.New("failed to get chain config for chain eip155:11155111"))
+
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "failed to get chain config")
 	})
 
-}
-
-func TestMsgServer_AddChainConfig(t *testing.T) {
-	f := SetupTest(t)
-	validSigner := f.addrs[0]
-
-	chainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            uexecutor.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 12,
-		GatewayMethods:    []*uexecutor.MethodConfig{},
-		Enabled:           true,
-	}
-	t.Run("Failed to get params", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
+	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgExecutePayload{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   validUP,
+			VerificationData:   "0x",
 		}
 
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to get params")
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
+		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
+
+		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
+
+		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
+		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
 	})
 
-	t.Run("fail : Invalid authority", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
+	t.Run("Fail : Invalid UniversalPayload", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgExecutePayload{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   invalidUP,
+			VerificationData:   "0x",
 		}
-		f.k.Params.Set(f.ctx, uexecutor.Params{})
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid authority;")
+
+		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
+		require.ErrorContains(t, err, "invalid universal payload")
 	})
 
-	t.Run("success!", func(t *testing.T) {
-		msg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
+	t.Run("Fail : Invalid Signature", func(t *testing.T) {
+		avalidUP := &types.UniversalPayload{
+			To:                   "0x8ba1f109551bD432803012645Ac136ddd64DBA72", // 20‑byte address
+			Value:                "0",                                          // wei, decimal string
+			Data:                 "0xdeadbeef",                                 // <- EVEN‑length hex → []byte{0xde, 0xad, 0xbe, 0xef}
+			GasLimit:             "21000",                                      // decimal
+			MaxFeePerGas:         "1000000000",                                 // 1 gwei
+			MaxPriorityFeePerGas: "2000000000",                                 // 2 gwei
+			Nonce:                "0",
+			Deadline:             "0",
+			VType:                ue.VerificationType_signedVerification,
 		}
-		f.k.Params.Set(f.ctx, uexecutor.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.AddChainConfig(f.ctx, msg)
-		require.NoError(t, err) // flag : need to add verify condition
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgExecutePayload{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			UniversalPayload:   avalidUP,
+			VerificationData:   "test-signature",
+		}
+
+		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
+		require.ErrorContains(t, err, "invalid verificationData format")
 	})
 
-}
-
-func TestMsgServer_UpdateChainConfig(t *testing.T) {
-	f := SetupTest(t)
-	validSigner := f.addrs[0]
-
-	chainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            uexecutor.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 12,
-		GatewayMethods:    []*uexecutor.MethodConfig{},
-		Enabled:           true,
-	}
-
-	updatedChainConfigTest := types.ChainConfig{
-		Chain:             "eip:11155111",
-		VmType:            uexecutor.VM_TYPE_EVM, // replace with appropriate VM_TYPE enum value
-		PublicRpcUrl:      "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-		GatewayAddress:    "0x1234567890abcdef1234567890abcdef12345678",
-		BlockConfirmation: 14,
-		GatewayMethods:    []*uexecutor.MethodConfig{},
-		Enabled:           true,
-	}
-	t.Run("Failed to get params", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "failed to get params")
-	})
-	t.Run("fail : Invalid authority", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, uexecutor.Params{})
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "invalid authority;")
-	})
-
-	t.Run("fail : config does not exist to update", func(t *testing.T) {
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, uexecutor.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.ErrorContains(t, err, "chain config for eip:11155111 does not exist")
-	})
-
-	t.Run("success!", func(t *testing.T) {
-		addConfigMsg := &types.MsgAddChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &chainConfigTest,
-		}
-		f.k.Params.Set(f.ctx, uexecutor.Params{Admin: validSigner.String()})
-		_, err := f.msgServer.AddChainConfig(f.ctx, addConfigMsg)
-		require.NoError(t, err)
-
-		msg := &types.MsgUpdateChainConfig{
-			Signer:      validSigner.String(),
-			ChainConfig: &updatedChainConfigTest,
-		}
-		_, err = f.msgServer.UpdateChainConfig(f.ctx, msg)
-		require.NoError(t, err) // flag : need to add verify condition (cross-checking)
-	})
-}
-
-func encodeReturn(address common.Address, isDeployed bool) []byte {
-	abi, err := types.ParseFactoryABI()
-	if err != nil {
-		panic(err)
-	}
-
-	// Pack the values
-	packed, err := abi.Methods["getUEAForOrigin"].Outputs.Pack(address, isDeployed)
-	if err != nil {
-		panic(err)
-	}
-
-	return packed
 }

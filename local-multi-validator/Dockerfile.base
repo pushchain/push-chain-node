@@ -1,0 +1,33 @@
+FROM golang:1.23.7-alpine3.20 AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    build-base \
+    git \
+    linux-headers \
+    bash \
+    binutils-gold \
+    curl \
+    make \
+    jq \
+    sed
+
+WORKDIR /code
+
+# Copy go.mod and go.sum first for dependency caching
+COPY go.mod go.sum ./
+
+# Download ALL dependencies and WASM library (this layer will be cached)
+RUN set -eux; \
+    export ARCH=$(uname -m); \
+    WASM_VERSION=$(go list -m all | grep github.com/CosmWasm/wasmvm || true); \
+    if [ ! -z "${WASM_VERSION}" ]; then \
+      WASMVM_REPO=$(echo $WASM_VERSION | awk '{print $1}');\
+      WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
+      wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
+    fi; \
+    go mod download;
+
+# This base image now contains all dependencies and will be reused
+# No source code is copied here - that happens in the derived images

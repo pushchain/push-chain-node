@@ -66,6 +66,7 @@ build_tags_comma_sep := $(subst $(empty),$(comma),$(build_tags))
 # ref: https://github.com/golang/go/issues/63997
 ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=pchain \
 		  -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind \
+		  -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald \
 		  -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
 		  -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
 		  -X "github.com/cosmos/cosmos-sdk/version.BuildTags=$(build_tags_comma_sep)" \
@@ -93,6 +94,7 @@ ifeq ($(OS),Windows_NT)
 	exit 1
 else
 	go build -mod=readonly $(BUILD_FLAGS) -o build/pchaind ./cmd/pchaind
+	go build -mod=readonly $(BUILD_FLAGS) -o build/puniversald ./cmd/puniversald
 endif
 
 build-windows-client: go.sum
@@ -111,6 +113,7 @@ endif
 
 install: go.sum
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pchaind
+	go install -mod=readonly $(BUILD_FLAGS) ./cmd/puniversald
 
 ########################################
 ### Tools & dependencies
@@ -166,6 +169,11 @@ test-sim-deterministic: runsim
 
 test-system: install
 	$(MAKE) -C tests/system/ test
+
+test-integration:
+	@echo "Running integration tests..."
+	@go test ./x/uexecutor/integration-test -v || exit 1
+	@echo "All integration tests completed successfully"
 
 ###############################################################################
 ###                                Linting                                  ###
@@ -332,6 +340,10 @@ testnet: setup-testnet
 sh-testnet: mod-tidy
 	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 
+sh-testnet-universal: mod-tidy
+	@echo "Starting universal validator..."
+	CLEAN=true sh scripts/test_universal.sh
+
 .PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet
 
 ###############################################################################
@@ -351,7 +363,8 @@ help:
 	@echo "  local-image         : Install the docker image"
 	@echo "  proto-gen           : Generate code from proto files"
 	@echo "  testnet             : Local devnet with IBC"
-	@echo "  sh-testnet          : Shell local devnet"
+	@echo "  sh-testnet          : Shell local devnet (core blockchain)"
+	@echo "  sh-testnet-universal: Shell local devnet (universal validator)"
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"

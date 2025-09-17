@@ -74,3 +74,42 @@ func setupValidator(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context, accou
 
 	return validator, pk
 }
+
+func SetupValidators(
+	t *testing.T,
+	chainApp *app.ChainApp,
+	ctx sdk.Context,
+	accounts []sdk.AccountI,
+	numVals int,
+) ([]stakingtypes.Validator, []cryptotypes.PubKey) {
+	var validators []stakingtypes.Validator
+	var pubkeys []cryptotypes.PubKey
+
+	// bondAmt := sdkmath.NewInt(1_000_000_000) // 1000 tokens
+	denom, err := chainApp.StakingKeeper.BondDenom(ctx)
+	require.NotEmpty(t, denom, err, "staking bond denom must not be empty")
+
+	for i := 0; i < numVals; i++ {
+		pk := ed25519.GenPrivKey().PubKey()
+		valAddr := sdk.ValAddress(accounts[i].GetAddress())
+
+		validator, err := stakingtypes.NewValidator(valAddr.String(), pk, stakingtypes.Description{})
+		require.NoError(t, err)
+
+		// Set validator
+		validator = validator.UpdateStatus(stakingtypes.Bonded)
+		chainApp.StakingKeeper.SetValidator(ctx, validator)
+		chainApp.StakingKeeper.SetValidatorByConsAddr(ctx, validator)
+		chainApp.StakingKeeper.SetNewValidatorByPowerIndex(ctx, validator)
+
+		validators = append(validators, validator)
+		pubkeys = append(pubkeys, pk)
+	}
+
+	// Simulate EndBlock to bond validators
+	chainApp.StakingKeeper.EndBlocker(ctx)
+
+	// Advance block height & simulate BeginBlock
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
+	return validators, pubkeys
+}

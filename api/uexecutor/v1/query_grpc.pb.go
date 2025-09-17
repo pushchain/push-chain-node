@@ -19,8 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName      = "/uexecutor.v1.Query/Params"
-	Query_ChainConfig_FullMethodName = "/uexecutor.v1.Query/ChainConfig"
+	Query_Params_FullMethodName             = "/uexecutor.v1.Query/Params"
+	Query_AllPendingInbounds_FullMethodName = "/uexecutor.v1.Query/AllPendingInbounds"
+	Query_GetUniversalTx_FullMethodName     = "/uexecutor.v1.Query/GetUniversalTx"
+	Query_AllUniversalTx_FullMethodName     = "/uexecutor.v1.Query/AllUniversalTx"
 )
 
 // QueryClient is the client API for Query service.
@@ -29,8 +31,12 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain.
-	ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error)
+	// Queries all pending inbound IDs.
+	AllPendingInbounds(ctx context.Context, in *QueryAllPendingInboundsRequest, opts ...grpc.CallOption) (*QueryAllPendingInboundsResponse, error)
+	// Queries a single UniversalTx by ID.
+	GetUniversalTx(ctx context.Context, in *QueryGetUniversalTxRequest, opts ...grpc.CallOption) (*QueryGetUniversalTxResponse, error)
+	// Queries all UniversalTxs.
+	AllUniversalTx(ctx context.Context, in *QueryAllUniversalTxRequest, opts ...grpc.CallOption) (*QueryAllUniversalTxResponse, error)
 }
 
 type queryClient struct {
@@ -50,9 +56,27 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
-func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigRequest, opts ...grpc.CallOption) (*QueryChainConfigResponse, error) {
-	out := new(QueryChainConfigResponse)
-	err := c.cc.Invoke(ctx, Query_ChainConfig_FullMethodName, in, out, opts...)
+func (c *queryClient) AllPendingInbounds(ctx context.Context, in *QueryAllPendingInboundsRequest, opts ...grpc.CallOption) (*QueryAllPendingInboundsResponse, error) {
+	out := new(QueryAllPendingInboundsResponse)
+	err := c.cc.Invoke(ctx, Query_AllPendingInbounds_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) GetUniversalTx(ctx context.Context, in *QueryGetUniversalTxRequest, opts ...grpc.CallOption) (*QueryGetUniversalTxResponse, error) {
+	out := new(QueryGetUniversalTxResponse)
+	err := c.cc.Invoke(ctx, Query_GetUniversalTx_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllUniversalTx(ctx context.Context, in *QueryAllUniversalTxRequest, opts ...grpc.CallOption) (*QueryAllUniversalTxResponse, error) {
+	out := new(QueryAllUniversalTxResponse)
+	err := c.cc.Invoke(ctx, Query_AllUniversalTx_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +89,12 @@ func (c *queryClient) ChainConfig(ctx context.Context, in *QueryChainConfigReque
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// ChainConfig queries a ChainConfig by chain.
-	ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error)
+	// Queries all pending inbound IDs.
+	AllPendingInbounds(context.Context, *QueryAllPendingInboundsRequest) (*QueryAllPendingInboundsResponse, error)
+	// Queries a single UniversalTx by ID.
+	GetUniversalTx(context.Context, *QueryGetUniversalTxRequest) (*QueryGetUniversalTxResponse, error)
+	// Queries all UniversalTxs.
+	AllUniversalTx(context.Context, *QueryAllUniversalTxRequest) (*QueryAllUniversalTxResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -77,8 +105,14 @@ type UnimplementedQueryServer struct {
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
 }
-func (UnimplementedQueryServer) ChainConfig(context.Context, *QueryChainConfigRequest) (*QueryChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ChainConfig not implemented")
+func (UnimplementedQueryServer) AllPendingInbounds(context.Context, *QueryAllPendingInboundsRequest) (*QueryAllPendingInboundsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllPendingInbounds not implemented")
+}
+func (UnimplementedQueryServer) GetUniversalTx(context.Context, *QueryGetUniversalTxRequest) (*QueryGetUniversalTxResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUniversalTx not implemented")
+}
+func (UnimplementedQueryServer) AllUniversalTx(context.Context, *QueryAllUniversalTxRequest) (*QueryAllUniversalTxResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllUniversalTx not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -111,20 +145,56 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryChainConfigRequest)
+func _Query_AllPendingInbounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllPendingInboundsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).ChainConfig(ctx, in)
+		return srv.(QueryServer).AllPendingInbounds(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_ChainConfig_FullMethodName,
+		FullMethod: Query_AllPendingInbounds_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ChainConfig(ctx, req.(*QueryChainConfigRequest))
+		return srv.(QueryServer).AllPendingInbounds(ctx, req.(*QueryAllPendingInboundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_GetUniversalTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetUniversalTxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GetUniversalTx(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_GetUniversalTx_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GetUniversalTx(ctx, req.(*QueryGetUniversalTxRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllUniversalTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllUniversalTxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllUniversalTx(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllUniversalTx_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllUniversalTx(ctx, req.(*QueryAllUniversalTxRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -141,8 +211,16 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Query_Params_Handler,
 		},
 		{
-			MethodName: "ChainConfig",
-			Handler:    _Query_ChainConfig_Handler,
+			MethodName: "AllPendingInbounds",
+			Handler:    _Query_AllPendingInbounds_Handler,
+		},
+		{
+			MethodName: "GetUniversalTx",
+			Handler:    _Query_GetUniversalTx_Handler,
+		},
+		{
+			MethodName: "AllUniversalTx",
+			Handler:    _Query_AllUniversalTx_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -6,11 +6,14 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	inbound "github.com/pushchain/push-chain-node/app/upgrades/inbound"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{}
+var Upgrades = []upgrades.Upgrade{
+	inbound.NewUpgrade(),
+}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {
@@ -28,6 +31,12 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		IBCKeeper:             app.IBCKeeper,
 		Codec:                 app.appCodec,
 		GetStoreKey:           app.GetKey,
+
+		// Module keepers
+		UExecutorKeeper:   &app.UexecutorKeeper,
+		UTxVerifierKeeper: &app.UtxverifierKeeper,
+		URegistryKeeper:   &app.UregistryKeeper,
+		UValidatorKeeper:  &app.UvalidatorKeeper,
 	}
 
 	// register all upgrade handlers

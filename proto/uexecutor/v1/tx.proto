@@ -27,11 +27,8 @@ service Msg {
   // ExecutePayload defines a message for executing a universal payload
   rpc ExecutePayload(MsgExecutePayload) returns (MsgExecutePayloadResponse);
 
-  // AddChainConfig adds a new ChainConfig entry
-  rpc AddChainConfig(MsgAddChainConfig) returns (MsgAddChainConfigResponse);
-
-  // UpdateChainConfig adds a new ChainConfig entry
-  rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
+  // VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+  rpc VoteInbound(MsgVoteInbound) returns (MsgVoteInboundResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -117,32 +114,15 @@ message MsgExecutePayload {
 // MsgExecutePayloadResponse defines the response for MsgExecutePayload.
 message MsgExecutePayloadResponse {}
 
-// MsgAddChainConfig defines a message to add a new ChainConfig.
-message MsgAddChainConfig {
-  option (amino.name) = "uexecutor/MsgAddChainConfig";
-  option (cosmos.msg.v1.signer) = "signer"; // Or another signer role
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
+message MsgVoteInbound {
+  option (amino.name) = "ue/MsgVoteInbound";
+  option (cosmos.msg.v1.signer) = "signer";
 
-  // signer is the address authorized to add a chain config
+  // signer is the Cosmos address initiating the tx (used for tx signing)
   string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-
-  // The new ChainConfig to add
-  ChainConfig chain_config = 2;
+  Inbound inbound = 2;
 }
 
-// MsgAddChainConfigResponse defines the response for MsgAddChainConfig.
-message MsgAddChainConfigResponse {}
-
-// MsgUpdateChainConfig defines a message to update a existing ChainConfig.
-message MsgUpdateChainConfig {
-  option (amino.name) = "uexecutor/MsgUpdateChainConfig";
-  option (cosmos.msg.v1.signer) = "signer"; // Or another signer role
-
-  // signer is the address authorized to add a chain config
-  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-
-  // The new ChainConfig to add
-  ChainConfig chain_config = 2;
-}
-
-// MsgUpdateChainConfigResponse defines the response for MsgUpdateChainConfig.
-message MsgUpdateChainConfigResponse {}
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+message MsgVoteInboundResponse {}

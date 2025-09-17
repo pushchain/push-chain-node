@@ -29,3 +29,12 @@ var METHOD = struct {
 	SVM: struct{ AddFunds string }{AddFunds: "add_funds"},
 	EVM: struct{ AddFunds string }{AddFunds: "addFunds"},
 }
+
+// Quorum numerator/denominator for validator votes (>2/3)
+const (
+	VotesThresholdNumerator   = 2
+	VotesThresholdDenominator = 3
+
+	// Default number of blocks after which ballot expires
+	DefaultExpiryAfterBlocks = 10000
+)

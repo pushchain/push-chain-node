@@ -3,10 +3,10 @@ package types
 import (
 	"context"
 
-	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
-// UexecutorKeeper defines the expected interface for the Uexecutor module.
-type UexecutorKeeper interface {
+// UregistryKeeper defines the expected interface for the Uregistry module.
+type UregistryKeeper interface {
 	GetChainConfig(ctx context.Context, chain string) (types.ChainConfig, error)
 }

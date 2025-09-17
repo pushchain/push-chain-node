@@ -11,7 +11,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
@@ -26,9 +26,9 @@ func compareEVMAddr(actualAddr, expectedAddr string) bool {
 }
 
 // isEVMTxCallingAddFunds checks if the txInput is of a addFunds fn
-func isEVMTxCallingAddFunds(txInput string, chainConfig uexecutortypes.ChainConfig) (bool, string) {
+func isEVMTxCallingAddFunds(txInput string, chainConfig uregistrytypes.ChainConfig) (bool, string) {
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == uexecutortypes.METHOD.EVM.AddFunds {
+		if method.Name == uregistrytypes.GATEWAY_METHOD.EVM.AddFunds {
 			selector := method.Identifier
 			if strings.HasPrefix(txInput, selector) {
 				return true, selector

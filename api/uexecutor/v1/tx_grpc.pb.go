@@ -19,12 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName      = "/uexecutor.v1.Msg/UpdateParams"
-	Msg_DeployUEA_FullMethodName         = "/uexecutor.v1.Msg/DeployUEA"
-	Msg_MintPC_FullMethodName            = "/uexecutor.v1.Msg/MintPC"
-	Msg_ExecutePayload_FullMethodName    = "/uexecutor.v1.Msg/ExecutePayload"
-	Msg_AddChainConfig_FullMethodName    = "/uexecutor.v1.Msg/AddChainConfig"
-	Msg_UpdateChainConfig_FullMethodName = "/uexecutor.v1.Msg/UpdateChainConfig"
+	Msg_UpdateParams_FullMethodName   = "/uexecutor.v1.Msg/UpdateParams"
+	Msg_DeployUEA_FullMethodName      = "/uexecutor.v1.Msg/DeployUEA"
+	Msg_MintPC_FullMethodName         = "/uexecutor.v1.Msg/MintPC"
+	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
+	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
 )
 
 // MsgClient is the client API for Msg service.
@@ -41,10 +40,8 @@ type MsgClient interface {
 	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
-	// AddChainConfig adds a new ChainConfig entry
-	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
-	// UpdateChainConfig adds a new ChainConfig entry
-	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
 }
 
 type msgClient struct {
@@ -91,18 +88,9 @@ func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, o
 	return out, nil
 }
 
-func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
-	out := new(MsgAddChainConfigResponse)
-	err := c.cc.Invoke(ctx, Msg_AddChainConfig_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error) {
-	out := new(MsgUpdateChainConfigResponse)
-	err := c.cc.Invoke(ctx, Msg_UpdateChainConfig_FullMethodName, in, out, opts...)
+func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error) {
+	out := new(MsgVoteInboundResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteInbound_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -123,10 +111,8 @@ type MsgServer interface {
 	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
-	// AddChainConfig adds a new ChainConfig entry
-	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
-	// UpdateChainConfig adds a new ChainConfig entry
-	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -146,11 +132,8 @@ func (UnimplementedMsgServer) MintPC(context.Context, *MsgMintPC) (*MsgMintPCRes
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
 }
-func (UnimplementedMsgServer) AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddChainConfig not implemented")
-}
-func (UnimplementedMsgServer) UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateChainConfig not implemented")
+func (UnimplementedMsgServer) VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -237,38 +220,20 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgAddChainConfig)
+func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteInbound)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).AddChainConfig(ctx, in)
+		return srv.(MsgServer).VoteInbound(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Msg_AddChainConfig_FullMethodName,
+		FullMethod: Msg_VoteInbound_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_UpdateChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgUpdateChainConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).UpdateChainConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_UpdateChainConfig_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).UpdateChainConfig(ctx, req.(*MsgUpdateChainConfig))
+		return srv.(MsgServer).VoteInbound(ctx, req.(*MsgVoteInbound))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -297,12 +262,8 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_ExecutePayload_Handler,
 		},
 		{
-			MethodName: "AddChainConfig",
-			Handler:    _Msg_AddChainConfig_Handler,
-		},
-		{
-			MethodName: "UpdateChainConfig",
-			Handler:    _Msg_UpdateChainConfig_Handler,
+			MethodName: "VoteInbound",
+			Handler:    _Msg_VoteInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

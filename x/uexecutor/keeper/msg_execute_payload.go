@@ -20,25 +20,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
-	chainConfig, err := k.GetChainConfig(sdkCtx, caip2Identifier)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
-	}
-
-	if !chainConfig.Enabled {
-		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
-	}
-
-	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
-
-	// Step 1: Compute smart account address
-	// Calling factory contract to compute the UEA address
-	ueaAddr, _, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
-	if err != nil {
-		return err
-	}
-
-	// // Step 2: Parse and validate payload and verificationData
+	// Step 1: Parse and validate payload and verificationData
 	payload, err := types.NewAbiUniversalPayload(universalPayload)
 	if err != nil {
 		return errors.Wrapf(err, "invalid universal payload")
@@ -47,6 +29,28 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	verificationDataVal, err := utils.HexToBytes(verificationData)
 	if err != nil {
 		return errors.Wrapf(err, "invalid verificationData format")
+	}
+
+	chainConfig, err := k.uregistryKeeper.GetChainConfig(sdkCtx, caip2Identifier)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
+	}
+
+	if !chainConfig.Enabled.IsInboundEnabled {
+		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
+	}
+
+	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
+
+	// Step 2: Compute smart account address
+	// Calling factory contract to compute the UEA address
+	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
+	if err != nil {
+		return err
+	}
+
+	if !isDeployed {
+		return fmt.Errorf("UEA is not deployed")
 	}
 
 	// Step 3: Execute payload through UEA

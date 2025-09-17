@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 )
 
 // IsGaslessTx checks if a transaction contains only allowed gasless message types
@@ -15,6 +16,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 			sdk.MsgTypeURL(&MsgExecutePayload{}),
 			sdk.MsgTypeURL(&MsgDeployUEA{}),
 			sdk.MsgTypeURL(&MsgMintPC{}),
+			sdk.MsgTypeURL(&MsgVoteInbound{}),
 		}
 	)
 
@@ -24,10 +26,18 @@ func IsGaslessTx(tx sdk.Tx) bool {
 	}
 
 	for _, msg := range msgs {
-		url := sdk.MsgTypeURL(msg)
-		isAllowed := slices.Contains(GaslessMsgTypes, url)
-		if !isAllowed {
-			return false
+		switch m := msg.(type) {
+		case *authz.MsgExec:
+			// Only gasless if ALL inner messages are allowed
+			for _, innerMsg := range m.Msgs {
+				if !slices.Contains(GaslessMsgTypes, innerMsg.TypeUrl) {
+					return false
+				}
+			}
+		default:
+			if !slices.Contains(GaslessMsgTypes, sdk.MsgTypeURL(msg)) {
+				return false
+			}
 		}
 	}
 	return true

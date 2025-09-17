@@ -1,0 +1,127 @@
+syntax = "proto3";
+package uregistry.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uregistry/types";
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "uregistry/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the uregistry module.
+  string admin = 1;
+}
+
+// VmType is the type of the vm of the network
+enum VmType {
+  UNKNOWN_VM = 0;    // Default value for unknown VM types
+
+  EVM = 1;            // Ethereum, BSC, Polygon, etc.
+  SVM = 2;            // Solana
+  MOVE_VM = 3;        // Aptos, Sui
+  WASM_VM = 4;        // CosmWasm, Near, Polkadot
+  CAIRO_VM = 5;       // Starknet
+  TRON_VM = 6;        // TRON
+  STELLAR_VM = 7;     // Stellar
+  BITCOIN_SCRIPT = 8; // Bitcoin, Litecoin, etc.
+  OTHER_VM = 9;       // Fallback
+}
+
+enum TokenType {
+  UNKNOWN_TOKEN = 0; // Default value for unknown token types
+
+  // EVM
+  ERC20 = 1;
+  ERC721 = 2;
+  ERC1155 = 3;
+
+  // Solana
+  SPL = 4;
+}
+
+// ConfirmationType defines which type of block confirmation to use
+enum ConfirmationType {
+  CONFIRMATION_UNKNOWN = 0;
+  CONFIRMATION_TYPE_STANDARD = 1; // default standard confirmation
+  CONFIRMATION_TYPE_FAST = 2;     // fast confirmation
+}
+
+// GatewayMethods defines the configuration for a method that can be used for universal operations
+message GatewayMethods {
+  option (amino.name) = "uregistry/gateway_methods";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string name = 1;                // Human-readable method name (e.g. "add_funds")
+  string identifier = 2;          // Hex-encoded selector or discriminator for the method
+  string event_identifier = 3;    // Hex-encoded topic or identifier for emitted event
+  ConfirmationType confirmation_type = 4; // Which block confirmation to use for this method
+}
+
+// BlockConfirmation defines the number of blocks to wait for confirmation on the external chain
+message BlockConfirmation {
+  option (amino.name) = "uregistry/block_confirmation";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+	uint32 fast_inbound = 1; // fast number of confirmations, for faster executions in inbound
+	uint32 standard_inbound = 2; // standard confirmations, for secure executions
+}
+
+// ChainEnabled defines if chain is enabled for inbound as well as outbound
+message ChainEnabled {
+  option (amino.name) = "uregistry/chain_enabled";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  bool isInboundEnabled = 1;
+  bool isOutboundEnabled = 2;
+}
+
+// ChainConfig defines the configuration for a supported source or destination chain
+message ChainConfig {
+  option (amino.name) = "uregistry/chain_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string chain = 1; // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+  VmType vm_type = 2; // vm_type is the type of the virtual machine used by the chain
+  string public_rpc_url = 3; // RPC URL for the chain
+  
+  string gateway_address = 4; // gateway_address is the address of the fee gateway contract on the external chain
+  BlockConfirmation block_confirmation = 5; // block_confirmation is the number of blocks to wait for confirmation on the external chain
+  
+  repeated GatewayMethods gateway_methods = 6; // List of methods that can be used for universal operations
+
+  ChainEnabled enabled = 7; // Whether this chain is currently enabled or not
+}
+
+message NativeRepresentation {
+  option (amino.name) = "uregistry/native_representation";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+  
+  string denom = 1;              // e.g., Cosmos native token if deployed
+  string contract_address = 2;   // Contract address if a wrapper exists
+}
+
+message TokenConfig {
+  option (amino.name) = "uregistry/token_config";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string chain = 1;                        // Chain ID in CAIP-2 format (e.g., eip155:1
+  string address = 2;                      // Token address on external chain
+  string name = 3;                         // Full token name (e.g., USD Coin)
+  string symbol = 4;                       // Ticker (e.g., USDC)
+  uint32 decimals = 5;                     // Number of decimals (e.g., 6 or 18)
+  bool enabled = 6;                        // Whether this token is enabled for minting/bridging
+  string liquidity_cap = 7;                // max supply cap for this token (string big.Int format)
+  TokenType token_type = 8;                // Type of the token (e.g., ERC20, ERC721, ERC1155)
+
+  NativeRepresentation native_representation = 9; // Native representation on the chain
+}

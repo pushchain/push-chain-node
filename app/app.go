@@ -729,6 +729,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[uregistrytypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.EVMKeeper,
 	)
 
 	// Create the ue Keeper
@@ -1050,7 +1051,7 @@ func NewChainApp(
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
-		uregistry.NewAppModule(appCodec, app.UregistryKeeper),
+		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
 	)
 

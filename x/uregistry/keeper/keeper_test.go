@@ -30,6 +30,8 @@ import (
 	module "github.com/pushchain/push-chain-node/x/uregistry"
 	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
+
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 )
 
 var maccPerms = map[string][]string{
@@ -86,10 +88,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr)
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &evmkeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k)
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &evmkeeper.Keeper{})
 
 	return f
 }

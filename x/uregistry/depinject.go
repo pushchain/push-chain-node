@@ -16,6 +16,7 @@ import (
 
 	modulev1 "github.com/pushchain/push-chain-node/api/uregistry/module/v1"
 	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
+	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -39,6 +40,8 @@ type ModuleInputs struct {
 	Cdc          codec.Codec
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
+
+	EVMKeeper types.EVMKeeper
 }
 
 type ModuleOutputs struct {
@@ -51,8 +54,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
-	m := NewAppModule(in.Cdc, k)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.EVMKeeper)
+	m := NewAppModule(in.Cdc, k, in.EVMKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

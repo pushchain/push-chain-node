@@ -7,7 +7,6 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/universalClient/registry"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"

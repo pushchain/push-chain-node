@@ -11,13 +11,13 @@ import (
 
 // Server provides HTTP endpoints for querying configuration data
 type Server struct {
-	client UniversalClientInterface
+	client universalClientInterface
 	logger zerolog.Logger
 	server *http.Server
 }
 
 // NewServer creates a new Server instance
-func NewServer(client UniversalClientInterface, logger zerolog.Logger, port int) *Server {
+func NewServer(client universalClientInterface, logger zerolog.Logger, port int) *Server {
 	s := &Server{
 		client: client,
 		logger: logger,
@@ -51,10 +51,10 @@ func (s *Server) Start() error {
 			return
 		}
 		ln.Close()
-		
+
 		// Signal successful startup check
 		startupChan <- nil
-		
+
 		// Now start the actual server
 		err = s.server.ListenAndServe()
 		switch err {

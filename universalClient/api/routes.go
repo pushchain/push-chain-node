@@ -10,10 +10,7 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	// API v1 endpoints
-	mux.HandleFunc("/api/v1/chain-configs", s.handleChainConfigs)
-	mux.HandleFunc("/api/v1/token-configs", s.handleTokenConfigs)
-	mux.HandleFunc("/api/v1/token-configs-by-chain", s.handleTokenConfigsByChain)
-	mux.HandleFunc("/api/v1/token-config", s.handleTokenConfig)
+	mux.HandleFunc("/api/v1/chain-configs", s.handleChainData)
 
 	return mux
 }

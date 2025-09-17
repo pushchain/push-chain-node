@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
+
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -23,12 +23,12 @@ func init() {
 
 func TestParseMsgVoteInbound(t *testing.T) {
 	tests := []struct {
-		name      string
-		msgType   string
-		msgArgs   []string
-		wantErr   bool
-		errMsg    string
-		validate  func(t *testing.T, msg interface{})
+		name     string
+		msgType  string
+		msgArgs  []string
+		wantErr  bool
+		errMsg   string
+		validate func(t *testing.T, msg interface{})
 	}{
 		{
 			name:    "valid MsgVoteInbound",
@@ -36,13 +36,13 @@ func TestParseMsgVoteInbound(t *testing.T) {
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20", // signer - valid bech32 address
 				"eip155:11155111", // source chain
-				"0x123abc", // tx hash
-				"0xsender", // sender
-				"0xrecipient", // recipient
-				"1000", // amount
-				"0xasset", // asset addr
-				"1", // log index
-				"1", // tx type (GAS_FUND)
+				"0x123abc",        // tx hash
+				"0xsender",        // sender
+				"0xrecipient",     // recipient
+				"1000",            // amount
+				"0xasset",         // asset addr
+				"1",               // log index
+				"1",               // tx type (GAS_FUND)
 			},
 			wantErr: false,
 			validate: func(t *testing.T, msg interface{}) {
@@ -56,7 +56,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				assert.Equal(t, "1000", voteMsg.Inbound.Amount)
 				assert.Equal(t, "0xasset", voteMsg.Inbound.AssetAddr)
 				assert.Equal(t, "1", voteMsg.Inbound.LogIndex)
-				assert.Equal(t, uetypes.InboundTxType_GAS_FUND_TX, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_FUNDS_AND_PAYLOAD, voteMsg.Inbound.TxType)
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 			validate: func(t *testing.T, msg interface{}) {
 				voteMsg, ok := msg.(*uetypes.MsgVoteInbound)
 				require.True(t, ok)
-				assert.Equal(t, uetypes.InboundTxType_FUNDS_BRIDGE_TX, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_FUNDS_AND_PAYLOAD, voteMsg.Inbound.TxType)
 			},
 		},
 		{
@@ -164,7 +164,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			msg, err := ParseMessageFromArgs(tt.msgType, tt.msgArgs)
-			
+
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errMsg != "" {

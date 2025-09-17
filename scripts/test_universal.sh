@@ -55,20 +55,6 @@ UV_HOTKEY_ADDR="$("$BINARY" keys show "$UV_HOTKEY_NAME" -a \
 echo "==> uv_hotkey address: $UV_HOTKEY_ADDR"
 
 
-# ---------- (Optional) Fund uv_hotkey via pchaind ----------
-if command -v "$PCHAIN_BIN" >/dev/null 2>&1; then
-  echo "==> Funding $UV_HOTKEY_ADDR from 'acc1' using $PCHAIN_BIN (chain-id: $CHAIN_ID)"
-  "$PCHAIN_BIN" tx bank send acc1 "$UV_HOTKEY_ADDR" 100000000000000000000upc \
-    --fees "$FEES" \
-    --broadcast-mode "$BROADCAST_MODE" \
-    -y
-else
-  echo "WARN: $PCHAIN_BIN not found; skipping funding."
-fi
-
-# --- wait 1 second to avoid sequence mismatch ---
-sleep 1
-
 # ---------- (Optional) Grant authz to uv_hotkey via pchaind ----------
 if command -v "$PCHAIN_BIN" >/dev/null 2>&1; then
   echo "==> Granting authz (generic: /uexecutor.v1.MsgVoteInbound) to $UV_HOTKEY_ADDR via $PCHAIN_BIN"

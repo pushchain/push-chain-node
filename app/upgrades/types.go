@@ -15,6 +15,10 @@ import (
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
+	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
+	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
 
 type AppKeepers struct {
@@ -26,6 +30,12 @@ type AppKeepers struct {
 	CapabilityKeeper      *capabilitykeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
 	EVMKeeper             *evmkeeper.Keeper
+
+	// Module keepers
+	UExecutorKeeper   *uexecutorkeeper.Keeper
+	UTxVerifierKeeper *utxverifierkeeper.Keeper
+	URegistryKeeper   *uregistrykeeper.Keeper
+	UValidatorKeeper  *uvalidatorkeeper.Keeper
 }
 type ModuleManager interface {
 	RunMigrations(ctx context.Context, cfg module.Configurator, fromVM module.VersionMap) (module.VersionMap, error)

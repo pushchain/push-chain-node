@@ -120,12 +120,10 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	transfer "github.com/cosmos/evm/x/ibc/transfer"
 	ibctransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-
 	"github.com/cosmos/evm/x/vm"
 
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
 	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
-
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -171,9 +169,15 @@ import (
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistry "github.com/pushchain/push-chain-node/x/uregistry"
+	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
+	uvalidator "github.com/pushchain/push-chain-node/x/uvalidator"
+	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/spf13/cast"
 	tokenfactory "github.com/strangelove-ventures/tokenfactory/x/tokenfactory"
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
@@ -186,7 +190,7 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID = "localchain_9000-1"
+	ChainID = "push_42101-1"
 )
 
 var (
@@ -316,6 +320,8 @@ type ChainApp struct {
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 	UexecutorKeeper           uexecutorkeeper.Keeper
 	UtxverifierKeeper         utxverifierkeeper.Keeper
+	UregistryKeeper           uregistrykeeper.Keeper
+	UvalidatorKeeper          uvalidatorkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -430,6 +436,8 @@ func NewChainApp(
 		erc20types.StoreKey,
 		uexecutortypes.StoreKey,
 		utxverifiertypes.StoreKey,
+		uregistrytypes.StoreKey,
+		uvalidatortypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -715,6 +723,15 @@ func NewChainApp(
 		&app.TransferKeeper,
 	)
 
+	// Create the uregistry Keeper
+	app.UregistryKeeper = uregistrykeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[uregistrytypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.EVMKeeper,
+	)
+
 	// Create the ue Keeper
 	app.UexecutorKeeper = uexecutorkeeper.NewKeeper(
 		appCodec,
@@ -725,7 +742,9 @@ func NewChainApp(
 		app.FeeMarketKeeper,
 		app.BankKeeper,
 		app.AccountKeeper,
+		app.UregistryKeeper,
 		&app.UtxverifierKeeper,
+		&app.UvalidatorKeeper,
 	)
 
 	// Create the utxverifier Keeper
@@ -734,7 +753,17 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UexecutorKeeper,
+		app.UregistryKeeper,
+	)
+
+	// Create the uvalidator Keeper
+	app.UvalidatorKeeper = uvalidatorkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[uvalidatortypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.StakingKeeper,
+		app.SlashingKeeper,
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1020,8 +1049,10 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
-		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UtxverifierKeeper),
-		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UexecutorKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
+		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
+		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1070,6 +1101,8 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1093,6 +1126,8 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1143,6 +1178,8 @@ func NewChainApp(
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
+		uregistrytypes.ModuleName,
+		uvalidatortypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1588,6 +1625,8 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uexecutortypes.ModuleName)
 	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
+	paramsKeeper.Subspace(uregistrytypes.ModuleName)
+	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
 
 	return paramsKeeper
 }

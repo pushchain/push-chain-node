@@ -9,6 +9,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // CallFactoryToGetUEAAddressForOrigin calls FactoryV1.getUEAForOrigin(...)
@@ -119,5 +120,36 @@ func (k Keeper) CallUEAExecutePayload(
 		"executePayload",
 		abiUniversalPayload,
 		verificationData,
+	)
+}
+
+// Calls Handler Contract to deposit prc20 tokens
+func (k Keeper) CallPRC20Deposit(
+	ctx sdk.Context,
+	prc20Address, to common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // who is sending the transaction
+		handlerAddr,        // destination: Handler contract
+		big.NewInt(0),
+		nil,
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		"depositPRC20Token",
+		prc20Address,
+		amount,
+		to,
 	)
 }

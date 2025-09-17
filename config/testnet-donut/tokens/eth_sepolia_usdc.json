@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:11155111",
+  "address": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
+  "name": "USDC.eth",
+  "symbol": "USDC.eth",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1, 
+  "native_representation": {
+    "denom": "",
+    "contract_address": ""
+  }
+}

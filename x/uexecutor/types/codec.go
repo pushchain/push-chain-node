@@ -25,7 +25,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgDeployUEA{}, ModuleName+"/MsgDeployUEAResponse", nil)
 	cdc.RegisterConcrete(&MsgMintPC{}, ModuleName+"/MsgMintPC", nil)
 	cdc.RegisterConcrete(&MsgExecutePayload{}, ModuleName+"/MsgExecutePayload", nil)
-	cdc.RegisterConcrete(&MsgAddChainConfig{}, ModuleName+"/MsgAddChainConfig", nil)
+	cdc.RegisterConcrete(&MsgVoteInbound{}, ModuleName+"/MsgVoteInbound", nil)
 }
 
 func RegisterInterfaces(registry types.InterfaceRegistry) {
@@ -36,7 +36,7 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&MsgDeployUEAResponse{},
 		&MsgMintPC{},
 		&MsgExecutePayload{},
-		&MsgAddChainConfig{},
+		&MsgVoteInbound{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)

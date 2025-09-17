@@ -16,11 +16,6 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current gov gated parameters",
 				},
-				{
-					RpcMethod: "ChainConfig",
-					Use:       "chain-config --chain [chain]",
-					Short:     "Query the chain configuration for a specific chain",
-				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -41,14 +36,6 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "ExecutePayload",
 					Use:       "execute-payload --universal-account [universal-account] --universal-payload [universal-payload]",
-				},
-				{
-					RpcMethod: "AddChainConfig",
-					Use:       "add-chain-config --chain-config [chain-config]",
-				},
-				{
-					RpcMethod: "UpdateChainConfig",
-					Use:       "update-chain-config --chain-config [chain-config]",
 				},
 			},
 		},

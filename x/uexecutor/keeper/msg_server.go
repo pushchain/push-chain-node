@@ -2,9 +2,10 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/errors"
-	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -83,42 +84,38 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	return &types.MsgExecutePayloadResponse{}, nil
 }
 
-// AddChainConfig enables the addition of a new chain configuration - Admin restricted.
-func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
+// VoteInbound implements types.MsgServer.
+func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) (*types.MsgVoteInboundResponse, error) {
+	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
+		return nil, fmt.Errorf("invalid signer address: %w", err)
 	}
 
-	if params.Admin != msg.Signer {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
-	}
+	// Convert account to validator operator address
+	signerValAddr := sdk.ValAddress(signerAccAddr)
 
-	err = ms.k.AddChainConfig(ctx, msg.ChainConfig)
+	// Lookup the linked universal validator for this signer
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
+	}
+	if !isBonded {
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
 	}
 
-	return &types.MsgAddChainConfigResponse{}, nil
-}
-
-// UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
-func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateChainConfig) (*types.MsgUpdateChainConfigResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
+	}
+	if isTombstoned {
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
-	if params.Admin != msg.Signer {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
-	}
-
-	err = ms.k.UpdateChainConfig(ctx, msg.ChainConfig)
+	// continue with inbound synthetic creation / voting logic here
+	err = ms.k.VoteInbound(ctx, signerValAddr, *msg.Inbound)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MsgUpdateChainConfigResponse{}, nil
+	return &types.MsgVoteInboundResponse{}, nil
 }

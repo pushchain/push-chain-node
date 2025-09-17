@@ -12,3 +12,8 @@ web/
 /push-validator-manager-go/.gocache
 push-validator-manager-go/push-validator-manager
 /push-validator-manager-go/.gomodcache
+
+universalClient/coverage.out
+*.db
+*.db-shm
+*.db-wal

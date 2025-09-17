@@ -5,23 +5,23 @@ import (
 	"fmt"
 	"math/big"
 
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // VerifyAndGetLockedFunds verifies if the user has interacted with the gateway on the source chain and send the locked funds amount.
 func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error) {
 	// Step 1: Load chain config
-	chainConfig, err := k.uexecutorKeeper.GetChainConfig(ctx, chain)
+	chainConfig, err := k.uregistryKeeper.GetChainConfig(ctx, chain)
 	if err != nil {
 		return *big.NewInt(0), 0, err
 	}
 
-	if !chainConfig.Enabled {
+	if !chainConfig.Enabled.IsInboundEnabled {
 		return *big.NewInt(0), 0, fmt.Errorf("chain %s is not enabled", chain)
 	}
 
 	switch chainConfig.VmType {
-	case uexecutortypes.VM_TYPE_EVM:
+	case uregistrytypes.VmType_EVM:
 		usdValue, err := k.verifyEVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
 			return *big.NewInt(0), 0, fmt.Errorf("evm tx verification failed: %w", err)
@@ -32,7 +32,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 			return *big.NewInt(0), 0, fmt.Errorf("invalid amount string: %s", usdValue.Amount)
 		}
 		return *usdAmount, usdValue.Decimals, nil
-	case uexecutortypes.VM_TYPE_SVM:
+	case uregistrytypes.VmType_SVM:
 		usdValue, err := k.verifySVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
 			return *big.NewInt(0), 0, fmt.Errorf("evm tx verification failed: %w", err)

@@ -63,13 +63,8 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 		},
 	}
 
-	systemConfigTest := uregistrytypes.SystemConfig{
-		UniversalCoreAddress: utils.GetDefaultAddresses().HandlerAddr.String(),
-	}
-
 	app.UregistryKeeper.AddChainConfig(ctx, &chainConfigTest)
 	app.UregistryKeeper.AddTokenConfig(ctx, &tokenConfigTest)
-	app.UregistryKeeper.SetSystemConfig(ctx, systemConfigTest)
 
 	// Register each validator with a universal validator
 	// --- add universal validators ---

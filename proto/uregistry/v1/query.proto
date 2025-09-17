@@ -14,11 +14,6 @@ service Query {
     option (google.api.http).get = "/uregistry/v1/params";
   }
 
-  // SystemConfig queries SystemConfig of the module.
-  rpc SystemConfig(QuerySystemConfigRequest) returns (QuerySystemConfigResponse) {
-    option (google.api.http).get = "/uregistry/v1/system_config";
-  }
-
   // ChainConfig queries a ChainConfig by chain.
   rpc ChainConfig(QueryChainConfigRequest) returns (QueryChainConfigResponse) {
     option (google.api.http).get = "/uregistry/v1/chain_config/{chain}";
@@ -52,15 +47,6 @@ message QueryParamsRequest {}
 // QueryParamsResponse is the response type for the Query/Params RPC method.
 message QueryParamsResponse {
   Params params = 1;
-}
-
-// SystemConfig
-// QuerySystemConfigRequest is the request type for the Query/SystemConfig RPC method.
-message QuerySystemConfigRequest {}
-
-// QuerySystemConfigResponse is the response type for the Query/SystemConfig RPC method.
-message QuerySystemConfigResponse {
-  SystemConfig system_config = 1;
 }
 
 // ChainConfig

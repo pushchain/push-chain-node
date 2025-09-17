@@ -30,9 +30,6 @@ service Msg {
 
   // UpdateTokenConfig updates an existing TokenConfig entry
   rpc UpdateTokenConfig(MsgUpdateTokenConfig) returns (MsgUpdateTokenConfigResponse);
-
-  // UpdateSystemConfig updates system config
-  rpc UpdateSystemConfig(MsgUpdateSystemConfig) returns (MsgUpdateSystemConfigResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -113,19 +110,3 @@ message MsgUpdateTokenConfig {
 
 // MsgUpdateTokenConfigResponse defines the response for MsgUpdateTokenConfig.
 message MsgUpdateTokenConfigResponse {}
-
-// MsgUpdateSystemConfig defines a message to set or update the system config.
-// If no config exists, it creates one. If it exists, it updates the existing config.
-message MsgUpdateSystemConfig {
-  option (amino.name) = "uregistry/MsgUpdateSystemConfig";
-  option (cosmos.msg.v1.signer) = "signer";
-
-  // signer is the address authorized to manage system config
-  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-
-  // The system configuration to set or update
-  SystemConfig system_config = 2;
-}
-
-// MsgUpdateSystemConfigResponse defines the response for MsgUpdateSystemConfig.
-message MsgUpdateSystemConfigResponse {}

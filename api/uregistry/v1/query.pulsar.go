@@ -805,797 +805,6 @@ func (x *fastReflection_QueryParamsResponse) ProtoMethods() *protoiface.Methods 
 }
 
 var (
-	md_QuerySystemConfigRequest protoreflect.MessageDescriptor
-)
-
-func init() {
-	file_uregistry_v1_query_proto_init()
-	md_QuerySystemConfigRequest = File_uregistry_v1_query_proto.Messages().ByName("QuerySystemConfigRequest")
-}
-
-var _ protoreflect.Message = (*fastReflection_QuerySystemConfigRequest)(nil)
-
-type fastReflection_QuerySystemConfigRequest QuerySystemConfigRequest
-
-func (x *QuerySystemConfigRequest) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_QuerySystemConfigRequest)(x)
-}
-
-func (x *QuerySystemConfigRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-var _fastReflection_QuerySystemConfigRequest_messageType fastReflection_QuerySystemConfigRequest_messageType
-var _ protoreflect.MessageType = fastReflection_QuerySystemConfigRequest_messageType{}
-
-type fastReflection_QuerySystemConfigRequest_messageType struct{}
-
-func (x fastReflection_QuerySystemConfigRequest_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_QuerySystemConfigRequest)(nil)
-}
-func (x fastReflection_QuerySystemConfigRequest_messageType) New() protoreflect.Message {
-	return new(fastReflection_QuerySystemConfigRequest)
-}
-func (x fastReflection_QuerySystemConfigRequest_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_QuerySystemConfigRequest
-}
-
-// Descriptor returns message descriptor, which contains only the protobuf
-// type information for the message.
-func (x *fastReflection_QuerySystemConfigRequest) Descriptor() protoreflect.MessageDescriptor {
-	return md_QuerySystemConfigRequest
-}
-
-// Type returns the message type, which encapsulates both Go and protobuf
-// type information. If the Go type information is not needed,
-// it is recommended that the message descriptor be used instead.
-func (x *fastReflection_QuerySystemConfigRequest) Type() protoreflect.MessageType {
-	return _fastReflection_QuerySystemConfigRequest_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_QuerySystemConfigRequest) New() protoreflect.Message {
-	return new(fastReflection_QuerySystemConfigRequest)
-}
-
-// Interface unwraps the message reflection interface and
-// returns the underlying ProtoMessage interface.
-func (x *fastReflection_QuerySystemConfigRequest) Interface() protoreflect.ProtoMessage {
-	return (*QuerySystemConfigRequest)(x)
-}
-
-// Range iterates over every populated field in an undefined order,
-// calling f for each field descriptor and value encountered.
-// Range returns immediately if f returns false.
-// While iterating, mutating operations may only be performed
-// on the current field descriptor.
-func (x *fastReflection_QuerySystemConfigRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-}
-
-// Has reports whether a field is populated.
-//
-// Some fields have the property of nullability where it is possible to
-// distinguish between the default value of a field and whether the field
-// was explicitly populated with the default value. Singular message fields,
-// member fields of a oneof, and proto2 scalar fields are nullable. Such
-// fields are populated only if explicitly set.
-//
-// In other cases (aside from the nullable cases above),
-// a proto3 scalar field is populated if it contains a non-zero value, and
-// a repeated field is populated if it is non-empty.
-func (x *fastReflection_QuerySystemConfigRequest) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", fd.FullName()))
-	}
-}
-
-// Clear clears the field such that a subsequent Has call reports false.
-//
-// Clearing an extension field clears both the extension type and value
-// associated with the given field number.
-//
-// Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigRequest) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", fd.FullName()))
-	}
-}
-
-// Get retrieves the value for a field.
-//
-// For unpopulated scalars, it returns the default value, where
-// the default value of a bytes scalar is guaranteed to be a copy.
-// For unpopulated composite types, it returns an empty, read-only view
-// of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_QuerySystemConfigRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", descriptor.FullName()))
-	}
-}
-
-// Set stores the value for a field.
-//
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType.
-// When setting a composite type, it is unspecified whether the stored value
-// aliases the source's memory in any way. If the composite value is an
-// empty, read-only value, then it panics.
-//
-// Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", fd.FullName()))
-	}
-}
-
-// Mutable returns a mutable reference to a composite type.
-//
-// If the field is unpopulated, it may allocate a composite value.
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType
-// if not already stored.
-// It panics if the field does not contain a composite type.
-//
-// Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", fd.FullName()))
-	}
-}
-
-// NewField returns a new value that is assignable to the field
-// for the given descriptor. For scalars, this returns the default value.
-// For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_QuerySystemConfigRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigRequest"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigRequest does not contain field %s", fd.FullName()))
-	}
-}
-
-// WhichOneof reports which field within the oneof is populated,
-// returning nil if none are populated.
-// It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_QuerySystemConfigRequest) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uregistry.v1.QuerySystemConfigRequest", d.FullName()))
-	}
-	panic("unreachable")
-}
-
-// GetUnknown retrieves the entire list of unknown fields.
-// The caller may only mutate the contents of the RawFields
-// if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_QuerySystemConfigRequest) GetUnknown() protoreflect.RawFields {
-	return x.unknownFields
-}
-
-// SetUnknown stores an entire list of unknown fields.
-// The raw fields must be syntactically valid according to the wire format.
-// An implementation may panic if this is not the case.
-// Once stored, the caller must not mutate the content of the RawFields.
-// An empty RawFields may be passed to clear the fields.
-//
-// SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigRequest) SetUnknown(fields protoreflect.RawFields) {
-	x.unknownFields = fields
-}
-
-// IsValid reports whether the message is valid.
-//
-// An invalid message is an empty, read-only value.
-//
-// An invalid message often corresponds to a nil pointer of the concrete
-// message type, but the details are implementation dependent.
-// Validity is not part of the protobuf data model, and may not
-// be preserved in marshaling or other operations.
-func (x *fastReflection_QuerySystemConfigRequest) IsValid() bool {
-	return x != nil
-}
-
-// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
-// This method may return nil.
-//
-// The returned methods type is identical to
-// "google.golang.org/protobuf/runtime/protoiface".Methods.
-// Consult the protoiface package documentation for details.
-func (x *fastReflection_QuerySystemConfigRequest) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*QuerySystemConfigRequest)
-		if x == nil {
-			return protoiface.SizeOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Size:              0,
-			}
-		}
-		options := runtime.SizeInputToOptions(input)
-		_ = options
-		var n int
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			n += len(x.unknownFields)
-		}
-		return protoiface.SizeOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Size:              n,
-		}
-	}
-
-	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*QuerySystemConfigRequest)
-		if x == nil {
-			return protoiface.MarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Buf:               input.Buf,
-			}, nil
-		}
-		options := runtime.MarshalInputToOptions(input)
-		_ = options
-		size := options.Size(x)
-		dAtA := make([]byte, size)
-		i := len(dAtA)
-		_ = i
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			i -= len(x.unknownFields)
-			copy(dAtA[i:], x.unknownFields)
-		}
-		if input.Buf != nil {
-			input.Buf = append(input.Buf, dAtA...)
-		} else {
-			input.Buf = dAtA
-		}
-		return protoiface.MarshalOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Buf:               input.Buf,
-		}, nil
-	}
-	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*QuerySystemConfigRequest)
-		if x == nil {
-			return protoiface.UnmarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Flags:             input.Flags,
-			}, nil
-		}
-		options := runtime.UnmarshalInputToOptions(input)
-		_ = options
-		dAtA := input.Buf
-		l := len(dAtA)
-		iNdEx := 0
-		for iNdEx < l {
-			preIndex := iNdEx
-			var wire uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				wire |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			fieldNum := int32(wire >> 3)
-			wireType := int(wire & 0x7)
-			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QuerySystemConfigRequest: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QuerySystemConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-			}
-			switch fieldNum {
-			default:
-				iNdEx = preIndex
-				skippy, err := runtime.Skip(dAtA[iNdEx:])
-				if err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-				if (skippy < 0) || (iNdEx+skippy) < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if (iNdEx + skippy) > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				if !options.DiscardUnknown {
-					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
-				}
-				iNdEx += skippy
-			}
-		}
-
-		if iNdEx > l {
-			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-		}
-		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
-	}
-	return &protoiface.Methods{
-		NoUnkeyedLiterals: struct{}{},
-		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
-		Size:              size,
-		Marshal:           marshal,
-		Unmarshal:         unmarshal,
-		Merge:             nil,
-		CheckInitialized:  nil,
-	}
-}
-
-var (
-	md_QuerySystemConfigResponse               protoreflect.MessageDescriptor
-	fd_QuerySystemConfigResponse_system_config protoreflect.FieldDescriptor
-)
-
-func init() {
-	file_uregistry_v1_query_proto_init()
-	md_QuerySystemConfigResponse = File_uregistry_v1_query_proto.Messages().ByName("QuerySystemConfigResponse")
-	fd_QuerySystemConfigResponse_system_config = md_QuerySystemConfigResponse.Fields().ByName("system_config")
-}
-
-var _ protoreflect.Message = (*fastReflection_QuerySystemConfigResponse)(nil)
-
-type fastReflection_QuerySystemConfigResponse QuerySystemConfigResponse
-
-func (x *QuerySystemConfigResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_QuerySystemConfigResponse)(x)
-}
-
-func (x *QuerySystemConfigResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-var _fastReflection_QuerySystemConfigResponse_messageType fastReflection_QuerySystemConfigResponse_messageType
-var _ protoreflect.MessageType = fastReflection_QuerySystemConfigResponse_messageType{}
-
-type fastReflection_QuerySystemConfigResponse_messageType struct{}
-
-func (x fastReflection_QuerySystemConfigResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_QuerySystemConfigResponse)(nil)
-}
-func (x fastReflection_QuerySystemConfigResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_QuerySystemConfigResponse)
-}
-func (x fastReflection_QuerySystemConfigResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_QuerySystemConfigResponse
-}
-
-// Descriptor returns message descriptor, which contains only the protobuf
-// type information for the message.
-func (x *fastReflection_QuerySystemConfigResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_QuerySystemConfigResponse
-}
-
-// Type returns the message type, which encapsulates both Go and protobuf
-// type information. If the Go type information is not needed,
-// it is recommended that the message descriptor be used instead.
-func (x *fastReflection_QuerySystemConfigResponse) Type() protoreflect.MessageType {
-	return _fastReflection_QuerySystemConfigResponse_messageType
-}
-
-// New returns a newly allocated and mutable empty message.
-func (x *fastReflection_QuerySystemConfigResponse) New() protoreflect.Message {
-	return new(fastReflection_QuerySystemConfigResponse)
-}
-
-// Interface unwraps the message reflection interface and
-// returns the underlying ProtoMessage interface.
-func (x *fastReflection_QuerySystemConfigResponse) Interface() protoreflect.ProtoMessage {
-	return (*QuerySystemConfigResponse)(x)
-}
-
-// Range iterates over every populated field in an undefined order,
-// calling f for each field descriptor and value encountered.
-// Range returns immediately if f returns false.
-// While iterating, mutating operations may only be performed
-// on the current field descriptor.
-func (x *fastReflection_QuerySystemConfigResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.SystemConfig != nil {
-		value := protoreflect.ValueOfMessage(x.SystemConfig.ProtoReflect())
-		if !f(fd_QuerySystemConfigResponse_system_config, value) {
-			return
-		}
-	}
-}
-
-// Has reports whether a field is populated.
-//
-// Some fields have the property of nullability where it is possible to
-// distinguish between the default value of a field and whether the field
-// was explicitly populated with the default value. Singular message fields,
-// member fields of a oneof, and proto2 scalar fields are nullable. Such
-// fields are populated only if explicitly set.
-//
-// In other cases (aside from the nullable cases above),
-// a proto3 scalar field is populated if it contains a non-zero value, and
-// a repeated field is populated if it is non-empty.
-func (x *fastReflection_QuerySystemConfigResponse) Has(fd protoreflect.FieldDescriptor) bool {
-	switch fd.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		return x.SystemConfig != nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", fd.FullName()))
-	}
-}
-
-// Clear clears the field such that a subsequent Has call reports false.
-//
-// Clearing an extension field clears both the extension type and value
-// associated with the given field number.
-//
-// Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigResponse) Clear(fd protoreflect.FieldDescriptor) {
-	switch fd.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		x.SystemConfig = nil
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", fd.FullName()))
-	}
-}
-
-// Get retrieves the value for a field.
-//
-// For unpopulated scalars, it returns the default value, where
-// the default value of a bytes scalar is guaranteed to be a copy.
-// For unpopulated composite types, it returns an empty, read-only view
-// of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_QuerySystemConfigResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
-	switch descriptor.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		value := x.SystemConfig
-		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	default:
-		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", descriptor.FullName()))
-	}
-}
-
-// Set stores the value for a field.
-//
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType.
-// When setting a composite type, it is unspecified whether the stored value
-// aliases the source's memory in any way. If the composite value is an
-// empty, read-only value, then it panics.
-//
-// Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
-	switch fd.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		x.SystemConfig = value.Message().Interface().(*SystemConfig)
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", fd.FullName()))
-	}
-}
-
-// Mutable returns a mutable reference to a composite type.
-//
-// If the field is unpopulated, it may allocate a composite value.
-// For a field belonging to a oneof, it implicitly clears any other field
-// that may be currently set within the same oneof.
-// For extension fields, it implicitly stores the provided ExtensionType
-// if not already stored.
-// It panics if the field does not contain a composite type.
-//
-// Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		if x.SystemConfig == nil {
-			x.SystemConfig = new(SystemConfig)
-		}
-		return protoreflect.ValueOfMessage(x.SystemConfig.ProtoReflect())
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", fd.FullName()))
-	}
-}
-
-// NewField returns a new value that is assignable to the field
-// for the given descriptor. For scalars, this returns the default value.
-// For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_QuerySystemConfigResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
-	switch fd.FullName() {
-	case "uregistry.v1.QuerySystemConfigResponse.system_config":
-		m := new(SystemConfig)
-		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	default:
-		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.QuerySystemConfigResponse"))
-		}
-		panic(fmt.Errorf("message uregistry.v1.QuerySystemConfigResponse does not contain field %s", fd.FullName()))
-	}
-}
-
-// WhichOneof reports which field within the oneof is populated,
-// returning nil if none are populated.
-// It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_QuerySystemConfigResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
-	switch d.FullName() {
-	default:
-		panic(fmt.Errorf("%s is not a oneof field in uregistry.v1.QuerySystemConfigResponse", d.FullName()))
-	}
-	panic("unreachable")
-}
-
-// GetUnknown retrieves the entire list of unknown fields.
-// The caller may only mutate the contents of the RawFields
-// if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_QuerySystemConfigResponse) GetUnknown() protoreflect.RawFields {
-	return x.unknownFields
-}
-
-// SetUnknown stores an entire list of unknown fields.
-// The raw fields must be syntactically valid according to the wire format.
-// An implementation may panic if this is not the case.
-// Once stored, the caller must not mutate the content of the RawFields.
-// An empty RawFields may be passed to clear the fields.
-//
-// SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QuerySystemConfigResponse) SetUnknown(fields protoreflect.RawFields) {
-	x.unknownFields = fields
-}
-
-// IsValid reports whether the message is valid.
-//
-// An invalid message is an empty, read-only value.
-//
-// An invalid message often corresponds to a nil pointer of the concrete
-// message type, but the details are implementation dependent.
-// Validity is not part of the protobuf data model, and may not
-// be preserved in marshaling or other operations.
-func (x *fastReflection_QuerySystemConfigResponse) IsValid() bool {
-	return x != nil
-}
-
-// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
-// This method may return nil.
-//
-// The returned methods type is identical to
-// "google.golang.org/protobuf/runtime/protoiface".Methods.
-// Consult the protoiface package documentation for details.
-func (x *fastReflection_QuerySystemConfigResponse) ProtoMethods() *protoiface.Methods {
-	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*QuerySystemConfigResponse)
-		if x == nil {
-			return protoiface.SizeOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Size:              0,
-			}
-		}
-		options := runtime.SizeInputToOptions(input)
-		_ = options
-		var n int
-		var l int
-		_ = l
-		if x.SystemConfig != nil {
-			l = options.Size(x.SystemConfig)
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
-		if x.unknownFields != nil {
-			n += len(x.unknownFields)
-		}
-		return protoiface.SizeOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Size:              n,
-		}
-	}
-
-	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*QuerySystemConfigResponse)
-		if x == nil {
-			return protoiface.MarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Buf:               input.Buf,
-			}, nil
-		}
-		options := runtime.MarshalInputToOptions(input)
-		_ = options
-		size := options.Size(x)
-		dAtA := make([]byte, size)
-		i := len(dAtA)
-		_ = i
-		var l int
-		_ = l
-		if x.unknownFields != nil {
-			i -= len(x.unknownFields)
-			copy(dAtA[i:], x.unknownFields)
-		}
-		if x.SystemConfig != nil {
-			encoded, err := options.Marshal(x.SystemConfig)
-			if err != nil {
-				return protoiface.MarshalOutput{
-					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-					Buf:               input.Buf,
-				}, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
-			i--
-			dAtA[i] = 0xa
-		}
-		if input.Buf != nil {
-			input.Buf = append(input.Buf, dAtA...)
-		} else {
-			input.Buf = dAtA
-		}
-		return protoiface.MarshalOutput{
-			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-			Buf:               input.Buf,
-		}, nil
-	}
-	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*QuerySystemConfigResponse)
-		if x == nil {
-			return protoiface.UnmarshalOutput{
-				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-				Flags:             input.Flags,
-			}, nil
-		}
-		options := runtime.UnmarshalInputToOptions(input)
-		_ = options
-		dAtA := input.Buf
-		l := len(dAtA)
-		iNdEx := 0
-		for iNdEx < l {
-			preIndex := iNdEx
-			var wire uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				wire |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			fieldNum := int32(wire >> 3)
-			wireType := int(wire & 0x7)
-			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QuerySystemConfigResponse: wiretype end group for non-group")
-			}
-			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QuerySystemConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-			}
-			switch fieldNum {
-			case 1:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field SystemConfig", wireType)
-				}
-				var msglen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					msglen |= int(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				if msglen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + msglen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				if x.SystemConfig == nil {
-					x.SystemConfig = &SystemConfig{}
-				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.SystemConfig); err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-				iNdEx = postIndex
-			default:
-				iNdEx = preIndex
-				skippy, err := runtime.Skip(dAtA[iNdEx:])
-				if err != nil {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
-				}
-				if (skippy < 0) || (iNdEx+skippy) < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if (iNdEx + skippy) > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				if !options.DiscardUnknown {
-					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
-				}
-				iNdEx += skippy
-			}
-		}
-
-		if iNdEx > l {
-			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-		}
-		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
-	}
-	return &protoiface.Methods{
-		NoUnkeyedLiterals: struct{}{},
-		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
-		Size:              size,
-		Marshal:           marshal,
-		Unmarshal:         unmarshal,
-		Merge:             nil,
-		CheckInitialized:  nil,
-	}
-}
-
-var (
 	md_QueryChainConfigRequest       protoreflect.MessageDescriptor
 	fd_QueryChainConfigRequest_chain protoreflect.FieldDescriptor
 )
@@ -1615,7 +824,7 @@ func (x *QueryChainConfigRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryChainConfigRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[4]
+	mi := &file_uregistry_v1_query_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2035,7 +1244,7 @@ func (x *QueryChainConfigResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryChainConfigResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[5]
+	mi := &file_uregistry_v1_query_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2468,7 +1677,7 @@ func (x *QueryAllChainConfigsRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllChainConfigsRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[6]
+	mi := &file_uregistry_v1_query_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2877,7 +2086,7 @@ func (x *QueryAllChainConfigsResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllChainConfigsResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[7]
+	mi := &file_uregistry_v1_query_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3322,7 +2531,7 @@ func (x *QueryTokenConfigRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryTokenConfigRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[8]
+	mi := &file_uregistry_v1_query_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3804,7 +3013,7 @@ func (x *QueryTokenConfigResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryTokenConfigResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[9]
+	mi := &file_uregistry_v1_query_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4237,7 +3446,7 @@ func (x *QueryAllTokenConfigsRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllTokenConfigsRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[10]
+	mi := &file_uregistry_v1_query_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4646,7 +3855,7 @@ func (x *QueryAllTokenConfigsResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllTokenConfigsResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[11]
+	mi := &file_uregistry_v1_query_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5089,7 +4298,7 @@ func (x *QueryTokenConfigsByChainRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryTokenConfigsByChainRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[12]
+	mi := &file_uregistry_v1_query_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5560,7 +4769,7 @@ func (x *QueryTokenConfigsByChainResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryTokenConfigsByChainResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uregistry_v1_query_proto_msgTypes[13]
+	mi := &file_uregistry_v1_query_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6060,70 +5269,6 @@ func (x *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
-// SystemConfig
-// QuerySystemConfigRequest is the request type for the Query/SystemConfig RPC method.
-type QuerySystemConfigRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *QuerySystemConfigRequest) Reset() {
-	*x = QuerySystemConfigRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *QuerySystemConfigRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*QuerySystemConfigRequest) ProtoMessage() {}
-
-// Deprecated: Use QuerySystemConfigRequest.ProtoReflect.Descriptor instead.
-func (*QuerySystemConfigRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{2}
-}
-
-// QuerySystemConfigResponse is the response type for the Query/SystemConfig RPC method.
-type QuerySystemConfigResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	SystemConfig *SystemConfig `protobuf:"bytes,1,opt,name=system_config,json=systemConfig,proto3" json:"system_config,omitempty"`
-}
-
-func (x *QuerySystemConfigResponse) Reset() {
-	*x = QuerySystemConfigResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *QuerySystemConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*QuerySystemConfigResponse) ProtoMessage() {}
-
-// Deprecated: Use QuerySystemConfigResponse.ProtoReflect.Descriptor instead.
-func (*QuerySystemConfigResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *QuerySystemConfigResponse) GetSystemConfig() *SystemConfig {
-	if x != nil {
-		return x.SystemConfig
-	}
-	return nil
-}
-
 // ChainConfig
 // QueryChainConfigRequest is the request type for the Query/ChainConfig RPC method.
 type QueryChainConfigRequest struct {
@@ -6137,7 +5282,7 @@ type QueryChainConfigRequest struct {
 func (x *QueryChainConfigRequest) Reset() {
 	*x = QueryChainConfigRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[4]
+		mi := &file_uregistry_v1_query_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6151,7 +5296,7 @@ func (*QueryChainConfigRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryChainConfigRequest.ProtoReflect.Descriptor instead.
 func (*QueryChainConfigRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{4}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *QueryChainConfigRequest) GetChain() string {
@@ -6173,7 +5318,7 @@ type QueryChainConfigResponse struct {
 func (x *QueryChainConfigResponse) Reset() {
 	*x = QueryChainConfigResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[5]
+		mi := &file_uregistry_v1_query_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6187,7 +5332,7 @@ func (*QueryChainConfigResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryChainConfigResponse.ProtoReflect.Descriptor instead.
 func (*QueryChainConfigResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{5}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *QueryChainConfigResponse) GetConfig() *ChainConfig {
@@ -6207,7 +5352,7 @@ type QueryAllChainConfigsRequest struct {
 func (x *QueryAllChainConfigsRequest) Reset() {
 	*x = QueryAllChainConfigsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[6]
+		mi := &file_uregistry_v1_query_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6221,7 +5366,7 @@ func (*QueryAllChainConfigsRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryAllChainConfigsRequest.ProtoReflect.Descriptor instead.
 func (*QueryAllChainConfigsRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{6}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{4}
 }
 
 // QueryAllChainConfigsResponse is the response type for the Query/AllChainConfigs RPC method.
@@ -6236,7 +5381,7 @@ type QueryAllChainConfigsResponse struct {
 func (x *QueryAllChainConfigsResponse) Reset() {
 	*x = QueryAllChainConfigsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[7]
+		mi := &file_uregistry_v1_query_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6250,7 +5395,7 @@ func (*QueryAllChainConfigsResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryAllChainConfigsResponse.ProtoReflect.Descriptor instead.
 func (*QueryAllChainConfigsResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{7}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *QueryAllChainConfigsResponse) GetConfigs() []*ChainConfig {
@@ -6274,7 +5419,7 @@ type QueryTokenConfigRequest struct {
 func (x *QueryTokenConfigRequest) Reset() {
 	*x = QueryTokenConfigRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[8]
+		mi := &file_uregistry_v1_query_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6288,7 +5433,7 @@ func (*QueryTokenConfigRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryTokenConfigRequest.ProtoReflect.Descriptor instead.
 func (*QueryTokenConfigRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{8}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *QueryTokenConfigRequest) GetChain() string {
@@ -6317,7 +5462,7 @@ type QueryTokenConfigResponse struct {
 func (x *QueryTokenConfigResponse) Reset() {
 	*x = QueryTokenConfigResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[9]
+		mi := &file_uregistry_v1_query_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6331,7 +5476,7 @@ func (*QueryTokenConfigResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryTokenConfigResponse.ProtoReflect.Descriptor instead.
 func (*QueryTokenConfigResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{9}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *QueryTokenConfigResponse) GetConfig() *TokenConfig {
@@ -6351,7 +5496,7 @@ type QueryAllTokenConfigsRequest struct {
 func (x *QueryAllTokenConfigsRequest) Reset() {
 	*x = QueryAllTokenConfigsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[10]
+		mi := &file_uregistry_v1_query_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6365,7 +5510,7 @@ func (*QueryAllTokenConfigsRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryAllTokenConfigsRequest.ProtoReflect.Descriptor instead.
 func (*QueryAllTokenConfigsRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{10}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{8}
 }
 
 // QueryAllTokenConfigsResponse is the response type for the Query/AllTokenConfigs RPC method.
@@ -6380,7 +5525,7 @@ type QueryAllTokenConfigsResponse struct {
 func (x *QueryAllTokenConfigsResponse) Reset() {
 	*x = QueryAllTokenConfigsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[11]
+		mi := &file_uregistry_v1_query_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6394,7 +5539,7 @@ func (*QueryAllTokenConfigsResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryAllTokenConfigsResponse.ProtoReflect.Descriptor instead.
 func (*QueryAllTokenConfigsResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{11}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *QueryAllTokenConfigsResponse) GetConfigs() []*TokenConfig {
@@ -6416,7 +5561,7 @@ type QueryTokenConfigsByChainRequest struct {
 func (x *QueryTokenConfigsByChainRequest) Reset() {
 	*x = QueryTokenConfigsByChainRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[12]
+		mi := &file_uregistry_v1_query_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6430,7 +5575,7 @@ func (*QueryTokenConfigsByChainRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryTokenConfigsByChainRequest.ProtoReflect.Descriptor instead.
 func (*QueryTokenConfigsByChainRequest) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{12}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *QueryTokenConfigsByChainRequest) GetChain() string {
@@ -6452,7 +5597,7 @@ type QueryTokenConfigsByChainResponse struct {
 func (x *QueryTokenConfigsByChainResponse) Reset() {
 	*x = QueryTokenConfigsByChainResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uregistry_v1_query_proto_msgTypes[13]
+		mi := &file_uregistry_v1_query_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6466,7 +5611,7 @@ func (*QueryTokenConfigsByChainResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryTokenConfigsByChainResponse.ProtoReflect.Descriptor instead.
 func (*QueryTokenConfigsByChainResponse) Descriptor() ([]byte, []int) {
-	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{13}
+	return file_uregistry_v1_query_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *QueryTokenConfigsByChainResponse) GetConfigs() []*TokenConfig {
@@ -6492,130 +5637,114 @@ var file_uregistry_v1_query_proto_rawDesc = []byte{
 	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2c, 0x0a, 0x06, 0x70, 0x61, 0x72,
 	0x61, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x75, 0x72, 0x65, 0x67,
 	0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52,
-	0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0x1a, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x22, 0x5c, 0x0a, 0x19, 0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x79, 0x73, 0x74,
-	0x65, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x3f, 0x0a, 0x0d, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73,
-	0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x52, 0x0c, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x22, 0x2f, 0x0a, 0x17, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61,
-	0x69, 0x6e, 0x22, 0x4d, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31,
-	0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19,
-	0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68,
-	0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x22, 0x1d, 0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61,
-	0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x22, 0x53, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x33, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31,
-	0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x07, 0x63, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x73, 0x22, 0x49, 0x0a, 0x17, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f,
-	0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x14, 0x0a, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
-	0x22, 0x4d, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31, 0x0a, 0x06,
-	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75,
-	0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x6b, 0x65,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22,
-	0x1d, 0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x53,
-	0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33,
-	0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32,
-	0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x54,
-	0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x73, 0x22, 0x37, 0x0a, 0x1f, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65,
-	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x52,
+	0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x22, 0x2f, 0x0a, 0x17, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x22, 0x4d, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79,
+	0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
+	0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x1d, 0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x53, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41,
+	0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73,
+	0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x22, 0x49, 0x0a, 0x17, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x22, 0x57, 0x0a, 0x20,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x33, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31,
-	0x2e, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x07, 0x63, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x73, 0x32, 0xdf, 0x07, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12,
-	0x6b, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x20, 0x2e, 0x75, 0x72, 0x65, 0x67,
-	0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61,
-	0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x75, 0x72,
-	0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1c,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x16, 0x12, 0x14, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74,
-	0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x84, 0x01, 0x0a,
-	0x0c, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x26, 0x2e,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x18, 0x0a, 0x07,
+	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x4d, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54,
+	0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x31, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76,
+	0x31, 0x2e, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x06, 0x63,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x1d, 0x0a, 0x1b, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c,
+	0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x22, 0x53, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c,
+	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72,
+	0x79, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x52, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x22, 0x37, 0x0a, 0x1f, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79,
+	0x43, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x22, 0x57, 0x0a, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e,
+	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73,
+	0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x32, 0xd8, 0x06, 0x0a, 0x05,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x6b, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12,
+	0x20, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x21, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1c, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x16, 0x12, 0x14, 0x2f, 0x75,
+	0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61,
+	0x6d, 0x73, 0x12, 0x88, 0x01, 0x0a, 0x0b, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x12, 0x25, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x75, 0x72, 0x65, 0x67,
+	0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x68,
+	0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x2a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x24, 0x12, 0x22, 0x2f, 0x75, 0x72, 0x65, 0x67,
+	0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2f, 0x7b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x12, 0x8d, 0x01,
+	0x0a, 0x0f, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x73, 0x12, 0x29, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x75,
+	0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d,
+	0x12, 0x1b, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x12, 0x92, 0x01,
+	0x0a, 0x0b, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25, 0x2e,
 	0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
-	0x72, 0x79, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x27, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72,
-	0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74,
-	0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x5f, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x12, 0x88, 0x01, 0x0a, 0x0b, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x12, 0x25, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x75, 0x72, 0x65,
-	0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43,
-	0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x2a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x24, 0x12, 0x22, 0x2f, 0x75, 0x72, 0x65,
-	0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f,
-	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2f, 0x7b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x12, 0x8d,
-	0x01, 0x0a, 0x0f, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x73, 0x12, 0x29, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e,
-	0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
-	0x72, 0x79, 0x41, 0x6c, 0x6c, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93, 0x02,
-	0x1d, 0x12, 0x1b, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31,
-	0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x12, 0x92,
-	0x01, 0x0a, 0x0b, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25,
-	0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75,
-	0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72,
-	0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x34, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x2e, 0x12, 0x2c, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72,
+	0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79,
+	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x34, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x2e, 0x12, 0x2c, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79,
+	0x2f, 0x76, 0x31, 0x2f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x2f, 0x7b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x7d, 0x12, 0x8d, 0x01, 0x0a, 0x0f, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x12, 0x29, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74,
+	0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x6f,
+	0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x2a, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82,
+	0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72,
 	0x79, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x2f, 0x7b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65,
-	0x73, 0x73, 0x7d, 0x12, 0x8d, 0x01, 0x0a, 0x0f, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x12, 0x29, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73,
-	0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54,
-	0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76,
-	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74,
-	0x72, 0x79, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x73, 0x12, 0xa1, 0x01, 0x0a, 0x13, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x2d, 0x2e, 0x75, 0x72,
-	0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68,
-	0x61, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2e, 0x2e, 0x75, 0x72, 0x65,
+	0x67, 0x73, 0x12, 0xa1, 0x01, 0x0a, 0x13, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x2d, 0x2e, 0x75, 0x72, 0x65,
 	0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54,
 	0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61,
-	0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93,
-	0x02, 0x25, 0x12, 0x23, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76,
-	0x31, 0x2f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x2f,
-	0x7b, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x42, 0xb2, 0x01, 0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e,
-	0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x51, 0x75,
-	0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76,
-	0x31, 0x3b, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x76, 0x31, 0xa2, 0x02, 0x03,
-	0x55, 0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e,
-	0x56, 0x31, 0xca, 0x02, 0x0c, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x5c, 0x56,
-	0x31, 0xe2, 0x02, 0x18, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x5c, 0x56, 0x31,
-	0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55,
-	0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2e, 0x2e, 0x75, 0x72, 0x65, 0x67,
+	0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x6f,
+	0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x42, 0x79, 0x43, 0x68, 0x61, 0x69,
+	0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02,
+	0x25, 0x12, 0x23, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31,
+	0x2f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x73, 0x2f, 0x7b,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x7d, 0x42, 0xb2, 0x01, 0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
+	0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f,
+	0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f,
+	0x61, 0x70, 0x69, 0x2f, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x76, 0x31,
+	0x3b, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55,
+	0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x56,
+	0x31, 0xca, 0x02, 0x0c, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x5c, 0x56, 0x31,
+	0xe2, 0x02, 0x18, 0x55, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x5c, 0x56, 0x31, 0x5c,
+	0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55, 0x72,
+	0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -6630,54 +5759,48 @@ func file_uregistry_v1_query_proto_rawDescGZIP() []byte {
 	return file_uregistry_v1_query_proto_rawDescData
 }
 
-var file_uregistry_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_uregistry_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_uregistry_v1_query_proto_goTypes = []interface{}{
 	(*QueryParamsRequest)(nil),               // 0: uregistry.v1.QueryParamsRequest
 	(*QueryParamsResponse)(nil),              // 1: uregistry.v1.QueryParamsResponse
-	(*QuerySystemConfigRequest)(nil),         // 2: uregistry.v1.QuerySystemConfigRequest
-	(*QuerySystemConfigResponse)(nil),        // 3: uregistry.v1.QuerySystemConfigResponse
-	(*QueryChainConfigRequest)(nil),          // 4: uregistry.v1.QueryChainConfigRequest
-	(*QueryChainConfigResponse)(nil),         // 5: uregistry.v1.QueryChainConfigResponse
-	(*QueryAllChainConfigsRequest)(nil),      // 6: uregistry.v1.QueryAllChainConfigsRequest
-	(*QueryAllChainConfigsResponse)(nil),     // 7: uregistry.v1.QueryAllChainConfigsResponse
-	(*QueryTokenConfigRequest)(nil),          // 8: uregistry.v1.QueryTokenConfigRequest
-	(*QueryTokenConfigResponse)(nil),         // 9: uregistry.v1.QueryTokenConfigResponse
-	(*QueryAllTokenConfigsRequest)(nil),      // 10: uregistry.v1.QueryAllTokenConfigsRequest
-	(*QueryAllTokenConfigsResponse)(nil),     // 11: uregistry.v1.QueryAllTokenConfigsResponse
-	(*QueryTokenConfigsByChainRequest)(nil),  // 12: uregistry.v1.QueryTokenConfigsByChainRequest
-	(*QueryTokenConfigsByChainResponse)(nil), // 13: uregistry.v1.QueryTokenConfigsByChainResponse
-	(*Params)(nil),                           // 14: uregistry.v1.Params
-	(*SystemConfig)(nil),                     // 15: uregistry.v1.SystemConfig
-	(*ChainConfig)(nil),                      // 16: uregistry.v1.ChainConfig
-	(*TokenConfig)(nil),                      // 17: uregistry.v1.TokenConfig
+	(*QueryChainConfigRequest)(nil),          // 2: uregistry.v1.QueryChainConfigRequest
+	(*QueryChainConfigResponse)(nil),         // 3: uregistry.v1.QueryChainConfigResponse
+	(*QueryAllChainConfigsRequest)(nil),      // 4: uregistry.v1.QueryAllChainConfigsRequest
+	(*QueryAllChainConfigsResponse)(nil),     // 5: uregistry.v1.QueryAllChainConfigsResponse
+	(*QueryTokenConfigRequest)(nil),          // 6: uregistry.v1.QueryTokenConfigRequest
+	(*QueryTokenConfigResponse)(nil),         // 7: uregistry.v1.QueryTokenConfigResponse
+	(*QueryAllTokenConfigsRequest)(nil),      // 8: uregistry.v1.QueryAllTokenConfigsRequest
+	(*QueryAllTokenConfigsResponse)(nil),     // 9: uregistry.v1.QueryAllTokenConfigsResponse
+	(*QueryTokenConfigsByChainRequest)(nil),  // 10: uregistry.v1.QueryTokenConfigsByChainRequest
+	(*QueryTokenConfigsByChainResponse)(nil), // 11: uregistry.v1.QueryTokenConfigsByChainResponse
+	(*Params)(nil),                           // 12: uregistry.v1.Params
+	(*ChainConfig)(nil),                      // 13: uregistry.v1.ChainConfig
+	(*TokenConfig)(nil),                      // 14: uregistry.v1.TokenConfig
 }
 var file_uregistry_v1_query_proto_depIdxs = []int32{
-	14, // 0: uregistry.v1.QueryParamsResponse.params:type_name -> uregistry.v1.Params
-	15, // 1: uregistry.v1.QuerySystemConfigResponse.system_config:type_name -> uregistry.v1.SystemConfig
-	16, // 2: uregistry.v1.QueryChainConfigResponse.config:type_name -> uregistry.v1.ChainConfig
-	16, // 3: uregistry.v1.QueryAllChainConfigsResponse.configs:type_name -> uregistry.v1.ChainConfig
-	17, // 4: uregistry.v1.QueryTokenConfigResponse.config:type_name -> uregistry.v1.TokenConfig
-	17, // 5: uregistry.v1.QueryAllTokenConfigsResponse.configs:type_name -> uregistry.v1.TokenConfig
-	17, // 6: uregistry.v1.QueryTokenConfigsByChainResponse.configs:type_name -> uregistry.v1.TokenConfig
-	0,  // 7: uregistry.v1.Query.Params:input_type -> uregistry.v1.QueryParamsRequest
-	2,  // 8: uregistry.v1.Query.SystemConfig:input_type -> uregistry.v1.QuerySystemConfigRequest
-	4,  // 9: uregistry.v1.Query.ChainConfig:input_type -> uregistry.v1.QueryChainConfigRequest
-	6,  // 10: uregistry.v1.Query.AllChainConfigs:input_type -> uregistry.v1.QueryAllChainConfigsRequest
-	8,  // 11: uregistry.v1.Query.TokenConfig:input_type -> uregistry.v1.QueryTokenConfigRequest
-	10, // 12: uregistry.v1.Query.AllTokenConfigs:input_type -> uregistry.v1.QueryAllTokenConfigsRequest
-	12, // 13: uregistry.v1.Query.TokenConfigsByChain:input_type -> uregistry.v1.QueryTokenConfigsByChainRequest
-	1,  // 14: uregistry.v1.Query.Params:output_type -> uregistry.v1.QueryParamsResponse
-	3,  // 15: uregistry.v1.Query.SystemConfig:output_type -> uregistry.v1.QuerySystemConfigResponse
-	5,  // 16: uregistry.v1.Query.ChainConfig:output_type -> uregistry.v1.QueryChainConfigResponse
-	7,  // 17: uregistry.v1.Query.AllChainConfigs:output_type -> uregistry.v1.QueryAllChainConfigsResponse
-	9,  // 18: uregistry.v1.Query.TokenConfig:output_type -> uregistry.v1.QueryTokenConfigResponse
-	11, // 19: uregistry.v1.Query.AllTokenConfigs:output_type -> uregistry.v1.QueryAllTokenConfigsResponse
-	13, // 20: uregistry.v1.Query.TokenConfigsByChain:output_type -> uregistry.v1.QueryTokenConfigsByChainResponse
-	14, // [14:21] is the sub-list for method output_type
-	7,  // [7:14] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	12, // 0: uregistry.v1.QueryParamsResponse.params:type_name -> uregistry.v1.Params
+	13, // 1: uregistry.v1.QueryChainConfigResponse.config:type_name -> uregistry.v1.ChainConfig
+	13, // 2: uregistry.v1.QueryAllChainConfigsResponse.configs:type_name -> uregistry.v1.ChainConfig
+	14, // 3: uregistry.v1.QueryTokenConfigResponse.config:type_name -> uregistry.v1.TokenConfig
+	14, // 4: uregistry.v1.QueryAllTokenConfigsResponse.configs:type_name -> uregistry.v1.TokenConfig
+	14, // 5: uregistry.v1.QueryTokenConfigsByChainResponse.configs:type_name -> uregistry.v1.TokenConfig
+	0,  // 6: uregistry.v1.Query.Params:input_type -> uregistry.v1.QueryParamsRequest
+	2,  // 7: uregistry.v1.Query.ChainConfig:input_type -> uregistry.v1.QueryChainConfigRequest
+	4,  // 8: uregistry.v1.Query.AllChainConfigs:input_type -> uregistry.v1.QueryAllChainConfigsRequest
+	6,  // 9: uregistry.v1.Query.TokenConfig:input_type -> uregistry.v1.QueryTokenConfigRequest
+	8,  // 10: uregistry.v1.Query.AllTokenConfigs:input_type -> uregistry.v1.QueryAllTokenConfigsRequest
+	10, // 11: uregistry.v1.Query.TokenConfigsByChain:input_type -> uregistry.v1.QueryTokenConfigsByChainRequest
+	1,  // 12: uregistry.v1.Query.Params:output_type -> uregistry.v1.QueryParamsResponse
+	3,  // 13: uregistry.v1.Query.ChainConfig:output_type -> uregistry.v1.QueryChainConfigResponse
+	5,  // 14: uregistry.v1.Query.AllChainConfigs:output_type -> uregistry.v1.QueryAllChainConfigsResponse
+	7,  // 15: uregistry.v1.Query.TokenConfig:output_type -> uregistry.v1.QueryTokenConfigResponse
+	9,  // 16: uregistry.v1.Query.AllTokenConfigs:output_type -> uregistry.v1.QueryAllTokenConfigsResponse
+	11, // 17: uregistry.v1.Query.TokenConfigsByChain:output_type -> uregistry.v1.QueryTokenConfigsByChainResponse
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_uregistry_v1_query_proto_init() }
@@ -6713,30 +5836,6 @@ func file_uregistry_v1_query_proto_init() {
 			}
 		}
 		file_uregistry_v1_query_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*QuerySystemConfigRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_uregistry_v1_query_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*QuerySystemConfigResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_uregistry_v1_query_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryChainConfigRequest); i {
 			case 0:
 				return &v.state
@@ -6748,7 +5847,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryChainConfigResponse); i {
 			case 0:
 				return &v.state
@@ -6760,7 +5859,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryAllChainConfigsRequest); i {
 			case 0:
 				return &v.state
@@ -6772,7 +5871,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryAllChainConfigsResponse); i {
 			case 0:
 				return &v.state
@@ -6784,7 +5883,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryTokenConfigRequest); i {
 			case 0:
 				return &v.state
@@ -6796,7 +5895,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryTokenConfigResponse); i {
 			case 0:
 				return &v.state
@@ -6808,7 +5907,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryAllTokenConfigsRequest); i {
 			case 0:
 				return &v.state
@@ -6820,7 +5919,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryAllTokenConfigsResponse); i {
 			case 0:
 				return &v.state
@@ -6832,7 +5931,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryTokenConfigsByChainRequest); i {
 			case 0:
 				return &v.state
@@ -6844,7 +5943,7 @@ func file_uregistry_v1_query_proto_init() {
 				return nil
 			}
 		}
-		file_uregistry_v1_query_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_uregistry_v1_query_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryTokenConfigsByChainResponse); i {
 			case 0:
 				return &v.state
@@ -6863,7 +5962,7 @@ func file_uregistry_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_uregistry_v1_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

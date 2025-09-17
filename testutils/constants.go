@@ -30,7 +30,7 @@ func GetDefaultAddresses() Addresses {
 		FactoryAddr:     common.HexToAddress("0x00000000000000000000000000000000000000ea"),
 		UEProxyAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e09"),
 		EVMImplAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e01"),
-		HandlerAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e08"),
+		HandlerAddr:     common.HexToAddress("0x00000000000000000000000000000000000000C0"),
 		PRC20USDCAddr:   common.HexToAddress("0x0000000000000000000000000000000000000e06"),
 		DefaultTestAddr: "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		CosmosTestAddr:  "cosmos18pjnzwr9xdnx2vnpv5mxywfnv56xxef5cludl5",

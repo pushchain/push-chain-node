@@ -261,7 +261,7 @@ const PRC20ABI = `[
     },
     {
       "type": "function",
-      "name": "HANDLER_CONTRACT",
+      "name": "UNIVERSAL_CORE",
       "inputs": [],
       "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
       "stateMutability": "view"

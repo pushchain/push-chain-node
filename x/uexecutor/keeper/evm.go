@@ -9,6 +9,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // CallFactoryToGetUEAAddressForOrigin calls FactoryV1.getUEAForOrigin(...)
@@ -128,17 +129,7 @@ func (k Keeper) CallPRC20Deposit(
 	prc20Address, to common.Address,
 	amount *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
-	// fetch system config
-	sysCfg, err := k.uregistryKeeper.GetSystemConfig(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get system config")
-	}
-
-	if sysCfg.UniversalCoreAddress == "" {
-		return nil, fmt.Errorf("universal core address not set in system config")
-	}
-
-	handlerAddr := common.HexToAddress(sysCfg.UniversalCoreAddress)
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 
 	abi, err := types.ParseUniversalCoreABI()
 	if err != nil {

@@ -25,6 +25,8 @@ type Options struct {
     Compact   bool
     Out       io.Writer // default os.Stdout
     Interval  time.Duration // refresh interval for progress updates
+    Quiet     bool          // minimal, non-emoji, non-TTY style output
+    Debug     bool          // extra diagnostic prints
 }
 
 type pt struct {
@@ -41,7 +43,8 @@ func Run(ctx context.Context, opts Options) error {
 		opts.Window = 30
 	}
 
-	tty := isTTY()
+    tty := isTTY()
+    if opts.Quiet { tty = false }
 	hideCursor(opts.Out, tty)
 	defer showCursor(opts.Out, tty)
 
@@ -89,12 +92,13 @@ func Run(ctx context.Context, opts Options) error {
 					lastEvent = time.Now()
 					sawSnapshot = true
 				}
-			case <-ticker.C:
-				if tty {
-					msg := "📥 Downloading and applying state sync snapshot..."
-					fmt.Fprintf(opts.Out, "\r%s %c", msg, frames[fi%len(frames)])
-					fi++
-				}
+            case <-ticker.C:
+                if tty {
+                    msg := "Downloading and applying state sync snapshot..."
+                    if !opts.Quiet { msg = "📥 " + msg }
+                    fmt.Fprintf(opts.Out, "\r%s %c", msg, frames[fi%len(frames)])
+                    fi++
+                }
 				// If we saw acceptance and logs have been quiet for a few seconds, proceed
 				if sawAccepted && time.Since(lastEvent) > 5*time.Second {
 					return
@@ -121,9 +125,9 @@ func Run(ctx context.Context, opts Options) error {
 	if tty {
 		fmt.Fprint(opts.Out, "\r\033[K")
 	}
-	if sawAccepted && tty {
-		fmt.Fprintln(opts.Out, "✅ Snapshot restored. Switching to block sync...")
-	}
+    if sawAccepted && tty && !opts.Quiet {
+        fmt.Fprintln(opts.Out, "✅ Snapshot restored. Switching to block sync...")
+    }
 
 	// Phase 2: WS header subscription + progress bar
 	local := strings.TrimRight(opts.LocalRPC, "/")
@@ -156,6 +160,9 @@ func Run(ctx context.Context, opts Options) error {
 	var barPrinted bool
 	var firstBarTime time.Time
 	var holdStarted bool
+	var lastPeers int
+	var lastLatency int64
+	var lastMetricsAt time.Time
 	// minimum time to show the bar even if already synced
 	const minShow = 15 * time.Second
 	// Print initial line to claim space
@@ -251,16 +258,37 @@ func Run(ctx context.Context, opts Options) error {
 				rem := float64(lastRemote-cur) / rate
 				eta = fmt.Sprintf(" | ETA: %s", (time.Duration(rem * float64(time.Second))).Round(time.Second))
 			}
+			// Periodically refresh peers and remote latency (every ~5s)
+			if time.Since(lastMetricsAt) > 5*time.Second {
+				lastMetricsAt = time.Now()
+				ctxp, cancelp := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+				if plist, err := cli.Peers(ctxp); err == nil {
+					lastPeers = len(plist)
+				}
+				cancelp()
+				t0 := time.Now()
+				ctxl, cancell := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+				_, _ = remoteCli.RemoteStatus(ctxl, remote)
+				cancell()
+				lastLatency = time.Since(t0).Milliseconds()
+			}
 			// Only render the bar once baseline exists and we have at least 2 samples (reduce jitter)
 			if baseH == 0 || len(buf) < 2 {
 				break
 			}
-			line := renderProgress(percent, cur, lastRemote)
-			if tty {
-				fmt.Fprintf(opts.Out, "\r\033[K%s%s", line, eta)
-			} else {
-				fmt.Fprintf(opts.Out, "%s height=%d/%d rate=%.2f blk/s%s\n", time.Now().Format(time.Kitchen), cur, lastRemote, rate, eta)
-			}
+            line := renderProgressWithQuiet(percent, cur, lastRemote, opts.Quiet)
+            if tty {
+                extra := eta
+                if lastPeers > 0 { extra += fmt.Sprintf(" | peers: %d", lastPeers) }
+                if lastLatency > 0 { extra += fmt.Sprintf(" | rtt: %dms", lastLatency) }
+                fmt.Fprintf(opts.Out, "\r\033[K%s%s", line, extra)
+            } else {
+                if opts.Quiet {
+                    fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, lastRemote, rate, eta, lastPeers, lastLatency)
+                } else {
+                    fmt.Fprintf(opts.Out, "%s height=%d/%d rate=%.2f blk/s%s peers=%d rtt=%dms\n", time.Now().Format(time.Kitchen), cur, lastRemote, rate, eta, lastPeers, lastLatency)
+                }
+            }
 			if !barPrinted {
 				firstBarTime = time.Now()
 				holdStarted = true
@@ -298,12 +326,12 @@ func Run(ctx context.Context, opts Options) error {
 					if cur < remoteH && percent >= 100 {
 						percent = 99.99
 					}
-					line := renderProgress(percent, cur, remoteH)
-					if tty {
-						fmt.Fprintf(opts.Out, "\r\033[K%s", line)
-					} else {
-						fmt.Println(line)
-					}
+                line := renderProgressWithQuiet(percent, cur, remoteH, opts.Quiet)
+                if tty {
+                    fmt.Fprintf(opts.Out, "\r\033[K%s", line)
+                } else {
+                    fmt.Println(line)
+                }
 					firstBarTime = time.Now()
 					holdStarted = true
 					barPrinted = true
@@ -338,14 +366,16 @@ func Run(ctx context.Context, opts Options) error {
 					continue
 				}
 				// End condition: catching_up is false AND minShow window has passed
-				if !st.CatchingUp && holdStarted && time.Since(firstBarTime) >= minShow {
-					if tty {
-						fmt.Fprint(opts.Out, "\n✅ Node is fully synced!\n")
-					} else {
-						fmt.Fprintln(opts.Out, "Node is fully synced.")
-					}
-					return nil
-				}
+                if !st.CatchingUp && holdStarted && time.Since(firstBarTime) >= minShow {
+                    if !opts.Quiet {
+                        if tty {
+                            fmt.Fprint(opts.Out, "\n✅ Node is fully synced!\n")
+                        } else {
+                            fmt.Fprintln(opts.Out, "Node is fully synced.")
+                        }
+                    }
+                    return nil
+                }
 			}
 		}
 	}
@@ -549,6 +579,20 @@ func renderProgress(percent float64, cur, remote int64) string {
 	}
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 	return fmt.Sprintf("📊 Syncing [%s] %.2f%% | %d/%d blocks", bar, percent, cur, remote)
+}
+
+func renderProgressWithQuiet(percent float64, cur, remote int64, quiet bool) string {
+    if quiet {
+        width := 28
+        if percent < 0 { percent = 0 }
+        if percent > 100 { percent = 100 }
+        filled := int(percent / 100 * float64(width))
+        if filled < 0 { filled = 0 }
+        if filled > width { filled = width }
+        bar := strings.Repeat("#", filled) + strings.Repeat("-", width-filled)
+        return fmt.Sprintf("[%s] %.2f%% | %d/%d", bar, percent, cur, remote)
+    }
+    return renderProgress(percent, cur, remote)
 }
 
 func isTTY() bool {

@@ -1,7 +1,7 @@
 package ui
 
 import (
-    "fmt"
+    "regexp"
     "strings"
 )
 
@@ -34,7 +34,7 @@ func Table(c *ColorConfig, headers []string, rows [][]string, widths []int) stri
     // headers
     for i, h := range headers {
         if i > 0 { b.WriteString(" ") }
-        b.WriteString(fmt.Sprintf("%-*s", w[i], c.Label(h)))
+        b.WriteString(padCell(c.Label(h), w[i]))
     }
     b.WriteString("\n")
     // separator
@@ -49,10 +49,23 @@ func Table(c *ColorConfig, headers []string, rows [][]string, widths []int) stri
             cell := ""
             if i < len(r) { cell = r[i] }
             if len(cell) > maxWidth { cell = cell[:maxWidth-1] + "…" }
-            b.WriteString(fmt.Sprintf("%-*s", w[i], c.Value(cell)))
+            b.WriteString(padCell(c.Value(cell), w[i]))
         }
         b.WriteString("\n")
     }
     return b.String()
 }
 
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func visibleLen(s string) int {
+    // strip ANSI escapes then measure
+    plain := ansiRE.ReplaceAllString(s, "")
+    return len([]rune(plain))
+}
+
+func padCell(s string, width int) string {
+    v := visibleLen(s)
+    if v >= width { return s }
+    return s + strings.Repeat(" ", width-v)
+}

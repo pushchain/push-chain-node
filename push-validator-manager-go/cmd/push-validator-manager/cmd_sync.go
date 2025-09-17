@@ -34,6 +34,8 @@ func init() {
                 Compact: syncCompact,
                 Out: os.Stdout,
                 Interval: syncInterval,
+                Quiet: flagQuiet,
+                Debug: flagDebug,
             })
         },
     }
@@ -44,4 +46,3 @@ func init() {
     syncCmd.Flags().DurationVar(&syncInterval, "interval", 1*time.Second, "Update interval (e.g. 1s, 2s)")
     rootCmd.AddCommand(syncCmd)
 }
-

@@ -14,14 +14,14 @@ import (
 func handleLogs(sup process.Supervisor) error {
     lp := sup.LogPath()
     if lp == "" {
-        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "no log path configured"}) } else { fmt.Println("no log path configured") }
+        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "no log path configured"}) } else { getPrinter().Error("no log path configured") }
         return fmt.Errorf("no log path configured")
     }
     if _, err := os.Stat(lp); err != nil {
-        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "log file not found", "path": lp}) } else { fmt.Printf("log file not found: %s\n", lp) }
+        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "log file not found", "path": lp}) } else { getPrinter().Error(fmt.Sprintf("log file not found: %s", lp)) }
         return fmt.Errorf("log file not found: %s", lp)
     }
-    fmt.Printf("Tailing %s (Ctrl+C to stop)\n", lp)
+    getPrinter().Info(fmt.Sprintf("Tailing %s (Ctrl+C to stop)", lp))
     stop := make(chan struct{})
     sigs := make(chan os.Signal, 1)
     signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

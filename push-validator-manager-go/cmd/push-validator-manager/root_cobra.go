@@ -32,6 +32,8 @@ var (
     flagGenesis string
     flagOutput string
     flagVerbose bool
+    flagQuiet bool
+    flagDebug bool
 )
 
 func init() {
@@ -42,6 +44,8 @@ func init() {
     rootCmd.PersistentFlags().StringVar(&flagGenesis, "genesis-domain", "", "Genesis RPC domain or URL")
     rootCmd.PersistentFlags().StringVarP(&flagOutput, "output", "o", "text", "Output format: json|text")
     rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Verbose output")
+    rootCmd.PersistentFlags().BoolVarP(&flagQuiet, "quiet", "q", false, "Quiet mode: minimal output (suppresses extras)")
+    rootCmd.PersistentFlags().BoolVarP(&flagDebug, "debug", "d", false, "Debug output: extra diagnostic logs")
 
     // status command (uses root --output), with --watch aliasing sync monitor
     var statusWatch bool
@@ -67,6 +71,8 @@ func init() {
                     Compact: statusCompact,
                     Out: os.Stdout,
                     Interval: statusInterval,
+                    Quiet: flagQuiet,
+                    Debug: flagDebug,
                 })
             }
             res := computeStatus(cfg, sup)
@@ -76,7 +82,11 @@ func init() {
                 enc.SetIndent("", "  ")
                 return enc.Encode(res)
             case "text", "":
-                printStatusText(res)
+                if flagQuiet {
+                    fmt.Printf("running=%v rpc=%v catching_up=%v height=%d\n", res.Running, res.RPCListening, res.CatchingUp, res.Height)
+                } else {
+                    printStatusText(res)
+                }
                 return nil
             default:
                 return fmt.Errorf("invalid --output: %s (use json|text)", flagOutput)

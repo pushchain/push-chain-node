@@ -57,6 +57,8 @@ func init() {
             "--genesis-domain <host|url>\tGenesis RPC domain or URL",
             "-o, --output <text|json>\tOutput format",
             "--verbose\tVerbose output",
+            "-q, --quiet\tQuiet mode (minimal output)",
+            "-d, --debug\tDebug output (extra diagnostics)",
         }
         for _, f := range flags {
             parts := strings.SplitN(f, "\t", 2)
@@ -88,4 +90,3 @@ func init() {
         }
     })
 }
-

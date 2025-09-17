@@ -12,9 +12,9 @@ import (
 func handleBackup(cfg config.Config) error {
     path, err := admin.Backup(admin.BackupOptions{HomeDir: cfg.HomeDir})
     if err != nil {
-        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()}) } else { fmt.Printf("backup error: %v\n", err) }
+        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()}) } else { getPrinter().Error(fmt.Sprintf("backup error: %v", err)) }
         return err
     }
-    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "backup_path": path}) } else { fmt.Printf("backup created: %s\n", path) }
+    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "backup_path": path}) } else { getPrinter().Success(fmt.Sprintf("backup created: %s", path)) }
     return nil
 }

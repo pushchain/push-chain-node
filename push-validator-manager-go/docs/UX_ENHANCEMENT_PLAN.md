@@ -11,8 +11,8 @@ Status of Phase 0 quick wins implemented in code:
 - [x] Fix `go.mod` to `go 1.22`
 - [x] Add `status --watch` alias (reuses sync monitor)
 - [x] Enhance `status` text formatting with colors/icons
-- [ ] Consolidate printer (`cmd/.../printer.go` → `internal/ui/printer.go`)
-- [ ] Standardize error handling (prefer `RunE` and return errors over `os.Exit`)
+- [x] Consolidate printer (`cmd/.../printer.go` → `internal/ui/printer.go`)
+- [x] Standardize error handling (prefer `RunE` and return errors over `os.Exit`)
 
 Notes:
 - `status --watch` supports `--compact`, `--window`, `--rpc`, `--remote` consistent with sync monitor.
@@ -74,21 +74,21 @@ Notes:
 ### 1.2 Enhanced Printer Module
 **File:** `internal/ui/printer.go`
 - **IMPORTANT:** Consolidate existing `cmd/push-validator-manager/printer.go` here
-- Extends current printer with color support integration
-- Formatted output helpers (tables, boxes, separators)
-- Progress bars and spinners
-- Status icons and badges
-- Respect NO_COLOR, TTY detection, and --output flags
+- Extends printer with color support integration (done)
+- Formatted output helpers (tables, boxes, separators) (tables, separators done)
+- Progress bars and spinners (basic spinner added)
+- Status icons and badges (via colors.go helpers)
+- Respect NO_COLOR, TTY detection, and --output flags (done)
 
 ### 1.3 Improved Help System
-**File:** `cmd/push-validator-manager/help.go`
+**File:** `cmd/push-validator-manager/help.go` (done)
 - Command grouping (Quick Start, Operations, Validator, Maintenance)
 - Rich command descriptions with examples
 - Context-aware "Next steps" suggestions
 - Common workflows section
 
 ### 1.4 Better Error Handling
-**File:** `internal/ui/errors.go`
+**File:** `internal/ui/errors.go` (done; wired to init/start/restart)
 - Structured error messages with:
   - Clear problem statement
   - Possible causes
@@ -97,10 +97,10 @@ Notes:
 - Error recovery suggestions
 
 **Deliverables:**
-- Colorized output for all commands
-- Organized help with examples
-- Better error messages
-- Consistent visual language
+- Colorized output for all commands (status/validators updated; stop/logs/reset/backup/balance use themed messages)
+- Organized help with examples (done)
+- Better error messages (done for init/start/restart)
+- Consistent visual language (colors/icons adopted across key commands)
 
 ---
 

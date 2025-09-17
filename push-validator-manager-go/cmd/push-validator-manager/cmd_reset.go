@@ -17,9 +17,9 @@ func handleReset(cfg config.Config, sup process.Supervisor) error {
         BinPath: findPchaind(),
         KeepAddrBook: true,
     }); err != nil {
-        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()}) } else { fmt.Printf("reset error: %v\n", err) }
+        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()}) } else { getPrinter().Error(fmt.Sprintf("reset error: %v", err)) }
         return err
     }
-    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "action": "reset"}) } else { fmt.Println("chain data reset (addr book kept)") }
+    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "action": "reset"}) } else { getPrinter().Success("chain data reset (addr book kept)") }
     return nil
 }

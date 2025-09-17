@@ -4,11 +4,13 @@ import (
     "context"
     "fmt"
     "net/url"
+    "strings"
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/node"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
+    "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/metrics"
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
 )
 
@@ -20,6 +22,9 @@ type statusResult struct {
     RPCListening bool   `json:"rpc_listening"`
     CatchingUp   bool   `json:"catching_up"`
     Height       int64  `json:"height"`
+    RemoteHeight int64  `json:"remote_height,omitempty"`
+    Peers        int    `json:"peers,omitempty"`
+    LatencyMS    int64  `json:"latency_ms,omitempty"`
     Error        string `json:"error,omitempty"`
 }
 
@@ -42,6 +47,15 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
         if err == nil {
             res.CatchingUp = st.CatchingUp
             res.Height = st.Height
+            // Enrich with remote height and peers (best-effort)
+            remote := "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443"
+            col := metrics.New()
+            ctx2, cancel2 := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+            snap := col.Collect(ctx2, rpc, remote)
+            cancel2()
+            if snap.Chain.RemoteHeight > 0 { res.RemoteHeight = snap.Chain.RemoteHeight }
+            if snap.Network.Peers > 0 { res.Peers = snap.Network.Peers }
+            if snap.Network.LatencyMS > 0 { res.LatencyMS = snap.Network.LatencyMS }
         } else {
             res.Error = fmt.Sprintf("RPC status error: %v", err)
         }
@@ -78,17 +92,30 @@ func printStatusText(result statusResult) {
     if result.Error != "" {
         heightVal = c.Error(result.Error)
     }
+    // Progress bar when remote height known
+    prog := ""
+    if result.RemoteHeight > 0 && result.Height > 0 {
+        pct := float64(result.Height) / float64(result.RemoteHeight) * 100
+        if pct > 100 { pct = 100 }
+        prog = fmt.Sprintf("%s %5.1f%%", c.ProgressBar(pct, 22), pct)
+    }
+    peers := "-"
+    if result.Peers > 0 { peers = fmt.Sprintf("%d connected", result.Peers) }
+    latency := "-"
+    if result.LatencyMS > 0 { latency = fmt.Sprintf("%d ms", result.LatencyMS) }
 
     // Render a simple header box
     title := c.Header(" PUSH VALIDATOR STATUS ")
     sep := c.Separator(44)
     body := fmt.Sprintf(
-        "%s\n%s %s\n%s %s\n%s %s\n%s %s\n",
+        "%s\n%s %s\n%s %s\n%s %s\n%s %s\n%s %s\n%s %s\n",
         sep,
         nodeIcon, c.FormatKeyValue("Node", nodeVal),
         rpcIcon, c.FormatKeyValue("RPC", rpcVal),
-        syncIcon, c.FormatKeyValue("Sync", syncVal),
+        syncIcon, c.FormatKeyValue("Sync", strings.TrimSpace(syncVal+" "+prog)),
         c.Info("ℹ"), c.FormatKeyValue("Height", heightVal),
+        c.Info("•"), c.FormatKeyValue("Peers", peers),
+        c.Info("•"), c.FormatKeyValue("Latency", latency),
     )
     fmt.Println(title)
     fmt.Println(body)

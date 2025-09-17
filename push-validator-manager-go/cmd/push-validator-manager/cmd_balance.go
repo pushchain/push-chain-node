@@ -36,9 +36,9 @@ func handleBalance(cfg config.Config, args []string) error {
     defer cancel()
     bal, err := v.Balance(ctx, addr)
     if err != nil {
-        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error(), "address": addr}) } else { fmt.Printf("balance error: %v\n", err) }
+        if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error(), "address": addr}) } else { getPrinter().Error(fmt.Sprintf("balance error: %v", err)) }
         return err
     }
-    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "address": addr, "balance": bal, "denom": cfg.Denom}) } else { fmt.Printf("%s %s\n", bal, cfg.Denom) }
+    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "address": addr, "balance": bal, "denom": cfg.Denom}) } else { getPrinter().Info(fmt.Sprintf("%s %s", bal, cfg.Denom)) }
     return nil
 }

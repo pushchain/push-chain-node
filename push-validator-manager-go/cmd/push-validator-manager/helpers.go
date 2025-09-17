@@ -1,6 +1,9 @@
 package main
 
-import "os"
+import (
+    "os"
+    ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
+)
 
 // findPchaind returns the path to the pchaind binary, resolving
 // either PCHAIND or PCHAIN_BIN environment variables, or falling
@@ -15,3 +18,5 @@ func findPchaind() string {
 // when k is not set.
 func getenvDefault(k, d string) string { if v := os.Getenv(k); v != "" { return v }; return d }
 
+// getPrinter returns a UI printer bound to the current --output flag.
+func getPrinter() ui.Printer { return ui.NewPrinter(flagOutput) }

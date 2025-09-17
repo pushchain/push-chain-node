@@ -4,22 +4,22 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "os"
     "os/exec"
     "sort"
     "strconv"
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
+    ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
 )
 
-func handleValidators(cfg config.Config) {
-    handleValidatorsWithFormat(cfg, false)
+func handleValidators(cfg config.Config) error {
+    return handleValidatorsWithFormat(cfg, false)
 }
 
 // handleValidatorsWithFormat prints either a pretty table (default)
 // or raw JSON (--output=json at root) of the current validator set.
-func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) {
+func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     bin := findPchaind()
     remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -28,16 +28,14 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) {
     output, err := cmd.Output()
     if err != nil {
         if ctx.Err() == context.DeadlineExceeded {
-            fmt.Printf("validators error: timeout connecting to %s\n", cfg.GenesisDomain)
-        } else {
-            fmt.Printf("validators error: %v\n", err)
+            return fmt.Errorf("validators: timeout connecting to %s", cfg.GenesisDomain)
         }
-        os.Exit(1)
+        return fmt.Errorf("validators: %w", err)
     }
     if jsonOut {
         // passthrough raw JSON
         fmt.Println(string(output))
-        return
+        return nil
     }
     var result struct {
         Validators []struct {
@@ -58,12 +56,13 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) {
         } `json:"validators"`
     }
     if err := json.Unmarshal(output, &result); err != nil {
+        // If JSON parse fails, print raw output for diagnostics
         fmt.Println(string(output))
-        return
+        return nil
     }
     if len(result.Validators) == 0 {
         fmt.Println("No validators found or node not synced")
-        return
+        return nil
     }
     type validatorDisplay struct {
         moniker       string
@@ -98,14 +97,22 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) {
         if vals[i].statusOrder != vals[j].statusOrder { return vals[i].statusOrder < vals[j].statusOrder }
         return vals[i].tokensPC > vals[j].tokensPC
     })
-    fmt.Println("\n👥 Active Push Chain Validators")
-    fmt.Println("═══════════════════════════════════════════════════════════════")
-    fmt.Printf("\n%-26s %-12s %12s %11s\n", "VALIDATOR", "STATUS", "STAKE (PC)", "COMMISSION")
-    fmt.Println("─────────────────────────────────────────────────────────────────")
+    c := ui.NewColorConfig()
+    fmt.Println()
+    fmt.Println(c.Header(" 👥 Active Push Chain Validators "))
+    headers := []string{"VALIDATOR", "STATUS", "STAKE (PC)", "COMMISSION"}
+    rows := make([][]string, 0, len(vals))
     for _, v := range vals {
-        fmt.Printf("%-26s %-12s %12.1f %10.0f%%\n", truncate(v.moniker, 26), v.status, v.tokensPC, v.commissionPct)
+        rows = append(rows, []string{
+            truncate(v.moniker, 26),
+            v.status,
+            fmt.Sprintf("%.1f", v.tokensPC),
+            fmt.Sprintf("%.0f%%", v.commissionPct),
+        })
     }
-    fmt.Printf("\nTotal Validators: %d\n", len(vals))
+    fmt.Print(ui.Table(c, headers, rows, nil))
+    fmt.Printf("Total Validators: %d\n", len(vals))
+    return nil
 }
 
 // truncate returns s truncated to max characters with ellipsis when needed.

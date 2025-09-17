@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "strings"
+    "time"
 
     "github.com/spf13/cobra"
 
@@ -12,6 +13,7 @@ import (
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/bootstrap"
     syncmon "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/sync"
+    ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
 )
 
 // rootCmd wires the CLI surface using Cobra. Persistent flags are
@@ -41,13 +43,32 @@ func init() {
     rootCmd.PersistentFlags().StringVarP(&flagOutput, "output", "o", "text", "Output format: json|text")
     rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Verbose output")
 
-    // status command (uses root --output)
+    // status command (uses root --output), with --watch aliasing sync monitor
+    var statusWatch bool
+    var statusCompact bool
+    var statusWindow int
+    var statusRPC string
+    var statusRemote string
+    var statusInterval time.Duration
     statusCmd := &cobra.Command{
         Use:   "status",
         Short: "Show node status",
         RunE: func(cmd *cobra.Command, args []string) error {
             cfg := loadCfg()
             sup := process.New(cfg.HomeDir)
+            if statusWatch {
+                if statusRPC == "" { statusRPC = cfg.RPCLocal }
+                if statusRemote == "" { statusRemote = "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443" }
+                return syncmon.Run(cmd.Context(), syncmon.Options{
+                    LocalRPC: statusRPC,
+                    RemoteRPC: statusRemote,
+                    LogPath: sup.LogPath(),
+                    Window: statusWindow,
+                    Compact: statusCompact,
+                    Out: os.Stdout,
+                    Interval: statusInterval,
+                })
+            }
             res := computeStatus(cfg, sup)
             switch flagOutput {
             case "json":
@@ -62,6 +83,12 @@ func init() {
             }
         },
     }
+    statusCmd.Flags().BoolVar(&statusWatch, "watch", false, "Continuously monitor sync progress (alias for 'sync')")
+    statusCmd.Flags().BoolVar(&statusCompact, "compact", false, "Compact output when --watch")
+    statusCmd.Flags().IntVar(&statusWindow, "window", 30, "Moving average window (headers) when --watch")
+    statusCmd.Flags().StringVar(&statusRPC, "rpc", "", "Local RPC base when --watch (http[s]://host:port)")
+    statusCmd.Flags().StringVar(&statusRemote, "remote", "", "Remote RPC base when --watch")
+    statusCmd.Flags().DurationVar(&statusInterval, "interval", 1*time.Second, "Update interval when --watch (e.g. 1s, 2s)")
     rootCmd.AddCommand(statusCmd)
 
     // init (Cobra flags)
@@ -75,7 +102,7 @@ func init() {
             if initChainID == "" { initChainID = cfg.ChainID }
             if initSnapshotRPC == "" { initSnapshotRPC = cfg.SnapshotRPC }
             svc := bootstrap.New()
-            return svc.Init(cmd.Context(), bootstrap.Options{
+            if err := svc.Init(cmd.Context(), bootstrap.Options{
                 HomeDir: cfg.HomeDir,
                 ChainID: initChainID,
                 Moniker: initMoniker,
@@ -83,7 +110,24 @@ func init() {
                 BinPath: findPchaind(),
                 SnapshotRPCPrimary: initSnapshotRPC,
                 SnapshotRPCSecondary: initSnapshotRPC,
-            })
+            }); err != nil {
+                ui.PrintError(ui.ErrorMessage{
+                    Problem: "Initialization failed",
+                    Causes: []string{
+                        "Network issue fetching genesis or status",
+                        "Incorrect --genesis-domain or RPC unreachable",
+                        "pchaind binary missing or not executable",
+                    },
+                    Actions: []string{
+                        "Verify connectivity: curl https://<genesis-domain>/status",
+                        "Set --genesis-domain to a working RPC host",
+                        "Ensure pchaind is installed and in PATH or pass --bin",
+                    },
+                    Hints: []string{"push-validator-manager validators --output json"},
+                })
+                return err
+            }
+            return nil
         },
     }
     initCmd.Flags().StringVar(&initMoniker, "moniker", "", "Validator moniker")
@@ -100,61 +144,61 @@ func init() {
             cfg := loadCfg()
             if startBin != "" { os.Setenv("PCHAIND", startBin) }
             _, err := process.New(cfg.HomeDir).Start(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
+            if err != nil {
+                ui.PrintError(ui.ErrorMessage{
+                    Problem: "Failed to start node",
+                    Causes: []string{
+                        "Missing genesis.json (init not run)",
+                        "Invalid home directory or permissions",
+                        "pchaind not found or incompatible",
+                    },
+                    Actions: []string{
+                        "Run: push-validator-manager init",
+                        "Check: ls <home>/config/genesis.json",
+                        "Confirm pchaind version matches network",
+                    },
+                })
+            }
             return err
         },
     }
     startCmd.Flags().StringVar(&startBin, "bin", "", "Path to pchaind binary")
     rootCmd.AddCommand(startCmd)
 
-    rootCmd.AddCommand(&cobra.Command{Use: "stop", Short: "Stop node", Run: func(cmd *cobra.Command, args []string) { handleStop(process.New(loadCfg().HomeDir)) }})
+    rootCmd.AddCommand(&cobra.Command{Use: "stop", Short: "Stop node", RunE: func(cmd *cobra.Command, args []string) error { return handleStop(process.New(loadCfg().HomeDir)) }})
 
     var restartBin string
     restartCmd := &cobra.Command{Use: "restart", Short: "Restart node", RunE: func(cmd *cobra.Command, args []string) error {
         cfg := loadCfg(); if restartBin != "" { os.Setenv("PCHAIND", restartBin) }
         _, err := process.New(cfg.HomeDir).Restart(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
+        if err != nil {
+            ui.PrintError(ui.ErrorMessage{
+                Problem: "Failed to restart node",
+                Causes: []string{
+                    "Process could not be stopped cleanly",
+                    "Start preconditions failed (see start command)",
+                },
+                Actions: []string{
+                    "Check logs: push-validator-manager logs",
+                    "Try: push-validator-manager stop; then start",
+                },
+            })
+        }
         return err
     }}
     restartCmd.Flags().StringVar(&restartBin, "bin", "", "Path to pchaind binary")
     rootCmd.AddCommand(restartCmd)
 
-    rootCmd.AddCommand(&cobra.Command{Use: "logs", Short: "Tail node logs", Run: func(cmd *cobra.Command, args []string) { handleLogs(process.New(loadCfg().HomeDir)) }})
-    // Proper Cobra sync command with flags
-    var syncCompact bool
-    var syncWindow int
-    var syncRPC string
-    var syncRemote string
-    syncCmd := &cobra.Command{
-        Use:   "sync",
-        Short: "Monitor sync progress",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            cfg := loadCfg()
-            if syncRPC == "" { syncRPC = cfg.RPCLocal }
-            if syncRemote == "" { syncRemote = "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443" }
-            sup := process.New(cfg.HomeDir)
-            return syncmon.Run(cmd.Context(), syncmon.Options{
-                LocalRPC: syncRPC,
-                RemoteRPC: syncRemote,
-                LogPath: sup.LogPath(),
-                Window: syncWindow,
-                Compact: syncCompact,
-                Out: os.Stdout,
-            })
-        },
-    }
-    syncCmd.Flags().BoolVar(&syncCompact, "compact", false, "Compact output")
-    syncCmd.Flags().IntVar(&syncWindow, "window", 30, "Moving average window (headers)")
-    syncCmd.Flags().StringVar(&syncRPC, "rpc", "", "Local RPC base (http[s]://host:port)")
-    syncCmd.Flags().StringVar(&syncRemote, "remote", "", "Remote RPC base")
-    rootCmd.AddCommand(syncCmd)
+    rootCmd.AddCommand(&cobra.Command{Use: "logs", Short: "Tail node logs", RunE: func(cmd *cobra.Command, args []string) error { return handleLogs(process.New(loadCfg().HomeDir)) }})
 
-    rootCmd.AddCommand(&cobra.Command{Use: "reset", Short: "Reset chain data", Run: func(cmd *cobra.Command, args []string) { handleReset(loadCfg(), process.New(loadCfg().HomeDir)) }})
-    rootCmd.AddCommand(&cobra.Command{Use: "backup", Short: "Backup config and validator state", Run: func(cmd *cobra.Command, args []string) { handleBackup(loadCfg()) }})
-    validatorsCmd := &cobra.Command{Use: "validators", Short: "List validators", Run: func(cmd *cobra.Command, args []string) { handleValidatorsWithFormat(loadCfg(), flagOutput == "json") }}
+    rootCmd.AddCommand(&cobra.Command{Use: "reset", Short: "Reset chain data", RunE: func(cmd *cobra.Command, args []string) error { return handleReset(loadCfg(), process.New(loadCfg().HomeDir)) }})
+    rootCmd.AddCommand(&cobra.Command{Use: "backup", Short: "Backup config and validator state", RunE: func(cmd *cobra.Command, args []string) error { return handleBackup(loadCfg()) }})
+    validatorsCmd := &cobra.Command{Use: "validators", Short: "List validators", RunE: func(cmd *cobra.Command, args []string) error { return handleValidatorsWithFormat(loadCfg(), flagOutput == "json") }}
     rootCmd.AddCommand(validatorsCmd)
     var balAddr string
-    balanceCmd := &cobra.Command{Use: "balance [address]", Short: "Show balance", Args: cobra.RangeArgs(0,1), Run: func(cmd *cobra.Command, args []string) {
+    balanceCmd := &cobra.Command{Use: "balance [address]", Short: "Show balance", Args: cobra.RangeArgs(0,1), RunE: func(cmd *cobra.Command, args []string) error {
         if balAddr != "" { args = []string{balAddr} }
-        handleBalance(loadCfg(), args)
+        return handleBalance(loadCfg(), args)
     }}
     balanceCmd.Flags().StringVar(&balAddr, "address", "", "Account address")
     rootCmd.AddCommand(balanceCmd)

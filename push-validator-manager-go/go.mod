@@ -1,6 +1,6 @@
 module github.com/pushchain/push-chain-node/push-validator-manager-go
 
-go 1.23.6
+go 1.22
 
 require (
 	github.com/gorilla/websocket v1.5.1

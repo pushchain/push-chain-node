@@ -9,6 +9,7 @@ import (
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/node"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
+    ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
 )
 
 // statusResult models the key process and RPC fields shown by the
@@ -50,23 +51,45 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
 
 // printStatusText prints a human-friendly status summary.
 func printStatusText(result statusResult) {
+    c := ui.NewColorConfig()
+    // Build lines with labels and values
+    nodeIcon := c.StatusIcon("stopped")
+    nodeVal := "Stopped"
     if result.Running {
-        if result.PID != 0 {
-            fmt.Printf("Node process: running (pid %d)\n", result.PID)
-        } else {
-            fmt.Println("Node process: running")
-        }
-    } else {
-        fmt.Println("Node process: stopped")
+        nodeIcon = c.StatusIcon("running")
+        if result.PID != 0 { nodeVal = fmt.Sprintf("Running (pid %d)", result.PID) } else { nodeVal = "Running" }
     }
-    if !result.RPCListening {
-        fmt.Println("RPC: not listening on 127.0.0.1:26657")
-        return
-    }
-    if result.Error != "" {
-        fmt.Println(result.Error)
-        return
-    }
-    fmt.Printf("RPC: catching_up=%v height=%d\n", result.CatchingUp, result.Height)
-}
 
+    rpcIcon := c.StatusIcon("offline")
+    rpcVal := "Not listening"
+    if result.RPCListening {
+        rpcIcon = c.StatusIcon("online")
+        rpcVal = "Listening (:26657)"
+    }
+
+    syncIcon := c.StatusIcon("success")
+    syncVal := "In Sync"
+    if result.CatchingUp {
+        syncIcon = c.StatusIcon("syncing")
+        syncVal = "Catching Up"
+    }
+
+    heightVal := fmt.Sprintf("%d", result.Height)
+    if result.Error != "" {
+        heightVal = c.Error(result.Error)
+    }
+
+    // Render a simple header box
+    title := c.Header(" PUSH VALIDATOR STATUS ")
+    sep := c.Separator(44)
+    body := fmt.Sprintf(
+        "%s\n%s %s\n%s %s\n%s %s\n%s %s\n",
+        sep,
+        nodeIcon, c.FormatKeyValue("Node", nodeVal),
+        rpcIcon, c.FormatKeyValue("RPC", rpcVal),
+        syncIcon, c.FormatKeyValue("Sync", syncVal),
+        c.Info("ℹ"), c.FormatKeyValue("Height", heightVal),
+    )
+    fmt.Println(title)
+    fmt.Println(body)
+}

@@ -11,15 +11,15 @@ import (
 
 // handleLogs tails the node log file until interrupted. It validates
 // the log path and prints structured JSON errors when --output=json.
-func handleLogs(sup process.Supervisor) {
+func handleLogs(sup process.Supervisor) error {
     lp := sup.LogPath()
     if lp == "" {
         if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "no log path configured"}) } else { fmt.Println("no log path configured") }
-        os.Exit(1)
+        return fmt.Errorf("no log path configured")
     }
     if _, err := os.Stat(lp); err != nil {
         if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "log file not found", "path": lp}) } else { fmt.Printf("log file not found: %s\n", lp) }
-        os.Exit(1)
+        return fmt.Errorf("log file not found: %s", lp)
     }
     fmt.Printf("Tailing %s (Ctrl+C to stop)\n", lp)
     stop := make(chan struct{})
@@ -28,6 +28,7 @@ func handleLogs(sup process.Supervisor) {
     go func() { <-sigs; close(stop) }()
     if err := process.TailFollow(lp, os.Stdout, stop); err != nil {
         fmt.Printf("tail error: %v\n", err)
-        os.Exit(1)
+        return err
     }
+    return nil
 }

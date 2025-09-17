@@ -18,12 +18,13 @@ import (
 )
 
 type Options struct {
-	LocalRPC  string
-	RemoteRPC string
-	LogPath   string
-	Window    int
-	Compact   bool
-	Out       io.Writer // default os.Stdout
+    LocalRPC  string
+    RemoteRPC string
+    LogPath   string
+    Window    int
+    Compact   bool
+    Out       io.Writer // default os.Stdout
+    Interval  time.Duration // refresh interval for progress updates
 }
 
 type pt struct {
@@ -161,8 +162,10 @@ func Run(ctx context.Context, opts Options) error {
 	if tty {
 		fmt.Fprint(opts.Out, "\r")
 	}
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
+    iv := opts.Interval
+    if iv <= 0 { iv = 1 * time.Second }
+    tick := time.NewTicker(iv)
+    defer tick.Stop()
 
 	for {
 		select {

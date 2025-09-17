@@ -1,14 +1,17 @@
 package api
 
-import "time"
+import "github.com/pushchain/push-chain-node/universalClient/cache"
+
+type universalClientInterface interface {
+	GetAllChainData() []*cache.ChainData
+}
 
 // QueryResponse represents the standard query response format
-type QueryResponse struct {
-	Data        interface{} `json:"data"`
-	LastFetched time.Time   `json:"last_fetched"`
+type queryResponse struct {
+	Data interface{} `json:"data"`
 }
 
 // ErrorResponse represents an error response
-type ErrorResponse struct {
+type errorResponse struct {
 	Error string `json:"error"`
 }

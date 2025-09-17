@@ -66,7 +66,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 func (c *Client) getRPCURLs() []string {
 	// Use the base client's GetRPCURLs method
 	urls := c.BaseChainClient.GetRPCURLs()
-	
+
 	if len(urls) > 0 {
 		c.logger.Info().
 			Str("chain", c.GetConfig().Chain).
@@ -274,37 +274,37 @@ func (c *Client) watchGatewayEvents() {
 				Uint64("start_slot", startSlot).
 				Msg("determined starting slot from database")
 
-            // Determine starting slot: per-chain config override, else DB start
-            fromSlot := startSlot
-            if c.appConfig != nil {
-                if chainCfg := c.GetChainSpecificConfig(); chainCfg != nil && chainCfg.EventStartFrom != nil {
-                    if *chainCfg.EventStartFrom >= 0 {
-                        fromSlot = uint64(*chainCfg.EventStartFrom)
-                        c.logger.Info().Uint64("from_slot", fromSlot).Msg("using per-chain configured start slot")
-                    } else {
-                        // -1 means start from latest slot
-                        latest, latestErr := c.gatewayHandler.GetLatestBlock(ctx)
-                        if latestErr == nil {
-                            fromSlot = latest
-                            c.logger.Info().Uint64("from_slot", fromSlot).Msg("using latest slot as start (per-chain config -1)")
-                        } else {
-                            c.logger.Warn().Err(latestErr).Uint64("fallback_from_slot", fromSlot).Msg("failed to get latest slot; falling back to DB start slot")
-                        }
-                    }
-                }
-            }
+			// Determine starting slot: per-chain config override, else DB start
+			fromSlot := startSlot
+			if c.appConfig != nil {
+				if chainCfg := c.GetChainSpecificConfig(); chainCfg != nil && chainCfg.EventStartFrom != nil {
+					if *chainCfg.EventStartFrom >= 0 {
+						fromSlot = uint64(*chainCfg.EventStartFrom)
+						c.logger.Info().Uint64("from_slot", fromSlot).Msg("using per-chain configured start slot")
+					} else {
+						// -1 means start from latest slot
+						latest, latestErr := c.gatewayHandler.GetLatestBlock(ctx)
+						if latestErr == nil {
+							fromSlot = latest
+							c.logger.Info().Uint64("from_slot", fromSlot).Msg("using latest slot as start (per-chain config -1)")
+						} else {
+							c.logger.Warn().Err(latestErr).Uint64("fallback_from_slot", fromSlot).Msg("failed to get latest slot; falling back to DB start slot")
+						}
+					}
+				}
+			}
 
-            // Start watching events
-            eventChan, err := c.WatchGatewayEvents(ctx, fromSlot)
+			// Start watching events
+			eventChan, err := c.WatchGatewayEvents(ctx, fromSlot)
 			if err != nil {
 				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
 				time.Sleep(5 * time.Second)
 				continue
 			}
 
-            c.logger.Info().
-                Uint64("from_slot", fromSlot).
-                Msg("gateway event watcher started")
+			c.logger.Info().
+				Uint64("from_slot", fromSlot).
+				Msg("gateway event watcher started")
 
 			// Process events until error or disconnection
 			watchErr := c.processGatewayEvents(ctx, eventChan)
@@ -333,9 +333,6 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 					Str("tx_hash", event.TxHash).
 					Str("method", event.Method).
 					Uint64("slot", event.BlockNumber).
-					Str("sender", event.Sender).
-					Str("receiver", event.Receiver).
-					Str("amount", event.Amount).
 					Msg("received gateway event")
 
 				// TODO: Process the event - e.g., send to a queue, update state, etc.

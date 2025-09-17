@@ -2,6 +2,7 @@ package constant
 
 import "os"
 
+// Node configuration constants
 const (
 	NodeDir = ".puniversal"
 )
@@ -9,3 +10,10 @@ const (
 var (
 	DefaultNodeHome = os.ExpandEnv("$HOME/") + NodeDir
 )
+
+// SupportedMessages contains all the supported message type URLs
+// that the Universal Validator should process.
+var SupportedMessages = []string{
+	"/uexecutor.v1.MsgVoteInbound",
+	// TODO: Add More Messages here as supported by Chain
+}

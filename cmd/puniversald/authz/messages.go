@@ -19,29 +19,27 @@ func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid signer address: %w", err)
 		}
-		
+
 		// Parse tx type (0=UNSPECIFIED, 1=GAS_FUND, 2=FUNDS_BRIDGE, 3=FUNDS_AND_PAYLOAD, 4=FUNDS_AND_PAYLOAD_INSTANT)
 		txTypeInt, err := strconv.Atoi(msgArgs[8])
 		if err != nil {
 			return nil, fmt.Errorf("invalid tx type (must be number 0-4): %w", err)
 		}
-		
+
 		var txType uetypes.InboundTxType
 		switch txTypeInt {
 		case 0:
-			txType = uetypes.InboundTxType_UNSPECIFIED_TX
+			txType = uetypes.InboundTxType_GAS
 		case 1:
-			txType = uetypes.InboundTxType_GAS_FUND_TX
+			txType = uetypes.InboundTxType_GAS_AND_PAYLOAD
 		case 2:
-			txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
+			txType = uetypes.InboundTxType_FUNDS
 		case 3:
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
+			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
 		case 4:
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
-		default:
-			return nil, fmt.Errorf("invalid tx type %d (must be 0=UNSPECIFIED, 1=GAS_FUND, 2=FUNDS_BRIDGE, 3=FUNDS_AND_PAYLOAD, 4=FUNDS_AND_PAYLOAD_INSTANT)", txTypeInt)
+			txType = uetypes.InboundTxType_UNSPECIFIED_TX
 		}
-		
+
 		return &uetypes.MsgVoteInbound{
 			Signer: signerAddr.String(),
 			Inbound: &uetypes.Inbound{
@@ -60,4 +58,3 @@ func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 		return nil, fmt.Errorf("unsupported message type: %s", msgType)
 	}
 }
-

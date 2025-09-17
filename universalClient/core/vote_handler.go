@@ -2,11 +2,17 @@ package core
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
+	gogoproto "github.com/cosmos/gogoproto/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -134,91 +140,59 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 // constructInbound creates an Inbound message from transaction data
 func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.Inbound, error) {
 	// Initialize event data map
-	var eventData map[string]interface{}
+	var eventData common.TxWithFundsPayload
 
-	// Check if Data field has content
-	if tx.Data != nil && len(tx.Data) > 0 {
-		// Try to parse the transaction data
-		if err := json.Unmarshal(tx.Data, &eventData); err != nil {
-			vh.log.Warn().
-				Str("tx_hash", tx.TxHash).
-				Err(err).
-				Msg("failed to parse transaction data, using minimal data")
-			eventData = make(map[string]interface{})
-		}
-	} else {
-		// No data provided, create minimal structure
-		eventData = make(map[string]interface{})
+	if tx == nil {
+		return nil, fmt.Errorf("transaction is nil")
 	}
 
-	// Determine source chain based on method
-	sourceChain, _ := eventData["source_chain"].(string)
-	if sourceChain == "" {
-		sourceChain, _ = eventData["chain_id"].(string)
-	}
-	if sourceChain == "" {
-		// Infer chain from method or use a default
-		// EVM methods typically use "addFunds", Solana uses "add_funds"
-		if tx.Method == "addFunds" {
-			sourceChain = "eip155:11155111" // Sepolia testnet
-		} else if tx.Method == "add_funds" {
-			sourceChain = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" // Solana devnet
-		}
+	if tx.Data == nil {
+		return nil, fmt.Errorf("transaction data is missing for tx_hash: %s", tx.TxHash)
 	}
 
-	// Extract fields with defaults
-	sender, _ := eventData["sender"].(string)
-	if sender == "" {
-		sender = "0x0000000000000000000000000000000000000000" // Default sender
-	}
-
-	recipient, _ := eventData["recipient"].(string)
-	if recipient == "" {
-		recipient = "0x0000000000000000000000000000000000000000" // Default recipient
-	}
-
-	amount, _ := eventData["amount"].(string)
-	if amount == "" {
-		amount = "0" // Default amount
-	}
-
-	assetAddr, _ := eventData["asset_address"].(string)
-	if assetAddr == "" {
-		assetAddr = "0x0000000000000000000000000000000000000000" // Default asset
-	}
-
-	logIndex, _ := eventData["log_index"].(string)
-	if logIndex == "" {
-		logIndex = "0" // Default log index
+	if err := json.Unmarshal(tx.Data, &eventData); err != nil {
+		return nil, fmt.Errorf("failed to  unmarshal transaction data: %w", err)
 	}
 
 	// Default to FUNDS_AND_PAYLOAD_TX type if not specified
-	txType := uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
-	if txTypeStr, ok := eventData["tx_type"].(string); ok {
-		switch txTypeStr {
-		case "GAS_FUND", "FEE_ABSTRACTION":
-			txType = uetypes.InboundTxType_GAS_FUND_TX
-		case "FUNDS_BRIDGE":
-			txType = uetypes.InboundTxType_FUNDS_BRIDGE_TX
-		case "FUNDS_AND_PAYLOAD_INSTANT":
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_INSTANT_TX
-		case "SYNTHETIC", "FUNDS_AND_PAYLOAD":
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD_TX
-		case "UNSPECIFIED":
-			txType = uetypes.InboundTxType_UNSPECIFIED_TX
-		}
+	txType := uetypes.InboundTxType_GAS
+	switch eventData.TxType {
+	case 0:
+		txType = uetypes.InboundTxType_GAS
+	case 1:
+		txType = uetypes.InboundTxType_GAS_AND_PAYLOAD
+	case 2:
+		txType = uetypes.InboundTxType_FUNDS
+	case 3:
+		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
+	case 4:
+		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}
 
-	return &uetypes.Inbound{
-		SourceChain: sourceChain,
+	inboundMsg := &uetypes.Inbound{
+		SourceChain: eventData.SourceChain,
 		TxHash:      tx.TxHash,
-		Sender:      sender,
-		Recipient:   recipient,
-		Amount:      amount,
-		AssetAddr:   assetAddr,
-		LogIndex:    logIndex,
+		Sender:      eventData.Sender,
+		Recipient:   eventData.Recipient,
+		Amount:      eventData.BridgeAmount,
+		AssetAddr:   eventData.BridgeToken,
+		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
-	}, nil
+	}
+
+	// Check if VerificationData is zero hash and replace with TxHash
+	if strings.ToLower(strings.TrimPrefix(eventData.VerificationData, "0x")) == strings.Repeat("0", 64) {
+		inboundMsg.VerificationData = tx.TxHash
+	} else {
+		inboundMsg.VerificationData = eventData.VerificationData
+	}
+
+	up, err := decodeUniversalPayload(eventData.Data)
+	if err != nil {
+		inboundMsg.UniversalPayload = up
+	}
+
+	return inboundMsg, nil
 }
 
 // executeVote executes the MsgVoteInbound transaction via AuthZ
@@ -254,7 +228,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 	msgs := []sdk.Msg{msg}
 
 	// Execute via AuthZ with reasonable gas and fees
-	gasLimit := uint64(500000)
+	gasLimit := uint64(500000000)
 	feeAmount, err := sdk.ParseCoinsNormalized("500000000000000upc")
 	if err != nil {
 		return fmt.Errorf("failed to parse fee amount: %w", err)
@@ -333,4 +307,20 @@ func (vh *VoteHandler) GetPendingTransactions(minConfirmations uint64) ([]store.
 		Find(&pendingTxs).Error
 
 	return pendingTxs, err
+}
+
+// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
+	clean := strings.TrimPrefix(hexStr, "0x")
+
+	bz, err := hex.DecodeString(clean)
+	if err != nil {
+		return nil, fmt.Errorf("hex decode: %w", err)
+	}
+
+	up := new(uetypes.UniversalPayload)
+	if err := gogoproto.Unmarshal(bz, up); err != nil {
+		return nil, fmt.Errorf("gogo unmarshal UniversalPayload: %w", err)
+	}
+	return up, nil
 }

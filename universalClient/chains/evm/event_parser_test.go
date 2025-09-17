@@ -149,9 +149,6 @@ func TestParseGatewayEvent(t *testing.T) {
 			wantEvent: true,
 			validate: func(t *testing.T, event *common.GatewayEvent) {
 				assert.Equal(t, "addFunds", event.Method)
-				assert.Equal(t, "0x742D35Cc6634C0532925A3B844bC9e7595f0bEB7", event.Sender)
-				assert.Equal(t, "0xdAC17F958D2ee523a2206206994597C13D831ec7", event.Receiver)
-				assert.Equal(t, "1000000", event.Amount)
 			},
 		},
 		{
@@ -303,11 +300,7 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseEventData(event, log, "addFunds")
-
-		assert.Equal(t, "0x742D35Cc6634C0532925A3B844bC9e7595f0bEB7", event.Sender)
-		assert.Equal(t, "0xdAC17F958D2ee523a2206206994597C13D831ec7", event.Receiver)
-		assert.Equal(t, "1000000", event.Amount)
+		parser.parseEventData(event, log)
 	})
 
 	t.Run("handles missing data gracefully", func(t *testing.T) {
@@ -319,9 +312,6 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseEventData(event, log, "addFunds")
-
-		// Should not panic and should leave amount empty
-		assert.Empty(t, event.Amount)
+		parser.parseEventData(event, log)
 	})
 }

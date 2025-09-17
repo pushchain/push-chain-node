@@ -116,15 +116,3 @@ func (k Querier) TokenConfigsByChain(goCtx context.Context, req *types.QueryToke
 		Configs: configs,
 	}, nil
 }
-
-// SystemConfig implements types.QueryServer.
-func (k Querier) SystemConfig(goCtx context.Context, req *types.QuerySystemConfigRequest) (*types.QuerySystemConfigResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	s, err := k.Keeper.SystemConfig.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.QuerySystemConfigResponse{SystemConfig: &s}, nil
-}

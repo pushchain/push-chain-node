@@ -115,23 +115,3 @@ func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateT
 
 	return &types.MsgUpdateTokenConfigResponse{}, nil
 }
-
-// UpdateSystemConfig implements types.MsgServer.
-func (ms msgServer) UpdateSystemConfig(ctx context.Context, msg *types.MsgUpdateSystemConfig) (*types.MsgUpdateSystemConfigResponse, error) {
-	// Retrieve the current Params
-	params, err := ms.k.Params.Get(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get params")
-	}
-
-	if params.Admin != msg.Signer {
-		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
-	}
-
-	// Update system config
-	if err := ms.k.SetSystemConfig(ctx, *msg.SystemConfig); err != nil {
-		return nil, err
-	}
-
-	return &types.MsgUpdateSystemConfigResponse{}, nil
-}

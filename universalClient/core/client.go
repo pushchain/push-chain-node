@@ -79,10 +79,20 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	}
 	cache := cache.New(log)
 
-	// refresh every minute; 8s per-sync timeout
-	chainCacheJob := cron.NewChainCacheJob(cache, pushCore, time.Minute, 8*time.Second, log)
+	// Use configured refresh interval or default to 60 seconds
+	refreshInterval := time.Duration(cfg.ConfigRefreshIntervalSeconds) * time.Second
+	if refreshInterval <= 0 {
+		refreshInterval = 60 * time.Second
+	}
 
-	chainRegistryJob := cron.NewChainRegistryJob(cache, chainRegistry, time.Minute, 8*time.Second, log)
+	log.Info().
+		Dur("refresh_interval", refreshInterval).
+		Msg("Setting cache refresh interval")
+
+	// Create cache jobs with configured interval; 8s per-sync timeout
+	chainCacheJob := cron.NewChainCacheJob(cache, pushCore, refreshInterval, 8*time.Second, log)
+
+	chainRegistryJob := cron.NewChainRegistryJob(cache, chainRegistry, refreshInterval, 8*time.Second, log)
 
 	// Create the client
 	uc := &UniversalClient{
@@ -346,10 +356,12 @@ func (uc *UniversalClient) createVoteHandlerForChain(chainID string) {
 	// Store the vote handler
 	uc.voteHandlers[chainID] = voteHandler
 
-	// Update chain registry with the new vote handler
-	uc.chainRegistry.SetVoteHandlers(map[string]common.VoteHandler{
-		chainID: voteHandler,
-	})
+	// Update chain registry with ALL vote handlers (not just the new one)
+	interfaceHandlers := make(map[string]common.VoteHandler)
+	for cid, vh := range uc.voteHandlers {
+		interfaceHandlers[cid] = vh
+	}
+	uc.chainRegistry.SetVoteHandlers(interfaceHandlers)
 
 	uc.log.Info().
 		Str("chain_id", chainID).

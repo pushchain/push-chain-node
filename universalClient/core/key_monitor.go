@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	uauthz "github.com/pushchain/push-chain-node/universalClient/authz"
@@ -182,7 +184,17 @@ func (km *KeyMonitor) checkKeys() error {
 		Str("grpc_endpoint", grpcEndpoint).
 		Msg("Connecting to gRPC endpoint for AuthZ queries")
 
-	conn, err := grpc.NewClient(grpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var opts []grpc.DialOption
+	if strings.HasPrefix(grpcEndpoint, "https://") {
+		// Use TLS for HTTPS endpoints
+		grpcEndpoint = strings.TrimPrefix(grpcEndpoint, "https://")
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	} else {
+		// Use insecure for non-HTTPS endpoints
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.NewClient(grpcEndpoint, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
@@ -409,7 +421,17 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 		}
 	}
 
-	conn, err := grpc.NewClient(grpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var opts []grpc.DialOption
+	if strings.HasPrefix(grpcEndpoint, "https://") {
+		// Use TLS for HTTPS endpoints
+		grpcEndpoint = strings.TrimPrefix(grpcEndpoint, "https://")
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	} else {
+		// Use insecure for non-HTTPS endpoints
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.NewClient(grpcEndpoint, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC endpoint: %w", err)
 	}
@@ -427,19 +449,25 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 	txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
 
 	// Create HTTP RPC client for broadcasting (standard port 26657)
-	// Extract base endpoint without port
-	rpcEndpoint := km.grpcURL
-	colonIndex := strings.LastIndex(rpcEndpoint, ":")
-	if colonIndex > 0 {
-		// Check if it's a port number after the colon
-		afterColon := rpcEndpoint[colonIndex+1:]
-		if _, err := fmt.Sscanf(afterColon, "%d", new(int)); err == nil {
-			// It's a port, remove it
-			rpcEndpoint = rpcEndpoint[:colonIndex]
+	// Parse the GRPC URL to extract the hostname
+	parsedURL, err := url.Parse(km.grpcURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse GRPC URL: %w", err)
+	}
+
+	// Extract just the hostname (without port)
+	hostname := parsedURL.Hostname()
+	if hostname == "" {
+		// Fallback: if parsing failed, try to extract from the original URL
+		hostname = strings.TrimPrefix(km.grpcURL, "https://")
+		hostname = strings.TrimPrefix(hostname, "http://")
+		if colonIndex := strings.Index(hostname, ":"); colonIndex > 0 {
+			hostname = hostname[:colonIndex]
 		}
 	}
 
-	rpcURL := "http://" + rpcEndpoint + ":26657"
+	// Construct the RPC URL with the standard Tendermint RPC port
+	rpcURL := fmt.Sprintf("http://%s:26657", hostname)
 	httpClient, err := rpchttp.New(rpcURL, "/websocket")
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
@@ -448,7 +476,7 @@ func (km *KeyMonitor) setupVoteHandler(kr keyring.Keyring, keyInfo *keyring.Reco
 	clientCtx := client.Context{}.
 		WithCodec(cdc).
 		WithInterfaceRegistry(interfaceRegistry).
-		WithChainID("localchain_9000-1"). // TODO: Make this configurable
+		WithChainID("push_42101-1"). // Push Chain testnet chain ID
 		WithKeyring(kr).
 		WithGRPCClient(conn).
 		WithTxConfig(txConfig).

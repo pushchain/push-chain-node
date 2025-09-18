@@ -8,8 +8,8 @@
 # - Target: /home/app/logs/*.log
 ###############################################
 
-LOG_DIR="/home/app/logs"
-LOGROTATE_CONF="/etc/logrotate.d/push-chain"
+LOG_DIR="/home/universal/logs"
+LOGROTATE_CONF="/etc/logrotate.d/push-universal"
 
 # ---------------
 # Install logrotate if missing

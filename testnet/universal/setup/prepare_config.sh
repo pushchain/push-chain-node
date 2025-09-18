@@ -13,5 +13,6 @@ if [ ! -f "$BINARY" ]; then
   exit 1
 fi
 
-"$BINARY" init"
+"$BINARY" init
+"$BINARY" keys add uv-hotkey --keyring-backend test
 echo "✅ Unversal Node setup"

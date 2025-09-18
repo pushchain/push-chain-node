@@ -65,6 +65,13 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	confirmationType string,
 	data []byte,
 ) (err error) {
+	// Debug logging
+	ct.logger.Debug().
+		Str("tx_hash", txHash).
+		Str("method", method).
+		Int("data_size", len(data)).
+		Msg("tracking transaction with data")
+
 	// Start database transaction to avoid race conditions and improve performance
 	dbTx := ct.db.Client().Begin()
 	defer func() {

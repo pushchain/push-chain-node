@@ -2,6 +2,7 @@ package svm
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -61,6 +62,25 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		// Don't return nil - we can still create an event with partial data
 	}
 
+	// Create payload similar to EVM
+	payload := common.TxWithFundsPayload{
+		SourceChain:  ep.config.Chain,
+		Sender:       sender,
+		Recipient:    receiver,
+		BridgeAmount: amount,
+		// TODO: Extract more fields from Solana transaction as needed
+	}
+
+	// Marshal payload to JSON
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		ep.logger.Warn().
+			Err(err).
+			Str("tx_hash", signature).
+			Msg("failed to marshal payload")
+		payloadBytes = []byte{} // Use empty payload if marshaling fails
+	}
+
 	event := &common.GatewayEvent{
 		ChainID:          ep.config.Chain,
 		TxHash:           signature,
@@ -68,16 +88,18 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		Method:           methodName,
 		EventID:          methodID,
 		ConfirmationType: confirmationType,
+		Payload:          payloadBytes, // Set the payload for vote handler
 	}
 
-	ep.logger.Info().
+	// Debug logging for tracking
+	ep.logger.Debug().
 		Str("tx_hash", signature).
 		Str("method", methodName).
+		Int("payload_size", len(payloadBytes)).
 		Str("sender", sender).
 		Str("receiver", receiver).
 		Str("amount", amount).
-		Uint64("slot", slot).
-		Msg("successfully parsed Solana gateway event")
+		Msg("parsed Solana gateway event with payload")
 
 	return event
 }

@@ -88,6 +88,13 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 		return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
+	// Always increment sequence after broadcast (whether successful or not)
+	// The chain has consumed this sequence number regardless of tx success
+	ts.lastSequence++
+	ts.log.Debug().
+		Uint64("new_sequence", ts.lastSequence).
+		Msg("Incremented sequence after broadcast")
+
 	// Check if transaction was successful
 	if res.Code != 0 {
 		ts.log.Error().
@@ -97,9 +104,6 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 			Msg("Transaction failed on chain")
 		return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
 	}
-
-	// Update our cached sequence for next transaction
-	ts.lastSequence++
 
 	ts.log.Info().
 		Str("tx_hash", res.TxHash).
@@ -176,14 +180,15 @@ func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxB
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
 
-	// Update our cached sequence if it's behind the chain's sequence
+	// Always use the latest sequence from chain to handle any sequence mismatch
+	// This ensures we recover from any sequence desync issues
 	chainSequence := account.GetSequence()
-	if ts.lastSequence < chainSequence {
+	if ts.lastSequence != chainSequence {
+		ts.log.Info().
+			Uint64("old_sequence", ts.lastSequence).
+			Uint64("new_sequence", chainSequence).
+			Msg("Updating sequence from chain (was out of sync)")
 		ts.lastSequence = chainSequence
-		ts.log.Debug().
-			Uint64("chain_sequence", chainSequence).
-			Uint64("cached_sequence", ts.lastSequence).
-			Msg("Updated cached sequence from chain")
 	}
 
 	// Get hot key address

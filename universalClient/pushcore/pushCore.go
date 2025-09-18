@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -35,7 +37,17 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 	}
 
 	for i, u := range urls {
-		conn, err := grpc.Dial(u, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		var opts []grpc.DialOption
+		if strings.HasPrefix(u, "https://") {
+			// Use TLS for HTTPS endpoints
+			u = strings.TrimPrefix(u, "https://")
+			opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+		} else {
+			// Use insecure for non-HTTPS endpoints
+			opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+
+		conn, err := grpc.Dial(u, opts...)
 		if err != nil {
 			c.logger.Warn().Str("url", u).Int("index", i).Err(err).Msg("dial failed; skipping endpoint")
 			continue

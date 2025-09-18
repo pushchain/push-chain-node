@@ -49,7 +49,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 	client := &Client{
 		BaseChainClient: common.NewBaseChainClient(config, appConfig),
 		logger: logger.With().
-			Str("component", "solana_client").
+			Str("component", "svm_client").
 			Str("chain", config.Chain).
 			Logger(),
 		genesisHash:  genesisHash,

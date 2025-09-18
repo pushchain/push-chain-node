@@ -126,7 +126,7 @@ func TestParseGatewayEvent(t *testing.T) {
 				assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000abc123", event.TxHash)
 				assert.Equal(t, uint64(12345), event.BlockNumber)
 				assert.Equal(t, "addFunds", event.Method)
-				assert.Equal(t, "method1", event.EventID)
+				assert.Equal(t, eventTopic.Hex(), event.EventID)
 			},
 		},
 		{

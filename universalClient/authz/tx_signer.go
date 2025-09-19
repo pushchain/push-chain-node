@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -65,28 +66,64 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 		return nil, fmt.Errorf("failed to wrap messages with AuthZ: %w", err)
 	}
 
-	// Create and sign transaction
-	txBuilder, err := ts.createTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tx builder: %w", err)
+	// Try up to 2 times in case of sequence mismatch
+	maxAttempts := 2
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Create and sign transaction
+		txBuilder, err := ts.createTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tx builder: %w", err)
+		}
+
+		// Sign the transaction with sequence management
+		if err := ts.signTxWithSequence(ctx, txBuilder); err != nil {
+			return nil, fmt.Errorf("failed to sign transaction: %w", err)
+		}
+
+		// Encode transaction
+		txBytes, err := ts.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode transaction: %w", err)
+		}
+
+		// Broadcast transaction
+		res, err := ts.broadcastTransaction(ctx, txBytes)
+		if err != nil {
+			// Check if error is due to sequence mismatch
+			if strings.Contains(err.Error(), "account sequence mismatch") && attempt < maxAttempts {
+				ts.log.Warn().
+					Err(err).
+					Uint64("current_sequence", ts.lastSequence).
+					Int("attempt", attempt).
+					Msg("Sequence mismatch detected, forcing refresh and retrying")
+				// Force refresh sequence on next attempt
+				ts.lastSequence = 0 // This will force a refresh from chain
+				continue            // Retry
+			}
+			// For other errors or final attempt, increment and return error
+			ts.lastSequence++
+			ts.log.Debug().
+				Uint64("new_sequence", ts.lastSequence).
+				Msg("Incremented sequence after broadcast error")
+			return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
+		}
+
+		// Success - break out of retry loop
+		return ts.handleBroadcastSuccess(res)
 	}
 
-	// Sign the transaction with sequence management
-	if err := ts.signTxWithSequence(ctx, txBuilder); err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %w", err)
-	}
+	return nil, fmt.Errorf("failed to broadcast transaction after %d attempts", maxAttempts)
+}
 
-	// Encode transaction
-	txBytes, err := ts.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	// Broadcast transaction
-	res, err := ts.broadcastTransaction(ctx, txBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
-	}
+// handleBroadcastSuccess processes a successful broadcast
+func (ts *TxSigner) handleBroadcastSuccess(res *sdk.TxResponse) (*sdk.TxResponse, error) {
+	// Always increment sequence after successful broadcast
+	// Even if the transaction fails on-chain, the sequence was consumed
+	ts.lastSequence++
+	ts.log.Debug().
+		Uint64("new_sequence", ts.lastSequence).
+		Str("tx_hash", res.TxHash).
+		Msg("Incremented sequence after broadcast")
 
 	// Always increment sequence after broadcast (whether successful or not)
 	// The chain has consumed this sequence number regardless of tx success
@@ -101,13 +138,15 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 			Str("tx_hash", res.TxHash).
 			Uint32("code", res.Code).
 			Str("raw_log", res.RawLog).
-			Msg("Transaction failed on chain")
+			Uint64("sequence_used", ts.lastSequence-1).
+			Msg("Transaction failed on chain but sequence was consumed")
 		return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
 	}
 
 	ts.log.Info().
 		Str("tx_hash", res.TxHash).
 		Int64("gas_used", res.GasUsed).
+		Uint64("sequence_used", ts.lastSequence-1).
 		Msg("Transaction broadcasted and executed successfully")
 
 	return res, nil
@@ -170,7 +209,7 @@ func (ts *TxSigner) createTxBuilder(
 	return txBuilder, nil
 }
 
-// SignTxWithSequence signs a transaction with proper sequence management
+// signTxWithSequence signs a transaction with proper sequence management
 func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxBuilder) error {
 	ts.log.Debug().Msg("Starting transaction signing with sequence management")
 
@@ -180,14 +219,14 @@ func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxB
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
 
-	// Always use the latest sequence from chain to handle any sequence mismatch
-	// This ensures we recover from any sequence desync issues
+	// Always use the chain's sequence to avoid mismatches
+	// This ensures we're always in sync with the blockchain
 	chainSequence := account.GetSequence()
 	if ts.lastSequence != chainSequence {
 		ts.log.Info().
-			Uint64("old_sequence", ts.lastSequence).
-			Uint64("new_sequence", chainSequence).
-			Msg("Updating sequence from chain (was out of sync)")
+			Uint64("chain_sequence", chainSequence).
+			Uint64("cached_sequence", ts.lastSequence).
+			Msg("Sequence mismatch detected, using chain's sequence")
 		ts.lastSequence = chainSequence
 	}
 

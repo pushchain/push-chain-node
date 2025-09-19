@@ -129,10 +129,10 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	}
 
 	// Check 3: Verify if transaction is calling addFunds method
-	ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
-	if !ok {
-		return nil, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
-	}
+	// ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
+	// if !ok {
+	// 	return nil, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
+	// }
 
 	// Step 3: Extract values from logs
 	eventTopic := ""

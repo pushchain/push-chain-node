@@ -119,23 +119,9 @@ func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, 
 	var methodID, methodName, confirmationType string
 
 	for _, log := range tx.Meta.LogMessages {
-		// Check for add_funds method
+		// Skip add_funds events (similar to EVM)
 		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
-			methodID = "84ed4c39500ab38a" // Solana add_funds identifier
-			// Find method name and confirmation type from config
-			for _, method := range ep.config.GatewayMethods {
-				if method.Identifier == methodID {
-					methodName = method.Name
-					// Map confirmation type enum to string
-					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
-						confirmationType = "FAST"
-					} else {
-						confirmationType = "STANDARD" // Default to STANDARD
-					}
-					break
-				}
-			}
-			break
+			return "", "", "" // Skip add_funds events
 		}
 		// Add more method checks here as needed
 	}
@@ -274,15 +260,8 @@ func (ep *EventParser) parseGatewayInstruction(
 		return nil
 	}
 
-	// Check discriminator (first 8 bytes)
-	discriminator := instruction.Data[:8]
-
-	// Check for add_funds discriminator
-	addFundsDiscriminator := []byte{0x84, 0xed, 0x4c, 0x39, 0x50, 0x0a, 0xb3, 0x8a}
-	if !bytesEqual(discriminator, addFundsDiscriminator) {
-		return nil
-	}
-
+	// Process any gateway instruction (not checking for specific discriminator)
+	// This allows processing of send_funds and other gateway methods
 	result := &instructionData{}
 
 	// Parse amount (bytes 8-16)

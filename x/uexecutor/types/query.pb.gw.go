@@ -402,11 +402,11 @@ func RegisterQueryHandlerClient(ctx context.Context, mux *runtime.ServeMux, clie
 var (
 	pattern_Query_Params_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"uexecutor", "v1", "params"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_AllPendingInbounds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"ue", "v1", "pending_inbounds"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_AllPendingInbounds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"uexecutor", "v1", "pending_inbounds"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_GetUniversalTx_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"ue", "v1", "universal_txs", "id"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_GetUniversalTx_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"uexecutor", "v1", "universal_txs", "id"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_AllUniversalTx_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"ue", "v1", "universal_txs"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_AllUniversalTx_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"uexecutor", "v1", "universal_txs"}, "", runtime.AssumeColonVerbOpt(false)))
 )
 
 var (

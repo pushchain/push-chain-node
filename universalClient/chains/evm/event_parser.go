@@ -123,7 +123,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 // [2] offset   payload (bytes)          (32 bytes; offset from start of log.Data)
 // [3] offset   revertCFG (tuple)        (32 bytes; offset from start of log.Data)
 // [4] uint     txType                   (32 bytes)
-// [5] bytes32  signatureData            (32 bytes)   <-- OPTIONAL, may also be appended at very end
+// [5] offset   signatureData (bytes)   (32 bytes; offset from start of log.Data)   <-- OPTIONAL, dynamic bytes
 //
 // tuple RevertSettings head (at revertOffset):
 // [0] address fundRecipient
@@ -241,10 +241,22 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 		}
 	}
 
-	// --- signatureData (bytes32) ---
+	// --- signatureData (bytes) ---
+	// Check if we have a 6th word that contains an offset to dynamic bytes
 	if len(log.Data) >= 32*6 {
 		if w := word(5); w != nil {
-			payload.VerificationData = "0x" + hex.EncodeToString(w)
+			// Check if this is an offset (dynamic bytes) or fixed bytes32
+			offset := new(big.Int).SetBytes(w).Uint64()
+
+			// If offset is reasonable (points to data after the static head), treat as dynamic bytes
+			if offset >= uint64(32*6) && offset < uint64(len(log.Data)) {
+				if hexStr, ok := readBytesAt(offset); ok {
+					payload.VerificationData = hexStr
+				}
+			} else {
+				// Fallback: treat as fixed bytes32 (for backward compatibility)
+				payload.VerificationData = "0x" + hex.EncodeToString(w)
+			}
 		}
 	}
 

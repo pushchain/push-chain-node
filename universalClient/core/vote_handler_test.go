@@ -493,7 +493,7 @@ func TestDecodeUniversalPayload(t *testing.T) {
 			expected: &uetypes.UniversalPayload{
 				To:                   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 				Value:                "0",
-				Data:                 "d09de08a",
+				Data:                 "0xd09de08a",
 				GasLimit:             "10000000",
 				MaxFeePerGas:         "10000000000",
 				MaxPriorityFeePerGas: "0",

@@ -42,7 +42,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				"1000",            // amount
 				"0xasset",         // asset addr
 				"1",               // log index
-				"1",               // tx type (GAS_FUND)
+				"1",               // tx type (GAS)
 			},
 			wantErr: false,
 			validate: func(t *testing.T, msg interface{}) {
@@ -56,11 +56,11 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				assert.Equal(t, "1000", voteMsg.Inbound.Amount)
 				assert.Equal(t, "0xasset", voteMsg.Inbound.AssetAddr)
 				assert.Equal(t, "1", voteMsg.Inbound.LogIndex)
-				assert.Equal(t, uetypes.InboundTxType_FUNDS_AND_PAYLOAD, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_GAS, voteMsg.Inbound.TxType)
 			},
 		},
 		{
-			name:    "MsgVoteInbound with FUNDS_BRIDGE type",
+			name:    "MsgVoteInbound with FUNDS type",
 			msgType: "/uexecutor.v1.MsgVoteInbound",
 			msgArgs: []string{
 				"push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
@@ -71,13 +71,13 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				"5000",
 				"0xtoken",
 				"5",
-				"2", // FUNDS_BRIDGE
+				"2", // FUNDS
 			},
 			wantErr: false,
 			validate: func(t *testing.T, msg interface{}) {
 				voteMsg, ok := msg.(*uetypes.MsgVoteInbound)
 				require.True(t, ok)
-				assert.Equal(t, uetypes.InboundTxType_FUNDS_AND_PAYLOAD, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.InboundTxType_FUNDS, voteMsg.Inbound.TxType)
 			},
 		},
 		{
@@ -140,7 +140,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				"5", // Invalid type
 			},
 			wantErr: true,
-			errMsg:  "invalid tx type 5",
+			errMsg:  "invalid tx type: 5",
 		},
 		{
 			name:    "MsgVoteInbound with non-numeric tx type",

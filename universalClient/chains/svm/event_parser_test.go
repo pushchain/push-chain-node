@@ -187,7 +187,7 @@ func TestExtractMethodInfo(t *testing.T) {
 		expectedMethod string
 	}{
 		{
-			name: "extracts add_funds method",
+			name: "skips add_funds method",
 			tx: &rpc.GetTransactionResult{
 				Meta: &rpc.TransactionMeta{
 					LogMessages: []string{
@@ -195,11 +195,11 @@ func TestExtractMethodInfo(t *testing.T) {
 					},
 				},
 			},
-			expectedID:     "84ed4c39500ab38a",
-			expectedMethod: "addFunds",
+			expectedID:     "", // Now returns empty to skip
+			expectedMethod: "", // Now returns empty to skip
 		},
 		{
-			name: "extracts AddFunds method (capital case)",
+			name: "skips AddFunds method (capital case)",
 			tx: &rpc.GetTransactionResult{
 				Meta: &rpc.TransactionMeta{
 					LogMessages: []string{
@@ -207,8 +207,8 @@ func TestExtractMethodInfo(t *testing.T) {
 					},
 				},
 			},
-			expectedID:     "84ed4c39500ab38a",
-			expectedMethod: "addFunds",
+			expectedID:     "", // Now returns empty to skip
+			expectedMethod: "", // Now returns empty to skip
 		},
 		{
 			name: "returns empty for unknown method",
@@ -260,7 +260,7 @@ func TestExtractTransactionDetails(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sender, _, amount, _, err := parser.extractTransactionDetails(tt.tx)
+			sender, _, amount, _, _, _, _, _, err := parser.extractTransactionDetails(tt.tx)
 			
 			if tt.expectError {
 				assert.Error(t, err)

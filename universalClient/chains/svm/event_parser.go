@@ -52,8 +52,8 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		return nil
 	}
 
-	// Extract transaction details
-	sender, receiver, amount, verificationData, err := ep.extractTransactionDetails(tx)
+	// Extract transaction details including logIndex and txType
+	sender, receiver, amount, data, verificationData, bridgeToken, logIndex, txType, err := ep.extractTransactionDetails(tx)
 	if err != nil {
 		ep.logger.Warn().
 			Err(err).
@@ -66,11 +66,14 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	// Create payload similar to EVM
 	payload := common.TxWithFundsPayload{
 		SourceChain:      ep.config.Chain,
+		LogIndex:         logIndex,
 		Sender:           sender,
 		Recipient:        receiver,
+		BridgeToken:      bridgeToken,
 		BridgeAmount:     amount,
+		Data:             data,
 		VerificationData: verificationData,
-		// TODO: Extract more fields from Solana transaction as needed
+		TxType:           txType,
 	}
 
 	// Marshal payload to JSON
@@ -118,34 +121,92 @@ func (ep *EventParser) isGatewayTransaction(tx *rpc.GetTransactionResult) bool {
 
 // extractMethodInfo extracts method ID, name and confirmation type from transaction logs
 func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, string, string) {
-	var methodID, methodName, confirmationType string
-
-	for _, log := range tx.Meta.LogMessages {
-		// Extract add_funds events
-		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
-			methodID = "84ed4c39500ab38a" // Method ID for addFunds
-			methodName = "addFunds"
-			return methodID, methodName, confirmationType
-		}
-		// Add more method checks here as needed
+	// Log all messages first for debugging
+	for i, log := range tx.Meta.LogMessages {
+		ep.logger.Debug().
+			Int("log_index", i).
+			Str("log_message", log).
+			Msg("processing log message")
 	}
 
-	return methodID, methodName, confirmationType
+	// Iterate through configured gateway methods
+	for _, method := range ep.config.GatewayMethods {
+		methodNameLower := strings.ToLower(method.Name)
+
+		// Check each log message for this method
+		for _, log := range tx.Meta.LogMessages {
+			logLower := strings.ToLower(log)
+
+			var matched bool
+
+			// Flexible matching based on method name patterns
+			if strings.Contains(methodNameLower, "send") && strings.Contains(methodNameLower, "funds") {
+				// Match variations like "send_funds", "SendFunds", "SendTxWithFunds"
+				matched = strings.Contains(logLower, "send") && strings.Contains(logLower, "funds") &&
+					!strings.Contains(logLower, "add") // Exclude add_funds
+
+				if matched {
+					ep.logger.Debug().
+						Str("log", log).
+						Str("method_name", method.Name).
+						Msg("matched send funds pattern")
+				}
+			} else if strings.Contains(methodNameLower, "add") && strings.Contains(methodNameLower, "funds") {
+				// Match add_funds variations
+				matched = strings.Contains(logLower, "add") && strings.Contains(logLower, "funds")
+
+				if matched {
+					ep.logger.Debug().
+						Str("log", log).
+						Str("method_name", method.Name).
+						Msg("skipping add_funds event")
+					return "", "", "" // Skip add_funds events
+				}
+			}
+			// Add more method patterns as needed
+
+			if matched {
+				// Derive confirmation type from config
+				var confirmationType string
+				if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
+					confirmationType = "FAST"
+				} else {
+					confirmationType = "STANDARD" // Default to STANDARD
+				}
+
+				ep.logger.Info().
+					Str("method", method.Name).
+					Str("method_id", method.Identifier).
+					Str("event_id", method.EventIdentifier).
+					Str("confirmation_type", confirmationType).
+					Str("original_log", log).
+					Msg("detected gateway method from config")
+
+				// Return values from config
+				return method.Identifier, method.Name, confirmationType
+			}
+		}
+	}
+
+	ep.logger.Debug().
+		Msg("no recognized method found in transaction logs")
+	return "", "", ""
 }
 
-// extractTransactionDetails extracts sender, receiver, amount and verificationData from transaction
-func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (string, string, string, string, error) {
+// extractTransactionDetails extracts sender, receiver, amount, data, verificationData, bridgeToken, logIndex and txType from transaction
+func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (string, string, string, string, string, string, uint, uint, error) {
 	if tx.Transaction == nil {
-		return "", "", "", "", fmt.Errorf("transaction data is nil")
+		return "", "", "", "", "", "", 0, 0, fmt.Errorf("transaction data is nil")
 	}
 
 	// Decode the transaction
 	decodedTx, err := ep.decodeTransaction(tx.Transaction)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to decode transaction: %w", err)
+		return "", "", "", "", "", "", 0, 0, fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
-	var sender, receiver, amount, verificationData string
+	var sender, receiver, amount, data, verificationData, bridgeToken string
+	var logIndex, txType uint
 
 	// Get sender (fee payer)
 	if len(decodedTx.Message.AccountKeys) > 0 {
@@ -153,7 +214,7 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 	}
 
 	// Process instructions
-	for _, instruction := range decodedTx.Message.Instructions {
+	for idx, instruction := range decodedTx.Message.Instructions {
 		// Get program ID
 		programIdx := instruction.ProgramIDIndex
 		if int(programIdx) >= len(decodedTx.Message.AccountKeys) {
@@ -163,6 +224,10 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 
 		// Check if it's our gateway program
 		if programID.Equals(ep.gatewayAddr) {
+			// Set logIndex to the instruction index
+			logIndex = uint(idx)
+			// Default txType to 0 (can be enhanced later based on instruction format)
+			txType = 0
 			// Parse gateway instruction
 			if parsedData := ep.parseGatewayInstruction(instruction, decodedTx.Message.AccountKeys); parsedData != nil {
 				if parsedData.sender != "" {
@@ -174,8 +239,14 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 				if parsedData.amount != "" {
 					amount = parsedData.amount
 				}
+				if parsedData.data != "" {
+					data = parsedData.data
+				}
 				if parsedData.verificationData != "" {
 					verificationData = parsedData.verificationData
+				}
+				if parsedData.bridgeToken != "" {
+					bridgeToken = parsedData.bridgeToken
 				}
 			}
 		}
@@ -202,7 +273,7 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 		}
 	}
 
-	return sender, receiver, amount, verificationData, nil
+	return sender, receiver, amount, data, verificationData, bridgeToken, logIndex, txType, nil
 }
 
 // decodeTransaction decodes a base64 encoded transaction
@@ -256,7 +327,9 @@ type instructionData struct {
 	sender           string
 	receiver         string
 	amount           string
+	data             string
 	verificationData string
+	bridgeToken      string
 }
 
 // parseGatewayInstruction parses a gateway program instruction
@@ -281,17 +354,45 @@ func (ep *EventParser) parseGatewayInstruction(
 		result.amount = fmt.Sprintf("%d", amount)
 	}
 
-	// Parse verification data (dynamic bytes after byte 16)
-	// Similar to EVM, check if we have additional data that could be verification/signature data
+	// Parse dynamic data fields after byte 16
+	// Solana uses Borsh serialization for send_funds instruction:
+	// [discriminator(8)] [amount(8)] [data_len(4)] [data_bytes...] [verification_bytes...]
+	// The data field is a Vec<u8> with a 4-byte length prefix
+	// For simple transfers, data_len is typically 0 (empty data field)
 	if len(instruction.Data) > 16 {
-		// Check if there's an offset or direct data after amount
-		// For Solana, verification data might be appended directly after the amount
-		// or could be at an offset similar to EVM
+		// Check if we have at least 4 bytes for data length
+		if len(instruction.Data) >= 20 {
+			// Read data length (4 bytes at position 16)
+			dataLen := uint32(0)
+			for i := 0; i < 4; i++ {
+				dataLen |= uint32(instruction.Data[16+i]) << (8 * i)
+			}
 
-		// Try to read remaining bytes as verification data
-		verificationBytes := instruction.Data[16:]
-		if len(verificationBytes) > 0 {
-			result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
+			offset := 20 // After discriminator(8) + amount(8) + data_len(4)
+
+			// Extract data field if present
+			if dataLen > 0 && offset+int(dataLen) <= len(instruction.Data) {
+				dataBytes := instruction.Data[offset : offset+int(dataLen)]
+				result.data = "0x" + hex.EncodeToString(dataBytes)
+				offset += int(dataLen)
+			} else {
+				// Data field is empty (common case)
+				result.data = ""
+			}
+
+			// All remaining bytes are verification data (not length-prefixed)
+			if offset < len(instruction.Data) {
+				verificationBytes := instruction.Data[offset:]
+				if len(verificationBytes) > 0 {
+					result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
+				}
+			}
+		} else {
+			// Fallback: if less than 20 bytes, treat all bytes after amount as verification
+			verificationBytes := instruction.Data[16:]
+			if len(verificationBytes) > 0 {
+				result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
+			}
 		}
 	}
 
@@ -311,8 +412,18 @@ func (ep *EventParser) parseGatewayInstruction(
 		}
 	}
 
+	// Get bridge token from instruction accounts (typically third account for SPL token mint)
+	// In Solana, if bridging SPL tokens, the mint address would be in the accounts
+	if len(instruction.Accounts) > 2 {
+		tokenIdx := instruction.Accounts[2]
+		if int(tokenIdx) < len(accountKeys) {
+			result.bridgeToken = accountKeys[tokenIdx].String()
+		}
+	}
+
 	return result
 }
+
 
 // bytesEqual compares two byte slices
 func bytesEqual(a, b []byte) bool {

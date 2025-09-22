@@ -3,7 +3,7 @@ package types_test
 import (
 	"testing"
 
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +44,7 @@ func TestNormalizeTxHash_EVM(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := utxverifiertypes.NormalizeTxHash(tc.input, uexecutortypes.VM_TYPE_EVM)
+			res, err := utxverifiertypes.NormalizeTxHash(tc.input, uregistrytypes.VmType_EVM)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
@@ -87,7 +87,7 @@ func TestNormalizeTxHash_SVM(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := utxverifiertypes.NormalizeTxHash(tc.input, uexecutortypes.VM_TYPE_SVM)
+			res, err := utxverifiertypes.NormalizeTxHash(tc.input, uregistrytypes.VmType_SVM)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {

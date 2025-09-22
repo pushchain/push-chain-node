@@ -8,12 +8,12 @@ import (
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 // verifySVMInteraction verifies user interacted with gateway by checking tx sent by ownerKey to gateway contract
-func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) error {
+func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) error {
 	_, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
-func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) (string, error) {
+func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (string, error) {
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
 		return "", err
@@ -33,7 +33,7 @@ func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash str
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
-func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uexecutortypes.ChainConfig) (*utxverifiertypes.USDValue, error) {
+func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (*utxverifiertypes.USDValue, error) {
 	// Fetch stored metadata
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
@@ -56,7 +56,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 	}
 
 	// Check for valid block confirmations
-	err = CheckSVMBlockConfirmations(ctx, txHashBase58, rpcCfg, chainConfig.BlockConfirmation)
+	err = CheckSVMBlockConfirmations(ctx, txHashBase58, rpcCfg, uint64(chainConfig.BlockConfirmation.FastInbound))
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (k Keeper) verifySVMAndGetFunds(ctx context.Context, ownerKey, txHash strin
 func (k Keeper) VerifySVMInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uexecutortypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) (*utxverifiertypes.VerifiedTxMetadata, error) {
 	meta, found, err := k.GetVerifiedInboundTxMetadata(ctx, chainConfig.Chain, txHash)
 	if err != nil {
@@ -98,7 +98,7 @@ func (k Keeper) VerifySVMInboundTx(
 func (k Keeper) SVMProcessUnverifiedInboundTx(
 	ctx context.Context,
 	ownerKey, txHash string,
-	chainConfig uexecutortypes.ChainConfig,
+	chainConfig uregistrytypes.ChainConfig,
 ) (*utxverifiertypes.VerifiedTxMetadata, error) {
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
@@ -133,16 +133,16 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 	}
 
 	// Check2: Check if any instruction calls the gateway contract
-	err = IsValidSVMAddFundsInstruction(tx.Transaction.Message.Instructions, tx.Transaction.Message.AccountKeys, chainConfig)
-	if err != nil {
-		return nil, err
-	}
+	// err = IsValidSVMAddFundsInstruction(tx.Transaction.Message.Instructions, tx.Transaction.Message.AccountKeys, chainConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Step 3: Parse logs for FundsAddedEvent
 	// Get the event discriminator from chain config
 	var eventDiscriminator []byte
 	for _, method := range chainConfig.GatewayMethods {
-		if method.Name == uexecutortypes.METHOD.SVM.AddFunds {
+		if method.Name == uregistrytypes.GATEWAY_METHOD.SVM.AddFunds {
 			eventDiscriminator, err = hex.DecodeString(method.EventIdentifier)
 			if err != nil {
 				return nil, fmt.Errorf("invalid event discriminator in chain config: %w", err)

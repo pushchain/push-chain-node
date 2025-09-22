@@ -8,3 +8,8 @@ testnet/*/binary
 web/
 
 .env
+
+universalClient/coverage.out
+*.db
+*.db-shm
+*.db-wal

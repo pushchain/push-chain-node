@@ -1,6 +1,10 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	fmt "fmt"
+
 	"cosmossdk.io/collections"
 )
 
@@ -11,11 +15,15 @@ var (
 	// ParamsName is the name of the params collection.
 	ParamsName = "params"
 
-	// ChainConfigsKey saves the current module chainConfigs collection prefix
-	ChainConfigsKey = collections.NewPrefix(1)
+	// Old storage in V1
+	ChainConfigsKey  = collections.NewPrefix(1) // ChainConfigsKey saves the current module chainConfigs collection prefix
+	ChainConfigsName = "chain_configs"          // ChainConfigsName is the name of the chainConfigs collection.
 
-	// ChainConfigsName is the name of the chainConfigs collection.
-	ChainConfigsName = "chain_configs"
+	InboundsKey  = collections.NewPrefix(2)
+	InboundsName = "inbound_synthetics"
+
+	UniversalTxKey  = collections.NewPrefix(3)
+	UniversalTxName = "universal_tx"
 )
 
 const (
@@ -25,3 +33,9 @@ const (
 
 	QuerierRoute = ModuleName
 )
+
+func GetInboundKey(inbound Inbound) string {
+	data := fmt.Sprintf("%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte
+}

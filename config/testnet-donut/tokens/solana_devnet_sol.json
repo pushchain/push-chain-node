@@ -1,14 +1,14 @@
 {
   "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-  "address": "EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF",
-  "name": "USDT.sol",
-  "symbol": "USDT.sol",
-  "decimals": 6,
+  "address": "0x0000000000000000000000000000000000000000",
+  "name": "pSOL",
+  "symbol": "pSOL",
+  "decimals": 9,
   "enabled": true,
   "liquidity_cap": "1000000000000000000000000",
   "token_type": 4, 
   "native_representation": {
     "denom": "",
-    "contract_address": "0x4f1A3D22d170a2F4Bddb37845a962322e24f4e34"
+    "contract_address": "0x5D525Df2bD99a6e7ec58b76aF2fd95F39874EBed"
   }
 }

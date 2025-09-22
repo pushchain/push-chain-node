@@ -5,7 +5,7 @@
   "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
   "block_confirmation": {
     "fast_inbound": 0,
-    "standard_inbound": 12
+    "standard_inbound": 2
   },
   "gateway_methods": [
     {

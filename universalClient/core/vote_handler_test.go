@@ -462,5 +462,61 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 	assert.Len(t, pendingTxs, 0)
 }
 
+func TestDecodeUniversalPayload(t *testing.T) {
+	tests := []struct {
+		name     string
+		hexStr   string
+		expected *uetypes.UniversalPayload
+		hasError bool
+	}{
+		{
+			name:     "empty string",
+			hexStr:   "",
+			expected: nil,
+			hasError: false,
+		},
+		{
+			name:     "empty hex string",
+			hexStr:   "0x",
+			expected: nil,
+			hasError: false,
+		},
+		{
+			name:     "whitespace only",
+			hexStr:   "   ",
+			expected: nil,
+			hasError: false,
+		},
+		{
+			name:   "good data",
+			hexStr: "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000098968000000000000000000000000000000000000000000000000000000002540be4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000002540be3ff00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004d09de08a00000000000000000000000000000000000000000000000000000000",
+			expected: &uetypes.UniversalPayload{
+				To:                   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+				Value:                "0",
+				Data:                 "0xd09de08a",
+				GasLimit:             "10000000",
+				MaxFeePerGas:         "10000000000",
+				MaxPriorityFeePerGas: "0",
+				Nonce:                "25",
+				Deadline:             "9999999999",
+				VType:                uetypes.VerificationType_universalTxVerification,
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := decodeUniversalPayload(tt.hexStr)
+			if tt.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
 // Ensure MockTxSigner implements TxSignerInterface
 var _ TxSignerInterface = (*MockTxSigner)(nil)

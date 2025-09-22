@@ -13,6 +13,11 @@
       "identifier": "84ed4c39500ab38a",
       "event_identifier": "7f1f6cffbb134644",
       "confirmation_type": 2
+    },
+    {"name": "send_funds",
+      "identifier": "54f7d3283f6a0f3b",
+      "event_identifier": "2b1f1f0204ec6bff",
+      "confirmation_type": 2
     }
   ],
   "enabled": {

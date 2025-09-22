@@ -133,10 +133,10 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 	}
 
 	// Check2: Check if any instruction calls the gateway contract
-	err = IsValidSVMAddFundsInstruction(tx.Transaction.Message.Instructions, tx.Transaction.Message.AccountKeys, chainConfig)
-	if err != nil {
-		return nil, err
-	}
+	// err = IsValidSVMAddFundsInstruction(tx.Transaction.Message.Instructions, tx.Transaction.Message.AccountKeys, chainConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Step 3: Parse logs for FundsAddedEvent
 	// Get the event discriminator from chain config

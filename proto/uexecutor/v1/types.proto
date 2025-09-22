@@ -81,7 +81,7 @@ enum InboundTxType {
 }
 
 message Inbound {
-  option (amino.name) = "ue/inbound";
+  option (amino.name) = "uexecutor/inbound";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -98,7 +98,7 @@ message Inbound {
 }
 
 message PCTx {
-  option (amino.name) = "ue/pc_tx";
+  option (amino.name) = "uexecutor/pc_tx";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -111,7 +111,7 @@ message PCTx {
 }
 
 message OutboundTx {
-  option (amino.name) = "ue/outbound_tx";
+  option (amino.name) = "uexecutor/outbound_tx";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
@@ -123,7 +123,7 @@ message OutboundTx {
 }
 
 message UniversalTx {
-  option (amino.name) = "ue/universal_tx";
+  option (amino.name) = "uexecutor/universal_tx";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
   

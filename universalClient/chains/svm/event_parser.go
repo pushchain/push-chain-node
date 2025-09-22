@@ -119,9 +119,11 @@ func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, 
 	var methodID, methodName, confirmationType string
 
 	for _, log := range tx.Meta.LogMessages {
-		// Skip add_funds events (similar to EVM)
+		// Extract add_funds events
 		if strings.Contains(log, "add_funds") || strings.Contains(log, "AddFunds") {
-			return "", "", "" // Skip add_funds events
+			methodID = "84ed4c39500ab38a" // Method ID for addFunds
+			methodName = "addFunds"
+			return methodID, methodName, confirmationType
 		}
 		// Add more method checks here as needed
 	}

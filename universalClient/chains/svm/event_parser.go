@@ -2,6 +2,7 @@ package svm
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -52,7 +53,7 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	}
 
 	// Extract transaction details
-	sender, receiver, amount, err := ep.extractTransactionDetails(tx)
+	sender, receiver, amount, verificationData, err := ep.extractTransactionDetails(tx)
 	if err != nil {
 		ep.logger.Warn().
 			Err(err).
@@ -64,10 +65,11 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 	// Create payload similar to EVM
 	payload := common.TxWithFundsPayload{
-		SourceChain:  ep.config.Chain,
-		Sender:       sender,
-		Recipient:    receiver,
-		BridgeAmount: amount,
+		SourceChain:      ep.config.Chain,
+		Sender:           sender,
+		Recipient:        receiver,
+		BridgeAmount:     amount,
+		VerificationData: verificationData,
 		// TODO: Extract more fields from Solana transaction as needed
 	}
 
@@ -131,19 +133,19 @@ func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, 
 	return methodID, methodName, confirmationType
 }
 
-// extractTransactionDetails extracts sender, receiver and amount from transaction
-func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (string, string, string, error) {
+// extractTransactionDetails extracts sender, receiver, amount and verificationData from transaction
+func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (string, string, string, string, error) {
 	if tx.Transaction == nil {
-		return "", "", "", fmt.Errorf("transaction data is nil")
+		return "", "", "", "", fmt.Errorf("transaction data is nil")
 	}
 
 	// Decode the transaction
 	decodedTx, err := ep.decodeTransaction(tx.Transaction)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to decode transaction: %w", err)
+		return "", "", "", "", fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
-	var sender, receiver, amount string
+	var sender, receiver, amount, verificationData string
 
 	// Get sender (fee payer)
 	if len(decodedTx.Message.AccountKeys) > 0 {
@@ -172,6 +174,9 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 				if parsedData.amount != "" {
 					amount = parsedData.amount
 				}
+				if parsedData.verificationData != "" {
+					verificationData = parsedData.verificationData
+				}
 			}
 		}
 	}
@@ -197,7 +202,7 @@ func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (
 		}
 	}
 
-	return sender, receiver, amount, nil
+	return sender, receiver, amount, verificationData, nil
 }
 
 // decodeTransaction decodes a base64 encoded transaction
@@ -248,9 +253,10 @@ func (ep *EventParser) decodeTransaction(encodedTx interface{}) (*solana.Transac
 
 // instructionData holds parsed instruction data
 type instructionData struct {
-	sender   string
-	receiver string
-	amount   string
+	sender           string
+	receiver         string
+	amount           string
+	verificationData string
 }
 
 // parseGatewayInstruction parses a gateway program instruction
@@ -273,6 +279,20 @@ func (ep *EventParser) parseGatewayInstruction(
 			amount |= uint64(instruction.Data[8+i]) << (8 * i)
 		}
 		result.amount = fmt.Sprintf("%d", amount)
+	}
+
+	// Parse verification data (dynamic bytes after byte 16)
+	// Similar to EVM, check if we have additional data that could be verification/signature data
+	if len(instruction.Data) > 16 {
+		// Check if there's an offset or direct data after amount
+		// For Solana, verification data might be appended directly after the amount
+		// or could be at an offset similar to EVM
+
+		// Try to read remaining bytes as verification data
+		verificationBytes := instruction.Data[16:]
+		if len(verificationBytes) > 0 {
+			result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
+		}
 	}
 
 	// Get sender from instruction accounts (typically first account)

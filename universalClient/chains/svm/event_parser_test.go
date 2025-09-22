@@ -260,7 +260,7 @@ func TestExtractTransactionDetails(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sender, _, amount, err := parser.extractTransactionDetails(tt.tx)
+			sender, _, amount, _, err := parser.extractTransactionDetails(tt.tx)
 			
 			if tt.expectError {
 				assert.Error(t, err)

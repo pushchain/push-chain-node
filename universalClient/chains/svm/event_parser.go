@@ -153,16 +153,9 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		return nil
 	}
 
-	// Convert txHash to hex format
-	txHashHex, err := ep.base58ToHex(signature)
-	if err != nil {
-		ep.logger.Warn().Err(err).Msg("failed to convert txHash to hex, using base58")
-		txHashHex = signature
-	}
-
 	event := &common.GatewayEvent{
 		ChainID:          ep.config.Chain,
-		TxHash:           txHashHex,
+		TxHash:           signature,
 		BlockNumber:      slot,
 		Method:           methodName,
 		EventID:          eventID,

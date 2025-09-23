@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
@@ -403,6 +405,39 @@ func TestVoteHandler_executeVote(t *testing.T) {
 			mockSigner.AssertExpectations(t)
 		})
 	}
+}
+
+func TestVoteHandler_Base58ToHex(t *testing.T) {
+	logger := zerolog.Nop()
+	mockTxSigner := &MockTxSigner{}
+	mockDB := &db.DB{}
+	var keys keys.UniversalValidatorKeys
+	granter := "test-granter"
+
+	vh := NewVoteHandler(mockTxSigner, mockDB, logger, keys, granter)
+
+	// Test with a valid base58 string
+	base58Str := "11111111111111111111111111111112" // This is a valid base58 string
+	hexResult, err := vh.base58ToHex(base58Str)
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(hexResult, "0x"), "Result should start with 0x")
+	assert.Greater(t, len(hexResult), 2, "Result should have content after 0x")
+
+	// Test with empty string
+	emptyResult, err := vh.base58ToHex("")
+	require.NoError(t, err)
+	assert.Equal(t, "0x", emptyResult)
+
+	// Test with already hex string
+	hexStr := "0x1234567890abcdef"
+	hexResult2, err := vh.base58ToHex(hexStr)
+	require.NoError(t, err)
+	assert.Equal(t, hexStr, hexResult2, "Should return the same hex string")
+
+	// Test with invalid base58 string
+	_, err = vh.base58ToHex("invalid_base58_string_with_special_chars_!@#")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode base58")
 }
 
 func TestVoteHandler_GetPendingTransactions(t *testing.T) {

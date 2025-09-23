@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/mr-tron/base58"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
@@ -46,6 +48,27 @@ func NewVoteHandler(
 		keys:     keys,
 		granter:  granter,
 	}
+}
+
+// base58ToHex converts a base58 encoded string to hex format (0x...)
+func (vh *VoteHandler) base58ToHex(base58Str string) (string, error) {
+	if base58Str == "" {
+		return "0x", nil
+	}
+
+	// Check if it's already in hex format
+	if strings.HasPrefix(base58Str, "0x") {
+		return base58Str, nil
+	}
+
+	// Decode base58 to bytes
+	decoded, err := base58.Decode(base58Str)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base58: %w", err)
+	}
+
+	// Convert to hex with 0x prefix
+	return "0x" + hex.EncodeToString(decoded), nil
 }
 
 // VoteAndConfirm votes on a transaction and updates its status to confirmed
@@ -175,9 +198,19 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}
 
+	// Convert tx.TxHash to hex format if it's in base58
+	txHashHex, err := vh.base58ToHex(tx.TxHash)
+	if err != nil {
+		vh.log.Warn().
+			Str("tx_hash", tx.TxHash).
+			Err(err).
+			Msg("failed to convert txHash to hex, using original value")
+		txHashHex = tx.TxHash
+	}
+
 	inboundMsg := &uetypes.Inbound{
 		SourceChain: eventData.SourceChain,
-		TxHash:      tx.TxHash,
+		TxHash:      txHashHex,
 		Sender:      eventData.Sender,
 		Amount:      eventData.BridgeAmount,
 		AssetAddr:   eventData.BridgeToken,
@@ -187,7 +220,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 
 	// Check if VerificationData is zero hash and replace with TxHash
 	if strings.ToLower(strings.TrimPrefix(eventData.VerificationData, "0x")) == strings.Repeat("0", 64) {
-		inboundMsg.VerificationData = tx.TxHash
+		inboundMsg.VerificationData = txHashHex
 	} else {
 		inboundMsg.VerificationData = eventData.VerificationData
 	}

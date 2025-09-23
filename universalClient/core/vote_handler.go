@@ -76,7 +76,8 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 		Str("tx_hash", tx.TxHash).
 		Msg("executing vote on blockchain (no DB transaction held)")
 
-	if err := vh.executeVote(ctx, inbound); err != nil {
+	voteTxHash, err := vh.executeVote(ctx, inbound)
+	if err != nil {
 		vh.log.Error().
 			Str("tx_hash", tx.TxHash).
 			Err(err).
@@ -86,6 +87,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	vh.log.Debug().
 		Str("tx_hash", tx.TxHash).
+		Str("vote_tx_hash", voteTxHash).
 		Msg("blockchain vote successful, now updating database status")
 
 	// STEP 2: Only after successful vote, update DB status (minimal transaction time)
@@ -98,12 +100,15 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	// Update status atomically using conditional WHERE clause
 	// This prevents race conditions if multiple workers process the same transaction
+	votedAt := time.Now()
 	result := vh.db.Client().WithContext(dbCtx).
 		Model(&store.ChainTransaction{}).
 		Where("id = ? AND status IN (?)", tx.ID, []string{"confirmation_pending", "awaiting_vote"}).
 		Updates(map[string]interface{}{
-			"status":     "confirmed",
-			"updated_at": time.Now(),
+			"status":       "confirmed",
+			"vote_tx_hash": voteTxHash,
+			"voted_at":     votedAt,
+			"updated_at":   votedAt,
 		})
 
 	if result.Error != nil {
@@ -133,6 +138,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	vh.log.Info().
 		Str("tx_hash", tx.TxHash).
+		Str("vote_tx_hash", voteTxHash).
 		Uint32("tx_id", uint32(tx.ID)).
 		Str("status_change", fmt.Sprintf("%s -> %s", originalStatus, tx.Status)).
 		Int64("rows_affected", result.RowsAffected).
@@ -212,8 +218,8 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	return inboundMsg, nil
 }
 
-// executeVote executes the MsgVoteInbound transaction via AuthZ
-func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound) error {
+// executeVote executes the MsgVoteInbound transaction via AuthZ and returns the vote tx hash
+func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound) (string, error) {
 	vh.log.Debug().
 		Str("inbound_tx", inbound.TxHash).
 		Str("granter", vh.granter).
@@ -222,12 +228,12 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 
 	// Check if txSigner is available
 	if vh.txSigner == nil {
-		return fmt.Errorf("txSigner is nil - cannot sign transactions")
+		return "", fmt.Errorf("txSigner is nil - cannot sign transactions")
 	}
 
 	// Validate granter address
 	if vh.granter == "" {
-		return fmt.Errorf("granter address is empty - AuthZ not properly configured")
+		return "", fmt.Errorf("granter address is empty - AuthZ not properly configured")
 	}
 
 	// Create MsgVoteInbound
@@ -248,7 +254,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 	gasLimit := uint64(500000000)
 	feeAmount, err := sdk.ParseCoinsNormalized("500000000000000upc")
 	if err != nil {
-		return fmt.Errorf("failed to parse fee amount: %w", err)
+		return "", fmt.Errorf("failed to parse fee amount: %w", err)
 	}
 
 	memo := fmt.Sprintf("Vote on inbound tx %s", inbound.TxHash)
@@ -287,7 +293,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 			Str("inbound_tx", inbound.TxHash).
 			Err(err).
 			Msg("SignAndBroadcastAuthZTx failed")
-		return fmt.Errorf("failed to broadcast vote transaction: %w", err)
+		return "", fmt.Errorf("failed to broadcast vote transaction: %w", err)
 	}
 
 	vh.log.Debug().
@@ -303,7 +309,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 			Uint32("response_code", txResp.Code).
 			Str("raw_log", txResp.RawLog).
 			Msg("vote transaction was rejected by blockchain")
-		return fmt.Errorf("vote transaction failed with code %d: %s", txResp.Code, txResp.RawLog)
+		return "", fmt.Errorf("vote transaction failed with code %d: %s", txResp.Code, txResp.RawLog)
 	}
 
 	vh.log.Info().
@@ -312,7 +318,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 		Int64("gas_used", txResp.GasUsed).
 		Msg("successfully voted on inbound transaction")
 
-	return nil
+	return txResp.TxHash, nil
 }
 
 // GetPendingTransactions returns all transactions that have enough confirmations but haven't been voted on

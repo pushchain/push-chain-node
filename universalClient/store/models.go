@@ -2,6 +2,8 @@
 package store
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -25,4 +27,6 @@ type ChainTransaction struct {
 	Confirmations    uint64
 	ConfirmationType string // "STANDARD" or "FAST" - which confirmation type this tx requires
 	Data             []byte // Store raw event data
+	VoteTxHash       string // Transaction hash of the vote on pchain
+	VotedAt          *time.Time // Timestamp when the vote was submitted
 }

@@ -204,6 +204,9 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				err = testDB.Client().Where("tx_hash = ?", tt.tx.TxHash).First(&updatedTx).Error
 				assert.NoError(t, err)
 				assert.Equal(t, "confirmed", updatedTx.Status)
+				assert.Equal(t, "cosmos_tx_123", updatedTx.VoteTxHash)
+				assert.NotNil(t, updatedTx.VotedAt)
+				assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Minute)))
 				assert.True(t, updatedTx.UpdatedAt.After(time.Now().Add(-time.Minute)))
 			}
 
@@ -384,15 +387,17 @@ func TestVoteHandler_executeVote(t *testing.T) {
 
 			tt.setupMock(mockSigner)
 
-			err := vh.executeVote(context.Background(), tt.inbound)
+			txHash, err := vh.executeVote(context.Background(), tt.inbound)
 
 			if tt.expectedError {
 				assert.Error(t, err)
+				assert.Empty(t, txHash)
 				if tt.errorMsg != "" {
 					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err)
+				assert.NotEmpty(t, txHash)
 			}
 
 			mockSigner.AssertExpectations(t)
@@ -516,6 +521,93 @@ func TestDecodeUniversalPayload(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestVoteHandler_StoresVoteTxHash verifies that the vote transaction hash is properly stored
+func TestVoteHandler_StoresVoteTxHash(t *testing.T) {
+	// Setup
+	mockSigner := &MockTxSigner{}
+	testDB := setupTestDB(t)
+	log := zerolog.Nop()
+
+	// Create test transaction
+	tx := &store.ChainTransaction{
+		TxHash:        "0xtest123",
+		BlockNumber:   1000,
+		Method:        "addFunds",
+		Status:        "awaiting_vote",
+		Confirmations: 12,
+		Data:          json.RawMessage(`{"sourceChain":"eip155:1","sender":"0x111","bridgeAmount":"1000","bridgeToken":"0x222","logIndex":1,"txType":0}`),
+	}
+
+	// Save initial transaction
+	err := testDB.Client().Create(tx).Error
+	require.NoError(t, err)
+
+	// Setup mock to return a specific vote tx hash
+	expectedVoteTxHash := "cosmos_vote_tx_abc123def456"
+	mockSigner.On("SignAndBroadcastAuthZTx",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		uint64(500000000),
+		mock.Anything,
+	).Return(&sdk.TxResponse{
+		Code:    0,
+		TxHash:  expectedVoteTxHash,
+		GasUsed: 150000,
+	}, nil)
+
+	// Create vote handler and execute
+	vh := NewVoteHandler(mockSigner, testDB, log, &MockUniversalValidatorKeys{}, "cosmos1granter")
+	err = vh.VoteAndConfirm(context.Background(), tx)
+	require.NoError(t, err)
+
+	// Verify the vote tx hash was stored
+	var updatedTx store.ChainTransaction
+	err = testDB.Client().Where("tx_hash = ?", tx.TxHash).First(&updatedTx).Error
+	require.NoError(t, err)
+
+	// Assert vote transaction details are stored
+	assert.Equal(t, expectedVoteTxHash, updatedTx.VoteTxHash, "Vote tx hash should be stored")
+	assert.NotNil(t, updatedTx.VotedAt, "VotedAt timestamp should be set")
+	assert.Equal(t, "confirmed", updatedTx.Status, "Status should be confirmed")
+
+	// Verify timestamp is recent
+	assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Second)), "VotedAt should be recent")
+
+	mockSigner.AssertExpectations(t)
+}
+
+// TestVoteHandler_VoteTxHashNotOverwritten verifies that vote tx hash is not overwritten if already set
+func TestVoteHandler_VoteTxHashNotOverwritten(t *testing.T) {
+	// Setup
+	testDB := setupTestDB(t)
+
+	// Create transaction that already has a vote tx hash
+	existingVoteTxHash := "existing_vote_tx_123"
+	votedTime := time.Now().Add(-time.Hour)
+	tx := &store.ChainTransaction{
+		TxHash:        "0xalready_voted",
+		BlockNumber:   2000,
+		Method:        "addFunds",
+		Status:        "confirmed",
+		Confirmations: 20,
+		VoteTxHash:    existingVoteTxHash,
+		VotedAt:       &votedTime,
+		Data:          json.RawMessage(`{}`),
+	}
+
+	// Save transaction
+	err := testDB.Client().Create(tx).Error
+	require.NoError(t, err)
+
+	// Verify the existing vote tx hash remains unchanged
+	var checkTx store.ChainTransaction
+	err = testDB.Client().Where("tx_hash = ?", tx.TxHash).First(&checkTx).Error
+	require.NoError(t, err)
+	assert.Equal(t, existingVoteTxHash, checkTx.VoteTxHash, "Existing vote tx hash should be preserved")
+	assert.Equal(t, votedTime.Unix(), checkTx.VotedAt.Unix(), "Existing voted time should be preserved")
 }
 
 // Ensure MockTxSigner implements TxSignerInterface

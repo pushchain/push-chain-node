@@ -116,6 +116,10 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 		discriminator := hex.EncodeToString(decoded[:8])
 
+		if discriminator == "7f1f6cffbb134644" { // add_funds
+			continue
+		}
+
 		// Find matching method by event discriminator
 		for id, topic := range ep.eventTopics {
 			if discriminator == topic {
@@ -145,11 +149,6 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 	// Return nil if no matching event topic found
 	if !found {
-		return nil
-	}
-
-	// TODO: Remove temp code to avoid listing add_funds
-	if methodName == "add_funds" {
 		return nil
 	}
 

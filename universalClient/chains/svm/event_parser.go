@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
@@ -13,11 +14,11 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
+	gogoproto "github.com/cosmos/gogoproto/proto"
+	"github.com/near/borsh-go"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
-
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // Constants for event parsing
@@ -303,7 +304,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 		hexStr := "0x" + hex.EncodeToString(dataField)
 
 		// Try to decode as UniversalPayload
-		up, err := ep.decodeUniversalPayload(hexStr)
+		up, err := decodeUniversalPayload(hexStr)
 		if err != nil {
 			ep.logger.Warn().
 				Str("hex_str", hexStr).
@@ -409,8 +410,8 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 	return payload, nil
 }
 
-// decodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
-func (ep *EventParser) decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
+// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 	// Handle empty string case
 	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
 		return nil, nil
@@ -433,11 +434,67 @@ func (ep *EventParser) decodeUniversalPayload(hexStr string) (*uetypes.Universal
 		return nil, nil
 	}
 
-	// Try protobuf decoding
-	up := new(uetypes.UniversalPayload)
-	if err := gogoproto.Unmarshal(bz, up); err != nil {
-		return nil, fmt.Errorf("failed to decode UniversalPayload as protobuf: %w", err)
+	// Try to decode as ABI-encoded UniversalPayload first
+	up, err := decodeUniversalPayloadBorsh(bz)
+	if err == nil {
+		return up, nil
 	}
+
+	// If ABI decoding fails, try protobuf decoding as fallback
+	up = new(uetypes.UniversalPayload)
+	if err := gogoproto.Unmarshal(bz, up); err != nil {
+		return nil, fmt.Errorf("failed to decode UniversalPayload as both ABI and protobuf: ABI error: %v, protobuf error: %w", err, err)
+	}
+	return up, nil
+}
+
+// DecodeUniversalPayload decodes Rust Anchor/Borsh-serialized UniversalPayload bytes
+// into your uetypes.UniversalPayload. It matches this Rust layout:
+//
+// #[derive(AnchorSerialize, AnchorDeserialize)]
+//
+//	pub struct UniversalPayload {
+//	    pub to: [u8; 20],
+//	    pub value: u64,
+//	    pub data: Vec<u8>,
+//	    pub gas_limit: u64,
+//	    pub max_fee_per_gas: u64,
+//	    pub max_priority_fee_per_gas: u64,
+//	    pub nonce: u64,
+//	    pub deadline: i64,
+//	    pub v_type: u8, // enum variant index (no payload)
+//	}
+func decodeUniversalPayloadBorsh(bz []byte) (*uetypes.UniversalPayload, error) {
+	// Mirror the exact Rust/Borsh field order & types
+	type universalPayloadBorsh struct {
+		To                   [20]byte
+		Value                uint64
+		Data                 []byte
+		GasLimit             uint64
+		MaxFeePerGas         uint64
+		MaxPriorityFeePerGas uint64
+		Nonce                uint64
+		Deadline             int64
+		VType                uint8
+	}
+
+	var raw universalPayloadBorsh
+	if err := borsh.Deserialize(&raw, bz); err != nil {
+		return nil, fmt.Errorf("borsh decode failed: %w", err)
+	}
+
+	up := &uetypes.UniversalPayload{
+		To:                   "0x" + hex.EncodeToString(raw.To[:]),
+		Value:                strconv.FormatUint(raw.Value, 10),
+		Data:                 "0x" + hex.EncodeToString(raw.Data),
+		GasLimit:             strconv.FormatUint(raw.GasLimit, 10),
+		MaxFeePerGas:         strconv.FormatUint(raw.MaxFeePerGas, 10),
+		MaxPriorityFeePerGas: strconv.FormatUint(raw.MaxPriorityFeePerGas, 10),
+		Nonce:                strconv.FormatUint(raw.Nonce, 10),
+		Deadline:             strconv.FormatInt(raw.Deadline, 10),
+		VType:                uetypes.VerificationType(raw.VType), // enum index -> your type
+	}
+
 	return up, nil
 }
 

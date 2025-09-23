@@ -39,7 +39,6 @@ type GatewayHandler struct {
 	methodCache  map[string]*MethodExtractionInfo // Cache for discovered positions
 
 	// Extracted components
-	txBuilder    *TransactionBuilder
 	eventParser  *EventParser
 	txVerifier   *TransactionVerifier
 	eventWatcher *EventWatcher
@@ -71,7 +70,6 @@ func NewGatewayHandler(
 	)
 
 	// Create extracted components
-	txBuilder := NewTransactionBuilder(parentClient, gatewayAddr, logger)
 	eventParser := NewEventParser(gatewayAddr, config, logger)
 	txVerifier := NewTransactionVerifier(parentClient, config, database, tracker, logger)
 	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, txVerifier, appConfig, config.Chain, logger)
@@ -85,7 +83,6 @@ func NewGatewayHandler(
 		gatewayAddr:  gatewayAddr,
 		database:     database,
 		methodCache:  make(map[string]*MethodExtractionInfo),
-		txBuilder:    txBuilder,
 		eventParser:  eventParser,
 		txVerifier:   txVerifier,
 		eventWatcher: eventWatcher,
@@ -202,23 +199,6 @@ func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string) (bool, 
 // GetConfirmationTracker returns the confirmation tracker
 func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 	return h.tracker
-}
-
-// BuildGatewayTransaction delegates to transaction builder
-func (h *GatewayHandler) BuildGatewayTransaction(
-	ctx context.Context,
-	from solana.PrivateKey,
-	instruction solana.Instruction,
-) (*solana.Transaction, error) {
-	return h.txBuilder.BuildGatewayTransaction(ctx, from, instruction)
-}
-
-// SendTransaction delegates to transaction builder
-func (h *GatewayHandler) SendTransaction(
-	ctx context.Context,
-	tx *solana.Transaction,
-) (solana.Signature, error) {
-	return h.txBuilder.SendTransaction(ctx, tx)
 }
 
 // extractTransactionDetails extracts sender, receiver, and amount from a transaction

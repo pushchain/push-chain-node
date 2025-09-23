@@ -18,20 +18,19 @@ import (
 
 // GatewayHandler handles gateway operations for EVM chains
 type GatewayHandler struct {
-	parentClient  *Client // Reference to parent client for RPC pool access
-	config        *uregistrytypes.ChainConfig
-	appConfig     *config.Config
-	logger        zerolog.Logger
-	tracker       *common.ConfirmationTracker
-	gatewayAddr   ethcommon.Address
-	contractABI   interface{} // Will hold minimal ABI when available
-	database      *db.DB
+	parentClient *Client // Reference to parent client for RPC pool access
+	config       *uregistrytypes.ChainConfig
+	appConfig    *config.Config
+	logger       zerolog.Logger
+	tracker      *common.ConfirmationTracker
+	gatewayAddr  ethcommon.Address
+	contractABI  interface{} // Will hold minimal ABI when available
+	database     *db.DB
 
 	// Extracted components
-	eventParser   *EventParser
-	eventWatcher  *EventWatcher
-	txBuilder     *TransactionBuilder
-	txVerifier    *TransactionVerifier
+	eventParser  *EventParser
+	eventWatcher *EventWatcher
+	txVerifier   *TransactionVerifier
 }
 
 // NewGatewayHandler creates a new EVM gateway handler
@@ -59,7 +58,6 @@ func NewGatewayHandler(
 	// Create extracted components
 	eventParser := NewEventParser(gatewayAddr, config, logger)
 	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, appConfig, config.Chain, logger)
-	txBuilder := NewTransactionBuilder(parentClient, gatewayAddr, logger)
 	txVerifier := NewTransactionVerifier(parentClient, config, database, tracker, logger)
 
 	return &GatewayHandler{
@@ -72,7 +70,6 @@ func NewGatewayHandler(
 		database:     database,
 		eventParser:  eventParser,
 		eventWatcher: eventWatcher,
-		txBuilder:    txBuilder,
 		txVerifier:   txVerifier,
 	}, nil
 }
@@ -104,7 +101,7 @@ func (h *GatewayHandler) GetStartBlock(ctx context.Context) (uint64, error) {
 	// Check database for last processed block
 	var chainState store.ChainState
 	result := h.database.Client().First(&chainState)
-	
+
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			// No record found, get latest block
@@ -113,7 +110,7 @@ func (h *GatewayHandler) GetStartBlock(ctx context.Context) (uint64, error) {
 		}
 		return 0, fmt.Errorf("failed to get last processed block: %w", result.Error)
 	}
-	
+
 	// Found a record, check if it has a valid block number
 	if chainState.LastBlock <= 0 {
 		// If LastBlock is 0 or negative, start from latest block
@@ -122,25 +119,25 @@ func (h *GatewayHandler) GetStartBlock(ctx context.Context) (uint64, error) {
 			Msg("invalid or zero last block, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
-	
+
 	h.logger.Info().
 		Int64("block", chainState.LastBlock).
 		Msg("resuming from last processed block")
-	
+
 	return uint64(chainState.LastBlock), nil
 }
 
 // UpdateLastProcessedBlock updates the last processed block in the database
 func (h *GatewayHandler) UpdateLastProcessedBlock(blockNumber uint64) error {
 	var chainState store.ChainState
-	
+
 	// Try to find existing record
 	result := h.database.Client().First(&chainState)
-	
+
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to query last processed block: %w", result.Error)
 	}
-	
+
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
 		chainState = store.ChainState{
@@ -158,7 +155,7 @@ func (h *GatewayHandler) UpdateLastProcessedBlock(blockNumber uint64) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -171,7 +168,6 @@ func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromBlock uint6
 		h.verifyPendingTransactions,
 	)
 }
-
 
 // GetTransactionConfirmations returns the number of confirmations for a transaction
 func (h *GatewayHandler) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {

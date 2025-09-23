@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // GatewayEvent represents a cross-chain gateway event
@@ -17,17 +19,18 @@ type GatewayEvent struct {
 }
 
 type TxWithFundsPayload struct {
-	SourceChain         string `json:"sourceChain"`
-	LogIndex            uint   `json:"logIndex"`
-	Sender              string `json:"sender"`
-	Recipient           string `json:"recipient"`
-	BridgeToken         string `json:"bridgeToken"`
-	BridgeAmount        string `json:"bridgeAmount"` // uint256 as decimal string
-	Data                string `json:"data"`         // hex-encoded bytes (0x…)
-	VerificationData    string `json:"verificationData"`
-	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
-	RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
-	TxType              uint   `json:"txType"`              // enum backing uint as decimal string
+	SourceChain         string                   `json:"sourceChain"`
+	LogIndex            uint                     `json:"logIndex"`
+	Sender              string                   `json:"sender"`
+	Recipient           string                   `json:"recipient"`
+	BridgeToken         string                   `json:"bridgeToken"`
+	BridgeAmount        string                   `json:"bridgeAmount"` // uint256 as decimal string
+	GasAmount           string                   `json:"gasAmount"`    // uint256 as decimal string
+	UniversalPayload    uetypes.UniversalPayload `json:"universalPayload"`
+	VerificationData    string                   `json:"verificationData"`
+	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
+	RevertMsg           string                   `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
+	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 }
 
 // GatewayOperations defines gateway-specific operations for chain clients

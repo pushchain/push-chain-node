@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/keys"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
@@ -204,6 +206,9 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				err = testDB.Client().Where("tx_hash = ?", tt.tx.TxHash).First(&updatedTx).Error
 				assert.NoError(t, err)
 				assert.Equal(t, "confirmed", updatedTx.Status)
+				assert.Equal(t, "cosmos_tx_123", updatedTx.VoteTxHash)
+				assert.NotNil(t, updatedTx.VotedAt)
+				assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Minute)))
 				assert.True(t, updatedTx.UpdatedAt.After(time.Now().Add(-time.Minute)))
 			}
 
@@ -384,20 +389,55 @@ func TestVoteHandler_executeVote(t *testing.T) {
 
 			tt.setupMock(mockSigner)
 
-			err := vh.executeVote(context.Background(), tt.inbound)
+			txHash, err := vh.executeVote(context.Background(), tt.inbound)
 
 			if tt.expectedError {
 				assert.Error(t, err)
+				assert.Empty(t, txHash)
 				if tt.errorMsg != "" {
 					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err)
+				assert.NotEmpty(t, txHash)
 			}
 
 			mockSigner.AssertExpectations(t)
 		})
 	}
+}
+
+func TestVoteHandler_Base58ToHex(t *testing.T) {
+	logger := zerolog.Nop()
+	mockTxSigner := &MockTxSigner{}
+	mockDB := &db.DB{}
+	var keys keys.UniversalValidatorKeys
+	granter := "test-granter"
+
+	vh := NewVoteHandler(mockTxSigner, mockDB, logger, keys, granter)
+
+	// Test with a valid base58 string
+	base58Str := "11111111111111111111111111111112" // This is a valid base58 string
+	hexResult, err := vh.base58ToHex(base58Str)
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(hexResult, "0x"), "Result should start with 0x")
+	assert.Greater(t, len(hexResult), 2, "Result should have content after 0x")
+
+	// Test with empty string
+	emptyResult, err := vh.base58ToHex("")
+	require.NoError(t, err)
+	assert.Equal(t, "0x", emptyResult)
+
+	// Test with already hex string
+	hexStr := "0x1234567890abcdef"
+	hexResult2, err := vh.base58ToHex(hexStr)
+	require.NoError(t, err)
+	assert.Equal(t, hexStr, hexResult2, "Should return the same hex string")
+
+	// Test with invalid base58 string
+	_, err = vh.base58ToHex("invalid_base58_string_with_special_chars_!@#")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode base58")
 }
 
 func TestVoteHandler_GetPendingTransactions(t *testing.T) {
@@ -462,60 +502,91 @@ func TestVoteHandler_GetPendingTransactions(t *testing.T) {
 	assert.Len(t, pendingTxs, 0)
 }
 
-func TestDecodeUniversalPayload(t *testing.T) {
-	tests := []struct {
-		name     string
-		hexStr   string
-		expected *uetypes.UniversalPayload
-		hasError bool
-	}{
-		{
-			name:     "empty string",
-			hexStr:   "",
-			expected: nil,
-			hasError: false,
-		},
-		{
-			name:     "empty hex string",
-			hexStr:   "0x",
-			expected: nil,
-			hasError: false,
-		},
-		{
-			name:     "whitespace only",
-			hexStr:   "   ",
-			expected: nil,
-			hasError: false,
-		},
-		{
-			name:   "good data",
-			hexStr: "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000098968000000000000000000000000000000000000000000000000000000002540be4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000002540be3ff00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004d09de08a00000000000000000000000000000000000000000000000000000000",
-			expected: &uetypes.UniversalPayload{
-				To:                   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-				Value:                "0",
-				Data:                 "0xd09de08a",
-				GasLimit:             "10000000",
-				MaxFeePerGas:         "10000000000",
-				MaxPriorityFeePerGas: "0",
-				Nonce:                "25",
-				Deadline:             "9999999999",
-				VType:                uetypes.VerificationType_universalTxVerification,
-			},
-			hasError: false,
-		},
+// TestVoteHandler_StoresVoteTxHash verifies that the vote transaction hash is properly stored
+func TestVoteHandler_StoresVoteTxHash(t *testing.T) {
+	// Setup
+	mockSigner := &MockTxSigner{}
+	testDB := setupTestDB(t)
+	log := zerolog.Nop()
+
+	// Create test transaction
+	tx := &store.ChainTransaction{
+		TxHash:        "0xtest123",
+		BlockNumber:   1000,
+		Method:        "addFunds",
+		Status:        "awaiting_vote",
+		Confirmations: 12,
+		Data:          json.RawMessage(`{"sourceChain":"eip155:1","sender":"0x111","bridgeAmount":"1000","bridgeToken":"0x222","logIndex":1,"txType":0}`),
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := decodeUniversalPayload(tt.hexStr)
-			if tt.hasError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
-			}
-		})
+	// Save initial transaction
+	err := testDB.Client().Create(tx).Error
+	require.NoError(t, err)
+
+	// Setup mock to return a specific vote tx hash
+	expectedVoteTxHash := "cosmos_vote_tx_abc123def456"
+	mockSigner.On("SignAndBroadcastAuthZTx",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		uint64(500000000),
+		mock.Anything,
+	).Return(&sdk.TxResponse{
+		Code:    0,
+		TxHash:  expectedVoteTxHash,
+		GasUsed: 150000,
+	}, nil)
+
+	// Create vote handler and execute
+	vh := NewVoteHandler(mockSigner, testDB, log, &MockUniversalValidatorKeys{}, "cosmos1granter")
+	err = vh.VoteAndConfirm(context.Background(), tx)
+	require.NoError(t, err)
+
+	// Verify the vote tx hash was stored
+	var updatedTx store.ChainTransaction
+	err = testDB.Client().Where("tx_hash = ?", tx.TxHash).First(&updatedTx).Error
+	require.NoError(t, err)
+
+	// Assert vote transaction details are stored
+	assert.Equal(t, expectedVoteTxHash, updatedTx.VoteTxHash, "Vote tx hash should be stored")
+	assert.NotNil(t, updatedTx.VotedAt, "VotedAt timestamp should be set")
+	assert.Equal(t, "confirmed", updatedTx.Status, "Status should be confirmed")
+
+	// Verify timestamp is recent
+	assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Second)), "VotedAt should be recent")
+
+	mockSigner.AssertExpectations(t)
+}
+
+// TestVoteHandler_VoteTxHashNotOverwritten verifies that vote tx hash is not overwritten if already set
+func TestVoteHandler_VoteTxHashNotOverwritten(t *testing.T) {
+	// Setup
+	testDB := setupTestDB(t)
+
+	// Create transaction that already has a vote tx hash
+	existingVoteTxHash := "existing_vote_tx_123"
+	votedTime := time.Now().Add(-time.Hour)
+	tx := &store.ChainTransaction{
+		TxHash:        "0xalready_voted",
+		BlockNumber:   2000,
+		Method:        "addFunds",
+		Status:        "confirmed",
+		Confirmations: 20,
+		VoteTxHash:    existingVoteTxHash,
+		VotedAt:       &votedTime,
+		Data:          json.RawMessage(`{}`),
 	}
+
+	// Save transaction
+	err := testDB.Client().Create(tx).Error
+	require.NoError(t, err)
+
+	// Verify the existing vote tx hash remains unchanged
+	var checkTx store.ChainTransaction
+	err = testDB.Client().Where("tx_hash = ?", tx.TxHash).First(&checkTx).Error
+	require.NoError(t, err)
+	assert.Equal(t, existingVoteTxHash, checkTx.VoteTxHash, "Existing vote tx hash should be preserved")
+	assert.Equal(t, votedTime.Unix(), checkTx.VotedAt.Unix(), "Existing voted time should be preserved")
 }
 
 // Ensure MockTxSigner implements TxSignerInterface

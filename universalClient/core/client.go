@@ -380,6 +380,42 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 
 	chainDatabases := uc.dbManager.GetAllDatabases()
 
+	// If no databases exist yet, attempt to pre-create them from the
+	// already-populated cache to avoid a startup race with the registry cron.
+	if len(chainDatabases) == 0 && uc.cache != nil {
+		cached := uc.cache.GetAllChains()
+		created := 0
+		for _, cd := range cached {
+			if cd == nil || cd.Config == nil || cd.Config.Chain == "" {
+				continue
+			}
+			// Respect chain enabled flags similar to the registry job
+			if cd.Config.Enabled == nil || (!cd.Config.Enabled.IsInboundEnabled && !cd.Config.Enabled.IsOutboundEnabled) {
+				continue
+			}
+			if cd.Config.Chain == "universal-validator" {
+				continue
+			}
+			if _, exists := chainDatabases[cd.Config.Chain]; exists {
+				continue
+			}
+			if db, err := uc.dbManager.GetChainDB(cd.Config.Chain); err == nil && db != nil {
+				chainDatabases[cd.Config.Chain] = db
+				created++
+			} else if err != nil {
+				uc.log.Warn().
+					Str("chain_id", cd.Config.Chain).
+					Err(err).
+					Msg("Failed to pre-create database from cache")
+			}
+		}
+		if created > 0 {
+			uc.log.Info().
+				Int("created", created).
+				Msg("Pre-created chain databases from cache on startup")
+		}
+	}
+
 	uc.log.Info().
 		Int("database_count", len(chainDatabases)).
 		Interface("database_chains", func() []string {
@@ -391,7 +427,7 @@ func (uc *UniversalClient) createVoteHandlersForAllChains(keys keys.UniversalVal
 		}()).
 		Msg("Found chain databases")
 
-	// Check if we have any chain databases
+	// Check if we have any chain databases (after possible pre-creation)
 	if len(chainDatabases) == 0 {
 		uc.log.Warn().
 			Msg("No chain databases exist yet - vote handlers will be created when chains are added")

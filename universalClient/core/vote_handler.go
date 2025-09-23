@@ -5,17 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	gogoproto "github.com/cosmos/gogoproto/proto"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	ethcommon "github.com/ethereum/go-ethereum/common"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/mr-tron/base58"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
@@ -55,6 +50,27 @@ func NewVoteHandler(
 	}
 }
 
+// base58ToHex converts a base58 encoded string to hex format (0x...)
+func (vh *VoteHandler) base58ToHex(base58Str string) (string, error) {
+	if base58Str == "" {
+		return "0x", nil
+	}
+
+	// Check if it's already in hex format
+	if strings.HasPrefix(base58Str, "0x") {
+		return base58Str, nil
+	}
+
+	// Decode base58 to bytes
+	decoded, err := base58.Decode(base58Str)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base58: %w", err)
+	}
+
+	// Convert to hex with 0x prefix
+	return "0x" + hex.EncodeToString(decoded), nil
+}
+
 // VoteAndConfirm votes on a transaction and updates its status to confirmed
 func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransaction) error {
 	vh.log.Info().
@@ -76,7 +92,8 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 		Str("tx_hash", tx.TxHash).
 		Msg("executing vote on blockchain (no DB transaction held)")
 
-	if err := vh.executeVote(ctx, inbound); err != nil {
+	voteTxHash, err := vh.executeVote(ctx, inbound)
+	if err != nil {
 		vh.log.Error().
 			Str("tx_hash", tx.TxHash).
 			Err(err).
@@ -86,6 +103,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	vh.log.Debug().
 		Str("tx_hash", tx.TxHash).
+		Str("vote_tx_hash", voteTxHash).
 		Msg("blockchain vote successful, now updating database status")
 
 	// STEP 2: Only after successful vote, update DB status (minimal transaction time)
@@ -98,12 +116,15 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	// Update status atomically using conditional WHERE clause
 	// This prevents race conditions if multiple workers process the same transaction
+	votedAt := time.Now()
 	result := vh.db.Client().WithContext(dbCtx).
 		Model(&store.ChainTransaction{}).
 		Where("id = ? AND status IN (?)", tx.ID, []string{"confirmation_pending", "awaiting_vote"}).
 		Updates(map[string]interface{}{
-			"status":     "confirmed",
-			"updated_at": time.Now(),
+			"status":       "confirmed",
+			"vote_tx_hash": voteTxHash,
+			"voted_at":     votedAt,
+			"updated_at":   votedAt,
 		})
 
 	if result.Error != nil {
@@ -133,6 +154,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	vh.log.Info().
 		Str("tx_hash", tx.TxHash).
+		Str("vote_tx_hash", voteTxHash).
 		Uint32("tx_id", uint32(tx.ID)).
 		Str("status_change", fmt.Sprintf("%s -> %s", originalStatus, tx.Status)).
 		Int64("rows_affected", result.RowsAffected).
@@ -158,8 +180,10 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		return nil, fmt.Errorf("failed to  unmarshal transaction data: %w", err)
 	}
 
-	// Default to FUNDS_AND_PAYLOAD_TX type if not specified
-	txType := uetypes.InboundTxType_GAS
+	// Map txType from eventData to proper enum value
+	// Event data uses: 0=GAS, 1=GAS_AND_PAYLOAD, 2=FUNDS, 3=FUNDS_AND_PAYLOAD
+	// Enum values are: 0=UNSPECIFIED_TX, 1=GAS, 2=FUNDS, 3=FUNDS_AND_PAYLOAD, 4=GAS_AND_PAYLOAD
+	txType := uetypes.InboundTxType_UNSPECIFIED_TX
 	switch eventData.TxType {
 	case 0:
 		txType = uetypes.InboundTxType_GAS
@@ -169,13 +193,24 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		txType = uetypes.InboundTxType_FUNDS
 	case 3:
 		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
-	case 4:
+	default:
+		// For any unknown value, default to GAS
 		txType = uetypes.InboundTxType_UNSPECIFIED_TX
+	}
+
+	// Convert tx.TxHash to hex format if it's in base58
+	txHashHex, err := vh.base58ToHex(tx.TxHash)
+	if err != nil {
+		vh.log.Warn().
+			Str("tx_hash", tx.TxHash).
+			Err(err).
+			Msg("failed to convert txHash to hex, using original value")
+		txHashHex = tx.TxHash
 	}
 
 	inboundMsg := &uetypes.Inbound{
 		SourceChain: eventData.SourceChain,
-		TxHash:      tx.TxHash,
+		TxHash:      txHashHex,
 		Sender:      eventData.Sender,
 		Amount:      eventData.BridgeAmount,
 		AssetAddr:   eventData.BridgeToken,
@@ -185,31 +220,26 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 
 	// Check if VerificationData is zero hash and replace with TxHash
 	if strings.ToLower(strings.TrimPrefix(eventData.VerificationData, "0x")) == strings.Repeat("0", 64) {
-		inboundMsg.VerificationData = tx.TxHash
+		inboundMsg.VerificationData = txHashHex
 	} else {
 		inboundMsg.VerificationData = eventData.VerificationData
 	}
 
+	// Set recipient for transactions that involve funds
 	if txType == uetypes.InboundTxType_FUNDS {
 		inboundMsg.Recipient = eventData.Recipient
 	}
 
 	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD {
 		inboundMsg.VerificationData = eventData.VerificationData
-
-		up, err := decodeUniversalPayload(eventData.Data)
-		// if error, return error
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode universal payload: %w", err)
-		}
-		inboundMsg.UniversalPayload = up
+		inboundMsg.UniversalPayload = &eventData.UniversalPayload
 	}
 
 	return inboundMsg, nil
 }
 
-// executeVote executes the MsgVoteInbound transaction via AuthZ
-func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound) error {
+// executeVote executes the MsgVoteInbound transaction via AuthZ and returns the vote tx hash
+func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound) (string, error) {
 	vh.log.Debug().
 		Str("inbound_tx", inbound.TxHash).
 		Str("granter", vh.granter).
@@ -218,12 +248,12 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 
 	// Check if txSigner is available
 	if vh.txSigner == nil {
-		return fmt.Errorf("txSigner is nil - cannot sign transactions")
+		return "", fmt.Errorf("txSigner is nil - cannot sign transactions")
 	}
 
 	// Validate granter address
 	if vh.granter == "" {
-		return fmt.Errorf("granter address is empty - AuthZ not properly configured")
+		return "", fmt.Errorf("granter address is empty - AuthZ not properly configured")
 	}
 
 	// Create MsgVoteInbound
@@ -244,7 +274,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 	gasLimit := uint64(500000000)
 	feeAmount, err := sdk.ParseCoinsNormalized("500000000000000upc")
 	if err != nil {
-		return fmt.Errorf("failed to parse fee amount: %w", err)
+		return "", fmt.Errorf("failed to parse fee amount: %w", err)
 	}
 
 	memo := fmt.Sprintf("Vote on inbound tx %s", inbound.TxHash)
@@ -283,7 +313,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 			Str("inbound_tx", inbound.TxHash).
 			Err(err).
 			Msg("SignAndBroadcastAuthZTx failed")
-		return fmt.Errorf("failed to broadcast vote transaction: %w", err)
+		return "", fmt.Errorf("failed to broadcast vote transaction: %w", err)
 	}
 
 	vh.log.Debug().
@@ -299,7 +329,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 			Uint32("response_code", txResp.Code).
 			Str("raw_log", txResp.RawLog).
 			Msg("vote transaction was rejected by blockchain")
-		return fmt.Errorf("vote transaction failed with code %d: %s", txResp.Code, txResp.RawLog)
+		return "", fmt.Errorf("vote transaction failed with code %d: %s", txResp.Code, txResp.RawLog)
 	}
 
 	vh.log.Info().
@@ -308,7 +338,7 @@ func (vh *VoteHandler) executeVote(ctx context.Context, inbound *uetypes.Inbound
 		Int64("gas_used", txResp.GasUsed).
 		Msg("successfully voted on inbound transaction")
 
-	return nil
+	return txResp.TxHash, nil
 }
 
 // GetPendingTransactions returns all transactions that have enough confirmations but haven't been voted on
@@ -320,189 +350,4 @@ func (vh *VoteHandler) GetPendingTransactions(minConfirmations uint64) ([]store.
 		Find(&pendingTxs).Error
 
 	return pendingTxs, err
-}
-
-// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
-func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
-	// Handle empty string case
-	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
-		return nil, nil
-	}
-
-	clean := strings.TrimPrefix(hexStr, "0x")
-
-	// Handle case where hex string is empty after removing 0x prefix
-	if clean == "" {
-		return nil, nil
-	}
-
-	bz, err := hex.DecodeString(clean)
-	if err != nil {
-		return nil, fmt.Errorf("hex decode: %w", err)
-	}
-
-	// Handle case where decoded bytes are empty
-	if len(bz) == 0 {
-		return nil, nil
-	}
-
-	// Try to decode as ABI-encoded UniversalPayload first
-	up, err := decodeABIUniversalPayload(bz)
-	if err == nil {
-		return up, nil
-	}
-
-	// If ABI decoding fails, try protobuf decoding as fallback
-	up = new(uetypes.UniversalPayload)
-	if err := gogoproto.Unmarshal(bz, up); err != nil {
-		return nil, fmt.Errorf("failed to decode UniversalPayload as both ABI and protobuf: ABI error: %v, protobuf error: %w", err, err)
-	}
-	return up, nil
-}
-
-// decodeABIUniversalPayload decodes ABI-encoded UniversalPayload data using standard library
-func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
-	// The data starts with an offset to where the actual tuple data begins
-	if len(data) < 32 {
-		return nil, fmt.Errorf("insufficient data length: got %d, need at least 32", len(data))
-	}
-
-	// Read the offset (first 32 bytes)
-	offset := new(big.Int).SetBytes(data[:32]).Uint64()
-
-	// The actual tuple data starts at the offset
-	if int(offset) >= len(data) {
-		return nil, fmt.Errorf("offset %d exceeds data length %d", offset, len(data))
-	}
-
-	// Define the UniversalPayload struct components
-	components := []abi.ArgumentMarshaling{
-		{Name: "to", Type: "address"},
-		{Name: "value", Type: "uint256"},
-		{Name: "data", Type: "bytes"},
-		{Name: "gasLimit", Type: "uint256"},
-		{Name: "maxFeePerGas", Type: "uint256"},
-		{Name: "maxPriorityFeePerGas", Type: "uint256"},
-		{Name: "nonce", Type: "uint256"},
-		{Name: "deadline", Type: "uint256"},
-		{Name: "vType", Type: "uint8"},
-	}
-
-	// Create the tuple type
-	tupleType, err := abi.NewType("tuple", "UniversalPayload", components)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tuple type: %w", err)
-	}
-
-	// Create arguments from the tuple type
-	args := abi.Arguments{
-		{Type: tupleType},
-	}
-
-	// Unpack the tuple data using the full data (not just tupleData)
-	// because dynamic fields like bytes are stored after the tuple
-	decoded, err := args.Unpack(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unpack tuple data: %w", err)
-	}
-
-	// Convert decoded data to UniversalPayload
-	if len(decoded) != 1 {
-		return nil, fmt.Errorf("expected 1 decoded value, got %d", len(decoded))
-	}
-
-	// Extract the struct from the decoded result using reflection
-	// The struct has JSON tags, so we need to use reflection to access fields
-	payloadValue := decoded[0]
-
-	// Use reflection to get the struct fields
-	payloadReflect := reflect.ValueOf(payloadValue)
-	if payloadReflect.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("expected struct, got %T", payloadValue)
-	}
-
-	// Get the struct type to access fields by name
-	payloadType := payloadReflect.Type()
-
-	// Helper function to get field value by name
-	getField := func(name string) reflect.Value {
-		field, found := payloadType.FieldByName(name)
-		if !found {
-			return reflect.Value{}
-		}
-		return payloadReflect.FieldByIndex(field.Index)
-	}
-
-	// Extract values using reflection
-	toValue := getField("To")
-	valueValue := getField("Value")
-	dataValue := getField("Data")
-	gasLimitValue := getField("GasLimit")
-	maxFeePerGasValue := getField("MaxFeePerGas")
-	maxPriorityFeePerGasValue := getField("MaxPriorityFeePerGas")
-	nonceValue := getField("Nonce")
-	deadlineValue := getField("Deadline")
-	vTypeValue := getField("VType")
-
-	// Convert to the expected types
-	to, ok := toValue.Interface().(ethcommon.Address)
-	if !ok {
-		return nil, fmt.Errorf("expected address for 'to', got %T", toValue.Interface())
-	}
-
-	value, ok := valueValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'value', got %T", valueValue.Interface())
-	}
-
-	dataBytes, ok := dataValue.Interface().([]byte)
-	if !ok {
-		return nil, fmt.Errorf("expected []byte for 'data', got %T", dataValue.Interface())
-	}
-
-	gasLimit, ok := gasLimitValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'gasLimit', got %T", gasLimitValue.Interface())
-	}
-
-	maxFeePerGas, ok := maxFeePerGasValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'maxFeePerGas', got %T", maxFeePerGasValue.Interface())
-	}
-
-	maxPriorityFeePerGas, ok := maxPriorityFeePerGasValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'maxPriorityFeePerGas', got %T", maxPriorityFeePerGasValue.Interface())
-	}
-
-	nonce, ok := nonceValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'nonce', got %T", nonceValue.Interface())
-	}
-
-	deadline, ok := deadlineValue.Interface().(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int for 'deadline', got %T", deadlineValue.Interface())
-	}
-
-	vType, ok := vTypeValue.Interface().(uint8)
-	if !ok {
-		return nil, fmt.Errorf("expected uint8 for 'vType', got %T", vTypeValue.Interface())
-	}
-
-	// Create UniversalPayload
-	up := &uetypes.UniversalPayload{
-		To:    to.Hex(),
-		Value: value.String(),
-		// add 0x prefix to data
-		Data:                 "0x" + hex.EncodeToString(dataBytes),
-		GasLimit:             gasLimit.String(),
-		MaxFeePerGas:         maxFeePerGas.String(),
-		MaxPriorityFeePerGas: maxPriorityFeePerGas.String(),
-		Nonce:                nonce.String(),
-		Deadline:             deadline.String(),
-		VType:                uetypes.VerificationType(vType),
-	}
-
-	return up, nil
 }

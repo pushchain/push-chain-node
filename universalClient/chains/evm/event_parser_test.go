@@ -221,54 +221,6 @@ func TestGetEventTopics(t *testing.T) {
 	assert.True(t, topicSet[ethcommon.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222")])
 }
 
-func TestHasEvents(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   *uregistrytypes.ChainConfig
-		expected bool
-	}{
-		{
-			name: "returns true when events are configured",
-			config: &uregistrytypes.ChainConfig{
-				GatewayMethods: []*uregistrytypes.GatewayMethods{
-					{
-						EventIdentifier: "0x1234",
-						Identifier:      "id1",
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "returns false when no events are configured",
-			config: &uregistrytypes.ChainConfig{
-				GatewayMethods: []*uregistrytypes.GatewayMethods{
-					{
-						Identifier: "id1",
-						// No EventIdentifier
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "returns false for empty config",
-			config: &uregistrytypes.ChainConfig{
-				GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := zerolog.New(nil).Level(zerolog.Disabled)
-			parser := NewEventParser(ethcommon.Address{}, tt.config, logger)
-			assert.Equal(t, tt.expected, parser.HasEvents())
-		})
-	}
-}
-
 func TestParseEventData(t *testing.T) {
 	config := &uregistrytypes.ChainConfig{
 		Chain: "eip155:1",

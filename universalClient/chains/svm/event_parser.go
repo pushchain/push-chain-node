@@ -2,6 +2,7 @@ package svm
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -9,18 +10,44 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+
+	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
-// EventParser handles parsing of Solana gateway events
+// Constants for event parsing
+const (
+	TxWithFundsDiscriminator = "2b1f1f0204ec6bff"
+	TxTypeFunds              = 2 // Default fallback tx type
+)
+
+// EventParser handles parsing of SVM gateway events
 type EventParser struct {
 	gatewayAddr solana.PublicKey
 	config      *uregistrytypes.ChainConfig
+	eventTopics map[string]string // method identifier -> event discriminator
 	logger      zerolog.Logger
-	decoder     *EventDecoder // Add event decoder
+}
+
+// base58ToHex converts a base58 encoded string to hex format (0x...)
+func (ep *EventParser) base58ToHex(base58Str string) (string, error) {
+	if base58Str == "" {
+		return "0x", nil
+	}
+
+	// Decode base58 to bytes
+	decoded, err := base58.Decode(base58Str)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base58: %w", err)
+	}
+
+	// Convert to hex with 0x prefix
+	return "0x" + hex.EncodeToString(decoded), nil
 }
 
 // NewEventParser creates a new event parser
@@ -29,11 +56,34 @@ func NewEventParser(
 	config *uregistrytypes.ChainConfig,
 	logger zerolog.Logger,
 ) *EventParser {
+	// Build event topics from config methods
+	eventTopics := make(map[string]string)
+	logger.Info().
+		Int("gateway_methods_count", len(config.GatewayMethods)).
+		Str("gateway_address", config.GatewayAddress).
+		Msg("building event topics")
+
+	for _, method := range config.GatewayMethods {
+		if method.EventIdentifier != "" {
+			eventTopics[method.Identifier] = method.EventIdentifier
+			logger.Info().
+				Str("method", method.Name).
+				Str("event_identifier", method.EventIdentifier).
+				Str("method_id", method.Identifier).
+				Msg("registered event topic from config")
+		} else {
+			logger.Warn().
+				Str("method", method.Name).
+				Str("method_id", method.Identifier).
+				Msg("no event identifier provided in config for method")
+		}
+	}
+
 	return &EventParser{
 		gatewayAddr: gatewayAddr,
 		config:      config,
+		eventTopics: eventTopics,
 		logger:      logger.With().Str("component", "svm_event_parser").Logger(),
-		decoder:     NewEventDecoder(logger),
 	}
 }
 
@@ -43,511 +93,92 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		return nil
 	}
 
-	// Check if transaction involves gateway program
-	if !ep.isGatewayTransaction(tx) {
+	// Find matching method by event discriminator
+	var eventID string
+	var methodName, confirmationType string
+	var found bool
+
+	// Look for events in transaction logs
+	for _, log := range tx.Meta.LogMessages {
+		if !strings.HasPrefix(log, "Program data: ") {
+			continue
+		}
+
+		eventData := strings.TrimPrefix(log, "Program data: ")
+		decoded, err := base64.StdEncoding.DecodeString(eventData)
+		if err != nil {
+			continue
+		}
+
+		if len(decoded) < 8 {
+			continue
+		}
+
+		discriminator := hex.EncodeToString(decoded[:8])
+
+		// Find matching method by event discriminator
+		for id, topic := range ep.eventTopics {
+			if discriminator == topic {
+				eventID = topic
+				found = true
+				// Find method name and confirmation type from config
+				for _, method := range ep.config.GatewayMethods {
+					if method.Identifier == id {
+						methodName = method.Name
+						// Map confirmation type enum to string
+						if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
+							confirmationType = "FAST"
+						} else {
+							confirmationType = "STANDARD" // Default to STANDARD
+						}
+						break
+					}
+				}
+				break
+			}
+		}
+
+		if found {
+			break
+		}
+	}
+
+	// Return nil if no matching event topic found
+	if !found {
 		return nil
 	}
 
-	// Extract method information
-	methodID, methodName, confirmationType := ep.extractMethodInfo(tx)
-	if methodID == "" {
+	// TODO: Remove temp code to avoid listing add_funds
+	if methodName == "add_funds" {
 		return nil
 	}
 
-	// Extract transaction details including logIndex, txType, gasAmount, and revertRecipient
-	sender, receiver, amount, gasAmount, data, verificationData, bridgeToken, logIndex, txType, revertRecipient, err := ep.extractTransactionDetails(tx)
+	// Convert txHash to hex format
+	txHashHex, err := ep.base58ToHex(signature)
 	if err != nil {
-		ep.logger.Warn().
-			Err(err).
-			Str("tx_hash", signature).
-			Uint64("slot", slot).
-			Msg("failed to extract transaction details - some fields may be empty")
-		// Don't return nil - we can still create an event with partial data
-	}
-
-	// Create payload similar to EVM
-	payload := common.TxWithFundsPayload{
-		SourceChain:         ep.config.Chain,
-		LogIndex:            logIndex,
-		Sender:              sender,
-		Recipient:           receiver,
-		BridgeToken:         bridgeToken,
-		BridgeAmount:        amount,
-		GasAmount:           gasAmount,
-		Data:                data,
-		VerificationData:    verificationData,
-		RevertFundRecipient: revertRecipient,
-		TxType:              txType,
-	}
-
-	// Marshal payload to JSON
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		ep.logger.Warn().
-			Err(err).
-			Str("tx_hash", signature).
-			Msg("failed to marshal payload")
-		payloadBytes = []byte{} // Use empty payload if marshaling fails
+		ep.logger.Warn().Err(err).Msg("failed to convert txHash to hex, using base58")
+		txHashHex = signature
 	}
 
 	event := &common.GatewayEvent{
 		ChainID:          ep.config.Chain,
-		TxHash:           signature,
+		TxHash:           txHashHex,
 		BlockNumber:      slot,
 		Method:           methodName,
-		EventID:          methodID,
+		EventID:          eventID,
 		ConfirmationType: confirmationType,
-		Payload:          payloadBytes, // Set the payload for vote handler
 	}
 
-	// Debug logging for tracking
-	ep.logger.Debug().
-		Str("tx_hash", signature).
-		Str("method", methodName).
-		Int("payload_size", len(payloadBytes)).
-		Str("sender", sender).
-		Str("receiver", receiver).
-		Str("amount", amount).
-		Msg("parsed Solana gateway event with payload")
+	// Parse event data based on method
+	ep.parseEventData(event, tx.Meta.LogMessages)
 
 	return event
 }
 
-// isGatewayTransaction checks if the transaction involves the gateway program
-func (ep *EventParser) isGatewayTransaction(tx *rpc.GetTransactionResult) bool {
-	for _, log := range tx.Meta.LogMessages {
-		if strings.Contains(log, ep.gatewayAddr.String()) {
-			return true
-		}
-	}
-	return false
-}
-
-// extractMethodInfo extracts method ID, name and confirmation type from transaction logs
-func (ep *EventParser) extractMethodInfo(tx *rpc.GetTransactionResult) (string, string, string) {
-	// Log all messages first for debugging
-	for i, log := range tx.Meta.LogMessages {
-		ep.logger.Debug().
-			Int("log_index", i).
-			Str("log_message", log).
-			Msg("processing log message")
-	}
-
-	// Iterate through configured gateway methods
-	for _, method := range ep.config.GatewayMethods {
-		methodNameLower := strings.ToLower(method.Name)
-
-		// Check each log message for this method
-		for _, log := range tx.Meta.LogMessages {
-			logLower := strings.ToLower(log)
-
-			var matched bool
-
-			// Flexible matching based on method name patterns
-			if strings.Contains(methodNameLower, "send") && strings.Contains(methodNameLower, "funds") {
-				// Match variations like "send_funds", "SendFunds", "SendTxWithFunds"
-				matched = strings.Contains(logLower, "send") && strings.Contains(logLower, "funds") &&
-					!strings.Contains(logLower, "add") // Exclude add_funds
-
-				if matched {
-					ep.logger.Debug().
-						Str("log", log).
-						Str("method_name", method.Name).
-						Msg("matched send funds pattern")
-				}
-			} else if strings.Contains(methodNameLower, "add") && strings.Contains(methodNameLower, "funds") {
-				// Skip add_funds - we're only interested in send_funds/deposit
-				continue
-			}
-			// Add more method patterns as needed
-
-			if matched {
-				// Derive confirmation type from config
-				var confirmationType string
-				if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
-					confirmationType = "FAST"
-				} else {
-					confirmationType = "STANDARD" // Default to STANDARD
-				}
-
-				ep.logger.Info().
-					Str("method", method.Name).
-					Str("method_id", method.Identifier).
-					Str("event_id", method.EventIdentifier).
-					Str("confirmation_type", confirmationType).
-					Str("original_log", log).
-					Msg("detected gateway method from config")
-
-				// Return values from config
-				return method.Identifier, method.Name, confirmationType
-			}
-		}
-	}
-
-	ep.logger.Debug().
-		Msg("no recognized method found in transaction logs")
-	return "", "", ""
-}
-
-// extractTransactionDetails extracts sender, receiver, amount, gasAmount, data, verificationData, bridgeToken, logIndex, txType, and revertRecipient from transaction
-func (ep *EventParser) extractTransactionDetails(tx *rpc.GetTransactionResult) (string, string, string, string, string, string, string, uint, uint, string, error) {
-	if tx.Transaction == nil {
-		return "", "", "", "", "", "", "", 0, 0, "", fmt.Errorf("transaction data is nil")
-	}
-
-	// Log all Program data entries for debugging
-	programDataCount := 0
-	for i, log := range tx.Meta.LogMessages {
-		if strings.HasPrefix(log, "Program data: ") {
-			programDataCount++
-			ep.logger.Debug().
-				Int("log_index", i).
-				Str("program_data", strings.TrimPrefix(log, "Program data: ")).
-				Msg("found Program data log entry")
-		}
-	}
-
-	ep.logger.Info().
-		Int("total_logs", len(tx.Meta.LogMessages)).
-		Int("program_data_logs", programDataCount).
-		Msg("scanning transaction logs for events")
-
-	// First, try to extract from Program data logs (events)
-	eventData := ep.extractEventDataFromLogs(tx.Meta.LogMessages)
-	if eventData != nil {
-		if eventData.EventType != "TxWithFunds" {
-			ep.logger.Debug().
-				Str("event_type", eventData.EventType).
-				Msg("ignoring non TxWithFunds event data from Program logs")
-			// treat as no event data so we can fall back to instruction parsing
-			eventData = nil
-		}
-	}
-
-	if eventData != nil {
-		ep.logger.Info().
-			Str("event_source", "program_data_logs").
-			Str("event_type", eventData.EventType).
-			Bool("has_data", eventData.Data != "").
-			Bool("has_verification", eventData.VerificationData != "").
-			Msg("successfully extracted event data from Program logs")
-
-		ep.logger.Debug().
-			Str("event_type", eventData.EventType).
-			Str("sender", eventData.Sender).
-			Str("recipient", eventData.Recipient).
-			Uint64("amount", eventData.BridgeAmount).
-			Uint8("tx_type", eventData.TxType).
-			Msg("extracted data from event logs")
-
-		// Convert to return format
-		amount := fmt.Sprintf("%d", eventData.BridgeAmount)
-		gasAmount := fmt.Sprintf("%d", eventData.GasAmount)
-
-		// For AddFunds events, recipient might be empty
-		recipient := eventData.Recipient
-		if recipient == "" && eventData.EventType == "AddFunds" {
-			// For AddFunds, the sender is adding funds to their own account
-			recipient = eventData.Sender
-		}
-
-		return eventData.Sender,
-			recipient,
-			amount,
-			gasAmount,
-			eventData.Data,
-			eventData.VerificationData,
-			eventData.BridgeToken,
-			eventData.LogIndex,
-			uint(eventData.TxType),
-			eventData.RevertRecipient,
-			nil
-	}
-
-	// Fallback to instruction parsing if no event data found
-	ep.logger.Warn().
-		Int("logs_checked", len(tx.Meta.LogMessages)).
-		Msg("no TxWithFunds/AddFunds event data found in Program logs, falling back to instruction parsing")
-
-	// Decode the transaction
-	decodedTx, err := ep.decodeTransaction(tx.Transaction)
-	if err != nil {
-		return "", "", "", "", "", "", "", 0, 0, "", fmt.Errorf("failed to decode transaction: %w", err)
-	}
-
-	var sender, receiver, amount, data, verificationData, bridgeToken string
-	var logIndex, txType uint
-
-	// Get sender (fee payer)
-	if len(decodedTx.Message.AccountKeys) > 0 {
-		sender = decodedTx.Message.AccountKeys[0].String()
-	}
-
-	// Process instructions
-	for idx, instruction := range decodedTx.Message.Instructions {
-		// Get program ID
-		programIdx := instruction.ProgramIDIndex
-		if int(programIdx) >= len(decodedTx.Message.AccountKeys) {
-			continue
-		}
-		programID := decodedTx.Message.AccountKeys[programIdx]
-
-		// Check if it's our gateway program
-		if programID.Equals(ep.gatewayAddr) {
-			// Set logIndex to the instruction index
-			logIndex = uint(idx)
-			// Parse gateway instruction
-			if parsedData := ep.parseGatewayInstruction(instruction, decodedTx.Message.AccountKeys); parsedData != nil {
-				if parsedData.sender != "" {
-					sender = parsedData.sender
-				}
-				if parsedData.receiver != "" {
-					receiver = parsedData.receiver
-				}
-				if parsedData.amount != "" {
-					amount = parsedData.amount
-				}
-				if parsedData.data != "" {
-					data = parsedData.data
-				}
-				if parsedData.verificationData != "" {
-					verificationData = parsedData.verificationData
-				}
-				if parsedData.bridgeToken != "" {
-					bridgeToken = parsedData.bridgeToken
-				}
-				// Use the txType from parsed instruction data
-				txType = parsedData.txType
-			} else {
-				// Only default to 0 if parsing failed
-				txType = 0
-			}
-		}
-	}
-
-	// Extract from balance changes if not found
-	if amount == "" && tx.Meta != nil && len(tx.Meta.PostBalances) == len(tx.Meta.PreBalances) {
-		for i := range tx.Meta.PreBalances {
-			diff := int64(tx.Meta.PostBalances[i]) - int64(tx.Meta.PreBalances[i])
-			if diff < 0 && i < len(decodedTx.Message.AccountKeys) {
-				// This account lost balance (likely the sender)
-				if sender == "" {
-					sender = decodedTx.Message.AccountKeys[i].String()
-				}
-				if amount == "" {
-					amount = fmt.Sprintf("%d", -diff)
-				}
-			} else if diff > 0 && i < len(decodedTx.Message.AccountKeys) {
-				// This account gained balance (likely the receiver)
-				if receiver == "" {
-					receiver = decodedTx.Message.AccountKeys[i].String()
-				}
-			}
-		}
-	}
-
-	// Final logging to show what was extracted
-	ep.logger.Info().
-		Str("extraction_method", "fallback_instruction_parsing").
-		Str("sender", sender).
-		Str("receiver", receiver).
-		Str("amount", amount).
-		Str("data", data).
-		Str("verificationData", verificationData).
-		Str("bridgeToken", bridgeToken).
-		Uint("logIndex", logIndex).
-		Uint("txType", txType).
-		Bool("data_empty", data == "").
-		Bool("verification_empty", verificationData == "").
-		Msg("final extracted transaction details")
-
-	return sender, receiver, amount, "", data, verificationData, bridgeToken, logIndex, txType, "", nil
-}
-
-// decodeTransaction decodes a base64 encoded transaction
-func (ep *EventParser) decodeTransaction(encodedTx interface{}) (*solana.Transaction, error) {
-	// Handle different encoding types
-	var txData []byte
-
-	switch v := encodedTx.(type) {
-	case []interface{}:
-		if len(v) > 0 {
-			if str, ok := v[0].(string); ok {
-				data, err := base64.StdEncoding.DecodeString(str)
-				if err != nil {
-					return nil, fmt.Errorf("failed to decode base64: %w", err)
-				}
-				txData = data
-			}
-		}
-	case string:
-		data, err := base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode base64: %w", err)
-		}
-		txData = data
-	case *rpc.TransactionResultEnvelope:
-		// Handle versioned transaction envelope
-		txBytes := v.GetBinary()
-		if len(txBytes) == 0 {
-			return nil, fmt.Errorf("empty transaction data in envelope")
-		}
-		txData = txBytes
-	default:
-		return nil, fmt.Errorf("unsupported transaction encoding type: %T", encodedTx)
-	}
-
-	if len(txData) == 0 {
-		return nil, fmt.Errorf("empty transaction data")
-	}
-
-	// Parse the transaction
-	tx, err := solana.TransactionFromBytes(txData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse transaction: %w", err)
-	}
-
-	return tx, nil
-}
-
-// instructionData holds parsed instruction data
-type instructionData struct {
-	sender           string
-	receiver         string
-	amount           string
-	data             string
-	verificationData string
-	bridgeToken      string
-	txType           uint
-}
-
-// parseGatewayInstruction parses a gateway program instruction
-func (ep *EventParser) parseGatewayInstruction(
-	instruction solana.CompiledInstruction,
-	accountKeys []solana.PublicKey,
-) *instructionData {
-	if len(instruction.Data) < 16 {
-		ep.logger.Debug().
-			Int("data_len", len(instruction.Data)).
-			Msg("instruction data too short for gateway instruction")
-		return nil
-	}
-
-	// Log instruction data for debugging
-	ep.logger.Debug().
-		Int("data_len", len(instruction.Data)).
-		Str("data_hex", hex.EncodeToString(instruction.Data[:16])).
-		Int("num_accounts", len(instruction.Accounts)).
-		Msg("parsing gateway instruction")
-
-	// Process any gateway instruction (not checking for specific discriminator)
-	// This allows processing of send_funds and other gateway methods
-	result := &instructionData{}
-
-	// Parse amount (bytes 8-16)
-	if len(instruction.Data) >= 16 {
-		amount := uint64(0)
-		for i := 0; i < 8; i++ {
-			amount |= uint64(instruction.Data[8+i]) << (8 * i)
-		}
-		result.amount = fmt.Sprintf("%d", amount)
-	}
-
-	// Parse dynamic data fields after byte 16
-	// Solana uses Borsh serialization for send_funds instruction:
-	// [discriminator(8)] [amount(8)] [data_len(4)] [data_bytes...] [verification_bytes...]
-	// The data field is a Vec<u8> with a 4-byte length prefix
-	// For simple transfers, data_len is typically 0 (empty data field)
-	hasPayloadData := false
-	if len(instruction.Data) > 16 {
-		// Check if we have at least 4 bytes for data length
-		if len(instruction.Data) >= 20 {
-			// Read data length (4 bytes at position 16)
-			dataLen := uint32(0)
-			for i := 0; i < 4; i++ {
-				dataLen |= uint32(instruction.Data[16+i]) << (8 * i)
-			}
-
-			offset := 20 // After discriminator(8) + amount(8) + data_len(4)
-
-			// Extract data field if present
-			if dataLen > 0 && offset+int(dataLen) <= len(instruction.Data) {
-				dataBytes := instruction.Data[offset : offset+int(dataLen)]
-				result.data = "0x" + hex.EncodeToString(dataBytes)
-				offset += int(dataLen)
-				hasPayloadData = true // Has non-empty data field
-			} else {
-				// Data field is empty (common case)
-				result.data = ""
-			}
-
-			// All remaining bytes are verification data (not length-prefixed)
-			if offset < len(instruction.Data) {
-				verificationBytes := instruction.Data[offset:]
-				if len(verificationBytes) > 0 {
-					result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
-				}
-			}
-		} else {
-			// Fallback: if less than 20 bytes, treat all bytes after amount as verification
-			verificationBytes := instruction.Data[16:]
-			if len(verificationBytes) > 0 {
-				result.verificationData = "0x" + hex.EncodeToString(verificationBytes)
-			}
-		}
-	}
-
-	// Determine txType based on whether there's payload data
-	// In Solana contract: 0 = Funds (no payload), 1 = Message (with payload)
-	if hasPayloadData {
-		result.txType = 1 // Message type (has payload)
-	} else {
-		result.txType = 0 // Funds type (no payload)
-	}
-
-	// Get sender from instruction accounts (typically first account)
-	if len(instruction.Accounts) > 0 {
-		senderIdx := instruction.Accounts[0]
-		if int(senderIdx) < len(accountKeys) {
-			result.sender = accountKeys[senderIdx].String()
-		}
-	}
-
-	// Get receiver from instruction accounts (typically second account)
-	if len(instruction.Accounts) > 1 {
-		receiverIdx := instruction.Accounts[1]
-		if int(receiverIdx) < len(accountKeys) {
-			result.receiver = accountKeys[receiverIdx].String()
-		}
-	}
-
-	// Get bridge token from instruction accounts (typically third account for SPL token mint)
-	// In Solana, if bridging SPL tokens, the mint address would be in the accounts
-	if len(instruction.Accounts) > 2 {
-		tokenIdx := instruction.Accounts[2]
-		if int(tokenIdx) < len(accountKeys) {
-			result.bridgeToken = accountKeys[tokenIdx].String()
-		}
-	}
-
-	ep.logger.Info().
-		Str("sender", result.sender).
-		Str("receiver", result.receiver).
-		Str("amount", result.amount).
-		Str("data", result.data).
-		Str("verificationData", result.verificationData).
-		Str("bridgeToken", result.bridgeToken).
-		Uint("txType", result.txType).
-		Bool("hasData", result.data != "").
-		Bool("hasVerification", result.verificationData != "").
-		Bool("has_payload", hasPayloadData).
-		Msg("parsed gateway instruction (fallback mode)")
-
-	return result
-}
-
-// extractEventDataFromLogs extracts event data from Program data logs
-func (ep *EventParser) extractEventDataFromLogs(logs []string) *ParsedEventData {
+// parseEventData extracts specific data from the event based on method type.
+// For TxWithFunds events, it JSON-marshals the decoded fields into event.Payload.
+func (ep *EventParser) parseEventData(event *common.GatewayEvent, logs []string) {
+	// Look for TxWithFunds event in Program data logs
 	for i, log := range logs {
 		if !strings.HasPrefix(log, "Program data: ") {
 			continue
@@ -558,66 +189,271 @@ func (ep *EventParser) extractEventDataFromLogs(logs []string) *ParsedEventData 
 		if err != nil {
 			ep.logger.Warn().
 				Err(err).
-				Str("log", log).
+				Int("log_index", i).
 				Msg("failed to decode Program data")
 			continue
 		}
 
-		// Try to decode as an event
-		parsedEvent, err := ep.decoder.DecodeEventData(decoded)
+		if len(decoded) < 8 {
+			continue
+		}
+
+		discriminator := hex.EncodeToString(decoded[:8])
+		if discriminator != TxWithFundsDiscriminator {
+			continue
+		}
+
+		// Parse the TxWithFunds event
+		payload, err := ep.decodeTxWithFundsEvent(decoded)
 		if err != nil {
-			// Not a recognized event, continue
-			ep.logger.Debug().
+			ep.logger.Warn().
 				Err(err).
 				Int("log_index", i).
-				Msg("could not decode as event")
+				Msg("failed to decode TxWithFunds event")
 			continue
 		}
 
-		// Set the log index for traceability
-		parsedEvent.LogIndex = uint(i)
+		// Set source chain and log index
+		payload.SourceChain = event.ChainID
+		payload.LogIndex = uint(i)
 
-		if parsedEvent.EventType == "AddFunds" {
-			ep.logger.Debug().
-				Int("log_index", i).
-				Msg("skipping AddFunds event in favor of TxWithFunds")
-			continue
+		// Marshal and store into event.Payload
+		if b, err := json.Marshal(payload); err == nil {
+			event.Payload = b
 		}
 
-		if parsedEvent.EventType != "TxWithFunds" {
-			ep.logger.Debug().
-				Str("event_type", parsedEvent.EventType).
-				Int("log_index", i).
-				Msg("unrecognized event type, continuing scan")
-			continue
-		}
-
-		ep.logger.Info().
-			Str("event_type", parsedEvent.EventType).
-			Str("sender", parsedEvent.Sender).
-			Str("recipient", parsedEvent.Recipient).
-			Uint64("amount", parsedEvent.BridgeAmount).
-			Uint8("tx_type", parsedEvent.TxType).
-			Str("data", parsedEvent.Data).
-			Str("verification_data", parsedEvent.VerificationData).
-			Int("log_index", i).
-			Msg("successfully extracted event data from logs")
-
-		return parsedEvent
+		// Only process the first valid event
+		break
 	}
-
-	return nil
 }
 
-// bytesEqual compares two byte slices
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
+// decodeTxWithFundsEvent decodes a TxWithFunds event
+func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsPayload, error) {
+	if len(data) < 120 {
+		ep.logger.Warn().
+			Int("data_len", len(data)).
+			Msg("data might be too short for complete TxWithFunds event")
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+
+	offset := 8
+	payload := &common.TxWithFundsPayload{
+		TxType:           uint(TxTypeFunds),
+		RevertMsg:        "0x",
+		VerificationData: "0x",
+	}
+
+	// Parse sender (32 bytes)
+	if len(data) < offset+32 {
+		return nil, fmt.Errorf("not enough data for sender")
+	}
+	sender := solana.PublicKey(data[offset : offset+32])
+	// Convert sender to hex format
+	senderHex, err := ep.base58ToHex(sender.String())
+	if err != nil {
+		ep.logger.Warn().Err(err).Msg("failed to convert sender to hex, using base58")
+		payload.Sender = sender.String()
+	} else {
+		payload.Sender = senderHex
+	}
+	offset += 32
+
+	// Parse recipient (20 bytes - byte20 format)
+	if len(data) < offset+20 {
+		return nil, fmt.Errorf("not enough data for recipient")
+	}
+	// Convert 20 bytes to hex string (0x + 40 hex chars)
+	recipientBytes := data[offset : offset+20]
+	payload.Recipient = "0x" + hex.EncodeToString(recipientBytes)
+	offset += 20
+
+	// Parse bridge_amount (8 bytes)
+	if len(data) < offset+8 {
+		return nil, fmt.Errorf("not enough data for bridge_amount")
+	}
+	bridgeAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
+	payload.BridgeAmount = fmt.Sprintf("%d", bridgeAmount)
+	offset += 8
+
+	// Parse gas_amount (8 bytes)
+	if len(data) < offset+8 {
+		return nil, fmt.Errorf("not enough data for gas_amount")
+	}
+	gasAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
+	payload.GasAmount = fmt.Sprintf("%d", gasAmount)
+	offset += 8
+
+	// Parse bridge_token (32 bytes)
+	if len(data) < offset+32 {
+		return nil, fmt.Errorf("not enough data for bridge_token")
+	}
+	bridgeToken := solana.PublicKey(data[offset : offset+32])
+	payload.BridgeToken = bridgeToken.String()
+	offset += 32
+
+	// Parse data field length (4 bytes)
+	if len(data) < offset+4 {
+		ep.logger.Warn().Msg("not enough data for data field length")
+		return payload, nil
+	}
+	dataLen := binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	// Parse data field
+	if len(data) < offset+int(dataLen) {
+		ep.logger.Warn().
+			Uint32("expected_len", dataLen).
+			Int("available", len(data)-offset).
+			Msg("not enough data for data field")
+		return payload, nil
+	}
+	if dataLen > 0 {
+		dataField := data[offset : offset+int(dataLen)]
+		hexStr := "0x" + hex.EncodeToString(dataField)
+
+		// Try to decode as UniversalPayload
+		up, err := ep.decodeUniversalPayload(hexStr)
+		if err != nil {
+			ep.logger.Warn().
+				Str("hex_str", hexStr).
+				Err(err).
+				Msg("failed to decode universal payload")
+		} else if up != nil {
+			payload.UniversalPayload = *up
 		}
+
+		// Data is now stored in UniversalPayload, not as a separate field
+		offset += int(dataLen)
 	}
-	return true
+
+	// Parse revert_cfg (RevertConfig struct)
+	// RevertConfig: { recipient: Pubkey, message: Vec<u8> }
+
+	// Parse revert recipient (Pubkey)
+	if len(data) < offset+32 {
+		ep.logger.Warn().Msg("not enough data for revert recipient")
+		return payload, nil
+	}
+	revertRecipient := solana.PublicKey(data[offset : offset+32])
+	payload.RevertFundRecipient = revertRecipient.String()
+	offset += 32
+
+	// Parse revert message (Vec<u8>)
+	if len(data) < offset+4 {
+		ep.logger.Warn().Msg("not enough data for revert message length")
+		return payload, nil
+	}
+	revertMsgLen := binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	remainingForRevert := len(data) - offset
+	revertLenValid := int(revertMsgLen) <= remainingForRevert
+	if !revertLenValid {
+		ep.logger.Warn().
+			Uint32("revert_msg_len", revertMsgLen).
+			Int("available", remainingForRevert).
+			Msg("revert message length invalid, skipping revert message parsing")
+	}
+
+	if revertLenValid && revertMsgLen > 0 {
+		if len(data) < offset+int(revertMsgLen) {
+			ep.logger.Warn().
+				Uint32("expected_len", revertMsgLen).
+				Int("available", len(data)-offset).
+				Msg("not enough data for revert message")
+			return payload, nil
+		}
+		revertMsg := data[offset : offset+int(revertMsgLen)]
+		payload.RevertMsg = "0x" + hex.EncodeToString(revertMsg)
+		offset += int(revertMsgLen)
+	}
+
+	// Parse tx_type (TxType enum)
+	if len(data) <= offset {
+		ep.logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
+		payload.TxType = uint(TxTypeFunds)
+		return payload, nil
+	}
+	txType := data[offset]
+	payload.TxType = uint(txType)
+	offset++
+
+	// Parse signature data length (4 bytes)
+	if len(data) < offset+4 {
+		ep.logger.Warn().Msg("not enough data for signature length")
+		return payload, nil
+	}
+	sigLen := binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	remainingBytes := len(data) - offset
+	if int(sigLen) > remainingBytes {
+		ep.logger.Warn().
+			Uint32("expected_len", sigLen).
+			Int("available", remainingBytes).
+			Msg("signature data length exceeds available data, skipping")
+		return payload, nil
+	}
+
+	if sigLen > 0 {
+		sigData := data[offset : offset+int(sigLen)]
+		payload.VerificationData = "0x" + hex.EncodeToString(sigData)
+		offset += int(sigLen)
+	}
+
+	ep.logger.Debug().
+		Str("sender", payload.Sender).
+		Str("recipient", payload.Recipient).
+		Str("bridge_amount", payload.BridgeAmount).
+		Str("gas_amount", payload.GasAmount).
+		Str("bridge_token", payload.BridgeToken).
+		Str("universal_payload", fmt.Sprintf("%+v", payload.UniversalPayload)).
+		Str("verification_data", payload.VerificationData).
+		Str("revert_recipient", payload.RevertFundRecipient).
+		Str("revert_message", payload.RevertMsg).
+		Uint("tx_type", payload.TxType).
+		Int("total_bytes_parsed", offset).
+		Msg("decoded TxWithFunds event")
+
+	return payload, nil
+}
+
+// decodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+func (ep *EventParser) decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
+	// Handle empty string case
+	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
+		return nil, nil
+	}
+
+	clean := strings.TrimPrefix(hexStr, "0x")
+
+	// Handle case where hex string is empty after removing 0x prefix
+	if clean == "" {
+		return nil, nil
+	}
+
+	bz, err := hex.DecodeString(clean)
+	if err != nil {
+		return nil, fmt.Errorf("hex decode: %w", err)
+	}
+
+	// Handle case where decoded bytes are empty
+	if len(bz) == 0 {
+		return nil, nil
+	}
+
+	// Try protobuf decoding
+	up := new(uetypes.UniversalPayload)
+	if err := gogoproto.Unmarshal(bz, up); err != nil {
+		return nil, fmt.Errorf("failed to decode UniversalPayload as protobuf: %w", err)
+	}
+	return up, nil
+}
+
+// GetEventTopics returns the configured event topics
+func (ep *EventParser) GetEventTopics() []string {
+	topics := make([]string, 0, len(ep.eventTopics))
+	for _, topic := range ep.eventTopics {
+		topics = append(topics, topic)
+	}
+	return topics
 }

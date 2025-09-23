@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -16,7 +17,7 @@ import (
 func TestNewEventParser(t *testing.T) {
 	logger := zerolog.New(nil).Level(zerolog.Disabled)
 	gatewayAddr := solana.MustPublicKeyFromBase58("11111111111111111111111111111112")
-	
+
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "solana:mainnet",
 		GatewayAddress: gatewayAddr.String(),
@@ -27,9 +28,9 @@ func TestNewEventParser(t *testing.T) {
 			},
 		},
 	}
-	
+
 	parser := NewEventParser(gatewayAddr, config, logger)
-	
+
 	assert.NotNil(t, parser)
 	assert.Equal(t, gatewayAddr, parser.gatewayAddr)
 	assert.Equal(t, config, parser.config)
@@ -38,7 +39,7 @@ func TestNewEventParser(t *testing.T) {
 func TestParseGatewayEvent(t *testing.T) {
 	logger := zerolog.New(nil).Level(zerolog.Disabled)
 	gatewayAddr := solana.MustPublicKeyFromBase58("11111111111111111111111111111112")
-	
+
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "solana:mainnet",
 		GatewayAddress: gatewayAddr.String(),
@@ -49,9 +50,9 @@ func TestParseGatewayEvent(t *testing.T) {
 			},
 		},
 	}
-	
+
 	parser := NewEventParser(gatewayAddr, config, logger)
-	
+
 	tests := []struct {
 		name      string
 		tx        *rpc.GetTransactionResult
@@ -90,11 +91,11 @@ func TestParseGatewayEvent(t *testing.T) {
 			wantEvent: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			event := parser.ParseGatewayEvent(tt.tx, tt.signature, tt.slot)
-			
+
 			if tt.wantEvent {
 				assert.NotNil(t, event)
 				if tt.validate != nil {
@@ -109,11 +110,11 @@ func TestParseGatewayEvent(t *testing.T) {
 
 func TestIsGatewayTransaction(t *testing.T) {
 	gatewayAddr := solana.MustPublicKeyFromBase58("11111111111111111111111111111112")
-	
+
 	parser := &EventParser{
 		gatewayAddr: gatewayAddr,
 	}
-	
+
 	tests := []struct {
 		name     string
 		tx       *rpc.GetTransactionResult
@@ -153,7 +154,7 @@ func TestIsGatewayTransaction(t *testing.T) {
 			expected: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parser.isGatewayTransaction(tt.tx)
@@ -175,11 +176,11 @@ func TestExtractMethodInfo(t *testing.T) {
 			},
 		},
 	}
-	
+
 	parser := &EventParser{
 		config: config,
 	}
-	
+
 	tests := []struct {
 		name           string
 		tx             *rpc.GetTransactionResult
@@ -223,7 +224,7 @@ func TestExtractMethodInfo(t *testing.T) {
 			expectedMethod: "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id, method, _ := parser.extractMethodInfo(tt.tx)
@@ -236,12 +237,12 @@ func TestExtractMethodInfo(t *testing.T) {
 func TestExtractTransactionDetails(t *testing.T) {
 	logger := zerolog.New(nil).Level(zerolog.Disabled)
 	gatewayAddr := solana.MustPublicKeyFromBase58("11111111111111111111111111111112")
-	
+
 	parser := &EventParser{
 		gatewayAddr: gatewayAddr,
 		logger:      logger,
 	}
-	
+
 	tests := []struct {
 		name           string
 		tx             *rpc.GetTransactionResult
@@ -257,11 +258,11 @@ func TestExtractTransactionDetails(t *testing.T) {
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sender, _, amount, _, _, _, _, _, err := parser.extractTransactionDetails(tt.tx)
-			
+			sender, _, amount, _, _, _, _, _, _, _, err := parser.extractTransactionDetails(tt.tx)
+
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -271,6 +272,23 @@ func TestExtractTransactionDetails(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExtractEventDataFromLogsSkipsAddFunds(t *testing.T) {
+	parser := &EventParser{
+		logger:  zerolog.Nop(),
+		decoder: NewEventDecoder(zerolog.Nop()),
+	}
+
+	logs := []string{
+		"Program data: fx9s/7sTRkQSP4vdKFC3bNfWErqfW0odBaZuOYBQSMzRK3++8/abvFmWaAAAAAAAke7tCAAAAAAAAAAAAAAAAPj///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+		"Program data: Kx8fAgTsa/8SP4vdKFC3bNfWErqfW0odBaZuOYBQSMzRK3++8/abvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGXNHQAAAABZlmgAAAAAAMvK6eZkUv6Yq88PpR5Vf8jWccf8bOg8BfkpkqPSvxkybwAAACLEv1N7KvYpFoA7KxjUURw2EYyICcg7j1jADwqtugQZAAAAAAAAAAAaAAAAdGVzdCBwYXlsb2FkIGZvciBmdW5kcytnYXMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAALjeTXaZAQAAABI/i90oULds19YSup9bSh0Fpm45gFBIzNErf77z9pu8DgAAAHJldmVydCBtZXNzYWdlAyMAAAB0ZXN0X3NpZ25hdHVyZV9kYXRhX2Zvcl9zcGxfcGF5bG9hZA==",
+	}
+
+	event := parser.extractEventDataFromLogs(logs)
+	require.NotNil(t, event)
+	assert.Equal(t, "TxWithFunds", event.EventType)
+	assert.Equal(t, uint(1), event.LogIndex) // second log entry is returned
 }
 
 func TestBytesEqual(t *testing.T) {
@@ -305,7 +323,7 @@ func TestBytesEqual(t *testing.T) {
 			expected: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := bytesEqual(tt.a, tt.b)
@@ -314,14 +332,12 @@ func TestBytesEqual(t *testing.T) {
 	}
 }
 
-
-
 // Helper function to create a test transaction
 func createTestTransaction() *solana.Transaction {
 	// Create test accounts
 	payer := solana.MustPrivateKeyFromBase58("5ysPKzei6U5b1KTRs7XjwUL8577j3WWRmceKcVFGLWRA2zKVrYgnStRdqrL4NfU1nK5Ag5hYM4JMhiXBM3BHKHTG")
 	receiver := solana.MustPublicKeyFromBase58("22222222222222222222222222222223")
-	
+
 	// Create a simple instruction
 	instruction := &solana.GenericInstruction{
 		ProgID: solana.SystemProgramID,
@@ -339,14 +355,14 @@ func createTestTransaction() *solana.Transaction {
 		},
 		DataBytes: []byte{0x02, 0x00, 0x00, 0x00}, // Transfer instruction
 	}
-	
+
 	// Build transaction
 	tx, _ := solana.NewTransaction(
 		[]solana.Instruction{instruction},
 		solana.Hash{}, // Recent blockhash (dummy for test)
 		solana.TransactionPayer(payer.PublicKey()),
 	)
-	
+
 	return tx
 }
 

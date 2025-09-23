@@ -167,7 +167,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	// Map txType from eventData to proper enum value
 	// Event data uses: 0=GAS, 1=GAS_AND_PAYLOAD, 2=FUNDS, 3=FUNDS_AND_PAYLOAD
 	// Enum values are: 0=UNSPECIFIED_TX, 1=GAS, 2=FUNDS, 3=FUNDS_AND_PAYLOAD, 4=GAS_AND_PAYLOAD
-	txType := uetypes.InboundTxType_GAS
+	txType := uetypes.InboundTxType_UNSPECIFIED_TX
 	switch eventData.TxType {
 	case 0:
 		txType = uetypes.InboundTxType_GAS
@@ -179,7 +179,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
 	default:
 		// For any unknown value, default to GAS
-		txType = uetypes.InboundTxType_GAS
+		txType = uetypes.InboundTxType_UNSPECIFIED_TX
 	}
 
 	inboundMsg := &uetypes.Inbound{
@@ -200,7 +200,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	}
 
 	// Set recipient for transactions that involve funds
-	if txType == uetypes.InboundTxType_FUNDS || txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD {
+	if txType == uetypes.InboundTxType_FUNDS {
 		inboundMsg.Recipient = eventData.Recipient
 	}
 

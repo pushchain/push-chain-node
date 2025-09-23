@@ -23,6 +23,7 @@ type TxWithFundsPayload struct {
 	Recipient           string `json:"recipient"`
 	BridgeToken         string `json:"bridgeToken"`
 	BridgeAmount        string `json:"bridgeAmount"` // uint256 as decimal string
+	GasAmount           string `json:"gasAmount"`    // uint256 as decimal string
 	Data                string `json:"data"`         // hex-encoded bytes (0x…)
 	VerificationData    string `json:"verificationData"`
 	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`

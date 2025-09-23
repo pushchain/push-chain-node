@@ -448,7 +448,7 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 	return up, nil
 }
 
-// DecodeUniversalPayload decodes Rust Anchor/Borsh-serialized UniversalPayload bytes
+// decodeUniversalPayloadBorsh decodes Rust Anchor/Borsh-serialized UniversalPayload bytes
 // into your uetypes.UniversalPayload. It matches this Rust layout:
 //
 // #[derive(AnchorSerialize, AnchorDeserialize)]

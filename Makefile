@@ -480,3 +480,34 @@ e2e-run-test:
 	cp $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/target/idl/pushsolanalocker.json $(CONTRACTS_DIR)/push-chain-sdk/packages/core/src/lib/constants/abi/feeLocker.json
 	cp $(E2E_DIR)/.env $(CONTRACTS_DIR)/push-chain-sdk/packages/core/.env
 	cd $(CONTRACTS_DIR)/push-chain-sdk && npx jest core/__e2e__/pushchain.spec.ts --runInBand --detectOpenHandles
+
+###############################################################################
+###                                     e2e-upgrade...                      ###
+###############################################################################
+
+CHAIN_DIR := ./node-upgrade-testing
+REPO := https://github.com/push-protocol/push-chain-node.git
+UTILS_DIR := ./testutils/upgrade-testing-utils
+CSV := $(UTILS_DIR)/upgrade_list.csv
+
+chain-upgrade-test:
+	@echo ">>> Cloning push-chain-node repo..."
+	rm -rf $(CHAIN_DIR)
+	mkdir -p $(CHAIN_DIR)
+	cd $(CHAIN_DIR) && git clone $(REPO)
+
+	@echo ">>> Checking out first upgrade commit from CSV..."
+	FIRST_COMMIT=$$(awk -F',' 'NR==2 {print $$2}' $(CSV)); \
+	cd $(CHAIN_DIR)/push-chain-node && git checkout $$FIRST_COMMIT
+
+	@echo ">>> Copying utility files..."
+	mkdir -p $(CHAIN_DIR)/push-chain-node/scripts
+	cp $(UTILS_DIR)/test_node_e2e_upgrade.sh $(CHAIN_DIR)/push-chain-node/scripts/test_node_e2e_upgrade.sh
+	cp $(UTILS_DIR)/Dockerfile.node_upgrade_test $(CHAIN_DIR)/push-chain-node/Dockerfile.node_upgrade_test
+	cp $(UTILS_DIR)/docker-compose.yml $(CHAIN_DIR)/push-chain-node/docker-compose.yml
+
+	@echo ">>> Launching docker container for first upgrade..."
+	cd $(CHAIN_DIR)/push-chain-node && docker compose up -d --build
+
+
+

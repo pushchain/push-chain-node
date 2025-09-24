@@ -8,7 +8,8 @@ import (
 func DefaultParams() Params {
 	// TODO:
 	return Params{
-		SomeValue: true,
+		Admin: "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
+    
 	}
 }
 

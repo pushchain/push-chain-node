@@ -1,0 +1,58 @@
+name: E2E Test Workflow
+
+on:
+  push:
+  
+  workflow_dispatch:
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+      
+      - name: Ensure PATH includes Solana
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Check solana version
+        run: solana --version
+      
+      - name: Start Solana Test Validator
+        run: |
+          solana-test-validator --reset --rpc-port 8899 --limit-ledger-size 50000000 --url https://api.devnet.solana.com \
+            --clone ETGtqwDKEm1Z9gq6FdvYUfyDuUZr7g4UdPSmyNLVGriX \
+            --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE &
+            
+      - name: Install Anchor CLI
+        run: cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+      - name: Add Anchor to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install Anchor CLI
+        run: avm install latest
+
+      - name: Use Anchor CLI
+        run: avm use latest
+
+      
+      - name: Wait for validator to start
+        run: sleep 10
+      
+      - name: Set Solana Keypair
+        run: cp $(pwd)/.github/Solana-key.json /home/runner/.config/solana/id.json
+
+      - name: Run E2E Tests
+        run: make e2e
+        env:
+          PATH: $HOME/.local/share/solana/install/active_release/bin:/usr/local/bin:/usr/bin:/bin
+      
+      - name: Stop Solana Test Validator
+        run: pkill solana-test-validator || true

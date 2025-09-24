@@ -1,0 +1,247 @@
+networks:
+  push-network:
+    driver: bridge
+
+volumes:
+  validator1-data:
+  validator2-data:
+  validator3-data:
+  universal1-data:
+  universal2-data:
+  universal3-data:
+  push-accounts:
+
+services:
+  # Base image builder
+  base:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.base
+    image: local-multi-validator-base:latest
+    profiles: [base]
+
+  # Account Generator (runs first to create mnemonics)
+  account-generator:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.core
+    image: push-core:latest
+    container_name: account-generator
+    networks:
+      - push-network
+    volumes:
+      - ./scripts:/opt/scripts
+      - push-accounts:/tmp/push-accounts
+    command: ["/opt/scripts/generate-accounts.sh"]
+    
+  # Core Validator 1 (Genesis Validator)
+  core-validator-1:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.core
+    image: push-core:latest
+    container_name: core-validator-1
+    networks:
+      - push-network
+    ports:
+      - "26657:26657"  # RPC
+      - "1317:1317"    # REST
+      - "9090:9090"    # GRPC
+      - "9091:9091"    # GRPC Web
+      - "26656:26656"  # P2P
+      - "8545:8545"    # EVM HTTP
+      - "8546:8546"    # EVM WebSocket
+    volumes:
+      - validator1-data:/root/.pchain
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
+    environment:
+      - VALIDATOR_ID=1
+      - VALIDATOR_TYPE=genesis
+      - CHAIN_ID=localchain_9000-1
+      - MONIKER=genesis-validator
+      - RPC_PORT=26657
+      - GRPC_PORT=9090
+      - P2P_PORT=26656
+      - REST_PORT=1317
+    command: ["/opt/scripts/setup-genesis-auto.sh"]
+    depends_on:
+      account-generator:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Core Validator 2
+  core-validator-2:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.core
+    image: push-core:latest
+    container_name: core-validator-2
+    networks:
+      - push-network
+    ports:
+      - "26658:26657"  # RPC
+      - "1318:1317"    # REST
+      - "9093:9090"    # GRPC
+      - "9094:9091"    # GRPC Web
+      - "26666:26656"  # P2P
+      - "8547:8545"    # EVM HTTP
+      - "8548:8546"    # EVM WebSocket
+    volumes:
+      - validator2-data:/root/.pchain
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
+    environment:
+      - VALIDATOR_ID=2
+      - VALIDATOR_TYPE=regular
+      - CHAIN_ID=localchain_9000-1
+      - MONIKER=validator-2
+      - RPC_PORT=26657
+      - GRPC_PORT=9090
+      - P2P_PORT=26656
+      - REST_PORT=1317
+      - GENESIS_PEER=core-validator-1:26656
+    command: ["/opt/scripts/setup-validator-auto.sh"]
+    depends_on:
+      core-validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Core Validator 3
+  core-validator-3:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.core
+    image: push-core:latest
+    container_name: core-validator-3
+    networks:
+      - push-network
+    ports:
+      - "26659:26657"  # RPC
+      - "1319:1317"    # REST
+      - "9095:9090"    # GRPC
+      - "9096:9091"    # GRPC Web
+      - "26676:26656"  # P2P
+      - "8549:8545"    # EVM HTTP
+      - "8550:8546"    # EVM WebSocket
+    volumes:
+      - validator3-data:/root/.pchain
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
+    environment:
+      - VALIDATOR_ID=3
+      - VALIDATOR_TYPE=regular
+      - CHAIN_ID=localchain_9000-1
+      - MONIKER=validator-3
+      - RPC_PORT=26657
+      - GRPC_PORT=9090
+      - P2P_PORT=26656
+      - REST_PORT=1317
+      - GENESIS_PEER=core-validator-1:26656
+    command: ["/opt/scripts/setup-validator-auto.sh"]
+    depends_on:
+      core-validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Universal Validator 1 (connects to Core Validator 1)
+  universal-validator-1:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.universal
+    image: push-universal:latest
+    container_name: universal-validator-1
+    networks:
+      - push-network
+    ports:
+      - "8080:8080"    # Query API
+    volumes:
+      - universal1-data:/root/.puniversal
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+    environment:
+      - UNIVERSAL_ID=1
+      - CORE_VALIDATOR_GRPC=core-validator-1:9090
+      - QUERY_PORT=8080
+    command: ["/opt/scripts/setup-universal.sh"]
+    depends_on:
+      core-validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Universal Validator 2 (connects to Core Validator 2)
+  universal-validator-2:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.universal
+    image: push-universal:latest
+    container_name: universal-validator-2
+    networks:
+      - push-network
+    ports:
+      - "8081:8080"    # Query API
+    volumes:
+      - universal2-data:/root/.puniversal
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+    environment:
+      - UNIVERSAL_ID=2
+      - CORE_VALIDATOR_GRPC=core-validator-2:9090
+      - QUERY_PORT=8080
+    command: ["/opt/scripts/setup-universal.sh"]
+    depends_on:
+      core-validator-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Universal Validator 3 (connects to Core Validator 3)
+  universal-validator-3:
+    build:
+      context: ..
+      dockerfile: local-multi-validator/Dockerfile.universal
+    image: push-universal:latest
+    container_name: universal-validator-3
+    networks:
+      - push-network
+    ports:
+      - "8082:8080"    # Query API
+    volumes:
+      - universal3-data:/root/.puniversal
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+    environment:
+      - UNIVERSAL_ID=3
+      - CORE_VALIDATOR_GRPC=core-validator-3:9090
+      - QUERY_PORT=8080
+    command: ["/opt/scripts/setup-universal.sh"]
+    depends_on:
+      core-validator-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 10s
+      retries: 120

@@ -1,0 +1,247 @@
+name: Manual Binary Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+      from_tag:
+        description: 'Compare from tag (optional, auto-detects if empty)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.3'
+          cache: true
+
+      - name: Clean dist directory
+        run: rm -rf dist
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          # Check if from_tag is provided manually
+          if [ -n "${{ github.event.inputs.from_tag }}" ]; then
+            PREV_TAG="${{ github.event.inputs.from_tag }}"
+            echo "Using manual from_tag: $PREV_TAG"
+            
+            # Validate that the specified tag exists
+            if ! git tag --list | grep -q "^${PREV_TAG}$"; then
+              echo "Error: Tag '$PREV_TAG' not found in repository"
+              echo "Available tags:"
+              git tag --sort=-version:refname | head -10
+              exit 1
+            fi
+          else
+            # Auto-detect previous tag (current behavior)
+            PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "${{ github.event.inputs.version }}" | head -1)
+            if [ -z "$PREV_TAG" ]; then
+              echo "No previous tag found, using initial commit"
+              PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+            else
+              echo "Auto-detected previous tag: $PREV_TAG"
+            fi
+          fi
+          
+          echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Generating changelog from: $PREV_TAG"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Generate changelog using git log with conventional commit parsing
+          echo "Generating changelog from ${{ steps.prev_tag.outputs.previous_tag }} to HEAD..."
+          
+          # Create changelog content
+          {
+            echo "## What's Changed"
+            echo ""
+            
+            # Features
+            FEATURES=$(git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"%s" | grep -E "^feat(\(.*\))?:" | sed 's/^feat\(.*\): /- /' || true)
+            if [ ! -z "$FEATURES" ]; then
+              echo "### 🚀 Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+            
+            # Bug Fixes
+            FIXES=$(git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"%s" | grep -E "^fix(\(.*\))?:" | sed 's/^fix\(.*\): /- /' || true)
+            if [ ! -z "$FIXES" ]; then
+              echo "### 🐛 Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+            
+            # Documentation
+            DOCS=$(git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"%s" | grep -E "^docs(\(.*\))?:" | sed 's/^docs\(.*\): /- /' || true)
+            if [ ! -z "$DOCS" ]; then
+              echo "### 📝 Documentation"
+              echo "$DOCS"
+              echo ""
+            fi
+            
+            # Refactoring
+            REFACTOR=$(git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"%s" | grep -E "^refactor(\(.*\))?:" | sed 's/^refactor\(.*\): /- /' || true)
+            if [ ! -z "$REFACTOR" ]; then
+              echo "### ♻️ Refactoring"
+              echo "$REFACTOR"
+              echo ""
+            fi
+            
+            # Other Changes (including merge commits)
+            echo "### 📦 Other Changes"
+            git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"- %s" | grep -v -E "^- (feat|fix|docs|refactor|chore|test|style|perf)(\(.*\))?:" | head -20
+            echo ""
+            
+            # Contributors
+            echo "### 👥 Contributors"
+            git log ${{ steps.prev_tag.outputs.previous_tag }}..HEAD --pretty=format:"%an" | sort -u | sed 's/^/- @/'
+            
+          } > changelog_content.md
+          
+          # Save changelog to output
+          CHANGELOG_CONTENT=$(cat changelog_content.md)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG.md
+        run: |
+          # Create CHANGELOG.md if it doesn't exist
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          
+          # Create temporary file with new entry
+          echo "## [${{ github.event.inputs.version }}] - $(date +%Y-%m-%d)" > temp_changelog.md
+          echo "" >> temp_changelog.md
+          cat changelog_content.md >> temp_changelog.md
+          echo "" >> temp_changelog.md
+          echo "---" >> temp_changelog.md
+          echo "" >> temp_changelog.md
+          
+          # Append existing changelog
+          tail -n +5 CHANGELOG.md >> temp_changelog.md || true
+          
+          # Combine header with new content
+          head -n 4 CHANGELOG.md > new_changelog.md || echo -e "# Changelog\n\nAll notable changes to this project will be documented in this file.\n" > new_changelog.md
+          cat temp_changelog.md >> new_changelog.md
+          
+          # Replace old changelog
+          mv new_changelog.md CHANGELOG.md
+          rm temp_changelog.md changelog_content.md
+
+      - name: Create and push version tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if tag already exists
+          if git tag --list | grep -q "^${{ github.event.inputs.version }}$"; then
+            echo "Tag ${{ github.event.inputs.version }} already exists, deleting it first"
+            git tag -d ${{ github.event.inputs.version }} || true
+            git push --delete origin ${{ github.event.inputs.version }} || true
+          fi
+          
+          # Create and push new tag
+          git tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}"
+          git push origin ${{ github.event.inputs.version }}
+          
+          # Verify tag was created
+          echo "Created tag: $(git describe --tags --exact-match HEAD)"
+
+      - name: Build with GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: v1.26.2
+          args: release --clean --skip=validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Release Notes
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Release ${{ github.event.inputs.version }}
+          body: |
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## 📦 Binaries
+            
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | AMD64 (x86_64) | `pchain_${{ github.event.inputs.version }}_linux_amd64.tar.gz` |
+            
+            ## ✅ Checksums
+            
+            Please verify the checksums of downloaded binaries using the `pchain_${{ github.event.inputs.version }}_checksums.txt` file.
+            
+            ## 📥 Installation
+            
+            ```bash
+            # Download the binary
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/pchain_${{ github.event.inputs.version }}_linux_amd64.tar.gz
+            
+            # Verify checksum (recommended)
+            sha256sum -c pchain_${{ github.event.inputs.version }}_checksums.txt
+            
+            # Extract
+            tar -xzf pchain_${{ github.event.inputs.version }}_linux_amd64.tar.gz
+            
+            # Make executable
+            chmod +x pchaind
+            
+            # Move to PATH (optional)
+            sudo mv pchaind /usr/local/bin/
+            ```
+            
+            ## 🧪 Testing
+            
+            To test the validator locally:
+            ```bash
+            make sh-testnet
+            ```
+            
+            ## 📋 Full Changelog
+            
+            Compare changes: [${{ steps.prev_tag.outputs.previous_tag }}...${{ github.event.inputs.version }}](https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.previous_tag }}...${{ github.event.inputs.version }})
+          prerelease: ${{ github.event.inputs.prerelease }}
+          draft: false
+          files: |
+            dist/*.tar.gz
+            dist/*.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG.md for ${{ github.event.inputs.version }}" || echo "No changes to commit"
+          git push origin ${{ github.ref_name }}

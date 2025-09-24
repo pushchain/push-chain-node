@@ -1,0 +1,14 @@
+{
+  "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+  "address": "G2ZLaRhpohW23KTEX3fBjZXtNTFFwemqCaWWnWVTj4TB",
+  "name": "DAI.sol",
+  "symbol": "DAI.sol",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 4, 
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0x5861f56A556c990358cc9cccd8B5baa3767982A8"
+  }
+}

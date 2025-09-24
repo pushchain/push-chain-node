@@ -13,3 +13,8 @@ push-chain-interop-contracts/
 web/
 
 .env
+
+universalClient/coverage.out
+*.db
+*.db-shm
+*.db-wal

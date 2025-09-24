@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:11155111",
+  "address": "0x3e3FE7dBc6B4C189E7128855dD526361c49b40Af",
+  "name": "stETH.eth",
+  "symbol": "stETH.eth",
+  "decimals": 18,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1, 
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0xaf89E805949c628ebde3262e91dc4ab9eA12668E"
+  }
+}

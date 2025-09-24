@@ -7,7 +7,6 @@ This is a UExecutor (Universal Executor) module, primarily responsible for execu
 - Deploying Universal Executor Accounts
 - Minting native tokens
 - Executing payloads
-- Storing and managing supported chain configurations
 
 ## Getting Started
 

@@ -6,8 +6,10 @@ import (
 
 // DefaultParams returns default module parameters.
 func DefaultParams() Params {
+	// TODO:
 	return Params{
 		Admin: "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
+    
 	}
 }
 
@@ -23,5 +25,6 @@ func (p Params) String() string {
 
 // Validate does the sanity check on the params.
 func (p Params) ValidateBasic() error {
+	// TODO:
 	return nil
 }

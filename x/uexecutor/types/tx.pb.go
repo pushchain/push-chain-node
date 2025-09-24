@@ -452,26 +452,25 @@ func (m *MsgExecutePayloadResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgExecutePayloadResponse proto.InternalMessageInfo
 
-// MsgAddChainConfig defines a message to add a new ChainConfig.
-type MsgAddChainConfig struct {
-	// signer is the address authorized to add a chain config
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// The new ChainConfig to add
-	ChainConfig *ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config,omitempty"`
+// MsgVoteInbound allows a universal validator to vote on an inbound transfer.
+type MsgVoteInbound struct {
+	// signer is the Cosmos address initiating the tx (used for tx signing)
+	Signer  string   `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	Inbound *Inbound `protobuf:"bytes,2,opt,name=inbound,proto3" json:"inbound,omitempty"`
 }
 
-func (m *MsgAddChainConfig) Reset()         { *m = MsgAddChainConfig{} }
-func (m *MsgAddChainConfig) String() string { return proto.CompactTextString(m) }
-func (*MsgAddChainConfig) ProtoMessage()    {}
-func (*MsgAddChainConfig) Descriptor() ([]byte, []int) {
+func (m *MsgVoteInbound) Reset()         { *m = MsgVoteInbound{} }
+func (m *MsgVoteInbound) String() string { return proto.CompactTextString(m) }
+func (*MsgVoteInbound) ProtoMessage()    {}
+func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
 	return fileDescriptor_88d6216044506365, []int{8}
 }
-func (m *MsgAddChainConfig) XXX_Unmarshal(b []byte) error {
+func (m *MsgVoteInbound) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgAddChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgVoteInbound) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_MsgAddChainConfig.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgVoteInbound.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -481,48 +480,48 @@ func (m *MsgAddChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return b[:n], nil
 	}
 }
-func (m *MsgAddChainConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgAddChainConfig.Merge(m, src)
+func (m *MsgVoteInbound) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVoteInbound.Merge(m, src)
 }
-func (m *MsgAddChainConfig) XXX_Size() int {
+func (m *MsgVoteInbound) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgAddChainConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgAddChainConfig.DiscardUnknown(m)
+func (m *MsgVoteInbound) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVoteInbound.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgAddChainConfig proto.InternalMessageInfo
+var xxx_messageInfo_MsgVoteInbound proto.InternalMessageInfo
 
-func (m *MsgAddChainConfig) GetSigner() string {
+func (m *MsgVoteInbound) GetSigner() string {
 	if m != nil {
 		return m.Signer
 	}
 	return ""
 }
 
-func (m *MsgAddChainConfig) GetChainConfig() *ChainConfig {
+func (m *MsgVoteInbound) GetInbound() *Inbound {
 	if m != nil {
-		return m.ChainConfig
+		return m.Inbound
 	}
 	return nil
 }
 
-// MsgAddChainConfigResponse defines the response for MsgAddChainConfig.
-type MsgAddChainConfigResponse struct {
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+type MsgVoteInboundResponse struct {
 }
 
-func (m *MsgAddChainConfigResponse) Reset()         { *m = MsgAddChainConfigResponse{} }
-func (m *MsgAddChainConfigResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgAddChainConfigResponse) ProtoMessage()    {}
-func (*MsgAddChainConfigResponse) Descriptor() ([]byte, []int) {
+func (m *MsgVoteInboundResponse) Reset()         { *m = MsgVoteInboundResponse{} }
+func (m *MsgVoteInboundResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgVoteInboundResponse) ProtoMessage()    {}
+func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_88d6216044506365, []int{9}
 }
-func (m *MsgAddChainConfigResponse) XXX_Unmarshal(b []byte) error {
+func (m *MsgVoteInboundResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *MsgAddChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgVoteInboundResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_MsgAddChainConfigResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgVoteInboundResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -532,109 +531,17 @@ func (m *MsgAddChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([
 		return b[:n], nil
 	}
 }
-func (m *MsgAddChainConfigResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgAddChainConfigResponse.Merge(m, src)
+func (m *MsgVoteInboundResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVoteInboundResponse.Merge(m, src)
 }
-func (m *MsgAddChainConfigResponse) XXX_Size() int {
+func (m *MsgVoteInboundResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *MsgAddChainConfigResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgAddChainConfigResponse.DiscardUnknown(m)
+func (m *MsgVoteInboundResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVoteInboundResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MsgAddChainConfigResponse proto.InternalMessageInfo
-
-// MsgUpdateChainConfig defines a message to update a existing ChainConfig.
-type MsgUpdateChainConfig struct {
-	// signer is the address authorized to add a chain config
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// The new ChainConfig to add
-	ChainConfig *ChainConfig `protobuf:"bytes,2,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config,omitempty"`
-}
-
-func (m *MsgUpdateChainConfig) Reset()         { *m = MsgUpdateChainConfig{} }
-func (m *MsgUpdateChainConfig) String() string { return proto.CompactTextString(m) }
-func (*MsgUpdateChainConfig) ProtoMessage()    {}
-func (*MsgUpdateChainConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{10}
-}
-func (m *MsgUpdateChainConfig) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgUpdateChainConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgUpdateChainConfig.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgUpdateChainConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgUpdateChainConfig.Merge(m, src)
-}
-func (m *MsgUpdateChainConfig) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgUpdateChainConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgUpdateChainConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgUpdateChainConfig proto.InternalMessageInfo
-
-func (m *MsgUpdateChainConfig) GetSigner() string {
-	if m != nil {
-		return m.Signer
-	}
-	return ""
-}
-
-func (m *MsgUpdateChainConfig) GetChainConfig() *ChainConfig {
-	if m != nil {
-		return m.ChainConfig
-	}
-	return nil
-}
-
-// MsgUpdateChainConfigResponse defines the response for MsgUpdateChainConfig.
-type MsgUpdateChainConfigResponse struct {
-}
-
-func (m *MsgUpdateChainConfigResponse) Reset()         { *m = MsgUpdateChainConfigResponse{} }
-func (m *MsgUpdateChainConfigResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgUpdateChainConfigResponse) ProtoMessage()    {}
-func (*MsgUpdateChainConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{11}
-}
-func (m *MsgUpdateChainConfigResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgUpdateChainConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgUpdateChainConfigResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgUpdateChainConfigResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgUpdateChainConfigResponse.Merge(m, src)
-}
-func (m *MsgUpdateChainConfigResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgUpdateChainConfigResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgUpdateChainConfigResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgUpdateChainConfigResponse proto.InternalMessageInfo
+var xxx_messageInfo_MsgVoteInboundResponse proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "uexecutor.v1.MsgUpdateParams")
@@ -645,63 +552,58 @@ func init() {
 	proto.RegisterType((*MsgMintPCResponse)(nil), "uexecutor.v1.MsgMintPCResponse")
 	proto.RegisterType((*MsgExecutePayload)(nil), "uexecutor.v1.MsgExecutePayload")
 	proto.RegisterType((*MsgExecutePayloadResponse)(nil), "uexecutor.v1.MsgExecutePayloadResponse")
-	proto.RegisterType((*MsgAddChainConfig)(nil), "uexecutor.v1.MsgAddChainConfig")
-	proto.RegisterType((*MsgAddChainConfigResponse)(nil), "uexecutor.v1.MsgAddChainConfigResponse")
-	proto.RegisterType((*MsgUpdateChainConfig)(nil), "uexecutor.v1.MsgUpdateChainConfig")
-	proto.RegisterType((*MsgUpdateChainConfigResponse)(nil), "uexecutor.v1.MsgUpdateChainConfigResponse")
+	proto.RegisterType((*MsgVoteInbound)(nil), "uexecutor.v1.MsgVoteInbound")
+	proto.RegisterType((*MsgVoteInboundResponse)(nil), "uexecutor.v1.MsgVoteInboundResponse")
 }
 
 func init() { proto.RegisterFile("uexecutor/v1/tx.proto", fileDescriptor_88d6216044506365) }
 
 var fileDescriptor_88d6216044506365 = []byte{
-	// 737 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x96, 0xb1, 0x6f, 0xd3, 0x4e,
-	0x14, 0xc7, 0xe3, 0xb6, 0xbf, 0xfc, 0x94, 0x6b, 0x04, 0x8d, 0x1b, 0x48, 0xe2, 0x82, 0x5b, 0x19,
-	0x01, 0x55, 0x4a, 0x63, 0x1a, 0xa4, 0x0e, 0x15, 0x4b, 0xd2, 0x56, 0x02, 0x55, 0x91, 0x22, 0x43,
-	0x96, 0x2e, 0xd1, 0xd5, 0x76, 0x1d, 0x4b, 0x8d, 0xcf, 0xf2, 0x9d, 0xa3, 0x64, 0x43, 0x8c, 0x4c,
-	0xfd, 0x3f, 0x58, 0x32, 0x20, 0x66, 0xc6, 0x6e, 0x54, 0x48, 0x48, 0x4c, 0x08, 0xb5, 0x43, 0xff,
-	0x0d, 0xe4, 0xb3, 0x63, 0xfb, 0xec, 0x84, 0x48, 0x2c, 0x74, 0xb1, 0xee, 0xde, 0xfb, 0xde, 0xf7,
-	0xee, 0xf3, 0x7c, 0x7e, 0x32, 0xb8, 0xe7, 0xea, 0x43, 0x5d, 0x75, 0x09, 0x72, 0xe4, 0xc1, 0x8e,
-	0x4c, 0x86, 0x35, 0xdb, 0x41, 0x04, 0xf1, 0xf9, 0x30, 0x5c, 0x1b, 0xec, 0x08, 0x05, 0xd8, 0x37,
-	0x2d, 0x24, 0xd3, 0xa7, 0x2f, 0x10, 0x4a, 0x2a, 0xc2, 0x7d, 0x84, 0xe5, 0x3e, 0x36, 0xbc, 0x85,
-	0x7d, 0x6c, 0x04, 0x89, 0x32, 0x6b, 0x38, 0xb2, 0x75, 0x1c, 0x64, 0x8a, 0x06, 0x32, 0x10, 0x1d,
-	0xca, 0xde, 0x28, 0x88, 0x56, 0x7c, 0xa3, 0xae, 0x9f, 0xf0, 0x27, 0x7e, 0x4a, 0xfa, 0xc8, 0x81,
-	0xbb, 0x2d, 0x6c, 0x74, 0x6c, 0x0d, 0x12, 0xbd, 0x0d, 0x1d, 0xd8, 0xc7, 0xfc, 0x2e, 0xc8, 0x41,
-	0x97, 0xf4, 0x90, 0x63, 0x92, 0x51, 0x99, 0xdb, 0xe0, 0x36, 0x73, 0xcd, 0xf2, 0xb7, 0x4f, 0xdb,
-	0xc5, 0x60, 0x61, 0x43, 0xd3, 0x1c, 0x1d, 0xe3, 0x37, 0xc4, 0x31, 0x2d, 0x43, 0x89, 0xa4, 0x7c,
-	0x1d, 0x64, 0x6d, 0xea, 0x50, 0x5e, 0xd8, 0xe0, 0x36, 0x97, 0xeb, 0xc5, 0x5a, 0x9c, 0xb0, 0xe6,
-	0xbb, 0x37, 0x97, 0x2e, 0x7e, 0xae, 0x67, 0x94, 0x40, 0xb9, 0xf7, 0xec, 0xfd, 0xcd, 0xb8, 0x1a,
-	0x79, 0x7c, 0xb8, 0x19, 0x57, 0x2b, 0x11, 0x5d, 0xe2, 0x64, 0x52, 0x05, 0x94, 0x12, 0x21, 0x45,
-	0xc7, 0x36, 0xb2, 0xb0, 0x2e, 0x7d, 0xe7, 0x40, 0xbe, 0x85, 0x8d, 0x03, 0xdd, 0x3e, 0x43, 0xa3,
-	0xce, 0x61, 0x83, 0x7f, 0x0e, 0xb2, 0xd8, 0x34, 0x2c, 0xdd, 0x99, 0x8b, 0x10, 0xe8, 0x78, 0x05,
-	0x14, 0x5d, 0xcb, 0x1c, 0xe8, 0x0e, 0x86, 0x67, 0x5d, 0xa8, 0xaa, 0xc8, 0xb5, 0x48, 0xd7, 0xd4,
-	0x02, 0x9a, 0x0d, 0x96, 0xa6, 0x33, 0x51, 0x36, 0x7c, 0xe1, 0x6b, 0x4d, 0xe1, 0xdd, 0x54, 0x8c,
-	0x2f, 0x81, 0xff, 0xc9, 0xb0, 0xdb, 0x83, 0xb8, 0x57, 0x5e, 0xf4, 0x8e, 0xa1, 0x64, 0xc9, 0xf0,
-	0x15, 0xc4, 0xbd, 0xbd, 0x27, 0x1e, 0x78, 0xb0, 0xb3, 0x47, 0x7d, 0x9f, 0xa1, 0x0e, 0x31, 0xa4,
-	0x4d, 0x50, 0x8c, 0xcf, 0x27, 0xbc, 0xfc, 0x0a, 0x58, 0xec, 0x1c, 0x36, 0x28, 0x5b, 0x5e, 0xf1,
-	0x86, 0xd2, 0x57, 0x0e, 0xe4, 0x5a, 0xd8, 0x68, 0x99, 0x16, 0x69, 0xef, 0xdf, 0x76, 0xfc, 0x47,
-	0x09, 0xfc, 0x55, 0x06, 0xdf, 0x67, 0x90, 0x56, 0x41, 0x21, 0x9c, 0x84, 0x2f, 0xfa, 0xcb, 0x02,
-	0x8d, 0x1e, 0x52, 0xb9, 0xde, 0x86, 0xa3, 0x33, 0x04, 0xb5, 0x5b, 0x82, 0x7b, 0x04, 0x0a, 0x91,
-	0xa7, 0xed, 0x1f, 0x8d, 0x82, 0x2f, 0xd7, 0xc5, 0x19, 0x86, 0x01, 0x80, 0xb2, 0xe2, 0x26, 0x22,
-	0xfc, 0x16, 0x28, 0x0c, 0x74, 0xc7, 0x3c, 0x35, 0x55, 0x48, 0x4c, 0x64, 0x75, 0x35, 0x48, 0x60,
-	0x79, 0x89, 0x56, 0x71, 0x25, 0x9e, 0x38, 0x80, 0x04, 0xee, 0x6d, 0x25, 0xea, 0xb9, 0xc6, 0xd4,
-	0x93, 0x2d, 0x96, 0xb4, 0x06, 0x2a, 0xa9, 0x60, 0x58, 0xdf, 0x31, 0x47, 0xeb, 0xdb, 0xd0, 0xb4,
-	0xfd, 0x1e, 0x34, 0xad, 0x7d, 0x64, 0x9d, 0x9a, 0xc6, 0x5f, 0xd4, 0xf7, 0x25, 0xc8, 0xab, 0x9e,
-	0x41, 0x57, 0xa5, 0x0e, 0x41, 0x5d, 0x2b, 0x6c, 0x19, 0x62, 0x5b, 0x28, 0xcb, 0x6a, 0x34, 0x99,
-	0xc3, 0xc3, 0x1e, 0x2e, 0xe0, 0x61, 0x83, 0x21, 0xcf, 0x67, 0x8e, 0x7e, 0x41, 0x7e, 0xd3, 0xf8,
-	0x97, 0x48, 0xb5, 0x04, 0x92, 0x38, 0xa5, 0xcf, 0xc5, 0xa9, 0x44, 0xf0, 0x60, 0x5a, 0x7c, 0x02,
-	0x56, 0x3f, 0x5f, 0x02, 0x8b, 0x2d, 0x6c, 0xf0, 0x6f, 0x41, 0x9e, 0x69, 0xdf, 0x0f, 0xd9, 0xf3,
-	0x24, 0x1a, 0xa6, 0xf0, 0xf8, 0x8f, 0xe9, 0xb0, 0xbf, 0x1c, 0x81, 0x5c, 0xd4, 0x4b, 0x85, 0xd4,
-	0x9a, 0x30, 0x27, 0x48, 0xb3, 0x73, 0xa1, 0x59, 0x13, 0x64, 0x83, 0xb6, 0x54, 0x4a, 0xa9, 0xfd,
-	0x84, 0xb0, 0x3e, 0x23, 0x11, 0x7a, 0x1c, 0x83, 0x3b, 0x89, 0x6f, 0x3e, 0xbd, 0x84, 0x15, 0x08,
-	0x4f, 0xe7, 0x08, 0xe2, 0xde, 0x89, 0xfb, 0x9e, 0xf6, 0x66, 0x05, 0x53, 0xbc, 0xa7, 0xdf, 0x3f,
-	0x5e, 0x05, 0x85, 0xf4, 0xdd, 0x93, 0x66, 0xbc, 0x84, 0xf8, 0x0e, 0xd5, 0xf9, 0x9a, 0xc9, 0x26,
-	0xc2, 0x7f, 0xef, 0x6e, 0xc6, 0x55, 0xae, 0xd9, 0xbe, 0xb8, 0x12, 0xb9, 0xcb, 0x2b, 0x91, 0xfb,
-	0x75, 0x25, 0x72, 0xe7, 0xd7, 0x62, 0xe6, 0xf2, 0x5a, 0xcc, 0xfc, 0xb8, 0x16, 0x33, 0xc7, 0xbb,
-	0x86, 0x49, 0x7a, 0xee, 0x49, 0x4d, 0x45, 0x7d, 0xd9, 0x76, 0x71, 0x8f, 0x5e, 0x4c, 0x3a, 0xda,
-	0xa6, 0xc3, 0x6d, 0x0b, 0x69, 0xba, 0x3c, 0x94, 0xa3, 0x3b, 0x49, 0x7f, 0x2b, 0x4e, 0xb2, 0xf4,
-	0x37, 0xe1, 0xc5, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x37, 0xe8, 0x66, 0x99, 0xc4, 0x08, 0x00,
-	0x00,
+	// 702 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0x3f, 0x4f, 0xdb, 0x5e,
+	0x14, 0x8d, 0x09, 0xbf, 0xa0, 0x5c, 0x22, 0x7e, 0xc4, 0x04, 0xe2, 0x98, 0xd6, 0x50, 0xf7, 0x1f,
+	0x82, 0x12, 0x97, 0x54, 0x62, 0xc8, 0x96, 0x14, 0xa4, 0x22, 0x14, 0x29, 0x75, 0x9b, 0x0e, 0x2c,
+	0xd1, 0xc3, 0x7e, 0xb5, 0x2d, 0x11, 0x3f, 0xcb, 0xef, 0x39, 0x4a, 0xb6, 0xaa, 0x63, 0xa7, 0x4e,
+	0xfd, 0x00, 0x5d, 0xbb, 0x30, 0xf4, 0x03, 0x74, 0x64, 0x2b, 0xaa, 0x54, 0xa9, 0x53, 0x55, 0xc1,
+	0xc0, 0xd7, 0xa8, 0x62, 0x3b, 0x4e, 0xec, 0x28, 0x20, 0x75, 0x62, 0xb1, 0xee, 0xbb, 0xe7, 0xdc,
+	0xe3, 0x7b, 0xae, 0xfd, 0xde, 0x83, 0x65, 0x0f, 0xf7, 0xb0, 0xe6, 0x31, 0xe2, 0x2a, 0xdd, 0x1d,
+	0x85, 0xf5, 0xca, 0x8e, 0x4b, 0x18, 0xe1, 0x73, 0x51, 0xba, 0xdc, 0xdd, 0x11, 0xf3, 0xa8, 0x63,
+	0xd9, 0x44, 0xf1, 0x9f, 0x01, 0x41, 0x2c, 0x6a, 0x84, 0x76, 0x08, 0x55, 0x3a, 0xd4, 0x18, 0x14,
+	0x76, 0xa8, 0x11, 0x02, 0x42, 0x5c, 0xb0, 0xef, 0x60, 0x1a, 0x22, 0x05, 0x83, 0x18, 0xc4, 0x0f,
+	0x95, 0x41, 0x14, 0x66, 0x4b, 0x81, 0x50, 0x3b, 0x00, 0x82, 0x45, 0x00, 0xc9, 0x5f, 0x38, 0xf8,
+	0xbf, 0x41, 0x8d, 0x96, 0xa3, 0x23, 0x86, 0x9b, 0xc8, 0x45, 0x1d, 0xca, 0xef, 0x42, 0x16, 0x79,
+	0xcc, 0x24, 0xae, 0xc5, 0xfa, 0x02, 0xb7, 0xce, 0x6d, 0x64, 0xeb, 0xc2, 0x8f, 0xaf, 0xdb, 0x85,
+	0xb0, 0xb0, 0xa6, 0xeb, 0x2e, 0xa6, 0xf4, 0x15, 0x73, 0x2d, 0xdb, 0x50, 0x47, 0x54, 0xbe, 0x02,
+	0x19, 0xc7, 0x57, 0x10, 0x66, 0xd6, 0xb9, 0x8d, 0xf9, 0x4a, 0xa1, 0x3c, 0xee, 0xb0, 0x1c, 0xa8,
+	0xd7, 0x67, 0xcf, 0x7e, 0xaf, 0xa5, 0xd4, 0x90, 0x59, 0x7d, 0xf2, 0xfe, 0xea, 0x74, 0x73, 0xa4,
+	0xf1, 0xe1, 0xea, 0x74, 0xb3, 0x34, 0x72, 0x97, 0xe8, 0x4c, 0x2e, 0x41, 0x31, 0x91, 0x52, 0x31,
+	0x75, 0x88, 0x4d, 0xb1, 0xfc, 0x93, 0x83, 0x5c, 0x83, 0x1a, 0x7b, 0xd8, 0x39, 0x21, 0xfd, 0xd6,
+	0x7e, 0x8d, 0x7f, 0x0a, 0x19, 0x6a, 0x19, 0x36, 0x76, 0x6f, 0xb4, 0x10, 0xf2, 0x78, 0x15, 0x0a,
+	0x9e, 0x6d, 0x75, 0xb1, 0x4b, 0xd1, 0x49, 0x1b, 0x69, 0x1a, 0xf1, 0x6c, 0xd6, 0xb6, 0xf4, 0xd0,
+	0xcd, 0x7a, 0xdc, 0x4d, 0x6b, 0xc8, 0xac, 0x05, 0xc4, 0x03, 0x5d, 0xe5, 0xbd, 0x89, 0x1c, 0x5f,
+	0x84, 0x39, 0xd6, 0x6b, 0x9b, 0x88, 0x9a, 0x42, 0x7a, 0xd0, 0x86, 0x9a, 0x61, 0xbd, 0x17, 0x88,
+	0x9a, 0xd5, 0x47, 0x03, 0xe3, 0xe1, 0x9b, 0x07, 0xae, 0x57, 0x62, 0xae, 0x23, 0x1b, 0xf2, 0x06,
+	0x14, 0xc6, 0xd7, 0x43, 0xbf, 0xfc, 0x22, 0xa4, 0x5b, 0xfb, 0x35, 0xdf, 0x5b, 0x4e, 0x1d, 0x84,
+	0xf2, 0x77, 0x0e, 0xb2, 0x0d, 0x6a, 0x34, 0x2c, 0x9b, 0x35, 0x9f, 0xdf, 0x76, 0xfb, 0xf7, 0x13,
+	0xf6, 0x97, 0x62, 0xf6, 0x03, 0x0f, 0xf2, 0x12, 0xe4, 0xa3, 0x45, 0xf4, 0xa1, 0xbf, 0xcd, 0xf8,
+	0xd9, 0x7d, 0x9f, 0x8e, 0x9b, 0xa8, 0x7f, 0x42, 0x90, 0x7e, 0x4b, 0xec, 0x1e, 0x42, 0x7e, 0xa4,
+	0xe9, 0x04, 0xad, 0xf9, 0xc6, 0xe7, 0x2b, 0xd2, 0x14, 0xc1, 0xd0, 0x80, 0xba, 0xe8, 0x25, 0x32,
+	0xfc, 0x16, 0xe4, 0xbb, 0xd8, 0xb5, 0xde, 0x5a, 0x1a, 0x62, 0x16, 0xb1, 0xdb, 0x3a, 0x62, 0x48,
+	0x98, 0xf5, 0xa7, 0xb8, 0x38, 0x0e, 0xec, 0x21, 0x86, 0xaa, 0x5b, 0x89, 0x79, 0xae, 0xc6, 0xe6,
+	0x19, 0x1f, 0x96, 0xbc, 0x0a, 0xa5, 0x89, 0x64, 0x34, 0xdf, 0x4f, 0x1c, 0x2c, 0x34, 0xa8, 0xf1,
+	0x86, 0x30, 0x7c, 0x60, 0x1f, 0x13, 0xcf, 0xfe, 0x97, 0xe1, 0x2a, 0x30, 0x67, 0x05, 0xc5, 0xe1,
+	0x3c, 0x97, 0xe3, 0xf6, 0x43, 0x65, 0x75, 0xc8, 0xaa, 0xde, 0x4b, 0xf4, 0x9f, 0xf7, 0xb0, 0x12,
+	0xef, 0x42, 0x16, 0x60, 0x25, 0x9e, 0x19, 0xb6, 0x5c, 0xf9, 0x9c, 0x86, 0x74, 0x83, 0x1a, 0xfc,
+	0x6b, 0xc8, 0xc5, 0x0e, 0xb2, 0xbb, 0xf1, 0x97, 0x26, 0x8e, 0x0e, 0xf1, 0xe1, 0xb5, 0x70, 0xb4,
+	0xd3, 0x0e, 0x21, 0x3b, 0x3a, 0x55, 0xc4, 0x89, 0x9a, 0x08, 0x13, 0xe5, 0xe9, 0x58, 0x24, 0x56,
+	0x87, 0x4c, 0xb8, 0x41, 0x8b, 0x13, 0xec, 0x00, 0x10, 0xd7, 0xa6, 0x00, 0x91, 0xc6, 0x11, 0x2c,
+	0x24, 0xfe, 0xfe, 0xc9, 0x92, 0x38, 0x41, 0x7c, 0x7c, 0x03, 0x21, 0xd2, 0x7e, 0x09, 0xf3, 0xe3,
+	0x5f, 0xfe, 0xce, 0x44, 0xdd, 0x18, 0x2a, 0x3e, 0xb8, 0x0e, 0x1d, 0x4a, 0x8a, 0xff, 0xbd, 0xbb,
+	0x3a, 0xdd, 0xe4, 0xea, 0xcd, 0xb3, 0x0b, 0x89, 0x3b, 0xbf, 0x90, 0xb8, 0x3f, 0x17, 0x12, 0xf7,
+	0xf1, 0x52, 0x4a, 0x9d, 0x5f, 0x4a, 0xa9, 0x5f, 0x97, 0x52, 0xea, 0x68, 0xd7, 0xb0, 0x98, 0xe9,
+	0x1d, 0x97, 0x35, 0xd2, 0x51, 0x1c, 0x8f, 0x9a, 0x9a, 0x89, 0x2c, 0xdb, 0x8f, 0xb6, 0xfd, 0x70,
+	0xdb, 0x26, 0x3a, 0x56, 0x7a, 0xca, 0xe8, 0x97, 0xf6, 0xaf, 0xbc, 0xe3, 0x8c, 0x7f, 0x85, 0x3d,
+	0xfb, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x72, 0x3e, 0x2e, 0x54, 0x60, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -726,10 +628,8 @@ type MsgClient interface {
 	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
-	// AddChainConfig adds a new ChainConfig entry
-	AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error)
-	// UpdateChainConfig adds a new ChainConfig entry
-	UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
 }
 
 type msgClient struct {
@@ -776,18 +676,9 @@ func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, o
 	return out, nil
 }
 
-func (c *msgClient) AddChainConfig(ctx context.Context, in *MsgAddChainConfig, opts ...grpc.CallOption) (*MsgAddChainConfigResponse, error) {
-	out := new(MsgAddChainConfigResponse)
-	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/AddChainConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) UpdateChainConfig(ctx context.Context, in *MsgUpdateChainConfig, opts ...grpc.CallOption) (*MsgUpdateChainConfigResponse, error) {
-	out := new(MsgUpdateChainConfigResponse)
-	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/UpdateChainConfig", in, out, opts...)
+func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error) {
+	out := new(MsgVoteInboundResponse)
+	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/VoteInbound", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -806,10 +697,8 @@ type MsgServer interface {
 	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
-	// AddChainConfig adds a new ChainConfig entry
-	AddChainConfig(context.Context, *MsgAddChainConfig) (*MsgAddChainConfigResponse, error)
-	// UpdateChainConfig adds a new ChainConfig entry
-	UpdateChainConfig(context.Context, *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error)
+	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
+	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -828,11 +717,8 @@ func (*UnimplementedMsgServer) MintPC(ctx context.Context, req *MsgMintPC) (*Msg
 func (*UnimplementedMsgServer) ExecutePayload(ctx context.Context, req *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
 }
-func (*UnimplementedMsgServer) AddChainConfig(ctx context.Context, req *MsgAddChainConfig) (*MsgAddChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddChainConfig not implemented")
-}
-func (*UnimplementedMsgServer) UpdateChainConfig(ctx context.Context, req *MsgUpdateChainConfig) (*MsgUpdateChainConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateChainConfig not implemented")
+func (*UnimplementedMsgServer) VoteInbound(ctx context.Context, req *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -911,38 +797,20 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_AddChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgAddChainConfig)
+func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteInbound)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServer).AddChainConfig(ctx, in)
+		return srv.(MsgServer).VoteInbound(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/uexecutor.v1.Msg/AddChainConfig",
+		FullMethod: "/uexecutor.v1.Msg/VoteInbound",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).AddChainConfig(ctx, req.(*MsgAddChainConfig))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_UpdateChainConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgUpdateChainConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).UpdateChainConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/uexecutor.v1.Msg/UpdateChainConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).UpdateChainConfig(ctx, req.(*MsgUpdateChainConfig))
+		return srv.(MsgServer).VoteInbound(ctx, req.(*MsgVoteInbound))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -968,12 +836,8 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_ExecutePayload_Handler,
 		},
 		{
-			MethodName: "AddChainConfig",
-			Handler:    _Msg_AddChainConfig_Handler,
-		},
-		{
-			MethodName: "UpdateChainConfig",
-			Handler:    _Msg_UpdateChainConfig_Handler,
+			MethodName: "VoteInbound",
+			Handler:    _Msg_VoteInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1278,7 +1142,7 @@ func (m *MsgExecutePayloadResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgAddChainConfig) Marshal() (dAtA []byte, err error) {
+func (m *MsgVoteInbound) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1288,19 +1152,19 @@ func (m *MsgAddChainConfig) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgAddChainConfig) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgVoteInbound) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgAddChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgVoteInbound) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.ChainConfig != nil {
+	if m.Inbound != nil {
 		{
-			size, err := m.ChainConfig.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Inbound.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1320,7 +1184,7 @@ func (m *MsgAddChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *MsgAddChainConfigResponse) Marshal() (dAtA []byte, err error) {
+func (m *MsgVoteInboundResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1330,77 +1194,12 @@ func (m *MsgAddChainConfigResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MsgAddChainConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgVoteInboundResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *MsgAddChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgUpdateChainConfig) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgUpdateChainConfig) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgUpdateChainConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.ChainConfig != nil {
-		{
-			size, err := m.ChainConfig.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTx(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.Signer) > 0 {
-		i -= len(m.Signer)
-		copy(dAtA[i:], m.Signer)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgUpdateChainConfigResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgUpdateChainConfigResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgUpdateChainConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgVoteInboundResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1541,7 +1340,7 @@ func (m *MsgExecutePayloadResponse) Size() (n int) {
 	return n
 }
 
-func (m *MsgAddChainConfig) Size() (n int) {
+func (m *MsgVoteInbound) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1551,40 +1350,14 @@ func (m *MsgAddChainConfig) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.ChainConfig != nil {
-		l = m.ChainConfig.Size()
+	if m.Inbound != nil {
+		l = m.Inbound.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	return n
 }
 
-func (m *MsgAddChainConfigResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	return n
-}
-
-func (m *MsgUpdateChainConfig) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Signer)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	if m.ChainConfig != nil {
-		l = m.ChainConfig.Size()
-		n += 1 + l + sovTx(uint64(l))
-	}
-	return n
-}
-
-func (m *MsgUpdateChainConfigResponse) Size() (n int) {
+func (m *MsgVoteInboundResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2434,7 +2207,7 @@ func (m *MsgExecutePayloadResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
+func (m *MsgVoteInbound) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2457,10 +2230,10 @@ func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgAddChainConfig: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgVoteInbound: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgAddChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgVoteInbound: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2497,7 +2270,7 @@ func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2524,10 +2297,10 @@ func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.ChainConfig == nil {
-				m.ChainConfig = &ChainConfig{}
+			if m.Inbound == nil {
+				m.Inbound = &Inbound{}
 			}
-			if err := m.ChainConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Inbound.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2552,7 +2325,7 @@ func (m *MsgAddChainConfig) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MsgAddChainConfigResponse) Unmarshal(dAtA []byte) error {
+func (m *MsgVoteInboundResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2575,178 +2348,10 @@ func (m *MsgAddChainConfigResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: MsgAddChainConfigResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgVoteInboundResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgAddChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgUpdateChainConfig) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgUpdateChainConfig: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgUpdateChainConfig: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Signer = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ChainConfig == nil {
-				m.ChainConfig = &ChainConfig{}
-			}
-			if err := m.ChainConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgUpdateChainConfigResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgUpdateChainConfigResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgUpdateChainConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgVoteInboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

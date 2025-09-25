@@ -212,7 +212,7 @@ func setblockCmd() *cobra.Command {
 			if result.Error == gorm.ErrRecordNotFound {
 				// Create new record
 				chainState = store.ChainState{
-					LastBlock: block,
+					LastBlock: uint64(block),
 				}
 				if err := database.Client().Create(&chainState).Error; err != nil {
 					return fmt.Errorf("failed to create chain state record: %w", err)
@@ -221,7 +221,7 @@ func setblockCmd() *cobra.Command {
 			} else {
 				// Update existing record
 				oldBlock := chainState.LastBlock
-				chainState.LastBlock = block
+				chainState.LastBlock = uint64(block)
 				if err := database.Client().Save(&chainState).Error; err != nil {
 					return fmt.Errorf("failed to update chain state: %w", err)
 				}

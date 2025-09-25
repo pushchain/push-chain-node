@@ -222,7 +222,6 @@ func (ew *EventWatcher) processBlockRange(
 				if err := ew.tracker.TrackTransaction(
 					event.TxHash,
 					event.BlockNumber,
-					event.Method,
 					event.EventID,
 					event.ConfirmationType,
 					event.Payload,

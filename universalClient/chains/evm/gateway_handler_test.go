@@ -81,7 +81,6 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	err = tracker.TrackTransaction(
 		mockLog.TxHash.Hex(),
 		mockLog.BlockNumber,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		mockLog.Data,
@@ -93,7 +92,7 @@ func TestEVMGatewayHandler_ParseGatewayEvent(t *testing.T) {
 	require.NoError(t, err)
 	// ChainID no longer exists in ChainTransaction
 	assert.Equal(t, uint64(100), tx.BlockNumber)
-	assert.Equal(t, "addFunds", tx.Method)
+	assert.Equal(t, "0xf9bfe8a7", tx.EventIdentifier)
 }
 
 func TestEVMGatewayHandler_Confirmations(t *testing.T) {
@@ -122,7 +121,6 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 	err = tracker.TrackTransaction(
 		fastTxHash,
 		blockNumber,
-		"addFunds",
 		"0xf9bfe8a7",
 		"FAST",
 		nil,
@@ -152,7 +150,6 @@ func TestEVMGatewayHandler_Confirmations(t *testing.T) {
 	err = tracker.TrackTransaction(
 		standardTxHash,
 		blockNumber,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,
@@ -414,7 +411,6 @@ func TestEVMGatewayHandler_MultipleTransactions(t *testing.T) {
 		err := tracker.TrackTransaction(
 			tx.hash,
 			tx.block,
-			"addFunds",
 			"0xf9bfe8a7",
 			tx.confirmationType,
 			nil,
@@ -504,7 +500,6 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	err = tracker.TrackTransaction(
 		txHash,
 		blockNumber,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,
@@ -524,7 +519,6 @@ func TestEVMGatewayHandler_BlockReorg(t *testing.T) {
 	err = tracker.TrackTransaction(
 		txHash,
 		newBlockNumber,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,

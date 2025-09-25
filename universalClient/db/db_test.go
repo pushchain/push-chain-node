@@ -69,7 +69,7 @@ func runSampleInsertSelectTest(t *testing.T, db *DB) {
 	var result store.ChainState
 	err = db.Client().First(&result).Error
 	require.NoError(t, err)
-	assert.Equal(t, int64(10101), result.LastBlock)
+	assert.Equal(t, uint64(10101), result.LastBlock)
 }
 
 func TestDeleteOldConfirmedTransactions(t *testing.T) {
@@ -140,7 +140,6 @@ func TestDeleteOldConfirmedTransactions(t *testing.T) {
 			
 			TxHash:          tc.txHash,
 			BlockNumber:     uint64(100 + i),
-			Method:          "deposit",
 			EventIdentifier: "event_" + tc.txHash,
 			Status:          tc.status,
 			Confirmations:   10,
@@ -214,7 +213,6 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 			
 			TxHash:          "0x7777",
 			BlockNumber:     500,
-			Method:          "test",
 			EventIdentifier: "recent",
 			Status:          "confirmed",
 			Confirmations:   12,
@@ -225,7 +223,6 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 			 
 			TxHash:          "0x8888",
 			BlockNumber:     501,
-			Method:          "test",
 			EventIdentifier: "old_pending",
 			Status:          "pending",
 			Confirmations:   5,
@@ -256,7 +253,6 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 			
 			TxHash:          "0x9999",
 			BlockNumber:     600,
-			Method:          "test",
 			EventIdentifier: "zero_retention",
 			Status:          "confirmed",
 			Confirmations:   15,
@@ -280,7 +276,6 @@ func TestDeleteOldConfirmedTransactionsEdgeCases(t *testing.T) {
 			
 			TxHash:          "0xAAAA",
 			BlockNumber:     700,
-			Method:          "test",
 			EventIdentifier: "very_old",
 			Status:          "confirmed",
 			Confirmations:   20,

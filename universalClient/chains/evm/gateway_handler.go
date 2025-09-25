@@ -115,16 +115,16 @@ func (h *GatewayHandler) GetStartBlock(ctx context.Context) (uint64, error) {
 	if chainState.LastBlock <= 0 {
 		// If LastBlock is 0 or negative, start from latest block
 		h.logger.Info().
-			Int64("stored_block", chainState.LastBlock).
+			Uint64("stored_block", chainState.LastBlock).
 			Msg("invalid or zero last block, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
 
 	h.logger.Info().
-		Int64("block", chainState.LastBlock).
+		Uint64("block", chainState.LastBlock).
 		Msg("resuming from last processed block")
 
-	return uint64(chainState.LastBlock), nil
+	return chainState.LastBlock, nil
 }
 
 // UpdateLastProcessedBlock updates the last processed block in the database
@@ -141,15 +141,15 @@ func (h *GatewayHandler) UpdateLastProcessedBlock(blockNumber uint64) error {
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
 		chainState = store.ChainState{
-			LastBlock: int64(blockNumber),
+			LastBlock: blockNumber,
 		}
 		if err := h.database.Client().Create(&chainState).Error; err != nil {
 			return fmt.Errorf("failed to create last processed block record: %w", err)
 		}
 	} else {
 		// Update existing record only if new block is higher
-		if int64(blockNumber) > chainState.LastBlock {
-			chainState.LastBlock = int64(blockNumber)
+		if blockNumber > chainState.LastBlock {
+			chainState.LastBlock = blockNumber
 			if err := h.database.Client().Save(&chainState).Error; err != nil {
 				return fmt.Errorf("failed to update last processed block: %w", err)
 			}

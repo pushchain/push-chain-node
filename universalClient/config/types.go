@@ -31,7 +31,6 @@ type Config struct {
 
 	// Keyring configuration
 	KeyringBackend KeyringBackend `json:"keyring_backend"` // Keyring backend type (file/test)
-	KeyCheckInterval int `json:"key_check_interval"` // How often to check for new keys/permissions in seconds (default: 30)
 
 	// Event monitoring configuration
 	EventPollingIntervalSeconds int `json:"event_polling_interval_seconds"` // How often to poll for new events in seconds (default: 5)

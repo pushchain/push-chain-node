@@ -161,7 +161,6 @@ func (ew *EventWatcher) WatchEvents(
 						if err := ew.tracker.TrackTransaction(
 							event.TxHash,
 							event.BlockNumber,
-							event.Method,
 							event.EventID,
 							event.ConfirmationType,
 							event.Payload,

@@ -49,7 +49,6 @@ func TestTrackTransaction(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0x1234567890abcdef",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		[]byte("test data"),
@@ -62,7 +61,7 @@ func TestTrackTransaction(t *testing.T) {
 	// ChainID no longer exists in ChainTransaction
 	assert.Equal(t, "0x1234567890abcdef", tx.TxHash)
 	assert.Equal(t, uint64(100), tx.BlockNumber)
-	assert.Equal(t, "addFunds", tx.Method)
+	assert.Equal(t, "0xf9bfe8a7", tx.EventIdentifier)
 	assert.Equal(t, "confirmation_pending", tx.Status)
 	assert.Equal(t, uint64(0), tx.Confirmations)
 	
@@ -70,7 +69,6 @@ func TestTrackTransaction(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0x1234567890abcdef",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		[]byte("updated data"),
@@ -90,7 +88,6 @@ func TestUpdateConfirmations(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0x1234567890abcdef",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,
@@ -130,7 +127,6 @@ func TestIsConfirmed(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0xfast",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"FAST",
 		nil,
@@ -155,7 +151,6 @@ func TestIsConfirmed(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0xstandard",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,
@@ -191,7 +186,6 @@ func TestGetConfirmedTransactions(t *testing.T) {
 		err = tracker.TrackTransaction(
 			txHash,
 			uint64(100+i),
-			"addFunds",
 			"0xf9bfe8a7",
 			"STANDARD",
 			nil,
@@ -225,7 +219,6 @@ func TestMarkTransactionFailed(t *testing.T) {
 	err = tracker.TrackTransaction(
 		"0x1234567890abcdef",
 		100,
-		"addFunds",
 		"0xf9bfe8a7",
 		"STANDARD",
 		nil,
@@ -253,10 +246,8 @@ func TestIsConfirmedWithReorgedStatus(t *testing.T) {
 	
 	// Create a transaction and manually set it to reorged status
 	tx := &store.ChainTransaction{
-		
 		TxHash:          "0x1234567890abcdef",
 		BlockNumber:     100,
-		Method:          "addFunds",
 		EventIdentifier: "0xf9bfe8a7",
 		Status:          "reorged",
 		Confirmations:   0,

@@ -340,24 +340,14 @@ func TestDecodeTxWithFundsEvent_InvalidTxType(t *testing.T) {
 }
 
 func TestDecodeUniversalPayload_EmptyString(t *testing.T) {
-	logger := zerolog.Nop()
-	gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-	config := &uregistrytypes.ChainConfig{}
-	parser := NewEventParser(gatewayAddr, config, logger)
-
-	result, err := parser.decodeUniversalPayload("")
+	result, err := decodeUniversalPayload("")
 
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
 
 func TestDecodeUniversalPayload_InvalidHex(t *testing.T) {
-	logger := zerolog.Nop()
-	gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-	config := &uregistrytypes.ChainConfig{}
-	parser := NewEventParser(gatewayAddr, config, logger)
-
-	result, err := parser.decodeUniversalPayload("invalid-hex")
+	result, err := decodeUniversalPayload("invalid-hex")
 
 	assert.Error(t, err)
 	assert.Nil(t, result)

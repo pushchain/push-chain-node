@@ -110,7 +110,6 @@ func TestChainDBManager(t *testing.T) {
 		tx := &store.ChainTransaction{
 			TxHash:          "0x123",
 			BlockNumber:     1000,
-			Method:          "deposit",
 			EventIdentifier: "event1",
 			Status:          "pending",
 			Confirmations:   0,
@@ -177,7 +176,6 @@ func TestChainDBManagerConcurrency(t *testing.T) {
 			tx := &store.ChainTransaction{
 				TxHash:          string(rune('a'+id)) + "123",
 				BlockNumber:     uint64(1000 + id),
-				Method:          "deposit",
 				EventIdentifier: "event1",
 				Status:          "pending",
 				Confirmations:   0,

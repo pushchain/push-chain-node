@@ -77,7 +77,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 		Str("tx_hash", tx.TxHash).
 		Uint32("tx_id", uint32(tx.ID)).
 		Uint64("block", tx.BlockNumber).
-		Str("method", tx.Method).
+		Str("event_id", tx.EventIdentifier).
 		Str("current_status", tx.Status).
 		Msg("starting vote and confirm process")
 
@@ -116,15 +116,12 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	// Update status atomically using conditional WHERE clause
 	// This prevents race conditions if multiple workers process the same transaction
-	votedAt := time.Now()
 	result := vh.db.Client().WithContext(dbCtx).
 		Model(&store.ChainTransaction{}).
 		Where("id = ? AND status IN (?)", tx.ID, []string{"confirmation_pending", "awaiting_vote"}).
 		Updates(map[string]interface{}{
 			"status":       "confirmed",
 			"vote_tx_hash": voteTxHash,
-			"voted_at":     votedAt,
-			"updated_at":   votedAt,
 		})
 
 	if result.Error != nil {

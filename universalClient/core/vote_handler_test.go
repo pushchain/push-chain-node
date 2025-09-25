@@ -102,12 +102,12 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 		{
 			name: "successful vote and confirm",
 			tx: &store.ChainTransaction{
-				TxHash:        "0x123",
-				BlockNumber:   100,
-				Method:        "addFunds",
-				Status:        "confirmation_pending",
-				Confirmations: 10,
-				Data:          json.RawMessage(`{"sender":"0xabc","amount":"1000"}`),
+				TxHash:          "0x123",
+				BlockNumber:     100,
+				EventIdentifier: "addFunds",
+				Status:          "confirmation_pending",
+				Confirmations:   10,
+				Data:            json.RawMessage(`{"sender":"0xabc","amount":"1000"}`),
 			},
 			setupMock: func(m *MockTxSigner) {
 				m.On("SignAndBroadcastAuthZTx",
@@ -129,7 +129,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 			tx: &store.ChainTransaction{
 				TxHash:        "0x456",
 				BlockNumber:   200,
-				Method:        "add_funds",
+				EventIdentifier:        "add_funds",
 				Status:        "pending",
 				Confirmations: 15,
 				Data:          json.RawMessage(`{}`),
@@ -154,7 +154,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 			tx: &store.ChainTransaction{
 				TxHash:        "0x789",
 				BlockNumber:   300,
-				Method:        "addFunds",
+				EventIdentifier:        "addFunds",
 				Status:        "pending",
 				Confirmations: 20,
 				Data:          json.RawMessage(`{}`),
@@ -207,8 +207,7 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, "confirmed", updatedTx.Status)
 				assert.Equal(t, "cosmos_tx_123", updatedTx.VoteTxHash)
-				assert.NotNil(t, updatedTx.VotedAt)
-				assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Minute)))
+				// Check UpdatedAt timestamp instead of VotedAt (which no longer exists)
 				assert.True(t, updatedTx.UpdatedAt.After(time.Now().Add(-time.Minute)))
 			}
 
@@ -230,7 +229,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 			name: "complete data for EVM transaction",
 			tx: &store.ChainTransaction{
 				TxHash: "0xabc123",
-				Method: "addFunds",
+				EventIdentifier: "addFunds",
 				Data: json.RawMessage(`{
 					"sourceChain": "eip155:1",
 					"sender": "0x111",
@@ -245,7 +244,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				SourceChain: "eip155:1",
 				TxHash:      "0xabc123",
 				Sender:      "0x111",
-				Recipient:   "0x222",
+				Recipient:   "", // FUNDS_AND_PAYLOAD doesn't set recipient
 				Amount:      "1000000",
 				AssetAddr:   "0x333",
 				LogIndex:    "5",
@@ -256,7 +255,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 			name: "minimal data with defaults",
 			tx: &store.ChainTransaction{
 				TxHash: "0xdef456",
-				Method: "add_funds",
+				EventIdentifier: "add_funds",
 				Data:   json.RawMessage(`{}`),
 			},
 			expected: &uetypes.Inbound{
@@ -274,7 +273,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 			name: "nil data returns error",
 			tx: &store.ChainTransaction{
 				TxHash: "0x789",
-				Method: "addFunds",
+				EventIdentifier: "addFunds",
 				Data:   nil,
 			},
 			wantError: true,
@@ -511,12 +510,12 @@ func TestVoteHandler_StoresVoteTxHash(t *testing.T) {
 
 	// Create test transaction
 	tx := &store.ChainTransaction{
-		TxHash:        "0xtest123",
-		BlockNumber:   1000,
-		Method:        "addFunds",
-		Status:        "awaiting_vote",
-		Confirmations: 12,
-		Data:          json.RawMessage(`{"sourceChain":"eip155:1","sender":"0x111","bridgeAmount":"1000","bridgeToken":"0x222","logIndex":1,"txType":0}`),
+		TxHash:          "0xtest123",
+		BlockNumber:     1000,
+		EventIdentifier: "addFunds",
+		Status:          "awaiting_vote",
+		Confirmations:   12,
+		Data:            json.RawMessage(`{"sourceChain":"eip155:1","sender":"0x111","bridgeAmount":"1000","bridgeToken":"0x222","logIndex":1,"txType":0}`),
 	}
 
 	// Save initial transaction
@@ -549,11 +548,11 @@ func TestVoteHandler_StoresVoteTxHash(t *testing.T) {
 
 	// Assert vote transaction details are stored
 	assert.Equal(t, expectedVoteTxHash, updatedTx.VoteTxHash, "Vote tx hash should be stored")
-	assert.NotNil(t, updatedTx.VotedAt, "VotedAt timestamp should be set")
+	// UpdatedAt is automatically set by GORM
 	assert.Equal(t, "confirmed", updatedTx.Status, "Status should be confirmed")
 
 	// Verify timestamp is recent
-	assert.True(t, updatedTx.VotedAt.After(time.Now().Add(-time.Second)), "VotedAt should be recent")
+	assert.True(t, updatedTx.UpdatedAt.After(time.Now().Add(-time.Second)), "UpdatedAt should be recent")
 
 	mockSigner.AssertExpectations(t)
 }
@@ -565,16 +564,14 @@ func TestVoteHandler_VoteTxHashNotOverwritten(t *testing.T) {
 
 	// Create transaction that already has a vote tx hash
 	existingVoteTxHash := "existing_vote_tx_123"
-	votedTime := time.Now().Add(-time.Hour)
 	tx := &store.ChainTransaction{
 		TxHash:        "0xalready_voted",
-		BlockNumber:   2000,
-		Method:        "addFunds",
-		Status:        "confirmed",
-		Confirmations: 20,
-		VoteTxHash:    existingVoteTxHash,
-		VotedAt:       &votedTime,
-		Data:          json.RawMessage(`{}`),
+		BlockNumber:     2000,
+		EventIdentifier: "0xf9bfe8a7",
+		Status:          "confirmed",
+		Confirmations:   20,
+		VoteTxHash:      existingVoteTxHash,
+		Data:            json.RawMessage(`{}`),
 	}
 
 	// Save transaction
@@ -586,7 +583,7 @@ func TestVoteHandler_VoteTxHashNotOverwritten(t *testing.T) {
 	err = testDB.Client().Where("tx_hash = ?", tx.TxHash).First(&checkTx).Error
 	require.NoError(t, err)
 	assert.Equal(t, existingVoteTxHash, checkTx.VoteTxHash, "Existing vote tx hash should be preserved")
-	assert.Equal(t, votedTime.Unix(), checkTx.VotedAt.Unix(), "Existing voted time should be preserved")
+	// VotedAt field removed - UpdatedAt is managed by GORM
 }
 
 // Ensure MockTxSigner implements TxSignerInterface

@@ -89,10 +89,6 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		cfg.KeyringBackend = defaultCfg.KeyringBackend
 	}
 
-	// Set default for key check interval from default config
-	if cfg.KeyCheckInterval == 0 && defaultCfg != nil {
-		cfg.KeyCheckInterval = defaultCfg.KeyCheckInterval
-	}
 
 	// Set defaults for event monitoring from default config
 	if cfg.EventPollingIntervalSeconds == 0 && defaultCfg != nil {

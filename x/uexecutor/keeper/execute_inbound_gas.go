@@ -12,7 +12,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func (k Keeper) ExecuteInboundGasFund(ctx context.Context, inbound types.Inbound) error {
+func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundKey(inbound)

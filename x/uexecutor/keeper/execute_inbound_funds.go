@@ -8,7 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func (k Keeper) ExecuteInboundBridge(ctx context.Context, utx types.UniversalTx) error {
+func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	receipt, err := k.depositPRC20(

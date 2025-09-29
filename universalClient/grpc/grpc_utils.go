@@ -1,4 +1,4 @@
-package utils
+package grpc
 
 import (
 	"fmt"
@@ -89,8 +89,11 @@ func ExtractHostnameFromURL(grpcURL string) (string, error) {
 	hostname := grpcURL
 
 	// Remove common schemes if present
-	hostname = strings.TrimPrefix(hostname, "https://")
-	hostname = strings.TrimPrefix(hostname, "http://")
+	if strings.HasPrefix(hostname, "https://") {
+		hostname = strings.TrimPrefix(hostname, "https://")
+	} else if strings.HasPrefix(hostname, "http://") {
+		hostname = strings.TrimPrefix(hostname, "http://")
+	}
 
 	// Remove port if present (but check that there's something before the colon)
 	if colonIndex := strings.Index(hostname, ":"); colonIndex >= 0 {

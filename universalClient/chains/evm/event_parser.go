@@ -73,7 +73,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 
 	// Find matching method by event topic
 	var eventID ethcommon.Hash
-	var methodName, confirmationType string
+	var confirmationType string
 	var found bool
 	for id, topic := range ep.eventTopics {
 		if log.Topics[0] == topic {
@@ -82,7 +82,6 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 			// Find method name and confirmation type from config
 			for _, method := range ep.config.GatewayMethods {
 				if method.Identifier == id {
-					methodName = method.Name
 					// Map confirmation type enum to string
 					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
 						confirmationType = "FAST"
@@ -110,7 +109,6 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		ChainID:          ep.config.Chain,
 		TxHash:           log.TxHash.Hex(),
 		BlockNumber:      log.BlockNumber,
-		Method:           methodName,
 		EventID:          eventID.Hex(),
 		ConfirmationType: confirmationType,
 	}

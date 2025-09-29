@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/pushchain/push-chain-node/universalClient/utils"
+	grpcClient "github.com/pushchain/push-chain-node/universalClient/grpc"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -35,7 +35,7 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 
 	for i, u := range urls {
 		// Use the shared utility function
-		conn, err := utils.CreateGRPCConnection(u)
+		conn, err := grpcClient.CreateGRPCConnection(u)
 		if err != nil {
 			c.logger.Warn().Str("url", u).Int("index", i).Err(err).Msg("dial failed; skipping endpoint")
 			continue

@@ -11,7 +11,6 @@ type GatewayEvent struct {
 	ChainID          string
 	TxHash           string
 	BlockNumber      uint64
-	Method           string
 	EventID          string
 	Payload          []byte
 	Confirmations    uint64

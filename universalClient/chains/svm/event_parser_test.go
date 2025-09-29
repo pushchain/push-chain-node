@@ -168,7 +168,6 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, "add_funds", result.Method)
 	assert.Equal(t, TxWithFundsDiscriminator, result.EventID)
 	assert.Equal(t, "STANDARD", result.ConfirmationType) // ConfirmationType 1 maps to STANDARD
 }
@@ -226,7 +225,6 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 	assert.Equal(t, "solana-testnet", result.ChainID)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, "send_funds", result.Method)
 	assert.Equal(t, TxWithFundsDiscriminator, result.EventID)
 	assert.Equal(t, "FAST", result.ConfirmationType)
 	assert.NotNil(t, result.Payload)

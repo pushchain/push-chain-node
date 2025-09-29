@@ -96,7 +96,7 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 	// Find matching method by event discriminator
 	var eventID string
-	var methodName, confirmationType string
+	var confirmationType string
 	var found bool
 
 	// Look for events in transaction logs
@@ -129,7 +129,6 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 				// Find method name and confirmation type from config
 				for _, method := range ep.config.GatewayMethods {
 					if method.Identifier == id {
-						methodName = method.Name
 						// Map confirmation type enum to string
 						if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
 							confirmationType = "FAST"
@@ -157,7 +156,6 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		ChainID:          ep.config.Chain,
 		TxHash:           signature,
 		BlockNumber:      slot,
-		Method:           methodName,
 		EventID:          eventID,
 		ConfirmationType: confirmationType,
 	}

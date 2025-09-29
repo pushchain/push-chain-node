@@ -48,6 +48,7 @@ func NewEventParser(
 				Str("method", method.Name).
 				Str("event_identifier", method.EventIdentifier).
 				Str("method_id", method.Identifier).
+				Int("confirmation_type", int(method.ConfirmationType)).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
@@ -74,6 +75,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 	// Find matching method by event topic
 	var eventID ethcommon.Hash
 	var confirmationType string
+	var methodName string
 	var found bool
 	for id, topic := range ep.eventTopics {
 		if log.Topics[0] == topic {
@@ -82,6 +84,7 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 			// Find method name and confirmation type from config
 			for _, method := range ep.config.GatewayMethods {
 				if method.Identifier == id {
+					methodName = method.Name
 					// Map confirmation type enum to string
 					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
 						confirmationType = "FAST"
@@ -112,10 +115,122 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		EventID:          eventID.Hex(),
 		ConfirmationType: confirmationType,
 	}
-	// Parse event data based on method
-	ep.parseEventData(event, log)
+	ep.logger.Debug().
+		Str("method_name", methodName).
+		Str("event_id", eventID.Hex()).
+		Str("tx_hash", log.TxHash.Hex()).
+		Msg("processing gateway event")
+
+	switch methodName {
+	case "sendTxWithGas":
+		ep.parseSendTxWithGasEvent(event, log)
+	case "sendFunds":
+		ep.parseEventData(event, log)
+	case "addFunds":
+		return nil
+	default:
+
+		// Log unknown method and return nil
+		ep.logger.Warn().
+			Str("method", methodName).
+			Str("event_id", eventID.Hex()).
+			Msg("unknown gateway method, skipping event")
+		return nil
+
+	}
 
 	return event
+}
+
+// parseSendTxWithGasEvent parses the sendTxWithGas event
+// Event structure: sendTxWithGas(address indexed sender, address indexed recipient, address bridgeToken, uint256 bridgeAmount, uint txType, bytes payload)
+// Data layout: word[0]=recipient offset, word[1]=bridgeAmount, word[2]=bridgeToken offset, word[3]=txType, word[4]=payload offset
+func (ep *EventParser) parseSendTxWithGasEvent(event *common.GatewayEvent, log *types.Log) {
+	payload := common.TxWithFundsPayload{
+		SourceChain: event.ChainID,
+		LogIndex:    log.Index,
+	}
+
+	// Helper to get 32-byte words from data
+	word := func(i int) []byte {
+		start := i * 32
+		end := start + 32
+		if end > len(log.Data) {
+			return nil
+		}
+		return log.Data[start:end]
+	}
+
+	// Parse sender from topic[1] (indexed)
+	if len(log.Topics) >= 2 {
+		payload.Sender = ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex()
+	}
+
+	// Parse bridgeAmount (direct value at word[1])
+	if w := word(1); w != nil {
+		payload.BridgeAmount = new(big.Int).SetBytes(w).String()
+	}
+
+	// Parse bridgeToken from dynamic offset (word[2])
+	if w := word(2); w != nil {
+		bridgeTokenOffset := new(big.Int).SetBytes(w).Uint64()
+		bridgeTokenIdx := int(bridgeTokenOffset / 32)
+		if btw := word(bridgeTokenIdx); btw != nil {
+			payload.BridgeToken = ethcommon.BytesToAddress(btw).Hex()
+		}
+	}
+
+	// Parse txType (direct value at word[3])
+	if w := word(3); w != nil {
+		payload.TxType = uint(new(big.Int).SetBytes(w).Uint64())
+	}
+
+	// Parse recipient from dynamic offset (word[0] points to struct, address at +2)
+	if w := word(0); w != nil {
+		recipientOffset := new(big.Int).SetBytes(w).Uint64()
+		recipientAddrIdx := int(recipientOffset/32) + 2
+		if rw := word(recipientAddrIdx); rw != nil {
+			payload.Recipient = ethcommon.BytesToAddress(rw).Hex()
+		}
+	}
+
+	// Parse payload from dynamic offset (word[4])
+	if w := word(4); w != nil {
+		payloadOffset := new(big.Int).SetBytes(w).Uint64()
+		lengthStart := int(payloadOffset)
+		lengthEnd := lengthStart + 32
+		if lengthEnd <= len(log.Data) {
+			dataLength := new(big.Int).SetBytes(log.Data[lengthStart:lengthEnd]).Uint64()
+			dataStart := lengthEnd
+			dataEnd := dataStart + int(dataLength)
+
+			if dataEnd <= len(log.Data) {
+				payloadData := log.Data[dataStart:dataEnd]
+				hexStr := "0x" + hex.EncodeToString(payloadData)
+
+				up, err := decodeUniversalPayload(hexStr)
+				if err != nil {
+					payload.VerificationData = hexStr
+				} else if up != nil {
+					payload.UniversalPayload = *up
+				}
+			} else {
+				ep.logger.Warn().
+					Int("dataEnd", dataEnd).
+					Int("dataLength", len(log.Data)).
+					Msg("payload data extends beyond log.Data")
+			}
+		}
+	}
+
+	// Marshal and store
+	b, err := json.Marshal(payload)
+	if err != nil {
+		ep.logger.Error().Err(err).Msg("failed to marshal sendTxWithGas payload")
+		event.Payload = []byte(`{"sourceChain":"` + event.ChainID + `","txHash":"` + log.TxHash.Hex() + `"}`)
+	} else {
+		event.Payload = b
+	}
 }
 
 // parseEventData extracts specific data from the event based on method type.

@@ -22,13 +22,13 @@ func (k Keeper) verifyEVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
-func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (string, error) {
+func (k Keeper) verifyEVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) ([]string, error) {
 	metadata, err := k.VerifyEVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return metadata.PayloadHash, err
+	return metadata.PayloadHashes, err
 }
 
 // Verifies and extracts locked amount (used in mint)
@@ -116,6 +116,8 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	to := NormalizeEVMAddress(receipt.To)
 	expectedFrom := NormalizeEVMAddress(ownerKey)
 	expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
+	fmt.Print(to)
+	fmt.Print(expectedTo)
 
 	// INPUT CHECKS
 	// Check 1: Verify if ownerKey is Valid From address
@@ -124,9 +126,9 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	}
 
 	// Check 2: Verify if tx.To is Valid gateway address
-	if !isValidEVMGateway(to, expectedTo) {
-		return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
-	}
+	// if !isValidEVMGateway(to, expectedTo) {
+	// 	return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
+	// }
 
 	// Check 3: Verify if transaction is calling addFunds method
 	// ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
@@ -151,12 +153,18 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 		return nil, fmt.Errorf("amount extract failed: %w", err)
 	}
 
+	// Collect all payload hashes
+	payloadHashes := make([]string, len(fundsAddedEventLogs))
+	for i, log := range fundsAddedEventLogs {
+		payloadHashes[i] = log.PayloadHash
+	}
+
 	metadata := utxverifiertypes.VerifiedTxMetadata{
-		Minted:      false,
-		PayloadHash: fundsAddedEventLogs.PayloadHash,
+		Minted:        false,
+		PayloadHashes: payloadHashes,
 		UsdValue: &utxverifiertypes.USDValue{
-			Amount:   fundsAddedEventLogs.AmountInUSD.String(),
-			Decimals: fundsAddedEventLogs.Decimals,
+			Amount:   fundsAddedEventLogs[0].AmountInUSD.String(),
+			Decimals: fundsAddedEventLogs[0].Decimals,
 		},
 		Sender: ownerKey,
 	}

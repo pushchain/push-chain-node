@@ -153,3 +153,37 @@ func (k Keeper) CallPRC20Deposit(
 		to,
 	)
 }
+
+// Calls Handler Contract to deposit prc20 tokens
+func (k Keeper) CallPRC20DepositAutoSwap(
+	ctx sdk.Context,
+	prc20Address, to common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // who is sending the transaction
+		handlerAddr,        // destination: Handler contract
+		big.NewInt(0),
+		nil,
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		"depositPRC20WithAutoSwap",
+		prc20Address,
+		amount,
+		to,
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
+	)
+}

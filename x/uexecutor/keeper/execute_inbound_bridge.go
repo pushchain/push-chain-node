@@ -18,30 +18,34 @@ func (k Keeper) ExecuteInboundBridge(ctx context.Context, utx types.UniversalTx)
 		common.HexToAddress(utx.InboundTx.Recipient), // recipient is inbound recipient
 		utx.InboundTx.Amount,
 	)
-	if err != nil {
-		// TODO: update status to PendingRevert and add revert mechanism here
-		return err
-	}
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-
 	universalTxKey := types.GetInboundKey(*utx.InboundTx)
-	err = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
-			TxHash:      receipt.Hash, // TODO: handler revert params
+			TxHash:      "", // no hash if depositPRC20 failed
 			Sender:      ueModuleAddressStr,
-			GasUsed:     receipt.GasUsed,
+			GasUsed:     0,
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
-			Status:      "SUCCESS", // TODO: handler revert params
-			ErrorMsg:    "",        // TODO: handler revert params
+		}
+
+		if err != nil {
+			pcTx.Status = "FAILED" // or "PENDING_REVERT"
+			pcTx.ErrorMsg = err.Error()
+			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		} else {
+			pcTx.TxHash = receipt.Hash
+			pcTx.GasUsed = receipt.GasUsed
+			pcTx.Status = "SUCCESS"
+			pcTx.ErrorMsg = ""
+			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS
 		}
 
 		utx.PcTx = append(utx.PcTx, &pcTx)
-		utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS
 		return nil
 	})
-	if err != nil {
-		return err
+	if updateErr != nil {
+		return updateErr
 	}
 
 	return nil

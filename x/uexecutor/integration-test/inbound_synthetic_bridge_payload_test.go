@@ -214,8 +214,21 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		coreValAcc := sdk.AccAddress(valAddr).String()
 
 		err = utils.ExecVoteInbound(t, ctx, app, vals[2], coreValAcc, invalidInbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "UEA is not deployed")
+		require.NoError(t, err)
+
+		// Now check UniversalTx state
+		utxKey := uexecutortypes.GetInboundKey(*invalidInbound)
+		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "universal tx should exist after quorum is reached")
+
+		// Check last PcTx for error
+		require.NotEmpty(t, utx.PcTx, "PcTx should not be empty")
+		lastPcTx := utx.PcTx[len(utx.PcTx)-1]
+		require.Contains(t, lastPcTx.ErrorMsg, "UEA is not deployed")
+
+		// Universal status should reflect failure
+		require.Equal(t, uexecutortypes.UniversalTxStatus_PC_EXECUTED_FAILED, utx.UniversalStatus)
 	})
 
 	t.Run("vote after quorum fails", func(t *testing.T) {

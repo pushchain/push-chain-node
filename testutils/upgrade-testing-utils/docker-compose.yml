@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  push-chain-node:
+    build:
+      context: .              
+      dockerfile: Dockerfile.node_upgrade_test
+    container_name: push-chain-node
+    environment:
+      - CHAIN_ID=localchain_9000-1
+      - BLOCK_TIME=1000ms
+      - CLEAN=true
+    command: bash scripts/test_node_e2e_upgrade.sh   
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "26657:26657"   # Tendermint RPC
+      - "1317:1317"     # Cosmos REST API
+      - "8545:8545"     # Cosmos REST API
+    volumes:
+      - ./scripts:/app/scripts 

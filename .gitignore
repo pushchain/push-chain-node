@@ -6,6 +6,7 @@ testnet/*/binary
 contracts-tmp/
 *node_modules
 push-chain-interop-contracts/
+node-upgrade-testing/
 
 
 

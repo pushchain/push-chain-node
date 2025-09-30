@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/pushsolanalocker.json`.
  */
 export type Pushsolanalocker = {
-  "address": "GV4X8xcFMe4n5tA6eu96HoSKhXiriwjM2fdjpkCwh3ZF",
+  "address": "H2sHWWnihK2bdtJoM79G737FmzzLuJv5WC1ModcCDSE3",
   "metadata": {
     "name": "pushsolanalocker",
     "version": "0.1.0",

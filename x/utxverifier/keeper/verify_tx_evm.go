@@ -116,8 +116,8 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	to := NormalizeEVMAddress(receipt.To)
 	expectedFrom := NormalizeEVMAddress(ownerKey)
 	expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
-	fmt.Print(to)
-	fmt.Print(expectedTo)
+	// fmt.Print(to)
+	// fmt.Print(expectedTo)
 
 	// INPUT CHECKS
 	// Check 1: Verify if ownerKey is Valid From address
@@ -126,9 +126,9 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	}
 
 	// Check 2: Verify if tx.To is Valid gateway address
-	// if !isValidEVMGateway(to, expectedTo) {
-	// 	return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
-	// }
+	if !isValidEVMGateway(to, expectedTo) {
+		return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
+	}
 
 	// Check 3: Verify if transaction is calling addFunds method
 	// ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)

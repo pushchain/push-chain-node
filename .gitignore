@@ -3,6 +3,11 @@ configs/logs.json
 dist/
 build/
 testnet/*/binary
+contracts-tmp/
+*node_modules
+push-chain-interop-contracts/
+
+
 
 # Create cosmos app
 web/

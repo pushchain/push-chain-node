@@ -28,6 +28,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	var execErr error
 	var receipt *evmtypes.MsgEthereumTxResponse
+	var ueaAddr common.Address
 
 	// --- Step 1: token config
 	tokenConfig, err := k.uregistryKeeper.GetTokenConfig(ctx, utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr)
@@ -91,8 +92,27 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		return nil
 	}
 
-	// --- Step 5: execute payload
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
+
+	// --- Step 5: compute and store payload hash
+	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr)
+	if payloadHashErr != nil {
+		// Update UniversalTx with payload hash error and stop
+		errorPcTx := types.PCTx{
+			Sender:      ueModuleAddressStr,
+			BlockHeight: uint64(sdkCtx.BlockHeight()),
+			Status:      "FAILED",
+			ErrorMsg:    fmt.Sprintf("payload hash failed: %v", payloadHashErr),
+		}
+		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+			utx.PcTx = append(utx.PcTx, &errorPcTx)
+			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+			return nil
+		})
+		return nil
+	}
+
+	// --- Step 6: execute payload
 	receipt, err = k.ExecutePayloadV2(ctx, ueModuleAddr, &universalAccountId, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
 
 	payloadPcTx := types.PCTx{

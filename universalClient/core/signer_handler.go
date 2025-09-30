@@ -18,8 +18,8 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	uauthz "github.com/pushchain/push-chain-node/universalClient/authz"
-	grpcClient "github.com/pushchain/push-chain-node/universalClient/grpc"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
@@ -113,7 +113,7 @@ func (sh *SignerHandler) SignAndBroadcast(
 // createClientContext creates a client context for transaction signing
 func createClientContext(kr keyring.Keyring, grpcURL string) (client.Context, error) {
 	// Use the shared utility function which handles port defaults and TLS
-	conn, err := grpcClient.CreateGRPCConnection(grpcURL)
+	conn, err := pushcore.CreateGRPCConnection(grpcURL)
 	if err != nil {
 		return client.Context{}, err
 	}
@@ -131,7 +131,7 @@ func createClientContext(kr keyring.Keyring, grpcURL string) (client.Context, er
 	txConfig := tx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
 
 	// Create HTTP RPC client for broadcasting
-	hostname, err := grpcClient.ExtractHostnameFromURL(grpcURL)
+	hostname, err := pushcore.ExtractHostnameFromURL(grpcURL)
 	if err != nil {
 		return client.Context{}, fmt.Errorf("failed to extract hostname from GRPC URL: %w", err)
 	}

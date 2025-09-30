@@ -88,16 +88,17 @@ func TestNewEventParser(t *testing.T) {
 
 func TestParseGatewayEvent(t *testing.T) {
 	gatewayAddr := ethcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7")
-	eventTopic := ethcommon.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
+	// Use the actual SendFundsEventID constant
+	eventTopic := ethcommon.HexToHash(SendFundsEventID)
 
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1",
 		GatewayAddress: gatewayAddr.Hex(),
 		GatewayMethods: []*uregistrytypes.GatewayMethods{
 			{
-				Name:            "addFunds",
+				Name:            "sendFunds",
 				Identifier:      "method1",
-				EventIdentifier: eventTopic.Hex(),
+				EventIdentifier: SendFundsEventID,
 			},
 		},
 	}
@@ -114,9 +115,20 @@ func TestParseGatewayEvent(t *testing.T) {
 		{
 			name: "parses valid gateway event",
 			log: &types.Log{
-				Address:     gatewayAddr,
-				Topics:      []ethcommon.Hash{eventTopic},
-				Data:        []byte{},
+				Address: gatewayAddr,
+				Topics: []ethcommon.Hash{
+					eventTopic,
+					ethcommon.HexToHash("0x000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f0beb7"), // sender
+					ethcommon.HexToHash("0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"), // recipient
+				},
+				Data: func() []byte {
+					data := make([]byte, 160) // 5 words minimum for sendFunds event
+					// Word 0: bridgeToken
+					copy(data[12:32], ethcommon.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").Bytes())
+					// Word 1: bridgeAmount
+					big.NewInt(1000000).FillBytes(data[32:64])
+					return data
+				}(),
 				TxHash:      ethcommon.HexToHash("0xabc123"),
 				BlockNumber: 12345,
 			},
@@ -129,26 +141,43 @@ func TestParseGatewayEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "parses addFunds event with amount",
+			name: "parses sendFunds event with topics",
 			log: &types.Log{
 				Address: gatewayAddr,
 				Topics: []ethcommon.Hash{
 					eventTopic,
 					ethcommon.HexToHash("0x000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f0beb7"), // sender
-					ethcommon.HexToHash("0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"), // token/receiver
+					ethcommon.HexToHash("0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"), // recipient
 				},
 				Data: func() []byte {
-					data := make([]byte, 32)
-					big.NewInt(1000000).FillBytes(data)
+					data := make([]byte, 160) // 5 words for sendFunds event
+					// Word 0: bridgeToken
+					copy(data[12:32], ethcommon.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").Bytes())
+					// Word 1: bridgeAmount
+					big.NewInt(1000000).FillBytes(data[32:64])
 					return data
-				}(), // amount as 32 bytes
+				}(),
 				TxHash:      ethcommon.HexToHash("0xdef456"),
 				BlockNumber: 12346,
 			},
 			wantEvent: true,
 			validate: func(t *testing.T, event *common.GatewayEvent) {
-				assert.NotNil(t, event)
+				assert.Equal(t, "eip155:1", event.ChainID)
+				assert.Equal(t, uint64(12346), event.BlockNumber)
 			},
+		},
+		{
+			name: "returns nil for addFunds method (explicitly filtered)",
+			log: &types.Log{
+				Address: gatewayAddr,
+				Topics: []ethcommon.Hash{
+					ethcommon.HexToHash("0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"), // addFunds event topic
+				},
+				Data:        []byte{},
+				TxHash:      ethcommon.HexToHash("0xabc789"),
+				BlockNumber: 12347,
+			},
+			wantEvent: false,
 		},
 		{
 			name: "returns nil for log with no topics",
@@ -251,7 +280,7 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseEventData(event, log)
+		parser.parseSendFundsEvent(event, log)
 	})
 
 	t.Run("handles missing data gracefully", func(t *testing.T) {
@@ -263,6 +292,6 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseEventData(event, log)
+		parser.parseSendFundsEvent(event, log)
 	})
 }

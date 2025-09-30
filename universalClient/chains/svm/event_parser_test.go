@@ -34,8 +34,8 @@ func TestNewEventParser(t *testing.T) {
 			},
 			{
 				Identifier:       "method2",
-				Name:             "send_funds_fast",
-				EventIdentifier:  "2b1f1f0204ec6bff",
+				Name:             "withdraw_funds",
+				EventIdentifier:  "abcdef1234567890",
 				ConfirmationType: 2, // FAST
 			},
 		},
@@ -47,8 +47,9 @@ func TestNewEventParser(t *testing.T) {
 	assert.Equal(t, gatewayAddr, parser.gatewayAddr)
 	assert.Equal(t, config, parser.config)
 	assert.Len(t, parser.eventTopics, 2)
-	assert.Equal(t, "2b1f1f0204ec6bff", parser.eventTopics["method1"])
-	assert.Equal(t, "2b1f1f0204ec6bff", parser.eventTopics["method2"])
+	// Map now uses EventIdentifier as key -> ConfirmationType as value
+	assert.Equal(t, uregistrytypes.ConfirmationType(1), parser.eventTopics["2b1f1f0204ec6bff"])
+	assert.Equal(t, uregistrytypes.ConfirmationType(2), parser.eventTopics["abcdef1234567890"])
 }
 
 func TestNewEventParser_NoEventIdentifier(t *testing.T) {
@@ -141,7 +142,7 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 			{
 				Identifier:       "method1",
 				Name:             "add_funds",
-				EventIdentifier:  TxWithFundsDiscriminator,
+				EventIdentifier:  SendFundsDiscriminator,
 				ConfirmationType: 1,
 			},
 		},
@@ -149,7 +150,7 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 
 	parser := NewEventParser(gatewayAddr, config, logger)
 
-	eventData := createTestEventData(TxWithFundsDiscriminator, "sender", "recipient", 1000, 100, "token", "", "", "", 0, 2, "")
+	eventData := createTestEventData(SendFundsDiscriminator, "sender", "recipient", 1000, 100, "token", "", "", "", 0, 2, "")
 	encodedData := base64.StdEncoding.EncodeToString(eventData)
 
 	tx := &rpc.GetTransactionResult{
@@ -164,11 +165,11 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 
 	// The current implementation doesn't filter add_funds based on method name + confirmation type
 	// It only filters a specific hardcoded discriminator "7f1f6cffbb134644"
-	// Since this test uses TxWithFundsDiscriminator ("2b1f1f0204ec6bff"), the event is not filtered
+	// Since this test uses SendFundsDiscriminator ("2b1f1f0204ec6bff"), the event is not filtered
 	require.NotNil(t, result)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, TxWithFundsDiscriminator, result.EventID)
+	assert.Equal(t, SendFundsDiscriminator, result.EventID)
 	assert.Equal(t, "STANDARD", result.ConfirmationType) // ConfirmationType 1 maps to STANDARD
 }
 
@@ -181,7 +182,7 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 			{
 				Identifier:       "method1",
 				Name:             "send_funds",
-				EventIdentifier:  TxWithFundsDiscriminator,
+				EventIdentifier:  SendFundsDiscriminator,
 				ConfirmationType: 2, // FAST
 			},
 		},
@@ -196,7 +197,7 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		TxWithFundsDiscriminator,
+		SendFundsDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount
@@ -225,7 +226,7 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 	assert.Equal(t, "solana-testnet", result.ChainID)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, TxWithFundsDiscriminator, result.EventID)
+	assert.Equal(t, SendFundsDiscriminator, result.EventID)
 	assert.Equal(t, "FAST", result.ConfirmationType)
 	assert.NotNil(t, result.Payload)
 
@@ -272,7 +273,7 @@ func TestDecodeTxWithFundsEvent_Success(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		TxWithFundsDiscriminator,
+		SendFundsDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount
@@ -342,7 +343,7 @@ func TestDecodeTxWithFundsEvent_InvalidTxType(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		TxWithFundsDiscriminator,
+		SendFundsDiscriminator,
 		sender[:],
 		recipient,
 		1000000,
@@ -390,7 +391,7 @@ func TestDecodeTxWithFundsEvent_AnyTxType(t *testing.T) {
 	data := make([]byte, 0)
 
 	// Add discriminator first (8 bytes) - decodeTxWithFundsEvent expects it
-	discriminatorBytes, _ := hex.DecodeString(TxWithFundsDiscriminator)
+	discriminatorBytes, _ := hex.DecodeString(SendFundsDiscriminator)
 	data = append(data, discriminatorBytes...)
 
 	// Sender (32 bytes)
@@ -479,7 +480,7 @@ func TestDecodeTxWithFundsEvent_EmptyFields(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		TxWithFundsDiscriminator,
+		SendFundsDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount

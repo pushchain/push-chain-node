@@ -23,15 +23,16 @@ import (
 
 // Constants for event parsing
 const (
-	TxWithFundsDiscriminator = "2b1f1f0204ec6bff"
-	TxTypeFunds              = 2 // Default fallback tx type
+	SendFundsDiscriminator = "2b1f1f0204ec6bff"
+	AddFundsDiscriminator  = "7f1f6cffbb134644"
+	TxTypeFunds            = 2 // Default fallback tx type
 )
 
 // EventParser handles parsing of SVM gateway events
 type EventParser struct {
 	gatewayAddr solana.PublicKey
 	config      *uregistrytypes.ChainConfig
-	eventTopics map[string]string // method identifier -> event discriminator
+	eventTopics map[string]uregistrytypes.ConfirmationType // EventIdentifier (discriminator) -> ConfirmationType
 	logger      zerolog.Logger
 }
 
@@ -58,7 +59,8 @@ func NewEventParser(
 	logger zerolog.Logger,
 ) *EventParser {
 	// Build event topics from config methods
-	eventTopics := make(map[string]string)
+	// Map: EventIdentifier (discriminator string) -> ConfirmationType
+	eventTopics := make(map[string]uregistrytypes.ConfirmationType)
 	logger.Info().
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
@@ -66,19 +68,23 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			eventTopics[method.Identifier] = method.EventIdentifier
+			eventTopics[method.EventIdentifier] = method.ConfirmationType
 			logger.Info().
-				Str("method", method.Name).
 				Str("event_identifier", method.EventIdentifier).
-				Str("method_id", method.Identifier).
+				Int("confirmation_type", int(method.ConfirmationType)).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
-				Str("method", method.Name).
-				Str("method_id", method.Identifier).
+				Str("event_identifier", "").
 				Msg("no event identifier provided in config for method")
 		}
 	}
+
+	// Debug log the complete cache
+	logger.Debug().
+		Interface("event_topics_cache", eventTopics).
+		Int("total_events", len(eventTopics)).
+		Msg("event topics cache built")
 
 	return &EventParser{
 		gatewayAddr: gatewayAddr,
@@ -117,32 +123,22 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 		discriminator := hex.EncodeToString(decoded[:8])
 
-		if discriminator == "7f1f6cffbb134644" { // add_funds
+		// Skip add_funds events
+		if discriminator == AddFundsDiscriminator {
 			continue
 		}
 
-		// Find matching method by event discriminator
-		for id, topic := range ep.eventTopics {
-			if discriminator == topic {
-				eventID = topic
-				found = true
-				// Find method name and confirmation type from config
-				for _, method := range ep.config.GatewayMethods {
-					if method.Identifier == id {
-						// Map confirmation type enum to string
-						if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
-							confirmationType = "FAST"
-						} else {
-							confirmationType = "STANDARD" // Default to STANDARD
-						}
-						break
-					}
-				}
-				break
+		// Find matching method by event discriminator using direct lookup
+		confType, exists := ep.eventTopics[discriminator]
+		if exists {
+			eventID = discriminator
+			found = true
+			// Map confirmation type enum to string
+			if confType == 2 { // CONFIRMATION_TYPE_FAST
+				confirmationType = "FAST"
+			} else {
+				confirmationType = "STANDARD" // Default to STANDARD
 			}
-		}
-
-		if found {
 			break
 		}
 	}
@@ -190,7 +186,7 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, logs []string)
 		}
 
 		discriminator := hex.EncodeToString(decoded[:8])
-		if discriminator != TxWithFundsDiscriminator {
+		if discriminator != SendFundsDiscriminator {
 			continue
 		}
 
@@ -499,8 +495,8 @@ func decodeUniversalPayloadBorsh(bz []byte) (*uetypes.UniversalPayload, error) {
 // GetEventTopics returns the configured event topics
 func (ep *EventParser) GetEventTopics() []string {
 	topics := make([]string, 0, len(ep.eventTopics))
-	for _, topic := range ep.eventTopics {
-		topics = append(topics, topic)
+	for eventID := range ep.eventTopics {
+		topics = append(topics, eventID)
 	}
 	return topics
 }

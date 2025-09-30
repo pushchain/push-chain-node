@@ -10,6 +10,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 
@@ -65,7 +66,7 @@ func TestEventWatcherPollingInterval(t *testing.T) {
 			// For now, we just verify the watcher is created with the correct config
 			
 			client := &Client{}
-			eventParser := &EventParser{eventTopics: make(map[string]ethcommon.Hash)}
+			eventParser := &EventParser{eventTopics: make(map[string]uregistrytypes.ConfirmationType)}
 			tracker := common.NewConfirmationTracker(nil, nil, logger)
 			
 			watcher := NewEventWatcher(client, gatewayAddr, eventParser, tracker, tt.appConfig, "eip155:1", logger)

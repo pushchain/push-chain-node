@@ -9,8 +9,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/constant"
-	grpcClient "github.com/pushchain/push-chain-node/universalClient/grpc"
 	"github.com/pushchain/push-chain-node/universalClient/keys"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
@@ -84,8 +84,8 @@ func (sv *StartupValidator) ValidateStartupRequirements() (*StartupValidationRes
 		Str("key_address", keyAddr.String()).
 		Msg("Using hotkey from keyring")
 
-	// Validate AuthZ permissions using the grpc package
-	granter, authorizedMsgs, err := grpcClient.QueryGrantsWithRetry(sv.grpcURL, keyAddr.String(), sv.cdc, sv.log)
+	// Validate AuthZ permissions using the pushcore package
+	granter, authorizedMsgs, err := pushcore.QueryGrantsWithRetry(sv.grpcURL, keyAddr.String(), sv.cdc, sv.log)
 	if err != nil {
 		return nil, fmt.Errorf("AuthZ validation failed: %w", err)
 	}

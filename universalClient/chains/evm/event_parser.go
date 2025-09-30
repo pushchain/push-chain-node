@@ -20,11 +20,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// Event identifier constants
+const (
+	SendFundsEventID     = "0x313800e2e529b7d45906548dd908bb537772d390b660787b2a929ddf1facf6e4"
+	AddFundsEventID      = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	SendTxWithGasEventID = "0xfc9b0ad90b92705792c6281e89beaf1d977aa0d66afccefba2f5b207787c9aab"
+)
+
 // EventParser handles parsing of EVM gateway events
 type EventParser struct {
 	gatewayAddr ethcommon.Address
 	config      *uregistrytypes.ChainConfig
-	eventTopics map[string]ethcommon.Hash
+	eventTopics map[string]uregistrytypes.ConfirmationType // EventIdentifier (hex) -> ConfirmationType
 	logger      zerolog.Logger
 }
 
@@ -35,7 +42,8 @@ func NewEventParser(
 	logger zerolog.Logger,
 ) *EventParser {
 	// Build event topics from config methods
-	eventTopics := make(map[string]ethcommon.Hash)
+	// Map: EventIdentifier (hex string) -> ConfirmationType
+	eventTopics := make(map[string]uregistrytypes.ConfirmationType)
 	logger.Info().
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
@@ -43,20 +51,23 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			eventTopics[method.Identifier] = ethcommon.HexToHash(method.EventIdentifier)
+			eventTopics[method.EventIdentifier] = method.ConfirmationType
 			logger.Info().
-				Str("method", method.Name).
 				Str("event_identifier", method.EventIdentifier).
-				Str("method_id", method.Identifier).
 				Int("confirmation_type", int(method.ConfirmationType)).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
-				Str("method", method.Name).
-				Str("method_id", method.Identifier).
+				Str("event_identifier", "").
 				Msg("no event identifier provided in config for method")
 		}
 	}
+
+	// Debug log the complete cache
+	logger.Debug().
+		Interface("event_topics_cache", eventTopics).
+		Int("total_events", len(eventTopics)).
+		Msg("event topics cache built")
 
 	return &EventParser{
 		gatewayAddr: gatewayAddr,
@@ -72,40 +83,27 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		return nil
 	}
 
-	// Find matching method by event topic
-	var eventID ethcommon.Hash
-	var confirmationType string
-	var methodName string
-	var found bool
-	for id, topic := range ep.eventTopics {
-		if log.Topics[0] == topic {
-			eventID = topic
-			found = true
-			// Find method name and confirmation type from config
-			for _, method := range ep.config.GatewayMethods {
-				if method.Identifier == id {
-					methodName = method.Name
-					// Map confirmation type enum to string
-					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
-						confirmationType = "FAST"
-					} else {
-						confirmationType = "STANDARD" // Default to STANDARD
-					}
-					break
-				}
-			}
-			break
-		}
-	}
+	// Find matching method by event topic using direct lookup
+	eventID := log.Topics[0]
+	eventIDHex := eventID.Hex()
 
-	// Return nil if no matching event topic found
+	// Direct lookup using EventIdentifier
+	confType, found := ep.eventTopics[eventIDHex]
 	if !found {
 		return nil
 	}
 
-	// TODO: Remove temp code avoid listing add_funds
-	if eventID.String() == "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd" {
+	// Skip add_funds events
+	if eventIDHex == AddFundsEventID {
 		return nil
+	}
+
+	// Map confirmation type enum to string
+	var confirmationType string
+	if confType == 2 { // CONFIRMATION_TYPE_FAST
+		confirmationType = "FAST"
+	} else {
+		confirmationType = "STANDARD" // Default to STANDARD
 	}
 
 	event := &common.GatewayEvent{
@@ -116,27 +114,32 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		ConfirmationType: confirmationType,
 	}
 	ep.logger.Debug().
-		Str("method_name", methodName).
 		Str("event_id", eventID.Hex()).
 		Str("tx_hash", log.TxHash.Hex()).
 		Msg("processing gateway event")
 
-	switch methodName {
-	case "sendTxWithGas":
+	// Route to appropriate parser based on event ID
+	switch eventIDHex {
+	case SendTxWithGasEventID:
+		// Only use sendTxWithGas parser for this specific event
 		ep.parseSendTxWithGasEvent(event, log)
-	case "sendFunds":
-		ep.parseEventData(event, log)
-	case "addFunds":
-		return nil
+	case SendFundsEventID:
+		// Only use sendFunds parser for this specific event
+		ep.parseSendFundsEvent(event, log)
 	default:
-
-		// Log unknown method and return nil
+		// Unknown event - return nil (no fallback)
 		ep.logger.Warn().
-			Str("method", methodName).
-			Str("event_id", eventID.Hex()).
-			Msg("unknown gateway method, skipping event")
+			Str("event_id", eventIDHex).
+			Msg("unknown event identifier - no parser available")
 		return nil
+	}
 
+	// Validate parsing succeeded
+	if event.Payload == nil || len(event.Payload) <= 2 {
+		ep.logger.Warn().
+			Str("event_id", eventIDHex).
+			Msg("parser returned empty payload")
+		return nil
 	}
 
 	return event
@@ -233,8 +236,8 @@ func (ep *EventParser) parseSendTxWithGasEvent(event *common.GatewayEvent, log *
 	}
 }
 
-// parseEventData extracts specific data from the event based on method type.
-// For TxWithFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType, signatureData?)
+// parseSendFundsEvent extracts specific data from the sendFunds event.
+// For sendFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType, signatureData?)
 // it JSON-marshals the decoded fields into event.Payload.
 //
 // Encoding layout in log.Data (non-indexed):
@@ -249,7 +252,7 @@ func (ep *EventParser) parseSendTxWithGasEvent(event *common.GatewayEvent, log *
 // [0] address fundRecipient
 // [1] offset  revertMsg (bytes)         (offset from start of the tuple)
 // ... tail for revertMsg follows
-func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log) {
+func (ep *EventParser) parseSendFundsEvent(event *common.GatewayEvent, log *types.Log) {
 	if len(log.Topics) < 3 {
 		// Not enough indexed fields; nothing to do.
 		return
@@ -397,8 +400,8 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 // GetEventTopics returns the configured event topics
 func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
 	topics := make([]ethcommon.Hash, 0, len(ep.eventTopics))
-	for _, topic := range ep.eventTopics {
-		topics = append(topics, topic)
+	for eventID := range ep.eventTopics {
+		topics = append(topics, ethcommon.HexToHash(eventID))
 	}
 	return topics
 }

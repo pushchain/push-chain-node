@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/testutils"
@@ -16,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound, []stakingtypes.Validator) {
+func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []string, *uexecutortypes.Inbound, []stakingtypes.Validator, common.Address) {
 	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
@@ -134,14 +135,14 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 		VerificationData: validVerificationData,
 	}
 
-	return app, ctx, universalVals, inbound, validators
+	return app, ctx, universalVals, inbound, validators, ueaAddrHex
 }
 
 func TestInboundSyntheticBridgePayload(t *testing.T) {
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 
 	t.Run("less than quorum votes keeps inbound pending", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
 		require.NoError(t, err)
 		coreValAcc := sdk.AccAddress(valAddr).String()
@@ -155,7 +156,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("quorum reached executes inbound and payload executes if UEA deployed", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 
 		// --- Quorum reached ---
 		for i := 0; i < 3; i++ {
@@ -173,7 +174,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("quorum reached executes inbound and payload fails if UEA is not deployed", func(t *testing.T) {
-		app, ctx, vals, _, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, _, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 
 		validUP := &uexecutortypes.UniversalPayload{
 			To:                   utils.GetDefaultAddresses().DefaultTestAddr,
@@ -232,7 +233,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("vote after quorum fails", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 		for i := 0; i < 3; i++ {
 			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
 			require.NoError(t, err)
@@ -252,7 +253,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("duplicate vote fails", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
 		require.NoError(t, err)
 		coreValAcc := sdk.AccAddress(valAddr).String()
@@ -266,7 +267,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 	})
 
 	t.Run("different inbounds tracked separately", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals := setupInboundBridgePayloadTest(t, 4)
+		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 		inboundB := *inbound
 		inboundB.TxHash = "0xabce"
 
@@ -279,5 +280,38 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 
 		err = utils.ExecVoteInbound(t, ctx, app, vals[0], coreValAcc, &inboundB)
 		require.NoError(t, err)
+	})
+
+	t.Run("payload hash stored correctly before payload execution", func(t *testing.T) {
+		app, ctx, vals, inbound, coreVals, ueaAddrHex := setupInboundBridgePayloadTest(t, 4)
+
+		// Reach quorum
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
+		}
+
+		// Get the universal tx
+		utxKey := uexecutortypes.GetInboundKey(*inbound)
+		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		// Call your function to compute and store payload hash
+		ueModuleAddr, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
+		err = app.UexecutorKeeper.StoreVerifiedPayloadHash(ctx, utx, ueaAddrHex, ueModuleAddr)
+		require.NoError(t, err)
+
+		// Verify payload hash stored in utxverifier
+		verified, found, err := app.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, inbound.SourceChain, inbound.TxHash)
+		require.NoError(t, err)
+		fmt.Println(verified)
+		require.True(t, found)
+		require.Len(t, verified.PayloadHashes, 1)
+		require.Equal(t, inbound.Sender, verified.Sender)
 	})
 }

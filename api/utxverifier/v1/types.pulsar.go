@@ -482,19 +482,65 @@ func (x *fastReflection_USDValue) ProtoMethods() *protoiface.Methods {
 	}
 }
 
+var _ protoreflect.List = (*_VerifiedTxMetadata_2_list)(nil)
+
+type _VerifiedTxMetadata_2_list struct {
+	list *[]string
+}
+
+func (x *_VerifiedTxMetadata_2_list) Len() int {
+	if x.list == nil {
+		return 0
+	}
+	return len(*x.list)
+}
+
+func (x *_VerifiedTxMetadata_2_list) Get(i int) protoreflect.Value {
+	return protoreflect.ValueOfString((*x.list)[i])
+}
+
+func (x *_VerifiedTxMetadata_2_list) Set(i int, value protoreflect.Value) {
+	valueUnwrapped := value.String()
+	concreteValue := valueUnwrapped
+	(*x.list)[i] = concreteValue
+}
+
+func (x *_VerifiedTxMetadata_2_list) Append(value protoreflect.Value) {
+	valueUnwrapped := value.String()
+	concreteValue := valueUnwrapped
+	*x.list = append(*x.list, concreteValue)
+}
+
+func (x *_VerifiedTxMetadata_2_list) AppendMutable() protoreflect.Value {
+	panic(fmt.Errorf("AppendMutable can not be called on message VerifiedTxMetadata at list field PayloadHashes as it is not of Message kind"))
+}
+
+func (x *_VerifiedTxMetadata_2_list) Truncate(n int) {
+	*x.list = (*x.list)[:n]
+}
+
+func (x *_VerifiedTxMetadata_2_list) NewElement() protoreflect.Value {
+	v := ""
+	return protoreflect.ValueOfString(v)
+}
+
+func (x *_VerifiedTxMetadata_2_list) IsValid() bool {
+	return x.list != nil
+}
+
 var (
-	md_VerifiedTxMetadata              protoreflect.MessageDescriptor
-	fd_VerifiedTxMetadata_minted       protoreflect.FieldDescriptor
-	fd_VerifiedTxMetadata_payload_hash protoreflect.FieldDescriptor
-	fd_VerifiedTxMetadata_usd_value    protoreflect.FieldDescriptor
-	fd_VerifiedTxMetadata_sender       protoreflect.FieldDescriptor
+	md_VerifiedTxMetadata                protoreflect.MessageDescriptor
+	fd_VerifiedTxMetadata_minted         protoreflect.FieldDescriptor
+	fd_VerifiedTxMetadata_payload_hashes protoreflect.FieldDescriptor
+	fd_VerifiedTxMetadata_usd_value      protoreflect.FieldDescriptor
+	fd_VerifiedTxMetadata_sender         protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_utxverifier_v1_types_proto_init()
 	md_VerifiedTxMetadata = File_utxverifier_v1_types_proto.Messages().ByName("VerifiedTxMetadata")
 	fd_VerifiedTxMetadata_minted = md_VerifiedTxMetadata.Fields().ByName("minted")
-	fd_VerifiedTxMetadata_payload_hash = md_VerifiedTxMetadata.Fields().ByName("payload_hash")
+	fd_VerifiedTxMetadata_payload_hashes = md_VerifiedTxMetadata.Fields().ByName("payload_hashes")
 	fd_VerifiedTxMetadata_usd_value = md_VerifiedTxMetadata.Fields().ByName("usd_value")
 	fd_VerifiedTxMetadata_sender = md_VerifiedTxMetadata.Fields().ByName("sender")
 }
@@ -570,9 +616,9 @@ func (x *fastReflection_VerifiedTxMetadata) Range(f func(protoreflect.FieldDescr
 			return
 		}
 	}
-	if x.PayloadHash != "" {
-		value := protoreflect.ValueOfString(x.PayloadHash)
-		if !f(fd_VerifiedTxMetadata_payload_hash, value) {
+	if len(x.PayloadHashes) != 0 {
+		value := protoreflect.ValueOfList(&_VerifiedTxMetadata_2_list{list: &x.PayloadHashes})
+		if !f(fd_VerifiedTxMetadata_payload_hashes, value) {
 			return
 		}
 	}
@@ -605,8 +651,8 @@ func (x *fastReflection_VerifiedTxMetadata) Has(fd protoreflect.FieldDescriptor)
 	switch fd.FullName() {
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		return x.Minted != false
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		return x.PayloadHash != ""
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		return len(x.PayloadHashes) != 0
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		return x.UsdValue != nil
 	case "utxverifier.v1.VerifiedTxMetadata.sender":
@@ -629,8 +675,8 @@ func (x *fastReflection_VerifiedTxMetadata) Clear(fd protoreflect.FieldDescripto
 	switch fd.FullName() {
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		x.Minted = false
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		x.PayloadHash = ""
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		x.PayloadHashes = nil
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		x.UsdValue = nil
 	case "utxverifier.v1.VerifiedTxMetadata.sender":
@@ -654,9 +700,12 @@ func (x *fastReflection_VerifiedTxMetadata) Get(descriptor protoreflect.FieldDes
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		value := x.Minted
 		return protoreflect.ValueOfBool(value)
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		value := x.PayloadHash
-		return protoreflect.ValueOfString(value)
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		if len(x.PayloadHashes) == 0 {
+			return protoreflect.ValueOfList(&_VerifiedTxMetadata_2_list{})
+		}
+		listValue := &_VerifiedTxMetadata_2_list{list: &x.PayloadHashes}
+		return protoreflect.ValueOfList(listValue)
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		value := x.UsdValue
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
@@ -685,8 +734,10 @@ func (x *fastReflection_VerifiedTxMetadata) Set(fd protoreflect.FieldDescriptor,
 	switch fd.FullName() {
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		x.Minted = value.Bool()
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		x.PayloadHash = value.Interface().(string)
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		lv := value.List()
+		clv := lv.(*_VerifiedTxMetadata_2_list)
+		x.PayloadHashes = *clv.list
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		x.UsdValue = value.Message().Interface().(*USDValue)
 	case "utxverifier.v1.VerifiedTxMetadata.sender":
@@ -711,6 +762,12 @@ func (x *fastReflection_VerifiedTxMetadata) Set(fd protoreflect.FieldDescriptor,
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_VerifiedTxMetadata) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		if x.PayloadHashes == nil {
+			x.PayloadHashes = []string{}
+		}
+		value := &_VerifiedTxMetadata_2_list{list: &x.PayloadHashes}
+		return protoreflect.ValueOfList(value)
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		if x.UsdValue == nil {
 			x.UsdValue = new(USDValue)
@@ -718,8 +775,6 @@ func (x *fastReflection_VerifiedTxMetadata) Mutable(fd protoreflect.FieldDescrip
 		return protoreflect.ValueOfMessage(x.UsdValue.ProtoReflect())
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		panic(fmt.Errorf("field minted of message utxverifier.v1.VerifiedTxMetadata is not mutable"))
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		panic(fmt.Errorf("field payload_hash of message utxverifier.v1.VerifiedTxMetadata is not mutable"))
 	case "utxverifier.v1.VerifiedTxMetadata.sender":
 		panic(fmt.Errorf("field sender of message utxverifier.v1.VerifiedTxMetadata is not mutable"))
 	default:
@@ -737,8 +792,9 @@ func (x *fastReflection_VerifiedTxMetadata) NewField(fd protoreflect.FieldDescri
 	switch fd.FullName() {
 	case "utxverifier.v1.VerifiedTxMetadata.minted":
 		return protoreflect.ValueOfBool(false)
-	case "utxverifier.v1.VerifiedTxMetadata.payload_hash":
-		return protoreflect.ValueOfString("")
+	case "utxverifier.v1.VerifiedTxMetadata.payload_hashes":
+		list := []string{}
+		return protoreflect.ValueOfList(&_VerifiedTxMetadata_2_list{list: &list})
 	case "utxverifier.v1.VerifiedTxMetadata.usd_value":
 		m := new(USDValue)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
@@ -816,9 +872,11 @@ func (x *fastReflection_VerifiedTxMetadata) ProtoMethods() *protoiface.Methods {
 		if x.Minted {
 			n += 2
 		}
-		l = len(x.PayloadHash)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
+		if len(x.PayloadHashes) > 0 {
+			for _, s := range x.PayloadHashes {
+				l = len(s)
+				n += 1 + l + runtime.Sov(uint64(l))
+			}
 		}
 		if x.UsdValue != nil {
 			l = options.Size(x.UsdValue)
@@ -878,12 +936,14 @@ func (x *fastReflection_VerifiedTxMetadata) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x1a
 		}
-		if len(x.PayloadHash) > 0 {
-			i -= len(x.PayloadHash)
-			copy(dAtA[i:], x.PayloadHash)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.PayloadHash)))
-			i--
-			dAtA[i] = 0x12
+		if len(x.PayloadHashes) > 0 {
+			for iNdEx := len(x.PayloadHashes) - 1; iNdEx >= 0; iNdEx-- {
+				i -= len(x.PayloadHashes[iNdEx])
+				copy(dAtA[i:], x.PayloadHashes[iNdEx])
+				i = runtime.EncodeVarint(dAtA, i, uint64(len(x.PayloadHashes[iNdEx])))
+				i--
+				dAtA[i] = 0x12
+			}
 		}
 		if x.Minted {
 			i--
@@ -966,7 +1026,7 @@ func (x *fastReflection_VerifiedTxMetadata) ProtoMethods() *protoiface.Methods {
 				x.Minted = bool(v != 0)
 			case 2:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field PayloadHash", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field PayloadHashes", wireType)
 				}
 				var stringLen uint64
 				for shift := uint(0); ; shift += 7 {
@@ -994,7 +1054,7 @@ func (x *fastReflection_VerifiedTxMetadata) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.PayloadHash = string(dAtA[iNdEx:postIndex])
+				x.PayloadHashes = append(x.PayloadHashes, string(dAtA[iNdEx:postIndex]))
 				iNdEx = postIndex
 			case 3:
 				if wireType != 2 {
@@ -1161,10 +1221,10 @@ type VerifiedTxMetadata struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Minted      bool      `protobuf:"varint,1,opt,name=minted,proto3" json:"minted,omitempty"`                             // is tokens minted for the tx hash
-	PayloadHash string    `protobuf:"bytes,2,opt,name=payload_hash,json=payloadHash,proto3" json:"payload_hash,omitempty"` // payload_hash emitted in the tx
-	UsdValue    *USDValue `protobuf:"bytes,3,opt,name=usd_value,json=usdValue,proto3" json:"usd_value,omitempty"`          // usd value emitted in the tx
-	Sender      string    `protobuf:"bytes,4,opt,name=sender,proto3" json:"sender,omitempty"`                              // sender of the tx
+	Minted        bool      `protobuf:"varint,1,opt,name=minted,proto3" json:"minted,omitempty"`                                   // is tokens minted for the tx hash
+	PayloadHashes []string  `protobuf:"bytes,2,rep,name=payload_hashes,json=payloadHashes,proto3" json:"payload_hashes,omitempty"` // payload_hashes emitted in the tx
+	UsdValue      *USDValue `protobuf:"bytes,3,opt,name=usd_value,json=usdValue,proto3" json:"usd_value,omitempty"`                // usd value emitted in the tx
+	Sender        string    `protobuf:"bytes,4,opt,name=sender,proto3" json:"sender,omitempty"`                                    // sender of the tx
 }
 
 func (x *VerifiedTxMetadata) Reset() {
@@ -1194,11 +1254,11 @@ func (x *VerifiedTxMetadata) GetMinted() bool {
 	return false
 }
 
-func (x *VerifiedTxMetadata) GetPayloadHash() string {
+func (x *VerifiedTxMetadata) GetPayloadHashes() []string {
 	if x != nil {
-		return x.PayloadHash
+		return x.PayloadHashes
 	}
-	return ""
+	return nil
 }
 
 func (x *VerifiedTxMetadata) GetUsdValue() *USDValue {
@@ -1227,30 +1287,30 @@ var file_utxverifier_v1_types_proto_rawDesc = []byte{
 	0x65, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x09, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x64, 0x65, 0x63,
 	0x69, 0x6d, 0x61, 0x6c, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x64, 0x65, 0x63,
-	0x69, 0x6d, 0x61, 0x6c, 0x73, 0x22, 0x9e, 0x01, 0x0a, 0x12, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69,
+	0x69, 0x6d, 0x61, 0x6c, 0x73, 0x22, 0xa2, 0x01, 0x0a, 0x12, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69,
 	0x65, 0x64, 0x54, 0x78, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x12, 0x16, 0x0a, 0x06,
 	0x6d, 0x69, 0x6e, 0x74, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x6d, 0x69,
-	0x6e, 0x74, 0x65, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x5f,
-	0x68, 0x61, 0x73, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x70, 0x61, 0x79, 0x6c,
-	0x6f, 0x61, 0x64, 0x48, 0x61, 0x73, 0x68, 0x12, 0x35, 0x0a, 0x09, 0x75, 0x73, 0x64, 0x5f, 0x76,
-	0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x75, 0x74, 0x78,
-	0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x53, 0x44, 0x56,
-	0x61, 0x6c, 0x75, 0x65, 0x52, 0x08, 0x75, 0x73, 0x64, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x16,
-	0x0a, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06,
-	0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x42, 0xc0, 0x01, 0x0a, 0x12, 0x63, 0x6f, 0x6d, 0x2e, 0x75,
-	0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x54,
-	0x79, 0x70, 0x65, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x45, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69,
-	0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64,
-	0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65,
-	0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72,
-	0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x0e, 0x55, 0x74, 0x78, 0x76, 0x65,
-	0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0e, 0x55, 0x74, 0x78, 0x76,
-	0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x1a, 0x55, 0x74, 0x78,
-	0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d,
-	0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0f, 0x55, 0x74, 0x78, 0x76, 0x65, 0x72,
-	0x69, 0x66, 0x69, 0x65, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x6e, 0x74, 0x65, 0x64, 0x12, 0x25, 0x0a, 0x0e, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x5f,
+	0x68, 0x61, 0x73, 0x68, 0x65, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0d, 0x70, 0x61,
+	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x12, 0x35, 0x0a, 0x09, 0x75,
+	0x73, 0x64, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18,
+	0x2e, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e,
+	0x55, 0x53, 0x44, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x08, 0x75, 0x73, 0x64, 0x56, 0x61, 0x6c,
+	0x75, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x06, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x42, 0xc0, 0x01, 0x0a, 0x12, 0x63,
+	0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x76,
+	0x31, 0x42, 0x0a, 0x54, 0x79, 0x70, 0x65, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
+	0x45, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72,
+	0x69, 0x66, 0x69, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69,
+	0x66, 0x69, 0x65, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x0e, 0x55,
+	0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0e,
+	0x55, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02,
+	0x1a, 0x55, 0x74, 0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x5c, 0x56, 0x31, 0x5c,
+	0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0f, 0x55, 0x74,
+	0x78, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

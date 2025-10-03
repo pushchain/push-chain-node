@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,12 +12,11 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.UniversalTx) error {
+func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.UniversalTx) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundKey(*utx.InboundTx)
 
-	// Build universalAccountId
 	universalAccountId := types.UniversalAccountId{
 		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
 		ChainId:        strings.Split(utx.InboundTx.SourceChain, ":")[1],
@@ -28,24 +28,38 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	var execErr error
 	var receipt *evmtypes.MsgEthereumTxResponse
+	var ueaAddr common.Address
 
-	// --- Step 1: check factory for UEA
-	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
+	// --- Step 1: token config
+	tokenConfig, err := k.uregistryKeeper.GetTokenConfig(ctx, utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr)
 	if err != nil {
-		execErr = fmt.Errorf("factory lookup failed: %w", err)
-	} else if !isDeployed {
-		execErr = fmt.Errorf("UEA is not deployed")
+		execErr = fmt.Errorf("GetTokenConfig failed: %w", err)
 	} else {
-		// --- Step 2: deposit PRC20 into UEA
-		receipt, err = k.depositPRC20(
-			sdkCtx,
-			utx.InboundTx.SourceChain,
-			utx.InboundTx.AssetAddr,
-			ueaAddr,
-			utx.InboundTx.Amount,
-		)
-		if err != nil {
-			execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+		// --- Step 2: parse amount
+		amount := new(big.Int)
+		if amount, ok := amount.SetString(utx.InboundTx.Amount, 10); !ok {
+			execErr = fmt.Errorf("invalid amount: %s", utx.InboundTx.Amount)
+		} else {
+			// --- Step 3: check factory for UEA
+			ueaAddr, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
+			if fErr != nil {
+				execErr = fmt.Errorf("factory lookup failed: %w", fErr)
+			} else {
+				if !isDeployed {
+					addr, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+					if dErr != nil {
+						execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
+					} else {
+						ueaAddr = addr
+					}
+				}
+
+				if execErr == nil {
+					// --- Step 4: deposit + autoswap
+					prc20AddressHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+					receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount)
+				}
+			}
 		}
 	}
 
@@ -73,14 +87,14 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		return updateErr
 	}
 
-	// If deposit failed, stop here (don’t attempt payload execution)
+	// If deposit failed, don’t attempt payload execution
 	if execErr != nil {
 		return nil
 	}
 
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
-	// --- Step 3: compute and store payload hash
+	// --- Step 5: compute and store payload hash
 	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr)
 	if payloadHashErr != nil {
 		// Update UniversalTx with payload hash error and stop
@@ -98,7 +112,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		return nil
 	}
 
-	// --- Step 4: execute payload
+	// --- Step 6: execute payload
 	receipt, err = k.ExecutePayloadV2(ctx, ueModuleAddr, &universalAccountId, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
 
 	payloadPcTx := types.PCTx{
@@ -127,5 +141,6 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		return updateErr
 	}
 
+	// never return execErr or err
 	return nil
 }

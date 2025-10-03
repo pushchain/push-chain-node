@@ -23,13 +23,13 @@ func (k Keeper) verifySVMInteraction(ctx context.Context, ownerKey, txHash strin
 }
 
 // verifyEVMAndGetPayload verifies and extracts payloadHash sent by the user in the tx
-func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) (string, error) {
+func (k Keeper) verifySVMAndGetPayload(ctx context.Context, ownerKey, txHash string, chainConfig uregistrytypes.ChainConfig) ([]string, error) {
 	metadata, err := k.VerifySVMInboundTx(ctx, ownerKey, txHash, chainConfig)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return metadata.PayloadHash, err
+	return metadata.PayloadHashes, err
 }
 
 // verifySVMAndGetFunds verifies transaction and extracts locked amount
@@ -159,12 +159,18 @@ func (k Keeper) SVMProcessUnverifiedInboundTx(
 		return nil, fmt.Errorf("amount extract failed: %w", err)
 	}
 
+	// Collect all payload hashes
+	payloadHashes := make([]string, len(fundsAddedEventLogs))
+	for i, log := range fundsAddedEventLogs {
+		payloadHashes[i] = log.PayloadHash
+	}
+
 	metadata := utxverifiertypes.VerifiedTxMetadata{
-		Minted:      false,
-		PayloadHash: fundsAddedEventLogs.PayloadHash,
+		Minted:        false,
+		PayloadHashes: payloadHashes,
 		UsdValue: &utxverifiertypes.USDValue{
-			Amount:   fundsAddedEventLogs.AmountInUSD.String(),
-			Decimals: fundsAddedEventLogs.Decimals,
+			Amount:   fundsAddedEventLogs[0].AmountInUSD.String(),
+			Decimals: fundsAddedEventLogs[0].Decimals,
 		},
 		Sender: ownerKey,
 	}

@@ -16,22 +16,18 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-// Event identifier constants
 const (
-	SendFundsEventID     = "0x313800e2e529b7d45906548dd908bb537772d390b660787b2a929ddf1facf6e4"
-	AddFundsEventID      = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
-	SendTxWithGasEventID = "0xfc9b0ad90b92705792c6281e89beaf1d977aa0d66afccefba2f5b207787c9aab"
+	AddFundsEventID = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
 )
 
 // EventParser handles parsing of EVM gateway events
 type EventParser struct {
 	gatewayAddr ethcommon.Address
 	config      *uregistrytypes.ChainConfig
-	eventTopics map[string]uregistrytypes.ConfirmationType // EventIdentifier (hex) -> ConfirmationType
+	eventTopics []ethcommon.Hash
 	logger      zerolog.Logger
 }
 
@@ -42,8 +38,7 @@ func NewEventParser(
 	logger zerolog.Logger,
 ) *EventParser {
 	// Build event topics from config methods
-	// Map: EventIdentifier (hex string) -> ConfirmationType
-	eventTopics := make(map[string]uregistrytypes.ConfirmationType)
+	eventTopics := make([]ethcommon.Hash, 0, len(config.GatewayMethods))
 	logger.Info().
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
@@ -51,10 +46,9 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			eventTopics[method.EventIdentifier] = method.ConfirmationType
+			eventTopics = append(eventTopics, ethcommon.HexToHash(method.EventIdentifier))
 			logger.Info().
 				Str("event_identifier", method.EventIdentifier).
-				Int("confirmation_type", int(method.ConfirmationType)).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
@@ -83,182 +77,53 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		return nil
 	}
 
-	// Find matching method by event topic using direct lookup
-	eventID := log.Topics[0]
-	eventIDHex := eventID.Hex()
-
-	// Direct lookup using EventIdentifier
-	confType, found := ep.eventTopics[eventIDHex]
-	if !found {
-		return nil
-	}
+	eventID := log.Topics[0].Hex()
 
 	// Skip add_funds events
-	if eventIDHex == AddFundsEventID {
+	// @dev: we don't want to parse add_funds events
+	if eventID == AddFundsEventID {
 		return nil
 	}
 
-	// Map confirmation type enum to string
-	var confirmationType string
-	if confType == 2 { // CONFIRMATION_TYPE_FAST
-		confirmationType = "FAST"
-	} else {
-		confirmationType = "STANDARD" // Default to STANDARD
-	}
-
-	event := &common.GatewayEvent{
-		ChainID:          ep.config.Chain,
-		TxHash:           log.TxHash.Hex(),
-		BlockNumber:      log.BlockNumber,
-		EventID:          eventID.Hex(),
-		ConfirmationType: confirmationType,
-	}
 	ep.logger.Debug().
-		Str("event_id", eventID.Hex()).
+		Str("event_id", eventID).
 		Str("tx_hash", log.TxHash.Hex()).
 		Msg("processing gateway event")
 
-	// Route to appropriate parser based on event ID
-	switch eventIDHex {
-	case SendTxWithGasEventID:
-		// Only use sendTxWithGas parser for this specific event
-		ep.parseSendTxWithGasEvent(event, log)
-	case SendFundsEventID:
-		// Only use sendFunds parser for this specific event
-		ep.parseSendFundsEvent(event, log)
-	default:
-		// Unknown event - return nil (no fallback)
-		ep.logger.Warn().
-			Str("event_id", eventIDHex).
-			Msg("unknown event identifier - no parser available")
-		return nil
+	event := &common.GatewayEvent{
+		ChainID:     ep.config.Chain,
+		TxHash:      log.TxHash.Hex(),
+		BlockNumber: log.BlockNumber,
+		EventID:     eventID,
 	}
 
-	// Validate parsing succeeded
-	if event.Payload == nil || len(event.Payload) <= 2 {
-		ep.logger.Warn().
-			Str("event_id", eventIDHex).
-			Msg("parser returned empty payload")
-		return nil
-	}
+	// @dev: we only support universal tx events for now
+	ep.parseUniversalTxEvent(event, log)
 
 	return event
 }
 
-// parseSendTxWithGasEvent parses the sendTxWithGas event
-// Event structure: sendTxWithGas(address indexed sender, address indexed recipient, address bridgeToken, uint256 bridgeAmount, uint txType, bytes payload)
-// Data layout: word[0]=recipient offset, word[1]=bridgeAmount, word[2]=bridgeToken offset, word[3]=txType, word[4]=payload offset
-func (ep *EventParser) parseSendTxWithGasEvent(event *common.GatewayEvent, log *types.Log) {
-	payload := common.TxWithFundsPayload{
-		SourceChain: event.ChainID,
-		LogIndex:    log.Index,
-	}
-
-	// Helper to get 32-byte words from data
-	word := func(i int) []byte {
-		start := i * 32
-		end := start + 32
-		if end > len(log.Data) {
-			return nil
-		}
-		return log.Data[start:end]
-	}
-
-	// Parse sender from topic[1] (indexed)
-	if len(log.Topics) >= 2 {
-		payload.Sender = ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex()
-	}
-
-	// Parse bridgeAmount (direct value at word[1])
-	if w := word(1); w != nil {
-		payload.BridgeAmount = new(big.Int).SetBytes(w).String()
-	}
-
-	// Parse bridgeToken from dynamic offset (word[2])
-	if w := word(2); w != nil {
-		bridgeTokenOffset := new(big.Int).SetBytes(w).Uint64()
-		bridgeTokenIdx := int(bridgeTokenOffset / 32)
-		if btw := word(bridgeTokenIdx); btw != nil {
-			payload.BridgeToken = ethcommon.BytesToAddress(btw).Hex()
-		}
-	}
-
-	// Parse txType (direct value at word[3])
-	if w := word(3); w != nil {
-		payload.TxType = uint(new(big.Int).SetBytes(w).Uint64())
-	}
-
-	// Parse recipient from dynamic offset (word[0] points to struct, address at +2)
-	if w := word(0); w != nil {
-		recipientOffset := new(big.Int).SetBytes(w).Uint64()
-		recipientAddrIdx := int(recipientOffset/32) + 2
-		if rw := word(recipientAddrIdx); rw != nil {
-			payload.Recipient = ethcommon.BytesToAddress(rw).Hex()
-		}
-	}
-
-	// Parse payload from dynamic offset (word[4])
-	if w := word(4); w != nil {
-		payloadOffset := new(big.Int).SetBytes(w).Uint64()
-		lengthStart := int(payloadOffset)
-		lengthEnd := lengthStart + 32
-		if lengthEnd <= len(log.Data) {
-			dataLength := new(big.Int).SetBytes(log.Data[lengthStart:lengthEnd]).Uint64()
-			dataStart := lengthEnd
-			dataEnd := dataStart + int(dataLength)
-
-			if dataEnd <= len(log.Data) {
-				payloadData := log.Data[dataStart:dataEnd]
-				hexStr := "0x" + hex.EncodeToString(payloadData)
-
-				up, err := decodeUniversalPayload(hexStr)
-				if err != nil {
-					payload.VerificationData = hexStr
-				} else if up != nil {
-					payload.UniversalPayload = *up
-				}
-			} else {
-				ep.logger.Warn().
-					Int("dataEnd", dataEnd).
-					Int("dataLength", len(log.Data)).
-					Msg("payload data extends beyond log.Data")
-			}
-		}
-	}
-
-	// Marshal and store
-	b, err := json.Marshal(payload)
-	if err != nil {
-		ep.logger.Error().Err(err).Msg("failed to marshal sendTxWithGas payload")
-		event.Payload = []byte(`{"sourceChain":"` + event.ChainID + `","txHash":"` + log.TxHash.Hex() + `"}`)
-	} else {
-		event.Payload = b
-	}
-}
-
-// parseSendFundsEvent extracts specific data from the sendFunds event.
-// For sendFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType, signatureData?)
-// it JSON-marshals the decoded fields into event.Payload.
-//
-// Encoding layout in log.Data (non-indexed):
-// [0] address  bridgeToken              (32 bytes; right-most 20 significant)
-// [1] uint256  bridgeAmount             (32 bytes)
-// [2] offset   payload (bytes)          (32 bytes; offset from start of log.Data)
-// [3] offset   revertCFG (tuple)        (32 bytes; offset from start of log.Data)
-// [4] uint     txType                   (32 bytes)
-// [5] offset   signatureData (bytes)   (32 bytes; offset from start of log.Data)   <-- OPTIONAL, dynamic bytes
-//
-// tuple RevertSettings head (at revertOffset):
-// [0] address fundRecipient
-// [1] offset  revertMsg (bytes)         (offset from start of the tuple)
-// ... tail for revertMsg follows
-func (ep *EventParser) parseSendFundsEvent(event *common.GatewayEvent, log *types.Log) {
+/*
+UniversalTx Event:
+ 1. sender (address)
+ 2. recipient (address)
+ 3. token (address)
+ 4. amount (uint256)
+ 5. payload (bytes)
+ 6. revertInstructions (tuple)
+    6.1. revertRecipient (address)
+    6.2. revertMsg (bytes)
+ 7. txType (uint)
+ 8. signatureData (bytes)
+*/
+func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *types.Log) {
 	if len(log.Topics) < 3 {
-		// Not enough indexed fields; nothing to do.
+		ep.logger.Warn().
+			Msg("not enough indexed fields; nothing to do")
 		return
 	}
 
-	payload := common.TxWithFundsPayload{
+	payload := common.UniversalTx{
 		SourceChain: event.ChainID,
 		Sender:      ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
 		Recipient:   ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
@@ -397,15 +262,6 @@ func (ep *EventParser) parseSendFundsEvent(event *common.GatewayEvent, log *type
 	}
 }
 
-// GetEventTopics returns the configured event topics
-func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
-	topics := make([]ethcommon.Hash, 0, len(ep.eventTopics))
-	for eventID := range ep.eventTopics {
-		topics = append(topics, ethcommon.HexToHash(eventID))
-	}
-	return topics
-}
-
 // DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
 func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 	// Handle empty string case
@@ -432,15 +288,10 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 
 	// Try to decode as ABI-encoded UniversalPayload first
 	up, err := decodeABIUniversalPayload(bz)
-	if err == nil {
-		return up, nil
+	if err != nil {
+		return nil, err
 	}
 
-	// If ABI decoding fails, try protobuf decoding as fallback
-	up = new(uetypes.UniversalPayload)
-	if err := gogoproto.Unmarshal(bz, up); err != nil {
-		return nil, fmt.Errorf("failed to decode UniversalPayload as both ABI and protobuf: ABI error: %v, protobuf error: %w", err, err)
-	}
 	return up, nil
 }
 
@@ -589,4 +440,9 @@ func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
 	}
 
 	return up, nil
+}
+
+// GetEventTopics returns the configured event topics
+func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
+	return ep.eventTopics
 }

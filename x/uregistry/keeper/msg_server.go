@@ -115,3 +115,22 @@ func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateT
 
 	return &types.MsgUpdateTokenConfigResponse{}, nil
 }
+
+// RemoveTokenConfig implements types.MsgServer.
+func (ms msgServer) RemoveTokenConfig(ctx context.Context, msg *types.MsgRemoveTokenConfig) (*types.MsgRemoveTokenConfigResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.RemoveTokenConfig(ctx, msg.Chain, msg.TokenAddress)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgRemoveTokenConfigResponse{}, nil
+}

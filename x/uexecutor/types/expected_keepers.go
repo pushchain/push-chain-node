@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -90,6 +91,7 @@ type AccountKeeper interface {
 type UtxverifierKeeper interface {
 	VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error
 	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error)
+	StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata utxverifiertypes.VerifiedTxMetadata) error
 }
 
 type UValidatorKeeper interface {

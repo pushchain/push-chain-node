@@ -95,7 +95,7 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k *Keeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types.VerifiedTxMetadata) error {
+func (k Keeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types.VerifiedTxMetadata) error {
 	if chain == "" || txHash == "" {
 		return fmt.Errorf("chain, and tx_hash are required")
 	}
@@ -105,7 +105,7 @@ func (k *Keeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash strin
 	return k.VerifiedInboundTxs.Set(ctx, storageKey, verifiedTxMetadata)
 }
 
-func (k *Keeper) GetVerifiedInboundTxMetadata(ctx context.Context, chain, txHash string) (*types.VerifiedTxMetadata, bool, error) {
+func (k Keeper) GetVerifiedInboundTxMetadata(ctx context.Context, chain, txHash string) (*types.VerifiedTxMetadata, bool, error) {
 	storageKey := types.GetVerifiedInboundTxStorageKey(chain, txHash)
 
 	data, err := k.VerifiedInboundTxs.Get(ctx, storageKey)

@@ -16,8 +16,8 @@
     },
     {"name": "send_funds",
       "identifier": "54f7d3283f6a0f3b",
-      "event_identifier": "2b1f1f0204ec6bff",
-      "confirmation_type": 2
+      "event_identifier": "6C9AD829B5EA1D7C",
+      "confirmation_type": 1
     }
   ],
   "enabled": {

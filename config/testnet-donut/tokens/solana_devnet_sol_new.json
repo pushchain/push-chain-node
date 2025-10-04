@@ -1,10 +1,10 @@
 {
   "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-  "address": "0x0000000000000000000000000000000000000000",
+  "address": "11111111111111111111111111111111",
   "name": "pSOL",
   "symbol": "pSOL",
   "decimals": 9,
-  "enabled": false,
+  "enabled": true,
   "liquidity_cap": "1000000000000000000000000",
   "token_type": 4, 
   "native_representation": {

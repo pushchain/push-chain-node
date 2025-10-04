@@ -123,6 +123,42 @@ func (k Keeper) CallUEAExecutePayload(
 	)
 }
 
+// CallUEADomainSeparator fetches the domainSeparator from the UEA contract
+func (k Keeper) CallUEADomainSeparator(
+	ctx sdk.Context,
+	from, ueaAddr common.Address,
+) ([32]byte, error) {
+	abi, err := types.ParseUeaABI()
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "failed to parse UEA ABI")
+	}
+
+	// Call the view function domainSeparator()
+	res, err := k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		from,
+		ueaAddr,
+		big.NewInt(0), // value = 0
+		nil,           // gasLimit = nil for view calls
+		false,         // commit = false (simulation)
+		false,         // gasless = false
+		"domainSeparator",
+	)
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "failed to call domainSeparator")
+	}
+
+	// Convert returned bytes to [32]byte
+	if len(res.Ret) < 32 {
+		return [32]byte{}, fmt.Errorf("invalid domainSeparator length: got %d, want 32", len(res.Ret))
+	}
+	var separator [32]byte
+	copy(separator[:], res.Ret[:32])
+
+	return separator, nil
+}
+
 // Calls Handler Contract to deposit prc20 tokens
 func (k Keeper) CallPRC20Deposit(
 	ctx sdk.Context,
@@ -151,5 +187,39 @@ func (k Keeper) CallPRC20Deposit(
 		prc20Address,
 		amount,
 		to,
+	)
+}
+
+// Calls Handler Contract to deposit prc20 tokens
+func (k Keeper) CallPRC20DepositAutoSwap(
+	ctx sdk.Context,
+	prc20Address, to common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // who is sending the transaction
+		handlerAddr,        // destination: Handler contract
+		big.NewInt(0),
+		nil,
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		"depositPRC20WithAutoSwap",
+		prc20Address,
+		amount,
+		to,
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
 	)
 }

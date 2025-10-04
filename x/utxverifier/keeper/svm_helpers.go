@@ -128,7 +128,10 @@ func CheckSVMBlockConfirmations(
 func ParseSVMFundsAddedEventLog(
 	logMessages []string,
 	expectedDiscriminator []byte,
-) (*utxverifiertypes.SVMFundsAddedEventData, error) {
+) ([]utxverifiertypes.SVMFundsAddedEventData, error) {
+
+	var results []utxverifiertypes.SVMFundsAddedEventData
+
 	for _, log := range logMessages {
 		if strings.HasPrefix(log, "Program data: ") {
 			encoded := strings.TrimPrefix(log, "Program data: ")
@@ -166,12 +169,16 @@ func ParseSVMFundsAddedEventLog(
 				usdAmount = new(big.Int).Mul(usdAmount, multiplier)
 			}
 
-			return &utxverifiertypes.SVMFundsAddedEventData{
+			results = append(results, utxverifiertypes.SVMFundsAddedEventData{
 				AmountInUSD: usdAmount,
 				Decimals:    decimals,
 				PayloadHash: fmt.Sprintf("0x%x", txHashBytes),
-			}, nil
+			})
 		}
+	}
+
+	if len(results) == 0 {
+		return nil, fmt.Errorf("amount not found with expected discriminator %s", expectedDiscriminator)
 	}
 
 	return nil, fmt.Errorf("FundsAddedEvent not found in transaction logs")

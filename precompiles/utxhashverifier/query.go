@@ -74,8 +74,16 @@ func (p Precompile) VerifyTxHash(
 		return method.Outputs.Pack(false)
 	}
 
-	if verifiedPayload != payloadHash {
-		fmt.Printf("[UTxHashVerifier] Payload mismatch: expected %s, got %s\n", payloadHash, verifiedPayload)
+	matched := false
+	for _, ph := range verifiedPayload {
+		if ph == payloadHash {
+			matched = true
+			break
+		}
+	}
+
+	if !matched {
+		fmt.Printf("[UTxHashVerifier] Payload mismatch: expected %s, got %v\n", payloadHash, verifiedPayload)
 		return method.Outputs.Pack(false)
 	}
 

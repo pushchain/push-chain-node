@@ -130,16 +130,16 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 	if chainState.LastBlock <= 0 {
 		// If LastBlock is 0 or negative, start from latest slot
 		h.logger.Info().
-			Int64("stored_slot", chainState.LastBlock).
+			Uint64("stored_slot", chainState.LastBlock).
 			Msg("invalid or zero last slot, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
 
 	h.logger.Info().
-		Int64("slot", chainState.LastBlock).
+		Uint64("slot", chainState.LastBlock).
 		Msg("resuming from last processed slot")
 
-	return uint64(chainState.LastBlock), nil
+	return chainState.LastBlock, nil
 }
 
 // UpdateLastProcessedSlot updates the last processed slot in the database
@@ -156,15 +156,15 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
 		chainState = store.ChainState{
-			LastBlock: int64(slotNumber),
+			LastBlock: slotNumber,
 		}
 		if err := h.database.Client().Create(&chainState).Error; err != nil {
 			return fmt.Errorf("failed to create last processed slot record: %w", err)
 		}
 	} else {
 		// Update existing record only if new slot is higher
-		if int64(slotNumber) > chainState.LastBlock {
-			chainState.LastBlock = int64(slotNumber)
+		if slotNumber > chainState.LastBlock {
+			chainState.LastBlock = slotNumber
 			if err := h.database.Client().Save(&chainState).Error; err != nil {
 				return fmt.Errorf("failed to update last processed slot: %w", err)
 			}

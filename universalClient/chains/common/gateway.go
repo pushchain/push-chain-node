@@ -11,22 +11,20 @@ type GatewayEvent struct {
 	ChainID          string
 	TxHash           string
 	BlockNumber      uint64
-	Method           string
 	EventID          string
 	Payload          []byte
 	Confirmations    uint64
 	ConfirmationType string // "STANDARD" or "FAST" - from gateway method config
 }
 
-type TxWithFundsPayload struct {
+type UniversalTx struct {
 	SourceChain         string                   `json:"sourceChain"`
 	LogIndex            uint                     `json:"logIndex"`
 	Sender              string                   `json:"sender"`
 	Recipient           string                   `json:"recipient"`
-	BridgeToken         string                   `json:"bridgeToken"`
-	BridgeAmount        string                   `json:"bridgeAmount"` // uint256 as decimal string
-	GasAmount           string                   `json:"gasAmount"`    // uint256 as decimal string
-	UniversalPayload    uetypes.UniversalPayload `json:"universalPayload"`
+	Token               string                   `json:"bridgeToken"`
+	Amount              string                   `json:"bridgeAmount"` // uint256 as decimal string
+	Payload             uetypes.UniversalPayload `json:"universalPayload"`
 	VerificationData    string                   `json:"verificationData"`
 	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
 	RevertMsg           string                   `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)

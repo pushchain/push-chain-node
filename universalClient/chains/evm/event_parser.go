@@ -16,15 +16,18 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+)
+
+const (
+	AddFundsEventID = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
 )
 
 // EventParser handles parsing of EVM gateway events
 type EventParser struct {
 	gatewayAddr ethcommon.Address
 	config      *uregistrytypes.ChainConfig
-	eventTopics map[string]ethcommon.Hash
+	eventTopics []ethcommon.Hash
 	logger      zerolog.Logger
 }
 
@@ -35,7 +38,7 @@ func NewEventParser(
 	logger zerolog.Logger,
 ) *EventParser {
 	// Build event topics from config methods
-	eventTopics := make(map[string]ethcommon.Hash)
+	eventTopics := make([]ethcommon.Hash, 0, len(config.GatewayMethods))
 	logger.Info().
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
@@ -43,19 +46,22 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			eventTopics[method.Identifier] = ethcommon.HexToHash(method.EventIdentifier)
+			eventTopics = append(eventTopics, ethcommon.HexToHash(method.EventIdentifier))
 			logger.Info().
-				Str("method", method.Name).
 				Str("event_identifier", method.EventIdentifier).
-				Str("method_id", method.Identifier).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
-				Str("method", method.Name).
-				Str("method_id", method.Identifier).
+				Str("event_identifier", "").
 				Msg("no event identifier provided in config for method")
 		}
 	}
+
+	// Debug log the complete cache
+	logger.Debug().
+		Interface("event_topics_cache", eventTopics).
+		Int("total_events", len(eventTopics)).
+		Msg("event topics cache built")
 
 	return &EventParser{
 		gatewayAddr: gatewayAddr,
@@ -71,78 +77,53 @@ func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
 		return nil
 	}
 
-	// Find matching method by event topic
-	var eventID ethcommon.Hash
-	var methodName, confirmationType string
-	var found bool
-	for id, topic := range ep.eventTopics {
-		if log.Topics[0] == topic {
-			eventID = topic
-			found = true
-			// Find method name and confirmation type from config
-			for _, method := range ep.config.GatewayMethods {
-				if method.Identifier == id {
-					methodName = method.Name
-					// Map confirmation type enum to string
-					if method.ConfirmationType == 2 { // CONFIRMATION_TYPE_FAST
-						confirmationType = "FAST"
-					} else {
-						confirmationType = "STANDARD" // Default to STANDARD
-					}
-					break
-				}
-			}
-			break
-		}
-	}
+	eventID := log.Topics[0].Hex()
 
-	// Return nil if no matching event topic found
-	if !found {
+	// Skip add_funds events
+	// @dev: we don't want to parse add_funds events
+	if eventID == AddFundsEventID {
 		return nil
 	}
 
-	// TODO: Remove temp code avoid listing add_funds
-	if eventID.String() == "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd" {
-		return nil
-	}
+	ep.logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_hash", log.TxHash.Hex()).
+		Msg("processing gateway event")
 
 	event := &common.GatewayEvent{
-		ChainID:          ep.config.Chain,
-		TxHash:           log.TxHash.Hex(),
-		BlockNumber:      log.BlockNumber,
-		Method:           methodName,
-		EventID:          eventID.Hex(),
-		ConfirmationType: confirmationType,
+		ChainID:     ep.config.Chain,
+		TxHash:      log.TxHash.Hex(),
+		BlockNumber: log.BlockNumber,
+		EventID:     eventID,
 	}
-	// Parse event data based on method
-	ep.parseEventData(event, log)
+
+	// @dev: we only support universal tx events for now
+	ep.parseUniversalTxEvent(event, log)
 
 	return event
 }
 
-// parseEventData extracts specific data from the event based on method type.
-// For TxWithFunds(sender, recipient, bridgeToken, bridgeAmount, payload, revertCFG, txType, signatureData?)
-// it JSON-marshals the decoded fields into event.Payload.
-//
-// Encoding layout in log.Data (non-indexed):
-// [0] address  bridgeToken              (32 bytes; right-most 20 significant)
-// [1] uint256  bridgeAmount             (32 bytes)
-// [2] offset   payload (bytes)          (32 bytes; offset from start of log.Data)
-// [3] offset   revertCFG (tuple)        (32 bytes; offset from start of log.Data)
-// [4] uint     txType                   (32 bytes)
-// [5] offset   signatureData (bytes)   (32 bytes; offset from start of log.Data)   <-- OPTIONAL, dynamic bytes
-//
-// tuple RevertSettings head (at revertOffset):
-// [0] address fundRecipient
-// [1] offset  revertMsg (bytes)         (offset from start of the tuple)
-// ... tail for revertMsg follows
-func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log) {
+/*
+UniversalTx Event:
+ 1. sender (address)
+ 2. recipient (address)
+ 3. token (address)
+ 4. amount (uint256)
+ 5. payload (bytes)
+ 6. revertInstructions (tuple)
+    6.1. revertRecipient (address)
+    6.2. revertMsg (bytes)
+ 7. txType (uint)
+ 8. signatureData (bytes)
+*/
+func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *types.Log) {
 	if len(log.Topics) < 3 {
-		// Not enough indexed fields; nothing to do.
+		ep.logger.Warn().
+			Msg("not enough indexed fields; nothing to do")
 		return
 	}
 
-	payload := common.TxWithFundsPayload{
+	payload := common.UniversalTx{
 		SourceChain: event.ChainID,
 		Sender:      ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
 		Recipient:   ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
@@ -168,13 +149,13 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 
 	// bridgeToken (address in the right-most 20 bytes of the first word)
 	if w := word(0); w != nil {
-		payload.BridgeToken = ethcommon.BytesToAddress(w[12:32]).Hex()
+		payload.Token = ethcommon.BytesToAddress(w[12:32]).Hex()
 	}
 
 	// bridgeAmount (uint256)
 	if w := word(1); w != nil {
 		amt := new(big.Int).SetBytes(w)
-		payload.BridgeAmount = amt.String()
+		payload.Amount = amt.String()
 	}
 
 	// dynamic offsets (relative to start of log.Data)
@@ -229,7 +210,7 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 					Err(err).
 					Msg("failed to decode universal payload")
 			} else if up != nil {
-				payload.UniversalPayload = *up
+				payload.Payload = *up
 			}
 		}
 	}
@@ -279,15 +260,13 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, log *types.Log
 	if b, err := json.Marshal(payload); err == nil {
 		event.Payload = b
 	}
-}
 
-// GetEventTopics returns the configured event topics
-func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
-	topics := make([]ethcommon.Hash, 0, len(ep.eventTopics))
-	for _, topic := range ep.eventTopics {
-		topics = append(topics, topic)
+	// if TxType is 0 or 1, use FAST else use STANDARD
+	if payload.TxType == 0 || payload.TxType == 1 {
+		event.ConfirmationType = "FAST"
+	} else {
+		event.ConfirmationType = "STANDARD"
 	}
-	return topics
 }
 
 // DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
@@ -316,15 +295,10 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 
 	// Try to decode as ABI-encoded UniversalPayload first
 	up, err := decodeABIUniversalPayload(bz)
-	if err == nil {
-		return up, nil
+	if err != nil {
+		return nil, err
 	}
 
-	// If ABI decoding fails, try protobuf decoding as fallback
-	up = new(uetypes.UniversalPayload)
-	if err := gogoproto.Unmarshal(bz, up); err != nil {
-		return nil, fmt.Errorf("failed to decode UniversalPayload as both ABI and protobuf: ABI error: %v, protobuf error: %w", err, err)
-	}
 	return up, nil
 }
 
@@ -473,4 +447,9 @@ func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
 	}
 
 	return up, nil
+}
+
+// GetEventTopics returns the configured event topics
+func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
+	return ep.eventTopics
 }

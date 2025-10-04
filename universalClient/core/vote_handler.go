@@ -77,7 +77,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 		Str("tx_hash", tx.TxHash).
 		Uint32("tx_id", uint32(tx.ID)).
 		Uint64("block", tx.BlockNumber).
-		Str("method", tx.Method).
+		Str("event_id", tx.EventIdentifier).
 		Str("current_status", tx.Status).
 		Msg("starting vote and confirm process")
 
@@ -116,15 +116,12 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 
 	// Update status atomically using conditional WHERE clause
 	// This prevents race conditions if multiple workers process the same transaction
-	votedAt := time.Now()
 	result := vh.db.Client().WithContext(dbCtx).
 		Model(&store.ChainTransaction{}).
 		Where("id = ? AND status IN (?)", tx.ID, []string{"confirmation_pending", "awaiting_vote"}).
 		Updates(map[string]interface{}{
 			"status":       "confirmed",
 			"vote_tx_hash": voteTxHash,
-			"voted_at":     votedAt,
-			"updated_at":   votedAt,
 		})
 
 	if result.Error != nil {
@@ -166,7 +163,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 // constructInbound creates an Inbound message from transaction data
 func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.Inbound, error) {
 	// Initialize event data map
-	var eventData common.TxWithFundsPayload
+	var eventData common.UniversalTx
 
 	if tx == nil {
 		return nil, fmt.Errorf("transaction is nil")
@@ -212,8 +209,8 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		SourceChain: eventData.SourceChain,
 		TxHash:      txHashHex,
 		Sender:      eventData.Sender,
-		Amount:      eventData.BridgeAmount,
-		AssetAddr:   eventData.BridgeToken,
+		Amount:      eventData.Amount,
+		AssetAddr:   eventData.Token,
 		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
 	}
@@ -232,7 +229,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 
 	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD {
 		inboundMsg.VerificationData = eventData.VerificationData
-		inboundMsg.UniversalPayload = &eventData.UniversalPayload
+		inboundMsg.UniversalPayload = &eventData.Payload
 	}
 
 	return inboundMsg, nil

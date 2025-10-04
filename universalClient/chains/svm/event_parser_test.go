@@ -47,9 +47,8 @@ func TestNewEventParser(t *testing.T) {
 	assert.Equal(t, gatewayAddr, parser.gatewayAddr)
 	assert.Equal(t, config, parser.config)
 	assert.Len(t, parser.eventTopics, 2)
-	// Map now uses EventIdentifier as key -> ConfirmationType as value
-	assert.Equal(t, uregistrytypes.ConfirmationType(1), parser.eventTopics["2b1f1f0204ec6bff"])
-	assert.Equal(t, uregistrytypes.ConfirmationType(2), parser.eventTopics["abcdef1234567890"])
+	assert.Contains(t, parser.eventTopics, "2b1f1f0204ec6bff")
+	assert.Contains(t, parser.eventTopics, "abcdef1234567890")
 }
 
 func TestNewEventParser_NoEventIdentifier(t *testing.T) {
@@ -142,7 +141,7 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 			{
 				Identifier:       "method1",
 				Name:             "add_funds",
-				EventIdentifier:  SendFundsDiscriminator,
+				EventIdentifier:  UniversalTxDiscriminator,
 				ConfirmationType: 1,
 			},
 		},
@@ -150,7 +149,7 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 
 	parser := NewEventParser(gatewayAddr, config, logger)
 
-	eventData := createTestEventData(SendFundsDiscriminator, "sender", "recipient", 1000, 100, "token", "", "", "", 0, 2, "")
+	eventData := createTestEventData(UniversalTxDiscriminator, "sender", "recipient", 1000, 100, "token", "", "", "", 0, 2, "")
 	encodedData := base64.StdEncoding.EncodeToString(eventData)
 
 	tx := &rpc.GetTransactionResult{
@@ -169,7 +168,7 @@ func TestParseGatewayEvent_AddFundsFiltered(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, SendFundsDiscriminator, result.EventID)
+	assert.Equal(t, UniversalTxDiscriminator, result.EventID)
 	assert.Equal(t, "STANDARD", result.ConfirmationType) // ConfirmationType 1 maps to STANDARD
 }
 
@@ -182,7 +181,7 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 			{
 				Identifier:       "method1",
 				Name:             "send_funds",
-				EventIdentifier:  SendFundsDiscriminator,
+				EventIdentifier:  UniversalTxDiscriminator,
 				ConfirmationType: 2, // FAST
 			},
 		},
@@ -197,7 +196,7 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		SendFundsDiscriminator,
+		UniversalTxDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount
@@ -226,12 +225,12 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 	assert.Equal(t, "solana-testnet", result.ChainID)
 	assert.Equal(t, "test-signature", result.TxHash)
 	assert.Equal(t, uint64(12345), result.BlockNumber)
-	assert.Equal(t, SendFundsDiscriminator, result.EventID)
+	assert.Equal(t, UniversalTxDiscriminator, result.EventID)
 	assert.Equal(t, "FAST", result.ConfirmationType)
 	assert.NotNil(t, result.Payload)
 
 	// Parse the payload to verify contents
-	var payload common.TxWithFundsPayload
+	var payload common.UniversalTx
 	err := json.Unmarshal(result.Payload, &payload)
 	require.NoError(t, err)
 
@@ -242,14 +241,13 @@ func TestParseGatewayEvent_Success(t *testing.T) {
 		payload.Sender == "11111111111111111111111111111111",
 		"Sender should be either hex or base58 format")
 	assert.Equal(t, "0x"+hex.EncodeToString(recipient), payload.Recipient)
-	assert.Equal(t, "1000000", payload.BridgeAmount)
-	assert.Equal(t, "50000", payload.GasAmount)
+	assert.Equal(t, "1000000", payload.Amount)
 	// Check if bridgeToken is in hex or base58 format
-	assert.True(t, payload.BridgeToken == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
-		payload.BridgeToken == "11111111111111111111111111111111",
+	assert.True(t, payload.Token == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
+		payload.Token == "11111111111111111111111111111111",
 		"BridgeToken should be either hex or base58 format")
 	// UniversalPayload.Data may be empty or hex
-	assert.True(t, payload.UniversalPayload.Data == "0x746573742d64617461" || payload.UniversalPayload.Data == "",
+	assert.True(t, payload.Payload.Data == "0x746573742d64617461" || payload.Payload.Data == "",
 		"UniversalPayload.Data should be hex or empty")
 	assert.Equal(t, "0x7369676e61747572652d64617461", payload.VerificationData) // "signature-data" in hex
 	// Check if revertFundRecipient is in hex or base58 format
@@ -273,7 +271,7 @@ func TestDecodeTxWithFundsEvent_Success(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		SendFundsDiscriminator,
+		UniversalTxDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount
@@ -288,7 +286,7 @@ func TestDecodeTxWithFundsEvent_Success(t *testing.T) {
 
 	// decodeTxWithFundsEvent expects the discriminator to be included in the data
 	// (it starts reading from offset 8 internally)
-	payload, err := parser.decodeTxWithFundsEvent(eventData)
+	payload, err := parser.decodeUniversalTxEvent(eventData)
 
 	require.NoError(t, err)
 	require.NotNil(t, payload)
@@ -298,13 +296,12 @@ func TestDecodeTxWithFundsEvent_Success(t *testing.T) {
 		payload.Sender == "11111111111111111111111111111111",
 		"Sender should be either hex or base58 format")
 	assert.Equal(t, "0x"+hex.EncodeToString(recipient), payload.Recipient)
-	assert.Equal(t, "1000000", payload.BridgeAmount)
-	assert.Equal(t, "50000", payload.GasAmount)
-	assert.True(t, payload.BridgeToken == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
-		payload.BridgeToken == "11111111111111111111111111111111",
+	assert.Equal(t, "1000000", payload.Amount)
+	assert.True(t, payload.Token == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
+		payload.Token == "11111111111111111111111111111111",
 		"BridgeToken should be either hex or base58 format")
 	// UniversalPayload.Data may be empty or hex
-	assert.True(t, payload.UniversalPayload.Data == "0x746573742d64617461" || payload.UniversalPayload.Data == "",
+	assert.True(t, payload.Payload.Data == "0x746573742d64617461" || payload.Payload.Data == "",
 		"UniversalPayload.Data should be hex or empty")
 	assert.Equal(t, "0x7369676e61747572652d64617461", payload.VerificationData) // "signature-data" in hex
 	assert.True(t, payload.RevertFundRecipient == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
@@ -323,7 +320,7 @@ func TestDecodeTxWithFundsEvent_InsufficientData(t *testing.T) {
 	// Test with insufficient data
 	shortData := []byte("short")
 
-	payload, err := parser.decodeTxWithFundsEvent(shortData)
+	payload, err := parser.decodeUniversalTxEvent(shortData)
 
 	assert.Error(t, err)
 	assert.Nil(t, payload)
@@ -343,7 +340,7 @@ func TestDecodeTxWithFundsEvent_InvalidTxType(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		SendFundsDiscriminator,
+		UniversalTxDiscriminator,
 		sender[:],
 		recipient,
 		1000000,
@@ -358,7 +355,7 @@ func TestDecodeTxWithFundsEvent_InvalidTxType(t *testing.T) {
 
 	// decodeTxWithFundsEvent expects the discriminator to be included in the data
 	// (it starts reading from offset 8 internally)
-	payload, err := parser.decodeTxWithFundsEvent(eventData)
+	payload, err := parser.decodeUniversalTxEvent(eventData)
 
 	require.NoError(t, err) // Should not error
 	require.NotNil(t, payload)
@@ -391,7 +388,7 @@ func TestDecodeTxWithFundsEvent_AnyTxType(t *testing.T) {
 	data := make([]byte, 0)
 
 	// Add discriminator first (8 bytes) - decodeTxWithFundsEvent expects it
-	discriminatorBytes, _ := hex.DecodeString(SendFundsDiscriminator)
+	discriminatorBytes, _ := hex.DecodeString(UniversalTxDiscriminator)
 	data = append(data, discriminatorBytes...)
 
 	// Sender (32 bytes)
@@ -434,7 +431,7 @@ func TestDecodeTxWithFundsEvent_AnyTxType(t *testing.T) {
 	binary.LittleEndian.PutUint32(sigLen, 0)
 	data = append(data, sigLen...)
 
-	payload, err := parser.decodeTxWithFundsEvent(data)
+	payload, err := parser.decodeUniversalTxEvent(data)
 
 	require.NoError(t, err)
 	require.NotNil(t, payload)
@@ -480,7 +477,7 @@ func TestDecodeTxWithFundsEvent_EmptyFields(t *testing.T) {
 	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
 
 	eventData := createTestEventDataWithDetails(
-		SendFundsDiscriminator,
+		UniversalTxDiscriminator,
 		sender[:],
 		recipient,
 		1000000, // bridge amount
@@ -495,7 +492,7 @@ func TestDecodeTxWithFundsEvent_EmptyFields(t *testing.T) {
 
 	// decodeTxWithFundsEvent expects the discriminator to be included in the data
 	// (it starts reading from offset 8 internally)
-	payload, err := parser.decodeTxWithFundsEvent(eventData)
+	payload, err := parser.decodeUniversalTxEvent(eventData)
 
 	require.NoError(t, err)
 	require.NotNil(t, payload)

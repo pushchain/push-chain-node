@@ -163,7 +163,7 @@ func (vh *VoteHandler) VoteAndConfirm(ctx context.Context, tx *store.ChainTransa
 // constructInbound creates an Inbound message from transaction data
 func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.Inbound, error) {
 	// Initialize event data map
-	var eventData common.TxWithFundsPayload
+	var eventData common.UniversalTx
 
 	if tx == nil {
 		return nil, fmt.Errorf("transaction is nil")
@@ -209,8 +209,8 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		SourceChain: eventData.SourceChain,
 		TxHash:      txHashHex,
 		Sender:      eventData.Sender,
-		Amount:      eventData.BridgeAmount,
-		AssetAddr:   eventData.BridgeToken,
+		Amount:      eventData.Amount,
+		AssetAddr:   eventData.Token,
 		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
 	}
@@ -229,7 +229,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 
 	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD {
 		inboundMsg.VerificationData = eventData.VerificationData
-		inboundMsg.UniversalPayload = &eventData.UniversalPayload
+		inboundMsg.UniversalPayload = &eventData.Payload
 	}
 
 	return inboundMsg, nil

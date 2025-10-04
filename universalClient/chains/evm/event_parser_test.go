@@ -89,7 +89,7 @@ func TestNewEventParser(t *testing.T) {
 func TestParseGatewayEvent(t *testing.T) {
 	gatewayAddr := ethcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7")
 	// Use the actual SendFundsEventID constant
-	eventTopic := ethcommon.HexToHash(SendFundsEventID)
+	eventTopic := ethcommon.HexToHash("0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd")
 
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1",
@@ -98,7 +98,7 @@ func TestParseGatewayEvent(t *testing.T) {
 			{
 				Name:            "sendFunds",
 				Identifier:      "method1",
-				EventIdentifier: SendFundsEventID,
+				EventIdentifier: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
 			},
 		},
 	}
@@ -280,7 +280,7 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseSendFundsEvent(event, log)
+		parser.parseUniversalTxEvent(event, log)
 	})
 
 	t.Run("handles missing data gracefully", func(t *testing.T) {
@@ -292,6 +292,6 @@ func TestParseEventData(t *testing.T) {
 		}
 
 		event := &common.GatewayEvent{}
-		parser.parseSendFundsEvent(event, log)
+		parser.parseUniversalTxEvent(event, log)
 	})
 }

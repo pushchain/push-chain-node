@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/near/borsh-go"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -22,17 +22,16 @@ import (
 )
 
 // Constants for event parsing
-const (
-	SendFundsDiscriminator = "2b1f1f0204ec6bff"
-	AddFundsDiscriminator  = "7f1f6cffbb134644"
-	TxTypeFunds            = 2 // Default fallback tx type
+var (
+	UniversalTxDiscriminator = "2b1f1f0204ec6bff"
+	AddFundsDiscriminator    = "7f1f6cffbb134644"
 )
 
 // EventParser handles parsing of SVM gateway events
 type EventParser struct {
 	gatewayAddr solana.PublicKey
 	config      *uregistrytypes.ChainConfig
-	eventTopics map[string]uregistrytypes.ConfirmationType // EventIdentifier (discriminator) -> ConfirmationType
+	eventTopics []string
 	logger      zerolog.Logger
 }
 
@@ -60,7 +59,7 @@ func NewEventParser(
 ) *EventParser {
 	// Build event topics from config methods
 	// Map: EventIdentifier (discriminator string) -> ConfirmationType
-	eventTopics := make(map[string]uregistrytypes.ConfirmationType)
+	eventTopics := make([]string, 0, len(config.GatewayMethods))
 	logger.Info().
 		Int("gateway_methods_count", len(config.GatewayMethods)).
 		Str("gateway_address", config.GatewayAddress).
@@ -68,10 +67,13 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			eventTopics[method.EventIdentifier] = method.ConfirmationType
+			// if 0th index, then set UniversalTxDiscriminator
+			if len(eventTopics) == 0 {
+				UniversalTxDiscriminator = method.EventIdentifier
+			}
+			eventTopics = append(eventTopics, method.EventIdentifier)
 			logger.Info().
 				Str("event_identifier", method.EventIdentifier).
-				Int("confirmation_type", int(method.ConfirmationType)).
 				Msg("registered event topic from config")
 		} else {
 			logger.Warn().
@@ -102,7 +104,6 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 
 	// Find matching method by event discriminator
 	var eventID string
-	var confirmationType string
 	var found bool
 
 	// Look for events in transaction logs
@@ -129,16 +130,9 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		}
 
 		// Find matching method by event discriminator using direct lookup
-		confType, exists := ep.eventTopics[discriminator]
-		if exists {
+		if slices.Contains(ep.eventTopics, discriminator) {
 			eventID = discriminator
 			found = true
-			// Map confirmation type enum to string
-			if confType == 2 { // CONFIRMATION_TYPE_FAST
-				confirmationType = "FAST"
-			} else {
-				confirmationType = "STANDARD" // Default to STANDARD
-			}
 			break
 		}
 	}
@@ -149,22 +143,21 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 	}
 
 	event := &common.GatewayEvent{
-		ChainID:          ep.config.Chain,
-		TxHash:           signature,
-		BlockNumber:      slot,
-		EventID:          eventID,
-		ConfirmationType: confirmationType,
+		ChainID:     ep.config.Chain,
+		TxHash:      signature,
+		BlockNumber: slot,
+		EventID:     eventID,
 	}
 
 	// Parse event data based on method
-	ep.parseEventData(event, tx.Meta.LogMessages)
+	ep.parseUniversalTxEvent(event, tx.Meta.LogMessages)
 
 	return event
 }
 
 // parseEventData extracts specific data from the event based on method type.
 // For TxWithFunds events, it JSON-marshals the decoded fields into event.Payload.
-func (ep *EventParser) parseEventData(event *common.GatewayEvent, logs []string) {
+func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, logs []string) {
 	// Look for TxWithFunds event in Program data logs
 	for i, log := range logs {
 		if !strings.HasPrefix(log, "Program data: ") {
@@ -186,12 +179,12 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, logs []string)
 		}
 
 		discriminator := hex.EncodeToString(decoded[:8])
-		if discriminator != SendFundsDiscriminator {
+		if discriminator != UniversalTxDiscriminator {
 			continue
 		}
 
 		// Parse the TxWithFunds event
-		payload, err := ep.decodeTxWithFundsEvent(decoded)
+		payload, err := ep.decodeUniversalTxEvent(decoded)
 		if err != nil {
 			ep.logger.Warn().
 				Err(err).
@@ -209,13 +202,20 @@ func (ep *EventParser) parseEventData(event *common.GatewayEvent, logs []string)
 			event.Payload = b
 		}
 
+		// if TxType is 0 or 1, use FAST else use STANDARD
+		if payload.TxType == 0 || payload.TxType == 1 {
+			event.ConfirmationType = "FAST"
+		} else {
+			event.ConfirmationType = "STANDARD"
+		}
+
 		// Only process the first valid event
 		break
 	}
 }
 
-// decodeTxWithFundsEvent decodes a TxWithFunds event
-func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsPayload, error) {
+// decodeUniversalTxEvent decodes a TxWithFunds event
+func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx, error) {
 	if len(data) < 120 {
 		ep.logger.Warn().
 			Int("data_len", len(data)).
@@ -223,11 +223,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 	}
 
 	offset := 8
-	payload := &common.TxWithFundsPayload{
-		TxType:           uint(TxTypeFunds),
-		RevertMsg:        "0x",
-		VerificationData: "0x",
-	}
+	payload := &common.UniversalTx{}
 
 	// Parse sender (32 bytes)
 	if len(data) < offset+32 {
@@ -258,15 +254,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 		return nil, fmt.Errorf("not enough data for bridge_amount")
 	}
 	bridgeAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
-	payload.BridgeAmount = fmt.Sprintf("%d", bridgeAmount)
-	offset += 8
-
-	// Parse gas_amount (8 bytes)
-	if len(data) < offset+8 {
-		return nil, fmt.Errorf("not enough data for gas_amount")
-	}
-	gasAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
-	payload.GasAmount = fmt.Sprintf("%d", gasAmount)
+	payload.Amount = fmt.Sprintf("%d", bridgeAmount)
 	offset += 8
 
 	// Parse bridge_token (32 bytes)
@@ -274,7 +262,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 		return nil, fmt.Errorf("not enough data for bridge_token")
 	}
 	bridgeToken := solana.PublicKey(data[offset : offset+32])
-	payload.BridgeToken = bridgeToken.String()
+	payload.Token = bridgeToken.String()
 	offset += 32
 
 	// Parse data field length (4 bytes)
@@ -305,7 +293,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 				Err(err).
 				Msg("failed to decode universal payload")
 		} else if up != nil {
-			payload.UniversalPayload = *up
+			payload.Payload = *up
 		}
 
 		// Data is now stored in UniversalPayload, not as a separate field
@@ -357,7 +345,7 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 	// Parse tx_type (TxType enum)
 	if len(data) <= offset {
 		ep.logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
-		payload.TxType = uint(TxTypeFunds)
+		payload.TxType = uint(0)
 		return payload, nil
 	}
 	txType := data[offset]
@@ -390,16 +378,15 @@ func (ep *EventParser) decodeTxWithFundsEvent(data []byte) (*common.TxWithFundsP
 	ep.logger.Debug().
 		Str("sender", payload.Sender).
 		Str("recipient", payload.Recipient).
-		Str("bridge_amount", payload.BridgeAmount).
-		Str("gas_amount", payload.GasAmount).
-		Str("bridge_token", payload.BridgeToken).
-		Str("universal_payload", fmt.Sprintf("%+v", payload.UniversalPayload)).
+		Str("bridge_amount", payload.Amount).
+		Str("bridge_token", payload.Token).
+		Str("universal_payload", fmt.Sprintf("%+v", payload.Payload)).
 		Str("verification_data", payload.VerificationData).
 		Str("revert_recipient", payload.RevertFundRecipient).
 		Str("revert_message", payload.RevertMsg).
 		Uint("tx_type", payload.TxType).
 		Int("total_bytes_parsed", offset).
-		Msg("decoded TxWithFunds event")
+		Msg("decoded UniversalTx event")
 
 	return payload, nil
 }
@@ -430,14 +417,8 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 
 	// Try to decode as ABI-encoded UniversalPayload first
 	up, err := decodeUniversalPayloadBorsh(bz)
-	if err == nil {
-		return up, nil
-	}
-
-	// If ABI decoding fails, try protobuf decoding as fallback
-	up = new(uetypes.UniversalPayload)
-	if err := gogoproto.Unmarshal(bz, up); err != nil {
-		return nil, fmt.Errorf("failed to decode UniversalPayload as both ABI and protobuf: ABI error: %v, protobuf error: %w", err, err)
+	if err != nil {
+		return nil, err
 	}
 	return up, nil
 }
@@ -494,9 +475,5 @@ func decodeUniversalPayloadBorsh(bz []byte) (*uetypes.UniversalPayload, error) {
 
 // GetEventTopics returns the configured event topics
 func (ep *EventParser) GetEventTopics() []string {
-	topics := make([]string, 0, len(ep.eventTopics))
-	for eventID := range ep.eventTopics {
-		topics = append(topics, eventID)
-	}
-	return topics
+	return ep.eventTopics
 }

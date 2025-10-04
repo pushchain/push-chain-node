@@ -149,13 +149,13 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 
 	// bridgeToken (address in the right-most 20 bytes of the first word)
 	if w := word(0); w != nil {
-		payload.BridgeToken = ethcommon.BytesToAddress(w[12:32]).Hex()
+		payload.Token = ethcommon.BytesToAddress(w[12:32]).Hex()
 	}
 
 	// bridgeAmount (uint256)
 	if w := word(1); w != nil {
 		amt := new(big.Int).SetBytes(w)
-		payload.BridgeAmount = amt.String()
+		payload.Amount = amt.String()
 	}
 
 	// dynamic offsets (relative to start of log.Data)
@@ -210,7 +210,7 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 					Err(err).
 					Msg("failed to decode universal payload")
 			} else if up != nil {
-				payload.UniversalPayload = *up
+				payload.Payload = *up
 			}
 		}
 	}
@@ -259,6 +259,13 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 	// Marshal and store into event.Payload
 	if b, err := json.Marshal(payload); err == nil {
 		event.Payload = b
+	}
+
+	// if TxType is 0 or 1, use FAST else use STANDARD
+	if payload.TxType == 0 || payload.TxType == 1 {
+		event.ConfirmationType = "FAST"
+	} else {
+		event.ConfirmationType = "STANDARD"
 	}
 }
 

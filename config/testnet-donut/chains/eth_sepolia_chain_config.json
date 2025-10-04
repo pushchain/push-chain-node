@@ -11,19 +11,13 @@
     {
       "name": "sendFunds",
       "identifier": "0x65f4dbe1",
-      "event_identifier": "0x313800e2e529b7d45906548dd908bb537772d390b660787b2a929ddf1facf6e4",
+      "event_identifier": "0x33e6cf63a9ddbaee9d86893573e2616fe7a78fc9b7b23acb7da8b58bd0024041",
       "confirmation_type": 1
     },
     {
       "name": "addFunds",
       "identifier": "0xf9bfe8a7",
       "event_identifier": "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
-      "confirmation_type": 2
-    },
-    {
-      "name": "sendTxWithGas",
-      "identifier": "0x2206ca5d",
-      "event_identifier": "0xfc9b0ad90b92705792c6281e89beaf1d977aa0d66afccefba2f5b207787c9aab",
       "confirmation_type": 2
     }
   ],

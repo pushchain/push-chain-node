@@ -181,7 +181,7 @@ func ParseSVMFundsAddedEventLog(
 		return nil, fmt.Errorf("amount not found with expected discriminator %s", expectedDiscriminator)
 	}
 
-	return nil, fmt.Errorf("FundsAddedEvent not found in transaction logs")
+	return results, nil
 }
 
 // readI128LE decodes a little-endian i128 value from Anchor logs

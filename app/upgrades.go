@@ -8,11 +8,13 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
+	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 )
 
 // Upgrades list of chain upgrades
 var Upgrades = []upgrades.Upgrade{
 	feeabs.NewUpgrade(),
+	solanafix.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

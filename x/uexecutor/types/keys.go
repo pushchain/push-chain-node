@@ -24,6 +24,9 @@ var (
 
 	UniversalTxKey  = collections.NewPrefix(3)
 	UniversalTxName = "universal_tx"
+
+	ModuleAccountNonceKey  = collections.NewPrefix(4)
+	ModuleAccountNonceName = "module_account_nonce"
 )
 
 const (

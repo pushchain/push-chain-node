@@ -80,6 +80,8 @@ func (k Keeper) CallFactoryToDeployUEA(
 		nil,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		false, // not a module sender
+		nil,
 		"deployUEA",
 		abiUniversalAccount,
 	)
@@ -117,6 +119,8 @@ func (k Keeper) CallUEAExecutePayload(
 		gasLimit,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		false, // not a module sender
+		nil,
 		"executePayload",
 		abiUniversalPayload,
 		verificationData,
@@ -143,6 +147,8 @@ func (k Keeper) CallUEADomainSeparator(
 		nil,           // gasLimit = nil for view calls
 		false,         // commit = false (simulation)
 		false,         // gasless = false
+		false,         // not a module sender
+		nil,
 		"domainSeparator",
 	)
 	if err != nil {
@@ -174,15 +180,28 @@ func (k Keeper) CallPRC20Deposit(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
+	// Before sending an EVM tx from module
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// increment first (safe for internal modules)
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
-		ueModuleAccAddress, // who is sending the transaction
-		handlerAddr,        // destination: Handler contract
+		ueModuleAccAddress, // sender: module account
+		handlerAddr,        // destination
 		big.NewInt(0),
 		nil,
-		true,  // commit = true (real tx, not simulation)
-		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		true,   // commit = true (real tx, not simulation)
+		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		true,   // module sender = true
+		&nonce, // manual nonce of module
 		"depositPRC20Token",
 		prc20Address,
 		amount,
@@ -205,6 +224,17 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
+	// Before sending an EVM tx from module
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// increment first (safe for internal modules)
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
@@ -212,8 +242,10 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 		handlerAddr,        // destination: Handler contract
 		big.NewInt(0),
 		nil,
-		true,  // commit = true (real tx, not simulation)
-		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		true,   // commit = true (real tx, not simulation)
+		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		true,   // module sender = true
+		&nonce, // manual nonce of module
 		"depositPRC20WithAutoSwap",
 		prc20Address,
 		amount,

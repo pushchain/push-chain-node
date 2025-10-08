@@ -22,6 +22,8 @@ type Client interface {
 
 type Status struct {
     NodeID     string
+    Moniker    string
+    Network    string // chain-id
     CatchingUp bool
     Height     int64
 }
@@ -78,7 +80,11 @@ func (c *httpClient) RemoteStatus(ctx context.Context, baseURL string) (Status, 
     defer resp.Body.Close()
     var payload struct {
         Result struct {
-            NodeInfo struct{ ID string `json:"id"` } `json:"node_info"`
+            NodeInfo struct{
+                ID      string `json:"id"`
+                Moniker string `json:"moniker"`
+                Network string `json:"network"`
+            } `json:"node_info"`
             SyncInfo struct{
                 CatchingUp bool   `json:"catching_up"`
                 Height     string `json:"latest_block_height"`
@@ -87,7 +93,13 @@ func (c *httpClient) RemoteStatus(ctx context.Context, baseURL string) (Status, 
     }
     if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil { return Status{}, err }
     h, _ := strconv.ParseInt(payload.Result.SyncInfo.Height, 10, 64)
-    return Status{NodeID: payload.Result.NodeInfo.ID, CatchingUp: payload.Result.SyncInfo.CatchingUp, Height: h}, nil
+    return Status{
+        NodeID:     payload.Result.NodeInfo.ID,
+        Moniker:    payload.Result.NodeInfo.Moniker,
+        Network:    payload.Result.NodeInfo.Network,
+        CatchingUp: payload.Result.SyncInfo.CatchingUp,
+        Height:     h,
+    }, nil
 }
 
 func (c *httpClient) BlockHash(ctx context.Context, height int64) (string, error) {
@@ -125,7 +137,6 @@ func (c *httpClient) Peers(ctx context.Context) ([]Peer, error) {
     if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil { return nil, err }
     out := make([]Peer, 0, len(payload.Result.Peers))
     for _, p := range payload.Result.Peers {
-        if strings.Contains(p.NodeInfo.ListenAddr, "0.0.0.0") { continue }
         if p.NodeInfo.ID == "" || p.RemoteIP == "" { continue }
         out = append(out, Peer{ID: p.NodeInfo.ID, Addr: fmt.Sprintf("%s:26656", p.RemoteIP)})
     }

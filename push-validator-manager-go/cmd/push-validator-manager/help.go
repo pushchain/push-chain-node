@@ -12,13 +12,22 @@ import (
 func init() {
     // Replace root help to present grouped, example-rich output.
     rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+        // Help runs before PersistentPreRun, so manually configure colors
         c := ui.NewColorConfig()
+        c.Enabled = c.Enabled && !flagNoColor
+        c.EmojiEnabled = c.EmojiEnabled && !flagNoEmoji
         w := os.Stdout
 
         // Header
         fmt.Fprintln(w, c.Header(" Push Validator Manager "))
         fmt.Fprintln(w, c.Description("Manage a Push Chain validator node: init, start, status, sync, and admin tasks."))
-        fmt.Fprintln(w, c.Separator(64))
+        fmt.Fprintln(w, c.Separator(50))
+        fmt.Fprintln(w)
+
+        // Usage
+        fmt.Fprintln(w, c.SubHeader("USAGE"))
+        fmt.Fprintf(w, "  %s <command> [flags]\n", "push-validator-manager")
+        fmt.Fprintln(w)
 
         // Quick Start
         fmt.Fprintln(w, c.SubHeader("Quick Start"))
@@ -49,16 +58,20 @@ func init() {
         fmt.Fprintln(w)
 
         // Flags
-        fmt.Fprintln(w, c.SubHeader("Global Flags"))
+        fmt.Fprintln(w, c.SubHeader("GLOBAL FLAGS"))
         flags := []string{
             "--home <dir>\tNode home directory",
             "--bin <path>\tPath to pchaind binary",
             "--rpc <url>\tLocal RPC base (http[s]://host:port)",
             "--genesis-domain <host|url>\tGenesis RPC domain or URL",
-            "-o, --output <text|json>\tOutput format",
+            "-o, --output <text|json|yaml>\tOutput format",
             "--verbose\tVerbose output",
             "-q, --quiet\tQuiet mode (minimal output)",
             "-d, --debug\tDebug output (extra diagnostics)",
+            "--no-color\tDisable ANSI colors",
+            "--no-emoji\tDisable emoji output",
+            "-y, --yes\tAssume yes for all prompts",
+            "--non-interactive\tFail instead of prompting",
         }
         for _, f := range flags {
             parts := strings.SplitN(f, "\t", 2)
@@ -79,6 +92,36 @@ func init() {
         fmt.Fprintln(w, "  "+c.Command("push-validator-manager status --watch --compact"))
         fmt.Fprintln(w, c.Description("Get balance for KEY_NAME:"))
         fmt.Fprintln(w, "  "+c.Command("KEY_NAME=mykey push-validator-manager balance"))
+        fmt.Fprintln(w)
+
+        // Shell Completion
+        fmt.Fprintln(w, c.SubHeader("Shell Completion"))
+        fmt.Fprintln(w, c.Description("Enable tab completion for your shell:"))
+        fmt.Fprintln(w, "  "+c.Description("bash:"))
+        fmt.Fprintln(w, "    "+c.Command("push-validator-manager completion bash > /etc/bash_completion.d/push-validator-manager"))
+        fmt.Fprintln(w, "  "+c.Description("zsh (add to ~/.zshrc):"))
+        fmt.Fprintln(w, "    "+c.Command("source <(push-validator-manager completion zsh)"))
+        fmt.Fprintln(w, "  "+c.Description("fish:"))
+        fmt.Fprintln(w, "    "+c.Command("push-validator-manager completion fish > ~/.config/fish/completions/push-validator-manager.fish"))
+        fmt.Fprintln(w)
+
+        // Exit Codes
+        fmt.Fprintln(w, c.SubHeader("Exit Codes"))
+        exitCodes := []string{
+            "0\tSuccess",
+            "1\tGeneral error",
+            "2\tInvalid arguments or flags",
+            "3\tPrecondition failed (not initialized, missing config)",
+            "4\tNetwork error (RPC unreachable, timeout)",
+            "5\tProcess error (failed to start/stop, permission denied)",
+            "6\tValidation error (invalid config, corrupted data)",
+        }
+        for _, ec := range exitCodes {
+            parts := strings.SplitN(ec, "\t", 2)
+            if len(parts) == 2 {
+                fmt.Fprintf(w, "  %s  %s\n", c.Value(parts[0]), c.Description(parts[1]))
+            }
+        }
         fmt.Fprintln(w)
 
         // Default Cobra footer: show available subcommands briefly

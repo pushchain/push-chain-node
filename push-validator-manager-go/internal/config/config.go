@@ -13,7 +13,7 @@ type Config struct {
     GenesisDomain  string
     KeyringBackend string
     SnapshotRPC    string
-    RPCLocal       string // e.g., http://localhost:26657
+    RPCLocal       string // e.g., http://127.0.0.1:26657
     Denom          string // staking denom (e.g., upc)
 }
 
@@ -26,20 +26,18 @@ func Defaults() Config {
         GenesisDomain:  "rpc-testnet-donut-node1.push.org",
         KeyringBackend: "test",
         SnapshotRPC:    "https://rpc-testnet-donut-node2.push.org",
-        RPCLocal:       "http://localhost:26657",
+        RPCLocal:       "http://127.0.0.1:26657",
         Denom:          "upc",
     }
 }
 
-// Load merges defaults with environment variables. File/flags later.
+// Load returns default config with HOME_DIR override from environment.
+// Use flags for other configuration options.
 func Load() Config {
     cfg := Defaults()
-    if v := os.Getenv("CHAIN_ID"); v != "" { cfg.ChainID = v }
-    if v := os.Getenv("HOME_DIR"); v != "" { cfg.HomeDir = v }
-    if v := os.Getenv("GENESIS_DOMAIN"); v != "" { cfg.GenesisDomain = v }
-    if v := os.Getenv("KEYRING_BACKEND"); v != "" { cfg.KeyringBackend = v }
-    if v := os.Getenv("SNAPSHOT_RPC"); v != "" { cfg.SnapshotRPC = v }
-    if v := os.Getenv("RPC_LOCAL"); v != "" { cfg.RPCLocal = v }
-    if v := os.Getenv("DENOM"); v != "" { cfg.Denom = v }
+    // Only support HOME_DIR env var (common pattern for XDG_* style overrides)
+    if v := os.Getenv("HOME_DIR"); v != "" {
+        cfg.HomeDir = v
+    }
     return cfg
 }

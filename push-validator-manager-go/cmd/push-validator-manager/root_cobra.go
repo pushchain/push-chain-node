@@ -8,12 +8,21 @@ import (
     "time"
 
     "github.com/spf13/cobra"
+    "gopkg.in/yaml.v3"
 
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
+    "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/exitcodes"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/bootstrap"
     syncmon "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/sync"
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
+)
+
+// Version information - set via -ldflags during build
+var (
+    Version   = "dev"
+    Commit    = "unknown"
+    BuildDate = "unknown"
 )
 
 // rootCmd wires the CLI surface using Cobra. Persistent flags are
@@ -23,17 +32,33 @@ var rootCmd = &cobra.Command{
     Use:   "push-validator-manager",
     Short: "Push Validator Manager (Go)",
     Long:  "Manage a Push Chain validator node: init, start, status, sync, and admin tasks.",
+    PersistentPreRun: func(cmd *cobra.Command, args []string) {
+        // Initialize global UI config from flags after parsing but before command execution
+        ui.InitGlobal(ui.Config{
+            NoColor:        flagNoColor,
+            NoEmoji:        flagNoEmoji,
+            Yes:            flagYes,
+            NonInteractive: flagNonInteractive,
+            Verbose:        flagVerbose,
+            Quiet:          flagQuiet,
+            Debug:          flagDebug,
+        })
+    },
 }
 
 var (
-    flagHome   string
-    flagBin    string
-    flagRPC    string
-    flagGenesis string
-    flagOutput string
-    flagVerbose bool
-    flagQuiet bool
-    flagDebug bool
+    flagHome          string
+    flagBin           string
+    flagRPC           string
+    flagGenesis       string
+    flagOutput        string
+    flagVerbose       bool
+    flagQuiet         bool
+    flagDebug         bool
+    flagNoColor       bool
+    flagNoEmoji       bool
+    flagYes           bool
+    flagNonInteractive bool
 )
 
 func init() {
@@ -42,10 +67,14 @@ func init() {
     rootCmd.PersistentFlags().StringVar(&flagBin, "bin", "", "Path to pchaind binary (overrides env)")
     rootCmd.PersistentFlags().StringVar(&flagRPC, "rpc", "", "Local RPC base (http[s]://host:port)")
     rootCmd.PersistentFlags().StringVar(&flagGenesis, "genesis-domain", "", "Genesis RPC domain or URL")
-    rootCmd.PersistentFlags().StringVarP(&flagOutput, "output", "o", "text", "Output format: json|text")
+    rootCmd.PersistentFlags().StringVarP(&flagOutput, "output", "o", "text", "Output format: json|yaml|text")
     rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Verbose output")
     rootCmd.PersistentFlags().BoolVarP(&flagQuiet, "quiet", "q", false, "Quiet mode: minimal output (suppresses extras)")
     rootCmd.PersistentFlags().BoolVarP(&flagDebug, "debug", "d", false, "Debug output: extra diagnostic logs")
+    rootCmd.PersistentFlags().BoolVar(&flagNoColor, "no-color", false, "Disable ANSI colors")
+    rootCmd.PersistentFlags().BoolVar(&flagNoEmoji, "no-emoji", false, "Disable emoji output")
+    rootCmd.PersistentFlags().BoolVarP(&flagYes, "yes", "y", false, "Assume yes for all prompts")
+    rootCmd.PersistentFlags().BoolVar(&flagNonInteractive, "non-interactive", false, "Fail instead of prompting")
 
     // status command (uses root --output), with --watch aliasing sync monitor
     var statusWatch bool
@@ -54,6 +83,7 @@ func init() {
     var statusRPC string
     var statusRemote string
     var statusInterval time.Duration
+    var statusStrict bool
     statusCmd := &cobra.Command{
         Use:   "status",
         Short: "Show node status",
@@ -76,11 +106,34 @@ func init() {
                 })
             }
             res := computeStatus(cfg, sup)
+
+            // Strict mode: exit non-zero if issues detected
+            if statusStrict && (res.Error != "" || !res.Running || res.CatchingUp || res.Peers == 0) {
+                // Still output the status before exiting
+                switch flagOutput {
+                case "json":
+                    enc := json.NewEncoder(os.Stdout)
+                    enc.SetIndent("", "  ")
+                    _ = enc.Encode(res)
+                case "yaml":
+                    data, _ := yaml.Marshal(res)
+                    fmt.Println(string(data))
+                case "text", "":
+                    if !flagQuiet { printStatusText(res) }
+                }
+                return exitcodes.ValidationErr("node has issues")
+            }
+
             switch flagOutput {
             case "json":
                 enc := json.NewEncoder(os.Stdout)
                 enc.SetIndent("", "  ")
                 return enc.Encode(res)
+            case "yaml":
+                data, err := yaml.Marshal(res)
+                if err != nil { return err }
+                fmt.Println(string(data))
+                return nil
             case "text", "":
                 if flagQuiet {
                     fmt.Printf("running=%v rpc=%v catching_up=%v height=%d\n", res.Running, res.RPCListening, res.CatchingUp, res.Height)
@@ -89,7 +142,7 @@ func init() {
                 }
                 return nil
             default:
-                return fmt.Errorf("invalid --output: %s (use json|text)", flagOutput)
+                return fmt.Errorf("invalid --output: %s (use json|yaml|text)", flagOutput)
             }
         },
     }
@@ -99,6 +152,7 @@ func init() {
     statusCmd.Flags().StringVar(&statusRPC, "rpc", "", "Local RPC base when --watch (http[s]://host:port)")
     statusCmd.Flags().StringVar(&statusRemote, "remote", "", "Remote RPC base when --watch")
     statusCmd.Flags().DurationVar(&statusInterval, "interval", 1*time.Second, "Update interval when --watch (e.g. 1s, 2s)")
+    statusCmd.Flags().BoolVar(&statusStrict, "strict", false, "Exit non-zero if node has issues (not running, catching up, no peers, or errors)")
     rootCmd.AddCommand(statusCmd)
 
     // init (Cobra flags)
@@ -237,13 +291,39 @@ func init() {
         default: return fmt.Errorf("unknown shell: %s", args[0])
         }
     }})
-    rootCmd.AddCommand(&cobra.Command{Use: "version", Short: "Show version", Run: func(cmd *cobra.Command, args []string) { fmt.Println("push-validator-manager dev") }})
+    // version command with semantic versioning
+    versionCmd := &cobra.Command{
+        Use:   "version",
+        Short: "Show version",
+        Run: func(cmd *cobra.Command, args []string) {
+            switch flagOutput {
+            case "json":
+                enc := json.NewEncoder(os.Stdout)
+                enc.SetIndent("", "  ")
+                enc.Encode(map[string]string{
+                    "version":    Version,
+                    "commit":     Commit,
+                    "build_date": BuildDate,
+                })
+            case "yaml":
+                data, _ := yaml.Marshal(map[string]string{
+                    "version":    Version,
+                    "commit":     Commit,
+                    "build_date": BuildDate,
+                })
+                fmt.Println(string(data))
+            default:
+                fmt.Printf("push-validator-manager %s (%s) built %s\n", Version, Commit, BuildDate)
+            }
+        },
+    }
+    rootCmd.AddCommand(versionCmd)
 }
 
 func Execute() {
     if err := rootCmd.Execute(); err != nil {
         fmt.Fprintln(os.Stderr, err)
-        os.Exit(1)
+        os.Exit(exitcodes.CodeForError(err))
     }
 }
 

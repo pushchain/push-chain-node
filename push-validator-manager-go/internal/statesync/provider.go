@@ -33,12 +33,21 @@ func (p *provider) ComputeTrust(ctx context.Context, rpcURL string) (TrustParams
     if err != nil { return TrustParams{}, err }
     if latestHeight < 2 { latestHeight = 2 }
 
-    // Candidate offsets, closest to latest first (works with pruned history)
-    offsets := []int64{1000, 500, 250, 128, 64, 32, 16, 8}
+    // Snapshots are taken at 1000-block intervals
+    // We need to align trust heights with these intervals
+    snapshotInterval := int64(1000)
+
+    // Try recent snapshot intervals (1-5 intervals back from latest)
+    // This ensures we target actual snapshot heights
+    offsetIntervals := []int{1, 2, 3, 4, 5}
     var lastErr error
-    for _, off := range offsets {
-        trustH := latestHeight - off
-        if trustH < 1 { trustH = 1 }
+
+    for _, intervals := range offsetIntervals {
+        // Calculate snapshot-aligned height
+        // E.g., if latest is 1136240 and intervals=1: (1136240/1000 - 1) * 1000 = 1135000
+        trustH := ((latestHeight / snapshotInterval) - int64(intervals)) * snapshotInterval
+        if trustH < snapshotInterval { trustH = snapshotInterval }
+
         hash, err := p.blockHash(ctx, base, trustH)
         if err == nil && hash != "" {
             return TrustParams{Height: trustH, Hash: strings.ToUpper(hash)}, nil

@@ -367,12 +367,9 @@ func Run(ctx context.Context, opts Options) error {
 				}
 				// End condition: catching_up is false AND minShow window has passed
                 if !st.CatchingUp && holdStarted && time.Since(firstBarTime) >= minShow {
-                    if !opts.Quiet {
-                        if tty {
-                            fmt.Fprint(opts.Out, "\n✅ Node is fully synced!\n")
-                        } else {
-                            fmt.Fprintln(opts.Out, "Node is fully synced.")
-                        }
+                    // Clear progress line before returning
+                    if tty {
+                        fmt.Fprintln(opts.Out) // Add newline to clear \r progress
                     }
                     return nil
                 }

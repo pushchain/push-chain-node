@@ -106,6 +106,27 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     if len(peers) == 0 {
         peers = s.fallbackPeers(ctx, base)
     }
+
+    // CRITICAL: Ensure snapshot RPC server is included as P2P peer for snapshot discovery
+    // State sync discovers snapshots via P2P (port 26656), not HTTP
+    snapPrimary := opts.SnapshotRPCPrimary
+    if snapPrimary == "" { snapPrimary = "https://rpc-testnet-donut-node2.push.org" }
+
+    // Fetch node ID for snapshot server and add to peers
+    snapPeers := s.getSnapshotPeers(ctx, []string{snapPrimary})
+    peers = append(peers, snapPeers...)
+
+    // Deduplicate peers (keep first occurrence)
+    seen := make(map[string]bool)
+    uniquePeers := make([]string, 0, len(peers))
+    for _, p := range peers {
+        if !seen[p] {
+            seen[p] = true
+            uniquePeers = append(uniquePeers, p)
+        }
+    }
+    peers = uniquePeers
+
     // Configure peers via config store
     cfgs := files.New(opts.HomeDir)
     if len(peers) > 0 { if err := cfgs.SetPersistentPeers(peers); err != nil { return err } }
@@ -117,27 +138,13 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
         if err := os.WriteFile(pvs, []byte("{\n  \"height\": \"0\",\n  \"round\": 0,\n  \"step\": 0\n}\n"), 0o644); err != nil { return err }
     }
 
-    // Configure state sync parameters using snapshot RPC
-    snapPrimary := opts.SnapshotRPCPrimary
-    if snapPrimary == "" { snapPrimary = "https://rpc-testnet-donut-node2.push.org" }
-    snapSecondary := opts.SnapshotRPCSecondary
-    if snapSecondary == "" { snapSecondary = snapPrimary }
+    // Configure state sync parameters using snapshot RPC (reuse variable from above)
     tp, err := s.stp.ComputeTrust(ctx, snapPrimary)
     if err != nil {
-        // Fallback to secondary if different
-        if snapSecondary != "" && snapSecondary != snapPrimary {
-            if tp2, err2 := s.stp.ComputeTrust(ctx, snapSecondary); err2 == nil {
-                tp = tp2
-            } else {
-                return fmt.Errorf("compute trust params: %v; fallback failed: %v", err, err2)
-            }
-        } else {
-            return fmt.Errorf("compute trust params: %w", err)
-        }
+        return fmt.Errorf("compute trust params: %w", err)
     }
     // Build and filter RPC servers to those that accept JSON-RPC POST (light client requirement)
     candidates := []string{hostToStateSyncURL(snapPrimary)}
-    if snapSecondary != "" { candidates = append(candidates, hostToStateSyncURL(snapSecondary)) }
     rpcServers := s.pickWorkingRPCs(ctx, candidates)
     if len(rpcServers) == 0 {
         return fmt.Errorf("no working RPC servers for state sync (JSON-RPC POST failed)")
@@ -225,6 +232,30 @@ func (s *svc) fallbackPeers(ctx context.Context, base string) []string {
     }
     if id := fetchID("https://rpc-testnet-donut-node1.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@rpc-testnet-donut-node1.push.org:26656", id)) }
     if id := fetchID("https://rpc-testnet-donut-node2.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@rpc-testnet-donut-node2.push.org:26656", id)) }
+    return out
+}
+
+// getSnapshotPeers fetches P2P node IDs for snapshot RPC servers
+func (s *svc) getSnapshotPeers(ctx context.Context, rpcURLs []string) []string {
+    var out []string
+    for _, rpcURL := range rpcURLs {
+        if rpcURL == "" { continue }
+        // Extract host from URL
+        u, err := url.Parse(rpcURL)
+        if err != nil { continue }
+        host := u.Host
+        // Fetch node ID from /status
+        statusURL := strings.TrimRight(rpcURL, "/") + "/status"
+        req, _ := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
+        resp, err := s.http.Do(req)
+        if err != nil || resp.StatusCode != 200 { if resp != nil { resp.Body.Close() }; continue }
+        var payload struct{ Result struct{ NodeInfo struct{ ID string `json:"id"` } `json:"node_info"` } `json:"result"` }
+        if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil { resp.Body.Close(); continue }
+        resp.Body.Close()
+        if payload.Result.NodeInfo.ID != "" {
+            out = append(out, fmt.Sprintf("%s@%s:26656", payload.Result.NodeInfo.ID, host))
+        }
+    }
     return out
 }
 

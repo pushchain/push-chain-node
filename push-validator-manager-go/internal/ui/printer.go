@@ -32,25 +32,41 @@ func (p Printer) JSON(v any) {
 // Success prints a success line with themed prefix.
 func (p Printer) Success(msg string) {
     c := p.Colors
-    fmt.Println(c.Success("✓"), msg)
+    if c.EmojiEnabled {
+        fmt.Println(c.Success("✓"), msg)
+    } else {
+        fmt.Println(c.Success("[OK]"), msg)
+    }
 }
 
 // Info prints an informational line.
 func (p Printer) Info(msg string) {
     c := p.Colors
-    fmt.Println(c.Info("ℹ"), msg)
+    if c.EmojiEnabled {
+        fmt.Println(c.Info("ℹ"), msg)
+    } else {
+        fmt.Println(c.Info("[INFO]"), msg)
+    }
 }
 
 // Warn prints a warning line.
 func (p Printer) Warn(msg string) {
     c := p.Colors
-    fmt.Println(c.Warning("!"), msg)
+    if c.EmojiEnabled {
+        fmt.Println(c.Warning("!"), msg)
+    } else {
+        fmt.Println(c.Warning("[WARN]"), msg)
+    }
 }
 
 // Error prints an error line.
 func (p Printer) Error(msg string) {
     c := p.Colors
-    fmt.Println(c.Error("✗"), msg)
+    if c.EmojiEnabled {
+        fmt.Println(c.Error("✗"), msg)
+    } else {
+        fmt.Println(c.Error("[ERR]"), msg)
+    }
 }
 
 // Header prints a section header.

@@ -117,11 +117,12 @@ func DefaultTheme() *Theme {
 
 // ColorConfig manages color output settings
 type ColorConfig struct {
-	Enabled bool
-	Theme   *Theme
+	Enabled     bool
+	EmojiEnabled bool
+	Theme       *Theme
 }
 
-// NewColorConfig creates a new color configuration
+// NewColorConfig creates a new color configuration with default settings
 func NewColorConfig() *ColorConfig {
 	// Check if colors should be disabled
 	noColor := os.Getenv("NO_COLOR") != ""
@@ -131,8 +132,9 @@ func NewColorConfig() *ColorConfig {
 	enabled := !noColor && term != "dumb" && term != ""
 
 	return &ColorConfig{
-		Enabled: enabled,
-		Theme:   DefaultTheme(),
+		Enabled:      enabled,
+		EmojiEnabled: true,
+		Theme:        DefaultTheme(),
 	}
 }
 
@@ -246,8 +248,23 @@ func (c *ColorConfig) Box(text string, width int) string {
 	return strings.Join(boxed, "\n")
 }
 
-// StatusIcon returns a colored status icon
+// StatusIcon returns a colored status icon (respects emoji settings)
 func (c *ColorConfig) StatusIcon(status string) string {
+	if !c.EmojiEnabled {
+		switch strings.ToLower(status) {
+		case "success", "running", "active", "online":
+			return c.Success("[OK]")
+		case "warning", "syncing", "pending":
+			return c.Warning("[WARN]")
+		case "error", "failed", "stopped", "offline":
+			return c.Error("[ERR]")
+		case "info":
+			return c.Info("[INFO]")
+		default:
+			return c.Apply(c.Theme.Pending, "[ ]")
+		}
+	}
+
 	switch strings.ToLower(status) {
 	case "success", "running", "active", "online":
 		return c.Success("✓")

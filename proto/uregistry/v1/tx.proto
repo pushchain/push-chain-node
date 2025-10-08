@@ -22,7 +22,7 @@ service Msg {
   // AddChainConfig adds a new ChainConfig entry
   rpc AddChainConfig(MsgAddChainConfig) returns (MsgAddChainConfigResponse);
 
-  // UpdateChainConfig adds a new ChainConfig entry
+  // UpdateChainConfig updates an existing ChainConfig entry
   rpc UpdateChainConfig(MsgUpdateChainConfig) returns (MsgUpdateChainConfigResponse);
 
   // AddTokenConfig adds a new TokenConfig entry
@@ -30,6 +30,9 @@ service Msg {
 
   // UpdateTokenConfig updates an existing TokenConfig entry
   rpc UpdateTokenConfig(MsgUpdateTokenConfig) returns (MsgUpdateTokenConfigResponse);
+
+  // RemoveTokenConfig removes an existing TokenConfig entry
+  rpc RemoveTokenConfig(MsgRemoveTokenConfig) returns (MsgRemoveTokenConfigResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -110,3 +113,18 @@ message MsgUpdateTokenConfig {
 
 // MsgUpdateTokenConfigResponse defines the response for MsgUpdateTokenConfig.
 message MsgUpdateTokenConfigResponse {}
+
+// MsgRemoveTokenConfig defines a message to remove a existing TokenConfig.
+message MsgRemoveTokenConfig {
+  option (amino.name) = "uregistry/MsgRemoveTokenConfig";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to add a chain config
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string chain = 2; // chain on which original token is present
+  string token_address = 3; // token address
+}
+
+// MsgRemoveTokenConfigResponse defines the response for MsgRemoveTokenConfig.
+message MsgRemoveTokenConfigResponse {}

@@ -35,7 +35,7 @@ const (
 )
 
 func GetInboundKey(inbound Inbound) string {
-	data := fmt.Sprintf("%s:%s:%s:%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex, inbound.Sender, inbound.Recipient, inbound.Amount)
+	data := fmt.Sprintf("%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex)
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte
 }

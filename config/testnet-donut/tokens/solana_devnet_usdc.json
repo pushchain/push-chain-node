@@ -1,0 +1,14 @@
+{
+  "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+  "address": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  "name": "USDC.sol",
+  "symbol": "USDC.sol",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 4, 
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0x04B8F634ABC7C879763F623e0f0550a4b5c4426F"
+  }
+}

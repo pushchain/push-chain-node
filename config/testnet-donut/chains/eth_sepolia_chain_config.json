@@ -5,20 +5,20 @@
   "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
   "block_confirmation": {
     "fast_inbound": 0,
-    "standard_inbound": 12
+    "standard_inbound": 2
   },
   "gateway_methods": [
     {
       "name": "sendFunds",
       "identifier": "0x65f4dbe1",
-      "event_identifier": "0x8d31591361ec0ab1b60a2150efddcba58ef173dea9b05012ad8d5c3a07656842",
+      "event_identifier": "0x33e6cf63a9ddbaee9d86893573e2616fe7a78fc9b7b23acb7da8b58bd0024041",
       "confirmation_type": 1
     },
     {
       "name": "addFunds",
       "identifier": "0xf9bfe8a7",
       "event_identifier": "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
-      "confirmation_type": 1
+      "confirmation_type": 2
     }
   ],
   "enabled": {

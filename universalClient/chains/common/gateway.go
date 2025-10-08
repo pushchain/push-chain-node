@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+
+	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // GatewayEvent represents a cross-chain gateway event
@@ -9,25 +11,24 @@ type GatewayEvent struct {
 	ChainID          string
 	TxHash           string
 	BlockNumber      uint64
-	Method           string
 	EventID          string
 	Payload          []byte
 	Confirmations    uint64
 	ConfirmationType string // "STANDARD" or "FAST" - from gateway method config
 }
 
-type TxWithFundsPayload struct {
-	SourceChain         string `json:"sourceChain"`
-	LogIndex            uint   `json:"logIndex"`
-	Sender              string `json:"sender"`
-	Recipient           string `json:"recipient"`
-	BridgeToken         string `json:"bridgeToken"`
-	BridgeAmount        string `json:"bridgeAmount"` // uint256 as decimal string
-	Data                string `json:"data"`         // hex-encoded bytes (0x…)
-	VerificationData    string `json:"verificationData"`
-	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
-	RevertMsg           string `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
-	TxType              uint   `json:"txType"`              // enum backing uint as decimal string
+type UniversalTx struct {
+	SourceChain         string                   `json:"sourceChain"`
+	LogIndex            uint                     `json:"logIndex"`
+	Sender              string                   `json:"sender"`
+	Recipient           string                   `json:"recipient"`
+	Token               string                   `json:"bridgeToken"`
+	Amount              string                   `json:"bridgeAmount"` // uint256 as decimal string
+	Payload             uetypes.UniversalPayload `json:"universalPayload"`
+	VerificationData    string                   `json:"verificationData"`
+	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
+	RevertMsg           string                   `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
+	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 }
 
 // GatewayOperations defines gateway-specific operations for chain clients

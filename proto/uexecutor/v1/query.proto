@@ -16,17 +16,17 @@ service Query {
 
   // Queries all pending inbound IDs.
   rpc AllPendingInbounds(QueryAllPendingInboundsRequest) returns (QueryAllPendingInboundsResponse) {
-    option (google.api.http).get = "/ue/v1/pending_inbounds";
+    option (google.api.http).get = "/uexecutor/v1/pending_inbounds";
   }
 
   // Queries a single UniversalTx by ID.
   rpc GetUniversalTx(QueryGetUniversalTxRequest) returns (QueryGetUniversalTxResponse) {
-    option (google.api.http).get = "/ue/v1/universal_txs/{id}";
+    option (google.api.http).get = "/uexecutor/v1/universal_txs/{id}";
   }
 
   // Queries all UniversalTxs.
   rpc AllUniversalTx(QueryAllUniversalTxRequest) returns (QueryAllUniversalTxResponse) {
-    option (google.api.http).get = "/ue/v1/universal_txs";
+    option (google.api.http).get = "/uexecutor/v1/universal_txs";
   }
 }
 

@@ -61,10 +61,17 @@ func (ct *ConfirmationTracker) SetVoteHandler(handler VoteHandler) {
 func (ct *ConfirmationTracker) TrackTransaction(
 	txHash string,
 	blockNumber uint64,
-	method, eventID string,
+	eventID string,
 	confirmationType string,
 	data []byte,
 ) (err error) {
+	// Debug logging
+	ct.logger.Debug().
+		Str("tx_hash", txHash).
+		Str("event_id", eventID).
+		Int("data_size", len(data)).
+		Msg("tracking transaction with data")
+
 	// Start database transaction to avoid race conditions and improve performance
 	dbTx := ct.db.Client().Begin()
 	defer func() {
@@ -89,7 +96,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		existing.Confirmations = 0
 		existing.Status = "confirmation_pending"
 		existing.BlockNumber = blockNumber // Update block number in case of reorg
-		existing.Method = method
 		existing.EventIdentifier = eventID
 		existing.ConfirmationType = confirmationType
 		existing.Data = data
@@ -119,7 +125,6 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	tx := &store.ChainTransaction{
 		TxHash:           txHash,
 		BlockNumber:      blockNumber,
-		Method:           method,
 		EventIdentifier:  eventID,
 		Status:           "confirmation_pending",
 		Confirmations:    0,

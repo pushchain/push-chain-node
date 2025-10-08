@@ -39,9 +39,9 @@ type GatewayHandler struct {
 	methodCache  map[string]*MethodExtractionInfo // Cache for discovered positions
 
 	// Extracted components
-	txBuilder   *TransactionBuilder
-	eventParser *EventParser
-	txVerifier  *TransactionVerifier
+	eventParser  *EventParser
+	txVerifier   *TransactionVerifier
+	eventWatcher *EventWatcher
 }
 
 // NewGatewayHandler creates a new Solana gateway handler
@@ -70,22 +70,22 @@ func NewGatewayHandler(
 	)
 
 	// Create extracted components
-	txBuilder := NewTransactionBuilder(parentClient, gatewayAddr, logger)
 	eventParser := NewEventParser(gatewayAddr, config, logger)
 	txVerifier := NewTransactionVerifier(parentClient, config, database, tracker, logger)
+	eventWatcher := NewEventWatcher(parentClient, gatewayAddr, eventParser, tracker, txVerifier, appConfig, config.Chain, logger)
 
 	return &GatewayHandler{
 		parentClient: parentClient,
 		config:       config,
 		appConfig:    appConfig,
-		logger:       logger.With().Str("component", "solana_gateway_handler").Logger(),
+		logger:       logger.With().Str("component", "svm_gateway_handler").Logger(),
 		tracker:      tracker,
 		gatewayAddr:  gatewayAddr,
 		database:     database,
 		methodCache:  make(map[string]*MethodExtractionInfo),
-		txBuilder:    txBuilder,
 		eventParser:  eventParser,
 		txVerifier:   txVerifier,
+		eventWatcher: eventWatcher,
 	}, nil
 }
 
@@ -130,16 +130,16 @@ func (h *GatewayHandler) GetStartSlot(ctx context.Context) (uint64, error) {
 	if chainState.LastBlock <= 0 {
 		// If LastBlock is 0 or negative, start from latest slot
 		h.logger.Info().
-			Int64("stored_slot", chainState.LastBlock).
+			Uint64("stored_slot", chainState.LastBlock).
 			Msg("invalid or zero last slot, starting from latest")
 		return h.GetLatestBlock(ctx)
 	}
 
 	h.logger.Info().
-		Int64("slot", chainState.LastBlock).
+		Uint64("slot", chainState.LastBlock).
 		Msg("resuming from last processed slot")
 
-	return uint64(chainState.LastBlock), nil
+	return chainState.LastBlock, nil
 }
 
 // UpdateLastProcessedSlot updates the last processed slot in the database
@@ -156,15 +156,15 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new record
 		chainState = store.ChainState{
-			LastBlock: int64(slotNumber),
+			LastBlock: slotNumber,
 		}
 		if err := h.database.Client().Create(&chainState).Error; err != nil {
 			return fmt.Errorf("failed to create last processed slot record: %w", err)
 		}
 	} else {
 		// Update existing record only if new slot is higher
-		if int64(slotNumber) > chainState.LastBlock {
-			chainState.LastBlock = int64(slotNumber)
+		if slotNumber > chainState.LastBlock {
+			chainState.LastBlock = slotNumber
 			if err := h.database.Client().Save(&chainState).Error; err != nil {
 				return fmt.Errorf("failed to update last processed slot: %w", err)
 			}
@@ -176,148 +176,13 @@ func (h *GatewayHandler) UpdateLastProcessedSlot(slotNumber uint64) error {
 
 // WatchGatewayEvents starts watching for gateway events from a specific slot
 func (h *GatewayHandler) WatchGatewayEvents(ctx context.Context, fromSlot uint64) (<-chan *common.GatewayEvent, error) {
-	// Use buffered channel to prevent blocking producers
-	eventChan := make(chan *common.GatewayEvent, 100)
-
-	go func() {
-		defer close(eventChan)
-
-		// Use chain-specific polling interval, then global, then default to 5 seconds
-		pollingInterval := 5 * time.Second
-
-		// Check chain-specific config first
-		if h.appConfig != nil && h.appConfig.ChainConfigs != nil {
-			if chainConfig, exists := h.appConfig.ChainConfigs[h.config.Chain]; exists {
-				if chainConfig.EventPollingIntervalSeconds != nil && *chainConfig.EventPollingIntervalSeconds > 0 {
-					pollingInterval = time.Duration(*chainConfig.EventPollingIntervalSeconds) * time.Second
-				} else if h.appConfig.EventPollingIntervalSeconds > 0 {
-					// Fall back to global config
-					pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
-				}
-			} else if h.appConfig.EventPollingIntervalSeconds > 0 {
-				// No chain-specific config, use global
-				pollingInterval = time.Duration(h.appConfig.EventPollingIntervalSeconds) * time.Second
-			}
-		}
-
-		// Poll for new transactions periodically
-		ticker := time.NewTicker(pollingInterval)
-		defer ticker.Stop()
-
-		currentSlot := fromSlot
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Get latest slot
-				var latestSlot uint64
-				err := h.parentClient.executeWithFailover(ctx, "get_latest_slot", func(client *rpc.Client) error {
-					var innerErr error
-					latestSlot, innerErr = client.GetSlot(ctx, rpc.CommitmentFinalized)
-					return innerErr
-				})
-				if err != nil {
-					h.logger.Error().Err(err).Msg("failed to get latest slot")
-					continue
-				}
-
-				if currentSlot >= latestSlot {
-					continue
-				}
-
-				// Get signatures for the gateway program
-				var signatures []*rpc.TransactionSignature
-				err = h.parentClient.executeWithFailover(ctx, "get_signatures_for_address", func(client *rpc.Client) error {
-					var innerErr error
-					signatures, innerErr = client.GetSignaturesForAddress(
-						ctx,
-						h.gatewayAddr,
-					)
-					return innerErr
-				})
-				if err != nil {
-					h.logger.Error().Err(err).Msg("failed to get signatures")
-					continue
-				}
-
-				// Process signatures
-				for _, sig := range signatures {
-					if sig.Slot < currentSlot {
-						continue
-					}
-
-					// Get transaction details
-					var tx *rpc.GetTransactionResult
-					err = h.parentClient.executeWithFailover(ctx, "get_transaction", func(client *rpc.Client) error {
-						var innerErr error
-						maxVersion := uint64(0)
-						tx, innerErr = client.GetTransaction(
-							ctx,
-							sig.Signature,
-							&rpc.GetTransactionOpts{
-								Encoding:                       solana.EncodingBase64,
-								MaxSupportedTransactionVersion: &maxVersion,
-							},
-						)
-						return innerErr
-					})
-					if err != nil {
-						h.logger.Error().
-							Err(err).
-							Str("signature", sig.Signature.String()).
-							Msg("failed to get transaction")
-						continue
-					}
-
-					// Parse gateway event from transaction using event parser
-					event := h.eventParser.ParseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
-					if event != nil {
-
-						// Track transaction for confirmations
-						if err := h.tracker.TrackTransaction(
-							event.TxHash,
-							event.BlockNumber,
-							event.Method,
-							event.EventID,
-							event.ConfirmationType,
-							event.Payload,
-						); err != nil {
-							h.logger.Error().Err(err).
-								Str("tx_hash", event.TxHash).
-								Msg("failed to track transaction")
-						}
-
-						select {
-						case eventChan <- event:
-						case <-ctx.Done():
-							return
-						}
-					}
-				}
-
-				// First verify all pending transactions for reorgs (Solana-specific)
-				if err := h.txVerifier.VerifyPendingTransactions(ctx); err != nil {
-					h.logger.Error().Err(err).Msg("failed to verify pending transactions for reorgs")
-				}
-
-				// Then update confirmations for remaining valid transactions
-				if err := h.tracker.UpdateConfirmations(latestSlot); err != nil {
-					h.logger.Error().Err(err).Msg("failed to update confirmations")
-				}
-
-				// Update last processed slot in database
-				if err := h.UpdateLastProcessedSlot(latestSlot); err != nil {
-					h.logger.Error().Err(err).Msg("failed to update last processed slot")
-				}
-
-				currentSlot = latestSlot
-			}
-		}
-	}()
-
-	return eventChan, nil
+	// Delegate to EventWatcher with callbacks for verification and slot updates
+	return h.eventWatcher.WatchEvents(
+		ctx,
+		fromSlot,
+		h.UpdateLastProcessedSlot,
+		h.txVerifier.VerifyPendingTransactions,
+	)
 }
 
 // GetTransactionConfirmations delegates to transaction verifier
@@ -334,23 +199,6 @@ func (h *GatewayHandler) IsConfirmed(ctx context.Context, txHash string) (bool, 
 // GetConfirmationTracker returns the confirmation tracker
 func (h *GatewayHandler) GetConfirmationTracker() *common.ConfirmationTracker {
 	return h.tracker
-}
-
-// BuildGatewayTransaction delegates to transaction builder
-func (h *GatewayHandler) BuildGatewayTransaction(
-	ctx context.Context,
-	from solana.PrivateKey,
-	instruction solana.Instruction,
-) (*solana.Transaction, error) {
-	return h.txBuilder.BuildGatewayTransaction(ctx, from, instruction)
-}
-
-// SendTransaction delegates to transaction builder
-func (h *GatewayHandler) SendTransaction(
-	ctx context.Context,
-	tx *solana.Transaction,
-) (solana.Signature, error) {
-	return h.txBuilder.SendTransaction(ctx, tx)
 }
 
 // extractTransactionDetails extracts sender, receiver, and amount from a transaction

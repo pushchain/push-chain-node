@@ -49,7 +49,7 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 	client := &Client{
 		BaseChainClient: common.NewBaseChainClient(config, appConfig),
 		logger: logger.With().
-			Str("component", "solana_client").
+			Str("component", "svm_client").
 			Str("chain", config.Chain).
 			Logger(),
 		genesisHash:  genesisHash,
@@ -331,7 +331,6 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 			if event != nil {
 				c.logger.Info().
 					Str("tx_hash", event.TxHash).
-					Str("method", event.Method).
 					Uint64("slot", event.BlockNumber).
 					Msg("received gateway event")
 

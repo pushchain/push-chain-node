@@ -1,6 +1,6 @@
 {
   "chain": "eip155:11155111",
-  "address": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
+  "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   "name": "USDC.eth",
   "symbol": "USDC.eth",
   "decimals": 6,
@@ -9,6 +9,6 @@
   "token_type": 1, 
   "native_representation": {
     "denom": "",
-    "contract_address": ""
+    "contract_address": "0x387b9C8Db60E74999aAAC5A2b7825b400F12d68E"
   }
 }

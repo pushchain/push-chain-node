@@ -1,9 +1,9 @@
-project_name: pchain
+project_name: push-chain
 
 release:
   github:
-    owner: rollchains
-    name: pchain
+    owner: pushchain
+    name: push-chain-node
   name_template: '{{.Tag}}'
 
 # Only uncomment os, arch, and targets if you are NOT using cosmwasm / wasm-light-client.

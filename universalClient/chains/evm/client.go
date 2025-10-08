@@ -339,7 +339,6 @@ func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *com
 			if event != nil {
 				c.logger.Info().
 					Str("tx_hash", event.TxHash).
-					Str("method", event.Method).
 					Uint64("block", event.BlockNumber).
 					Msg("received gateway event")
 

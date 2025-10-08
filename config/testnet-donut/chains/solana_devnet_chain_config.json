@@ -2,7 +2,7 @@
   "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
   "public_rpc_url": "https://api.devnet.solana.com",
   "vm_type": 2,
-  "gateway_address": "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
+  "gateway_address": "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS",
   "block_confirmation": {
     "fast_inbound": 0,
     "standard_inbound": 12
@@ -12,6 +12,11 @@
       "name": "add_funds",
       "identifier": "84ed4c39500ab38a",
       "event_identifier": "7f1f6cffbb134644",
+      "confirmation_type": 2
+    },
+    {"name": "send_funds",
+      "identifier": "54f7d3283f6a0f3b",
+      "event_identifier": "6C9AD829B5EA1D7C",
       "confirmation_type": 1
     }
   ],

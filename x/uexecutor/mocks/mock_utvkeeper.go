@@ -10,6 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	types2 "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
 // MockUtxverifierKeeper is a mock of UtxverifierKeeper interface.
@@ -33,6 +34,20 @@ func NewMockUtxverifierKeeper(ctrl *gomock.Controller) *MockUtxverifierKeeper {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUtxverifierKeeper) EXPECT() *MockUtxverifierKeeperMockRecorder {
 	return m.recorder
+}
+
+// StoreVerifiedInboundTx mocks base method.
+func (m *MockUtxverifierKeeper) StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata types2.VerifiedTxMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreVerifiedInboundTx", ctx, chain, txHash, verifiedTxMetadata)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StoreVerifiedInboundTx indicates an expected call of StoreVerifiedInboundTx.
+func (mr *MockUtxverifierKeeperMockRecorder) StoreVerifiedInboundTx(ctx, chain, txHash, verifiedTxMetadata interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreVerifiedInboundTx", reflect.TypeOf((*MockUtxverifierKeeper)(nil).StoreVerifiedInboundTx), ctx, chain, txHash, verifiedTxMetadata)
 }
 
 // VerifyAndGetLockedFunds mocks base method.

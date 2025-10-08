@@ -54,8 +54,7 @@ func TestSolanaGatewayHandler_SlotConfirmations(t *testing.T) {
 	err = tracker.TrackTransaction(
 		txSignature,
 		slotNumber,
-		"add_funds",
-		"84ed4c39500ab38a",
+		"funds_added",
 		"STANDARD",
 		nil,
 	)
@@ -67,7 +66,7 @@ func TestSolanaGatewayHandler_SlotConfirmations(t *testing.T) {
 	// ChainID no longer exists in ChainTransaction
 	assert.Equal(t, txSignature, tx.TxHash)
 	assert.Equal(t, slotNumber, tx.BlockNumber) // In Solana, we use slot number as block number
-	assert.Equal(t, "add_funds", tx.Method)
+	assert.Equal(t, "funds_added", tx.EventIdentifier)
 	assert.Equal(t, "confirmation_pending", tx.Status)
 }
 
@@ -98,8 +97,7 @@ func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
 	err = tracker.TrackTransaction(
 		fastTxSig,
 		fastStartSlot,
-		"add_funds",
-		"84ed4c39500ab38a",
+		"funds_added",
 		"FAST",
 		nil,
 	)
@@ -135,8 +133,7 @@ func TestSolanaGatewayHandler_ConfirmationLevels(t *testing.T) {
 	err = tracker.TrackTransaction(
 		standardTxSig,
 		standardStartSlot,
-		"add_funds",
-		"84ed4c39500ab38a",
+		"funds_added",
 		"STANDARD",
 		nil,
 	)
@@ -202,7 +199,6 @@ func TestSolanaGatewayHandler_MultipleTransactions(t *testing.T) {
 		err := tracker.TrackTransaction(
 			tx.signature,
 			tx.slot,
-			"add_funds",
 			"84ed4c39500ab38a",
 			tx.confirmationType,
 			nil,
@@ -298,8 +294,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 	err = tracker.TrackTransaction(
 		txSignature,
 		slotNumber,
-		"add_funds",
-		"84ed4c39500ab38a",
+		"funds_added",
 		"STANDARD",
 		nil,
 	)
@@ -318,8 +313,7 @@ func TestSolanaGatewayHandler_SlotReorg(t *testing.T) {
 	err = tracker.TrackTransaction(
 		txSignature,
 		newSlotNumber,
-		"add_funds",
-		"84ed4c39500ab38a",
+		"funds_added",
 		"STANDARD",
 		nil,
 	)
@@ -364,22 +358,22 @@ func TestCrossChainConfirmations(t *testing.T) {
 
 	// Track EVM transaction with FAST type
 	evmFastTxHash := "0xevmfast123"
-	err = evmTracker.TrackTransaction(evmFastTxHash, 1000, "addFunds", "0xf9bfe8a7", "FAST", nil)
+	err = evmTracker.TrackTransaction(evmFastTxHash, 1000, "0xf9bfe8a7", "FAST", nil)
 	require.NoError(t, err)
 
 	// Track EVM transaction with STANDARD type
 	evmStandardTxHash := "0xevmstandard456"
-	err = evmTracker.TrackTransaction(evmStandardTxHash, 1000, "addFunds", "0xf9bfe8a7", "STANDARD", nil)
+	err = evmTracker.TrackTransaction(evmStandardTxHash, 1000, "0xf9bfe8a7", "STANDARD", nil)
 	require.NoError(t, err)
 
 	// Track Solana transaction with FAST type
 	solanaFastTxSig := "solanafast789"
-	err = solanaTracker.TrackTransaction(solanaFastTxSig, 2000, "add_funds", "84ed4c39500ab38a", "FAST", nil)
+	err = solanaTracker.TrackTransaction(solanaFastTxSig, 2000, "funds_added", "FAST", nil)
 	require.NoError(t, err)
 
 	// Track Solana transaction with STANDARD type
 	solanaStandardTxSig := "solanastandard012"
-	err = solanaTracker.TrackTransaction(solanaStandardTxSig, 2000, "add_funds", "84ed4c39500ab38a", "STANDARD", nil)
+	err = solanaTracker.TrackTransaction(solanaStandardTxSig, 2000, "84ed4c39500ab38a", "STANDARD", nil)
 	require.NoError(t, err)
 
 	// Test FAST confirmations (5 blocks for both chains)

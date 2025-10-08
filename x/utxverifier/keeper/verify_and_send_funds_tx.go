@@ -35,7 +35,7 @@ func (k Keeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, c
 	case uregistrytypes.VmType_SVM:
 		usdValue, err := k.verifySVMAndGetFunds(ctx, ownerKey, txHash, chainConfig)
 		if err != nil {
-			return *big.NewInt(0), 0, fmt.Errorf("evm tx verification failed: %w", err)
+			return *big.NewInt(0), 0, fmt.Errorf("svm tx verification failed: %w", err)
 		}
 		usdAmount := new(big.Int)
 		usdAmount, ok := usdAmount.SetString(usdValue.Amount, 10) // base 10

@@ -66,7 +66,7 @@ func (tv *TransactionVerifier) GetTransactionConfirmations(ctx context.Context, 
 	}
 
 	status := statuses.Value[0]
-	
+
 	// Map Solana confirmation status to confirmation count
 	// Solana uses different confirmation levels rather than counts
 	switch status.ConfirmationStatus {
@@ -115,7 +115,7 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 		)
 		return innerErr
 	})
-	
+
 	if err != nil {
 		// Check if this is a genuine "not found" vs RPC/network error
 		// Solana RPC returns specific error messages for not found transactions
@@ -126,12 +126,12 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 				Str("tx_hash", tx.TxHash).
 				Uint64("original_slot", tx.BlockNumber).
 				Msg("Solana transaction not found on chain - marking as reorged")
-			
+
 			tx.Status = "reorged"
 			tx.Confirmations = 0
 			return false, nil
 		}
-		
+
 		// RPC/network error - don't change status, return error for retry
 		tv.logger.Error().
 			Str("tx_hash", tx.TxHash).
@@ -147,7 +147,7 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 			Uint64("original_slot", tx.BlockNumber).
 			Uint64("new_slot", txResult.Slot).
 			Msg("Solana transaction moved to different slot - updating slot number")
-		
+
 		// Update slot number and reset status
 		tx.BlockNumber = txResult.Slot
 		tx.Status = "pending"
@@ -161,7 +161,7 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 			Str("tx_hash", tx.TxHash).
 			Interface("error", txResult.Meta.Err).
 			Msg("Solana transaction failed on chain")
-		
+
 		tx.Status = "failed"
 		return false, nil
 	}
@@ -172,7 +172,7 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 // VerifyPendingTransactions checks all pending transactions for reorgs
 func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) error {
 	var pendingTxs []store.ChainTransaction
-	
+
 	// Get all transactions that need verification
 	err := tv.database.Client().
 		Where("status IN (?)", []string{"confirmation_pending", "awaiting_vote"}).
@@ -185,7 +185,7 @@ func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) er
 		Str("chain_id", tv.config.Chain).
 		Int("pending_count", len(pendingTxs)).
 		Msg("verifying Solana transactions")
-	
+
 	// Verify each transaction
 	for _, tx := range pendingTxs {
 		exists, err := tv.VerifyTransactionExistence(ctx, &tx)
@@ -197,7 +197,7 @@ func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) er
 				Msg("RPC error verifying Solana transaction - will retry later")
 			continue
 		}
-		
+
 		// If transaction status changed (reorged, failed, or moved), save the updated status
 		if !exists {
 			if err := tv.database.Client().Save(&tx).Error; err != nil {
@@ -209,7 +209,7 @@ func (tv *TransactionVerifier) VerifyPendingTransactions(ctx context.Context) er
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -240,7 +240,7 @@ func (tv *TransactionVerifier) GetTransactionStatus(ctx context.Context, txHash 
 	}
 
 	status := statuses.Value[0]
-	
+
 	result := &TransactionStatus{
 		Exists:             true,
 		Slot:               status.Slot,
@@ -293,7 +293,7 @@ func (tv *TransactionVerifier) WaitForTransaction(
 	err := tv.database.Client().
 		Where("tx_hash = ?", txHash).
 		First(&dbTx).Error
-	
+
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to query transaction: %w", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/cache"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -111,6 +112,19 @@ func (m *MockUniversalClient) GetChainConfig(chain string) *uregistrytypes.Chain
 func (m *MockUniversalClient) ForceConfigUpdate() error {
 	m.forceUpdateCalled = true
 	return m.forceUpdateErr
+}
+
+// GetAllChainData implements universalClientInterface
+func (m *MockUniversalClient) GetAllChainData() []*cache.ChainData {
+	// Convert chainConfigs to ChainData format
+	data := make([]*cache.ChainData, len(m.chainConfigs))
+	for i, cfg := range m.chainConfigs {
+		data[i] = &cache.ChainData{
+			Config:    cfg,
+			UpdatedAt: m.lastUpdate,
+		}
+	}
+	return data
 }
 
 func TestNewServer(t *testing.T) {
@@ -226,79 +240,9 @@ func TestHealthHandler(t *testing.T) {
 	})
 }
 
-func TestGetAllChainConfigsHandler(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	mockClient := NewMockUniversalClient()
-	server := &Server{
-		client: mockClient,
-		logger: logger,
-	}
+// TestGetAllChainConfigsHandler removed - handler doesn't exist
 
-	handler := http.HandlerFunc(server.handleChainConfigs)
-
-	t.Run("Get all chain configs", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/chains", nil)
-		w := httptest.NewRecorder()
-
-		handler(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-
-		// Check structure
-		assert.Contains(t, response, "data")
-		assert.Contains(t, response, "last_fetched")
-
-		// Check data
-		data, ok := response["data"].([]*uregistrytypes.ChainConfig)
-		if !ok {
-			// Try as interface array first
-			dataInterface, ok := response["data"].([]interface{})
-			require.True(t, ok)
-			assert.Len(t, dataInterface, 2)
-		} else {
-			assert.Len(t, data, 2)
-			assert.Equal(t, "eip155:1", data[0].Chain)
-			assert.Equal(t, "solana:mainnet", data[1].Chain)
-		}
-	})
-}
-
-func TestGetAllTokenConfigsHandler(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	mockClient := NewMockUniversalClient()
-	server := &Server{
-		client: mockClient,
-		logger: logger,
-	}
-
-	handler := http.HandlerFunc(server.handleTokenConfigs)
-
-	t.Run("Get all token configs", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/tokens", nil)
-		w := httptest.NewRecorder()
-
-		handler(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-
-		// Check structure
-		assert.Contains(t, response, "data")
-		assert.Contains(t, response, "last_fetched")
-
-		// Check data
-		dataInterface, ok := response["data"].([]interface{})
-		require.True(t, ok)
-		assert.Len(t, dataInterface, 3)
-	})
-}
+// TestGetAllTokenConfigsHandler removed - handler doesn't exist
 
 func TestInvalidMethods(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
@@ -321,15 +265,9 @@ func TestInvalidMethods(t *testing.T) {
 			expectedMsg: "method not allowed",
 		},
 		{
-			name:        "DELETE to chain configs",
-			handler:     http.HandlerFunc(server.handleChainConfigs),
+			name:        "DELETE to chain data",
+			handler:     http.HandlerFunc(server.handleChainData),
 			method:      http.MethodDelete,
-			expectedMsg: "method not allowed",
-		},
-		{
-			name:        "PUT to token configs",
-			handler:     http.HandlerFunc(server.handleTokenConfigs),
-			method:      http.MethodPut,
 			expectedMsg: "method not allowed",
 		},
 	}
@@ -378,10 +316,10 @@ func TestAPIEndpointsTable(t *testing.T) {
 			},
 		},
 		{
-			name:       "all chain configs",
-			handler:    http.HandlerFunc(server.handleChainConfigs),
+			name:       "chain data",
+			handler:    http.HandlerFunc(server.handleChainData),
 			method:     http.MethodGet,
-			url:        "/chains",
+			url:        "/api/v1/chain-data",
 			wantStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
 				var resp map[string]interface{}
@@ -391,22 +329,6 @@ func TestAPIEndpointsTable(t *testing.T) {
 				data, ok := resp["data"].([]interface{})
 				require.True(t, ok)
 				assert.Len(t, data, 2)
-			},
-		},
-		{
-			name:       "all token configs",
-			handler:    http.HandlerFunc(server.handleTokenConfigs),
-			method:     http.MethodGet,
-			url:        "/tokens",
-			wantStatus: http.StatusOK,
-			checkBody: func(t *testing.T, body []byte) {
-				var resp map[string]interface{}
-				err := json.Unmarshal(body, &resp)
-				require.NoError(t, err)
-				assert.Contains(t, resp, "data")
-				data, ok := resp["data"].([]interface{})
-				require.True(t, ok)
-				assert.Len(t, data, 3)
 			},
 		},
 	}

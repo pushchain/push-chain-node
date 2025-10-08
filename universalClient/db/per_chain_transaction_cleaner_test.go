@@ -289,7 +289,6 @@ func TestPerChainTransactionCleanerDatabaseOperations(t *testing.T) {
 	oldConfirmed := &store.ChainTransaction{
 		TxHash:          "0x111",
 		BlockNumber:     100,
-		Method:          "deposit",
 		EventIdentifier: "event1",
 		Status:          "confirmed",
 		Confirmations:   15,
@@ -301,7 +300,6 @@ func TestPerChainTransactionCleanerDatabaseOperations(t *testing.T) {
 	recentConfirmed := &store.ChainTransaction{
 		TxHash:          "0x222",
 		BlockNumber:     200,
-		Method:          "deposit",
 		EventIdentifier: "event2",
 		Status:          "confirmed",
 		Confirmations:   10,
@@ -313,7 +311,6 @@ func TestPerChainTransactionCleanerDatabaseOperations(t *testing.T) {
 	oldPending := &store.ChainTransaction{
 		TxHash:          "0x333",
 		BlockNumber:     150,
-		Method:          "deposit",
 		EventIdentifier: "event3",
 		Status:          "pending",
 		Confirmations:   5,
@@ -360,7 +357,6 @@ func TestPerChainTransactionCleanerDatabaseOperations(t *testing.T) {
 		
 		TxHash:          "0x111_new", // Use different hash to avoid constraint violation
 		BlockNumber:     100,
-		Method:          "deposit",
 		EventIdentifier: "event1_new",
 		Status:          "confirmed",
 		Confirmations:   15,
@@ -435,8 +431,7 @@ func TestPerChainTransactionCleanerEdgeCases(t *testing.T) {
 		recent := &store.ChainTransaction{
 			TxHash:          "0x456",
 			BlockNumber:     300,
-			Method:          "withdraw",
-			EventIdentifier: "event4",
+			EventIdentifier: "withdraw",
 			Status:          "confirmed",
 			Confirmations:   12,
 		}
@@ -466,8 +461,7 @@ func TestPerChainTransactionCleanerEdgeCases(t *testing.T) {
 			tx := &store.ChainTransaction{
 				TxHash:          string(rune('a' + i)) + "00",
 				BlockNumber:     uint64(400 + i),
-				Method:          "test",
-				EventIdentifier: "event" + string(rune('5' + i)),
+				EventIdentifier: "test_event" + string(rune('5' + i)),
 				Status:          status,
 				Confirmations:   10,
 			}

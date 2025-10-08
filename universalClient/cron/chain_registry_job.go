@@ -81,27 +81,54 @@ func (j *ChainRegistryJob) Stop() {
 func (j *ChainRegistryJob) run(parent context.Context) {
 	defer j.wg.Done()
 
+	// Initial sync with 3 retries (1s, 2s, 4s) to populate registry immediately at startup
+	if err := j.initialSync(parent); err != nil {
+		j.logger.Warn().Err(err).Msg("initial chain registry sync failed; continuing with empty/stale registry")
+	}
+
 	t := time.NewTicker(j.interval)
 	defer t.Stop()
 
 	for {
 		select {
 		case <-parent.Done():
-			j.logger.Info().Msg("chain cache cron: context canceled; stopping")
+			j.logger.Info().Msg("chain registry cron: context canceled; stopping")
 			return
 		case <-j.stopCh:
-			j.logger.Info().Msg("chain cache cron: stop requested; stopping")
+			j.logger.Info().Msg("chain registry cron: stop requested; stopping")
 			return
 		case <-t.C:
 			if err := j.syncOnce(parent); err != nil {
-				j.logger.Warn().Err(err).Msg("periodic chain config refresh failed; keeping previous cache")
+				j.logger.Warn().Err(err).Msg("periodic chain registry refresh failed; keeping previous registry")
 			}
 		case <-j.forceCh:
 			if err := j.syncOnce(parent); err != nil {
-				j.logger.Warn().Err(err).Msg("forced chain config refresh failed; keeping previous cache")
+				j.logger.Warn().Err(err).Msg("forced chain registry refresh failed; keeping previous registry")
 			}
 		}
 	}
+}
+
+// initialSync performs the initial synchronization with retries
+func (j *ChainRegistryJob) initialSync(ctx context.Context) error {
+	backoff := time.Second
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		if err := j.syncOnce(ctx); err != nil {
+			lastErr = err
+			j.logger.Warn().Int("attempt", attempt).Err(err).Msg("initial chain registry sync attempt failed")
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+			continue
+		}
+		j.logger.Info().Int("attempt", attempt).Msg("initial chain registry sync successful")
+		return nil
+	}
+	return lastErr
 }
 
 func (j *ChainRegistryJob) syncOnce(parent context.Context) error {

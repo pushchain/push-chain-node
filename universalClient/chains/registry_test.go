@@ -300,7 +300,7 @@ func TestChainRegistryAddOrUpdateChain(t *testing.T) {
 		assert.NotNil(t, client)
 		assert.True(t, client.(*MockChainClient).IsStarted())
 	})
-	t.Run("Update existing chain with same config", func(t *testing.T) {
+	t.Run("Update existing chain with same config ", func(t *testing.T) {
 		registry := &ChainRegistry{
 			chains: make(map[string]common.ChainClient),
 			logger: logger,

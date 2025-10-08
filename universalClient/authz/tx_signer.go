@@ -3,7 +3,10 @@ package authz
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -65,28 +68,130 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 		return nil, fmt.Errorf("failed to wrap messages with AuthZ: %w", err)
 	}
 
-	// Create and sign transaction
-	txBuilder, err := ts.createTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tx builder: %w", err)
+	// Try up to 3 times in case of sequence mismatch
+	maxAttempts := 3
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Create and sign transaction
+		txBuilder, err := ts.createTxBuilder(authzMsgs, memo, gasLimit, feeAmount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tx builder: %w", err)
+		}
+
+		// Sign the transaction with sequence management
+		if err := ts.signTxWithSequence(ctx, txBuilder); err != nil {
+			return nil, fmt.Errorf("failed to sign transaction: %w", err)
+		}
+
+		// Encode transaction
+		txBytes, err := ts.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode transaction: %w", err)
+		}
+
+		// Broadcast transaction
+		res, err := ts.broadcastTransaction(ctx, txBytes)
+		if err != nil {
+			// Check if error is due to sequence mismatch
+			if strings.Contains(err.Error(), "account sequence mismatch") && attempt < maxAttempts {
+				ts.log.Warn().
+					Err(err).
+					Uint64("current_sequence", ts.lastSequence).
+					Int("attempt", attempt).
+					Msg("Sequence mismatch detected, forcing refresh and retrying")
+				// Force refresh sequence on next attempt
+				ts.lastSequence = 0 // This will force a refresh from chain
+				continue            // Retry
+			}
+			// For other errors or final attempt, increment and return error
+			ts.lastSequence++
+			ts.log.Debug().
+				Uint64("new_sequence", ts.lastSequence).
+				Msg("Incremented sequence after broadcast error")
+			return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
+		}
+
+		// If chain responded with error code, handle sequence-mismatch specially
+		if res != nil && res.Code != 0 {
+			// Retry immediately for account sequence mismatch responses
+			if strings.Contains(strings.ToLower(res.RawLog), "account sequence mismatch") && attempt < maxAttempts {
+				ts.log.Warn().
+					Uint64("current_sequence", ts.lastSequence).
+					Int("attempt", attempt).
+					Str("raw_log", res.RawLog).
+					Msg("Sequence mismatch in response, refreshing and retrying")
+				// Parse expected sequence from raw log. If found, prefer it over chain query.
+				if exp, got, ok := parseSequenceMismatch(res.RawLog); ok {
+					// Set lastSequence to the expected (next) sequence so that signer uses it.
+					ts.log.Debug().
+						Uint64("expected", exp).
+						Uint64("got", got).
+						Msg("Parsed sequence mismatch values from raw log")
+					ts.lastSequence = exp
+				} else {
+					// Fallback: force refresh from chain on next attempt
+					ts.lastSequence = 0
+				}
+				continue
+			}
+
+			// Conservatively increment sequence since the sequence may have been consumed
+			ts.lastSequence++
+			ts.log.Debug().
+				Uint64("new_sequence", ts.lastSequence).
+				Msg("Incremented sequence after on-chain error response")
+
+			// Log and return error
+			ts.log.Error().
+				Str("tx_hash", res.TxHash).
+				Uint32("code", res.Code).
+				Str("raw_log", res.RawLog).
+				Uint64("sequence_used", ts.lastSequence-1).
+				Msg("Transaction failed on chain")
+			return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
+		}
+
+		// Success: increment sequence once and return
+		ts.lastSequence++
+		ts.log.Debug().
+			Uint64("new_sequence", ts.lastSequence).
+			Str("tx_hash", res.TxHash).
+			Msg("Incremented sequence after successful broadcast")
+
+		ts.log.Info().
+			Str("tx_hash", res.TxHash).
+			Int64("gas_used", res.GasUsed).
+			Uint64("sequence_used", ts.lastSequence-1).
+			Msg("Transaction broadcasted and executed successfully")
+
+		return res, nil
 	}
 
-	// Sign the transaction with sequence management
-	if err := ts.signTxWithSequence(ctx, txBuilder); err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %w", err)
+	return nil, fmt.Errorf("failed to broadcast transaction after %d attempts", maxAttempts)
+}
+
+// handleBroadcastSuccess processes a successful broadcast
+func (ts *TxSigner) handleBroadcastSuccess(res *sdk.TxResponse) (*sdk.TxResponse, error) {
+	// Check if transaction failed due to sequence mismatch
+	// In this case, don't increment sequence as it wasn't consumed
+	if res.Code == 32 && strings.Contains(res.RawLog, "account sequence mismatch") {
+		ts.log.Warn().
+			Str("tx_hash", res.TxHash).
+			Uint32("code", res.Code).
+			Str("raw_log", res.RawLog).
+			Uint64("current_sequence", ts.lastSequence).
+			Msg("Sequence mismatch error - not incrementing sequence")
+		// Force sequence refresh on next attempt
+		ts.lastSequence = 0
+		return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
 	}
 
-	// Encode transaction
-	txBytes, err := ts.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	// Broadcast transaction
-	res, err := ts.broadcastTransaction(ctx, txBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
-	}
+	// Increment sequence once per broadcast attempt. The chain consumes the
+	// sequence for all other cases.
+	ts.lastSequence++
+	ts.log.Debug().
+		Uint64("new_sequence", ts.lastSequence).
+		Str("tx_hash", res.TxHash).
+		Msg("Incremented sequence after broadcast")
 
 	// Check if transaction was successful
 	if res.Code != 0 {
@@ -94,16 +199,15 @@ func (ts *TxSigner) SignAndBroadcastAuthZTx(
 			Str("tx_hash", res.TxHash).
 			Uint32("code", res.Code).
 			Str("raw_log", res.RawLog).
-			Msg("Transaction failed on chain")
+			Uint64("sequence_used", ts.lastSequence-1).
+			Msg("Transaction failed on chain but sequence was consumed")
 		return res, fmt.Errorf("transaction failed with code %d: %s", res.Code, res.RawLog)
 	}
-
-	// Update our cached sequence for next transaction
-	ts.lastSequence++
 
 	ts.log.Info().
 		Str("tx_hash", res.TxHash).
 		Int64("gas_used", res.GasUsed).
+		Uint64("sequence_used", ts.lastSequence-1).
 		Msg("Transaction broadcasted and executed successfully")
 
 	return res, nil
@@ -166,7 +270,7 @@ func (ts *TxSigner) createTxBuilder(
 	return txBuilder, nil
 }
 
-// SignTxWithSequence signs a transaction with proper sequence management
+// signTxWithSequence signs a transaction with proper sequence management
 func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxBuilder) error {
 	ts.log.Debug().Msg("Starting transaction signing with sequence management")
 
@@ -176,14 +280,27 @@ func (ts *TxSigner) signTxWithSequence(ctx context.Context, txBuilder client.TxB
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
 
-	// Update our cached sequence if it's behind the chain's sequence
+	// Reconcile local vs chain sequence conservatively:
+	// - If we have no local sequence (0), adopt chain's sequence.
+	// - If local < chain, adopt chain (we are behind).
+	// - If local > chain, keep local (likely recent tx not yet reflected in query).
 	chainSequence := account.GetSequence()
-	if ts.lastSequence < chainSequence {
+	if ts.lastSequence == 0 {
 		ts.lastSequence = chainSequence
-		ts.log.Debug().
+		ts.log.Info().
+			Uint64("adopted_chain_sequence", chainSequence).
+			Msg("Initialized local sequence from chain")
+	} else if ts.lastSequence < chainSequence {
+		ts.log.Info().
 			Uint64("chain_sequence", chainSequence).
 			Uint64("cached_sequence", ts.lastSequence).
-			Msg("Updated cached sequence from chain")
+			Msg("Local sequence behind chain, adopting chain's sequence")
+		ts.lastSequence = chainSequence
+	} else if ts.lastSequence > chainSequence {
+		ts.log.Warn().
+			Uint64("chain_sequence", chainSequence).
+			Uint64("cached_sequence", ts.lastSequence).
+			Msg("Local sequence ahead of chain query, keeping local to avoid reuse")
 	}
 
 	// Get hot key address
@@ -316,4 +433,25 @@ func (ts *TxSigner) broadcastTransaction(_ context.Context, txBytes []byte) (*sd
 // checks if a message type is allowed for AuthZ execution
 func isAllowedMsgType(msgType string) bool {
 	return slices.Contains(constant.SupportedMessages, msgType)
+}
+
+// parseSequenceMismatch attempts to parse expected and got sequence numbers from a raw log
+// Example raw log: "account sequence mismatch, expected 601, got 600: incorrect account sequence"
+func parseSequenceMismatch(raw string) (expected uint64, got uint64, ok bool) {
+	// Quick path using Sscanf if format matches exactly
+	var e, g uint64
+	if _, err := fmt.Sscanf(raw, "account sequence mismatch, expected %d, got %d", &e, &g); err == nil {
+		return e, g, true
+	}
+	// Fallback to regex to be resilient to prefixes/suffixes
+	re := regexp.MustCompile(`expected\s+(\d+)\s*,\s*got\s+(\d+)`)
+	m := re.FindStringSubmatch(raw)
+	if len(m) == 3 {
+		if ev, err1 := strconv.ParseUint(m[1], 10, 64); err1 == nil {
+			if gv, err2 := strconv.ParseUint(m[2], 10, 64); err2 == nil {
+				return ev, gv, true
+			}
+		}
+	}
+	return 0, 0, false
 }

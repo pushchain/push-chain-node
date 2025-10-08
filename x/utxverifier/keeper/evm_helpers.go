@@ -60,8 +60,13 @@ func NormalizeEVMAddress(addr string) string {
 //	AmountInUSD AmountInUSD
 //
 // );
-func ParseEVMFundsAddedEventLogs(logs []interface{}, expectedTopic string) (*utxverifiertypes.EVMFundsAddedEventData, error) {
+func ParseEVMFundsAddedEventLogs(
+	logs []interface{},
+	expectedTopic string,
+) ([]utxverifiertypes.EVMFundsAddedEventData, error) {
 	expectedTopic = strings.ToLower(expectedTopic)
+
+	var results []utxverifiertypes.EVMFundsAddedEventData
 
 	for _, rawLog := range logs {
 		logMap, ok := rawLog.(map[string]interface{})
@@ -103,14 +108,18 @@ func ParseEVMFundsAddedEventLogs(logs []interface{}, expectedTopic string) (*utx
 		// Second 32 bytes: decimals (last byte)
 		decimals := uint32(uint8(dataBytes[63]))
 
-		return &utxverifiertypes.EVMFundsAddedEventData{
+		results = append(results, utxverifiertypes.EVMFundsAddedEventData{
 			AmountInUSD: amount,
 			Decimals:    decimals,
 			PayloadHash: payloadHashHex,
-		}, nil
+		})
 	}
 
-	return nil, fmt.Errorf("amount not found with expected topic %s", expectedTopic)
+	if len(results) == 0 {
+		return nil, fmt.Errorf("amount not found with expected topic %s", expectedTopic)
+	}
+
+	return results, nil
 }
 
 // Checks if a given evm tx hash has enough confirmations

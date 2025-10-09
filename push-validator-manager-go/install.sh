@@ -69,6 +69,21 @@ node_running() {
     fi
 }
 
+# Helper: Check if current node consensus key already exists in validator set
+node_is_validator() {
+    local result
+    if ! result=$("$MANAGER_BIN" register-validator --check-only --output json 2>/dev/null); then
+        return 1
+    fi
+    if command -v jq >/dev/null 2>&1; then
+        local flag
+        flag=$(echo "$result" | jq -r '.registered // false' 2>/dev/null || echo "false")
+        [[ "$flag" == "true" ]] && return 0 || return 1
+    else
+        echo "$result" | grep -q '"registered"[[:space:]]*:[[:space:]]*true' && return 0 || return 1
+    fi
+}
+
 # Helper: Print useful commands
 print_useful_cmds() {
     echo
@@ -547,12 +562,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
   "$MANAGER_BIN" status || true
   ok "Ready to become a validator"
 
-  echo
-  echo "Next steps:"
-  echo "1. Get test tokens from: https://faucet.push.org"
-  echo "2. Register as validator: push-validator-manager register-validator"
-  echo
-
   # Detect whether a controlling TTY is available for prompts/log view
   INTERACTIVE="no"
   if [[ -t 0 ]] && [[ -t 1 ]]; then
@@ -563,36 +572,50 @@ if [[ "$AUTO_START" = "yes" ]]; then
 
   REGISTRATION_STATUS="skipped"
 
-  # Guard registration prompt in non-interactive mode
-  if [[ "$INTERACTIVE" == "yes" ]]; then
-    if [[ -e /dev/tty ]]; then
-      read -r -p "Register as a validator now? (y/N) " RESP < /dev/tty 2> /dev/tty || true
-    else
-      read -r -p "Register as a validator now? (y/N) " RESP || true
-    fi
+  ALREADY_VALIDATOR="no"
+  if node_is_validator; then
+    ALREADY_VALIDATOR="yes"
+    REGISTRATION_STATUS="already"
+  fi
+
+  if [[ "$ALREADY_VALIDATOR" == "no" ]]; then
+    echo
+    echo "Next steps:"
+    echo "1. Get test tokens from: https://faucet.push.org"
+    echo "2. Register as validator: push-validator-manager register-validator"
+    echo
   else
+    echo
+    ok "Validator already registered"
+    echo
+    echo "  Check your validator:"
+    echo "     push-validator-manager validators"
+    echo
+    echo "  Monitor node status:"
+    echo "     push-validator-manager status"
+    echo
+  fi
+
+  # Guard registration prompt in non-interactive mode
+  if [[ "$ALREADY_VALIDATOR" == "yes" ]]; then
     RESP="N"
+  else
+    if [[ "$INTERACTIVE" == "yes" ]]; then
+      if [[ -e /dev/tty ]]; then
+        read -r -p "Register as a validator now? (y/N) " RESP < /dev/tty 2> /dev/tty || true
+      else
+        read -r -p "Register as a validator now? (y/N) " RESP || true
+      fi
+    else
+      RESP="N"
+    fi
   fi
   case "${RESP:-}" in
     [Yy])
       echo
       echo "Push Validator Manager - Registration"
       echo "══════════════════════════════════════"
-      # Prompt for overrides
-      if [[ -e /dev/tty ]]; then
-        read -r -p "Enter validator name (moniker) [${MONIKER}]: " MONIN < /dev/tty 2> /dev/tty || true
-      else
-        read -r -p "Enter validator name (moniker) [${MONIKER}]: " MONIN || true
-      fi
-      MONIN=${MONIN:-$MONIKER}
-      if [[ -e /dev/tty ]]; then
-        read -r -p "Enter key name for validator (default: validator-key): " KEYIN < /dev/tty 2> /dev/tty || true
-      else
-        read -r -p "Enter key name for validator (default: validator-key): " KEYIN || true
-      fi
-      KEYIN=${KEYIN:-validator-key}
-      export MONIKER="$MONIN" KEY_NAME="$KEYIN"
-      # Run registration flow (handles balance checks itself)
+      # Run registration flow directly (CLI handles prompts and status checks)
       if "$MANAGER_BIN" register-validator; then
         REGISTRATION_STATUS="success"
       else
@@ -678,6 +701,9 @@ if [[ "$INTERACTIVE" == "yes" ]] && [[ -z "$ACTION" || "$ACTION" == "logs" ]]; t
       ;;
     failed)
       warn "Validator registration encountered issues; showing logs for troubleshooting"
+      ;;
+    already)
+      ok "Validator already registered"
       ;;
   esac
   echo "Starting log viewer..."

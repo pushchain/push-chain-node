@@ -18,6 +18,8 @@ import (
 	"golang.org/x/term"
 )
 
+var flagRegisterCheckOnly bool
+
 // handleRegisterValidator is a compatibility wrapper that pulls
 // defaults from env and invokes runRegisterValidator.
 // It prompts interactively for moniker and key name if not set via env vars.
@@ -29,6 +31,66 @@ func handleRegisterValidator(cfg config.Config) {
 
 	moniker := defaultMoniker
 	keyName := defaultKeyName
+
+	v := validator.NewWith(validator.Options{
+		BinPath:       findPchaind(),
+		HomeDir:       cfg.HomeDir,
+		ChainID:       cfg.ChainID,
+		Keyring:       cfg.KeyringBackend,
+		GenesisDomain: cfg.GenesisDomain,
+		Denom:         cfg.Denom,
+	})
+
+	statusCtx, statusCancel := context.WithTimeout(context.Background(), 20*time.Second)
+	isValAlready, statusErr := v.IsValidator(statusCtx, "")
+	statusCancel()
+	if statusErr != nil {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": false, "error": statusErr.Error()})
+		} else {
+			p := ui.NewPrinter(flagOutput)
+			fmt.Println()
+			fmt.Println(p.Colors.Error("⚠️ Failed to verify validator status"))
+			fmt.Printf("Error: %v\n\n", statusErr)
+			fmt.Println("Please check your network connection and genesis domain configuration.")
+		}
+		return
+	}
+	if flagRegisterCheckOnly {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": true, "registered": isValAlready})
+		} else {
+			p := ui.NewPrinter(flagOutput)
+			fmt.Println()
+			if isValAlready {
+				fmt.Println(p.Colors.Success("✓ This node is already registered as a validator"))
+			} else {
+				fmt.Println(p.Colors.Info("Validator registration required"))
+			}
+		}
+		return
+	}
+	if isValAlready {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": false, "error": "validator already registered"})
+		} else {
+			p := ui.NewPrinter(flagOutput)
+			fmt.Println()
+			fmt.Println(p.Colors.Success("✓ This node is already registered as a validator"))
+			fmt.Println()
+			fmt.Println("Your validator is active on the network.")
+			fmt.Println()
+			p.Section("Validator Status")
+			fmt.Println()
+			fmt.Println(p.Colors.Info("  Check your validator:"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
+			fmt.Println()
+			fmt.Println(p.Colors.Info("  Monitor node status:"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager status"))
+			fmt.Println()
+		}
+		return
+	}
 
 	// Interactive prompts (skip in JSON mode or if env vars are explicitly set)
 	if flagOutput != "json" {
@@ -88,42 +150,6 @@ func handleRegisterValidator(cfg config.Config) {
 				}
 			}
 			fmt.Println()
-		}
-
-		// Check if validator is already registered before asking for commission
-		// Note: IsValidator checks consensus pubkey, not account address, so we don't need to create the key yet
-		v := validator.NewWith(validator.Options{BinPath: findPchaind(), HomeDir: cfg.HomeDir, ChainID: cfg.ChainID, Keyring: cfg.KeyringBackend, GenesisDomain: cfg.GenesisDomain, Denom: cfg.Denom})
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-
-		// Check if this node is already registered as a validator (pass empty address since we check consensus pubkey)
-		isVal, err := v.IsValidator(ctx, "")
-		if err != nil {
-			// Network/query error - registration won't work anyway, fail fast
-			p := ui.NewPrinter(flagOutput)
-			fmt.Println()
-			fmt.Println(p.Colors.Error("⚠️ Failed to verify validator status"))
-			fmt.Printf("Error: %v\n\n", err)
-			fmt.Println("Please check your network connection and genesis domain configuration.")
-			return
-		}
-		if isVal {
-			// Already registered - show status
-			p := ui.NewPrinter(flagOutput)
-			fmt.Println()
-			fmt.Println(p.Colors.Error("❌ This node is already registered as a validator"))
-			fmt.Println()
-			fmt.Println("Your validator is active on the network.")
-			fmt.Println()
-			p.Section("Validator Status")
-			fmt.Println()
-			fmt.Println(p.Colors.Info("  Check your validator:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
-			fmt.Println()
-			fmt.Println(p.Colors.Info("  Monitor node status:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager status"))
-			fmt.Println()
-			return
 		}
 
 		// Commission rate prompt (only if not already registered)

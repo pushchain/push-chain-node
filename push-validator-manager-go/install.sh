@@ -578,8 +578,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo
 
       # Check if we're in interactive mode
+      # When piped from curl, stdin won't be a TTY but stderr will be
       INTERACTIVE="no"
-      if [[ -t 0 ]] && [[ -t 1 ]]; then
+      if [[ -t 2 ]]; then
         INTERACTIVE="yes"
       fi
 

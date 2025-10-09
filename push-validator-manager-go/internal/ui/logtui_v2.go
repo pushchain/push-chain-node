@@ -103,7 +103,6 @@ func RunLogUIV2(ctx context.Context, opts LogUIOptions) error {
 				stopNodeSimple()
 				return nil
 			case opts.BgKey, upperBg:
-				fmt.Fprint(os.Stdout, "\r\nDetaching...\r\n")
 				return nil
 			}
 		}

@@ -44,6 +44,26 @@ func (s *svc) EnsureKey(ctx context.Context, name string) (string, error) {
     return strings.TrimSpace(string(out2)), nil
 }
 
+func (s *svc) GetEVMAddress(ctx context.Context, addr string) (string, error) {
+    if addr == "" { return "", errors.New("address required") }
+    if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
+    cmd := exec.CommandContext(ctx, s.opts.BinPath, "debug", "addr", addr)
+    out, err := cmd.Output()
+    if err != nil { return "", fmt.Errorf("debug addr: %w", err) }
+    // Parse output to extract hex address
+    lines := strings.Split(string(out), "\n")
+    for _, line := range lines {
+        if strings.HasPrefix(line, "Address (hex):") {
+            parts := strings.SplitN(line, ":", 2)
+            if len(parts) == 2 {
+                hex := strings.TrimSpace(parts[1])
+                return "0x" + hex, nil
+            }
+        }
+    }
+    return "", errors.New("could not extract EVM address from debug output")
+}
+
 func (s *svc) IsValidator(ctx context.Context, addr string) (bool, error) {
     if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
     // Compare local consensus pubkey with remote validators

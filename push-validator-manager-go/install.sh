@@ -468,6 +468,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
   if [[ $SYNC_RC -ne 0 ]]; then warn "Sync monitoring ended with code $SYNC_RC"; fi
 
   echo  # Ensure newline after sync progress
+  # Wait for peer connections to establish
+  sleep 5
   # Quick status sample
   step "Checking block sync status"
   "$MANAGER_BIN" status || true
@@ -563,7 +565,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
         echo "  Moniker:       $MONIKER"
       fi
       echo "───────────────────────────────────────────────────────────────"
-      echo "  Next:         push-validator-manager --help"
+      echo "  Usage:        push-validator-manager status | logs | stop | restart"
+      echo "                push-validator-manager register-validator"
+      echo "                push-validator-manager --help (for more commands)"
       echo "═══════════════════════════════════════════════════════════════"
 
       if [[ "$INTERACTIVE" == "yes" ]] && [[ -z "$ACTION" || "$ACTION" == "logs" ]]; then

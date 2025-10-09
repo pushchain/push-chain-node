@@ -50,7 +50,8 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount string) {
     defer cancel2()
     addr, err := v.EnsureKey(ctx2, keyName)
     if err != nil { if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()}) } else { fmt.Printf("key error: %v\n", err) }; return }
-    evmAddr := ""; _ = evmAddr
+    evmAddr, err := v.GetEVMAddress(ctx2, addr)
+    if err != nil { evmAddr = "" }
     const requiredBalance = "1600000000000000000"
     const stakeAmount = "1500000000000000000"
     maxRetries := 10

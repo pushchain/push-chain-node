@@ -135,8 +135,6 @@ func printStatusText(result statusResult) {
     } else if result.Peers > 1 {
         peers = fmt.Sprintf("%d peers connected", result.Peers)
     }
-    latency := "-"
-    if result.LatencyMS > 0 { latency = fmt.Sprintf("%d ms", result.LatencyMS) }
 
     // Render a simple header box
     title := c.Header(" PUSH VALIDATOR STATUS ")
@@ -161,7 +159,6 @@ func printStatusText(result statusResult) {
     }
     lines = append(lines,
         fmt.Sprintf("%s %s", c.Info("•"), c.FormatKeyValue("Peers", peers)),
-        fmt.Sprintf("%s %s", c.Info("•"), c.FormatKeyValue("Latency", latency)),
     )
 
     fmt.Println(title)

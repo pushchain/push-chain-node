@@ -4,8 +4,6 @@ import (
     "encoding/json"
     "fmt"
     "os"
-    "strings"
-    "time"
 
     "github.com/spf13/cobra"
     "gopkg.in/yaml.v3"
@@ -14,7 +12,6 @@ import (
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/exitcodes"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/bootstrap"
-    syncmon "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/sync"
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
 )
 
@@ -76,13 +73,7 @@ func init() {
     rootCmd.PersistentFlags().BoolVarP(&flagYes, "yes", "y", false, "Assume yes for all prompts")
     rootCmd.PersistentFlags().BoolVar(&flagNonInteractive, "non-interactive", false, "Fail instead of prompting")
 
-    // status command (uses root --output), with --watch aliasing sync monitor
-    var statusWatch bool
-    var statusCompact bool
-    var statusWindow int
-    var statusRPC string
-    var statusRemote string
-    var statusInterval time.Duration
+    // status command (uses root --output)
     var statusStrict bool
     statusCmd := &cobra.Command{
         Use:   "status",
@@ -90,21 +81,6 @@ func init() {
         RunE: func(cmd *cobra.Command, args []string) error {
             cfg := loadCfg()
             sup := process.New(cfg.HomeDir)
-            if statusWatch {
-                if statusRPC == "" { statusRPC = cfg.RPCLocal }
-                if statusRemote == "" { statusRemote = "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443" }
-                return syncmon.Run(cmd.Context(), syncmon.Options{
-                    LocalRPC: statusRPC,
-                    RemoteRPC: statusRemote,
-                    LogPath: sup.LogPath(),
-                    Window: statusWindow,
-                    Compact: statusCompact,
-                    Out: os.Stdout,
-                    Interval: statusInterval,
-                    Quiet: flagQuiet,
-                    Debug: flagDebug,
-                })
-            }
             res := computeStatus(cfg, sup)
 
             // Strict mode: exit non-zero if issues detected
@@ -146,12 +122,6 @@ func init() {
             }
         },
     }
-    statusCmd.Flags().BoolVar(&statusWatch, "watch", false, "Continuously monitor sync progress (alias for 'sync')")
-    statusCmd.Flags().BoolVar(&statusCompact, "compact", false, "Compact output when --watch")
-    statusCmd.Flags().IntVar(&statusWindow, "window", 30, "Moving average window (headers) when --watch")
-    statusCmd.Flags().StringVar(&statusRPC, "rpc", "", "Local RPC base when --watch (http[s]://host:port)")
-    statusCmd.Flags().StringVar(&statusRemote, "remote", "", "Remote RPC base when --watch")
-    statusCmd.Flags().DurationVar(&statusInterval, "interval", 1*time.Second, "Update interval when --watch (e.g. 1s, 2s)")
     statusCmd.Flags().BoolVar(&statusStrict, "strict", false, "Exit non-zero if node has issues (not running, catching up, no peers, or errors)")
     rootCmd.AddCommand(statusCmd)
 
@@ -206,6 +176,7 @@ func init() {
         Short: "Start node",
         RunE: func(cmd *cobra.Command, args []string) error {
             cfg := loadCfg()
+            p := getPrinter()
             if startBin != "" { os.Setenv("PCHAIND", startBin) }
             _, err := process.New(cfg.HomeDir).Start(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
             if err != nil {
@@ -222,8 +193,10 @@ func init() {
                         "Confirm pchaind version matches network",
                     },
                 })
+                return err
             }
-            return err
+            if flagOutput == "json" { p.JSON(map[string]any{"ok": true, "action": "start"}) } else { p.Success("Node started") }
+            return nil
         },
     }
     startCmd.Flags().StringVar(&startBin, "bin", "", "Path to pchaind binary")
@@ -233,7 +206,9 @@ func init() {
 
     var restartBin string
     restartCmd := &cobra.Command{Use: "restart", Short: "Restart node", RunE: func(cmd *cobra.Command, args []string) error {
-        cfg := loadCfg(); if restartBin != "" { os.Setenv("PCHAIND", restartBin) }
+        cfg := loadCfg()
+        p := getPrinter()
+        if restartBin != "" { os.Setenv("PCHAIND", restartBin) }
         _, err := process.New(cfg.HomeDir).Restart(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
         if err != nil {
             ui.PrintError(ui.ErrorMessage{
@@ -247,8 +222,10 @@ func init() {
                     "Try: push-validator-manager stop; then start",
                 },
             })
+            return err
         }
-        return err
+        if flagOutput == "json" { p.JSON(map[string]any{"ok": true, "action": "restart"}) } else { p.Success("Node restarted") }
+        return nil
     }}
     restartCmd.Flags().StringVar(&restartBin, "bin", "", "Path to pchaind binary")
     rootCmd.AddCommand(restartCmd)

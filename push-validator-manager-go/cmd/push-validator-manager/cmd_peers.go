@@ -36,7 +36,8 @@ func init() {
 				rows = append(rows, []string{p.ID, p.Addr})
 			}
 			fmt.Println(c.Header(" Connected Peers "))
-			fmt.Print(ui.Table(c, headers, rows, nil))
+			// Set widths: 40 for ID (full peer ID), 0 for ADDR (auto)
+			fmt.Print(ui.Table(c, headers, rows, []int{40, 0}))
 			fmt.Printf("Total Peers: %d\n", len(plist))
 			return nil
 		},

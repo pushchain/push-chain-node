@@ -18,8 +18,9 @@ var (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update validator manager and chain binary",
+	Use:    "update",
+	Short:  "Update validator manager and chain binary",
+	Hidden: true,
 	Long: `Updates the Push Validator Manager and pchaind binary to the latest version.
 
 This command:

@@ -8,7 +8,7 @@ import (
 // Table renders a simple monospaced table with optional colorization using ColorConfig.
 // widths optionally fixes column widths; when 0, width is computed from data (capped at maxWidth per col).
 func Table(c *ColorConfig, headers []string, rows [][]string, widths []int) string {
-    const maxWidth = 40
+    const maxWidth = 80
     // compute widths
     w := make([]int, len(headers))
     for i := range headers {

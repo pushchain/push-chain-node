@@ -111,6 +111,7 @@ PREFIX="${PREFIX:-}"
 # Flags
 USE_LOCAL="no"
 LOCAL_REPO=""
+PCHAIND="${PCHAIND:-}"
 PCHAIND_REF="${PCHAIND_REF:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in

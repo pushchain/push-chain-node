@@ -630,7 +630,9 @@ func swallowEnter(out io.Writer) {
 			return
 		}
 		if r == '\n' || r == '\r' {
-			fmt.Fprint(out, "\x1b[1A\r\x1b[K")
+			// Move cursor to beginning of current line and clear it
+			// This handles the newline created by Enter without moving up
+			fmt.Fprint(out, "\r\x1b[K")
 		}
 	}
 }

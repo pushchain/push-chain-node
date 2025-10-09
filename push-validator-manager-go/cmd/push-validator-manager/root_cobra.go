@@ -129,8 +129,9 @@ func init() {
     // init (Cobra flags)
     var initMoniker, initChainID, initSnapshotRPC string
     initCmd := &cobra.Command{
-        Use:   "init",
-        Short: "Initialize local node home",
+        Use:    "init",
+        Short:  "Initialize local node home",
+        Hidden: true,
         RunE: func(cmd *cobra.Command, args []string) error {
             cfg := loadCfg()
             if initMoniker == "" { initMoniker = getenvDefault("MONIKER", "push-validator") }

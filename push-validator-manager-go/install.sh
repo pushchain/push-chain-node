@@ -233,22 +233,11 @@ if [[ -z "$TO_CMD" ]]; then
   warn "timeout/gtimeout not found; RPC checks may block longer than expected"
 fi
 
-# Environment banner
+# Store environment info (will print after manager is built)
 OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
 OS_ARCH=$(uname -m)
 GO_VER=$(go version | awk '{print $3}' | sed 's/go//')
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-MANAGER_VER_BANNER="unknown"
-if [[ -x "$MANAGER_BIN" ]]; then
-  # Parse full version output: "push-validator-manager v1.0.0 (abc1234) built 2025-01-08"
-  MANAGER_FULL=$("$MANAGER_BIN" version 2>/dev/null || echo "unknown")
-  if [[ "$MANAGER_FULL" != "unknown" ]]; then
-    MANAGER_VER_BANNER=$(echo "$MANAGER_FULL" | awk '{print $2, $3}' | sed 's/[()]//g')
-  fi
-fi
-echo
-echo -e "${BOLD}Environment:${NC} ${OS_NAME}/${OS_ARCH} | Go ${GO_VER} | Manager ${MANAGER_VER_BANNER} | ${TIMESTAMP}"
-echo
 
 # Calculate total phases needed (detection already done above before mkdir)
 TOTAL_PHASES=4  # Base: Install Manager, Build Chain, Init, Start
@@ -443,6 +432,19 @@ if [[ "$SKIP_BUILD" = "no" ]]; then
 fi
 
 ok "Manager installed: $MANAGER_BIN"
+
+# Print environment banner now that manager is built
+MANAGER_VER_BANNER="dev unknown"
+if [[ -x "$MANAGER_BIN" ]]; then
+  # Parse full version output: "push-validator-manager v1.0.0 (abc1234) built 2025-01-08"
+  MANAGER_FULL=$("$MANAGER_BIN" version 2>/dev/null || echo "unknown")
+  if [[ "$MANAGER_FULL" != "unknown" ]]; then
+    MANAGER_VER_BANNER=$(echo "$MANAGER_FULL" | awk '{print $2, $3}' | sed 's/[()]//g')
+  fi
+fi
+echo
+echo -e "${BOLD}Environment:${NC} ${OS_NAME}/${OS_ARCH} | Go ${GO_VER} | Manager ${MANAGER_VER_BANNER} | ${TIMESTAMP}"
+echo
 
 # Ensure PATH for current session
 case ":$PATH:" in *":$INSTALL_BIN_DIR:"*) : ;; *) export PATH="$INSTALL_BIN_DIR:$PATH" ;; esac

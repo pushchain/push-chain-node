@@ -84,7 +84,7 @@ print_useful_cmds() {
 # Phase tracking with timing
 INSTALL_START_TIME=$(date +%s)
 PHASE_NUM=0
-TOTAL_PHASES=6
+TOTAL_PHASES=6  # Will be adjusted based on what's needed
 PHASE_START_TIME=0
 next_phase() {
     ((PHASE_NUM++))
@@ -191,6 +191,29 @@ fi
 REPO_DIR="$ROOT_DIR/repo"
 MANAGER_BIN="$INSTALL_BIN_DIR/push-validator-manager"
 
+# Detect what phases are needed BEFORE creating directories
+HAS_RUNNING_NODE="no"
+HAS_EXISTING_INSTALL="no"
+
+# Check if node is running or processes exist
+if [[ -x "$MANAGER_BIN" ]] && command -v "$MANAGER_BIN" >/dev/null 2>&1; then
+  # Manager exists, check if node is actually running via status
+  STATUS_JSON=$("$MANAGER_BIN" status --output json 2>/dev/null || echo "{}")
+  if echo "$STATUS_JSON" | grep -q '"running"[[:space:]]*:[[:space:]]*true'; then
+    HAS_RUNNING_NODE="yes"
+  fi
+elif pgrep -x pchaind >/dev/null 2>&1 || pgrep -x push-validator-manager >/dev/null 2>&1; then
+  HAS_RUNNING_NODE="yes"
+fi
+
+# Check if installation exists (check for actual installation artifacts, not just config)
+if [[ -d "$ROOT_DIR" ]] || [[ -x "$MANAGER_BIN" ]]; then
+  HAS_EXISTING_INSTALL="yes"
+elif [[ -d "$HOME_DIR/data" ]] && [[ -n "$(ls -A "$HOME_DIR/data" 2>/dev/null)" ]]; then
+  # Only count as existing if data directory has content
+  HAS_EXISTING_INSTALL="yes"
+fi
+
 mkdir -p "$ROOT_DIR" "$INSTALL_BIN_DIR"
 
 verbose "Installation paths:"
@@ -227,8 +250,20 @@ echo
 echo -e "${BOLD}Environment:${NC} ${OS_NAME}/${OS_ARCH} | Go ${GO_VER} | Manager ${MANAGER_VER_BANNER} | ${TIMESTAMP}"
 echo
 
-# Stop any running processes first
-next_phase "Stopping Validator Processes"
+# Calculate total phases needed (detection already done above before mkdir)
+TOTAL_PHASES=4  # Base: Install Manager, Build Chain, Init, Start
+if [[ "$HAS_RUNNING_NODE" = "yes" ]]; then
+  ((TOTAL_PHASES++))  # Add stopping phase
+fi
+if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
+  ((TOTAL_PHASES++))  # Add cleaning phase
+fi
+
+verbose "Phases needed: $TOTAL_PHASES (running=$HAS_RUNNING_NODE, existing=$HAS_EXISTING_INSTALL)"
+
+# Stop any running processes first (only if needed)
+if [[ "$HAS_RUNNING_NODE" = "yes" ]]; then
+  next_phase "Stopping Validator Processes"
 if [[ -x "$MANAGER_BIN" ]]; then
   step "Stopping manager gracefully"
   "$MANAGER_BIN" stop >/dev/null 2>&1 || true
@@ -262,9 +297,12 @@ pkill -x pchaind 2>/dev/null || true
 pkill -x push-validator-manager 2>/dev/null || true
 sleep 1
 ok "Stopped all validator processes"
+else
+  verbose "No running processes to stop (skipped)"
+fi
 
 # Clean install: remove all previous installation artifacts (preserve wallets and validator keys)
-if [[ "$RESET_DATA" = "yes" ]]; then
+if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
   next_phase "Cleaning Installation"
 
   # Backup all keyring directories
@@ -328,8 +366,10 @@ if [[ "$RESET_DATA" = "yes" ]]; then
   fi
 
   ok "Clean installation ready"
+elif [[ "$RESET_DATA" = "yes" ]]; then
+  verbose "Fresh installation detected (skipped cleanup)"
 else
-  warn "Skipping data reset (keeping existing data)"
+  verbose "Skipping data reset (--no-reset)"
 fi
 
 next_phase "Installing Validator Manager"

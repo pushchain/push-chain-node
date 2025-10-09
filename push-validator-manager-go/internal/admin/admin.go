@@ -6,7 +6,6 @@ import (
     "fmt"
     "io"
     "os"
-    "os/exec"
     "path/filepath"
     "strings"
     "time"
@@ -28,23 +27,33 @@ type BackupOptions struct {
     OutDir  string // if empty, defaults to <HomeDir>/backups
 }
 
-// Reset clears chain data using `pchaind tendermint unsafe-reset-all` and cleans logs.
+// Reset clears ALL blockchain data while preserving validator keys and keyring.
+// This ensures clean state without AppHash errors while maintaining validator identity.
 func Reset(opts ResetOptions) error {
     if opts.HomeDir == "" { return fmt.Errorf("HomeDir required") }
-    if opts.BinPath == "" { opts.BinPath = "pchaind" }
-    args := []string{"tendermint", "unsafe-reset-all", "--home", opts.HomeDir}
-    if opts.KeepAddrBook { args = append(args, "--keep-addr-book") }
-    cmd := exec.Command(opts.BinPath, args...)
-    cmd.Stdout = io.Discard
-    cmd.Stderr = io.Discard
-    _ = cmd.Run() // best-effort
-    // Clean logs directory
+
+    // Backup address book if requested
+    addrBookPath := filepath.Join(opts.HomeDir, "config", "addrbook.json")
+    var addrBookData []byte
+    if opts.KeepAddrBook {
+        addrBookData, _ = os.ReadFile(addrBookPath)
+    }
+
+    // Remove entire data directory (ALL blockchain data including all databases)
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data"))
+
+    // Remove logs directory
     _ = os.RemoveAll(filepath.Join(opts.HomeDir, "logs"))
+
+    // Recreate essential directories
+    _ = os.MkdirAll(filepath.Join(opts.HomeDir, "data"), 0o755)
     _ = os.MkdirAll(filepath.Join(opts.HomeDir, "logs"), 0o755)
-    // Delete corrupted application state (unsafe-reset-all doesn't touch this)
-    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "application.db"))
-    // Clean wasm cache
-    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "wasm"))
+
+    // Restore address book if it was backed up
+    if opts.KeepAddrBook && len(addrBookData) > 0 {
+        _ = os.WriteFile(addrBookPath, addrBookData, 0o644)
+    }
+
     return nil
 }
 

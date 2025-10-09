@@ -34,7 +34,33 @@ func handleLogs(sup process.Supervisor) error {
 		return fmt.Errorf("log file not found: %s", lp)
 	}
 	interactive := term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) && !flagNonInteractive
+	var tty *os.File
+	if !interactive && !flagNonInteractive {
+		if t, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
+			if term.IsTerminal(int(t.Fd())) {
+				interactive = true
+				tty = t
+			} else {
+				t.Close()
+			}
+		}
+	}
 	if interactive {
+		var (
+			origIn  = os.Stdin
+			origOut = os.Stdout
+		)
+		if tty != nil {
+			os.Stdin = tty
+			os.Stdout = tty
+		}
+		defer func() {
+			if tty != nil {
+				tty.Close()
+			}
+			os.Stdin = origIn
+			os.Stdout = origOut
+		}()
 		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer cancel()
 		return ui.RunLogUIV2(ctx, ui.LogUIOptions{
@@ -43,6 +69,9 @@ func handleLogs(sup process.Supervisor) error {
 			ShowFooter: true,
 			NoColor:    flagNoColor,
 		})
+	}
+	if tty != nil {
+		tty.Close()
 	}
 
 	getPrinter().Info(fmt.Sprintf("Tailing %s (Ctrl+C to stop)", lp))

@@ -553,9 +553,21 @@ if [[ "$AUTO_START" = "yes" ]]; then
   echo "2. Register as validator: push-validator-manager register-validator"
   echo
 
-  # Guard registration prompt in non-interactive mode
+  # Detect whether a controlling TTY is available for prompts/log view
+  INTERACTIVE="no"
   if [[ -t 0 ]] && [[ -t 1 ]]; then
-    read -r -p "Register as a validator now? (y/N) " RESP || true
+    INTERACTIVE="yes"
+  elif [[ -e /dev/tty ]]; then
+    INTERACTIVE="yes"
+  fi
+
+  # Guard registration prompt in non-interactive mode
+  if [[ "$INTERACTIVE" == "yes" ]]; then
+    if [[ -e /dev/tty ]]; then
+      read -r -p "Register as a validator now? (y/N) " RESP < /dev/tty 2> /dev/tty || true
+    else
+      read -r -p "Register as a validator now? (y/N) " RESP || true
+    fi
   else
     RESP="N"
   fi
@@ -565,9 +577,17 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo "Push Validator Manager - Registration"
       echo "══════════════════════════════════════"
       # Prompt for overrides
-      read -r -p "Enter validator name (moniker) [${MONIKER}]: " MONIN || true
+      if [[ -e /dev/tty ]]; then
+        read -r -p "Enter validator name (moniker) [${MONIKER}]: " MONIN < /dev/tty 2> /dev/tty || true
+      else
+        read -r -p "Enter validator name (moniker) [${MONIKER}]: " MONIN || true
+      fi
       MONIN=${MONIN:-$MONIKER}
-      read -r -p "Enter key name for validator (default: validator-key): " KEYIN || true
+      if [[ -e /dev/tty ]]; then
+        read -r -p "Enter key name for validator (default: validator-key): " KEYIN < /dev/tty 2> /dev/tty || true
+      else
+        read -r -p "Enter key name for validator (default: validator-key): " KEYIN || true
+      fi
       KEYIN=${KEYIN:-validator-key}
       export MONIKER="$MONIN" KEY_NAME="$KEYIN"
       # Run registration flow (handles balance checks itself)
@@ -576,13 +596,6 @@ if [[ "$AUTO_START" = "yes" ]]; then
     *)
       # When user declines registration, directly show logs
       echo
-
-      # Check if we're in interactive mode
-      # When piped from curl, no FDs are TTYs, but /dev/tty is available
-      INTERACTIVE="no"
-      if [[ -e /dev/tty ]]; then
-        INTERACTIVE="yes"
-      fi
 
       # Allow environment variable override
       ACTION="${PVM_POST_INSTALL_ACTION:-logs}"  # Default to logs

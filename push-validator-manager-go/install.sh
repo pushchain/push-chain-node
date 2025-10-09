@@ -594,124 +594,127 @@ if [[ "$AUTO_START" = "yes" ]]; then
       "$MANAGER_BIN" register-validator || true
       ;;
     *)
-      # When user declines registration, directly show logs
+      # Ensure clean separation before summary
       echo
+      ;;
+  esac
+fi
 
-      # Allow environment variable override
-      ACTION="${PVM_POST_INSTALL_ACTION:-logs}"  # Default to logs
+# Shared post-install summary & follow-up
+echo
 
-      # Calculate total time for summary
-      INSTALL_END_TIME=$(date +%s)
-      TOTAL_TIME=$((INSTALL_END_TIME - ${INSTALL_START_TIME:-$INSTALL_END_TIME}))
+# Allow environment variable override
+ACTION="${PVM_POST_INSTALL_ACTION:-logs}"  # Default to logs
 
-      # Enhanced final summary
-      MANAGER_VER=$("$MANAGER_BIN" version 2>/dev/null | awk '{print $2}' || echo "unknown")
-      PCHAIND_PATH="${PCHAIND:-pchaind}"
-      # Extract pchaind version if binary exists
-      if command -v "$PCHAIND_PATH" >/dev/null 2>&1; then
-        CHAIN_VER=$("$PCHAIND_PATH" version 2>/dev/null | head -1 || echo "")
-        if [[ -n "$CHAIN_VER" ]]; then
-          PCHAIND_VER="$PCHAIND_PATH ($CHAIN_VER)"
-        else
-          PCHAIND_VER="$PCHAIND_PATH"
-        fi
+# Calculate total time for summary
+INSTALL_END_TIME=$(date +%s)
+TOTAL_TIME=$((INSTALL_END_TIME - ${INSTALL_START_TIME:-$INSTALL_END_TIME}))
+
+# Enhanced final summary
+MANAGER_VER=$("$MANAGER_BIN" version 2>/dev/null | awk '{print $2}' || echo "unknown")
+PCHAIND_PATH="${PCHAIND:-pchaind}"
+# Extract pchaind version if binary exists
+if command -v "$PCHAIND_PATH" >/dev/null 2>&1; then
+  CHAIN_VER=$("$PCHAIND_PATH" version 2>/dev/null | head -1 || echo "")
+  if [[ -n "$CHAIN_VER" ]]; then
+    PCHAIND_VER="$PCHAIND_PATH ($CHAIN_VER)"
+  else
+    PCHAIND_VER="$PCHAIND_PATH"
+  fi
+else
+  PCHAIND_VER="$PCHAIND_PATH"
+fi
+RPC_URL="http://127.0.0.1:26657"
+
+# Try to get Network and Moniker from status
+TO_CMD=$(timeout_cmd)
+if [[ -n "$TO_CMD" ]]; then
+  STATUS_JSON=$($TO_CMD 5 "$MANAGER_BIN" status --output json 2>/dev/null || echo "{}")
+else
+  STATUS_JSON=$("$MANAGER_BIN" status --output json 2>/dev/null || echo "{}")
+fi
+if command -v jq >/dev/null 2>&1; then
+  NETWORK=$(echo "$STATUS_JSON" | jq -r '.network // .node.network // empty' 2>/dev/null)
+  MONIKER=$(echo "$STATUS_JSON" | jq -r '.moniker // .node.moniker // empty' 2>/dev/null)
+else
+  NETWORK=$(echo "$STATUS_JSON" | grep -o '"network"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"network"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  MONIKER=$(echo "$STATUS_JSON" | grep -o '"moniker"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"moniker"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
+
+# Print summary (will be visible before TUI or for non-logs actions)
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "  Installation Complete (${TOTAL_TIME}s)"
+echo "═══════════════════════════════════════════════════════════════"
+echo "  Manager:       $MANAGER_BIN ($MANAGER_VER)"
+echo "  Chain binary:  $PCHAIND_VER"
+echo "  Home:          $HOME_DIR"
+echo "  RPC:           $RPC_URL"
+if [[ -n "$NETWORK" ]]; then
+  echo "  Network:       $NETWORK"
+fi
+if [[ -n "$MONIKER" ]]; then
+  echo "  Moniker:       $MONIKER"
+fi
+echo "───────────────────────────────────────────────────────────────"
+echo "  Usage:        push-validator-manager status | logs | stop | restart"
+echo "                push-validator-manager register-validator"
+echo "                push-validator-manager --help (for more commands)"
+echo "═══════════════════════════════════════════════════════════════"
+
+if [[ "$INTERACTIVE" == "yes" ]] && [[ -z "$ACTION" || "$ACTION" == "logs" ]]; then
+  # Interactive mode: directly show logs
+  echo
+  echo "Starting log viewer..."
+  echo
+  "$MANAGER_BIN" logs || true
+
+  # After logs exit, show status
+  echo
+  if node_running; then
+    ok "Node is still running"
+  else
+    warn "Node is not running"
+    echo "Start it with: push-validator-manager start"
+  fi
+  print_useful_cmds
+else
+  # Non-interactive mode or custom action
+  case "${ACTION}" in
+    logs)
+      echo
+      echo "Viewing logs (non-interactive mode)..."
+      echo
+      "$MANAGER_BIN" logs || true
+      ;;
+    stop)
+      echo
+      echo "Stopping node..."
+      "$MANAGER_BIN" stop || true
+      ok "Node stopped"
+      echo
+      echo "Start it again with: push-validator-manager start"
+      echo
+      ;;
+    keep|"")
+      # Default: keep running
+      echo
+      if node_running; then
+        ok "Node is running in background"
       else
-        PCHAIND_VER="$PCHAIND_PATH"
+        warn "Node is not running"
+        echo "Start it with: push-validator-manager start"
       fi
-      RPC_URL="http://127.0.0.1:26657"
-
-      # Try to get Network and Moniker from status
-      TO_CMD=$(timeout_cmd)
-      if [[ -n "$TO_CMD" ]]; then
-        STATUS_JSON=$($TO_CMD 5 "$MANAGER_BIN" status --output json 2>/dev/null || echo "{}")
+      print_useful_cmds
+      ;;
+    *)
+      warn "Invalid PVM_POST_INSTALL_ACTION='$ACTION', defaulting to keep running"
+      if node_running; then
+        ok "Node is running in background"
       else
-        STATUS_JSON=$("$MANAGER_BIN" status --output json 2>/dev/null || echo "{}")
+        warn "Node is not running"
       fi
-      if command -v jq >/dev/null 2>&1; then
-        NETWORK=$(echo "$STATUS_JSON" | jq -r '.network // .node.network // empty' 2>/dev/null)
-        MONIKER=$(echo "$STATUS_JSON" | jq -r '.moniker // .node.moniker // empty' 2>/dev/null)
-      else
-        NETWORK=$(echo "$STATUS_JSON" | grep -o '"network"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"network"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-        MONIKER=$(echo "$STATUS_JSON" | grep -o '"moniker"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"moniker"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-      fi
-
-      # Print summary (will be visible before TUI or for non-logs actions)
-      echo ""
-      echo "═══════════════════════════════════════════════════════════════"
-      echo "  Installation Complete (${TOTAL_TIME}s)"
-      echo "═══════════════════════════════════════════════════════════════"
-      echo "  Manager:       $MANAGER_BIN ($MANAGER_VER)"
-      echo "  Chain binary:  $PCHAIND_VER"
-      echo "  Home:          $HOME_DIR"
-      echo "  RPC:           $RPC_URL"
-      if [[ -n "$NETWORK" ]]; then
-        echo "  Network:       $NETWORK"
-      fi
-      if [[ -n "$MONIKER" ]]; then
-        echo "  Moniker:       $MONIKER"
-      fi
-      echo "───────────────────────────────────────────────────────────────"
-      echo "  Usage:        push-validator-manager status | logs | stop | restart"
-      echo "                push-validator-manager register-validator"
-      echo "                push-validator-manager --help (for more commands)"
-      echo "═══════════════════════════════════════════════════════════════"
-
-      if [[ "$INTERACTIVE" == "yes" ]] && [[ -z "$ACTION" || "$ACTION" == "logs" ]]; then
-        # Interactive mode: directly show logs
-        echo
-        echo "Starting log viewer..."
-        echo
-        "$MANAGER_BIN" logs || true
-
-        # After logs exit, show status
-        echo
-        if node_running; then
-          ok "Node is still running"
-        else
-          warn "Node is not running"
-          echo "Start it with: push-validator-manager start"
-        fi
-        print_useful_cmds
-      else
-        # Non-interactive mode or custom action
-        case "${ACTION}" in
-          logs)
-            echo
-            echo "Viewing logs (non-interactive mode)..."
-            echo
-            "$MANAGER_BIN" logs || true
-            ;;
-          stop)
-            echo
-            echo "Stopping node..."
-            "$MANAGER_BIN" stop || true
-            ok "Node stopped"
-            echo
-            echo "Start it again with: push-validator-manager start"
-            echo
-            ;;
-          keep|"")
-            # Default: keep running
-            echo
-            if node_running; then
-              ok "Node is running in background"
-            else
-              warn "Node is not running"
-              echo "Start it with: push-validator-manager start"
-            fi
-            print_useful_cmds
-            ;;
-          *)
-            warn "Invalid PVM_POST_INSTALL_ACTION='$ACTION', defaulting to keep running"
-            if node_running; then
-              ok "Node is running in background"
-            else
-              warn "Node is not running"
-            fi
-            print_useful_cmds
-            ;;
-        esac
-      fi
+      print_useful_cmds
       ;;
   esac
 fi

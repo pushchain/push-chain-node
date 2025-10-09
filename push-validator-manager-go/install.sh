@@ -578,9 +578,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
       echo
 
       # Check if we're in interactive mode
-      # When piped from curl, stdin won't be a TTY but stderr will be
+      # When piped from curl, no FDs are TTYs, but /dev/tty is available
       INTERACTIVE="no"
-      if [[ -t 2 ]]; then
+      if [[ -e /dev/tty ]]; then
         INTERACTIVE="yes"
       fi
 

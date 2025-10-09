@@ -54,5 +54,8 @@ func handleLogs(sup process.Supervisor) error {
 		fmt.Printf("tail error: %v\n", err)
 		return err
 	}
+	// Print exit message after Ctrl+C
+	fmt.Println()
+	getPrinter().Success("Stopped tailing logs")
 	return nil
 }

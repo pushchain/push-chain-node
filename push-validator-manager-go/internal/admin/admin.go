@@ -36,8 +36,10 @@ func Reset(opts ResetOptions) error {
     // Clean logs directory
     _ = os.RemoveAll(filepath.Join(opts.HomeDir, "logs"))
     _ = os.MkdirAll(filepath.Join(opts.HomeDir, "logs"), 0o755)
-    // Optionally clean wasm cache
-    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "wasm"))
+    // Delete corrupted application state (unsafe-reset-all doesn't touch this)
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "application.db"))
+    // Clean wasm cache
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "wasm"))
     return nil
 }
 

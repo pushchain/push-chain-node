@@ -24,24 +24,110 @@ func NewWith(opts Options) Service { return &svc{opts: opts} }
 
 type svc struct { opts Options }
 
-func (s *svc) EnsureKey(ctx context.Context, name string) (string, error) {
-    if name == "" { return "", errors.New("key name required") }
+func (s *svc) EnsureKey(ctx context.Context, name string) (KeyInfo, error) {
+    if name == "" { return KeyInfo{}, errors.New("key name required") }
     if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
+
+    // Check if key already exists
     show := exec.CommandContext(ctx, s.opts.BinPath, "keys", "show", name, "-a", "--keyring-backend", s.opts.Keyring, "--home", s.opts.HomeDir)
     out, err := show.Output()
-    if err == nil { return strings.TrimSpace(string(out)), nil }
-    // Try to add key - show interactive output to user
-    fmt.Println("Creating validator key...")
-    add := exec.CommandContext(ctx, s.opts.BinPath, "keys", "add", name, "--keyring-backend", s.opts.Keyring, "--algo", "eth_secp256k1", "--home", s.opts.HomeDir)
-    add.Stdout = os.Stdout
-    add.Stderr = os.Stderr
-    add.Stdin = os.Stdin
-    if err := add.Run(); err != nil {
-        return "", fmt.Errorf("keys add: %w", err)
+    if err == nil {
+        // Key exists - fetch details
+        return s.getKeyInfo(ctx, name, strings.TrimSpace(string(out)), "")
     }
+
+    // Key doesn't exist - create it and capture output
+    add := exec.CommandContext(ctx, s.opts.BinPath, "keys", "add", name, "--keyring-backend", s.opts.Keyring, "--algo", "eth_secp256k1", "--home", s.opts.HomeDir)
+
+    // Capture output to parse mnemonic
+    output, err := add.CombinedOutput()
+    if err != nil {
+        return KeyInfo{}, fmt.Errorf("keys add: %w", err)
+    }
+
+    // Parse the output to extract mnemonic
+    mnemonic := extractMnemonic(string(output))
+
+    // Get the address
     out2, err := exec.CommandContext(ctx, s.opts.BinPath, "keys", "show", name, "-a", "--keyring-backend", s.opts.Keyring, "--home", s.opts.HomeDir).Output()
-    if err != nil { return "", fmt.Errorf("keys show: %w", err) }
-    return strings.TrimSpace(string(out2)), nil
+    if err != nil { return KeyInfo{}, fmt.Errorf("keys show: %w", err) }
+
+    addr := strings.TrimSpace(string(out2))
+    return s.getKeyInfo(ctx, name, addr, mnemonic)
+}
+
+// getKeyInfo fetches full key details
+func (s *svc) getKeyInfo(ctx context.Context, name, addr, mnemonic string) (KeyInfo, error) {
+    // Get key details in JSON format
+    cmd := exec.CommandContext(ctx, s.opts.BinPath, "keys", "show", name, "--keyring-backend", s.opts.Keyring, "--home", s.opts.HomeDir, "-o", "json")
+    out, err := cmd.Output()
+    if err != nil {
+        return KeyInfo{Address: addr, Name: name, Mnemonic: mnemonic}, nil
+    }
+
+    // Parse JSON to extract pubkey and type
+    var keyData struct {
+        Name    string `json:"name"`
+        Type    string `json:"type"`
+        Address string `json:"address"`
+        Pubkey  struct {
+            Type string `json:"@type"`
+            Key  string `json:"key"`
+        } `json:"pubkey"`
+    }
+
+    if err := json.Unmarshal(out, &keyData); err != nil {
+        return KeyInfo{Address: addr, Name: name, Mnemonic: mnemonic}, nil
+    }
+
+    pubkeyJSON := fmt.Sprintf(`{"@type":"%s","key":"%s"}`, keyData.Pubkey.Type, keyData.Pubkey.Key)
+
+    return KeyInfo{
+        Address:  addr,
+        Name:     keyData.Name,
+        Pubkey:   pubkeyJSON,
+        Type:     keyData.Type,
+        Mnemonic: mnemonic,
+    }, nil
+}
+
+// extractMnemonic extracts the mnemonic phrase from keys add output
+func extractMnemonic(output string) string {
+    lines := strings.Split(output, "\n")
+    foundWarning := false
+
+    // The mnemonic appears after the warning message, skip the warning line itself,
+    // then skip empty lines, and the next non-empty line is the mnemonic
+    for i, line := range lines {
+        line = strings.TrimSpace(line)
+
+        // Look for the warning message
+        if strings.Contains(line, "write this mnemonic phrase") {
+            foundWarning = true
+            continue
+        }
+
+        // After finding the warning, skip empty lines and capture the next non-empty line
+        if foundWarning {
+            if line == "" {
+                continue
+            }
+            // This is the mnemonic line (first non-empty line after the warning)
+            // Make sure it's not another message line by checking if it starts with common message prefixes
+            if !strings.HasPrefix(line, "**") && !strings.HasPrefix(line, "It is") && len(line) > 20 {
+                return line
+            }
+            // If we hit "It is the only way..." or similar, look for the next line
+            if i+1 < len(lines) {
+                nextLine := strings.TrimSpace(lines[i+1])
+                if nextLine != "" && len(nextLine) > 20 {
+                    return nextLine
+                }
+            }
+        }
+    }
+
+    return ""
 }
 
 func (s *svc) GetEVMAddress(ctx context.Context, addr string) (string, error) {
@@ -78,16 +164,18 @@ func (s *svc) IsValidator(ctx context.Context, addr string) (bool, error) {
     q := exec.CommandContext(ctx, s.opts.BinPath, "query", "staking", "validators", "--node", remote, "-o", "json")
     vb, err := q.Output()
     if err != nil { return false, fmt.Errorf("query validators: %w", err) }
-    var payload struct{ Validators []struct{ ConsensusPubkey struct{ Key string `json:"key"` } `json:"consensus_pubkey"` } `json:"validators"` }
+    // Remote uses "value" field, not "key"
+    var payload struct{ Validators []struct{ ConsensusPubkey struct{ Value string `json:"value"` } `json:"consensus_pubkey"` } `json:"validators"` }
     if err := json.Unmarshal(vb, &payload); err != nil { return false, err }
     for _, v := range payload.Validators {
-        if strings.EqualFold(v.ConsensusPubkey.Key, pub.Key) { return true, nil }
+        if strings.EqualFold(v.ConsensusPubkey.Value, pub.Key) { return true, nil }
     }
     return false, nil
 }
 
 func (s *svc) Balance(ctx context.Context, addr string) (string, error) {
     if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
+    // Always query remote genesis node for canonical state during validator registration
     remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
     q := exec.CommandContext(ctx, s.opts.BinPath, "query", "bank", "balances", addr, "--node", remote, "-o", "json")
     out, err := q.Output()

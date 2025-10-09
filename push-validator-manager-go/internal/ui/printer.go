@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "os"
+    "strings"
 )
 
 // Printer centralizes output formatting for commands.
@@ -76,4 +77,58 @@ func (p Printer) Header(title string) {
 
 // Separator prints a themed separator line of n characters.
 func (p Printer) Separator(n int) { fmt.Println(p.Colors.Separator(n)) }
+
+// Section prints a section header with separator
+func (p Printer) Section(title string) {
+    fmt.Println()
+    fmt.Println(p.Colors.SubHeader(title))
+    fmt.Println(p.Colors.Separator(40))
+}
+
+// MnemonicBox prints a mnemonic phrase with bold underlined title and clean formatting
+func (p Printer) MnemonicBox(mnemonic string) {
+    fmt.Println()
+
+    // Bold + Underlined title in green
+    title := "Recovery Mnemonic Phrase"
+    boldUnderlineGreen := "\033[1m\033[4m" + p.Colors.Theme.Success
+    fmt.Println(p.Colors.Apply(boldUnderlineGreen, title))
+
+    // Separator line
+    fmt.Println(p.Colors.Separator(len(title)))
+    fmt.Println()
+
+    // Split mnemonic into 3 lines (8 words per line for standard 24-word phrase)
+    words := strings.Fields(mnemonic)
+    wordsPerLine := 8
+
+    for i := 0; i < len(words); i += wordsPerLine {
+        end := i + wordsPerLine
+        if end > len(words) {
+            end = len(words)
+        }
+        line := strings.Join(words[i:end], " ")
+        fmt.Println(p.Colors.Apply(p.Colors.Theme.Success, line))
+    }
+
+    fmt.Println()
+}
+
+// KeyValueLine prints a key-value pair with proper formatting
+func (p Printer) KeyValueLine(key, value, colorType string) {
+    var coloredValue string
+    switch colorType {
+    case "blue":
+        coloredValue = p.Colors.Apply(p.Colors.Theme.Info, value)
+    case "yellow":
+        coloredValue = p.Colors.Apply(p.Colors.Theme.Warning, value)
+    case "green":
+        coloredValue = p.Colors.Apply(p.Colors.Theme.Success, value)
+    case "dim":
+        coloredValue = p.Colors.Apply(p.Colors.Theme.Description, value)
+    default:
+        coloredValue = p.Colors.Value(value)
+    }
+    fmt.Printf("%s %s\n", p.Colors.Label(key+":"), coloredValue)
+}
 

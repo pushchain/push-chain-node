@@ -243,19 +243,12 @@ func init() {
     }}
     balanceCmd.Flags().StringVar(&balAddr, "address", "", "Account address")
     rootCmd.AddCommand(balanceCmd)
-    // register-validator: keep back-compat handler for now
-    var regMoniker, regKey, regAmount string
+    // register-validator: interactive flow with optional flag overrides
     regCmd := &cobra.Command{Use: "register-validator", Short: "Register this node as validator", RunE: func(cmd *cobra.Command, args []string) error {
         cfg := loadCfg()
-        if regMoniker == "" { regMoniker = getenvDefault("MONIKER", "push-validator") }
-        if regKey == "" { regKey = getenvDefault("KEY_NAME", "validator-key") }
-        if regAmount == "" { regAmount = getenvDefault("STAKE_AMOUNT", "1500000000000000000") }
-        runRegisterValidator(cfg, regMoniker, regKey, regAmount)
+        handleRegisterValidator(cfg)
         return nil
     }}
-    regCmd.Flags().StringVar(&regMoniker, "moniker", "", "Validator moniker")
-    regCmd.Flags().StringVar(&regKey, "key-name", "", "Key name")
-    regCmd.Flags().StringVar(&regAmount, "amount", "", "Stake amount in base denom")
     rootCmd.AddCommand(regCmd)
 
     // completion and version

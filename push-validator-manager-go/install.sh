@@ -263,7 +263,7 @@ pkill -x push-validator-manager 2>/dev/null || true
 sleep 1
 ok "Stopped all validator processes"
 
-# Clean install: remove all previous installation artifacts (preserve wallets)
+# Clean install: remove all previous installation artifacts (preserve wallets and validator keys)
 if [[ "$RESET_DATA" = "yes" ]]; then
   next_phase "Cleaning Installation"
 
@@ -282,10 +282,30 @@ if [[ "$RESET_DATA" = "yes" ]]; then
     fi
   fi
 
-  # Clean everything
+  # Backup validator identity keys
+  VALIDATOR_BACKUP="/tmp/pchain-validator-backup-$$"
+  if [[ -d "$HOME_DIR/config" ]]; then
+    step "Backing up validator keys"
+    mkdir -p "$VALIDATOR_BACKUP"
+    cp "$HOME_DIR/config/priv_validator_key.json" "$VALIDATOR_BACKUP/" 2>/dev/null || true
+    cp "$HOME_DIR/config/node_key.json" "$VALIDATOR_BACKUP/" 2>/dev/null || true
+    if [[ -n "$(ls -A "$VALIDATOR_BACKUP" 2>/dev/null)" ]]; then
+      ok "Validator keys backed up"
+    fi
+  fi
+
+  # Clean installation (selective - preserves validator identity)
   step "Removing old installation"
   rm -rf "$ROOT_DIR" 2>/dev/null || true
-  rm -rf "$HOME_DIR" 2>/dev/null || true
+  # Delete only data directories to clear corrupted state
+  rm -rf "$HOME_DIR/data/application.db" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/wasm" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/blockstore.db" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/state.db" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/evidence.db" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/tx_index.db" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/08-light-client" 2>/dev/null || true
+  rm -f "$HOME_DIR/data/priv_validator_state.json" 2>/dev/null || true
   rm -f "$MANAGER_BIN" 2>/dev/null || true
   rm -f "$INSTALL_BIN_DIR/pchaind" 2>/dev/null || true
 
@@ -296,6 +316,15 @@ if [[ "$RESET_DATA" = "yes" ]]; then
     cp -r "$WALLET_BACKUP/"* "$HOME_DIR/" 2>/dev/null || true
     rm -rf "$WALLET_BACKUP"
     ok "Wallets restored"
+  fi
+
+  # Restore validator keys if backed up
+  if [[ -d "$VALIDATOR_BACKUP" && -n "$(ls -A "$VALIDATOR_BACKUP" 2>/dev/null)" ]]; then
+    step "Restoring validator keys"
+    mkdir -p "$HOME_DIR/config"
+    cp -r "$VALIDATOR_BACKUP/"* "$HOME_DIR/config/" 2>/dev/null || true
+    rm -rf "$VALIDATOR_BACKUP"
+    ok "Validator keys restored"
   fi
 
   ok "Clean installation ready"

@@ -2,9 +2,18 @@ package validator
 
 import "context"
 
+// KeyInfo contains structured information about a created/existing key
+type KeyInfo struct {
+    Address  string // Cosmos address (push1...)
+    Name     string // Key name
+    Pubkey   string // Public key JSON
+    Type     string // Key type (local, ledger, etc)
+    Mnemonic string // Recovery mnemonic phrase (only set on creation)
+}
+
 // Service handles key ops, balances, validator detection, and registration flow.
 type Service interface {
-    EnsureKey(ctx context.Context, name string) (string, error) // returns address
+    EnsureKey(ctx context.Context, name string) (KeyInfo, error) // returns key info
     GetEVMAddress(ctx context.Context, addr string) (string, error) // returns hex/EVM address
     IsValidator(ctx context.Context, addr string) (bool, error)
     Balance(ctx context.Context, addr string) (string, error) // denom string for now
@@ -24,7 +33,7 @@ func New() Service { return &noop{} }
 
 type noop struct{}
 
-func (n *noop) EnsureKey(ctx context.Context, name string) (string, error) { return "", nil }
+func (n *noop) EnsureKey(ctx context.Context, name string) (KeyInfo, error) { return KeyInfo{}, nil }
 func (n *noop) GetEVMAddress(ctx context.Context, addr string) (string, error) { return "", nil }
 func (n *noop) IsValidator(ctx context.Context, addr string) (bool, error) { return false, nil }
 func (n *noop) Balance(ctx context.Context, addr string) (string, error) { return "0", nil }

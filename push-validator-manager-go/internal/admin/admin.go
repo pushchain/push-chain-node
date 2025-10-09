@@ -18,6 +18,11 @@ type ResetOptions struct {
     KeepAddrBook bool
 }
 
+type FullResetOptions struct {
+    HomeDir string
+    BinPath string // pchaind path
+}
+
 type BackupOptions struct {
     HomeDir string
     OutDir  string // if empty, defaults to <HomeDir>/backups
@@ -40,6 +45,36 @@ func Reset(opts ResetOptions) error {
     _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "application.db"))
     // Clean wasm cache
     _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data", "wasm"))
+    return nil
+}
+
+// FullReset removes ALL data including validator keys and keyring.
+// WARNING: This is destructive and creates a completely new validator identity.
+func FullReset(opts FullResetOptions) error {
+    if opts.HomeDir == "" { return fmt.Errorf("HomeDir required") }
+    if opts.BinPath == "" { opts.BinPath = "pchaind" }
+
+    // Remove entire data directory (includes all blockchain data)
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "data"))
+
+    // Remove keyring (all keys)
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "keyring-file"))
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "keyring-test"))
+
+    // Remove validator keys
+    _ = os.Remove(filepath.Join(opts.HomeDir, "config", "priv_validator_key.json"))
+    _ = os.Remove(filepath.Join(opts.HomeDir, "config", "node_key.json"))
+
+    // Remove logs
+    _ = os.RemoveAll(filepath.Join(opts.HomeDir, "logs"))
+
+    // Clean address book
+    _ = os.Remove(filepath.Join(opts.HomeDir, "config", "addrbook.json"))
+
+    // Recreate essential directories
+    _ = os.MkdirAll(filepath.Join(opts.HomeDir, "data"), 0o755)
+    _ = os.MkdirAll(filepath.Join(opts.HomeDir, "logs"), 0o755)
+
     return nil
 }
 

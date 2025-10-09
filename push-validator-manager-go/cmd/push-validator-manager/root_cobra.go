@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "os"
+    "path/filepath"
 
     "github.com/spf13/cobra"
     "gopkg.in/yaml.v3"
@@ -177,20 +178,61 @@ func init() {
         RunE: func(cmd *cobra.Command, args []string) error {
             cfg := loadCfg()
             p := getPrinter()
+
+            // Check if initialization is needed (genesis.json missing)
+            genesisPath := filepath.Join(cfg.HomeDir, "config", "genesis.json")
+            if _, err := os.Stat(genesisPath); os.IsNotExist(err) {
+                // Auto-initialize on first start
+                if flagOutput != "json" {
+                    p.Info("Initializing node (first time)...")
+                }
+
+                svc := bootstrap.New()
+                if err := svc.Init(cmd.Context(), bootstrap.Options{
+                    HomeDir: cfg.HomeDir,
+                    ChainID: cfg.ChainID,
+                    Moniker: getenvDefault("MONIKER", "push-validator"),
+                    GenesisDomain: cfg.GenesisDomain,
+                    BinPath: findPchaind(),
+                    SnapshotRPCPrimary: cfg.SnapshotRPC,
+                    SnapshotRPCSecondary: cfg.SnapshotRPC,
+                }); err != nil {
+                    ui.PrintError(ui.ErrorMessage{
+                        Problem: "Initialization failed",
+                        Causes: []string{
+                            "Network issue fetching genesis or status",
+                            "Incorrect genesis domain configuration",
+                            "pchaind binary missing or not executable",
+                        },
+                        Actions: []string{
+                            "Verify connectivity: curl https://<genesis-domain>/status",
+                            "Check genesis domain in config",
+                            "Ensure pchaind is installed and in PATH",
+                        },
+                    })
+                    return err
+                }
+
+                if flagOutput != "json" {
+                    p.Success("✓ Initialization complete")
+                }
+            }
+
+            // Continue with normal start
             if startBin != "" { os.Setenv("PCHAIND", startBin) }
             _, err := process.New(cfg.HomeDir).Start(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
             if err != nil {
                 ui.PrintError(ui.ErrorMessage{
                     Problem: "Failed to start node",
                     Causes: []string{
-                        "Missing genesis.json (init not run)",
                         "Invalid home directory or permissions",
                         "pchaind not found or incompatible",
+                        "Port already in use",
                     },
                     Actions: []string{
-                        "Run: push-validator-manager init",
                         "Check: ls <home>/config/genesis.json",
                         "Confirm pchaind version matches network",
+                        "Verify ports 26656/26657 are available",
                     },
                 })
                 return err
@@ -233,6 +275,7 @@ func init() {
     rootCmd.AddCommand(&cobra.Command{Use: "logs", Short: "Tail node logs", RunE: func(cmd *cobra.Command, args []string) error { return handleLogs(process.New(loadCfg().HomeDir)) }})
 
     rootCmd.AddCommand(&cobra.Command{Use: "reset", Short: "Reset chain data", RunE: func(cmd *cobra.Command, args []string) error { return handleReset(loadCfg(), process.New(loadCfg().HomeDir)) }})
+    rootCmd.AddCommand(&cobra.Command{Use: "full-reset", Short: "Complete reset (deletes all keys and data)", RunE: func(cmd *cobra.Command, args []string) error { return handleFullReset(loadCfg(), process.New(loadCfg().HomeDir)) }})
     rootCmd.AddCommand(&cobra.Command{Use: "backup", Short: "Backup config and validator state", RunE: func(cmd *cobra.Command, args []string) error { return handleBackup(loadCfg()) }})
     validatorsCmd := &cobra.Command{Use: "validators", Short: "List validators", RunE: func(cmd *cobra.Command, args []string) error { return handleValidatorsWithFormat(loadCfg(), flagOutput == "json") }}
     rootCmd.AddCommand(validatorsCmd)

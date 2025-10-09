@@ -53,6 +53,7 @@ func init() {
 		fmt.Fprintln(w, c.SubHeader("Maintenance"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager backup", "Create config/state backup archive"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager reset", "Reset chain data (keeps addr book)"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator-manager full-reset", "⚠️  Complete reset (deletes ALL keys and data)"))
 		fmt.Fprintln(w)
 
 		// Utilities

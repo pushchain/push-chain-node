@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/term"
@@ -87,6 +89,70 @@ func handleReset(cfg config.Config, sup process.Supervisor) error {
 		if flagOutput != "json" {
 			getPrinter().Success("Node restarted")
 		}
+	}
+
+	return nil
+}
+
+// handleFullReset performs a complete reset, deleting ALL data including validator keys.
+// Requires explicit confirmation unless --yes flag is used.
+func handleFullReset(cfg config.Config, sup process.Supervisor) error {
+	// Stop node first
+	_ = sup.Stop()
+
+	if flagOutput != "json" {
+		p := ui.NewPrinter(flagOutput)
+		fmt.Println()
+		fmt.Println(p.Colors.Warning("⚠️  FULL RESET - This will delete EVERYTHING"))
+		fmt.Println()
+		fmt.Println("This operation will permanently delete:")
+		fmt.Println(p.Colors.Error("  • All blockchain data"))
+		fmt.Println(p.Colors.Error("  • Validator consensus keys (priv_validator_key.json)"))
+		fmt.Println(p.Colors.Error("  • All keyring accounts and keys"))
+		fmt.Println(p.Colors.Error("  • Node identity (node_key.json)"))
+		fmt.Println(p.Colors.Error("  • Address book and peer connections"))
+		fmt.Println()
+		fmt.Println(p.Colors.Warning("This will create a NEW validator identity - you cannot recover the old one!"))
+		fmt.Println()
+
+		// Require explicit confirmation
+		if !flagYes {
+			fmt.Print(p.Colors.Apply(p.Colors.Theme.Prompt, "Type 'yes' to confirm full reset: "))
+			reader := bufio.NewReader(os.Stdin)
+			response, _ := reader.ReadString('\n')
+			response = strings.TrimSpace(strings.ToLower(response))
+
+			if response != "yes" {
+				fmt.Println(p.Colors.Info("Full reset cancelled"))
+				return nil
+			}
+		}
+	}
+
+	// Perform full reset
+	err := admin.FullReset(admin.FullResetOptions{
+		HomeDir: cfg.HomeDir,
+		BinPath: findPchaind(),
+	})
+
+	if err != nil {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()})
+		} else {
+			getPrinter().Error(fmt.Sprintf("full reset error: %v", err))
+		}
+		return err
+	}
+
+	if flagOutput == "json" {
+		getPrinter().JSON(map[string]any{"ok": true, "action": "full-reset"})
+	} else {
+		p := getPrinter()
+		p.Success("✓ Full reset complete")
+		fmt.Println()
+		fmt.Println(p.Colors.Info("Next steps:"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager start"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (will auto-initialize with new validator keys)"))
 	}
 
 	return nil

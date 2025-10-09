@@ -463,9 +463,9 @@ next_phase "Building Chain Binary"
 
 # Build or select pchaind (prefer locally built binary to match network upgrades)
 BUILD_SCRIPT="$REPO_DIR/push-validator-manager-go/scripts/build-pchaind.sh"
-if [[ "$USE_LOCAL" = "yes" && -f "$BUILD_SCRIPT" ]]; then
+if [[ -f "$BUILD_SCRIPT" ]]; then
   step "Building pchaind from source"
-  # For local use, build from the current repo
+  # Build from repo (whether local or cloned)
   BUILD_OUTPUT="$REPO_DIR/push-validator-manager-go/scripts/build"
   if bash "$BUILD_SCRIPT" "$REPO_DIR" "$BUILD_OUTPUT"; then
     if [[ -f "$BUILD_OUTPUT/pchaind" ]]; then

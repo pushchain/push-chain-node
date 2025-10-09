@@ -42,6 +42,28 @@ if [ ! -f "$SOURCE_DIR/go.mod" ]; then
     exit 1
 fi
 
+# Validate Go version (requires 1.23+ for pchaind build)
+GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+GO_MAJOR=$(echo "$GO_VERSION" | cut -d. -f1)
+GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
+
+if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; then
+    print_error "❌ Go 1.23 or higher is required (found: $GO_VERSION)"
+    echo
+    echo "The pchaind binary requires Go 1.23+ to build."
+    echo
+    echo "Please upgrade Go:"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "  • Using Homebrew: brew upgrade go"
+        echo "  • Or download from: https://go.dev/dl/"
+    else
+        echo "  • Download from: https://go.dev/dl/"
+        echo "  • Or use your package manager to upgrade"
+    fi
+    exit 1
+fi
+print_status "✓ Go version check passed: $GO_VERSION"
+
 print_status "🔨 Building Push Chain binary from: $SOURCE_DIR"
 
 # Create output directory

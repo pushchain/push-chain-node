@@ -70,6 +70,29 @@ push-validator-manager update          # Update to latest version
 - **Explorer**: https://donut.push.network
 
 
+## 🔧 Advanced Setup (Optional)
+
+### Setup NGINX with SSL
+```bash
+bash scripts/setup-nginx.sh yourdomain.com
+```
+**Creates:**
+- `https://yourdomain.com` - Cosmos RPC endpoint
+- `https://evm.yourdomain.com` - EVM RPC endpoint
+- Automatic SSL certificates via Let's Encrypt
+- Rate limiting and security headers
+
+**Requirements:**
+- Domain pointing to your server IP
+- Ports 80/443 open
+- Ubuntu/Debian system
+
+### Log Rotation
+```bash
+bash scripts/setup-log-rotation.sh
+```
+Configures daily rotation with 14-day retention and compression.
+
 ### File Locations
 - **Manager**: `~/.local/bin/push-validator-manager`
 - **Binary**: `~/.local/bin/pchaind`

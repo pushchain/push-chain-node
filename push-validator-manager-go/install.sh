@@ -561,6 +561,8 @@ if [[ "$AUTO_START" = "yes" ]]; then
     INTERACTIVE="yes"
   fi
 
+  REGISTRATION_STATUS="skipped"
+
   # Guard registration prompt in non-interactive mode
   if [[ "$INTERACTIVE" == "yes" ]]; then
     if [[ -e /dev/tty ]]; then
@@ -591,11 +593,16 @@ if [[ "$AUTO_START" = "yes" ]]; then
       KEYIN=${KEYIN:-validator-key}
       export MONIKER="$MONIN" KEY_NAME="$KEYIN"
       # Run registration flow (handles balance checks itself)
-      "$MANAGER_BIN" register-validator || true
+      if "$MANAGER_BIN" register-validator; then
+        REGISTRATION_STATUS="success"
+      else
+        REGISTRATION_STATUS="failed"
+      fi
       ;;
     *)
       # Ensure clean separation before summary
       echo
+      REGISTRATION_STATUS="skipped"
       ;;
   esac
 fi
@@ -665,6 +672,14 @@ echo "════════════════════════�
 if [[ "$INTERACTIVE" == "yes" ]] && [[ -z "$ACTION" || "$ACTION" == "logs" ]]; then
   # Interactive mode: directly show logs
   echo
+  case "$REGISTRATION_STATUS" in
+    success)
+      ok "Validator registration completed"
+      ;;
+    failed)
+      warn "Validator registration encountered issues; showing logs for troubleshooting"
+      ;;
+  esac
   echo "Starting log viewer..."
   echo
   "$MANAGER_BIN" logs || true

@@ -91,22 +91,13 @@ func handleRegisterValidator(cfg config.Config) {
 		}
 
 		// Check if validator is already registered before asking for commission
+		// Note: IsValidator checks consensus pubkey, not account address, so we don't need to create the key yet
 		v := validator.NewWith(validator.Options{BinPath: findPchaind(), HomeDir: cfg.HomeDir, ChainID: cfg.ChainID, Keyring: cfg.KeyringBackend, GenesisDomain: cfg.GenesisDomain, Denom: cfg.Denom})
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
-		keyInfo, err := v.EnsureKey(ctx, keyName)
-		if err != nil {
-			if flagOutput == "json" {
-				getPrinter().JSON(map[string]any{"ok": false, "error": err.Error()})
-			} else {
-				fmt.Printf("key error: %v\n", err)
-			}
-			return
-		}
-
-		// Check if this node is already registered as a validator
-		isVal, err := v.IsValidator(ctx, keyInfo.Address)
+		// Check if this node is already registered as a validator (pass empty address since we check consensus pubkey)
+		isVal, err := v.IsValidator(ctx, "")
 		if err != nil {
 			// Network/query error - registration won't work anyway, fail fast
 			p := ui.NewPrinter(flagOutput)

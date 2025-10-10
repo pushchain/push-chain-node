@@ -31,9 +31,9 @@ func NewConfirmationTracker(
 	logger zerolog.Logger,
 ) *ConfirmationTracker {
 	// Default values if config is nil
-	fastConf := uint64(5)
+	fastConf := uint64(0)
 	standardConf := uint64(12)
-	
+
 	if config != nil {
 		if config.FastInbound > 0 {
 			fastConf = uint64(config.FastInbound)
@@ -42,7 +42,7 @@ func NewConfirmationTracker(
 			standardConf = uint64(config.StandardInbound)
 		}
 	}
-	
+
 	return &ConfirmationTracker{
 		db:              database,
 		fastInbound:     fastConf,
@@ -84,13 +84,13 @@ func (ct *ConfirmationTracker) TrackTransaction(
 			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
-	
+
 	// Check if transaction already exists using FOR UPDATE to prevent race conditions
 	var existing store.ChainTransaction
 	err = dbTx.Set("gorm:query_option", "FOR UPDATE").
 		Where("tx_hash = ?", txHash).
 		First(&existing).Error
-	
+
 	if err == nil {
 		// Transaction already exists, update it within the transaction
 		existing.Confirmations = 0
@@ -99,7 +99,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		existing.EventIdentifier = eventID
 		existing.ConfirmationType = confirmationType
 		existing.Data = data
-		
+
 		if err := dbTx.Save(&existing).Error; err != nil {
 			dbTx.Rollback()
 			ct.logger.Error().
@@ -108,19 +108,19 @@ func (ct *ConfirmationTracker) TrackTransaction(
 				Msg("failed to update existing transaction")
 			return fmt.Errorf("failed to update transaction: %w", err)
 		}
-		
+
 		if err := dbTx.Commit().Error; err != nil {
 			return fmt.Errorf("failed to commit transaction update: %w", err)
 		}
-		
+
 		ct.logger.Debug().
 			Str("tx_hash", txHash).
 			Uint64("block", blockNumber).
 			Msg("updated existing transaction")
-		
+
 		return nil
 	}
-	
+
 	// Create new transaction record
 	tx := &store.ChainTransaction{
 		TxHash:           txHash,
@@ -131,7 +131,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		ConfirmationType: confirmationType,
 		Data:             data,
 	}
-	
+
 	if err := dbTx.Create(tx).Error; err != nil {
 		dbTx.Rollback()
 		ct.logger.Error().
@@ -140,25 +140,25 @@ func (ct *ConfirmationTracker) TrackTransaction(
 			Msg("failed to create transaction")
 		return fmt.Errorf("failed to create transaction: %w", err)
 	}
-	
+
 	if err := dbTx.Commit().Error; err != nil {
 		return fmt.Errorf("failed to commit new transaction: %w", err)
 	}
-	
+
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
 		Uint64("block", blockNumber).
 		Msg("tracking new transaction")
-	
+
 	return nil
 }
 
 // UpdateConfirmations updates confirmation counts for all pending transactions
 func (ct *ConfirmationTracker) UpdateConfirmations(
-    currentBlock uint64,
+	currentBlock uint64,
 ) (err error) {
-    var pendingTxs []store.ChainTransaction
-	
+	var pendingTxs []store.ChainTransaction
+
 	// Get all transactions that are not yet fully confirmed
 	err = ct.db.Client().
 		Where("status IN (?)", []string{"confirmation_pending", "awaiting_vote"}).
@@ -166,30 +166,30 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending transactions: %w", err)
 	}
-	
+
 	if len(pendingTxs) == 0 {
 		return nil // No transactions to update
 	}
-	
+
 	ct.logger.Debug().
 		Uint64("current_block", currentBlock).
 		Int("pending_count", len(pendingTxs)).
 		Msg("updating confirmations")
-	
-    updatedCount := 0
-    confirmedCount := 0
 
-    // Process each transaction without holding a long-lived DB transaction
-    for i := range pendingTxs {
-        tx := &pendingTxs[i]
-        if currentBlock < tx.BlockNumber {
-            // Current block is before transaction block (shouldn't happen)
-            continue
-        }
-		
+	updatedCount := 0
+	confirmedCount := 0
+
+	// Process each transaction without holding a long-lived DB transaction
+	for i := range pendingTxs {
+		tx := &pendingTxs[i]
+		if currentBlock < tx.BlockNumber {
+			// Current block is before transaction block (shouldn't happen)
+			continue
+		}
+
 		confirmations := currentBlock - tx.BlockNumber
 		tx.Confirmations = confirmations
-		
+
 		// Determine required confirmations based on transaction's confirmation type
 		var requiredConfirmations uint64
 		if tx.ConfirmationType == "FAST" {
@@ -198,62 +198,62 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 			// Default to STANDARD for any unspecified or STANDARD type
 			requiredConfirmations = ct.standardInbound
 		}
-		
+
 		// Check if transaction meets its required confirmation threshold
-        // Decide and perform actions without holding any DB transaction
-        if confirmations >= requiredConfirmations && tx.Status != "confirmed" {
-            if ct.voteHandler != nil {
-                // Perform blockchain vote before any DB writes
-                ctx := context.Background()
-                if err := ct.voteHandler.VoteAndConfirm(ctx, tx); err != nil {
-                    ct.logger.Error().
-                        Str("tx_hash", tx.TxHash).
-                        Err(err).
-                        Msg("failed to vote on transaction, will retry")
-                    // Leave status as-is for retry next cycle; still update confirmations
-                } else {
-                    confirmedCount++
-                    ct.logger.Info().
-                        Str("tx_hash", tx.TxHash).
-                        Str("confirmation_type", tx.ConfirmationType).
-                        Uint64("confirmations", confirmations).
-                        Uint64("required_confirmations", requiredConfirmations).
-                        Msg("transaction voted and confirmed")
-                    // tx.Status is updated inside VoteAndConfirm upon success
-                }
-            } else {
-                // No vote handler, mark as awaiting_vote in DB via conditional update
-                // Do not rely on in-memory tx mutation only
-                if err := ct.db.Client().Model(&store.ChainTransaction{}).
-                    Where("id = ? AND status != ?", tx.ID, "confirmed").
-                    Update("status", "awaiting_vote").Error; err != nil {
-                    ct.logger.Error().
-                        Err(err).
-                        Str("tx_hash", tx.TxHash).
-                        Msg("failed to mark transaction as awaiting_vote")
-                    return fmt.Errorf("failed to mark transaction %s awaiting_vote: %w", tx.TxHash, err)
-                }
-            }
-        }
+		// Decide and perform actions without holding any DB transaction
+		if confirmations >= requiredConfirmations && tx.Status != "confirmed" {
+			if ct.voteHandler != nil {
+				// Perform blockchain vote before any DB writes
+				ctx := context.Background()
+				if err := ct.voteHandler.VoteAndConfirm(ctx, tx); err != nil {
+					ct.logger.Error().
+						Str("tx_hash", tx.TxHash).
+						Err(err).
+						Msg("failed to vote on transaction, will retry")
+					// Leave status as-is for retry next cycle; still update confirmations
+				} else {
+					confirmedCount++
+					ct.logger.Info().
+						Str("tx_hash", tx.TxHash).
+						Str("confirmation_type", tx.ConfirmationType).
+						Uint64("confirmations", confirmations).
+						Uint64("required_confirmations", requiredConfirmations).
+						Msg("transaction voted and confirmed")
+					// tx.Status is updated inside VoteAndConfirm upon success
+				}
+			} else {
+				// No vote handler, mark as awaiting_vote in DB via conditional update
+				// Do not rely on in-memory tx mutation only
+				if err := ct.db.Client().Model(&store.ChainTransaction{}).
+					Where("id = ? AND status != ?", tx.ID, "confirmed").
+					Update("status", "awaiting_vote").Error; err != nil {
+					ct.logger.Error().
+						Err(err).
+						Str("tx_hash", tx.TxHash).
+						Msg("failed to mark transaction as awaiting_vote")
+					return fmt.Errorf("failed to mark transaction %s awaiting_vote: %w", tx.TxHash, err)
+				}
+			}
+		}
 
-        // Always update confirmations count quickly and independently
-        if err := ct.db.Client().Model(&store.ChainTransaction{}).
-            Where("id = ?", tx.ID).
-            Update("confirmations", confirmations).Error; err != nil {
-            ct.logger.Error().
-                Err(err).
-                Str("tx_hash", tx.TxHash).
-                Msg("failed to update transaction confirmations")
-            return fmt.Errorf("failed to update confirmations for %s: %w", tx.TxHash, err)
-        }
-        updatedCount++
-    }
+		// Always update confirmations count quickly and independently
+		if err := ct.db.Client().Model(&store.ChainTransaction{}).
+			Where("id = ?", tx.ID).
+			Update("confirmations", confirmations).Error; err != nil {
+			ct.logger.Error().
+				Err(err).
+				Str("tx_hash", tx.TxHash).
+				Msg("failed to update transaction confirmations")
+			return fmt.Errorf("failed to update confirmations for %s: %w", tx.TxHash, err)
+		}
+		updatedCount++
+	}
 
-    ct.logger.Debug().
-        Int("updated_count", updatedCount).
-        Int("confirmed_count", confirmedCount).
-        Msg("confirmation updates committed")
-	
+	ct.logger.Debug().
+		Int("updated_count", updatedCount).
+		Int("confirmed_count", confirmedCount).
+		Msg("confirmation updates committed")
+
 	return nil
 }
 
@@ -266,17 +266,17 @@ func (ct *ConfirmationTracker) IsConfirmed(
 	if err != nil {
 		return false, fmt.Errorf("transaction not found: %w", err)
 	}
-	
+
 	// Transaction is confirmed when status is "confirmed"
 	confirmed := tx.Status == "confirmed"
-	
+
 	// Log when checking reorged transactions for visibility
 	if tx.Status == "reorged" {
 		ct.logger.Debug().
 			Str("tx_hash", txHash).
 			Msg("transaction was reorganized out - returning false")
 	}
-	
+
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
 		Str("status", tx.Status).
@@ -284,7 +284,7 @@ func (ct *ConfirmationTracker) IsConfirmed(
 		Uint64("confirmations", tx.Confirmations).
 		Bool("confirmed", confirmed).
 		Msg("checking confirmation status")
-	
+
 	return confirmed, nil
 }
 

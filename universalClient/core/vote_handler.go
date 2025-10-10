@@ -227,7 +227,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		inboundMsg.Recipient = eventData.Recipient
 	}
 
-	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD {
+	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD || txType == uetypes.InboundTxType_GAS_AND_PAYLOAD {
 		inboundMsg.VerificationData = eventData.VerificationData
 		inboundMsg.UniversalPayload = &eventData.Payload
 	}

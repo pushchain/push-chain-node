@@ -10,6 +10,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/testutils"
+	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
@@ -315,5 +316,44 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		expected.Mul(expected, big.NewInt(2))
 
 		require.Equal(t, 0, balances[0].(*big.Int).Cmp(expected))
+	})
+
+	t.Run("pc_tx tx hashes are unique across multiple inbounds", func(t *testing.T) {
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
+
+		// Send 5 inbounds with different TxHash values
+		for i := 0; i < 5; i++ {
+			inboundCopy := *inbound
+			inboundCopy.TxHash = fmt.Sprintf("0xabc%d", i)
+
+			for j := 0; j < 3; j++ { // simulate 3 validators voting
+				valAddr, err := sdk.ValAddressFromBech32(coreVals[j].OperatorAddress)
+				require.NoError(t, err)
+				coreValAcc := sdk.AccAddress(valAddr).String()
+
+				err = utils.ExecVoteInbound(t, ctx, app, vals[j], coreValAcc, &inboundCopy)
+				require.NoError(t, err)
+			}
+		}
+
+		// Fetch all universal txs
+		q := uexecutorkeeper.Querier{Keeper: app.UexecutorKeeper}
+		utsResp, err := q.AllUniversalTx(sdk.WrapSDKContext(ctx), &uexecutortypes.QueryAllUniversalTxRequest{})
+		fmt.Println(utsResp)
+		require.NoError(t, err)
+		require.NotNil(t, utsResp)
+		require.GreaterOrEqual(t, len(utsResp.UniversalTxs), 5, "expected at least 5 universal txs")
+
+		// Track and ensure all pc_tx.tx_hash are unique
+		txHashes := make(map[string]bool)
+		for _, utx := range utsResp.UniversalTxs {
+			for _, pcTx := range utx.PcTx {
+				require.NotEmpty(t, pcTx.TxHash, "pc_tx tx_hash should not be empty")
+				_, exists := txHashes[pcTx.TxHash]
+				require.Falsef(t, exists, "duplicate pc_tx tx_hash found: %s", pcTx.TxHash)
+				txHashes[pcTx.TxHash] = true
+			}
+		}
+		t.Logf("All %d pc_tx.tx_hash values are unique", len(txHashes))
 	})
 }

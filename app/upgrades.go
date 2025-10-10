@@ -6,6 +6,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
@@ -15,6 +16,7 @@ import (
 var Upgrades = []upgrades.Upgrade{
 	feeabs.NewUpgrade(),
 	solanafix.NewUpgrade(),
+	ethhashfix.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

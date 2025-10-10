@@ -41,16 +41,14 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			execErr = fmt.Errorf("invalid amount: %s", utx.InboundTx.Amount)
 		} else {
 			// --- Step 3: check factory for UEA
-			ueaAddr, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
+			ueaAddrRes, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
 			if fErr != nil {
 				execErr = fmt.Errorf("factory lookup failed: %w", fErr)
 			} else {
 				if !isDeployed {
-					addr, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+					_, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 					if dErr != nil {
 						execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
-					} else {
-						ueaAddr = addr
 					}
 				}
 
@@ -60,6 +58,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 					receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount)
 				}
 			}
+			ueaAddr = ueaAddrRes
 		}
 	}
 

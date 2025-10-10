@@ -2,8 +2,10 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -39,6 +41,9 @@ type Keeper struct {
 
 	// UniversalTx collection
 	UniversalTx collections.Map[string, types.UniversalTx]
+
+	// Module account manual nonce
+	ModuleAccountNonce collections.Item[uint64]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -93,6 +98,13 @@ func NewKeeper(
 			collections.StringKey,
 			codec.CollValue[types.UniversalTx](cdc),
 		),
+
+		ModuleAccountNonce: collections.NewItem(
+			sb,
+			types.ModuleAccountNonceKey,
+			types.ModuleAccountNonceName,
+			collections.Uint64Value,
+		),
 	}
 
 	return k
@@ -138,4 +150,36 @@ func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string
 
 func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
+}
+
+// GetModuleAccountNonce returns the current module account nonce.
+// If not set yet, it safely defaults to 0.
+func (k Keeper) GetModuleAccountNonce(ctx sdk.Context) (uint64, error) {
+	nonce, err := k.ModuleAccountNonce.Get(ctx)
+	if err != nil {
+		// If the key is missing, return 0 instead of error
+		if errors.Is(err, collections.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return nonce, nil
+}
+
+// IncrementModuleAccountNonce increases the nonce by 1 and stores it back.
+func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return 0, err
+	}
+	newNonce := nonce + 1
+	if err := k.ModuleAccountNonce.Set(ctx, newNonce); err != nil {
+		return 0, err
+	}
+	return newNonce, nil
+}
+
+// SetModuleAccountNonce allows explicitly setting the nonce (optional, for migration or testing).
+func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
+	return k.ModuleAccountNonce.Set(ctx, nonce)
 }

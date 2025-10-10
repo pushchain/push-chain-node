@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -24,7 +25,7 @@ import (
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	ConsensusVersion = 2
+	ConsensusVersion = 3
 )
 
 var (
@@ -160,6 +161,19 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
+
+	// Register UExecutor custom migration for v2 (from version 2 → 3)
+	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
+	}
+}
+
+func (a AppModule) migrateToV3() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uexecutor module migration: v2 → v3")
+
+		return nil
+	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

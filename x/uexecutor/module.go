@@ -163,8 +163,8 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
 
 	// Register UExecutor custom migration for v2 (from version 2 → 3)
-	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV3()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
+	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
 	}
 }
 

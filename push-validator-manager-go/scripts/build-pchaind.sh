@@ -50,7 +50,7 @@ GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
 if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; then
     print_error "❌ Go 1.23 or higher is required (found: $GO_VERSION)"
     echo
-    echo "The pchaind binary requires Go 1.23+ to build."
+    echo "The Push Node Daemon (pchaind) requires Go 1.23+ to build."
     echo
     echo "Please upgrade Go:"
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -94,13 +94,18 @@ if [ -f "$APP_FILE" ]; then
     fi
 fi
 
+# Detect version from git tags (can be overridden via VERSION env var)
+VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "v1.0.1")}
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
 # Build with the exact same flags as the bash version
-print_status "🚀 Compiling pchaind (version 1.0.1-native)..."
+print_status "Building Push Node Daemon (version $VERSION)..."
 
 go build -mod=readonly -tags "netgo,ledger" \
     -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=pchain \
              -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind \
-             -X github.com/cosmos/cosmos-sdk/version.Version=1.0.1-native \
+             -X github.com/cosmos/cosmos-sdk/version.Version=$VERSION-native \
              -s -w" \
     -trimpath -o "$OUTPUT_DIR/pchaind" ./cmd/pchaind
 

@@ -288,6 +288,13 @@ fi
 
 verbose "Phases needed: $TOTAL_PHASES (running=$HAS_RUNNING_NODE, existing=$HAS_EXISTING_INSTALL)"
 
+# Print installation banner
+echo
+echo "═══════════════════════════════════════════════════════════════"
+echo "  Push Chain Validator Node - Installation"
+echo "═══════════════════════════════════════════════════════════════"
+echo
+
 # Stop any running processes first (only if needed)
 if [[ "$HAS_RUNNING_NODE" = "yes" ]]; then
   next_phase "Stopping Validator Processes"
@@ -335,7 +342,7 @@ if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
   # Backup all keyring directories
   WALLET_BACKUP="/tmp/pchain-wallet-backup-$$"
   if [[ -d "$HOME_DIR" ]]; then
-    step "Backing up wallet keyrings"
+    step "Backing up wallet keys (your account credentials)"
     mkdir -p "$WALLET_BACKUP"
     for keyring_dir in "$HOME_DIR/keyring-"*; do
       if [[ -d "$keyring_dir" ]]; then
@@ -373,6 +380,21 @@ if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
   rm -f "$HOME_DIR/data/priv_validator_state.json" 2>/dev/null || true
   rm -f "$MANAGER_BIN" 2>/dev/null || true
   rm -f "$INSTALL_BIN_DIR/pchaind" 2>/dev/null || true
+
+  # Delete config files to force fresh generation (validator keys backed up separately)
+  rm -f "$HOME_DIR/config/config.toml" 2>/dev/null || true
+  rm -f "$HOME_DIR/config/app.toml" 2>/dev/null || true
+  rm -f "$HOME_DIR/config/addrbook.json" 2>/dev/null || true
+  rm -f "$HOME_DIR/config/genesis.json" 2>/dev/null || true
+  rm -f "$HOME_DIR/config/config.toml."*.bak 2>/dev/null || true
+
+  # Delete stale state sync and consensus data
+  rm -rf "$HOME_DIR/data/snapshots" 2>/dev/null || true
+  rm -rf "$HOME_DIR/data/cs.wal" 2>/dev/null || true
+
+  # Delete state sync marker and stale PID
+  rm -f "$HOME_DIR/.initial_state_sync" 2>/dev/null || true
+  rm -f "$HOME_DIR/pchaind.pid" 2>/dev/null || true
 
   # Restore wallets if backed up
   if [[ -d "$WALLET_BACKUP" && -n "$(ls -A "$WALLET_BACKUP" 2>/dev/null)" ]]; then
@@ -501,7 +523,7 @@ next_phase "Building Chain Binary"
 # Build or select pchaind (prefer locally built binary to match network upgrades)
 BUILD_SCRIPT="$REPO_DIR/push-validator-manager-go/scripts/build-pchaind.sh"
 if [[ -f "$BUILD_SCRIPT" ]]; then
-  step "Building pchaind from source"
+  step "Building Push Chain binary (Push Node Daemon) from source"
   # Build from repo (whether local or cloned)
   BUILD_OUTPUT="$REPO_DIR/push-validator-manager-go/scripts/build"
   if bash "$BUILD_SCRIPT" "$REPO_DIR" "$BUILD_OUTPUT"; then
@@ -518,9 +540,9 @@ if [[ -f "$BUILD_SCRIPT" ]]; then
       fi
       if [[ -n "$PCHAIND_SHA" ]]; then
         SHA_SHORT="${PCHAIND_SHA:0:8}...${PCHAIND_SHA: -8}"
-        ok "Built pchaind (SHA256: $SHA_SHORT): $PCHAIND"
+        ok "Push Chain binary ready (SHA256: $SHA_SHORT)"
       else
-        ok "Built and installed pchaind: $PCHAIND"
+        ok "Push Chain binary ready: $PCHAIND"
       fi
     else
       warn "Build completed but binary not found at expected location"
@@ -533,13 +555,13 @@ fi
 # Final fallback to system pchaind
 if [[ -z "$PCHAIND" || ! -f "$PCHAIND" ]]; then
   if command -v pchaind >/dev/null 2>&1; then
-    step "Using system pchaind"
+    step "Using system Push Node Daemon binary"
     export PCHAIND="$(command -v pchaind)"
-    ok "Found existing pchaind: $PCHAIND"
+    ok "Found existing Push Node Daemon: $PCHAIND"
   else
-    err "pchaind not found"
-    err "Build failed and no system pchaind available"
-    err "Please ensure the build script works or install pchaind manually"
+    err "Push Node Daemon (pchaind) not found"
+    err "Build failed and no system binary available"
+    err "Please ensure the build script works or install manually"
     exit 1
   fi
 fi
@@ -564,9 +586,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
   fi
 
   next_phase "Starting and Syncing Node"
-  step "Starting validator process"
+  step "Starting Push Chain validator node"
   "$MANAGER_BIN" start --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
-  ok "Node started successfully"
+  ok "Validator node started successfully"
 
   step "Waiting for state sync"
   # Stream compact sync until fully synced (monitor prints snapshot/block progress)

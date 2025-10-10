@@ -253,7 +253,13 @@ func init() {
 			if flagOutput == "json" {
 				p.JSON(map[string]any{"ok": true, "action": "start"})
 			} else {
-				p.Success("Node started")
+				p.Success("✓ Node started")
+			fmt.Println()
+			fmt.Println(p.Colors.Info("Useful commands:"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
 			}
 			return nil
 		},
@@ -288,7 +294,13 @@ func init() {
 		if flagOutput == "json" {
 			p.JSON(map[string]any{"ok": true, "action": "restart"})
 		} else {
-			p.Success("Node restarted")
+			p.Success("✓ Node restarted")
+			fmt.Println()
+			fmt.Println(p.Colors.Info("Useful commands:"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check sync progress)"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
 		}
 		return nil
 	}}

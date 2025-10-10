@@ -136,25 +136,18 @@ func (k Keeper) CallUEADomainSeparator(
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, "failed to parse UEA ABI")
 	}
-
 	// Call the view function domainSeparator()
-	res, err := k.evmKeeper.DerivedEVMCall(
+	res, err := k.evmKeeper.CallEVM(
 		ctx,
 		abi,
 		from,
 		ueaAddr,
-		big.NewInt(0), // value = 0
-		nil,           // gasLimit = nil for view calls
-		false,         // commit = false (simulation)
-		false,         // gasless = false
-		false,         // not a module sender
-		nil,
+		false, // commit = false (static call)
 		"domainSeparator",
 	)
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, "failed to call domainSeparator")
 	}
-
 	// Convert returned bytes to [32]byte
 	if len(res.Ret) < 32 {
 		return [32]byte{}, fmt.Errorf("invalid domainSeparator length: got %d, want 32", len(res.Ret))

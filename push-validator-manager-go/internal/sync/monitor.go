@@ -74,7 +74,7 @@ func Run(ctx context.Context, opts Options) error {
 		close(snapCh)
 	}
 
-	// Phase 1: snapshot spinner until acceptance/quiet
+	// Phase 1: snapshot progress indicator until acceptance/quiet
 	phase1Done := make(chan struct{})
 	var phase1Err error
 	var sawSnapshot bool
@@ -85,8 +85,50 @@ func Run(ctx context.Context, opts Options) error {
 		sawSnapshot = false
 		ticker := time.NewTicker(120 * time.Millisecond)
 		defer ticker.Stop()
-		frames := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
-		fi := 0
+
+		steps := []string{
+			"Discovering snapshots",
+			"Downloading snapshot",
+			"Restoring database",
+			"Verifying and completing",
+		}
+		currentStep := 1
+		maxStep := len(steps)
+		printed := make([]bool, maxStep)
+		completed := make([]bool, maxStep)
+
+		spinnerFrames := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+		spinnerIndex := 0
+
+		printStep := func(idx int, done bool) {
+			if idx < 0 || idx >= maxStep {
+				return
+			}
+			if done {
+				if completed[idx] {
+					return
+				}
+				completed[idx] = true
+			} else if printed[idx] && !completed[idx] {
+				return
+			}
+			line := renderStepIndicator(idx+1, maxStep, steps[idx], opts.Quiet, done)
+			if done || !tty {
+				if done && tty {
+					// Clear spinner line before printing completed step
+					fmt.Fprintf(opts.Out, "\r\033[K%s\n", line)
+				} else {
+					fmt.Fprintln(opts.Out, line)
+				}
+				printed[idx] = true
+			} else {
+				fmt.Fprintf(opts.Out, "\r\033[K%s %c", line, spinnerFrames[spinnerIndex])
+				printed[idx] = true
+			}
+		}
+
+		printStep(currentStep-1, false)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -94,7 +136,6 @@ func Run(ctx context.Context, opts Options) error {
 				return
 			case line, ok := <-snapCh:
 				if !ok {
-					// log tail closed; move to phase2 anyway
 					return
 				}
 				low := strings.ToLower(line)
@@ -102,7 +143,19 @@ func Run(ctx context.Context, opts Options) error {
 					phase1Err = fmt.Errorf("state sync failed: %s", strings.TrimSpace(line))
 					return
 				}
-				if strings.Contains(low, "snapshot accepted") || strings.Contains(low, "restoring") {
+				switch {
+				case strings.Contains(low, "discovering snapshots"):
+					currentStep = 1
+				case strings.Contains(low, "fetching snapshot chunk"):
+					currentStep = 2
+				case strings.Contains(low, "applied snapshot chunk") || strings.Contains(low, "restoring"):
+					currentStep = 3
+				case strings.Contains(low, "snapshot accepted") ||
+					 strings.Contains(low, "snapshot restored") ||
+					 strings.Contains(low, "restored snapshot") ||
+					 strings.Contains(low, "switching to blocksync") ||
+					 strings.Contains(low, "switching to block sync"):
+					currentStep = 4
 					sawAccepted = true
 				}
 				if strings.Contains(low, "statesync") || strings.Contains(low, "state sync") || strings.Contains(low, "snapshot") {
@@ -110,28 +163,58 @@ func Run(ctx context.Context, opts Options) error {
 					lastProgress.Update()
 					sawSnapshot = true
 				}
+				if currentStep < 1 {
+					currentStep = 1
+				}
+				if currentStep > maxStep {
+					currentStep = maxStep
+				}
+				for i := 0; i < currentStep-1; i++ {
+					printStep(i, true)
+				}
+				printStep(currentStep-1, sawAccepted && currentStep == maxStep)
 			case <-ticker.C:
 				if opts.StuckTimeout > 0 && lastProgress.Since() > opts.StuckTimeout {
 					phase1Err = ErrSyncStuck
 					return
 				}
-				if tty {
-					msg := "Downloading and applying state sync snapshot..."
-					if !opts.Quiet {
-						msg = "📥 " + msg
+				if !completed[currentStep-1] {
+					spinnerIndex = (spinnerIndex + 1) % len(spinnerFrames)
+					line := renderStepIndicator(currentStep, maxStep, steps[currentStep-1], opts.Quiet, false)
+					if tty {
+						fmt.Fprintf(opts.Out, "\r\033[K%s %c", line, spinnerFrames[spinnerIndex])
 					}
-					fmt.Fprintf(opts.Out, "\r%s %c", msg, frames[fi%len(frames)])
-					fi++
 				}
-				// If we saw acceptance and logs have been quiet for a few seconds, proceed
-				if sawAccepted && time.Since(lastEvent) > 5*time.Second {
-					return
-				}
-				// If we never saw snapshot logs but node is already synced, proceed
-				if !sawSnapshot {
+				// Smart completion: if Step 3 stuck with no new logs for 3s, check RPC
+				if currentStep == 3 && sawSnapshot && time.Since(lastEvent) > 3*time.Second {
 					if isSyncedQuick(opts.LocalRPC) {
+						currentStep = maxStep
+						sawAccepted = true
+						for i := 0; i < maxStep; i++ {
+							printStep(i, true)
+						}
 						return
 					}
+				}
+				if sawAccepted && time.Since(lastEvent) > 5*time.Second {
+					for i := 0; i < maxStep; i++ {
+						printStep(i, true)
+					}
+					return
+				}
+				if !sawSnapshot {
+					if isSyncedQuick(opts.LocalRPC) {
+						for i := 0; i < maxStep; i++ {
+							printStep(i, true)
+						}
+						return
+					}
+				} else if isSyncedQuick(opts.LocalRPC) {
+					currentStep = maxStep
+					for i := 0; i < maxStep; i++ {
+						printStep(i, true)
+					}
+					return
 				}
 			}
 		}
@@ -141,15 +224,9 @@ func Run(ctx context.Context, opts Options) error {
 	<-phase1Done
 	close(stopLog)
 	if phase1Err != nil {
-		if tty {
-			fmt.Fprint(opts.Out, "\r\033[K")
-		}
 		return phase1Err
 	}
-	if tty {
-		fmt.Fprint(opts.Out, "\r\033[K")
-	}
-	if sawAccepted && tty && !opts.Quiet {
+	if sawAccepted {
 		fmt.Fprintln(opts.Out, "✅ Snapshot restored. Switching to block sync...")
 	}
 	lastProgress.Update()
@@ -406,6 +483,65 @@ func Run(ctx context.Context, opts Options) error {
 					holdStarted = true
 					barPrinted = true
 				}
+				// Active sync: update progress bar on every tick using current RPC status
+				if st.CatchingUp && barPrinted && baseH > 0 {
+					cur := st.Height
+					if cur > 0 {
+						// Add current height to buffer for rate calculation
+						buf = append(buf, pt{cur, time.Now()})
+						if len(buf) > opts.Window {
+							buf = buf[1:]
+						}
+						// Calculate progress using baseline logic
+						remoteH := lastRemote
+						if remoteH == 0 {
+							remoteH = probeRemoteOnce(opts.RemoteRPC, cur)
+						}
+						if remoteH < cur {
+							remoteH = cur
+						}
+						var percent float64
+						if remoteH > 0 {
+							// Use baseline calculation for meaningful progress tracking
+							if baseH > 0 && remoteH > baseH && (remoteH-baseH) > 100 {
+								denom := float64(remoteH - baseH)
+								if denom > 0 {
+									percent = float64(cur-baseH) / denom * 100
+								}
+							} else {
+								// Direct calculation for near-synced nodes
+								percent = float64(cur) / float64(remoteH) * 100
+							}
+						}
+						percent = floor2(percent)
+						if cur < remoteH && percent >= 100 {
+							percent = 99.99
+						}
+						// Render progress bar with current stats
+						line := renderProgressWithQuiet(percent, cur, remoteH, opts.Quiet)
+						rate, eta := progressRateAndETA(buf, cur, remoteH)
+						lineWithETA := line
+						if eta != "" {
+							lineWithETA += eta
+						}
+						if tty {
+							extra := ""
+							if lastPeers > 0 {
+								extra += fmt.Sprintf(" | peers: %d", lastPeers)
+							}
+							if lastLatency > 0 {
+								extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
+							}
+							fmt.Fprintf(opts.Out, "\r\033[K%s%s", lineWithETA, extra)
+						} else {
+							if opts.Quiet {
+								fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, remoteH, rate, eta, lastPeers, lastLatency)
+							} else {
+								fmt.Fprintf(opts.Out, "%s height=%d/%d rate=%.2f blk/s%s peers=%d rtt=%dms\n", time.Now().Format(time.Kitchen), cur, remoteH, rate, eta, lastPeers, lastLatency)
+							}
+						}
+					}
+				}
 				// While within minShow and already not catching_up, keep the bar live-updating
 				if !st.CatchingUp && barPrinted && time.Since(firstBarTime) < minShow {
 					cur := st.Height
@@ -526,6 +662,38 @@ func (a *atomicTime) Since() time.Duration {
 	return time.Since(time.Unix(0, last))
 }
 
+func renderStepIndicator(step, total int, message string, quiet bool, completed bool) string {
+	filled := "●"
+	empty := "○"
+	if quiet {
+		filled = "#"
+		empty = "-"
+	}
+	if total <= 0 {
+		total = 1
+	}
+	if step < 1 {
+		step = 1
+	}
+	if step > total {
+		step = total
+	}
+	var sb strings.Builder
+	sb.Grow(total)
+	for i := 1; i <= total; i++ {
+		if i <= step {
+			sb.WriteString(filled)
+		} else {
+			sb.WriteString(empty)
+		}
+	}
+	suffix := message
+	if completed && !quiet {
+		suffix = fmt.Sprintf("%s %s", message, "✅")
+	}
+	return fmt.Sprintf("[%s] Step %d/%d: %s", sb.String(), step, total, suffix)
+}
+
 func tailStatesync(ctx context.Context, path string, out chan<- string, stop <-chan struct{}) {
 	defer close(out)
 	// Wait for log file to appear to avoid missing early snapshot lines
@@ -562,7 +730,7 @@ func tailStatesync(ctx context.Context, path string, out chan<- string, stop <-c
 		line, err := r.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				time.Sleep(400 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 			return

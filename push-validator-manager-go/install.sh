@@ -659,7 +659,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
         echo "  2. Verify peers: push-validator-manager status"
         echo "  3. Check logs: tail -100 $HOME_DIR/logs/pchaind.log"
         echo
-        echo "If issues persist, join our Discord: https://discord.com/invite/pushchain"
+        echo "If issues persist:"
+        echo "  • Discord: https://discord.com/invite/pushchain"
+        echo "  • Support: https://push.org/support/"
         echo
         "$MANAGER_BIN" stop >/dev/null 2>&1 || true
         exit 1

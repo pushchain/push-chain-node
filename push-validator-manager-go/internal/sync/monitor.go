@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -12,27 +13,33 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/node"
 )
 
 type Options struct {
-	LocalRPC  string
-	RemoteRPC string
-	LogPath   string
-	Window    int
-	Compact   bool
-	Out       io.Writer     // default os.Stdout
-	Interval  time.Duration // refresh interval for progress updates
-	Quiet     bool          // minimal, non-emoji, non-TTY style output
-	Debug     bool          // extra diagnostic prints
+	LocalRPC     string
+	RemoteRPC    string
+	LogPath      string
+	Window       int
+	Compact      bool
+	Out          io.Writer     // default os.Stdout
+	Interval     time.Duration // refresh interval for progress updates
+	Quiet        bool          // minimal, non-emoji, non-TTY style output
+	Debug        bool          // extra diagnostic prints
+	StuckTimeout time.Duration // timeout for detecting stalled sync
 }
 
 type pt struct {
 	h int64
 	t time.Time
 }
+
+const defaultStuckTimeout = 2 * time.Minute
+
+var ErrSyncStuck = errors.New("sync stuck: no progress detected")
 
 // Run performs two-phase monitoring: snapshot spinner from logs, then WS header progress.
 func Run(ctx context.Context, opts Options) error {
@@ -42,6 +49,10 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Window <= 0 {
 		opts.Window = 30
 	}
+	if opts.StuckTimeout <= 0 {
+		opts.StuckTimeout = defaultStuckTimeout
+	}
+	lastProgress := newAtomicTime(time.Now())
 
 	tty := isTTY()
 	if opts.Quiet {
@@ -96,9 +107,14 @@ func Run(ctx context.Context, opts Options) error {
 				}
 				if strings.Contains(low, "statesync") || strings.Contains(low, "state sync") || strings.Contains(low, "snapshot") {
 					lastEvent = time.Now()
+					lastProgress.Update()
 					sawSnapshot = true
 				}
 			case <-ticker.C:
+				if opts.StuckTimeout > 0 && lastProgress.Since() > opts.StuckTimeout {
+					phase1Err = ErrSyncStuck
+					return
+				}
 				if tty {
 					msg := "Downloading and applying state sync snapshot..."
 					if !opts.Quiet {
@@ -136,6 +152,7 @@ func Run(ctx context.Context, opts Options) error {
 	if sawAccepted && tty && !opts.Quiet {
 		fmt.Fprintln(opts.Out, "✅ Snapshot restored. Switching to block sync...")
 	}
+	lastProgress.Update()
 
 	// Phase 2: WS header subscription + progress bar
 	local := strings.TrimRight(opts.LocalRPC, "/")
@@ -190,6 +207,7 @@ func Run(ctx context.Context, opts Options) error {
 			return ctx.Err()
 		case rhd, ok := <-remoteHeaders:
 			if remoteWSErr == nil && ok {
+				lastProgress.Update()
 				lastRemote = rhd.Height
 				var cur int64
 				if len(buf) > 0 {
@@ -245,6 +263,7 @@ func Run(ctx context.Context, opts Options) error {
 			if !ok {
 				return nil
 			}
+			lastProgress.Update()
 			buf = append(buf, pt{h.Height, time.Now()})
 			if len(buf) > opts.Window {
 				buf = buf[1:]
@@ -324,6 +343,12 @@ func Run(ctx context.Context, opts Options) error {
 			}
 			barPrinted = true
 		case <-tick.C:
+			if opts.StuckTimeout > 0 && lastProgress.Since() > opts.StuckTimeout {
+				if tty {
+					fmt.Fprint(opts.Out, "\r\033[K")
+				}
+				return ErrSyncStuck
+			}
 			// Completion check via local status (cheap)
 			ctx2, cancel2 := context.WithTimeout(context.Background(), 1200*time.Millisecond)
 			st, err := cli.Status(ctx2)
@@ -428,9 +453,43 @@ func Run(ctx context.Context, opts Options) error {
 				}
 				// End condition: catching_up is false AND minShow window has passed
 				if !st.CatchingUp && holdStarted && time.Since(firstBarTime) >= minShow {
-					// Clear progress line before returning
+					cur := st.Height
+					remoteH := lastRemote
+					if remoteH == 0 {
+						remoteH = probeRemoteOnce(opts.RemoteRPC, cur)
+					}
+					if remoteH < cur {
+						remoteH = cur
+					}
+					percent := 0.0
+					if remoteH > 0 {
+						percent = float64(cur) / float64(remoteH) * 100
+					}
+					percent = floor2(percent)
+					if cur < remoteH && percent >= 100 {
+						percent = 99.99
+					}
+					line := renderProgressWithQuiet(percent, cur, remoteH, opts.Quiet)
+					rate, eta := progressRateAndETA(buf, cur, remoteH)
+					lineWithETA := line
+					if eta != "" {
+						lineWithETA += eta
+					}
 					if tty {
-						fmt.Fprintln(opts.Out) // Add newline to clear \r progress
+						extra := ""
+						if lastPeers > 0 {
+							extra += fmt.Sprintf(" | peers: %d", lastPeers)
+						}
+						if lastLatency > 0 {
+							extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
+						}
+						fmt.Fprintf(opts.Out, "\r\033[K%s%s\n", lineWithETA, extra)
+					} else {
+						if opts.Quiet {
+							fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, remoteH, rate, eta, lastPeers, lastLatency)
+						} else {
+							fmt.Fprintf(opts.Out, "%s height=%d/%d rate=%.2f blk/s%s peers=%d rtt=%dms\n", time.Now().Format(time.Kitchen), cur, remoteH, rate, eta, lastPeers, lastLatency)
+						}
 					}
 					return nil
 				}
@@ -440,6 +499,32 @@ func Run(ctx context.Context, opts Options) error {
 }
 
 // --- helpers ---
+
+type atomicTime struct {
+	value atomic.Int64
+}
+
+func newAtomicTime(t time.Time) *atomicTime {
+	at := &atomicTime{}
+	at.Store(t)
+	return at
+}
+
+func (a *atomicTime) Store(t time.Time) {
+	a.value.Store(t.UnixNano())
+}
+
+func (a *atomicTime) Update() {
+	a.Store(time.Now())
+}
+
+func (a *atomicTime) Since() time.Duration {
+	last := a.value.Load()
+	if last == 0 {
+		return 0
+	}
+	return time.Since(time.Unix(0, last))
+}
 
 func tailStatesync(ctx context.Context, path string, out chan<- string, stop <-chan struct{}) {
 	defer close(out)

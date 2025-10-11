@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/exitcodes"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
 	syncmon "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/sync"
 )
@@ -19,6 +21,7 @@ func init() {
 	var syncRemote string
 	var syncSkipFinal bool
 	var syncInterval time.Duration
+	var syncStuckTimeout time.Duration
 
 	syncCmd := &cobra.Command{
 		Use:   "sync",
@@ -32,17 +35,28 @@ func init() {
 				syncRemote = "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443"
 			}
 			sup := process.New(cfg.HomeDir)
+			if syncStuckTimeout <= 0 {
+				if envTimeout := os.Getenv("PNM_SYNC_STUCK_TIMEOUT"); envTimeout != "" {
+					if parsed, err := time.ParseDuration(envTimeout); err == nil {
+						syncStuckTimeout = parsed
+					}
+				}
+			}
 			if err := syncmon.Run(cmd.Context(), syncmon.Options{
-				LocalRPC:  syncRPC,
-				RemoteRPC: syncRemote,
-				LogPath:   sup.LogPath(),
-				Window:    syncWindow,
-				Compact:   syncCompact,
-				Out:       os.Stdout,
-				Interval:  syncInterval,
-				Quiet:     flagQuiet,
-				Debug:     flagDebug,
+				LocalRPC:     syncRPC,
+				RemoteRPC:    syncRemote,
+				LogPath:      sup.LogPath(),
+				Window:       syncWindow,
+				Compact:      syncCompact,
+				Out:          os.Stdout,
+				Interval:     syncInterval,
+				Quiet:        flagQuiet,
+				Debug:        flagDebug,
+				StuckTimeout: syncStuckTimeout,
 			}); err != nil {
+				if errors.Is(err, syncmon.ErrSyncStuck) {
+					return exitcodes.NewError(exitcodes.SyncStuck, err.Error())
+				}
 				return err
 			}
 			if !syncSkipFinal {
@@ -62,5 +76,6 @@ func init() {
 	syncCmd.Flags().StringVar(&syncRemote, "remote", "", "Remote RPC base")
 	syncCmd.Flags().DurationVar(&syncInterval, "interval", 120*time.Millisecond, "Update interval (e.g. 1s, 2s)")
 	syncCmd.Flags().BoolVar(&syncSkipFinal, "skip-final-message", false, "Suppress completion message (for automation)")
+	syncCmd.Flags().DurationVar(&syncStuckTimeout, "stuck-timeout", 0, "Stuck detection timeout (e.g. 2m, 5m). 0 uses default or PNM_SYNC_STUCK_TIMEOUT")
 	rootCmd.AddCommand(syncCmd)
 }

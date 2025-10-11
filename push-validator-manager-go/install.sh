@@ -96,6 +96,106 @@ print_useful_cmds() {
     echo
 }
 
+clean_data_and_preserve_keys() {
+    local mode="$1"
+    local suffix="${2:-1}"
+
+    local wallet_backup
+    local validator_backup
+
+    wallet_backup=$(mktemp -d 2>/dev/null || echo "/tmp/pchain-wallet-backup-$$-$suffix")
+    validator_backup=$(mktemp -d 2>/dev/null || echo "/tmp/pchain-validator-backup-$$-$suffix")
+
+    if [[ "$mode" == "initial" ]]; then
+        if [[ -d "$HOME_DIR" ]]; then
+            step "Backing up wallet keys (your account credentials)"
+            mkdir -p "$wallet_backup"
+            local backed_wallet=0
+            for keyring_dir in "$HOME_DIR"/keyring-*; do
+                if [[ -d "$keyring_dir" ]]; then
+                    cp -r "$keyring_dir" "$wallet_backup/" 2>/dev/null || true
+                    backed_wallet=1
+                fi
+            done
+            if [[ $backed_wallet -eq 1 ]]; then
+                ok "Wallets backed up"
+            fi
+        fi
+
+        if [[ -d "$HOME_DIR/config" ]]; then
+            step "Backing up validator keys"
+            mkdir -p "$validator_backup"
+            cp "$HOME_DIR/config/priv_validator_key.json" "$validator_backup/" 2>/dev/null || true
+            cp "$HOME_DIR/config/node_key.json" "$validator_backup/" 2>/dev/null || true
+            if [[ -n "$(ls -A "$validator_backup" 2>/dev/null)" ]]; then
+                ok "Validator keys backed up"
+            fi
+        fi
+    else
+        step "Backing up wallet and validator keys"
+        mkdir -p "$wallet_backup" "$validator_backup"
+        for keyring_dir in "$HOME_DIR"/keyring-*; do
+            if [[ -d "$keyring_dir" ]]; then
+                cp -r "$keyring_dir" "$wallet_backup/" 2>/dev/null || true
+            fi
+        done
+        cp "$HOME_DIR/config/priv_validator_key.json" "$validator_backup/" 2>/dev/null || true
+        cp "$HOME_DIR/config/node_key.json" "$validator_backup/" 2>/dev/null || true
+        ok "Keys backed up to temporary location"
+    fi
+
+    if [[ "$mode" == "initial" ]]; then
+        step "Removing old installation"
+        rm -rf "$ROOT_DIR" 2>/dev/null || true
+        rm -rf "$HOME_DIR/data" 2>/dev/null || true
+        rm -f "$HOME_DIR/pchaind.pid" 2>/dev/null || true
+        rm -f "$MANAGER_BIN" 2>/dev/null || true
+        rm -f "$INSTALL_BIN_DIR/pchaind" 2>/dev/null || true
+        rm -f "$HOME_DIR/.initial_state_sync" 2>/dev/null || true
+
+        rm -f "$HOME_DIR/config/config.toml" 2>/dev/null || true
+        rm -f "$HOME_DIR/config/app.toml" 2>/dev/null || true
+        rm -f "$HOME_DIR/config/addrbook.json" 2>/dev/null || true
+        rm -f "$HOME_DIR/config/genesis.json" 2>/dev/null || true
+        rm -f "$HOME_DIR/config/config.toml."*.bak 2>/dev/null || true
+    else
+        step "Cleaning all chain data (fixing potential corruption)"
+        rm -rf "$HOME_DIR/data" 2>/dev/null || true
+        rm -f "$HOME_DIR/.initial_state_sync" 2>/dev/null || true
+        mkdir -p "$HOME_DIR/data"
+        echo '{"height":"0","round":0,"step":0}' > "$HOME_DIR/data/priv_validator_state.json"
+    fi
+
+    if [[ "$mode" == "initial" ]]; then
+        if [[ -d "$wallet_backup" && -n "$(ls -A "$wallet_backup" 2>/dev/null)" ]]; then
+            step "Restoring wallets"
+            mkdir -p "$HOME_DIR"
+            cp -r "$wallet_backup"/. "$HOME_DIR/" 2>/dev/null || true
+            ok "Wallets restored"
+        fi
+        if [[ -d "$validator_backup" && -n "$(ls -A "$validator_backup" 2>/dev/null)" ]]; then
+            step "Restoring validator keys"
+            mkdir -p "$HOME_DIR/config"
+            cp -r "$validator_backup"/. "$HOME_DIR/config/" 2>/dev/null || true
+            ok "Validator keys restored"
+        fi
+    else
+        step "Restoring wallet and validator keys"
+        mkdir -p "$HOME_DIR" "$HOME_DIR/config"
+        cp -r "$wallet_backup"/. "$HOME_DIR/" 2>/dev/null || true
+        cp "$validator_backup"/priv_validator_key.json "$HOME_DIR/config/" 2>/dev/null || true
+        cp "$validator_backup"/node_key.json "$HOME_DIR/config/" 2>/dev/null || true
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$HOME_DIR/.initial_state_sync"
+        ok "Keys restored successfully"
+    fi
+
+    rm -rf "$wallet_backup" "$validator_backup" 2>/dev/null || true
+
+    if [[ "$mode" == "retry" ]]; then
+        ok "Data cleaned, ready for fresh sync"
+    fi
+}
+
 # Phase tracking with timing
 INSTALL_START_TIME=$(date +%s)
 PHASE_NUM=0
@@ -338,82 +438,7 @@ fi
 # Clean install: remove all previous installation artifacts (preserve wallets and validator keys)
 if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
   next_phase "Cleaning Installation"
-
-  # Backup all keyring directories
-  WALLET_BACKUP="/tmp/pchain-wallet-backup-$$"
-  if [[ -d "$HOME_DIR" ]]; then
-    step "Backing up wallet keys (your account credentials)"
-    mkdir -p "$WALLET_BACKUP"
-    for keyring_dir in "$HOME_DIR/keyring-"*; do
-      if [[ -d "$keyring_dir" ]]; then
-        cp -r "$keyring_dir" "$WALLET_BACKUP/" 2>/dev/null || true
-      fi
-    done
-    if [[ -n "$(ls -A "$WALLET_BACKUP" 2>/dev/null)" ]]; then
-      ok "Wallets backed up"
-    fi
-  fi
-
-  # Backup validator identity keys
-  VALIDATOR_BACKUP="/tmp/pchain-validator-backup-$$"
-  if [[ -d "$HOME_DIR/config" ]]; then
-    step "Backing up validator keys"
-    mkdir -p "$VALIDATOR_BACKUP"
-    cp "$HOME_DIR/config/priv_validator_key.json" "$VALIDATOR_BACKUP/" 2>/dev/null || true
-    cp "$HOME_DIR/config/node_key.json" "$VALIDATOR_BACKUP/" 2>/dev/null || true
-    if [[ -n "$(ls -A "$VALIDATOR_BACKUP" 2>/dev/null)" ]]; then
-      ok "Validator keys backed up"
-    fi
-  fi
-
-  # Clean installation (selective - preserves validator identity)
-  step "Removing old installation"
-  rm -rf "$ROOT_DIR" 2>/dev/null || true
-  # Delete only data directories to clear corrupted state
-  rm -rf "$HOME_DIR/data/application.db" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/wasm" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/blockstore.db" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/state.db" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/evidence.db" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/tx_index.db" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/08-light-client" 2>/dev/null || true
-  rm -f "$HOME_DIR/data/priv_validator_state.json" 2>/dev/null || true
-  rm -f "$MANAGER_BIN" 2>/dev/null || true
-  rm -f "$INSTALL_BIN_DIR/pchaind" 2>/dev/null || true
-
-  # Delete config files to force fresh generation (validator keys backed up separately)
-  rm -f "$HOME_DIR/config/config.toml" 2>/dev/null || true
-  rm -f "$HOME_DIR/config/app.toml" 2>/dev/null || true
-  rm -f "$HOME_DIR/config/addrbook.json" 2>/dev/null || true
-  rm -f "$HOME_DIR/config/genesis.json" 2>/dev/null || true
-  rm -f "$HOME_DIR/config/config.toml."*.bak 2>/dev/null || true
-
-  # Delete stale state sync and consensus data
-  rm -rf "$HOME_DIR/data/snapshots" 2>/dev/null || true
-  rm -rf "$HOME_DIR/data/cs.wal" 2>/dev/null || true
-
-  # Delete state sync marker and stale PID
-  rm -f "$HOME_DIR/.initial_state_sync" 2>/dev/null || true
-  rm -f "$HOME_DIR/pchaind.pid" 2>/dev/null || true
-
-  # Restore wallets if backed up
-  if [[ -d "$WALLET_BACKUP" && -n "$(ls -A "$WALLET_BACKUP" 2>/dev/null)" ]]; then
-    step "Restoring wallets"
-    mkdir -p "$HOME_DIR"
-    cp -r "$WALLET_BACKUP/"* "$HOME_DIR/" 2>/dev/null || true
-    rm -rf "$WALLET_BACKUP"
-    ok "Wallets restored"
-  fi
-
-  # Restore validator keys if backed up
-  if [[ -d "$VALIDATOR_BACKUP" && -n "$(ls -A "$VALIDATOR_BACKUP" 2>/dev/null)" ]]; then
-    step "Restoring validator keys"
-    mkdir -p "$HOME_DIR/config"
-    cp -r "$VALIDATOR_BACKUP/"* "$HOME_DIR/config/" 2>/dev/null || true
-    rm -rf "$VALIDATOR_BACKUP"
-    ok "Validator keys restored"
-  fi
-
+  clean_data_and_preserve_keys "initial" "init"
   ok "Clean installation ready"
 elif [[ "$RESET_DATA" = "yes" ]]; then
   verbose "Fresh installation detected (skipped cleanup)"
@@ -586,24 +611,83 @@ if [[ "$AUTO_START" = "yes" ]]; then
   fi
 
   next_phase "Starting and Syncing Node"
-  step "Starting Push Chain validator node"
-  "$MANAGER_BIN" start --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
-  ok "Validator node started successfully"
+  MAX_RETRIES=5
+  RETRY_COUNT=0
+  SYNC_RC=0
 
-  step "Waiting for state sync"
-  # Stream compact sync until fully synced (monitor prints snapshot/block progress)
-  set +e
-  "$MANAGER_BIN" sync --compact --window 30 --rpc "http://127.0.0.1:26657" --remote "https://$GENESIS_DOMAIN:443" --skip-final-message
-  SYNC_RC=$?
-  set -e
-  if [[ $SYNC_RC -ne 0 ]]; then warn "Sync monitoring ended with code $SYNC_RC"; fi
+  while true; do
+    if [[ $RETRY_COUNT -eq 0 ]]; then
+      step "Starting Push Chain validator node"
+    else
+      step "Restarting node (attempt $((RETRY_COUNT + 1))/$((MAX_RETRIES + 1)))"
+    fi
 
-  echo  # Ensure newline after sync progress
-  # Wait for peer connections to establish
-  sleep 5
-  if [[ $SYNC_RC -eq 0 ]]; then
-    echo -e "${GREEN}✅ Sync complete! Node is fully synced.${NC}"
+    "$MANAGER_BIN" start --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
+    ok "Validator node started successfully"
+
+    step "Waiting for state sync"
+    # Stream compact sync until fully synced (monitor prints snapshot/block progress)
+    set +e
+    "$MANAGER_BIN" sync --compact --window 30 --rpc "http://127.0.0.1:26657" --remote "https://$GENESIS_DOMAIN:443" --skip-final-message
+    SYNC_RC=$?
+    set -e
+
+    if [[ $SYNC_RC -eq 0 ]]; then
+      echo
+      sleep 5
+      echo -e "${GREEN}✅ Sync complete! Node is fully synced.${NC}"
+      break
+    fi
+
+    if [[ $SYNC_RC -eq 42 ]]; then
+      ((RETRY_COUNT++))
+
+      if [[ $RETRY_COUNT -gt $MAX_RETRIES ]]; then
+        echo
+        err "Sync failed after $MAX_RETRIES retry attempts"
+        echo
+        echo "The sync process repeatedly got stuck or encountered errors."
+        echo
+        echo "Common causes:"
+        echo "  • Network connectivity issues"
+        echo "  • State sync snapshot corruption (app hash mismatch)"
+        echo "  • RPC server temporarily unavailable"
+        echo "  • Insufficient peers for sync"
+        echo
+        echo "Troubleshooting steps:"
+        echo "  1. Check network: curl https://$GENESIS_DOMAIN/status"
+        echo "  2. Verify peers: push-validator-manager status"
+        echo "  3. Check logs: tail -100 $HOME_DIR/logs/pchaind.log"
+        echo
+        echo "If issues persist, join our Discord: https://discord.com/invite/pushchain"
+        echo
+        "$MANAGER_BIN" stop >/dev/null 2>&1 || true
+        exit 1
+      fi
+
+      warn "Sync stuck or failed. Performing full data reset (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+      echo
+
+      step "Stopping node"
+      "$MANAGER_BIN" stop >/dev/null 2>&1 || true
+      sleep 2
+      pkill -x pchaind 2>/dev/null || true
+      pkill -x push-validator-manager 2>/dev/null || true
+      clean_data_and_preserve_keys "retry" "$RETRY_COUNT"
+      echo
+      continue
+    fi
+
+    warn "Sync monitoring ended with code $SYNC_RC (not a stuck condition, skipping retry)"
+    "$MANAGER_BIN" stop >/dev/null 2>&1 || true
+    break
+  done
+
+  if [[ $SYNC_RC -ne 0 ]]; then
+    err "Sync failed with exit code $SYNC_RC"
+    exit $SYNC_RC
   fi
+
   "$MANAGER_BIN" status || true
   ok "Ready to become a validator"
 

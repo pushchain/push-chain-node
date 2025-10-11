@@ -28,6 +28,9 @@ const (
 	// (e.g., failed to start/stop, permission denied)
 	ProcessError = 5
 
+	// SyncStuck indicates the sync monitor detected no progress and timed out
+	SyncStuck = 42
+
 	// ValidationError indicates validation failure
 	// (e.g., invalid config, corrupted data)
 	ValidationError = 6

@@ -593,7 +593,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
   step "Waiting for state sync"
   # Stream compact sync until fully synced (monitor prints snapshot/block progress)
   set +e
-  "$MANAGER_BIN" sync --compact --window 30 --rpc "http://127.0.0.1:26657" --remote "https://$GENESIS_DOMAIN:443"
+  "$MANAGER_BIN" sync --compact --window 30 --rpc "http://127.0.0.1:26657" --remote "https://$GENESIS_DOMAIN:443" --skip-final-message
   SYNC_RC=$?
   set -e
   if [[ $SYNC_RC -ne 0 ]]; then warn "Sync monitoring ended with code $SYNC_RC"; fi
@@ -601,8 +601,9 @@ if [[ "$AUTO_START" = "yes" ]]; then
   echo  # Ensure newline after sync progress
   # Wait for peer connections to establish
   sleep 5
-  # Quick status sample
-  step "Checking block sync status"
+  if [[ $SYNC_RC -eq 0 ]]; then
+    echo -e "${GREEN}✅ Sync complete! Node is fully synced.${NC}"
+  fi
   "$MANAGER_BIN" status || true
   ok "Ready to become a validator"
 

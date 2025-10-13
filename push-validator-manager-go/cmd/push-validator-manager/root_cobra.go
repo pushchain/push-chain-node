@@ -130,6 +130,9 @@ func init() {
 	statusCmd.Flags().BoolVar(&statusStrict, "strict", false, "Exit non-zero if node has issues (not running, catching up, no peers, or errors)")
 	rootCmd.AddCommand(statusCmd)
 
+	// dashboard - interactive TUI for monitoring
+	rootCmd.AddCommand(createDashboardCmd())
+
 	// init (Cobra flags)
 	var initMoniker, initChainID, initSnapshotRPC string
 	initCmd := &cobra.Command{
@@ -155,7 +158,7 @@ func init() {
 				GenesisDomain:        cfg.GenesisDomain,
 				BinPath:              findPchaind(),
 				SnapshotRPCPrimary:   initSnapshotRPC,
-				SnapshotRPCSecondary: initSnapshotRPC,
+				SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
 			}); err != nil {
 				ui.PrintError(ui.ErrorMessage{
 					Problem: "Initialization failed",
@@ -206,7 +209,7 @@ func init() {
 					GenesisDomain:        cfg.GenesisDomain,
 					BinPath:              findPchaind(),
 					SnapshotRPCPrimary:   cfg.SnapshotRPC,
-					SnapshotRPCSecondary: cfg.SnapshotRPC,
+					SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
 				}); err != nil {
 					ui.PrintError(ui.ErrorMessage{
 						Problem: "Initialization failed",

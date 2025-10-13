@@ -1,0 +1,71 @@
+package dashboard
+
+import (
+	"context"
+	"time"
+
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/metrics"
+)
+
+// Message types for Bubble Tea event loop - ensures deterministic control flow
+
+// tickMsg is sent periodically to trigger data refresh
+type tickMsg time.Time
+
+// dataMsg contains successfully fetched dashboard data
+type dataMsg DashboardData
+
+// dataErrMsg contains an error from a failed data fetch
+type dataErrMsg struct {
+	err error
+}
+
+// fetchStartedMsg is sent when a fetch begins, carrying the cancel function
+// This ensures cancel func is assigned on UI thread, not in Cmd goroutine
+type fetchStartedMsg struct {
+	cancel context.CancelFunc
+}
+
+// forceRefreshMsg is sent when user presses 'r' to refresh immediately
+type forceRefreshMsg struct{}
+
+// toggleHelpMsg is sent when user presses '?' to toggle help overlay
+type toggleHelpMsg struct{}
+
+// DashboardData aggregates all data shown in the dashboard
+type DashboardData struct {
+	// Reuse existing metrics collector
+	Metrics metrics.Snapshot
+
+	// Node process information
+	NodeInfo struct {
+		Running   bool
+		PID       int
+		Uptime    time.Duration
+		BinaryVer string // Cached version (5min TTL)
+	}
+
+	// Validator-specific information
+	ValidatorInfo struct {
+		Address     string
+		Status      string
+		VotingPower int64
+		VotingPct   float64 // Percentage of total voting power [0,1]
+		Commission  string
+		Jailed      bool
+		Delegators  int
+	}
+
+	LastUpdate time.Time
+	Err        error // Last fetch error (for display in header)
+}
+
+// Options configures dashboard behavior
+type Options struct {
+	Config          config.Config
+	RefreshInterval time.Duration
+	RPCTimeout      time.Duration // Timeout for RPC calls (default: 5s)
+	NoColor         bool
+	NoEmoji         bool
+}

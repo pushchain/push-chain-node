@@ -23,6 +23,7 @@ type Supervisor interface {
     Restart(opts StartOpts) (int, error)
     IsRunning() bool
     PID() (int, bool)
+    Uptime() (time.Duration, bool) // returns uptime duration and whether process is running
     LogPath() string
 }
 
@@ -64,6 +65,29 @@ func (s *supervisor) PID() (int, bool) {
 func (s *supervisor) IsRunning() bool {
     _, ok := s.PID()
     return ok
+}
+
+func (s *supervisor) Uptime() (time.Duration, bool) {
+    pid, ok := s.PID()
+    if !ok {
+        return 0, false
+    }
+
+    // Use ps to get elapsed time in seconds (works on Linux and macOS)
+    cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "etimes=")
+    out, err := cmd.Output()
+    if err != nil {
+        return 0, false
+    }
+
+    // Parse elapsed seconds
+    elapsed := strings.TrimSpace(string(out))
+    seconds, err := strconv.ParseInt(elapsed, 10, 64)
+    if err != nil {
+        return 0, false
+    }
+
+    return time.Duration(seconds) * time.Second, true
 }
 
 func (s *supervisor) Stop() error {

@@ -144,13 +144,30 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
         return fmt.Errorf("compute trust params: %w", err)
     }
     // Build and filter RPC servers to those that accept JSON-RPC POST (light client requirement)
+    // Add both primary and secondary (fallback to node1 if secondary not provided)
     candidates := []string{hostToStateSyncURL(snapPrimary)}
+    snapSecondary := opts.SnapshotRPCSecondary
+    if snapSecondary == "" {
+        // Default to node1 as secondary witness if not specified
+        snapSecondary = "https://rpc-testnet-donut-node1.push.org"
+    }
+    if snapSecondary != snapPrimary {
+        candidates = append(candidates, hostToStateSyncURL(snapSecondary))
+    }
+
     rpcServers := s.pickWorkingRPCs(ctx, candidates)
     if len(rpcServers) == 0 {
         return fmt.Errorf("no working RPC servers for state sync (JSON-RPC POST failed)")
     }
-    // Ensure we provide two entries (primary + witness). Duplicate if only one works.
-    if len(rpcServers) == 1 { rpcServers = append(rpcServers, rpcServers[0]) }
+    // Ensure we provide two entries (primary + witness). Only duplicate as last resort.
+    if len(rpcServers) == 1 {
+        // Try adding the other node as fallback
+        fallback := "https://rpc-testnet-donut-node1.push.org:443"
+        if strings.Contains(snapPrimary, "node1") {
+            fallback = "https://rpc-testnet-donut-node2.push.org:443"
+        }
+        rpcServers = append(rpcServers, fallback)
+    }
     if _, err := cfgs.Backup(); err == nil { /* best-effort */ }
     if err := cfgs.EnableStateSync(files.StateSyncParams{
         TrustHeight: tp.Height,

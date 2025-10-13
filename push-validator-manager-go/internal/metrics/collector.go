@@ -26,10 +26,18 @@ type Chain struct {
     CatchingUp   bool
 }
 
+type Node struct {
+    ChainID      string
+    NodeID       string
+    Moniker      string
+    RPCListening bool
+}
+
 type Snapshot struct {
     System  System
     Network Network
     Chain   Chain
+    Node    Node
 }
 
 type Collector struct{}
@@ -46,6 +54,10 @@ func (c *Collector) Collect(ctx context.Context, localRPC, remoteRPC string) Sna
     if st, err := local.Status(ctx); err == nil {
         snap.Chain.LocalHeight = st.Height
         snap.Chain.CatchingUp = st.CatchingUp
+        snap.Node.ChainID = st.Network
+        snap.Node.NodeID = st.NodeID
+        snap.Node.Moniker = st.Moniker
+        snap.Node.RPCListening = true // If we got a response, RPC is listening
     }
     // Remote status
     if st, err := remote.RemoteStatus(ctx, remoteRPC); err == nil {

@@ -45,10 +45,29 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			if fErr != nil {
 				execErr = fmt.Errorf("factory lookup failed: %w", fErr)
 			} else {
+				ueaAddr = ueaAddrRes
+
 				if !isDeployed {
-					_, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+					deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 					if dErr != nil {
 						execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
+					} else {
+						// Parse deployed address from return data
+						deployedAddr := common.BytesToAddress(deployReceipt.Ret)
+						ueaAddr = deployedAddr
+
+						// Store deployment pcTx
+						deployPcTx := types.PCTx{
+							TxHash:      deployReceipt.Hash,
+							Sender:      ueModuleAddressStr,
+							BlockHeight: uint64(sdkCtx.BlockHeight()),
+							GasUsed:     deployReceipt.GasUsed,
+							Status:      "SUCCESS",
+						}
+						_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							utx.PcTx = append(utx.PcTx, &deployPcTx)
+							return nil
+						})
 					}
 				}
 
@@ -58,7 +77,6 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 					receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount)
 				}
 			}
-			ueaAddr = ueaAddrRes
 		}
 	}
 

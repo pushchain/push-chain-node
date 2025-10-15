@@ -36,7 +36,7 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	wasmvm "github.com/CosmWasm/wasmvm"
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
@@ -134,9 +134,9 @@ import (
 	ratelimitkeeper "github.com/cosmos/ibc-apps/modules/rate-limiting/v10/keeper"
 	ratelimittypes "github.com/cosmos/ibc-apps/modules/rate-limiting/v10/types"
 	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	wasmlc "github.com/cosmos/ibc-go/modules/light-clients/08-wasm"
-	wasmlckeeper "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/keeper"
-	wasmlctypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	wasmlc "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10"
+	wasmlckeeper "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/keeper"
+	wasmlctypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	ica "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts"
 	icacontroller "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller"
 	icacontrollerkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/keeper"
@@ -178,6 +178,8 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
+
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 )
 
 const (
@@ -189,14 +191,13 @@ const (
 )
 
 var (
-	capabilities = strings.Join(
-		[]string{
-			"iterator",
-			"staking",
-			"stargate",
-			"cosmwasm_1_1", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4",
-			"token_factory",
-		}, ",")
+	capabilities = []string{
+		"iterator",
+		"staking",
+		"stargate",
+		"cosmwasm_1_1", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4",
+		"token_factory",
+	}
 )
 
 func init() {
@@ -602,6 +603,9 @@ func NewChainApp(
 	tmLightClientModule := ibctm.NewLightClientModule(appCodec, storeProvider)
 	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
 
+	wasmLightClientModule := wasmlc.NewLightClientModule(app.WasmClientKeeper, storeProvider)
+	clientKeeper.AddRoute(wasmlctypes.ModuleName, &wasmLightClientModule)
+
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
 	app.StakingKeeper.SetHooks(
@@ -745,7 +749,7 @@ func NewChainApp(
 		app.BankKeeper,
 		app.Erc20Keeper,
 		app.TransferKeeper,
-		*app.IBCKeeper.ChannelKeeper,
+		app.IBCKeeper.ChannelKeeper,
 		app.EVMKeeper,
 		app.GovKeeper,
 		app.SlashingKeeper,
@@ -866,10 +870,9 @@ func NewChainApp(
 		app.BankKeeper,
 		app.StakingKeeper,
 		distrkeeper.NewQuerier(app.DistrKeeper),
-		app.IBCFeeKeeper, // ISC4 Wrapper: fee IBC middleware
+		app.IBCKeeper.ChannelKeeper, // ISC4 Wrapper: fee IBC middleware
 		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.PortKeeper,
-		scopedWasmKeeper,
 		app.TransferKeeper,
 		app.MsgServiceRouter(),
 		app.GRPCQueryRouter(),
@@ -910,7 +913,8 @@ func NewChainApp(
 		bApp.GRPCQueryRouter(),
 		wasmlckeeper.WithQueryPlugins(&wasmLightClientQuerier),
 	)
-
+	maxCallbackGas := uint64(10_000_000)
+	wasmStack := wasm.NewIBCHandler(app.WasmKeeper, app.IBCKeeper.ChannelKeeper, app.IBCKeeper.ChannelKeeper)
 	// Create Transfer Stack
 	var transferStack porttypes.IBCModule
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
@@ -920,7 +924,7 @@ func NewChainApp(
 	// Since this is the lowest level middleware of the transfer stack, it should be the first entrypoint for transfer keeper's
 	// WriteAcknowledgement.
 
-	cbStack := ibccallbacks.NewIBCMiddleware(transferStack, app.PacketForwardKeeper, wasmStackIBCHandler, maxCallbackGas)
+	cbStack := ibccallbacks.NewIBCMiddleware(transferStack, app.PacketForwardKeeper, wasmStack, maxCallbackGas)
 	transferStack = packetforward.NewIBCMiddleware(
 		cbStack,
 		app.PacketForwardKeeper,
@@ -1255,8 +1259,8 @@ func NewChainApp(
 			panic(fmt.Sprintf("failed initialize pinned codes %s", err))
 		}
 
-		if err := wasmlckeeper.InitializePinnedCodes(ctx); err != nil {
-			panic(fmt.Sprintf("wasmlckeeper failed initialize pinned codes %s", err))
+		if err := app.WasmClientKeeper.InitializePinnedCodes(ctx); err != nil {
+			panic(fmt.Sprintf("WasmClientKeeper failed initialize pinned codes %s", err))
 		}
 	}
 

@@ -57,7 +57,7 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper, authzKeeper)
+	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
 	}
@@ -65,7 +65,6 @@ func NewAvailableStaticPrecompiles(
 	distributionPrecompile, err := distprecompile.NewPrecompile(
 		distributionKeeper,
 		stakingKeeper,
-		authzKeeper,
 		evmKeeper,
 	)
 	if err != nil {
@@ -75,8 +74,7 @@ func NewAvailableStaticPrecompiles(
 	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
 		stakingKeeper,
 		transferKeeper,
-		channelKeeper,
-		authzKeeper,
+		&channelKeeper,
 		evmKeeper,
 	)
 	if err != nil {
@@ -88,17 +86,17 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
 	}
 
-	govPrecompile, err := govprecompile.NewPrecompile(govKeeper, authzKeeper)
+	govPrecompile, err := govprecompile.NewPrecompile(govKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
 	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper, authzKeeper)
+	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}
 
-	evidencePrecompile, err := evidenceprecompile.NewPrecompile(evidenceKeeper, authzKeeper)
+	evidencePrecompile, err := evidenceprecompile.NewPrecompile(evidenceKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate evidence precompile: %w", err))
 	}

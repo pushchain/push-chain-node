@@ -113,7 +113,7 @@ func SetAppWithMultipleValidators(t *testing.T, numVals int) (*app.ChainApp, sdk
 
 func configureEVMParams(app *app.ChainApp, ctx sdk.Context) {
 	evmParams := app.EVMKeeper.GetParams(ctx)
-	evmParams.ExtraEIPs = []string{"ethereum_3855"}
+	app.EVMKeeper.EnableEIPs(ctx, 3855)
 	app.EVMKeeper.SetParams(ctx, evmParams)
 
 	baseFee := sdkmath.NewInt(1000000000000000000)                  // Int

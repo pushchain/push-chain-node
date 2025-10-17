@@ -41,16 +41,33 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			execErr = fmt.Errorf("invalid amount: %s", utx.InboundTx.Amount)
 		} else {
 			// --- Step 3: check factory for UEA
-			ueaAddr, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
+			ueaAddrRes, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
 			if fErr != nil {
 				execErr = fmt.Errorf("factory lookup failed: %w", fErr)
 			} else {
+				ueaAddr = ueaAddrRes
+
 				if !isDeployed {
-					addr, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+					deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 					if dErr != nil {
 						execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
 					} else {
-						ueaAddr = addr
+						// Parse deployed address from return data
+						deployedAddr := common.BytesToAddress(deployReceipt.Ret)
+						ueaAddr = deployedAddr
+
+						// Store deployment pcTx
+						deployPcTx := types.PCTx{
+							TxHash:      deployReceipt.Hash,
+							Sender:      ueModuleAddressStr,
+							BlockHeight: uint64(sdkCtx.BlockHeight()),
+							GasUsed:     deployReceipt.GasUsed,
+							Status:      "SUCCESS",
+						}
+						_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							utx.PcTx = append(utx.PcTx, &deployPcTx)
+							return nil
+						})
 					}
 				}
 

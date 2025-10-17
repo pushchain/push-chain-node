@@ -60,9 +60,9 @@ func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, m
 }
 
 // DerivedEVMCall mocks base method.
-func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, contract common.Address, value, gasLimit *big.Int, commit, gasless bool, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
+func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, contract common.Address, value, gasLimit *big.Int, commit, gasless, isModuleSender bool, manualNonce *uint64, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, abi, from, contract, value, gasLimit, commit, gasless, method}
+	varargs := []interface{}{ctx, abi, from, contract, value, gasLimit, commit, gasless, isModuleSender, manualNonce, method}
 	for _, a := range args {
 		varargs = append(varargs, a)
 	}
@@ -73,9 +73,9 @@ func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, con
 }
 
 // DerivedEVMCall indicates an expected call of DerivedEVMCall.
-func (mr *MockEVMKeeperMockRecorder) DerivedEVMCall(ctx, abi, from, contract, value, commit, gasless, method interface{}, args ...interface{}) *gomock.Call {
+func (mr *MockEVMKeeperMockRecorder) DerivedEVMCall(ctx, abi, from, contract, value, gasLimit, commit, gasless, isModuleSender, manualNonce, method interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, abi, from, contract, value, commit, gasless, method}, args...)
+	varargs := append([]interface{}{ctx, abi, from, contract, value, gasLimit, commit, gasless, isModuleSender, manualNonce, method}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DerivedEVMCall", reflect.TypeOf((*MockEVMKeeper)(nil).DerivedEVMCall), varargs...)
 }
 

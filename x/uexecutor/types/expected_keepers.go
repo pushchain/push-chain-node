@@ -42,7 +42,8 @@ type EVMKeeper interface {
 		abi abi.ABI,
 		from, contract common.Address,
 		value, gasLimit *big.Int,
-		commit, gasless bool,
+		commit, gasless, isModuleSender bool,
+		manualNonce *uint64,
 		method string,
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)

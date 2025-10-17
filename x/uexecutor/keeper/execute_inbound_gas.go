@@ -51,11 +51,27 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 				execErr = fmt.Errorf("CallFactory failed: %w", fErr)
 			} else {
 				if !isDeployed {
-					addr, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+					// Deploy new UEA and record a pcTx for it
+					deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 					if dErr != nil {
 						execErr = fmt.Errorf("DeployUEA failed: %w", dErr)
 					} else {
-						ueaAddr = addr
+						// Parse deployed address from return data
+						deployedAddr := common.BytesToAddress(deployReceipt.Ret)
+						ueaAddr = deployedAddr
+
+						// Record deployment pcTx
+						deployPcTx := types.PCTx{
+							TxHash:      deployReceipt.Hash,
+							Sender:      ueModuleAddressStr,
+							BlockHeight: uint64(sdkCtx.BlockHeight()),
+							GasUsed:     deployReceipt.GasUsed,
+							Status:      "SUCCESS",
+						}
+						_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							utx.PcTx = append(utx.PcTx, &deployPcTx)
+							return nil
+						})
 					}
 				}
 

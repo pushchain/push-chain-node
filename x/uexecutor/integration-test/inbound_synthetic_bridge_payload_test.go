@@ -104,7 +104,8 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 	}
 
 	ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
-	ueaAddrHex, err := app.UexecutorKeeper.DeployUEAV2(ctx, ueModuleAccAddress, validUA)
+	receipt, err := app.UexecutorKeeper.DeployUEAV2(ctx, ueModuleAccAddress, validUA)
+	ueaAddrHex := common.BytesToAddress(receipt.Ret)
 	require.NoError(t, err)
 
 	// signature

@@ -215,8 +215,8 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		TxType:      txType,
 	}
 
-	// Check if VerificationData is zero hash and replace with TxHash
-	if strings.ToLower(strings.TrimPrefix(eventData.VerificationData, "0x")) == strings.Repeat("0", 64) {
+	// Check if VerificationData is 0x and replace with TxHash
+	if eventData.VerificationData == "0x" {
 		inboundMsg.VerificationData = txHashHex
 	} else {
 		inboundMsg.VerificationData = eventData.VerificationData

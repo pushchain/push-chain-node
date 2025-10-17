@@ -4,12 +4,13 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId) (common.Address, error) {
+func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId) (*evmtypes.MsgEthereumTxResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// EVM Call arguments
@@ -23,10 +24,8 @@ func (k Keeper) DeployUEAV2(ctx context.Context, evmFrom common.Address, univers
 		universalAccountId,
 	)
 	if err != nil {
-		return common.Address{}, err
+		return nil, err
 	}
 
-	addr := common.BytesToAddress(receipt.Ret)
-
-	return addr, nil
+	return receipt, nil
 }

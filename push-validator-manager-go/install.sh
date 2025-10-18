@@ -537,13 +537,16 @@ echo
 # Ensure PATH for current session
 case ":$PATH:" in *":$INSTALL_BIN_DIR:"*) : ;; *) export PATH="$INSTALL_BIN_DIR:$PATH" ;; esac
 
-# Persist PATH in common shell config files
+# Persist PATH in common shell config files (idempotent - won't add duplicates)
 SHELL_CONFIG=""
 if [[ -f "$HOME/.zshrc" ]]; then SHELL_CONFIG="$HOME/.zshrc"; elif [[ -f "$HOME/.bashrc" ]]; then SHELL_CONFIG="$HOME/.bashrc"; elif [[ -f "$HOME/.bash_profile" ]]; then SHELL_CONFIG="$HOME/.bash_profile"; fi
-if [[ -n "$SHELL_CONFIG" ]] && ! grep -q "$INSTALL_BIN_DIR" "$SHELL_CONFIG" 2>/dev/null; then
-  echo "" >> "$SHELL_CONFIG"
-  echo "# Push Validator Manager (Go)" >> "$SHELL_CONFIG"
-  echo "export PATH=\"$INSTALL_BIN_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+if [[ -n "$SHELL_CONFIG" ]]; then
+  # Check if PATH already contains this directory in an export statement
+  if ! grep -E "^[[:space:]]*export[[:space:]]+PATH=.*$INSTALL_BIN_DIR" "$SHELL_CONFIG" >/dev/null 2>&1; then
+    echo "" >> "$SHELL_CONFIG"
+    echo "# Push Validator Manager (Go)" >> "$SHELL_CONFIG"
+    echo "export PATH=\"$INSTALL_BIN_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+  fi
 fi
 
 next_phase "Building Chain Binary"

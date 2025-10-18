@@ -29,7 +29,7 @@ func (c *ValidatorInfo) ID() string {
 
 // Title returns component title
 func (c *ValidatorInfo) Title() string {
-	return "Validator (Consensus Power)"
+	return "My Validator Status"
 }
 
 // MinWidth returns minimum width
@@ -56,7 +56,7 @@ func (c *ValidatorInfo) View(w, h int) string {
 		BorderForeground(lipgloss.Color("63")).
 		Padding(0, 1)
 
-	content := c.renderContent()
+	content := c.renderContent(w)
 
 	// Check cache
 	if c.CheckCacheWithSize(content, w, h) {
@@ -70,56 +70,63 @@ func (c *ValidatorInfo) View(w, h int) string {
 		h = 0
 	}
 
-	rendered := style.Height(h).Render(content)
+	// Account for border width (2 chars: left + right) to prevent overflow
+	borderWidth := 2
+	contentWidth := w - borderWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+
+	rendered := style.Width(contentWidth).MaxHeight(h).Render(content)
 	c.UpdateCache(rendered)
 	return rendered
 }
 
 // renderContent builds plain text content
-func (c *ValidatorInfo) renderContent() string {
-	// Check if validator data is available
-	// Note: Validator info fetching is not yet implemented (Phase 1C)
-	if c.data.ValidatorInfo.Address == "" {
-		return fmt.Sprintf("%s\n\n%s Feature coming soon\n\nValidator metrics will be\navailable in Phase 1C", c.Title(), c.icons.Warn)
+func (c *ValidatorInfo) renderContent(w int) string {
+	// Interior width after accounting for rounded border (2 chars) and padding (2 chars).
+	inner := w - 4
+	if inner < 0 {
+		inner = 0
+	}
+
+	// Check if this node is a validator
+	if !c.data.MyValidator.IsValidator {
+		return fmt.Sprintf("%s\n\n%s Not registered as validator\n\nTo register, run:\npush-validator-manager register", FormatTitle(c.Title(), inner), c.icons.Warn)
 	}
 
 	var lines []string
 
-	// Address (truncated)
-	addr := c.data.ValidatorInfo.Address
-	if len(addr) > 20 {
-		addr = addr[:17] + "..."
+	// Moniker
+	if c.data.MyValidator.Moniker != "" {
+		lines = append(lines, fmt.Sprintf("Moniker: %s", truncateWithEllipsis(c.data.MyValidator.Moniker, 22)))
 	}
-	lines = append(lines, fmt.Sprintf("Addr: %s", addr))
 
 	// Status
 	statusIcon := c.icons.OK
-	if c.data.ValidatorInfo.Jailed {
+	if c.data.MyValidator.Jailed {
 		statusIcon = c.icons.Err
+	} else if c.data.MyValidator.Status == "UNBONDING" || c.data.MyValidator.Status == "UNBONDED" {
+		statusIcon = c.icons.Warn
 	}
-	lines = append(lines, fmt.Sprintf("%s Status: %s", statusIcon, c.data.ValidatorInfo.Status))
+	lines = append(lines, fmt.Sprintf("%s Status: %s", statusIcon, c.data.MyValidator.Status))
 
 	// Voting Power
-	vpText := HumanInt(c.data.ValidatorInfo.VotingPower)
-	if c.data.ValidatorInfo.VotingPct > 0 {
-		vpText += fmt.Sprintf(" (%s)", Percent(c.data.ValidatorInfo.VotingPct))
+	vpText := HumanInt(c.data.MyValidator.VotingPower)
+	if c.data.MyValidator.VotingPct > 0 {
+		vpText += fmt.Sprintf(" (%s)", Percent(c.data.MyValidator.VotingPct))
 	}
 	lines = append(lines, fmt.Sprintf("Power: %s", vpText))
 
 	// Commission
-	if c.data.ValidatorInfo.Commission != "" {
-		lines = append(lines, fmt.Sprintf("Commission: %s", c.data.ValidatorInfo.Commission))
+	if c.data.MyValidator.Commission != "" {
+		lines = append(lines, fmt.Sprintf("Commission: %s", c.data.MyValidator.Commission))
 	}
 
 	// Jailed status
-	if c.data.ValidatorInfo.Jailed {
+	if c.data.MyValidator.Jailed {
 		lines = append(lines, fmt.Sprintf("%s JAILED", c.icons.Err))
 	}
 
-	// Delegators count
-	if c.data.ValidatorInfo.Delegators > 0 {
-		lines = append(lines, fmt.Sprintf("Delegators: %d", c.data.ValidatorInfo.Delegators))
-	}
-
-	return fmt.Sprintf("%s\n%s", c.Title(), joinLines(lines, "\n"))
+	return fmt.Sprintf("%s\n%s", FormatTitle(c.Title(), inner), joinLines(lines, "\n"))
 }

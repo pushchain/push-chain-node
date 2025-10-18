@@ -81,7 +81,14 @@ func (c *ChainStatus) View(w, h int) string {
 		h = 0
 	}
 
-	rendered := style.Height(h).Render(content)
+	// Account for border width (2 chars: left + right) to prevent overflow
+	borderWidth := 2
+	contentWidth := w - borderWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+
+	rendered := style.Width(contentWidth).MaxHeight(h).Render(content)
 	c.UpdateCache(rendered)
 	return rendered
 }
@@ -94,14 +101,6 @@ func (c *ChainStatus) renderContent(w int) string {
 	inner := w - 4
 	if inner < 0 {
 		inner = 0
-	}
-
-	// Current Height
-	lines = append(lines, fmt.Sprintf("Height: %s", HumanInt(c.data.Metrics.Chain.LocalHeight)))
-
-	// Remote Height
-	if c.data.Metrics.Chain.RemoteHeight > 0 {
-		lines = append(lines, fmt.Sprintf("Remote: %s", HumanInt(c.data.Metrics.Chain.RemoteHeight)))
 	}
 
 	// Sync Status
@@ -118,16 +117,25 @@ func (c *ChainStatus) renderContent(w int) string {
 	}
 	lines = append(lines, fmt.Sprintf("%s %s", syncIcon, syncStatus))
 
-	// Progress bar when catching up
-	if c.data.Metrics.Chain.CatchingUp && c.data.Metrics.Chain.RemoteHeight > 0 {
+	// Progress bar - always show when remote height is available
+	if c.data.Metrics.Chain.RemoteHeight > 0 {
 		fraction := float64(c.data.Metrics.Chain.LocalHeight) / float64(c.data.Metrics.Chain.RemoteHeight)
 		if inner >= 3 {
-			bar := ProgressBar(fraction, inner, c.noEmoji)
-			pct := Percent(fraction)
-			lines = append(lines, fmt.Sprintf("%s %s", bar, pct))
+			// Fixed width progress bar (20 chars max)
+			barWidth := 20
+			if inner < barWidth {
+				barWidth = inner
+			}
+			bar := ProgressBar(fraction, barWidth, c.noEmoji)
+			// Show current/total format
+			progress := fmt.Sprintf("%s/%s", HumanInt(c.data.Metrics.Chain.LocalHeight), HumanInt(c.data.Metrics.Chain.RemoteHeight))
+			lines = append(lines, fmt.Sprintf("%s %s", bar, progress))
 		} else {
-			lines = append(lines, fmt.Sprintf("Progress: %s", Percent(fraction)))
+			lines = append(lines, fmt.Sprintf("%s/%s", HumanInt(c.data.Metrics.Chain.LocalHeight), HumanInt(c.data.Metrics.Chain.RemoteHeight)))
 		}
+	} else {
+		// No remote height available - just show local height
+		lines = append(lines, fmt.Sprintf("Height: %s", HumanInt(c.data.Metrics.Chain.LocalHeight)))
 	}
 
 	// Blocks Behind
@@ -136,11 +144,17 @@ func (c *ChainStatus) renderContent(w int) string {
 		lines = append(lines, fmt.Sprintf("Behind: %s blocks", HumanInt(blocksBehind)))
 	}
 
-	// ETA to sync
-	if c.data.Metrics.Chain.CatchingUp {
-		eta := c.etaCalc.Calculate()
-		lines = append(lines, fmt.Sprintf("ETA: %s", eta))
+	// ETA to sync - only show when node is running and behind
+	if c.data.Metrics.Chain.RemoteHeight > c.data.Metrics.Chain.LocalHeight {
+		if c.data.NodeInfo.Running && c.data.Metrics.Node.RPCListening {
+			eta := c.etaCalc.Calculate()
+			lines = append(lines, fmt.Sprintf("ETA: %s", eta))
+		} else {
+			// Node is stopped - show stalled
+			lines = append(lines, "ETA: stalled")
+		}
 	}
 
-	return fmt.Sprintf("%s\n%s", c.Title(), joinLines(lines, "\n"))
+	// Use inner width for title centering
+	return fmt.Sprintf("%s\n%s", FormatTitle(c.Title(), inner), joinLines(lines, "\n"))
 }

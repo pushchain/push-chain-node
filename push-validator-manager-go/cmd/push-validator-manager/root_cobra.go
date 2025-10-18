@@ -257,12 +257,22 @@ func init() {
 				p.JSON(map[string]any{"ok": true, "action": "start"})
 			} else {
 				p.Success("✓ Node started")
-			fmt.Println()
-			fmt.Println(p.Colors.Info("Useful commands:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
+				fmt.Println()
+				fmt.Println(p.Colors.Info("Useful commands:"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager dashboard"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
+				fmt.Println()
+
+				// Auto-tail logs like register/sync commands
+				sup := process.New(cfg.HomeDir)
+				if err := handleLogs(sup); err != nil {
+					// If log tailing fails, just return without error (node is already started)
+					return nil
+				}
 			}
 			return nil
 		},
@@ -302,6 +312,8 @@ func init() {
 			fmt.Println(p.Colors.Info("Useful commands:"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check sync progress)"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager dashboard"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
 		}

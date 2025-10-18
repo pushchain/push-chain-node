@@ -60,19 +60,23 @@ func (c *Header) View(w, h int) string {
 	}
 
 	// Build plain text content
-	timestamp := timeNow().Format("15:04:05 MST")
-
 	staleSuffix := ""
 	if !c.data.LastUpdate.IsZero() && time.Since(c.data.LastUpdate) > 10*time.Second {
 		staleSuffix = " (STALE)"
 	}
 
-	line1 := fmt.Sprintf("%s%s", c.Title(), staleSuffix)
-	line2 := fmt.Sprintf("Last update: %s", timestamp)
+	// Calculate interior width for centering
+	inner := w - 4 // Account for border (2) + padding (2)
+	if inner < 0 {
+		inner = 0
+	}
+
+	// Apply bold + cyan highlighting to title
+	titleStyled := FormatTitle(c.Title(), inner)
+	line1 := fmt.Sprintf("%s%s", titleStyled, staleSuffix)
 
 	var lines []string
 	lines = append(lines, line1)
-	lines = append(lines, line2)
 
 	if c.data.Err != nil {
 		errLine := fmt.Sprintf("⚠ %s", c.data.Err.Error())
@@ -85,7 +89,15 @@ func (c *Header) View(w, h int) string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("63")).
-		Padding(0, 1)
+		Padding(0, 1).
+		Align(lipgloss.Center)
 
-	return style.Height(h).Render(content)
+	// Account for border width (2 chars: left + right) to prevent overflow
+	borderWidth := 2
+	contentWidth := w - borderWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+
+	return style.Width(contentWidth).MaxHeight(h).Render(content)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,6 +19,7 @@ func createDashboardCmd() *cobra.Command {
 	var (
 		refreshInterval time.Duration
 		rpcTimeout      time.Duration
+		debugMode       bool
 	)
 
 	cmd := &cobra.Command{
@@ -35,6 +37,7 @@ The dashboard auto-refreshes every 2 seconds by default. Press '?' for help.
 For non-interactive environments (CI/pipes), dashboard automatically falls back
 to a static text snapshot.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Load configuration
 			cfg := loadCfg()
 
 			// Build dashboard options
@@ -44,18 +47,25 @@ to a static text snapshot.`,
 				RPCTimeout:      rpcTimeout,
 				NoColor:         flagNoColor,
 				NoEmoji:         flagNoEmoji,
+				Debug:           debugMode,
 			}
 			opts = normalizeDashboardOptions(opts)
 
-			// Detect TTY - use golang.org/x/term for portable detection
+			// Check if we're in a TTY environment
 			isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
 			if !isTTY {
-				// Non-TTY mode: fetch once and render static text
+				// Non-TTY environment (CI/pipes): use static mode
+				if debugMode {
+					fmt.Fprintln(os.Stderr, "Debug: Non-TTY detected, using static mode")
+				}
 				return runDashboardStatic(cmd.Context(), opts)
 			}
 
-			// TTY mode: launch interactive Bubble Tea program
+			// TTY environment: use interactive Bubble Tea dashboard
+			if debugMode {
+				fmt.Fprintln(os.Stderr, "Debug: TTY detected, using interactive mode")
+			}
 			return runDashboardInteractive(opts)
 		},
 	}
@@ -63,12 +73,21 @@ to a static text snapshot.`,
 	// Flags
 	cmd.Flags().DurationVar(&refreshInterval, "refresh-interval", 2*time.Second, "Dashboard refresh interval")
 	cmd.Flags().DurationVar(&rpcTimeout, "rpc-timeout", 5*time.Second, "RPC request timeout")
+	cmd.Flags().BoolVar(&debugMode, "debug", false, "Enable debug mode for troubleshooting")
 
 	return cmd
 }
 
 // runDashboardStatic performs a single fetch and prints static output for non-TTY
 func runDashboardStatic(ctx context.Context, opts dashboard.Options) error {
+	// Print debug info BEFORE dashboard output
+	if opts.Debug {
+		fmt.Fprintln(os.Stderr, "Debug: Starting dashboard...")
+		fmt.Fprintf(os.Stderr, "Debug: Config loaded - HomeDir: %s, RPC: %s\n", opts.Config.HomeDir, opts.Config.RPCLocal)
+		fmt.Fprintln(os.Stderr, "Debug: Running in static mode")
+		fmt.Fprintln(os.Stderr, "---") // Separator
+	}
+
 	d := dashboard.New(opts)
 
 	// Apply RPC timeout to context (prevents hung RPCs in CI/pipes)
@@ -81,7 +100,7 @@ func runDashboardStatic(ctx context.Context, opts dashboard.Options) error {
 		return fmt.Errorf("failed to fetch dashboard data: %w", err)
 	}
 
-	// Render static text snapshot
+	// Render static text snapshot to stdout
 	fmt.Print(d.RenderStatic(data))
 	return nil
 }
@@ -89,16 +108,28 @@ func runDashboardStatic(ctx context.Context, opts dashboard.Options) error {
 // runDashboardInteractive launches the Bubble Tea TUI program
 func runDashboardInteractive(opts dashboard.Options) error {
 	d := dashboard.New(opts)
+	if d == nil {
+		return fmt.Errorf("failed to create dashboard instance")
+	}
 
-	// Create Bubble Tea program with alternate screen buffer
+	// Create Bubble Tea program with proper TTY configuration
+	// Key fix: Use stdin/stdout explicitly instead of /dev/tty
 	p := tea.NewProgram(
 		d,
-		tea.WithAltScreen(),       // Use alternate screen buffer
-		tea.WithMouseCellMotion(), // Enable mouse support
+		tea.WithAltScreen(),      // Use alternate screen buffer (clean display)
+		tea.WithInput(os.Stdin),  // Use stdin instead of trying to open /dev/tty
+		tea.WithOutput(os.Stdout), // Use stdout instead of trying to open /dev/tty
 	)
 
 	// Run program - blocks until quit
 	if _, err := p.Run(); err != nil {
+		// If TTY error, fall back to static mode
+		if strings.Contains(err.Error(), "tty") || strings.Contains(err.Error(), "device not configured") {
+			if opts.Debug {
+				fmt.Fprintf(os.Stderr, "Debug: TTY error, falling back to static mode: %v\n", err)
+			}
+			return runDashboardStatic(context.Background(), opts)
+		}
 		return fmt.Errorf("dashboard error: %w", err)
 	}
 

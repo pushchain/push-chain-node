@@ -56,7 +56,7 @@ func (c *NetworkStatus) View(w, h int) string {
 		BorderForeground(lipgloss.Color("63")).
 		Padding(0, 1)
 
-	content := c.renderContent()
+	content := c.renderContent(w)
 
 	// Check cache
 	if c.CheckCacheWithSize(content, w, h) {
@@ -70,27 +70,43 @@ func (c *NetworkStatus) View(w, h int) string {
 		h = 0
 	}
 
-	rendered := style.Height(h).Render(content)
+	// Account for border width (2 chars: left + right) to prevent overflow
+	borderWidth := 2
+	contentWidth := w - borderWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+
+	rendered := style.Width(contentWidth).MaxHeight(h).Render(content)
 	c.UpdateCache(rendered)
 	return rendered
 }
 
 // renderContent builds plain text content
-func (c *NetworkStatus) renderContent() string {
+func (c *NetworkStatus) renderContent(w int) string {
 	var lines []string
 
-	// Peers
-	peersIcon := c.icons.Warn
-	peersText := "0 peers"
-	if c.data.Metrics.Network.Peers > 0 {
-		peersIcon = c.icons.OK
-		if c.data.Metrics.Network.Peers == 1 {
-			peersText = "1 peer"
-		} else {
-			peersText = fmt.Sprintf("%d peers", c.data.Metrics.Network.Peers)
-		}
+	// Interior width after accounting for rounded border (2 chars) and padding (2 chars).
+	inner := w - 4
+	if inner < 0 {
+		inner = 0
 	}
-	lines = append(lines, fmt.Sprintf("%s %s", peersIcon, peersText))
+
+	// Peers list
+	if len(c.data.PeerList) > 0 {
+		lines = append(lines, fmt.Sprintf("Connected to %d peers:", len(c.data.PeerList)))
+		maxDisplay := 5
+		for i, peer := range c.data.PeerList {
+			if i >= maxDisplay {
+				lines = append(lines, fmt.Sprintf("  ... and %d more", len(c.data.PeerList)-maxDisplay))
+				break
+			}
+			// Show full ID
+			lines = append(lines, fmt.Sprintf("  %s", peer.ID))
+		}
+	} else {
+		lines = append(lines, fmt.Sprintf("%s 0 peers", c.icons.Warn))
+	}
 
 	// Latency
 	if c.data.Metrics.Network.LatencyMS > 0 {
@@ -104,15 +120,14 @@ func (c *NetworkStatus) renderContent() string {
 
 	// Node ID
 	if c.data.Metrics.Node.NodeID != "" {
-		// Truncate long node IDs
-		nodeID := truncateWithEllipsis(c.data.Metrics.Node.NodeID, 16)
-		lines = append(lines, fmt.Sprintf("Node: %s", nodeID))
+		// Show full node ID
+		lines = append(lines, fmt.Sprintf("Node: %s", c.data.Metrics.Node.NodeID))
 	}
 
 	// Moniker
 	if c.data.Metrics.Node.Moniker != "" {
-		lines = append(lines, fmt.Sprintf("Name: %s", truncateWithEllipsis(c.data.Metrics.Node.Moniker, 24)))
+		lines = append(lines, fmt.Sprintf("Name: %s", c.data.Metrics.Node.Moniker))
 	}
 
-	return fmt.Sprintf("%s\n%s", c.Title(), joinLines(lines, "\n"))
+	return fmt.Sprintf("%s\n%s", FormatTitle(c.Title(), inner), joinLines(lines, "\n"))
 }

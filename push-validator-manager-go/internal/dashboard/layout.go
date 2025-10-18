@@ -73,18 +73,11 @@ func (l *Layout) Compute(width, height int) LayoutResult {
 		}
 	}
 
-	// Step 3: Build cells with distributed heights
+    // Step 3: Build cells with distributed heights
 	y := 0
 	for i, row := range l.config.Rows {
-		// For header row (index 0), use full width to prevent off-screen rendering
-		// For data rows, reserve 4 char margin to prevent border clipping
-		usableWidth := width
-		if i > 0 {
-			usableWidth = width - 4
-			if usableWidth < 1 {
-				usableWidth = 1
-			}
-		}
+        // Use full width for all rows; components apply their own borders/padding
+        usableWidth := width
 		widths, keptIDs, warning := l.computeRowWidths(row, usableWidth)
 		if warning != "" {
 			result.Warning = warning
@@ -172,6 +165,15 @@ func (l *Layout) computeRowWidths(row LayoutRow, totalWidth int) ([]int, []strin
 	})
 	for i := 0; i < remainder && i < len(fracs); i++ {
 		widths[fracs[i].idx]++
+	}
+
+	// Add border compensation: When widgets are side-by-side, each subtracts 2 for borders.
+	// To make borders touch, add +1 to each widget width (except the last one).
+	// This allows adjacent borders to overlap visually while maintaining proper sizing.
+	if len(widths) > 1 {
+		for i := 0; i < len(widths)-1; i++ {
+			widths[i]++ // Add 1 to compensate for border overlap
+		}
 	}
 
 	// Validate total width and trim if needed (safety check for edge cases)

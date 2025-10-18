@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -14,7 +15,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/metrics"
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/node"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
 
 // keyMap defines keyboard shortcuts
@@ -49,7 +52,7 @@ func newKeyMap() keyMap {
 			key.WithHelp("r", "refresh now"),
 		),
 		Help: key.NewBinding(
-			key.WithKeys("?"),
+			key.WithKeys("?", "shift+/"),
 			key.WithHelp("?", "toggle help"),
 		),
 	}
@@ -82,6 +85,9 @@ type Dashboard struct {
 	// Context for cancelling in-flight fetches
 	fetchCancel context.CancelFunc
 
+	// Persistent metrics collector for CPU monitoring
+	collector *metrics.Collector
+
 	// Caching for expensive operations
 	cachedVersion    string
 	cachedVersionAt  time.Time
@@ -108,6 +114,7 @@ func New(opts Options) *Dashboard {
 	registry.Register(NewNodeStatus(opts.NoEmoji))
 	registry.Register(NewChainStatus(opts.NoEmoji))
 	registry.Register(NewNetworkStatus(opts.NoEmoji))
+	registry.Register(NewValidatorsList(opts.NoEmoji))
 	registry.Register(NewValidatorInfo(opts.NoEmoji))
 
 	// Configure layout
@@ -116,6 +123,7 @@ func New(opts Options) *Dashboard {
 			{Components: []string{"header"}, Weights: []int{100}, MinHeight: 4},
 			{Components: []string{"node_status", "chain_status"}, Weights: []int{50, 50}, MinHeight: 10},
 			{Components: []string{"network_status", "validator_info"}, Weights: []int{50, 50}, MinHeight: 10},
+			{Components: []string{"validators_list"}, Weights: []int{100}, MinHeight: 16},
 		},
 	}
 	layout := NewLayout(layoutConfig, registry)
@@ -126,14 +134,15 @@ func New(opts Options) *Dashboard {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	return &Dashboard{
-		opts:     opts,
-		registry: registry,
-		layout:   layout,
-		keys:     newKeyMap(),
-		help:     help.New(),
-		spinner:  s,
-		loading:  true,
-		showHelp: false,
+		opts:      opts,
+		registry:  registry,
+		layout:    layout,
+		keys:      newKeyMap(),
+		help:      help.New(),
+		spinner:   s,
+		loading:   true,
+		showHelp:  false,
+		collector: metrics.New(), // Initialize persistent collector for continuous CPU monitoring
 	}
 }
 
@@ -211,9 +220,26 @@ func (m *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the dashboard (Bubble Tea lifecycle)
 func (m *Dashboard) View() string {
+	// Add recovery for View method panics
+	defer func() {
+		if r := recover(); r != nil {
+			if m.opts.Debug {
+				fmt.Fprintf(os.Stderr, "Debug: View() panic recovered: %v\n", r)
+			}
+		}
+	}()
+
 	// Guard against zero-size render before first WindowSizeMsg
 	if m.width <= 0 || m.height <= 1 {
 		return ""
+	}
+
+	// Safety check for nil pointers
+	if m.registry == nil || m.layout == nil {
+		if m.opts.Debug {
+			fmt.Fprintf(os.Stderr, "Debug: Registry or layout is nil\n")
+		}
+		return "Initializing dashboard..."
 	}
 
 	if m.loading {
@@ -262,34 +288,16 @@ func (m *Dashboard) View() string {
 
 		var rowCells []string
 		for _, cell := range cells {
-			if comp := m.registry.Get(cell.ID); comp != nil {
-				s := comp.View(cell.W, cell.H)
-
-				// CRITICAL FIX: Strip trailing whitespace from each line
-				// This prevents width explosion when components pad to full width
-				lines := strings.Split(s, "\n")
-				for i := range lines {
-					lines[i] = strings.TrimRight(lines[i], " ")
-				}
-				s = strings.Join(lines, "\n")
-
-				rowCells = append(rowCells, s)
-			}
+            if comp := m.registry.Get(cell.ID); comp != nil {
+                s := comp.View(cell.W, cell.H)
+                rowCells = append(rowCells, s)
+            }
 		}
 
-		if len(rowCells) > 0 {
-			joined := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
-
-			// CRITICAL: Strip trailing whitespace from assembled row
-			// This prevents lipgloss.JoinVertical from padding shorter rows
-			lines := strings.Split(joined, "\n")
-			for i := range lines {
-				lines[i] = strings.TrimRight(lines[i], " ")
-			}
-			joined = strings.Join(lines, "\n")
-
-			rows = append(rows, joined)
-		}
+        if len(rowCells) > 0 {
+            joined := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
+            rows = append(rows, joined)
+        }
 	}
 
 	// Join all rows WITHOUT any spacer
@@ -299,6 +307,13 @@ func (m *Dashboard) View() string {
 	if result.Warning != "" {
 		output += fmt.Sprintf("\n⚠ %s\n", result.Warning)
 	}
+
+	// Add footer with controls
+	footerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Bold(false)
+	footer := footerStyle.Render("Controls: Ctrl+C to exit dashboard | ? for help")
+	output = lipgloss.JoinVertical(lipgloss.Left, output, footer)
 
 	return output
 }
@@ -345,9 +360,21 @@ func (m *Dashboard) fetchCmd() tea.Cmd {
 func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 	data := DashboardData{LastUpdate: time.Now()}
 
-	// Reuse existing metrics collector
-	collector := metrics.New()
-	data.Metrics = collector.Collect(ctx, m.opts.Config.RPCLocal, m.opts.Config.GenesisDomain)
+	// Use persistent collector for continuous CPU monitoring
+	data.Metrics = m.collector.Collect(ctx, m.opts.Config.RPCLocal, m.opts.Config.GenesisDomain)
+
+	// Fetch peer details
+	local := node.New(m.opts.Config.RPCLocal)
+	if peers, err := local.Peers(ctx); err == nil {
+		data.PeerList = make([]struct {
+			ID   string
+			Addr string
+		}, len(peers))
+		for i, p := range peers {
+			data.PeerList[i].ID = p.ID
+			data.PeerList[i].Addr = p.Addr
+		}
+	}
 
 	// Fetch node info
 	sup := process.New(m.opts.Config.HomeDir)
@@ -366,8 +393,38 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 	// Get cached binary version (only refresh every 5 min)
 	data.NodeInfo.BinaryVer = m.getCachedVersion(ctx, data.NodeInfo.Running, data.NodeInfo.PID)
 
-	// TODO: Fetch validator info with pagination (Phase 1C)
-	// For now, validator info is left empty
+	// Fetch validator data (cached 30s)
+	if valList, err := validator.GetCachedValidatorsList(ctx, m.opts.Config); err == nil {
+		// Convert validator.ValidatorInfo to dashboard format
+		data.NetworkValidators.Total = valList.Total
+		data.NetworkValidators.Validators = make([]struct {
+			Moniker     string
+			Status      string
+			VotingPower int64
+			Commission  string
+			Address     string
+		}, len(valList.Validators))
+
+		for i, v := range valList.Validators {
+			data.NetworkValidators.Validators[i].Moniker = v.Moniker
+			data.NetworkValidators.Validators[i].Status = v.Status
+			data.NetworkValidators.Validators[i].VotingPower = v.VotingPower
+			data.NetworkValidators.Validators[i].Commission = v.Commission
+			data.NetworkValidators.Validators[i].Address = v.OperatorAddress
+		}
+	}
+
+	// Fetch my validator status (cached 30s)
+	if myVal, err := validator.GetCachedMyValidator(ctx, m.opts.Config); err == nil {
+		data.MyValidator.IsValidator = myVal.IsValidator
+		data.MyValidator.Address = myVal.Address
+		data.MyValidator.Moniker = myVal.Moniker
+		data.MyValidator.Status = myVal.Status
+		data.MyValidator.VotingPower = myVal.VotingPower
+		data.MyValidator.VotingPct = myVal.VotingPct
+		data.MyValidator.Commission = myVal.Commission
+		data.MyValidator.Jailed = myVal.Jailed
+	}
 
 	return data, nil
 }
@@ -390,12 +447,27 @@ func (m *Dashboard) getCachedVersion(ctx context.Context, running bool, currentP
 		return m.cachedVersion
 	}
 
+	// First check if pchaind exists in PATH
+	pchainPath, err := exec.LookPath("pchaind")
+	if err != nil {
+		if m.opts.Debug {
+			fmt.Fprintf(os.Stderr, "Debug: pchaind not found in PATH: %v\n", err)
+		}
+		m.cachedVersion = "pchaind not found"
+		return m.cachedVersion
+	}
+
 	// Fetch version (can be slow - 200-500ms typical)
-	cmd := exec.CommandContext(ctx, "pchaind", "version")
+	cmd := exec.CommandContext(ctx, pchainPath, "version")
 	out, err := cmd.Output()
 	if err == nil {
 		m.cachedVersion = strings.TrimSpace(string(out))
 		m.cachedVersionAt = time.Now()
+	} else {
+		if m.opts.Debug {
+			fmt.Fprintf(os.Stderr, "Debug: Failed to get pchaind version: %v\n", err)
+		}
+		m.cachedVersion = "version error"
 	}
 
 	return m.cachedVersion
@@ -443,17 +515,17 @@ func (m *Dashboard) RenderStatic(data DashboardData) string {
 	b.WriteString("\n")
 
 	// Validator Status
-	if data.ValidatorInfo.Address != "" {
+	if data.MyValidator.IsValidator {
 		b.WriteString("VALIDATOR STATUS:\n")
-		b.WriteString(fmt.Sprintf("  Address: %s\n", data.ValidatorInfo.Address))
-		b.WriteString(fmt.Sprintf("  Status: %s\n", data.ValidatorInfo.Status))
-		b.WriteString(fmt.Sprintf("  Voting Power: %s", HumanInt(data.ValidatorInfo.VotingPower)))
-		if data.ValidatorInfo.VotingPct > 0 {
-			b.WriteString(fmt.Sprintf(" (%s)\n", Percent(data.ValidatorInfo.VotingPct)))
+		b.WriteString(fmt.Sprintf("  Moniker: %s\n", data.MyValidator.Moniker))
+		b.WriteString(fmt.Sprintf("  Status: %s\n", data.MyValidator.Status))
+		b.WriteString(fmt.Sprintf("  Voting Power: %s", HumanInt(data.MyValidator.VotingPower)))
+		if data.MyValidator.VotingPct > 0 {
+			b.WriteString(fmt.Sprintf(" (%s)\n", Percent(data.MyValidator.VotingPct)))
 		} else {
 			b.WriteString("\n")
 		}
-		b.WriteString(fmt.Sprintf("  Jailed: %v\n", data.ValidatorInfo.Jailed))
+		b.WriteString(fmt.Sprintf("  Jailed: %v\n", data.MyValidator.Jailed))
 		b.WriteString("\n")
 	}
 

@@ -56,7 +56,7 @@ func (c *NodeStatus) View(w, h int) string {
 		BorderForeground(lipgloss.Color("63")).
 		Padding(0, 1)
 
-	content := c.renderContent()
+	content := c.renderContent(w)
 
 	// Check cache
 	if c.CheckCacheWithSize(content, w, h) {
@@ -70,14 +70,27 @@ func (c *NodeStatus) View(w, h int) string {
 		h = 0
 	}
 
-	rendered := style.Height(h).Render(content)
+	// Account for border width (2 chars: left + right) to prevent overflow
+	borderWidth := 2
+	contentWidth := w - borderWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+
+	rendered := style.Width(contentWidth).MaxHeight(h).Render(content)
 	c.UpdateCache(rendered)
 	return rendered
 }
 
 // renderContent builds plain text content
-func (c *NodeStatus) renderContent() string {
+func (c *NodeStatus) renderContent(w int) string {
 	var lines []string
+
+	// Interior width after accounting for rounded border (2 chars) and padding (2 chars).
+	inner := w - 4
+	if inner < 0 {
+		inner = 0
+	}
 
 	// Status
 	icon := c.icons.Err
@@ -105,10 +118,23 @@ func (c *NodeStatus) renderContent() string {
 		lines = append(lines, fmt.Sprintf("Uptime: %s", DurationShort(c.data.NodeInfo.Uptime)))
 	}
 
+	// System metrics
+	if c.data.Metrics.System.CPUPercent >= 0 {
+		lines = append(lines, fmt.Sprintf("CPU: %.1f%%", c.data.Metrics.System.CPUPercent))
+	}
+	if c.data.Metrics.System.MemTotal > 0 {
+		memPct := float64(c.data.Metrics.System.MemUsed) / float64(c.data.Metrics.System.MemTotal)
+		lines = append(lines, fmt.Sprintf("Memory: %s", Percent(memPct)))
+	}
+	if c.data.Metrics.System.DiskTotal > 0 {
+		diskPct := float64(c.data.Metrics.System.DiskUsed) / float64(c.data.Metrics.System.DiskTotal)
+		lines = append(lines, fmt.Sprintf("Disk: %s", Percent(diskPct)))
+	}
+
 	// Binary Version
 	if c.data.NodeInfo.BinaryVer != "" {
 		lines = append(lines, fmt.Sprintf("Version: %s", c.data.NodeInfo.BinaryVer))
 	}
 
-	return fmt.Sprintf("%s\n%s", c.Title(), joinLines(lines, "\n"))
+	return fmt.Sprintf("%s\n%s", FormatTitle(c.Title(), inner), joinLines(lines, "\n"))
 }

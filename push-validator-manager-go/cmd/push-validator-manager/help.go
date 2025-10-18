@@ -32,6 +32,7 @@ func init() {
 		fmt.Fprintln(w, c.SubHeader("Quick Start"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager start", "Start the node process"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager status", "Show node/rpc/sync status"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator-manager dashboard", "Live dashboard with metrics"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager sync", "Monitor sync progress live"))
 		fmt.Fprintln(w)
 

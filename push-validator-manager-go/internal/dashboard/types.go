@@ -46,15 +46,34 @@ type DashboardData struct {
 		BinaryVer string // Cached version (5min TTL)
 	}
 
-	// Validator-specific information
-	ValidatorInfo struct {
+	// My validator status
+	MyValidator struct {
+		IsValidator bool
 		Address     string
+		Moniker     string
 		Status      string
 		VotingPower int64
 		VotingPct   float64 // Percentage of total voting power [0,1]
 		Commission  string
 		Jailed      bool
-		Delegators  int
+	}
+
+	// Network validators list
+	NetworkValidators struct {
+		Validators []struct {
+			Moniker     string
+			Status      string
+			VotingPower int64
+			Commission  string
+			Address     string
+		}
+		Total int
+	}
+
+	// Connected peers list
+	PeerList []struct {
+		ID   string
+		Addr string
 	}
 
 	LastUpdate time.Time
@@ -68,4 +87,5 @@ type Options struct {
 	RPCTimeout      time.Duration // Timeout for RPC calls (default: 5s)
 	NoColor         bool
 	NoEmoji         bool
+	Debug           bool // Enable debug output
 }

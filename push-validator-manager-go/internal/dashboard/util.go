@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // HumanInt formats integers with thousands separators (handles negatives)
@@ -121,7 +123,8 @@ type ETACalculator struct {
 		blocksBehind int64
 		timestamp    time.Time
 	}
-	maxSamples int
+	maxSamples   int
+	lastProgress time.Time
 }
 
 // NewETACalculator creates a new ETA calculator
@@ -131,13 +134,22 @@ func NewETACalculator() *ETACalculator {
 
 // AddSample adds a new sample point
 func (e *ETACalculator) AddSample(blocksBehind int64) {
+	now := time.Now()
 	e.samples = append(e.samples, struct {
 		blocksBehind int64
 		timestamp    time.Time
-	}{blocksBehind, time.Now()})
+	}{blocksBehind, now})
 
 	if len(e.samples) > e.maxSamples {
 		e.samples = e.samples[1:]
+	}
+
+	// Update last progress time if we have at least 2 samples and blocks decreased
+	if len(e.samples) >= 2 {
+		prev := e.samples[len(e.samples)-2].blocksBehind
+		if blocksBehind < prev {
+			e.lastProgress = now
+		}
 	}
 }
 
@@ -147,24 +159,35 @@ func (e *ETACalculator) Calculate() string {
 		return "calculating..."
 	}
 
-	// Compute rate from first to last sample
+	// Use most recent samples for better responsiveness
 	first := e.samples[0]
 	last := e.samples[len(e.samples)-1]
 
 	blocksDelta := first.blocksBehind - last.blocksBehind
 	timeDelta := last.timestamp.Sub(first.timestamp).Seconds()
 
-	if timeDelta < 1 || blocksDelta <= 0 {
+	// Need at least some time passed and positive progress
+	if timeDelta < 0.1 {
+		return "calculating..."
+	}
+
+	// Only show "stalled" if no progress for 30+ seconds
+	if blocksDelta <= 0 {
+		if !e.lastProgress.IsZero() && time.Since(e.lastProgress) > 30*time.Second {
+			return "stalled"
+		}
 		return "calculating..."
 	}
 
 	rate := float64(blocksDelta) / timeDelta
-	if rate < 0.01 { // Less than 1 block per 100 seconds
-		return "calculating..."
+
+	// Calculate ETA from current blocks behind
+	if last.blocksBehind <= 0 {
+		return "—"
 	}
 
 	seconds := float64(last.blocksBehind) / rate
-	if seconds < 0 {
+	if seconds < 0 || seconds > 365*24*3600 { // Cap at 1 year
 		return "—"
 	}
 
@@ -238,4 +261,15 @@ func innerWidthForBox(total int, hasBorder bool, padLeftRight int) int {
 		w = 1
 	}
 	return w
+}
+
+// FormatTitle formats component titles with bold + color styling, centered and capitalized
+func FormatTitle(title string, width int) string {
+	title = strings.ToUpper(title)
+	style := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39")). // Bright cyan
+		Width(width).
+		Align(lipgloss.Center)
+	return style.Render(title)
 }

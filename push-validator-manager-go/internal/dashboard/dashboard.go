@@ -52,8 +52,8 @@ func newKeyMap() keyMap {
 			key.WithHelp("r", "refresh now"),
 		),
 		Help: key.NewBinding(
-			key.WithKeys("?", "shift+/"),
-			key.WithHelp("?", "toggle help"),
+			key.WithKeys("/", "h"),
+			key.WithHelp("/ or h", "toggle help"),
 		),
 	}
 }
@@ -312,7 +312,7 @@ func (m *Dashboard) View() string {
 	footerStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
 		Bold(false)
-	footer := footerStyle.Render("Controls: Ctrl+C to exit dashboard | ? for help")
+	footer := footerStyle.Render("Controls: Ctrl+C to exit")
 	output = lipgloss.JoinVertical(lipgloss.Left, output, footer)
 
 	return output

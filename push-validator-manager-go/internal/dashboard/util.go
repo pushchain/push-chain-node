@@ -155,6 +155,7 @@ func (e *ETACalculator) AddSample(blocksBehind int64) {
 
 // Calculate returns ETA as formatted string
 func (e *ETACalculator) Calculate() string {
+	// Need at least 2 samples to calculate rate
 	if len(e.samples) < 2 {
 		return "calculating..."
 	}
@@ -166,12 +167,12 @@ func (e *ETACalculator) Calculate() string {
 	blocksDelta := first.blocksBehind - last.blocksBehind
 	timeDelta := last.timestamp.Sub(first.timestamp).Seconds()
 
-	// Need at least some time passed and positive progress
+	// Need at least some time passed
 	if timeDelta < 0.1 {
 		return "calculating..."
 	}
 
-	// Only show "stalled" if no progress for 30+ seconds
+	// Check for stalled sync (no progress)
 	if blocksDelta <= 0 {
 		if !e.lastProgress.IsZero() && time.Since(e.lastProgress) > 30*time.Second {
 			return "stalled"
@@ -179,16 +180,23 @@ func (e *ETACalculator) Calculate() string {
 		return "calculating..."
 	}
 
+	// Calculate sync rate (blocks/second)
 	rate := float64(blocksDelta) / timeDelta
+	if rate <= 0 {
+		return "calculating..."
+	}
 
-	// Calculate ETA from current blocks behind
+	// Calculate ETA: remaining blocks / rate
 	if last.blocksBehind <= 0 {
-		return "—"
+		return "0s"
 	}
 
 	seconds := float64(last.blocksBehind) / rate
-	if seconds < 0 || seconds > 365*24*3600 { // Cap at 1 year
-		return "—"
+	if seconds < 0 {
+		return "0s"
+	}
+	if seconds > 365*24*3600 { // Cap at 1 year
+		return ">1y"
 	}
 
 	return DurationShort(time.Duration(seconds * float64(time.Second)))

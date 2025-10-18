@@ -119,9 +119,6 @@ func (c *NodeStatus) renderContent(w int) string {
 	}
 
 	// System metrics
-	if c.data.Metrics.System.CPUPercent >= 0 {
-		lines = append(lines, fmt.Sprintf("CPU: %.1f%%", c.data.Metrics.System.CPUPercent))
-	}
 	if c.data.Metrics.System.MemTotal > 0 {
 		memPct := float64(c.data.Metrics.System.MemUsed) / float64(c.data.Metrics.System.MemTotal)
 		lines = append(lines, fmt.Sprintf("Memory: %s", Percent(memPct)))

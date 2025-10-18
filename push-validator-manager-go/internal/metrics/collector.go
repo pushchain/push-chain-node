@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "strings"
+    "sync"
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/node"
@@ -46,6 +47,7 @@ type Snapshot struct {
 }
 
 type Collector struct {
+	mu         sync.RWMutex
 	lastCPU    float64
 	cpuRunning bool
 }
@@ -62,7 +64,9 @@ func (c *Collector) updateCPU() {
 	c.cpuRunning = true
 	for {
 		if percent, err := cpu.Percent(time.Second, false); err == nil && len(percent) > 0 {
+			c.mu.Lock()
 			c.lastCPU = percent[0]
+			c.mu.Unlock()
 		}
 		// Small sleep to prevent tight loop
 		time.Sleep(100 * time.Millisecond)
@@ -107,7 +111,9 @@ func (c *Collector) Collect(ctx context.Context, localRPC, remoteRPC string) Sna
 
     // System metrics
     // CPU usage - return cached value from background collection
+    c.mu.RLock()
     snap.System.CPUPercent = c.lastCPU
+    c.mu.RUnlock()
 
     // Memory usage
     if vmStat, err := mem.VirtualMemory(); err == nil {

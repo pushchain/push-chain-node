@@ -61,9 +61,8 @@ func handleLogs(sup process.Supervisor) error {
 			os.Stdin = origIn
 			os.Stdout = origOut
 		}()
-		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer cancel()
-		return ui.RunLogUIV2(ctx, ui.LogUIOptions{
+		// Pass context.Background() - RunLogUIV2 handles Ctrl+C via raw terminal input
+		return ui.RunLogUIV2(context.Background(), ui.LogUIOptions{
 			LogPath:    lp,
 			BgKey:      'b',
 			ShowFooter: true,

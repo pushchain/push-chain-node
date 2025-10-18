@@ -424,6 +424,8 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 		data.MyValidator.VotingPct = myVal.VotingPct
 		data.MyValidator.Commission = myVal.Commission
 		data.MyValidator.Jailed = myVal.Jailed
+		data.MyValidator.ValidatorExistsWithSameMoniker = myVal.ValidatorExistsWithSameMoniker
+		data.MyValidator.ConflictingMoniker = myVal.ConflictingMoniker
 	}
 
 	return data, nil

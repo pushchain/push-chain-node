@@ -436,12 +436,15 @@ else
 fi
 
 # Clean install: remove all previous installation artifacts (preserve wallets and validator keys)
+NEED_INIT="no"  # Track if we need to force init
 if [[ "$RESET_DATA" = "yes" ]] && [[ "$HAS_EXISTING_INSTALL" = "yes" ]]; then
   next_phase "Cleaning Installation"
   clean_data_and_preserve_keys "initial" "init"
+  NEED_INIT="yes"  # Force init after full reset
   ok "Clean installation ready"
 elif [[ "$RESET_DATA" = "yes" ]]; then
   verbose "Fresh installation detected (skipped cleanup)"
+  NEED_INIT="yes"  # Force init for fresh installations too
 else
   verbose "Skipping data reset (--no-reset)"
 fi
@@ -595,8 +598,8 @@ verbose "Using built-in WebSocket monitor (no external dependency)"
 
 if [[ "$AUTO_START" = "yes" ]]; then
   next_phase "Initializing Node"
-  # Initialize if config or genesis missing
-  if [[ ! -f "$HOME_DIR/config/config.toml" ]] || [[ ! -f "$HOME_DIR/config/genesis.json" ]]; then
+  # Initialize if: forced by reset, or config/genesis missing
+  if [[ "${NEED_INIT:-no}" = "yes" ]] || [[ ! -f "$HOME_DIR/config/config.toml" ]] || [[ ! -f "$HOME_DIR/config/genesis.json" ]]; then
     step "Configuring node"
     "$MANAGER_BIN" init \
       --moniker "$MONIKER" \
@@ -622,7 +625,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
       step "Restarting node (attempt $((RETRY_COUNT + 1))/$((MAX_RETRIES + 1)))"
     fi
 
-    "$MANAGER_BIN" start --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
+    "$MANAGER_BIN" start --no-prompt --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
     ok "Validator node started successfully"
 
     step "Waiting for state sync"

@@ -92,6 +92,32 @@ func handleRegisterValidator(cfg config.Config) {
 		return
 	}
 
+	// Check for moniker conflicts before prompting for registration
+	monikerCheckCtx, monikerCheckCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	myValInfo, monikerErr := validator.GetCachedMyValidator(monikerCheckCtx, cfg)
+	monikerCheckCancel()
+	if monikerErr == nil && myValInfo.ValidatorExistsWithSameMoniker {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{
+				"ok":                false,
+				"error":             "moniker conflict",
+				"conflicting_moniker": myValInfo.ConflictingMoniker,
+				"message":           fmt.Sprintf("A different validator is already using moniker '%s'. Choose a different moniker to register.", myValInfo.ConflictingMoniker),
+			})
+		} else {
+			p := ui.NewPrinter(flagOutput)
+			fmt.Println()
+			fmt.Println(p.Colors.Warning("⚠️ Moniker Conflict Detected"))
+			fmt.Println()
+			fmt.Printf("A different validator is already using the moniker '%s'.\n", p.Colors.Apply(p.Colors.Theme.Value, myValInfo.ConflictingMoniker))
+			fmt.Println()
+			fmt.Println(p.Colors.Info("Please choose a different moniker when registering your validator."))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "Each validator must have a unique identifier on the network."))
+			fmt.Println()
+		}
+		// Don't return - allow registration with a different moniker
+	}
+
 	// Interactive prompts (skip in JSON mode or if env vars are explicitly set)
 	if flagOutput != "json" {
 		savedStdin := os.Stdin

@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -163,96 +162,142 @@ func (f *Fetcher) fetchAllValidators(ctx context.Context, cfg config.Config) (Va
 	}, nil
 }
 
-// fetchMyValidator fetches the current node's validator info
+// fetchMyValidator fetches the current node's validator info by comparing consensus pubkeys
 func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyValidatorInfo, error) {
-	// Read consensus address from priv_validator_key.json
-	keyPath := filepath.Join(cfg.HomeDir, "config", "priv_validator_key.json")
-	keyData, err := os.ReadFile(keyPath)
-	if err != nil {
-		// Not a validator node
-		return MyValidatorInfo{IsValidator: false}, nil
-	}
-
-	var keyFile struct {
-		Address string `json:"address"`
-		PubKey  struct {
-			Value string `json:"value"`
-		} `json:"pub_key"`
-	}
-
-	if err := json.Unmarshal(keyData, &keyFile); err != nil {
-		return MyValidatorInfo{IsValidator: false}, nil
-	}
-
-	consensusAddr := keyFile.Address
-	if consensusAddr == "" {
-		return MyValidatorInfo{IsValidator: false}, nil
-	}
-
-	// Fetch all validators to find ours and calculate percentage
-	allVals, err := f.fetchAllValidators(ctx, cfg)
-	if err != nil {
-		return MyValidatorInfo{IsValidator: false}, err
-	}
-
-	// Calculate total voting power
-	var totalVotingPower int64
-	for _, v := range allVals.Validators {
-		totalVotingPower += v.VotingPower
-	}
-
-	// Find our validator by matching consensus address
-	// Note: This is a simplified approach. In production, you'd need to:
-	// 1. Convert consensus address to operator address
-	// 2. Query the specific validator
-	// For now, we'll try to match by checking validator info from local node status
-
 	bin, err := exec.LookPath("pchaind")
 	if err != nil {
 		return MyValidatorInfo{IsValidator: false}, nil
 	}
 
-	// Try to get validator info from local node
-	cmd := exec.CommandContext(ctx, bin, "status", "--node", cfg.RPCLocal)
-	output, err := cmd.Output()
+	// Get local consensus pubkey using 'tendermint show-validator'
+	showValCmd := exec.CommandContext(ctx, bin, "tendermint", "show-validator", "--home", cfg.HomeDir)
+	pubkeyBytes, err := showValCmd.Output()
 	if err != nil {
+		// No validator key file exists
 		return MyValidatorInfo{IsValidator: false}, nil
 	}
 
-	var status struct {
-		ValidatorInfo struct {
-			Address string `json:"Address"`
-		} `json:"ValidatorInfo"`
+	var localPubkey struct {
+		Key string `json:"key"`
 	}
-
-	if err := json.Unmarshal(output, &status); err != nil {
+	if err := json.Unmarshal(pubkeyBytes, &localPubkey); err != nil {
 		return MyValidatorInfo{IsValidator: false}, nil
 	}
 
-	// Simplified matching - in production, convert addresses properly
-	// For now, assume first validator or try to find by moniker
-	if len(allVals.Validators) > 0 {
-		// Return first BONDED validator as placeholder
-		// TODO: Implement proper address conversion
-		first := allVals.Validators[0]
-		var votingPct float64
-		if totalVotingPower > 0 {
-			votingPct = float64(first.VotingPower) / float64(totalVotingPower)
+	if localPubkey.Key == "" {
+		return MyValidatorInfo{IsValidator: false}, nil
+	}
+
+	// Get local node moniker from status (for conflict detection)
+	var localMoniker string
+	statusCmd := exec.CommandContext(ctx, bin, "status", "--node", cfg.RPCLocal)
+	if statusOutput, err := statusCmd.Output(); err == nil {
+		var statusData struct {
+			NodeInfo struct {
+				Moniker string `json:"moniker"`
+			} `json:"NodeInfo"`
+		}
+		if json.Unmarshal(statusOutput, &statusData) == nil {
+			localMoniker = statusData.NodeInfo.Moniker
+		}
+	}
+
+	// Fetch all validators to match by consensus pubkey
+	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+	queryCmd := exec.CommandContext(ctx, bin, "query", "staking", "validators", "--node", remote, "-o", "json")
+	valsOutput, err := queryCmd.Output()
+	if err != nil {
+		return MyValidatorInfo{IsValidator: false}, err
+	}
+
+	var result struct {
+		Validators []struct {
+			OperatorAddress string `json:"operator_address"`
+			Description     struct {
+				Moniker string `json:"moniker"`
+			} `json:"description"`
+			ConsensusPubkey struct {
+				Value string `json:"value"` // The base64 pubkey
+			} `json:"consensus_pubkey"`
+			Status     string `json:"status"`
+			Tokens     string `json:"tokens"`
+			Commission struct {
+				CommissionRates struct {
+					Rate string `json:"rate"`
+				} `json:"commission_rates"`
+			} `json:"commission"`
+			Jailed bool `json:"jailed"`
+		} `json:"validators"`
+	}
+
+	if err := json.Unmarshal(valsOutput, &result); err != nil {
+		return MyValidatorInfo{IsValidator: false}, err
+	}
+
+	// Calculate total voting power
+	var totalVotingPower int64
+	for _, v := range result.Validators {
+		if v.Tokens != "" {
+			if tokens, err := strconv.ParseFloat(v.Tokens, 64); err == nil {
+				totalVotingPower += int64(tokens / 1e18)
+			}
+		}
+	}
+
+	// Try to find validator by matching consensus pubkey
+	var monikerConflict string
+	for _, v := range result.Validators {
+		// Check for moniker conflicts (different validator, same moniker)
+		if localMoniker != "" && v.Description.Moniker == localMoniker &&
+		   !strings.EqualFold(v.ConsensusPubkey.Value, localPubkey.Key) {
+			monikerConflict = localMoniker
 		}
 
-		return MyValidatorInfo{
-			IsValidator: true,
-			Address:     first.OperatorAddress,
-			Moniker:     first.Moniker,
-			Status:      first.Status,
-			VotingPower: first.VotingPower,
-			VotingPct:   votingPct,
-			Commission:  first.Commission,
-			Jailed:      first.Jailed,
-		}, nil
+		// Check if this validator matches our consensus pubkey
+		if strings.EqualFold(v.ConsensusPubkey.Value, localPubkey.Key) {
+			// Found our validator!
+			status := parseStatus(v.Status)
+
+			var votingPower int64
+			if v.Tokens != "" {
+				if tokens, err := strconv.ParseFloat(v.Tokens, 64); err == nil {
+					votingPower = int64(tokens / 1e18)
+				}
+			}
+
+			var votingPct float64
+			if totalVotingPower > 0 {
+				votingPct = float64(votingPower) / float64(totalVotingPower)
+			}
+
+			commission := "0%"
+			if v.Commission.CommissionRates.Rate != "" {
+				if rate, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil {
+					commission = fmt.Sprintf("%.0f%%", rate*100)
+				}
+			}
+
+			return MyValidatorInfo{
+				IsValidator:                  true,
+				Address:                      v.OperatorAddress,
+				Moniker:                      v.Description.Moniker,
+				Status:                       status,
+				VotingPower:                  votingPower,
+				VotingPct:                    votingPct,
+				Commission:                   commission,
+				Jailed:                       v.Jailed,
+				ValidatorExistsWithSameMoniker: monikerConflict != "",
+				ConflictingMoniker:            monikerConflict,
+			}, nil
+		}
 	}
 
-	return MyValidatorInfo{IsValidator: false}, nil
+	// Not registered as validator, but check for moniker conflicts
+	return MyValidatorInfo{
+		IsValidator:                  false,
+		ValidatorExistsWithSameMoniker: monikerConflict != "",
+		ConflictingMoniker:            monikerConflict,
+	}, nil
 }
 
 // parseStatus converts bond status to human-readable format

@@ -36,6 +36,9 @@ func RunLogUIV2(ctx context.Context, opts LogUIOptions) error {
 	}
 	defer term.Restore(stdin, oldState)
 
+	// 4. Allow terminal state to stabilize after entering raw mode
+	time.Sleep(10 * time.Millisecond)
+
 	// 4. Print minimal controls banner (keeps existing scrollback intact)
 	if opts.BgKey == 0 {
 		opts.BgKey = 'b'
@@ -70,12 +73,13 @@ func RunLogUIV2(ctx context.Context, opts LogUIOptions) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// 9. Start log streaming
 	logDone := make(chan error, 1)
 	go func() {
 		logDone <- streamLogsSimple(ctx, opts.LogPath, renderFooter)
 	}()
 
-	// 9. Listen for keypresses
+	// 10. Listen for keypresses
 	keyDone := make(chan byte, 1)
 	go func() {
 		buf := make([]byte, 1)

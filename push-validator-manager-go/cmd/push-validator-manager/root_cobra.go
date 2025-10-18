@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/bootstrap"
@@ -14,6 +19,7 @@ import (
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/exitcodes"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
 	ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
 
 // Version information - set via -ldflags during build
@@ -186,6 +192,7 @@ func init() {
 
 	// start (Cobra flags)
 	var startBin string
+	var startNoPrompt bool
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start node",
@@ -267,17 +274,19 @@ func init() {
 				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
 				fmt.Println()
 
-				// Auto-tail logs like register/sync commands
-				sup := process.New(cfg.HomeDir)
-				if err := handleLogs(sup); err != nil {
-					// If log tailing fails, just return without error (node is already started)
-					return nil
+				// Check validator status and show appropriate next steps (skip if --no-prompt)
+				if !startNoPrompt {
+					if !handlePostStartFlow(cfg, &p) {
+						// If post-start flow fails, just continue (node is already started)
+						return nil
+					}
 				}
 			}
 			return nil
 		},
 	}
 	startCmd.Flags().StringVar(&startBin, "bin", "", "Path to pchaind binary")
+	startCmd.Flags().BoolVar(&startNoPrompt, "no-prompt", false, "Skip post-start prompts (for use in scripts)")
 	rootCmd.AddCommand(startCmd)
 
 	rootCmd.AddCommand(&cobra.Command{Use: "stop", Short: "Stop node", RunE: func(cmd *cobra.Command, args []string) error { return handleStop(process.New(loadCfg().HomeDir)) }})
@@ -421,4 +430,109 @@ func loadCfg() config.Config {
 		os.Setenv("PCHAIND", flagBin)
 	}
 	return cfg
+}
+
+// handlePostStartFlow manages the post-start flow based on validator status.
+// Returns false if an error occurred (non-fatal), true if flow completed successfully.
+func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
+	// Check if already a validator
+	v := validator.NewWith(validator.Options{
+		BinPath:       findPchaind(),
+		HomeDir:       cfg.HomeDir,
+		ChainID:       cfg.ChainID,
+		Keyring:       cfg.KeyringBackend,
+		GenesisDomain: cfg.GenesisDomain,
+		Denom:         cfg.Denom,
+	})
+
+	statusCtx, statusCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	isValidator, err := v.IsValidator(statusCtx, "")
+	statusCancel()
+
+	if err != nil {
+		// If we can't check status, just show logs
+		fmt.Println(p.Colors.Warning("⚠ Could not verify validator status"))
+		fmt.Println()
+		sup := process.New(cfg.HomeDir)
+		_ = handleLogs(sup)
+		return false
+	}
+
+	if isValidator {
+		// Already a validator - show logs immediately
+		fmt.Println(p.Colors.Success("✓ Already registered as validator"))
+		fmt.Println()
+		sup := process.New(cfg.HomeDir)
+		_ = handleLogs(sup)
+		return true
+	}
+
+	// Not a validator - show registration flow
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Println("1. Get test tokens from: https://faucet.push.org")
+	fmt.Println("2. Register as validator: push-validator-manager register-validator")
+	fmt.Println()
+
+	// Check if we're in an interactive terminal
+	if !isTerminalInteractive() {
+		// Non-interactive - just show logs
+		sup := process.New(cfg.HomeDir)
+		_ = handleLogs(sup)
+		return true
+	}
+
+	// Interactive prompt - use /dev/tty to avoid buffering os.Stdin
+	// This ensures stdin remains clean for subsequent log UI raw mode
+	fmt.Print("Register as validator now? (y/N) ")
+
+	ttyFile, err := os.OpenFile("/dev/tty", os.O_RDONLY, 0)
+	var response string
+	if err == nil {
+		reader := bufio.NewReader(ttyFile)
+		line, readErr := reader.ReadString('\n')
+		ttyFile.Close()
+		if readErr != nil {
+			// Error reading input - just show logs
+			sup := process.New(cfg.HomeDir)
+			_ = handleLogs(sup)
+			return false
+		}
+		response = strings.ToLower(strings.TrimSpace(line))
+	} else {
+		// Fallback to stdin if /dev/tty unavailable
+		reader := bufio.NewReader(os.Stdin)
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			sup := process.New(cfg.HomeDir)
+			_ = handleLogs(sup)
+			return false
+		}
+		response = strings.ToLower(strings.TrimSpace(line))
+	}
+
+	if response == "y" || response == "yes" {
+		// User wants to register
+		fmt.Println()
+		handleRegisterValidator(cfg)
+		fmt.Println()
+	}
+
+	// Always show logs at the end
+	sup := process.New(cfg.HomeDir)
+	_ = handleLogs(sup)
+	return true
+}
+
+// isTerminalInteractive checks if we're running in an interactive terminal
+func isTerminalInteractive() bool {
+	// Check stdin is a terminal
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return false
+	}
+	// Check stdout is a terminal
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return false
+	}
+	return true
 }

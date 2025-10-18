@@ -103,58 +103,108 @@ func (c *ChainStatus) renderContent(w int) string {
 		inner = 0
 	}
 
-	// Sync Status
-	syncIcon := c.icons.OK
-	syncStatus := "In Sync"
+	localHeight := c.data.Metrics.Chain.LocalHeight
+	remoteHeight := c.data.Metrics.Chain.RemoteHeight
 
 	// Check if node is running and RPC is available
 	if !c.data.NodeInfo.Running || !c.data.Metrics.Node.RPCListening {
-		syncIcon = c.icons.Err
-		syncStatus = "Unknown"
-	} else if c.data.Metrics.Chain.CatchingUp {
-		syncIcon = c.icons.Warn
-		syncStatus = "Catching Up"
-	}
-	lines = append(lines, fmt.Sprintf("%s %s", syncIcon, syncStatus))
-
-	// Progress bar - always show when remote height is available
-	if c.data.Metrics.Chain.RemoteHeight > 0 {
-		fraction := float64(c.data.Metrics.Chain.LocalHeight) / float64(c.data.Metrics.Chain.RemoteHeight)
-		if inner >= 3 {
-			// Fixed width progress bar (20 chars max)
-			barWidth := 20
-			if inner < barWidth {
-				barWidth = inner
-			}
-			bar := ProgressBar(fraction, barWidth, c.noEmoji)
-			// Show current/total format
-			progress := fmt.Sprintf("%s/%s", HumanInt(c.data.Metrics.Chain.LocalHeight), HumanInt(c.data.Metrics.Chain.RemoteHeight))
-			lines = append(lines, fmt.Sprintf("%s %s", bar, progress))
+		lines = append(lines, fmt.Sprintf("%s Unknown", c.icons.Err))
+		if remoteHeight > 0 {
+			lines = append(lines, fmt.Sprintf("%s/%s", formatWithCommas(localHeight), formatWithCommas(remoteHeight)))
 		} else {
-			lines = append(lines, fmt.Sprintf("%s/%s", HumanInt(c.data.Metrics.Chain.LocalHeight), HumanInt(c.data.Metrics.Chain.RemoteHeight)))
+			lines = append(lines, fmt.Sprintf("Height: %s", formatWithCommas(localHeight)))
 		}
 	} else {
-		// No remote height available - just show local height
-		lines = append(lines, fmt.Sprintf("Height: %s", HumanInt(c.data.Metrics.Chain.LocalHeight)))
-	}
+		// Always show sync-monitor-style progress bar
+		isCatchingUp := c.data.Metrics.Chain.CatchingUp
+		syncLine := renderSyncProgress(localHeight, remoteHeight, c.noEmoji, isCatchingUp)
 
-	// Blocks Behind
-	if c.data.Metrics.Chain.RemoteHeight > c.data.Metrics.Chain.LocalHeight {
-		blocksBehind := c.data.Metrics.Chain.RemoteHeight - c.data.Metrics.Chain.LocalHeight
-		lines = append(lines, fmt.Sprintf("Behind: %s blocks", HumanInt(blocksBehind)))
-	}
-
-	// ETA to sync - only show when node is running and behind
-	if c.data.Metrics.Chain.RemoteHeight > c.data.Metrics.Chain.LocalHeight {
-		if c.data.NodeInfo.Running && c.data.Metrics.Node.RPCListening {
+		// Add ETA: calculated when syncing, "0s" when in sync
+		if isCatchingUp && remoteHeight > localHeight {
 			eta := c.etaCalc.Calculate()
-			lines = append(lines, fmt.Sprintf("ETA: %s", eta))
-		} else {
-			// Node is stopped - show stalled
-			lines = append(lines, "ETA: stalled")
+			if eta != "" && eta != "calculating..." {
+				syncLine += " | ETA: " + eta
+			}
+		} else if remoteHeight > 0 {
+			syncLine += " | ETA: 0s"
 		}
+
+		lines = append(lines, syncLine)
 	}
 
 	// Use inner width for title centering
 	return fmt.Sprintf("%s\n%s", FormatTitle(c.Title(), inner), joinLines(lines, "\n"))
+}
+
+// renderSyncProgress creates sync-monitor-style progress line
+func renderSyncProgress(local, remote int64, noEmoji bool, isCatchingUp bool) string {
+	if remote <= 0 {
+		return ""
+	}
+
+	percent := float64(local) / float64(remote) * 100
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+
+	width := 28
+	filled := int(percent / 100 * float64(width))
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > width {
+		filled = width
+	}
+
+	bar := fmt.Sprintf("%s%s",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(fmt.Sprintf("%s", repeatStr("█", filled))),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(fmt.Sprintf("%s", repeatStr("░", width-filled))))
+
+	// Use different label based on sync state
+	icon := "📊 Syncing"
+	if !isCatchingUp {
+		icon = "📊 In Sync"
+	}
+	if noEmoji {
+		if isCatchingUp {
+			icon = "Syncing"
+		} else {
+			icon = "In Sync"
+		}
+	}
+
+	return fmt.Sprintf("%s [%s] %.2f%% | %s/%s blocks",
+		icon, bar, percent,
+		formatWithCommas(local),
+		formatWithCommas(remote))
+}
+
+// formatWithCommas adds comma separators to large numbers
+func formatWithCommas(n int64) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+
+	// Convert to string and add commas
+	s := fmt.Sprintf("%d", n)
+	var result string
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(c)
+	}
+	return result
+}
+
+// repeatStr repeats a string n times
+func repeatStr(s string, n int) string {
+	var result string
+	for i := 0; i < n; i++ {
+		result += s
+	}
+	return result
 }

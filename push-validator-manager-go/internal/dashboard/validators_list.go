@@ -98,7 +98,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 		return fmt.Sprintf("%s\n\n%s Loading validators...", FormatTitle(c.Title(), inner), c.icons.Warn)
 	}
 
-	// Sort validators by voting power (highest first)
+	// Sort validators by status first, then by voting power (matching CLI logic)
 	validators := make([]struct {
 		Moniker     string
 		Status      string
@@ -108,7 +108,28 @@ func (c *ValidatorsList) renderContent(w int) string {
 	}, len(c.data.NetworkValidators.Validators))
 	copy(validators, c.data.NetworkValidators.Validators)
 
+	// Helper to get status sort order
+	statusOrder := func(status string) int {
+		switch status {
+		case "BONDED":
+			return 1
+		case "UNBONDING":
+			return 2
+		case "UNBONDED":
+			return 3
+		default:
+			return 4
+		}
+	}
+
 	sort.Slice(validators, func(i, j int) bool {
+		// Sort by status first (BONDED < UNBONDING < UNBONDED)
+		iOrder := statusOrder(validators[i].Status)
+		jOrder := statusOrder(validators[j].Status)
+		if iOrder != jOrder {
+			return iOrder < jOrder
+		}
+		// Within same status, sort by voting power (highest first)
 		return validators[i].VotingPower > validators[j].VotingPower
 	})
 

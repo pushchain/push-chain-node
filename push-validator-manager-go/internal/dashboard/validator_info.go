@@ -92,6 +92,14 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 	// Check if this node is a validator
 	if !c.data.MyValidator.IsValidator {
+		// Check for moniker conflict
+		if c.data.MyValidator.ValidatorExistsWithSameMoniker {
+			return fmt.Sprintf("%s\n\n%s Not registered\n\n%s Moniker conflict detected!\nA different validator is using\nmoniker '%s'\n\nUse a different moniker to register:\npush-validator-manager register",
+				FormatTitle(c.Title(), inner),
+				c.icons.Warn,
+				c.icons.Err,
+				truncateWithEllipsis(c.data.MyValidator.ConflictingMoniker, 20))
+		}
 		return fmt.Sprintf("%s\n\n%s Not registered as validator\n\nTo register, run:\npush-validator-manager register", FormatTitle(c.Title(), inner), c.icons.Warn)
 	}
 

@@ -99,5 +99,5 @@ func (c *Header) View(w, h int) string {
 		contentWidth = 0
 	}
 
-	return style.Width(contentWidth).MaxHeight(h).Render(content)
+	return style.Width(contentWidth).Render(content)
 }

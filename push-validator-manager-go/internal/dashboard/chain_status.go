@@ -88,7 +88,7 @@ func (c *ChainStatus) View(w, h int) string {
 		contentWidth = 0
 	}
 
-	rendered := style.Width(contentWidth).MaxHeight(h).Render(content)
+	rendered := style.Width(contentWidth).Render(content)
 	c.UpdateCache(rendered)
 	return rendered
 }

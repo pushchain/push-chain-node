@@ -22,9 +22,17 @@ import (
 
 // keyMap defines keyboard shortcuts
 type keyMap struct {
-	Quit    key.Binding
-	Refresh key.Binding
-	Help    key.Binding
+	Quit       key.Binding
+	Refresh    key.Binding
+	Help       key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Left       key.Binding
+	Right      key.Binding
+	Search     key.Binding
+	Follow     key.Binding
+	Home       key.Binding
+	End        key.Binding
 }
 
 // ShortHelp implements help.KeyMap for inline help
@@ -35,8 +43,9 @@ func (k keyMap) ShortHelp() []key.Binding {
 // FullHelp implements help.KeyMap for full help overlay
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Quit, k.Refresh},
-		{k.Help},
+		{k.Quit, k.Refresh, k.Help},
+		{k.Up, k.Down, k.Left, k.Right},
+		{k.Search, k.Follow, k.Home, k.End},
 	}
 }
 
@@ -52,8 +61,40 @@ func newKeyMap() keyMap {
 			key.WithHelp("r", "refresh now"),
 		),
 		Help: key.NewBinding(
-			key.WithKeys("/", "h"),
-			key.WithHelp("/ or h", "toggle help"),
+			key.WithKeys("h"),
+			key.WithHelp("h", "toggle help"),
+		),
+		Up: key.NewBinding(
+			key.WithKeys("up"),
+			key.WithHelp("↑", "scroll up logs"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down"),
+			key.WithHelp("↓", "scroll down logs"),
+		),
+		Left: key.NewBinding(
+			key.WithKeys("left", "p"),
+			key.WithHelp("←/p", "prev page validators"),
+		),
+		Right: key.NewBinding(
+			key.WithKeys("right", "n"),
+			key.WithHelp("→/n", "next page validators"),
+		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search logs"),
+		),
+		Follow: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "toggle follow mode"),
+		),
+		Home: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "jump to oldest"),
+		),
+		End: key.NewBinding(
+			key.WithKeys("l"),
+			key.WithHelp("l", "jump to latest"),
 		),
 	}
 }
@@ -116,6 +157,7 @@ func New(opts Options) *Dashboard {
 	registry.Register(NewNetworkStatus(opts.NoEmoji))
 	registry.Register(NewValidatorsList(opts.NoEmoji))
 	registry.Register(NewValidatorInfo(opts.NoEmoji))
+	registry.Register(NewLogViewer(opts.NoEmoji, opts.Config.HomeDir))
 
 	// Configure layout
 	layoutConfig := LayoutConfig{
@@ -124,6 +166,7 @@ func New(opts Options) *Dashboard {
 			{Components: []string{"node_status", "chain_status"}, Weights: []int{50, 50}, MinHeight: 10},
 			{Components: []string{"network_status", "validator_info"}, Weights: []int{50, 50}, MinHeight: 10},
 			{Components: []string{"validators_list"}, Weights: []int{100}, MinHeight: 16},
+			{Components: []string{"log_viewer"}, Weights: []int{100}, MinHeight: 12},
 		},
 	}
 	layout := NewLayout(layoutConfig, registry)
@@ -332,6 +375,20 @@ func (m *Dashboard) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Help):
 		return m, func() tea.Msg { return toggleHelpMsg{} }
+
+	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.Down),
+		key.Matches(msg, m.keys.Left), key.Matches(msg, m.keys.Right),
+		key.Matches(msg, m.keys.Search), key.Matches(msg, m.keys.Follow),
+		key.Matches(msg, m.keys.Home), key.Matches(msg, m.keys.End):
+		// Forward to components (log viewer and validators list)
+		cmds := m.registry.UpdateAll(msg, m.data)
+		return m, tea.Batch(cmds...)
+	}
+
+	// Also forward other keys to components (for search input)
+	if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace || msg.Type == tea.KeyEscape || msg.Type == tea.KeyEnter {
+		cmds := m.registry.UpdateAll(msg, m.data)
+		return m, tea.Batch(cmds...)
 	}
 
 	return m, nil

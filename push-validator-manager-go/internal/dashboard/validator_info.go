@@ -131,6 +131,16 @@ func (c *ValidatorInfo) renderContent(w int) string {
 		lines = append(lines, fmt.Sprintf("Commission: %s", c.data.MyValidator.Commission))
 	}
 
+	// Commission Rewards
+	if c.data.MyValidator.CommissionRewards != "" && c.data.MyValidator.CommissionRewards != "—" {
+		lines = append(lines, fmt.Sprintf("Comm Rewards: %s PC", c.data.MyValidator.CommissionRewards))
+	}
+
+	// Outstanding Rewards
+	if c.data.MyValidator.OutstandingRewards != "" && c.data.MyValidator.OutstandingRewards != "—" {
+		lines = append(lines, fmt.Sprintf("Outstanding: %s PC", c.data.MyValidator.OutstandingRewards))
+	}
+
 	// Jailed status
 	if c.data.MyValidator.Jailed {
 		lines = append(lines, fmt.Sprintf("%s JAILED", c.icons.Err))

@@ -155,7 +155,7 @@ func New(opts Options) *Dashboard {
 	registry.Register(NewNodeStatus(opts.NoEmoji))
 	registry.Register(NewChainStatus(opts.NoEmoji))
 	registry.Register(NewNetworkStatus(opts.NoEmoji))
-	registry.Register(NewValidatorsList(opts.NoEmoji))
+	registry.Register(NewValidatorsList(opts.NoEmoji, opts.Config))
 	registry.Register(NewValidatorInfo(opts.NoEmoji))
 	registry.Register(NewLogViewer(opts.NoEmoji, opts.Config.HomeDir))
 
@@ -455,11 +455,14 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 		// Convert validator.ValidatorInfo to dashboard format
 		data.NetworkValidators.Total = valList.Total
 		data.NetworkValidators.Validators = make([]struct {
-			Moniker     string
-			Status      string
-			VotingPower int64
-			Commission  string
-			Address     string
+			Moniker              string
+			Status               string
+			VotingPower          int64
+			Commission           string
+			CommissionRewards    string // Accumulated commission rewards
+			OutstandingRewards   string // Total outstanding rewards
+			Address              string // Cosmos address (pushvaloper...)
+			EVMAddress           string // EVM address (0x...)
 		}, len(valList.Validators))
 
 		for i, v := range valList.Validators {
@@ -468,6 +471,11 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 			data.NetworkValidators.Validators[i].VotingPower = v.VotingPower
 			data.NetworkValidators.Validators[i].Commission = v.Commission
 			data.NetworkValidators.Validators[i].Address = v.OperatorAddress
+			// EVM address will be fetched on-demand when user toggles to show it
+			data.NetworkValidators.Validators[i].EVMAddress = ""
+			// Rewards will be fetched lazily when page is displayed
+			data.NetworkValidators.Validators[i].CommissionRewards = ""
+			data.NetworkValidators.Validators[i].OutstandingRewards = ""
 		}
 	}
 
@@ -483,6 +491,18 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 		data.MyValidator.Jailed = myVal.Jailed
 		data.MyValidator.ValidatorExistsWithSameMoniker = myVal.ValidatorExistsWithSameMoniker
 		data.MyValidator.ConflictingMoniker = myVal.ConflictingMoniker
+
+		// Fetch rewards for my validator if registered
+		if myVal.IsValidator && myVal.Address != "" {
+			if commRwd, outRwd, err := validator.GetValidatorRewards(ctx, m.opts.Config, myVal.Address); err == nil {
+				data.MyValidator.CommissionRewards = commRwd
+				data.MyValidator.OutstandingRewards = outRwd
+			} else {
+				// Set placeholders on error
+				data.MyValidator.CommissionRewards = "—"
+				data.MyValidator.OutstandingRewards = "—"
+			}
+		}
 	}
 
 	return data, nil

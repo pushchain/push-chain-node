@@ -55,6 +55,8 @@ type DashboardData struct {
 		VotingPower                  int64
 		VotingPct                    float64 // Percentage of total voting power [0,1]
 		Commission                   string
+		CommissionRewards            string // Accumulated commission rewards
+		OutstandingRewards           string // Total outstanding rewards
 		Jailed                       bool
 		ValidatorExistsWithSameMoniker bool   // True if a different validator uses this node's moniker
 		ConflictingMoniker            string // The moniker that conflicts
@@ -63,11 +65,14 @@ type DashboardData struct {
 	// Network validators list
 	NetworkValidators struct {
 		Validators []struct {
-			Moniker     string
-			Status      string
-			VotingPower int64
-			Commission  string
-			Address     string
+			Moniker              string
+			Status               string
+			VotingPower          int64
+			Commission           string
+			CommissionRewards    string // Accumulated commission rewards
+			OutstandingRewards   string // Total outstanding rewards
+			Address              string // Cosmos address (pushvaloper...)
+			EVMAddress           string // EVM address (0x...)
 		}
 		Total int
 	}

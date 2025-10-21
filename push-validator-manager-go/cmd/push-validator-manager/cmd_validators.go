@@ -7,10 +7,12 @@ import (
     "os/exec"
     "sort"
     "strconv"
+    "sync"
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
+    "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
 
 func handleValidators(cfg config.Config) error {
@@ -65,34 +67,54 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
         return nil
     }
     type validatorDisplay struct {
-        moniker       string
-        status        string
-        statusOrder   int
-        tokensPC      float64
-        commissionPct float64
+        moniker        string
+        status         string
+        statusOrder    int
+        tokensPC       float64
+        commissionPct  float64
+        operatorAddr   string
+        cosmosAddr     string
+        commissionRwd  string
+        outstandingRwd string
+        evmAddress     string
     }
-    vals := make([]validatorDisplay, 0, len(result.Validators))
-    for _, v := range result.Validators {
-        vd := validatorDisplay{moniker: v.Description.Moniker}
-        if vd.moniker == "" { vd.moniker = "unknown" }
+    vals := make([]validatorDisplay, len(result.Validators))
+    var wg sync.WaitGroup
+
+    for i, v := range result.Validators {
+        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress}
+        if vals[i].moniker == "" { vals[i].moniker = "unknown" }
         switch v.Status {
         case "BOND_STATUS_BONDED":
-            vd.status, vd.statusOrder = "BONDED", 1
+            vals[i].status, vals[i].statusOrder = "BONDED", 1
         case "BOND_STATUS_UNBONDING":
-            vd.status, vd.statusOrder = "UNBONDING", 2
+            vals[i].status, vals[i].statusOrder = "UNBONDING", 2
         case "BOND_STATUS_UNBONDED":
-            vd.status, vd.statusOrder = "UNBONDED", 3
+            vals[i].status, vals[i].statusOrder = "UNBONDED", 3
         default:
-            vd.status, vd.statusOrder = v.Status, 4
+            vals[i].status, vals[i].statusOrder = v.Status, 4
         }
         if v.Tokens != "" && v.Tokens != "0" {
-            if t, err := strconv.ParseFloat(v.Tokens, 64); err == nil { vd.tokensPC = t / 1e18 }
+            if t, err := strconv.ParseFloat(v.Tokens, 64); err == nil { vals[i].tokensPC = t / 1e18 }
         }
         if v.Commission.CommissionRates.Rate != "" {
-            if c, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil { vd.commissionPct = c * 100 }
+            if c, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil { vals[i].commissionPct = c * 100 }
         }
-        vals = append(vals, vd)
+
+        // Fetch rewards and EVM address in parallel using goroutines
+        wg.Add(1)
+        go func(idx int, addr string) {
+            defer wg.Done()
+            // 3 second timeout per validator to avoid blocking
+            fetchCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+            defer cancel()
+
+            vals[idx].commissionRwd, vals[idx].outstandingRwd, _ = validator.GetValidatorRewards(fetchCtx, cfg, addr)
+            vals[idx].evmAddress = validator.GetEVMAddress(fetchCtx, addr)
+        }(i, v.OperatorAddress)
     }
+
+    wg.Wait()
     sort.Slice(vals, func(i, j int) bool {
         if vals[i].statusOrder != vals[j].statusOrder { return vals[i].statusOrder < vals[j].statusOrder }
         return vals[i].tokensPC > vals[j].tokensPC
@@ -100,23 +122,21 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     c := ui.NewColorConfig()
     fmt.Println()
     fmt.Println(c.Header(" 👥 Active Push Chain Validators "))
-    headers := []string{"VALIDATOR", "STATUS", "STAKE (PC)", "COMMISSION"}
+    headers := []string{"VALIDATOR", "COSMOS_ADDR", "STATUS", "STAKE(PC)", "COMM%", "COMM_RWD", "OUT_RWD", "EVM_ADDRESS"}
     rows := make([][]string, 0, len(vals))
     for _, v := range vals {
         rows = append(rows, []string{
-            truncate(v.moniker, 26),
+            v.moniker,
+            v.cosmosAddr,
             v.status,
             fmt.Sprintf("%.1f", v.tokensPC),
             fmt.Sprintf("%.0f%%", v.commissionPct),
+            v.commissionRwd,
+            v.outstandingRwd,
+            v.evmAddress,
         })
     }
     fmt.Print(ui.Table(c, headers, rows, nil))
     fmt.Printf("Total Validators: %d\n", len(vals))
     return nil
-}
-
-// truncate returns s truncated to max characters with ellipsis when needed.
-func truncate(s string, max int) string {
-    if len(s) <= max { return s }
-    return s[:max-3] + "..."
 }

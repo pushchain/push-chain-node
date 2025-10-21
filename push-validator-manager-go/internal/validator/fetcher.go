@@ -314,6 +314,67 @@ func parseStatus(status string) string {
 	}
 }
 
+// GetValidatorRewards fetches commission and outstanding rewards for a validator
+func GetValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr string) (commission string, outstanding string, err error) {
+	if validatorAddr == "" {
+		return "—", "—", fmt.Errorf("validator address required")
+	}
+
+	bin, err := exec.LookPath("pchaind")
+	if err != nil {
+		return "—", "—", fmt.Errorf("pchaind not found: %w", err)
+	}
+
+	// Create child context with 5s timeout per validator to avoid deadline issues
+	// when fetching rewards for multiple validators in parallel
+	queryCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+
+	// Fetch commission rewards
+	commissionRewards := "—"
+	commCmd := exec.CommandContext(queryCtx, bin, "query", "distribution", "commission", validatorAddr, "--node", remote, "-o", "json")
+	if commOutput, err := commCmd.Output(); err == nil {
+		var commResult struct {
+			Commission struct {
+				Commission []string `json:"commission"`
+			} `json:"commission"`
+		}
+		if err := json.Unmarshal(commOutput, &commResult); err == nil && len(commResult.Commission.Commission) > 0 {
+			// Extract numeric part from amount string (format: "123.45upc")
+			amountStr := commResult.Commission.Commission[0]
+			// Remove denom suffix
+			amountStr = strings.TrimSuffix(amountStr, "upc")
+			if amount, err := strconv.ParseFloat(amountStr, 64); err == nil {
+				commissionRewards = fmt.Sprintf("%.2f", amount/1e18)
+			}
+		}
+	}
+
+	// Fetch outstanding rewards
+	outstandingRewards := "—"
+	outCmd := exec.CommandContext(queryCtx, bin, "query", "distribution", "validator-outstanding-rewards", validatorAddr, "--node", remote, "-o", "json")
+	if outOutput, err := outCmd.Output(); err == nil {
+		var outResult struct {
+			Rewards struct {
+				Rewards []string `json:"rewards"`
+			} `json:"rewards"`
+		}
+		if err := json.Unmarshal(outOutput, &outResult); err == nil && len(outResult.Rewards.Rewards) > 0 {
+			// Extract numeric part from amount string (format: "123.45upc")
+			amountStr := outResult.Rewards.Rewards[0]
+			// Remove denom suffix
+			amountStr = strings.TrimSuffix(amountStr, "upc")
+			if amount, err := strconv.ParseFloat(amountStr, 64); err == nil {
+				outstandingRewards = fmt.Sprintf("%.2f", amount/1e18)
+			}
+		}
+	}
+
+	return commissionRewards, outstandingRewards, nil
+}
+
 // Global fetcher instance
 var globalFetcher = NewFetcher()
 
@@ -325,4 +386,36 @@ func GetCachedValidatorsList(ctx context.Context, cfg config.Config) (ValidatorL
 // GetCachedMyValidator returns cached my validator info
 func GetCachedMyValidator(ctx context.Context, cfg config.Config) (MyValidatorInfo, error) {
 	return globalFetcher.GetMyValidator(ctx, cfg)
+}
+
+// GetEVMAddress converts a Cosmos validator address to EVM address
+func GetEVMAddress(ctx context.Context, validatorAddr string) string {
+	if validatorAddr == "" {
+		return "—"
+	}
+
+	bin, err := exec.LookPath("pchaind")
+	if err != nil {
+		return "—"
+	}
+
+	cmd := exec.CommandContext(ctx, bin, "debug", "addr", validatorAddr)
+	output, err := cmd.Output()
+	if err != nil {
+		return "—"
+	}
+
+	// Parse output to extract hex address
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Address (hex):") {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				hex := strings.TrimSpace(parts[1])
+				return "0x" + hex
+			}
+		}
+	}
+
+	return "—"
 }

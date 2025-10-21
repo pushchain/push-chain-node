@@ -52,7 +52,7 @@ type HandlerOptions struct {
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	TxFeeChecker           ante.TxFeeChecker // safe to be nil
 
-	WasmConfig            *wasmtypes.WasmConfig
+	WasmConfig            *wasmtypes.NodeConfig
 	WasmKeeper            *wasmkeeper.Keeper
 	TXCounterStoreService corestoretypes.KVStoreService
 

@@ -10,7 +10,7 @@ replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 	cosmossdk.io/store => github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe
 	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
-	github.com/CosmWasm/wasmd => github.com/rollchains/wasmd v0.50.0-evm
+	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7
 	github.com/cosmos/evm => ../../evm
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4
@@ -46,7 +46,7 @@ require (
 	cosmossdk.io/x/circuit v0.2.0
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0
-	cosmossdk.io/x/nft v0.1.0
+	cosmossdk.io/x/nft v0.1.1
 	cosmossdk.io/x/tx v1.2.0-alpha.1
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/CosmWasm/wasmd v0.50.0
@@ -87,11 +87,12 @@ require (
 	gorm.io/gorm v1.30.1
 )
 
+require github.com/CosmWasm/wasmvm/v2 v2.2.4
+
 require (
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go/monitoring v1.21.2 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.2.4 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.48.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1 // indirect
@@ -155,7 +156,6 @@ require (
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.6 // indirect
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.4.0
-	github.com/cosmos/ibc-go/v8 v8.2.0 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/creachadair/atomicfile v0.3.1 // indirect
@@ -325,7 +325,7 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	nhooyr.io/websocket v1.8.11 // indirect
+	nhooyr.io/websocket v1.8.17 // indirect
 	pgregory.net/rapid v1.2.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )

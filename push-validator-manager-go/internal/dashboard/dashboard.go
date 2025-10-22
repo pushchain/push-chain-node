@@ -235,6 +235,7 @@ func (m *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = nil
 		m.stale = false
 		m.loading = false
+		m.fetchCancel = nil // Clear cancel to allow next fetch
 		// Update components
 		cmds := m.registry.UpdateAll(msg, m.data)
 		return m, tea.Batch(cmds...)
@@ -245,6 +246,7 @@ func (m *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.data.Err = msg.err // Set error in data so Header can display it
 		m.stale = time.Since(m.lastOK) > 10*time.Second
 		m.loading = false
+		m.fetchCancel = nil // Clear cancel to allow next fetch
 		// Update components to propagate error to Header
 		cmds := m.registry.UpdateAll(msg, m.data)
 		return m, tea.Batch(cmds...)

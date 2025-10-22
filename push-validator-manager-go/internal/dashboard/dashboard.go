@@ -390,19 +390,36 @@ func (m *Dashboard) View() string {
 		output += fmt.Sprintf("\n⚠ %s\n", result.Warning)
 	}
 
-	// Add footer with highlighted controls
+	// Add footer with highlighted controls and commands
 	keyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("39")).
 		Bold(true)
 	textStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
+	cmdStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true)
 
-	footer := textStyle.Render("Controls: ") +
+	// Line 1: Dashboard controls
+	controlsLine := textStyle.Render("Controls: ") +
 		keyStyle.Render("h") +
 		textStyle.Render(" for help | ") +
 		keyStyle.Render("Ctrl+C") +
 		textStyle.Render(" to exit")
 
+	// Line 2: Quick CLI commands
+	commandsLine := textStyle.Render("Quick Commands: ") +
+		cmdStyle.Render("push-validator-manager status") +
+		textStyle.Render(" | ") +
+		cmdStyle.Render("push-validator-manager start") +
+		textStyle.Render(" | ") +
+		cmdStyle.Render("push-validator-manager stop") +
+		textStyle.Render(" | ") +
+		cmdStyle.Render("push-validator-manager dashboard") +
+		textStyle.Render(" | ") +
+		cmdStyle.Render("push-validator-manager help")
+
+	footer := lipgloss.JoinVertical(lipgloss.Left, controlsLine, commandsLine)
 	output = lipgloss.JoinVertical(lipgloss.Left, output, footer)
 
 	return output

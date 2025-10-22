@@ -7,7 +7,8 @@ toolchain go1.24.3
 // overrides
 replace (
 	cosmossdk.io/api => cosmossdk.io/api v0.7.6
-	cosmossdk.io/core => cosmossdk.io/core v0.11.0
+	cosmossdk.io/collections => cosmossdk.io/collections v1.3.1
+	cosmossdk.io/core => cosmossdk.io/core v0.11.3
 	cosmossdk.io/store => github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe
 	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
 	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.7
@@ -35,7 +36,7 @@ replace (
 require (
 	cosmossdk.io/api v1.0.0-alpha.1
 	cosmossdk.io/client/v2 v2.10.0-beta.4
-	cosmossdk.io/collections v1.2.1
+	cosmossdk.io/collections v1.3.1
 	cosmossdk.io/core v1.1.0-alpha.2
 	cosmossdk.io/depinject v1.2.1
 	cosmossdk.io/errors v1.0.2

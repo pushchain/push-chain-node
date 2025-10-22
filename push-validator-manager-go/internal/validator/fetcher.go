@@ -13,6 +13,15 @@ import (
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
 )
 
+
+
+// rewardsCacheEntry holds cached rewards data with timestamp
+type rewardsCacheEntry struct {
+	commission  string
+	outstanding string
+	fetchedAt   time.Time
+}
+
 // Fetcher handles validator data fetching with caching
 type Fetcher struct {
 	mu sync.Mutex
@@ -25,13 +34,19 @@ type Fetcher struct {
 	myValidator     MyValidatorInfo
 	myValidatorTime time.Time
 
+	// Rewards cache (per validator address)
+	rewardsCache map[string]rewardsCacheEntry
+	rewardsTTL   time.Duration
+
 	cacheTTL time.Duration
 }
 
 // NewFetcher creates a new validator fetcher with 30s cache
 func NewFetcher() *Fetcher {
 	return &Fetcher{
-		cacheTTL: 30 * time.Second,
+		cacheTTL:     30 * time.Second,
+		rewardsTTL:   30 * time.Second,
+		rewardsCache: make(map[string]rewardsCacheEntry),
 	}
 }
 
@@ -39,6 +54,17 @@ func NewFetcher() *Fetcher {
 func (f *Fetcher) GetAllValidators(ctx context.Context, cfg config.Config) (ValidatorList, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	// Force fetch on first call (cache is zero-initialized)
+	if f.allValidatorsTime.IsZero() {
+		list, err := f.fetchAllValidators(ctx, cfg)
+		if err != nil {
+			return ValidatorList{}, err
+		}
+		f.allValidators = list
+		f.allValidatorsTime = time.Now()
+		return list, nil
+	}
 
 	// Return cached if still valid
 	if time.Since(f.allValidatorsTime) < f.cacheTTL && f.allValidators.Total > 0 {
@@ -66,6 +92,19 @@ func (f *Fetcher) GetMyValidator(ctx context.Context, cfg config.Config) (MyVali
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	// Force fetch on first call (cache is zero-initialized)
+	if f.myValidatorTime.IsZero() {
+		myVal, err := f.fetchMyValidator(ctx, cfg)
+		if err != nil {
+			// IMPORTANT: Set cache time even on error to prevent infinite retry loops
+			f.myValidatorTime = time.Now()
+			return MyValidatorInfo{IsValidator: false}, err
+		}
+		f.myValidator = myVal
+		f.myValidatorTime = time.Now()
+		return myVal, nil
+	}
+
 	// Return cached if still valid
 	if time.Since(f.myValidatorTime) < f.cacheTTL {
 		return f.myValidator, nil
@@ -78,6 +117,8 @@ func (f *Fetcher) GetMyValidator(ctx context.Context, cfg config.Config) (MyVali
 		if f.myValidator.Address != "" || !f.myValidatorTime.IsZero() {
 			return f.myValidator, nil
 		}
+		// Set cache time to retry on next refresh
+		f.myValidatorTime = time.Now()
 		return MyValidatorInfo{IsValidator: false}, err
 	}
 
@@ -178,7 +219,8 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 	}
 
 	var localPubkey struct {
-		Key string `json:"key"`
+		Type string `json:"@type"`
+		Key  string `json:"key"`
 	}
 	if err := json.Unmarshal(pubkeyBytes, &localPubkey); err != nil {
 		return MyValidatorInfo{IsValidator: false}, nil
@@ -187,6 +229,9 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 	if localPubkey.Key == "" {
 		return MyValidatorInfo{IsValidator: false}, nil
 	}
+
+	// Build the full pubkey JSON string for slashing info query
+	fullPubkeyJSON := string(pubkeyBytes)
 
 	// Get local node moniker from status (for conflict detection)
 	var localMoniker string
@@ -277,7 +322,7 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 				}
 			}
 
-			return MyValidatorInfo{
+			info := MyValidatorInfo{
 				IsValidator:                  true,
 				Address:                      v.OperatorAddress,
 				Moniker:                      v.Description.Moniker,
@@ -288,7 +333,120 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 				Jailed:                       v.Jailed,
 				ValidatorExistsWithSameMoniker: monikerConflict != "",
 				ConflictingMoniker:            monikerConflict,
-			}, nil
+			}
+
+			// If jailed, fetch slashing info with timeout (3s)
+			if v.Jailed {
+				slashCtx, slashCancel := context.WithTimeout(context.Background(), 3*time.Second)
+				slashingInfo, err := GetSlashingInfo(slashCtx, cfg, fullPubkeyJSON)
+				slashCancel()
+				if err == nil {
+					info.SlashingInfo = slashingInfo
+				}
+			}
+
+			return info, nil
+		}
+	}
+
+	// Not matched by consensus pubkey, check for keyring address match
+	// (validator may have been created with a key in the local keyring)
+	keyringAddrs := getKeyringAddresses(bin, cfg)
+	for _, keyAddr := range keyringAddrs {
+		for _, v := range result.Validators {
+			// Check if validator's operator address matches a key in the keyring
+			// Convert cosmos address to validator operator address for comparison
+			// Both addresses have the same bech32 data, just different prefixes
+			cosmosPrefix := "push1"
+			validatorPrefix := "pushvaloper1"
+
+			// Extract the bech32-encoded part (remove prefix)
+			keyAddrData := strings.TrimPrefix(keyAddr, cosmosPrefix)
+			valAddrData := strings.TrimPrefix(v.OperatorAddress, validatorPrefix)
+
+			if keyAddrData != "" && keyAddrData == valAddrData {
+				// Found validator controlled by a key in our keyring
+				status := parseStatus(v.Status)
+
+				var votingPower int64
+				if v.Tokens != "" {
+					if tokens, err := strconv.ParseFloat(v.Tokens, 64); err == nil {
+						votingPower = int64(tokens / 1e18)
+					}
+				}
+
+				var votingPct float64
+				if totalVotingPower > 0 {
+					votingPct = float64(votingPower) / float64(totalVotingPower)
+				}
+
+				commission := "0%"
+				if v.Commission.CommissionRates.Rate != "" {
+					if rate, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil {
+						commission = fmt.Sprintf("%.0f%%", rate*100)
+					}
+				}
+
+				// Return validator info but with IsValidator=false (no consensus pubkey match)
+				// This indicates keyring match but consensus key mismatch
+				return MyValidatorInfo{
+					IsValidator:                    false,
+					Address:                        v.OperatorAddress,
+					Moniker:                        v.Description.Moniker,
+					Status:                         status,
+					VotingPower:                    votingPower,
+					VotingPct:                      votingPct,
+					Commission:                     commission,
+					Jailed:                         v.Jailed,
+					ValidatorExistsWithSameMoniker: false,
+					ConflictingMoniker:            "",
+				}, nil
+			}
+		}
+	}
+
+	// Not matched by consensus pubkey, check for moniker-based match
+	// (validator may have been created with different key/node)
+	if localMoniker != "" {
+		for _, v := range result.Validators {
+			if v.Description.Moniker == localMoniker {
+				// Found validator by moniker but consensus pubkey doesn't match
+				status := parseStatus(v.Status)
+
+				var votingPower int64
+				if v.Tokens != "" {
+					if tokens, err := strconv.ParseFloat(v.Tokens, 64); err == nil {
+						votingPower = int64(tokens / 1e18)
+					}
+				}
+
+				var votingPct float64
+				if totalVotingPower > 0 {
+					votingPct = float64(votingPower) / float64(totalVotingPower)
+				}
+
+				commission := "0%"
+				if v.Commission.CommissionRates.Rate != "" {
+					if rate, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil {
+						commission = fmt.Sprintf("%.0f%%", rate*100)
+					}
+				}
+
+				// Return validator info but with IsValidator=false (no consensus pubkey match)
+				// This indicates moniker match but key/node mismatch
+				return MyValidatorInfo{
+					IsValidator:                    false,
+					Address:                        v.OperatorAddress,
+					Moniker:                        v.Description.Moniker,
+					Status:                         status,
+					VotingPower:                    votingPower,
+					VotingPct:                      votingPct,
+					Commission:                     commission,
+					Jailed:                         v.Jailed,
+					ValidatorExistsWithSameMoniker: false,
+					ConflictingMoniker:            "",
+				}, nil
+			}
 		}
 	}
 
@@ -375,6 +533,32 @@ func GetValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr s
 	return commissionRewards, outstandingRewards, nil
 }
 
+// GetCachedValidatorRewards fetches validator rewards with 30s caching
+func (f *Fetcher) GetCachedValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr string) (commission string, outstanding string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Check cache first
+	if cached, exists := f.rewardsCache[validatorAddr]; exists {
+		if time.Since(cached.fetchedAt) < f.rewardsTTL {
+			return cached.commission, cached.outstanding, nil
+		}
+	}
+
+	// Cache miss or expired - fetch fresh data
+	commission, outstanding, err = GetValidatorRewards(ctx, cfg, validatorAddr)
+	if err == nil {
+		// Store in cache
+		f.rewardsCache[validatorAddr] = rewardsCacheEntry{
+			commission:  commission,
+			outstanding: outstanding,
+			fetchedAt:   time.Now(),
+		}
+	}
+
+	return commission, outstanding, err
+}
+
 // Global fetcher instance
 var globalFetcher = NewFetcher()
 
@@ -386,6 +570,11 @@ func GetCachedValidatorsList(ctx context.Context, cfg config.Config) (ValidatorL
 // GetCachedMyValidator returns cached my validator info
 func GetCachedMyValidator(ctx context.Context, cfg config.Config) (MyValidatorInfo, error) {
 	return globalFetcher.GetMyValidator(ctx, cfg)
+}
+
+// GetCachedRewards returns validator rewards with 30s caching
+func GetCachedRewards(ctx context.Context, cfg config.Config, validatorAddr string) (commission string, outstanding string, err error) {
+	return globalFetcher.GetCachedValidatorRewards(ctx, cfg, validatorAddr)
 }
 
 // GetEVMAddress converts a Cosmos validator address to EVM address
@@ -418,4 +607,92 @@ func GetEVMAddress(ctx context.Context, validatorAddr string) string {
 	}
 
 	return "—"
+}
+
+// GetSlashingInfo fetches slashing information for a validator (jail reason, jailed until time, etc)
+func GetSlashingInfo(ctx context.Context, cfg config.Config, consensusPubkey string) (SlashingInfo, error) {
+	bin, err := exec.LookPath("pchaind")
+	if err != nil {
+		return SlashingInfo{}, fmt.Errorf("pchaind not found: %w", err)
+	}
+
+	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+
+	// Query signing info to get jail details
+	// consensusPubkey should be a JSON string like: {"@type":"/cosmos.crypto.ed25519.PubKey","key":"..."}
+	cmd := exec.CommandContext(ctx, bin, "query", "slashing", "signing-info", consensusPubkey, "--node", remote, "-o", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return SlashingInfo{}, fmt.Errorf("failed to query slashing info: %w", err)
+	}
+
+	var result struct {
+		ValSigningInfo struct {
+			Address      string `json:"address"`
+			StartHeight  string `json:"start_height"`
+			JailedUntil  string `json:"jailed_until"`
+			Tombstoned   bool   `json:"tombstoned"`
+			MissedBlocks string `json:"missed_blocks_counter"`
+		} `json:"val_signing_info"`
+	}
+
+	if err := json.Unmarshal(output, &result); err != nil {
+		return SlashingInfo{}, fmt.Errorf("failed to parse slashing info: %w", err)
+	}
+
+	info := SlashingInfo{
+		Tombstoned:  result.ValSigningInfo.Tombstoned,
+		JailedUntil: result.ValSigningInfo.JailedUntil,
+	}
+
+	// Parse missed blocks counter
+	if result.ValSigningInfo.MissedBlocks != "" {
+		if mb, err := strconv.ParseInt(result.ValSigningInfo.MissedBlocks, 10, 64); err == nil {
+			info.MissedBlocks = mb
+		}
+	}
+
+	// Determine jail reason with better heuristics
+	if info.Tombstoned {
+		info.JailReason = "Double Sign"
+	} else if info.JailedUntil != "" && info.JailedUntil != "1970-01-01T00:00:00Z" {
+		// Valid jail time (not epoch) indicates downtime
+		info.JailReason = "Downtime"
+	} else if info.MissedBlocks > 0 {
+		// If missed blocks > 0, it's likely a downtime issue
+		info.JailReason = "Downtime"
+	} else {
+		// Unable to determine reason
+		info.JailReason = "Unknown"
+	}
+
+	return info, nil
+}
+
+// getKeyringAddresses returns all addresses in the local keyring
+func getKeyringAddresses(bin string, cfg config.Config) []string {
+	var addresses []string
+
+	// List all keys in the keyring
+	cmd := exec.Command(bin, "keys", "list", "--keyring-backend", cfg.KeyringBackend, "--home", cfg.HomeDir, "-o", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return addresses
+	}
+
+	// Parse the JSON output to extract addresses
+	var keys []struct {
+		Address string `json:"address"`
+	}
+	if err := json.Unmarshal(output, &keys); err != nil {
+		return addresses
+	}
+
+	for _, key := range keys {
+		if key.Address != "" {
+			addresses = append(addresses, key.Address)
+		}
+	}
+
+	return addresses
 }

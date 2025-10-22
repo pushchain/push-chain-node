@@ -58,6 +58,12 @@ type DashboardData struct {
 		CommissionRewards            string // Accumulated commission rewards
 		OutstandingRewards           string // Total outstanding rewards
 		Jailed                       bool
+		SlashingInfo                 struct {
+			JailReason  string // "Downtime", "Double Sign", or "Unknown"
+			JailedUntil string // RFC3339 formatted timestamp
+			Tombstoned  bool   // Whether validator is permanently jailed (double sign)
+			MissedBlocks int64  // Number of missed blocks
+		}
 		ValidatorExistsWithSameMoniker bool   // True if a different validator uses this node's moniker
 		ConflictingMoniker            string // The moniker that conflicts
 	}
@@ -73,6 +79,7 @@ type DashboardData struct {
 			OutstandingRewards   string // Total outstanding rewards
 			Address              string // Cosmos address (pushvaloper...)
 			EVMAddress           string // EVM address (0x...)
+			Jailed               bool   // Whether validator is jailed
 		}
 		Total int
 	}

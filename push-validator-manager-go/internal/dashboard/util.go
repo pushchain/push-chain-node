@@ -117,6 +117,40 @@ func DurationShort(d time.Duration) string {
 	return fmt.Sprintf("%dd%dh", days, h)
 }
 
+// FormatTimestamp formats RFC3339 timestamp to human-readable format "MMM DD, HH:MM AM/PM TZ"
+// Converts to local timezone and includes timezone abbreviation
+// Returns empty string if parsing fails
+func FormatTimestamp(rfcTime string) string {
+	if rfcTime == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339Nano, rfcTime)
+	if err != nil {
+		return ""
+	}
+	// Convert to local timezone and include timezone abbreviation with AM/PM
+	return t.Local().Format("Jan 02, 03:04 PM MST")
+}
+
+// TimeUntil calculates human-readable time remaining until a given RFC3339 timestamp
+// Returns empty string if timestamp is in the past or parsing fails
+func TimeUntil(rfcTime string) string {
+	if rfcTime == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339Nano, rfcTime)
+	if err != nil {
+		return ""
+	}
+
+	remaining := time.Until(t)
+	if remaining <= 0 {
+		return "0s"
+	}
+
+	return DurationShort(remaining)
+}
+
 // ETACalculator maintains moving average for stable ETA
 type ETACalculator struct {
 	samples []struct {

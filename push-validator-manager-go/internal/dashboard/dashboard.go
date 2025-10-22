@@ -20,6 +20,7 @@ import (
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
 
+
 // keyMap defines keyboard shortcuts
 type keyMap struct {
 	Quit       key.Binding
@@ -142,7 +143,7 @@ func New(opts Options) *Dashboard {
 		opts.RefreshInterval = 2 * time.Second
 	}
 	if opts.RPCTimeout <= 0 {
-		rt := 5 * time.Second
+		rt := 15 * time.Second
 		if 2*opts.RefreshInterval < rt {
 			rt = 2 * opts.RefreshInterval
 		}
@@ -218,10 +219,14 @@ func (m *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		// CRITICAL: Only tickMsg schedules next tick (prevents double ticker)
-		return m, tea.Batch(
-			m.fetchCmd(),
-			tickCmd(m.opts.RefreshInterval),
-		)
+		// IMPORTANT: Only fetch if no fetch is currently in progress
+		// Otherwise the new fetch will cancel the previous one
+		cmds := []tea.Cmd{tickCmd(m.opts.RefreshInterval)}
+		if m.fetchCancel == nil {
+			// No fetch in progress, safe to start a new one
+			cmds = append(cmds, m.fetchCmd())
+		}
+		return m, tea.Batch(cmds...)
 
 	case dataMsg:
 		// Successful fetch - update data and clear error
@@ -286,22 +291,54 @@ func (m *Dashboard) View() string {
 	}
 
 	if m.loading {
-		// Show centered spinner with message
+		// Create bold, styled loading message with larger text
+		spinnerStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Bold(true)
+
+		messageStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("39")).
+			Bold(true)
+
+		loadingBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("205")).
+			Padding(2, 4).
+			MarginTop(1).
+			Align(lipgloss.Center)
+
+		// Build the loading message with multiple lines
+		spinner := spinnerStyle.Render(m.spinner.View())
+		message := messageStyle.Render("CONNECTING TO RPC")
+		subtext := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Render("Initializing dashboard...")
+
+		content := lipgloss.JoinVertical(lipgloss.Center,
+			spinner,
+			message,
+			"",
+			subtext,
+		)
+
+		styledBox := loadingBox.Render(content)
+
 		return lipgloss.Place(
 			m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
-			fmt.Sprintf("%s Connecting to RPC...", m.spinner.View()),
+			styledBox,
 		)
 	}
 
 	if m.showHelp {
-		// Overlay command help - non-blocking render
+		// Overlay command help with enhanced styling
 		helpView := getCommandHelpText()
 		return lipgloss.Place(
 			m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
 			lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
 				Padding(1, 2).
 				Render(helpView),
 		)
@@ -351,54 +388,96 @@ func (m *Dashboard) View() string {
 		output += fmt.Sprintf("\n⚠ %s\n", result.Warning)
 	}
 
-	// Add footer with controls
-	footerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Bold(false)
-	footer := footerStyle.Render("Controls: h for help | Ctrl+C to exit")
+	// Add footer with highlighted controls
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("39")).
+		Bold(true)
+	textStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+
+	footer := textStyle.Render("Controls: ") +
+		keyStyle.Render("h") +
+		textStyle.Render(" for help | ") +
+		keyStyle.Render("Ctrl+C") +
+		textStyle.Render(" to exit")
+
 	output = lipgloss.JoinVertical(lipgloss.Left, output, footer)
 
 	return output
 }
 
-// getCommandHelpText returns formatted help text showing all available commands
+// getCommandHelpText returns formatted help text showing all available commands with styling
 func getCommandHelpText() string {
+	// Define color styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("39")).
+		Bold(true)
+
+	sectionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("39")).
+		Bold(true)
+
+	commandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("250"))
+
+	separatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+
+	footerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")).
+		Bold(true)
+
 	var help strings.Builder
 
-	help.WriteString("Push Validator Manager\n")
-	help.WriteString("Manage a Push Chain validator node: init, start, status, sync, and admin tasks.\n")
-	help.WriteString("──────────────────────────────────────────────────────\n\n")
+	// Title - properly center aligned with full-width separator
+	titleText := "Push Validator Manager"
+	contentWidth := 90
+	titleWidth := len(titleText)
+	titlePadding := strings.Repeat(" ", (contentWidth-titleWidth)/2)
+	help.WriteString(titlePadding + titleStyle.Render(titleText) + "\n")
+	help.WriteString(separatorStyle.Render(strings.Repeat("─", contentWidth)) + "\n\n")
 
-	help.WriteString("USAGE\n")
-	help.WriteString("  push-validator-manager <command> [flags]\n\n")
+	// USAGE
+	help.WriteString(sectionStyle.Render("USAGE") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager") + " " + descStyle.Render("<command> [flags]") + "\n\n")
 
-	help.WriteString("Quick Start\n")
-	help.WriteString("  push-validator-manager start              Start the node process\n")
-	help.WriteString("  push-validator-manager status             Show node/rpc/sync status\n")
-	help.WriteString("  push-validator-manager dashboard          Live dashboard with metrics\n")
-	help.WriteString("  push-validator-manager sync               Monitor sync progress live\n\n")
+	// Quick Start
+	help.WriteString(sectionStyle.Render("Quick Start") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager start") + strings.Repeat(" ", 14) + descStyle.Render("Start the node process") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager status") + strings.Repeat(" ", 13) + descStyle.Render("Show node/rpc/sync status") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager dashboard") + strings.Repeat(" ", 10) + descStyle.Render("Live dashboard with metrics") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager sync") + strings.Repeat(" ", 15) + descStyle.Render("Monitor sync progress live") + "\n\n")
 
-	help.WriteString("Operations\n")
-	help.WriteString("  push-validator-manager stop               Stop the node process\n")
-	help.WriteString("  push-validator-manager restart            Restart the node process\n")
-	help.WriteString("  push-validator-manager logs               Tail node logs\n\n")
+	// Operations
+	help.WriteString(sectionStyle.Render("Operations") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager stop") + strings.Repeat(" ", 15) + descStyle.Render("Stop the node process") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager restart") + strings.Repeat(" ", 12) + descStyle.Render("Restart the node process") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager logs") + strings.Repeat(" ", 15) + descStyle.Render("Tail node logs") + "\n\n")
 
-	help.WriteString("Validator\n")
-	help.WriteString("  push-validator-manager validators         List validators (--output json)\n")
-	help.WriteString("  push-validator-manager balance [addr]     Check account balance\n")
-	help.WriteString("  push-validator-manager register-validator Register this node as validator\n\n")
+	// Validator
+	help.WriteString(sectionStyle.Render("Validator") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager validators") + strings.Repeat(" ", 9) + descStyle.Render("List validators (--output json)") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager balance [addr]") + strings.Repeat(" ", 5) + descStyle.Render("Check account balance") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager register-validator") + " " + descStyle.Render("Register this node as validator") + "\n\n")
 
-	help.WriteString("Maintenance\n")
-	help.WriteString("  push-validator-manager backup             Create config/state backup\n")
-	help.WriteString("  push-validator-manager reset              Reset chain data (keeps addr book)\n")
-	help.WriteString("  push-validator-manager full-reset         Complete reset (deletes ALL)\n\n")
+	// Maintenance
+	help.WriteString(sectionStyle.Render("Maintenance") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager backup") + strings.Repeat(" ", 13) + descStyle.Render("Create config/state backup") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager reset") + strings.Repeat(" ", 14) + descStyle.Render("Reset chain data (keeps addr book)") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager full-reset") + strings.Repeat(" ", 9) + descStyle.Render("Complete reset (deletes ALL)") + "\n\n")
 
-	help.WriteString("Utilities\n")
-	help.WriteString("  push-validator-manager doctor             Run diagnostic checks\n")
-	help.WriteString("  push-validator-manager peers              List connected peers\n")
-	help.WriteString("  push-validator-manager version            Show version information\n\n")
+	// Utilities
+	help.WriteString(sectionStyle.Render("Utilities") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager doctor") + strings.Repeat(" ", 13) + descStyle.Render("Run diagnostic checks") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager peers") + strings.Repeat(" ", 14) + descStyle.Render("List connected peers") + "\n")
+	help.WriteString("  " + commandStyle.Render("push-validator-manager version") + strings.Repeat(" ", 12) + descStyle.Render("Show version information") + "\n\n")
 
-	help.WriteString("Press 'q', 'h', or 'esc' to close help")
+	// Footer
+	help.WriteString(footerStyle.Render("Press 'q', 'h', or 'esc' to close help"))
 
 	return help.String()
 }
@@ -515,6 +594,7 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 			OutstandingRewards   string // Total outstanding rewards
 			Address              string // Cosmos address (pushvaloper...)
 			EVMAddress           string // EVM address (0x...)
+			Jailed               bool   // Whether validator is jailed
 		}, len(valList.Validators))
 
 		for i, v := range valList.Validators {
@@ -523,9 +603,10 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 			data.NetworkValidators.Validators[i].VotingPower = v.VotingPower
 			data.NetworkValidators.Validators[i].Commission = v.Commission
 			data.NetworkValidators.Validators[i].Address = v.OperatorAddress
+			data.NetworkValidators.Validators[i].Jailed = v.Jailed
 			// EVM address will be fetched on-demand when user toggles to show it
 			data.NetworkValidators.Validators[i].EVMAddress = ""
-			// Rewards will be fetched lazily when page is displayed
+			// Rewards are fetched on-demand by validators_list component (cached 30s)
 			data.NetworkValidators.Validators[i].CommissionRewards = ""
 			data.NetworkValidators.Validators[i].OutstandingRewards = ""
 		}
@@ -541,12 +622,16 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 		data.MyValidator.VotingPct = myVal.VotingPct
 		data.MyValidator.Commission = myVal.Commission
 		data.MyValidator.Jailed = myVal.Jailed
+		data.MyValidator.SlashingInfo.JailReason = myVal.SlashingInfo.JailReason
+		data.MyValidator.SlashingInfo.JailedUntil = myVal.SlashingInfo.JailedUntil
+		data.MyValidator.SlashingInfo.Tombstoned = myVal.SlashingInfo.Tombstoned
+		data.MyValidator.SlashingInfo.MissedBlocks = myVal.SlashingInfo.MissedBlocks
 		data.MyValidator.ValidatorExistsWithSameMoniker = myVal.ValidatorExistsWithSameMoniker
 		data.MyValidator.ConflictingMoniker = myVal.ConflictingMoniker
 
-		// Fetch rewards for my validator if registered
+		// Fetch rewards for my validator if registered (cached 30s)
 		if myVal.IsValidator && myVal.Address != "" {
-			if commRwd, outRwd, err := validator.GetValidatorRewards(ctx, m.opts.Config, myVal.Address); err == nil {
+			if commRwd, outRwd, err := validator.GetCachedRewards(ctx, m.opts.Config, myVal.Address); err == nil {
 				data.MyValidator.CommissionRewards = commRwd
 				data.MyValidator.OutstandingRewards = outRwd
 			} else {

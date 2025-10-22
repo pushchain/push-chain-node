@@ -30,11 +30,11 @@ type ValidatorsList struct {
 	evmAddressCache    map[string]string // Cache for fetched EVM addresses
 	fetchingEVMCache   bool              // Flag to prevent duplicate concurrent fetches
 	rewardsCache       map[string]struct {
-		Commission    string
-		Outstanding   string
-	} // Cache for fetched rewards
-	rewardsCacheMu  sync.Mutex // Protects rewardsCache from concurrent access
-	fetchingRewards bool       // Flag to prevent duplicate concurrent rewards fetches
+		Commission  string
+		Outstanding string
+	} // Cache for fetched rewards (TTL handled by central fetcher)
+	rewardsCacheMu  sync.Mutex // Protect rewardsCache
+	fetchingRewards bool       // Flag to prevent duplicate concurrent fetches
 	sortedValidators []struct {
 		Moniker              string
 		Status               string
@@ -44,6 +44,7 @@ type ValidatorsList struct {
 		OutstandingRewards   string
 		Address              string
 		EVMAddress           string
+		Jailed               bool
 	} // Sorted validators array shared between render and fetch
 }
 
@@ -56,10 +57,7 @@ func NewValidatorsList(noEmoji bool, cfg config.Config) *ValidatorsList {
 		currentPage:     0,
 		pageSize:        5,
 		evmAddressCache: make(map[string]string),
-		rewardsCache: make(map[string]struct {
-			Commission    string
-			Outstanding   string
-		}),
+		rewardsCache:    make(map[string]struct{ Commission string; Outstanding string }),
 	}
 }
 
@@ -94,30 +92,30 @@ func (c *ValidatorsList) MinHeight() int {
 
 // Update receives dashboard data
 func (c *ValidatorsList) Update(msg tea.Msg, data DashboardData) (Component, tea.Cmd) {
+	oldValidatorCount := len(c.data.NetworkValidators.Validators)
 	c.data = data
+	oldAddr := c.myValidatorAddress
 	c.myValidatorAddress = data.MyValidator.Address
+	_ = oldAddr // Suppress unused variable warning
 
 	// Update sorted validators array whenever data changes
 	if len(c.data.NetworkValidators.Validators) > 0 {
 		c.sortedValidators = c.getSortedValidators()
+
+		// Trigger initial rewards fetch for first page on first data load
+		if oldValidatorCount == 0 && !c.fetchingRewards && len(c.rewardsCache) == 0 {
+			c.fetchingRewards = true
+			return c, c.fetchPageRewardsCmd()
+		}
 	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return c.handleKey(msg)
 	case rewardsFetchedMsg:
-		// Rewards have been fetched, clear the flag and return a no-op command
-		// The no-op command itself will trigger a re-render by the parent dashboard
+		// Rewards have been fetched, trigger re-render
 		c.fetchingRewards = false
-		return c, tea.Batch() // Batch with no commands still triggers re-render
-	}
-
-	// Trigger rewards fetching for current page if not already fetching
-	// Only fetch if: data is available AND not currently fetching
-	// Individual validators check cache before fetching (skip if already cached)
-	if len(c.sortedValidators) > 0 && !c.fetchingRewards {
-		c.fetchingRewards = true // Set flag IMMEDIATELY to prevent duplicate fetches
-		return c, c.fetchPageRewardsCmd()
+		return c, nil
 	}
 
 	return c, nil
@@ -133,6 +131,7 @@ func (c *ValidatorsList) getSortedValidators() []struct {
 	OutstandingRewards   string
 	Address              string
 	EVMAddress           string
+	Jailed               bool
 } {
 	validators := make([]struct {
 		Moniker              string
@@ -143,6 +142,7 @@ func (c *ValidatorsList) getSortedValidators() []struct {
 		OutstandingRewards   string
 		Address              string
 		EVMAddress           string
+		Jailed               bool
 	}, len(c.data.NetworkValidators.Validators))
 	copy(validators, c.data.NetworkValidators.Validators)
 
@@ -200,13 +200,15 @@ func (c *ValidatorsList) handleKey(msg tea.KeyMsg) (Component, tea.Cmd) {
 		// Previous page
 		if c.currentPage > 0 {
 			c.currentPage--
-			c.fetchingRewards = false // Reset flag to allow fetching for new page
+			c.fetchingRewards = true // Set flag before fetch
+			return c, c.fetchPageRewardsCmd() // Trigger rewards fetch for new page
 		}
 	case "right", "n":
 		// Next page
 		if c.currentPage < totalPages-1 {
 			c.currentPage++
-			c.fetchingRewards = false // Reset flag to allow fetching for new page
+			c.fetchingRewards = true // Set flag before fetch
+			return c, c.fetchPageRewardsCmd() // Trigger rewards fetch for new page
 		}
 	}
 
@@ -276,7 +278,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 	} else {
 		addressLabel = "ADDRESS (COSMOS)"
 	}
-	headerLine := fmt.Sprintf("%-40s %-11s %-9s %-11s %-18s %-18s %s", "MONIKER", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", addressLabel)
+	headerLine := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s", "MONIKER", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", addressLabel)
 	lines = append(lines, headerLine)
 	// Create separator line that matches the header width
 	lines = append(lines, strings.Repeat("─", len(headerLine)))
@@ -314,8 +316,11 @@ func (c *ValidatorsList) renderContent(w int) string {
 		// Truncate if still too long (40 chars max for display)
 		moniker = truncateWithEllipsis(moniker, 40)
 
-		// Show full status
+		// Show full status with jail indicator
 		status := v.Status
+		if v.Jailed && (v.Status == "UNBONDING" || v.Status == "UNBONDED") {
+			status = status + " (JAILED)"
+		}
 
 		// Format voting power (compact display)
 		powerStr := fmt.Sprintf("%s", HumanInt(v.VotingPower))
@@ -326,30 +331,26 @@ func (c *ValidatorsList) renderContent(w int) string {
 			commission = commission[:5]
 		}
 
-		// Commission rewards - check cache first, then data
+		// Commission rewards (fetched on-demand with 30s cache)
 		commRewards := v.CommissionRewards
+		c.rewardsCacheMu.Lock()
+		if cached, exists := c.rewardsCache[v.Address]; exists {
+			commRewards = cached.Commission
+		}
+		c.rewardsCacheMu.Unlock()
 		if commRewards == "" {
-			c.rewardsCacheMu.Lock()
-			cached, exists := c.rewardsCache[v.Address]
-			c.rewardsCacheMu.Unlock()
-			if exists {
-				commRewards = cached.Commission
-			} else {
-				commRewards = "—"
-			}
+			commRewards = "—"
 		}
 
-		// Outstanding rewards - check cache first, then data
+		// Outstanding rewards (fetched on-demand with 30s cache)
 		outRewards := v.OutstandingRewards
+		c.rewardsCacheMu.Lock()
+		if cached, exists := c.rewardsCache[v.Address]; exists {
+			outRewards = cached.Outstanding
+		}
+		c.rewardsCacheMu.Unlock()
 		if outRewards == "" {
-			c.rewardsCacheMu.Lock()
-			cached, exists := c.rewardsCache[v.Address]
-			c.rewardsCacheMu.Unlock()
-			if exists {
-				outRewards = cached.Outstanding
-			} else {
-				outRewards = "—"
-			}
+			outRewards = "—"
 		}
 
 		// Select address based on toggle
@@ -367,7 +368,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 		}
 
 		// Build row with flexible-width columns
-		line := fmt.Sprintf("%-40s %-11s %-9s %-11s %-18s %-18s %s",
+		line := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s",
 			moniker, status, powerStr, commission, commRewards, outRewards, address)
 
 		// Apply highlighting to own validator rows
@@ -484,11 +485,11 @@ func (c *ValidatorsList) fetchPageRewardsCmd() tea.Cmd {
 				if commRwd, outRwd, err := validator.GetValidatorRewards(ctx, c.cfg, addr); err == nil {
 					c.rewardsCacheMu.Lock()
 					c.rewardsCache[addr] = struct {
-						Commission    string
-						Outstanding   string
+						Commission  string
+						Outstanding string
 					}{
-						Commission:    commRwd,
-						Outstanding:   outRwd,
+						Commission:  commRwd,
+						Outstanding: outRwd,
 					}
 					c.rewardsCacheMu.Unlock()
 				}
@@ -499,3 +500,4 @@ func (c *ValidatorsList) fetchPageRewardsCmd() tea.Cmd {
 		return rewardsFetchedMsg{}
 	}
 }
+

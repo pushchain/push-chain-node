@@ -7,6 +7,7 @@ import (
     "os/exec"
     "sort"
     "strconv"
+    "strings"
     "sync"
     "time"
 
@@ -14,6 +15,24 @@ import (
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
+
+// truncateAddress truncates long addresses while keeping prefix and suffix visible
+func truncateAddress(addr string, maxWidth int) string {
+    if len(addr) <= maxWidth {
+        return addr
+    }
+    if strings.HasPrefix(addr, "pushvaloper") {
+        prefix := addr[:14]
+        suffix := addr[len(addr)-8:]
+        return prefix + "..." + suffix
+    }
+    if strings.HasPrefix(addr, "0x") || strings.HasPrefix(addr, "0X") {
+        prefix := addr[:6]
+        suffix := addr[len(addr)-6:]
+        return prefix + "..." + suffix
+    }
+    return addr
+}
 
 func handleValidators(cfg config.Config) error {
     return handleValidatorsWithFormat(cfg, false)
@@ -47,6 +66,7 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
             } `json:"description"`
             OperatorAddress string `json:"operator_address"`
             Status          string `json:"status"`
+            Jailed          bool   `json:"jailed"`
             Tokens          string `json:"tokens"`
             Commission      struct {
                 CommissionRates struct {
@@ -66,10 +86,20 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
         fmt.Println("No validators found or node not synced")
         return nil
     }
+
+    // Fetch my validator info to highlight in table
+    myValidatorAddr := ""
+    myValCtx, myValCancel := context.WithTimeout(context.Background(), 10*time.Second)
+    if myVal, err := validator.GetCachedMyValidator(myValCtx, cfg); err == nil {
+        myValidatorAddr = myVal.Address
+    }
+    myValCancel()
+
     type validatorDisplay struct {
         moniker        string
         status         string
         statusOrder    int
+        jailed         bool
         tokensPC       float64
         commissionPct  float64
         operatorAddr   string
@@ -82,7 +112,7 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     var wg sync.WaitGroup
 
     for i, v := range result.Validators {
-        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress}
+        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress, jailed: v.Jailed}
         if vals[i].moniker == "" { vals[i].moniker = "unknown" }
         switch v.Status {
         case "BOND_STATUS_BONDED":
@@ -122,21 +152,44 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     c := ui.NewColorConfig()
     fmt.Println()
     fmt.Println(c.Header(" 👥 Active Push Chain Validators "))
-    headers := []string{"VALIDATOR", "COSMOS_ADDR", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", "EVM_ADDRESS"}
+    headers := []string{"VALIDATOR", "COSMOS_ADDR", "STATUS", "STAKE(PC)", "COMM%", "COMM_RWD", "OUTSTND_RWD", "EVM_ADDR"}
     rows := make([][]string, 0, len(vals))
     for _, v := range vals {
-        rows = append(rows, []string{
-            v.moniker,
-            v.cosmosAddr,
-            v.status,
+        // Check if this is my validator
+        moniker := v.moniker
+        isMyValidator := myValidatorAddr != "" && v.operatorAddr == myValidatorAddr
+        if isMyValidator {
+            moniker = moniker + " [My Validator]"
+        }
+
+        // Build status string with optional (JAILED) suffix
+        statusStr := v.status
+        if v.jailed {
+            statusStr = statusStr + " (JAILED)"
+        }
+
+        row := []string{
+            moniker,
+            truncateAddress(v.cosmosAddr, 24),
+            statusStr,
             fmt.Sprintf("%.1f", v.tokensPC),
             fmt.Sprintf("%.0f%%", v.commissionPct),
             v.commissionRwd,
             v.outstandingRwd,
-            v.evmAddress,
-        })
+            truncateAddress(v.evmAddress, 16),
+        }
+
+        // Apply green highlighting to the entire row if it's my validator
+        if isMyValidator {
+            for i := range row {
+                row[i] = c.Success(row[i])
+            }
+        }
+
+        rows = append(rows, row)
     }
     fmt.Print(ui.Table(c, headers, rows, nil))
     fmt.Printf("Total Validators: %d\n", len(vals))
+    fmt.Println(c.Info("💡 Tip: Use --output=json for full addresses and raw data"))
     return nil
 }

@@ -363,6 +363,31 @@ func init() {
 	regCmd.Flags().BoolVar(&flagRegisterCheckOnly, "check-only", false, "Exit after reporting validator registration status")
 	rootCmd.AddCommand(regCmd)
 
+	// unjail command
+	unjailCmd := &cobra.Command{
+		Use:   "unjail",
+		Short: "Restore jailed validator to active status",
+		Long:  "Unjail a validator that was temporarily jailed for downtime, restoring it to the active validator set",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			handleUnjail(loadCfg())
+			return nil
+		},
+	}
+	rootCmd.AddCommand(unjailCmd)
+
+	// withdraw-rewards command
+	withdrawRewardsCmd := &cobra.Command{
+		Use:     "withdraw-rewards",
+		Aliases: []string{"withdraw", "claim-rewards"},
+		Short:   "Withdraw validator rewards and commission",
+		Long:    "Withdraw accumulated delegation rewards and optionally withdraw validator commission",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			handleWithdrawRewards(loadCfg())
+			return nil
+		},
+	}
+	rootCmd.AddCommand(withdrawRewardsCmd)
+
 	// completion and version
 	rootCmd.AddCommand(&cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Short: "Generate shell completion", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		switch args[0] {

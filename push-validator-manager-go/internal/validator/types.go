@@ -17,6 +17,14 @@ type ValidatorList struct {
 	Total      int
 }
 
+// SlashingInfo contains slashing-related information for a validator
+type SlashingInfo struct {
+	Tombstoned       bool
+	JailedUntil      string // RFC3339 formatted timestamp
+	MissedBlocks     int64
+	JailReason       string // "Downtime", "Double Sign", or "Unknown"
+}
+
 // MyValidatorInfo contains status of the current node's validator
 type MyValidatorInfo struct {
 	IsValidator                  bool
@@ -27,6 +35,7 @@ type MyValidatorInfo struct {
 	VotingPct                    float64 // Percentage of total voting power [0,1]
 	Commission                   string
 	Jailed                       bool
+	SlashingInfo                 SlashingInfo // Jail reason and details
 	ValidatorExistsWithSameMoniker bool   // True if a different validator uses this node's moniker
 	ConflictingMoniker            string // The moniker that conflicts
 }

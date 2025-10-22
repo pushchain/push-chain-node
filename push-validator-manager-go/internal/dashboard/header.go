@@ -60,11 +60,6 @@ func (c *Header) View(w, h int) string {
 	}
 
 	// Build plain text content
-	staleSuffix := ""
-	if !c.data.LastUpdate.IsZero() && time.Since(c.data.LastUpdate) > 10*time.Second {
-		staleSuffix = " (STALE)"
-	}
-
 	// Calculate interior width for centering
 	inner := w - 4 // Account for border (2) + padding (2)
 	if inner < 0 {
@@ -73,10 +68,9 @@ func (c *Header) View(w, h int) string {
 
 	// Apply bold + cyan highlighting to title
 	titleStyled := FormatTitle(c.Title(), inner)
-	line1 := fmt.Sprintf("%s%s", titleStyled, staleSuffix)
 
 	var lines []string
-	lines = append(lines, line1)
+	lines = append(lines, titleStyled)
 
 	if c.data.Err != nil {
 		errLine := fmt.Sprintf("⚠ %s", c.data.Err.Error())

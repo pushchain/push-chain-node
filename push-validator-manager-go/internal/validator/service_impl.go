@@ -255,3 +255,113 @@ func extractErrorLine(s string) string {
 }
 
 func valueOr(v, d string) string { if strings.TrimSpace(v) == "" { return d }; return v }
+
+// Unjail submits an unjail transaction to restore a jailed validator
+func (s *svc) Unjail(ctx context.Context, keyName string) (string, error) {
+	if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
+	if keyName == "" { return "", errors.New("key name required") }
+
+	// Submit unjail transaction
+	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+	ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctxTimeout, s.opts.BinPath, "tx", "slashing", "unjail",
+		"--from", keyName,
+		"--chain-id", s.opts.ChainID,
+		"--keyring-backend", s.opts.Keyring,
+		"--home", s.opts.HomeDir,
+		"--node", remote,
+		"--gas=auto", "--gas-adjustment=1.3", fmt.Sprintf("--gas-prices=1000000000%s", s.opts.Denom),
+		"--yes",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Try to extract a clean reason
+		msg := extractErrorLine(string(out))
+		if msg == "" { msg = err.Error() }
+		return "", errors.New(msg)
+	}
+
+	// Find txhash
+	lines := strings.Split(string(out), "\n")
+	for _, ln := range lines {
+		if strings.Contains(ln, "txhash:") {
+			parts := strings.SplitN(ln, "txhash:", 2)
+			if len(parts) == 2 { return strings.TrimSpace(parts[1]), nil }
+		}
+	}
+	return "", errors.New("transaction submitted; txhash not found in output")
+}
+
+// WithdrawRewards submits a transaction to withdraw delegation rewards and optionally commission
+func (s *svc) WithdrawRewards(ctx context.Context, validatorAddr string, keyName string, includeCommission bool) (string, error) {
+	if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
+	if validatorAddr == "" { return "", errors.New("validator address required") }
+	if keyName == "" { return "", errors.New("key name required") }
+
+	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+
+	// Build the withdraw rewards command using validator address directly
+	args := []string{
+		"tx", "distribution", "withdraw-rewards", validatorAddr,
+		"--from", keyName,
+		"--chain-id", s.opts.ChainID,
+		"--keyring-backend", s.opts.Keyring,
+		"--home", s.opts.HomeDir,
+		"--node", remote,
+		"--gas=auto", "--gas-adjustment=1.3", fmt.Sprintf("--gas-prices=1000000000%s", s.opts.Denom),
+		"--yes",
+	}
+
+	// Add commission flag if requested
+	if includeCommission {
+		args = append(args, "--commission")
+	}
+
+	// Submit transaction
+	ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctxTimeout, s.opts.BinPath, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Extract and enhance error message
+		msg := extractErrorLine(string(out))
+		if msg == "" { msg = err.Error() }
+
+		// Improve error messages for common cases
+		msg = improveRewardErrorMessage(msg)
+		return "", errors.New(msg)
+	}
+
+	// Find txhash
+	lines := strings.Split(string(out), "\n")
+	for _, ln := range lines {
+		if strings.Contains(ln, "txhash:") {
+			parts := strings.SplitN(ln, "txhash:", 2)
+			if len(parts) == 2 { return strings.TrimSpace(parts[1]), nil }
+		}
+	}
+	return "", errors.New("transaction submitted; txhash not found in output")
+}
+
+// improveRewardErrorMessage provides user-friendly error messages for common withdrawal failures
+func improveRewardErrorMessage(msg string) string {
+	msg = strings.ToLower(msg)
+
+	if strings.Contains(msg, "no delegation distribution info") {
+		return "No rewards to withdraw. This is normal for new validators that haven't earned any rewards yet."
+	}
+	if strings.Contains(msg, "insufficient") && strings.Contains(msg, "fee") {
+		return "Insufficient balance to pay transaction fees. Check your account balance."
+	}
+	if strings.Contains(msg, "invalid coins") || strings.Contains(msg, "empty") {
+		return "No rewards available to withdraw."
+	}
+	if strings.Contains(msg, "unauthorized") {
+		return "Transaction signing failed. Check that the key exists and is accessible."
+	}
+
+	return msg
+}

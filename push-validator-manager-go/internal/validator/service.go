@@ -18,6 +18,8 @@ type Service interface {
     IsValidator(ctx context.Context, addr string) (bool, error)
     Balance(ctx context.Context, addr string) (string, error) // denom string for now
     Register(ctx context.Context, args RegisterArgs) (string, error) // returns tx hash
+    Unjail(ctx context.Context, keyName string) (string, error) // returns tx hash
+    WithdrawRewards(ctx context.Context, validatorAddr string, keyName string, includeCommission bool) (string, error) // returns tx hash
 }
 
 type RegisterArgs struct {
@@ -38,4 +40,6 @@ func (n *noop) GetEVMAddress(ctx context.Context, addr string) (string, error) {
 func (n *noop) IsValidator(ctx context.Context, addr string) (bool, error) { return false, nil }
 func (n *noop) Balance(ctx context.Context, addr string) (string, error) { return "0", nil }
 func (n *noop) Register(ctx context.Context, args RegisterArgs) (string, error) { return "", nil }
+func (n *noop) Unjail(ctx context.Context, keyName string) (string, error) { return "", nil }
+func (n *noop) WithdrawRewards(ctx context.Context, validatorAddr string, keyName string, includeCommission bool) (string, error) { return "", nil }
 

@@ -100,9 +100,6 @@ func NewLogViewer(noEmoji bool, homeDir string) *LogViewer {
 		mu:            sync.RWMutex{}, // Explicit mutex initialization
 	}
 
-	// Debug log
-	fmt.Fprintf(os.Stderr, "DEBUG: LogViewer initialized (logPath=%s)\n", logPath)
-
 	// Start background log tailer AFTER all fields are initialized
 	ctx, cancel := context.WithCancel(context.Background())
 	lv.cancel = cancel

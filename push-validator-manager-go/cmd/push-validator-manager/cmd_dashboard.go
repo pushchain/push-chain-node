@@ -72,7 +72,7 @@ to a static text snapshot.`,
 
 	// Flags
 	cmd.Flags().DurationVar(&refreshInterval, "refresh-interval", 2*time.Second, "Dashboard refresh interval")
-	cmd.Flags().DurationVar(&rpcTimeout, "rpc-timeout", 5*time.Second, "RPC request timeout")
+	cmd.Flags().DurationVar(&rpcTimeout, "rpc-timeout", 15*time.Second, "RPC request timeout")
 	cmd.Flags().BoolVar(&debugMode, "debug", false, "Enable debug mode for troubleshooting")
 
 	return cmd
@@ -143,8 +143,8 @@ func normalizeDashboardOptions(opts dashboard.Options) dashboard.Options {
 		opts.RefreshInterval = 2 * time.Second
 	}
 	if opts.RPCTimeout <= 0 {
-		// Default to 5s but cap at twice the refresh interval so the UI remains responsive.
-		timeout := 5 * time.Second
+		// Default to 15s but cap at twice the refresh interval so the UI remains responsive.
+		timeout := 15 * time.Second
 		if opts.RefreshInterval > 0 {
 			candidate := 2 * opts.RefreshInterval
 			if candidate < timeout {

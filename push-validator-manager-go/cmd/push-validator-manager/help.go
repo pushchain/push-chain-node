@@ -48,6 +48,8 @@ func init() {
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager validators", "List validators (default pretty, --output json)"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager balance [address]", "Check account balance (defaults to KEY_NAME)"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator-manager register-validator", "Register this node as a validator"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator-manager unjail", "Restore jailed validator to active status"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator-manager withdraw-rewards", "Withdraw validator rewards and commission"))
 		fmt.Fprintln(w)
 
 		// Maintenance

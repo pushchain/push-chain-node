@@ -295,8 +295,8 @@ func (m *Dashboard) View() string {
 	}
 
 	if m.showHelp {
-		// Overlay full help - non-blocking render
-		helpView := m.help.View(m.keys)
+		// Overlay command help - non-blocking render
+		helpView := getCommandHelpText()
 		return lipgloss.Place(
 			m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
@@ -355,14 +355,66 @@ func (m *Dashboard) View() string {
 	footerStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
 		Bold(false)
-	footer := footerStyle.Render("Controls: Ctrl+C to exit")
+	footer := footerStyle.Render("Controls: h for help | Ctrl+C to exit")
 	output = lipgloss.JoinVertical(lipgloss.Left, output, footer)
 
 	return output
 }
 
+// getCommandHelpText returns formatted help text showing all available commands
+func getCommandHelpText() string {
+	var help strings.Builder
+
+	help.WriteString("Push Validator Manager\n")
+	help.WriteString("Manage a Push Chain validator node: init, start, status, sync, and admin tasks.\n")
+	help.WriteString("──────────────────────────────────────────────────────\n\n")
+
+	help.WriteString("USAGE\n")
+	help.WriteString("  push-validator-manager <command> [flags]\n\n")
+
+	help.WriteString("Quick Start\n")
+	help.WriteString("  push-validator-manager start              Start the node process\n")
+	help.WriteString("  push-validator-manager status             Show node/rpc/sync status\n")
+	help.WriteString("  push-validator-manager dashboard          Live dashboard with metrics\n")
+	help.WriteString("  push-validator-manager sync               Monitor sync progress live\n\n")
+
+	help.WriteString("Operations\n")
+	help.WriteString("  push-validator-manager stop               Stop the node process\n")
+	help.WriteString("  push-validator-manager restart            Restart the node process\n")
+	help.WriteString("  push-validator-manager logs               Tail node logs\n\n")
+
+	help.WriteString("Validator\n")
+	help.WriteString("  push-validator-manager validators         List validators (--output json)\n")
+	help.WriteString("  push-validator-manager balance [addr]     Check account balance\n")
+	help.WriteString("  push-validator-manager register-validator Register this node as validator\n\n")
+
+	help.WriteString("Maintenance\n")
+	help.WriteString("  push-validator-manager backup             Create config/state backup\n")
+	help.WriteString("  push-validator-manager reset              Reset chain data (keeps addr book)\n")
+	help.WriteString("  push-validator-manager full-reset         Complete reset (deletes ALL)\n\n")
+
+	help.WriteString("Utilities\n")
+	help.WriteString("  push-validator-manager doctor             Run diagnostic checks\n")
+	help.WriteString("  push-validator-manager peers              List connected peers\n")
+	help.WriteString("  push-validator-manager version            Show version information\n\n")
+
+	help.WriteString("Press 'q', 'h', or 'esc' to close help")
+
+	return help.String()
+}
+
 // handleKey processes keyboard input
 func (m *Dashboard) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If help is showing, allow closing it with q, h, or esc
+	if m.showHelp {
+		switch msg.String() {
+		case "q", "h", "esc":
+			return m, func() tea.Msg { return toggleHelpMsg{} }
+		}
+		// Ignore other keys while help is showing
+		return m, nil
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Quit):
 		if m.fetchCancel != nil {

@@ -200,11 +200,13 @@ func (c *ValidatorsList) handleKey(msg tea.KeyMsg) (Component, tea.Cmd) {
 		// Previous page
 		if c.currentPage > 0 {
 			c.currentPage--
+			c.fetchingRewards = false // Reset flag to allow fetching for new page
 		}
 	case "right", "n":
 		// Next page
 		if c.currentPage < totalPages-1 {
 			c.currentPage++
+			c.fetchingRewards = false // Reset flag to allow fetching for new page
 		}
 	}
 
@@ -274,7 +276,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 	} else {
 		addressLabel = "ADDRESS (COSMOS)"
 	}
-	headerLine := fmt.Sprintf("%-40s %-11s STAKE(PC) COMM%% %-15s %-15s %s", "MONIKER", "STATUS", "COMM_RWD", "OUT_RWD", addressLabel)
+	headerLine := fmt.Sprintf("%-40s %-11s %-9s %-11s %-18s %-18s %s", "MONIKER", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", addressLabel)
 	lines = append(lines, headerLine)
 	// Create separator line that matches the header width
 	lines = append(lines, strings.Repeat("─", len(headerLine)))
@@ -307,7 +309,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 		// Show full moniker with indicator if our validator
 		moniker := v.Moniker
 		if isOurValidator {
-			moniker = moniker + " [Y]"
+			moniker = moniker + " [My Validator]"
 		}
 		// Truncate if still too long (40 chars max for display)
 		moniker = truncateWithEllipsis(moniker, 40)
@@ -365,7 +367,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 		}
 
 		// Build row with flexible-width columns
-		line := fmt.Sprintf("%-40s %-11s %-9s %-5s %-15s %-15s %s",
+		line := fmt.Sprintf("%-40s %-11s %-9s %-11s %-18s %-18s %s",
 			moniker, status, powerStr, commission, commRewards, outRewards, address)
 
 		// Apply highlighting to own validator rows

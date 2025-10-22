@@ -12,6 +12,7 @@ import (
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
     "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/metrics"
     ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
+    "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/validator"
 )
 
 // statusResult models the key process and RPC fields shown by the
@@ -30,6 +31,9 @@ type statusResult struct {
     Height       int64  `json:"height"`
     RemoteHeight int64  `json:"remote_height,omitempty"`
     SyncProgress float64 `json:"sync_progress,omitempty"` // Percentage (0-100)
+
+    // Validator status
+    IsValidator  bool   `json:"is_validator,omitempty"`
 
     // Network information
     Peers        int    `json:"peers,omitempty"`
@@ -68,6 +72,19 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
             if st.NodeID != "" { res.NodeID = st.NodeID }
             if st.Moniker != "" { res.Moniker = st.Moniker }
             if st.Network != "" { res.Network = st.Network }
+            // Check validator registration status (best-effort, 3s timeout)
+            v := validator.NewWith(validator.Options{
+                BinPath:       findPchaind(),
+                HomeDir:       cfg.HomeDir,
+                ChainID:       cfg.ChainID,
+                Keyring:       cfg.KeyringBackend,
+                GenesisDomain: cfg.GenesisDomain,
+                Denom:         cfg.Denom,
+            })
+            valCtx, valCancel := context.WithTimeout(context.Background(), 3*time.Second)
+            isVal, _ := v.IsValidator(valCtx, "")
+            valCancel()
+            res.IsValidator = isVal
             // Enrich with remote height and peers (best-effort)
             remote := "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443"
             col := metrics.New()
@@ -117,6 +134,13 @@ func printStatusText(result statusResult) {
         syncVal = "Catching Up"
     }
 
+    validatorIcon := c.StatusIcon("offline")
+    validatorVal := "Not Registered"
+    if result.IsValidator {
+        validatorIcon = c.StatusIcon("online")
+        validatorVal = "Registered"
+    }
+
     heightVal := ui.FormatNumber(result.Height)
     if result.Error != "" {
         heightVal = c.Error(result.Error)
@@ -146,6 +170,7 @@ func printStatusText(result statusResult) {
         fmt.Sprintf("%s %s", nodeIcon, c.FormatKeyValue("Node", nodeVal)),
         fmt.Sprintf("%s %s", rpcIcon, c.FormatKeyValue("RPC", rpcVal)),
         fmt.Sprintf("%s %s", syncIcon, c.FormatKeyValue("Sync", strings.TrimSpace(syncVal+" "+prog))),
+        fmt.Sprintf("%s %s", validatorIcon, c.FormatKeyValue("Validator", validatorVal)),
         fmt.Sprintf("%s %s", c.Info("ℹ"), c.FormatKeyValue("Height", heightVal)),
     }
     if result.Network != "" {

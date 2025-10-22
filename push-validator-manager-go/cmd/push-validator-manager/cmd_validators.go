@@ -122,7 +122,7 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     c := ui.NewColorConfig()
     fmt.Println()
     fmt.Println(c.Header(" 👥 Active Push Chain Validators "))
-    headers := []string{"VALIDATOR", "COSMOS_ADDR", "STATUS", "STAKE(PC)", "COMM%", "COMM_RWD", "OUT_RWD", "EVM_ADDRESS"}
+    headers := []string{"VALIDATOR", "COSMOS_ADDR", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", "EVM_ADDRESS"}
     rows := make([][]string, 0, len(vals))
     for _, v := range vals {
         rows = append(rows, []string{

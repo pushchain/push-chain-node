@@ -16,6 +16,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/bootstrap"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/config"
+	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/dashboard"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/exitcodes"
 	"github.com/pushchain/push-chain-node/push-validator-manager-go/internal/process"
 	ui "github.com/pushchain/push-chain-node/push-validator-manager-go/internal/ui"
@@ -450,20 +451,18 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 	statusCancel()
 
 	if err != nil {
-		// If we can't check status, just show logs
+		// If we can't check status, show dashboard
 		fmt.Println(p.Colors.Warning("⚠ Could not verify validator status"))
 		fmt.Println()
-		sup := process.New(cfg.HomeDir)
-		_ = handleLogs(sup)
+		_ = handleDashboard(cfg)
 		return false
 	}
 
 	if isValidator {
-		// Already a validator - show logs immediately
+		// Already a validator - show dashboard immediately
 		fmt.Println(p.Colors.Success("✓ Already registered as validator"))
 		fmt.Println()
-		sup := process.New(cfg.HomeDir)
-		_ = handleLogs(sup)
+		_ = handleDashboard(cfg)
 		return true
 	}
 
@@ -476,9 +475,8 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 
 	// Check if we're in an interactive terminal
 	if !isTerminalInteractive() {
-		// Non-interactive - just show logs
-		sup := process.New(cfg.HomeDir)
-		_ = handleLogs(sup)
+		// Non-interactive - show dashboard
+		_ = handleDashboard(cfg)
 		return true
 	}
 
@@ -493,9 +491,8 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		line, readErr := reader.ReadString('\n')
 		ttyFile.Close()
 		if readErr != nil {
-			// Error reading input - just show logs
-			sup := process.New(cfg.HomeDir)
-			_ = handleLogs(sup)
+			// Error reading input - show dashboard
+			_ = handleDashboard(cfg)
 			return false
 		}
 		response = strings.ToLower(strings.TrimSpace(line))
@@ -504,8 +501,7 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		reader := bufio.NewReader(os.Stdin)
 		line, readErr := reader.ReadString('\n')
 		if readErr != nil {
-			sup := process.New(cfg.HomeDir)
-			_ = handleLogs(sup)
+			_ = handleDashboard(cfg)
 			return false
 		}
 		response = strings.ToLower(strings.TrimSpace(line))
@@ -518,10 +514,22 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		fmt.Println()
 	}
 
-	// Always show logs at the end
-	sup := process.New(cfg.HomeDir)
-	_ = handleLogs(sup)
+	// Always show dashboard at the end
+	_ = handleDashboard(cfg)
 	return true
+}
+
+// handleDashboard launches the interactive dashboard
+func handleDashboard(cfg config.Config) error {
+	opts := dashboard.Options{
+		Config:          cfg,
+		RefreshInterval: 3 * time.Second,
+		RPCTimeout:      5 * time.Second,
+		NoColor:         flagNoColor,
+		NoEmoji:         flagNoEmoji,
+		Debug:           false,
+	}
+	return runDashboardInteractive(opts)
 }
 
 // isTerminalInteractive checks if we're running in an interactive terminal

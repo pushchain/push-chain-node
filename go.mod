@@ -10,6 +10,7 @@ replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 	cosmossdk.io/store => github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe
 	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
+	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.7
 	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7
 	github.com/cosmos/evm => ../../evm

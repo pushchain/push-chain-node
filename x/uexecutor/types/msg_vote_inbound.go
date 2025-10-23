@@ -36,7 +36,7 @@ func NewMsgVoteInbound(
 func (msg MsgVoteInbound) Route() string { return ModuleName }
 
 // Type returns the the action
-func (msg MsgVoteInbound) Type() string { return "mint_pc" }
+func (msg MsgVoteInbound) Type() string { return "msg_vote_inbound" }
 
 // GetSignBytes implements the LegacyMsg interface.
 func (msg MsgVoteInbound) GetSignBytes() []byte {

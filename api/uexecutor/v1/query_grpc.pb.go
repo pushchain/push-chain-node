@@ -23,6 +23,8 @@ const (
 	Query_AllPendingInbounds_FullMethodName = "/uexecutor.v1.Query/AllPendingInbounds"
 	Query_GetUniversalTx_FullMethodName     = "/uexecutor.v1.Query/GetUniversalTx"
 	Query_AllUniversalTx_FullMethodName     = "/uexecutor.v1.Query/AllUniversalTx"
+	Query_GasPrice_FullMethodName           = "/uexecutor.v1.Query/GasPrice"
+	Query_AllGasPrices_FullMethodName       = "/uexecutor.v1.Query/AllGasPrices"
 )
 
 // QueryClient is the client API for Query service.
@@ -37,6 +39,10 @@ type QueryClient interface {
 	GetUniversalTx(ctx context.Context, in *QueryGetUniversalTxRequest, opts ...grpc.CallOption) (*QueryGetUniversalTxResponse, error)
 	// Queries all UniversalTxs.
 	AllUniversalTx(ctx context.Context, in *QueryAllUniversalTxRequest, opts ...grpc.CallOption) (*QueryAllUniversalTxResponse, error)
+	// 🔹 Queries gas price for a specific chain
+	GasPrice(ctx context.Context, in *QueryGasPriceRequest, opts ...grpc.CallOption) (*QueryGasPriceResponse, error)
+	// 🔹 Queries all gas prices across chains
+	AllGasPrices(ctx context.Context, in *QueryAllGasPricesRequest, opts ...grpc.CallOption) (*QueryAllGasPricesResponse, error)
 }
 
 type queryClient struct {
@@ -83,6 +89,24 @@ func (c *queryClient) AllUniversalTx(ctx context.Context, in *QueryAllUniversalT
 	return out, nil
 }
 
+func (c *queryClient) GasPrice(ctx context.Context, in *QueryGasPriceRequest, opts ...grpc.CallOption) (*QueryGasPriceResponse, error) {
+	out := new(QueryGasPriceResponse)
+	err := c.cc.Invoke(ctx, Query_GasPrice_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllGasPrices(ctx context.Context, in *QueryAllGasPricesRequest, opts ...grpc.CallOption) (*QueryAllGasPricesResponse, error) {
+	out := new(QueryAllGasPricesResponse)
+	err := c.cc.Invoke(ctx, Query_AllGasPrices_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -95,6 +119,10 @@ type QueryServer interface {
 	GetUniversalTx(context.Context, *QueryGetUniversalTxRequest) (*QueryGetUniversalTxResponse, error)
 	// Queries all UniversalTxs.
 	AllUniversalTx(context.Context, *QueryAllUniversalTxRequest) (*QueryAllUniversalTxResponse, error)
+	// 🔹 Queries gas price for a specific chain
+	GasPrice(context.Context, *QueryGasPriceRequest) (*QueryGasPriceResponse, error)
+	// 🔹 Queries all gas prices across chains
+	AllGasPrices(context.Context, *QueryAllGasPricesRequest) (*QueryAllGasPricesResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -113,6 +141,12 @@ func (UnimplementedQueryServer) GetUniversalTx(context.Context, *QueryGetUnivers
 }
 func (UnimplementedQueryServer) AllUniversalTx(context.Context, *QueryAllUniversalTxRequest) (*QueryAllUniversalTxResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllUniversalTx not implemented")
+}
+func (UnimplementedQueryServer) GasPrice(context.Context, *QueryGasPriceRequest) (*QueryGasPriceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GasPrice not implemented")
+}
+func (UnimplementedQueryServer) AllGasPrices(context.Context, *QueryAllGasPricesRequest) (*QueryAllGasPricesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllGasPrices not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -199,6 +233,42 @@ func _Query_AllUniversalTx_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_GasPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGasPriceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GasPrice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_GasPrice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GasPrice(ctx, req.(*QueryGasPriceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllGasPrices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllGasPricesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllGasPrices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllGasPrices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllGasPrices(ctx, req.(*QueryAllGasPricesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -221,6 +291,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllUniversalTx",
 			Handler:    _Query_AllUniversalTx_Handler,
+		},
+		{
+			MethodName: "GasPrice",
+			Handler:    _Query_GasPrice_Handler,
+		},
+		{
+			MethodName: "AllGasPrices",
+			Handler:    _Query_AllGasPrices_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -255,6 +255,16 @@ const UNIVERSAL_CORE_ABI = `[
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setGasPrice",
+      "inputs": [
+        { "name": "chainID", "type": "string", "internalType": "string" },
+        { "name": "price", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     }
 ]`
 

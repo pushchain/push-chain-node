@@ -202,6 +202,49 @@ func (k Keeper) CallPRC20Deposit(
 	)
 }
 
+// Calls UniversalCore Contract to set gas price
+func (k Keeper) CallUniversalCoreSetGasPrice(
+	ctx sdk.Context,
+	chainID string,
+	price *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	// Before sending an EVM tx from module
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// increment first (safe for internal modules)
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // who is sending the transaction
+		handlerAddr,        // destination: Handler contract
+		big.NewInt(0),
+		nil,
+		true,   // commit = true (real tx, not simulation)
+		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		false,  // module sender = true
+		&nonce, // manual nonce of module
+		"setGasPrice",
+		chainID,
+		price,
+	)
+}
+
 // Calls Handler Contract to deposit prc20 tokens
 func (k Keeper) CallPRC20DepositAutoSwap(
 	ctx sdk.Context,

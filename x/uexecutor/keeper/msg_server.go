@@ -119,3 +119,37 @@ func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) 
 
 	return &types.MsgVoteInboundResponse{}, nil
 }
+
+// VoteGasPrice implements types.MsgServer.
+func (ms msgServer) VoteGasPrice(ctx context.Context, msg *types.MsgVoteGasPrice) (*types.MsgVoteGasPriceResponse, error) {
+	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	// Convert account to validator operator address
+	signerValAddr := sdk.ValAddress(signerAccAddr)
+
+	// Lookup the linked universal validator for this signer
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
+	}
+	if !isBonded {
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
+	}
+
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
+	}
+	if isTombstoned {
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
+	}
+
+	err = ms.k.VoteGasPrice(ctx, signerValAddr, msg.ChainId, msg.Price, msg.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgVoteGasPriceResponse{}, nil
+}

@@ -29,6 +29,9 @@ service Msg {
 
   // VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
   rpc VoteInbound(MsgVoteInbound) returns (MsgVoteInboundResponse);
+
+  // VoteGasPrice defines a message for universal validators to vote on the gas price
+  rpc VoteGasPrice(MsgVoteGasPrice) returns (MsgVoteGasPriceResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -126,3 +129,17 @@ message MsgVoteInbound {
 
 // MsgVoteInboundResponse defines the response for MsgExecutePayload.
 message MsgVoteInboundResponse {}
+
+// MsgVoteGasPrice is broadcasted by Universal Validators to submit their observed gas prices
+message MsgVoteGasPrice {
+  option (amino.name) = "uexecutor/MsgVoteGasPrice";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];       // Universal Validator address submitting the vote
+  string chain_id = 2;      // CAIP-2 chain ID (e.g. "eip155:1")
+  uint64 price = 3;         // Observed gas price in wei
+  uint64 block_number = 4;  // Block number from which price was observed
+}
+
+// MsgVoteGasPriceResponse defines the response for MsgVoteGasPrice
+message MsgVoteGasPriceResponse {}

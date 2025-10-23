@@ -44,6 +44,9 @@ type Keeper struct {
 
 	// Module account manual nonce
 	ModuleAccountNonce collections.Item[uint64]
+
+	// GasPrices collection stores aggregated gas price data for each chain
+	GasPrices collections.Map[string, types.GasPrice]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -104,6 +107,14 @@ func NewKeeper(
 			types.ModuleAccountNonceKey,
 			types.ModuleAccountNonceName,
 			collections.Uint64Value,
+		),
+
+		GasPrices: collections.NewMap(
+			sb,
+			types.GasPricesKey,
+			types.GasPricesName,
+			collections.StringKey,
+			codec.CollValue[types.GasPrice](cdc),
 		),
 	}
 

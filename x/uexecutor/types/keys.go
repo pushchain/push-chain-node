@@ -27,6 +27,9 @@ var (
 
 	ModuleAccountNonceKey  = collections.NewPrefix(4)
 	ModuleAccountNonceName = "module_account_nonce"
+
+	GasPricesKey  = collections.NewPrefix(5)
+	GasPricesName = "gas_prices"
 )
 
 const (

@@ -1,0 +1,20 @@
+syntax = "proto3";
+package uexecutor.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
+
+// GasPrice stores aggregated gas price data for a given chain
+message GasPrice {
+  option (amino.name) = "uexecutor/gas_price";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string chain_id = 1;             // Target chain ID (CAIP-2)
+  repeated string signers = 2;     // Validators who submitted votes
+  repeated uint64 block_nums = 3;  // Block numbers corresponding to each price
+  repeated uint64 prices = 4;      // Submitted gas prices
+  uint64 median_index = 5;         // Index of the median price in 'prices'
+}

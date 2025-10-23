@@ -99,3 +99,50 @@ func (k Keeper) AllPendingInbounds(goCtx context.Context, req *types.QueryAllPen
 		Pagination: pageRes,
 	}, nil
 }
+
+// GasPrice implements types.QueryServer.
+func (k Querier) GasPrice(goCtx context.Context, req *types.QueryGasPriceRequest) (*types.QueryGasPriceResponse, error) {
+	if req == nil || req.ChainId == "" {
+		return nil, status.Error(codes.InvalidArgument, "chain_id is required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Try to fetch the gas price from keeper
+	gasPrice, err := k.GasPrices.Get(ctx, req.ChainId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "no gas price found for chain_id: %s", req.ChainId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryGasPriceResponse{
+		GasPrice: &gasPrice,
+	}, nil
+}
+
+// AllGasPrices implements types.QueryServer.
+func (k Querier) AllGasPrices(goCtx context.Context, req *types.QueryAllGasPricesRequest) (*types.QueryAllGasPricesResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	var all []*types.GasPrice
+
+	items, pageRes, err := query.CollectionPaginate(ctx, k.GasPrices, req.Pagination, func(key string, value types.GasPrice) (*types.GasPrice, error) {
+		return &value, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	all = append(all, items...)
+
+	return &types.QueryAllGasPricesResponse{
+		GasPrices:  all,
+		Pagination: pageRes,
+	}, nil
+}

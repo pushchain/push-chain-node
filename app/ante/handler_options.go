@@ -2,6 +2,7 @@ package ante
 
 import (
 	"context"
+	"time"
 
 	addresscodec "cosmossdk.io/core/address"
 	corestoretypes "cosmossdk.io/core/store"
@@ -38,6 +39,9 @@ type AccountKeeper interface {
 	GetParams(ctx context.Context) (params authtypes.Params)
 	GetSequence(ctx context.Context, addr sdk.AccAddress) (uint64, error)
 	AddressCodec() addresscodec.Codec
+	RemoveExpiredUnorderedNonces(ctx sdk.Context) error
+	TryAddUnorderedNonce(sdk.Context, []byte, time.Time) error
+	UnorderedTransactionsEnabled() bool
 }
 
 // HandlerOptions defines the list of module keepers required to run the EVM

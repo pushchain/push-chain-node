@@ -23,7 +23,7 @@ import (
 
 // Constants for event parsing
 var (
-	UniversalTxDiscriminator = "2b1f1f0204ec6bff"
+	UniversalTxDiscriminator = strings.ToLower("6C9AD829B5EA1D7C")
 	AddFundsDiscriminator    = "7f1f6cffbb134644"
 )
 
@@ -67,11 +67,7 @@ func NewEventParser(
 
 	for _, method := range config.GatewayMethods {
 		if method.EventIdentifier != "" {
-			// if 0th index, then set UniversalTxDiscriminator
-			if len(eventTopics) == 0 {
-				UniversalTxDiscriminator = method.EventIdentifier
-			}
-			eventTopics = append(eventTopics, method.EventIdentifier)
+			eventTopics = append(eventTopics, strings.ToLower(method.EventIdentifier))
 			logger.Info().
 				Str("event_identifier", method.EventIdentifier).
 				Msg("registered event topic from config")
@@ -249,14 +245,6 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 	payload.Recipient = "0x" + hex.EncodeToString(recipientBytes)
 	offset += 20
 
-	// Parse bridge_amount (8 bytes)
-	if len(data) < offset+8 {
-		return nil, fmt.Errorf("not enough data for bridge_amount")
-	}
-	bridgeAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
-	payload.Amount = fmt.Sprintf("%d", bridgeAmount)
-	offset += 8
-
 	// Parse bridge_token (32 bytes)
 	if len(data) < offset+32 {
 		return nil, fmt.Errorf("not enough data for bridge_token")
@@ -264,6 +252,14 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 	bridgeToken := solana.PublicKey(data[offset : offset+32])
 	payload.Token = bridgeToken.String()
 	offset += 32
+
+	// Parse bridge_amount (8 bytes)
+	if len(data) < offset+8 {
+		return nil, fmt.Errorf("not enough data for bridge_amount")
+	}
+	bridgeAmount := binary.LittleEndian.Uint64(data[offset : offset+8])
+	payload.Amount = fmt.Sprintf("%d", bridgeAmount)
+	offset += 8
 
 	// Parse data field length (4 bytes)
 	if len(data) < offset+4 {

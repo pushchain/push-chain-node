@@ -108,7 +108,7 @@ func checkProcessRunning(cfg config.Config, c *ui.ColorConfig) checkResult {
 	} else {
 		result.Status = "fail"
 		result.Message = "Validator process not running"
-		result.Details = []string{"Run 'push-validator-manager start' to start the node"}
+		result.Details = []string{"Run 'push-validator start' to start the node"}
 	}
 
 	printCheck(result, c)
@@ -162,7 +162,7 @@ func checkConfigFiles(cfg config.Config, c *ui.ColorConfig) checkResult {
 	if len(missing) > 0 {
 		result.Status = "fail"
 		result.Message = fmt.Sprintf("Missing configuration files: %s", strings.Join(missing, ", "))
-		result.Details = []string{"Run 'push-validator-manager init' to initialize configuration"}
+		result.Details = []string{"Run 'push-validator init' to initialize configuration"}
 	} else {
 		result.Status = "pass"
 		result.Message = "All required configuration files present"

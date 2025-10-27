@@ -50,7 +50,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		p.Warn("Cannot find repository. The update command requires installation from source.")
 		p.Info("To update:")
 		p.Info("1. Clone/pull the repository: https://github.com/pushchain/push-chain-node")
-		p.Info("2. Run: bash push-validator-manager/install.sh --use-local")
+		p.Info("2. Run: bash push-validator/install.sh --use-local")
 		return exitcodes.PreconditionError("not installed from repository")
 	}
 
@@ -114,7 +114,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// Rebuild binaries
 	p.Info("Rebuilding binaries...")
 
-	installScript := filepath.Join(repoDir, "push-validator-manager", "install.sh")
+	installScript := filepath.Join(repoDir, "push-validator", "install.sh")
 	if _, err := os.Stat(installScript); os.IsNotExist(err) {
 		return exitcodes.PreconditionErrorf("install script not found at %s", installScript)
 	}
@@ -131,7 +131,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	p.Success("Update completed successfully!")
-	p.Info("Restart the node with: push-validator-manager restart")
+	p.Info("Restart the node with: push-validator restart")
 
 	return nil
 }
@@ -144,8 +144,8 @@ func findRepoRoot(startDir string) string {
 			return dir
 		}
 
-		// Also check for push-validator-manager directory
-		pvmDir := filepath.Join(dir, "push-validator-manager")
+		// Also check for push-validator directory
+		pvmDir := filepath.Join(dir, "push-validator")
 		if stat, err := os.Stat(pvmDir); err == nil && stat.IsDir() {
 			return dir
 		}

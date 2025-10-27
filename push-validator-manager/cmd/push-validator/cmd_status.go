@@ -191,6 +191,6 @@ func printStatusText(result statusResult) {
 
     // Add hint when no peers connected
     if result.Peers == 0 && result.Running && result.RPCListening {
-        fmt.Printf("\n%s Check connectivity: push-validator-manager doctor\n", c.Info("ℹ"))
+        fmt.Printf("\n%s Check connectivity: push-validator doctor\n", c.Info("ℹ"))
     }
 }

@@ -264,19 +264,20 @@ func init() {
 			if flagOutput == "json" {
 				p.JSON(map[string]any{"ok": true, "action": "start"})
 			} else {
-				p.Success("✓ Node started")
-				fmt.Println()
-				fmt.Println(p.Colors.Info("Useful commands:"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager dashboard"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
-				fmt.Println()
+				p.Success("  Node started")
 
 				// Check validator status and show appropriate next steps (skip if --no-prompt)
 				if !startNoPrompt {
+					fmt.Println()
+					fmt.Println(p.Colors.Info("Useful commands:"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator status"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator dashboard"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator logs"))
+					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
+					fmt.Println()
+
 					if !handlePostStartFlow(cfg, &p) {
 						// If post-start flow fails, just continue (node is already started)
 						return nil
@@ -308,8 +309,8 @@ func init() {
 					"Start preconditions failed (see start command)",
 				},
 				Actions: []string{
-					"Check logs: push-validator-manager logs",
-					"Try: push-validator-manager stop; then start",
+					"Check logs: push-validator logs",
+					"Try: push-validator stop; then start",
 				},
 			})
 			return err
@@ -320,11 +321,11 @@ func init() {
 			p.Success("✓ Node restarted")
 			fmt.Println()
 			fmt.Println(p.Colors.Info("Useful commands:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager status"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator status"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check sync progress)"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager dashboard"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator dashboard"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager logs"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator logs"))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
 		}
 		return nil
@@ -495,7 +496,7 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Println("1. Get test tokens from: https://faucet.push.org")
-	fmt.Println("2. Register as validator: push-validator-manager register-validator")
+	fmt.Println("2. Register as validator: push-validator register-validator")
 	fmt.Println()
 
 	// Check if we're in an interactive terminal

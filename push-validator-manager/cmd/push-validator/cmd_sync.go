@@ -62,9 +62,9 @@ func init() {
 			if !syncSkipFinal {
 				out := cmd.OutOrStdout()
 				if flagQuiet {
-					fmt.Fprintln(out, "Sync complete.")
+					fmt.Fprintln(out, "  Sync complete.")
 				} else {
-					fmt.Fprintln(out, "✅ Sync complete! Node is fully synced.")
+					fmt.Fprintln(out, "  ✓ Sync complete! Node is fully synced.")
 				}
 			}
 			return nil

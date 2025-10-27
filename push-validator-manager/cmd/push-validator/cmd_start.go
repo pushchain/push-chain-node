@@ -18,7 +18,7 @@ func handleStop(sup process.Supervisor) error {
         p.Success("✓ Node stopped")
         fmt.Println()
         fmt.Println(p.Colors.Info("Next steps:"))
-        fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager start"))
+        fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator start"))
         fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (start the node)"))
     }
     return nil

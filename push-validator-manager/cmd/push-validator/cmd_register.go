@@ -83,10 +83,10 @@ func handleRegisterValidator(cfg config.Config) {
 			p.Section("Validator Status")
 			fmt.Println()
 			fmt.Println(p.Colors.Info("  Check your validator:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator validators"))
 			fmt.Println()
 			fmt.Println(p.Colors.Info("  Monitor node status:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager status"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator status"))
 			fmt.Println()
 		}
 		return
@@ -260,7 +260,7 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 			if flagOutput == "json" {
 				getPrinter().JSON(map[string]any{"ok": false, "error": "node is still syncing"})
 			} else {
-				fmt.Println("node is still syncing. Run 'push-validator-manager sync' first")
+				fmt.Println("node is still syncing. Run 'push-validator sync' first")
 			}
 			return
 		}
@@ -375,10 +375,10 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 				p.Section("Resolution Options")
 				fmt.Println()
 				fmt.Println(p.Colors.Info("  1. Check existing validators:"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator validators"))
 				fmt.Println()
 				fmt.Println(p.Colors.Info("  2. To register a new validator, reset node data:"))
-				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager reset"))
+				fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator reset"))
 				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "     (This will generate new validator keys)"))
 				fmt.Println()
 				fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  Note: Resetting will create a new validator identity."))
@@ -413,16 +413,16 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 		fmt.Println(p.Colors.Separator(40))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  1. Check validator status:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator validators"))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  2. Live dashboard:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager dashboard"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator dashboard"))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  3. Monitor node status:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager status"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator status"))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  4. View node logs:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager logs"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator logs"))
 		fmt.Println()
 		fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  Your validator will appear in the active set after the next epoch."))
 		fmt.Println()

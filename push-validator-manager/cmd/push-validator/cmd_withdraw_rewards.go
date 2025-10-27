@@ -67,7 +67,7 @@ func handleWithdrawRewards(cfg config.Config) {
 			fmt.Println(p.Colors.Warning("⚠️ Node is still syncing to latest block"))
 			fmt.Println()
 			fmt.Println(p.Colors.Info("Please wait for sync to complete before withdrawing rewards."))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager sync"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator sync"))
 			fmt.Println()
 		}
 		return
@@ -105,7 +105,7 @@ func handleWithdrawRewards(cfg config.Config) {
 			fmt.Println(p.Colors.Warning("⚠️ This node is not registered as a validator"))
 			fmt.Println()
 			fmt.Println(p.Colors.Info("Register first using:"))
-			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator-manager register-validator"))
+			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator register-validator"))
 			fmt.Println()
 		}
 		return
@@ -358,13 +358,13 @@ func handleWithdrawRewards(cfg config.Config) {
 		fmt.Println(p.Colors.Separator(40))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  1. Check validator status:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager validators"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator validators"))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  2. View account balance:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager balance"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator balance"))
 		fmt.Println()
 		fmt.Println(p.Colors.Info("  3. Live dashboard:"))
-		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator-manager dashboard"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "     push-validator dashboard"))
 		fmt.Println()
 		fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  Your rewards have been transferred to your account."))
 		fmt.Println()

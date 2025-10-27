@@ -9,8 +9,8 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-print_status() { echo -e "${BLUE}$1${NC}"; }
-print_success() { echo -e "${GREEN}$1${NC}"; }
+print_status() { echo -e "  ${BLUE}$1${NC}"; }
+print_success() { echo -e "  ${GREEN}$1${NC}"; }
 print_error() { echo -e "${RED}$1${NC}"; }
 print_warning() { echo -e "${YELLOW}$1${NC}"; }
 
@@ -62,9 +62,7 @@ if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; the
     fi
     exit 1
 fi
-print_status "✓ Go version check passed: $GO_VERSION"
-
-print_status "🔨 Building Push Chain binary from: $SOURCE_DIR"
+print_success "✓ Go version check passed: $GO_VERSION"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -100,8 +98,6 @@ COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 # Build with the exact same flags as the bash version
-print_status "Building Push Node Daemon (version $VERSION)..."
-
 go build -mod=readonly -tags "netgo,ledger" \
     -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=pchain \
              -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind \
@@ -121,11 +117,4 @@ chmod +x "$OUTPUT_DIR/pchaind"
 # Test basic functionality
 if ! "$OUTPUT_DIR/pchaind" version >/dev/null 2>&1; then
     print_warning "⚠️ Binary created but may have issues"
-else
-    VERSION=$("$OUTPUT_DIR/pchaind" version 2>&1 | head -1)
-    print_success "✅ Binary created successfully: $OUTPUT_DIR/pchaind"
-    print_success "   Version: $VERSION"
 fi
-
-echo
-echo "Binary location: $OUTPUT_DIR/pchaind"

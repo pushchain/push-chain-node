@@ -21,7 +21,7 @@ func handleBalance(cfg config.Config, args []string) error {
     if addr == "" {
         key := os.Getenv("KEY_NAME")
         if key == "" {
-            if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "address not provided; set KEY_NAME or pass --address"}) } else { fmt.Println("usage: push-validator-manager balance <address> (or set KEY_NAME)") }
+            if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": "address not provided; set KEY_NAME or pass --address"}) } else { fmt.Println("usage: push-validator balance <address> (or set KEY_NAME)") }
             return fmt.Errorf("address not provided")
         }
         out, err := exec.Command(findPchaind(), "keys", "show", key, "-a", "--keyring-backend", cfg.KeyringBackend, "--home", cfg.HomeDir).Output()

@@ -227,7 +227,8 @@ func Run(ctx context.Context, opts Options) error {
 		return phase1Err
 	}
 	if sawAccepted {
-		fmt.Fprintln(opts.Out, "✅ Snapshot restored. Switching to block sync...")
+		fmt.Fprintln(opts.Out, "")
+		fmt.Fprintln(opts.Out, "  \033[92m✓\033[0m Snapshot restored. Switching to block sync...")
 	}
 	lastProgress.Update()
 
@@ -321,15 +322,16 @@ func Run(ctx context.Context, opts Options) error {
 						if lastLatency > 0 {
 							extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
 						}
-						fmt.Fprintf(opts.Out, "\r\033[K%s%s", lineWithETA, extra)
+						fmt.Fprintf(opts.Out, "\r\033[K  %s%s", lineWithETA, extra)
 					} else {
 						if opts.Quiet {
-							fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, lastRemote, rate, eta, lastPeers, lastLatency)
+							fmt.Fprintf(opts.Out, "  height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, lastRemote, rate, eta, lastPeers, lastLatency)
 						} else {
-							fmt.Fprintf(opts.Out, "%s height=%d/%d rate=%.2f blk/s%s peers=%d rtt=%dms\n", time.Now().Format(time.Kitchen), cur, lastRemote, rate, eta, lastPeers, lastLatency)
+							fmt.Fprintf(opts.Out, "  %s height=%d/%d rate=%.2f blk/s%s peers=%d rtt=%dms\n", time.Now().Format(time.Kitchen), cur, lastRemote, rate, eta, lastPeers, lastLatency)
 						}
 					}
 					if !barPrinted {
+						fmt.Fprintln(opts.Out, "")
 						firstBarTime = time.Now()
 						holdStarted = true
 						barPrinted = true
@@ -415,6 +417,7 @@ func Run(ctx context.Context, opts Options) error {
 				}
 			}
 			if !barPrinted {
+				fmt.Fprintln(opts.Out, "")
 				firstBarTime = time.Now()
 				holdStarted = true
 			}
@@ -471,7 +474,7 @@ func Run(ctx context.Context, opts Options) error {
 						if lastLatency > 0 {
 							extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
 						}
-						fmt.Fprintf(opts.Out, "\r\033[K%s%s", lineWithETA, extra)
+						fmt.Fprintf(opts.Out, "\r\033[K  %s%s", lineWithETA, extra)
 					} else {
 						if opts.Quiet {
 							fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, remoteH, rate, eta, lastPeers, lastLatency)
@@ -532,7 +535,7 @@ func Run(ctx context.Context, opts Options) error {
 							if lastLatency > 0 {
 								extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
 							}
-							fmt.Fprintf(opts.Out, "\r\033[K%s%s", lineWithETA, extra)
+							fmt.Fprintf(opts.Out, "\r\033[K  %s%s", lineWithETA, extra)
 						} else {
 							if opts.Quiet {
 								fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, remoteH, rate, eta, lastPeers, lastLatency)
@@ -577,7 +580,7 @@ func Run(ctx context.Context, opts Options) error {
 						if lastLatency > 0 {
 							extra += fmt.Sprintf(" | rtt: %dms", lastLatency)
 						}
-						fmt.Fprintf(opts.Out, "\r\033[K%s%s", lineWithETA, extra)
+						fmt.Fprintf(opts.Out, "\r\033[K  %s%s", lineWithETA, extra)
 					} else {
 						if opts.Quiet {
 							fmt.Fprintf(opts.Out, "height=%d/%d rate=%.2f%s peers=%d rtt=%dms\n", cur, remoteH, rate, eta, lastPeers, lastLatency)
@@ -689,9 +692,9 @@ func renderStepIndicator(step, total int, message string, quiet bool, completed 
 	}
 	suffix := message
 	if completed && !quiet {
-		suffix = fmt.Sprintf("%s %s", message, "✅")
+		suffix = fmt.Sprintf("%s \033[92m%s\033[0m", message, "✓")
 	}
-	return fmt.Sprintf("[%s] Step %d/%d: %s", sb.String(), step, total, suffix)
+	return fmt.Sprintf("    [%s] Step %d/%d: %s", sb.String(), step, total, suffix)
 }
 
 func tailStatesync(ctx context.Context, path string, out chan<- string, stop <-chan struct{}) {

@@ -1,10 +1,10 @@
 package ui
 
 import (
-    "encoding/json"
-    "fmt"
-    "os"
-    "strings"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 )
 
 // Printer centralizes output formatting for commands.
@@ -32,12 +32,17 @@ func (p Printer) JSON(v any) {
 
 // Success prints a success line with themed prefix.
 func (p Printer) Success(msg string) {
-    c := p.Colors
-    if c.EmojiEnabled {
-        fmt.Println(c.Success("✓"), msg)
-    } else {
-        fmt.Println(c.Success("[OK]"), msg)
-    }
+	c := p.Colors
+	// Don't add extra space if message already starts with whitespace
+	space := " "
+	if len(msg) > 0 && (msg[0] == ' ' || msg[0] == '\t') {
+		space = ""
+	}
+	if c.EmojiEnabled {
+		fmt.Printf("%s%s%s\n", c.Success("✓"), space, msg)
+	} else {
+		fmt.Printf("%s%s%s\n", c.Success("[OK]"), space, msg)
+	}
 }
 
 // Info prints an informational line.

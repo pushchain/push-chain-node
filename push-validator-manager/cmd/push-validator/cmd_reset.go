@@ -19,7 +19,24 @@ import (
 // preserving the address book, and restarts the node. It emits JSON or text depending on --output.
 func handleReset(cfg config.Config, sup process.Supervisor) error {
 	wasRunning := sup.IsRunning()
-	_ = sup.Stop()
+
+	// Stop node first and verify it stopped
+	if wasRunning {
+		p := getPrinter()
+		if flagOutput != "json" {
+			fmt.Println(p.Colors.Info("Stopping node..."))
+		}
+		if err := sup.Stop(); err != nil {
+			if flagOutput == "json" {
+				p.JSON(map[string]any{"ok": false, "error": fmt.Sprintf("failed to stop node: %v", err)})
+			} else {
+				p.Warn(fmt.Sprintf("⚠ Could not stop node gracefully: %v", err))
+				p.Info("Proceeding with reset (node may need manual cleanup)")
+			}
+		} else if flagOutput != "json" {
+			p.Success("✓ Node stopped")
+		}
+	}
 
 	showSpinner := flagOutput != "json" && term.IsTerminal(int(os.Stdout.Fd()))
 	var (
@@ -68,27 +85,12 @@ func handleReset(cfg config.Config, sup process.Supervisor) error {
 	if flagOutput == "json" {
 		getPrinter().JSON(map[string]any{"ok": true, "action": "reset"})
 	} else {
-		getPrinter().Success("chain data reset (addr book kept)")
-	}
-
-	// Restart the node if it was running before reset
-	if wasRunning {
-		_, startErr := sup.Start(process.StartOpts{
-			HomeDir: cfg.HomeDir,
-			Moniker: os.Getenv("MONIKER"),
-			BinPath: findPchaind(),
-		})
-		if startErr != nil {
-			if flagOutput == "json" {
-				getPrinter().JSON(map[string]any{"ok": false, "error": fmt.Sprintf("failed to restart node: %v", startErr)})
-			} else {
-				getPrinter().Error(fmt.Sprintf("failed to restart node: %v", startErr))
-			}
-			return startErr
-		}
-		if flagOutput != "json" {
-			getPrinter().Success("Node restarted")
-		}
+		p := getPrinter()
+		p.Success("✓ Chain data reset (addr book kept)")
+		fmt.Println()
+		fmt.Println(p.Colors.Info("Next steps:"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator start"))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (will resume node from genesis with existing peers)\n"))
 	}
 
 	return nil
@@ -97,11 +99,33 @@ func handleReset(cfg config.Config, sup process.Supervisor) error {
 // handleFullReset performs a complete reset, deleting ALL data including validator keys.
 // Requires explicit confirmation unless --yes flag is used.
 func handleFullReset(cfg config.Config, sup process.Supervisor) error {
-	// Stop node first
-	_ = sup.Stop()
+	p := ui.NewPrinter(flagOutput)
+
+	// Stop node first and verify it stopped
+	if sup.IsRunning() {
+		if flagOutput != "json" {
+			fmt.Println(p.Colors.Info("Stopping node..."))
+		}
+		if err := sup.Stop(); err != nil {
+			if flagOutput == "json" {
+				p.JSON(map[string]any{"ok": false, "error": fmt.Sprintf("failed to stop node: %v", err)})
+				return err
+			} else {
+				p.Warn(fmt.Sprintf("⚠ Could not stop node: %v", err))
+				fmt.Print(p.Colors.Apply(p.Colors.Theme.Warning, "Continue with full reset anyway? (y/N): "))
+				reader := bufio.NewReader(os.Stdin)
+				response, _ := reader.ReadString('\n')
+				if strings.ToLower(strings.TrimSpace(response)) != "y" {
+					p.Info("Full reset cancelled")
+					return nil
+				}
+			}
+		} else if flagOutput != "json" {
+			p.Success("✓ Node stopped")
+		}
+	}
 
 	if flagOutput != "json" {
-		p := ui.NewPrinter(flagOutput)
 		fmt.Println()
 		fmt.Println(p.Colors.Warning("⚠️  FULL RESET - This will delete EVERYTHING"))
 		fmt.Println()

@@ -18,7 +18,9 @@ import (
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/exitcodes"
+	"github.com/pushchain/push-chain-node/push-validator-manager/internal/metrics"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/process"
+	syncmon "github.com/pushchain/push-chain-node/push-validator-manager/internal/sync"
 	ui "github.com/pushchain/push-chain-node/push-validator-manager/internal/ui"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/validator"
 )
@@ -269,9 +271,25 @@ func init() {
 			cfg := loadCfg()
 			p := getPrinter()
 
-			// Check if initialization is needed (genesis.json missing)
+			// Check if initialization is needed (genesis.json or validator keys missing)
 			genesisPath := filepath.Join(cfg.HomeDir, "config", "genesis.json")
+			privValKeyPath := filepath.Join(cfg.HomeDir, "config", "priv_validator_key.json")
+			nodeKeyPath := filepath.Join(cfg.HomeDir, "config", "node_key.json")
+
+			// Initialize if genesis OR validator keys are missing
+			// (needed for first-time setup and post-full-reset scenarios)
+			needsInit := false
 			if _, err := os.Stat(genesisPath); os.IsNotExist(err) {
+				needsInit = true
+			}
+			if _, err := os.Stat(privValKeyPath); os.IsNotExist(err) {
+				needsInit = true
+			}
+			if _, err := os.Stat(nodeKeyPath); os.IsNotExist(err) {
+				needsInit = true
+			}
+
+			if needsInit {
 				// Auto-initialize on first start
 				if flagOutput != "json" {
 					p.Info("Initializing node (first time)...")
@@ -476,6 +494,18 @@ func init() {
 	}
 	rootCmd.AddCommand(withdrawRewardsCmd)
 
+	// increase-stake command
+	increaseStakeCmd := &cobra.Command{
+		Use:   "increase-stake",
+		Short: "Increase validator stake",
+		Long:  "Delegate additional tokens to increase your validator's stake and voting power",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			handleIncreaseStake(loadCfg())
+			return nil
+		},
+	}
+	rootCmd.AddCommand(increaseStakeCmd)
+
 	// completion and version
 	rootCmd.AddCommand(&cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Short: "Generate shell completion", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		switch args[0] {
@@ -549,6 +579,65 @@ func loadCfg() config.Config {
 // handlePostStartFlow manages the post-start flow based on validator status.
 // Returns false if an error occurred (non-fatal), true if flow completed successfully.
 func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
+	// First, check if the node is still syncing using comprehensive sync check
+	// (same logic as dashboard/status to ensure accuracy)
+	fmt.Println(p.Colors.Info("▸ Checking Sync Status"))
+
+	collector := metrics.NewWithoutCPU()
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	snap := collector.Collect(syncCtx, "http://127.0.0.1:26657", cfg.GenesisDomain)
+	syncCancel()
+
+	// Consider synced only if:
+	// 1. CatchingUp is false AND
+	// 2. Local height is within 5 blocks of remote height (or remote height unavailable)
+	const syncTolerance = 5
+	isSyncing := snap.Chain.CatchingUp ||
+		(snap.Chain.RemoteHeight > 0 && snap.Chain.LocalHeight < snap.Chain.RemoteHeight-syncTolerance)
+
+	// DEBUG: Log sync status if verbose
+	if flagVerbose {
+		fmt.Printf("[DEBUG] Sync Check: CatchingUp=%v, LocalHeight=%d, RemoteHeight=%d, IsSyncing=%v\n",
+			snap.Chain.CatchingUp, snap.Chain.LocalHeight, snap.Chain.RemoteHeight, isSyncing)
+	}
+
+	if isSyncing {
+		// Node is still syncing - wait for sync to complete before validator checks
+		fmt.Println(p.Colors.Info("  ▸ Node is syncing with the network..."))
+		fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "    Waiting for sync to complete...\n"))
+		fmt.Println(p.Colors.Info("▸ Monitoring Sync Progress"))
+
+		// Wait for sync to complete using sync monitor
+		sup := process.New(cfg.HomeDir)
+		remoteURL := "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/") + ":443"
+
+		if err := syncmon.Run(context.Background(), syncmon.Options{
+			LocalRPC:     "http://127.0.0.1:26657",
+			RemoteRPC:    remoteURL,
+			LogPath:      sup.LogPath(),
+			Window:       30,
+			Compact:      false,
+			Out:          os.Stdout,
+			Interval:     120 * time.Millisecond,
+			Quiet:        flagQuiet,
+			Debug:        flagDebug,
+			StuckTimeout: 2 * time.Minute,
+		}); err != nil {
+			// Sync failed or stuck - show warning and dashboard
+			fmt.Println()
+			fmt.Println(p.Colors.Warning("  ⚠ Sync monitoring error (will retry in dashboard)"))
+			showDashboardPrompt(cfg, p)
+			return false
+		}
+
+		// Sync complete - fall through to validator checks
+		fmt.Println()
+	} else {
+		// Node is already synced - show success message
+		fmt.Println(p.Colors.Success("  ✓ Node is synced"))
+	}
+
+	// Node is synced (or sync check failed) - proceed with validator checks
 	// Check if already a validator
 	v := validator.NewWith(validator.Options{
 		BinPath:       findPchaind(),
@@ -629,6 +718,9 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		// User wants to register
 		fmt.Println()
 		handleRegisterValidator(cfg)
+		fmt.Println()
+	} else {
+		// User declined - add newline for clean output
 		fmt.Println()
 	}
 

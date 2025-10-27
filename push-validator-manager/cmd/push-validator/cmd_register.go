@@ -310,8 +310,10 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 		fmt.Println()
 	}
 	const requiredBalance = "1600000000000000000"
-	const stakeAmount = "1500000000000000000"
+	const minStake = "1500000000000000000"     // 1.5 PC in wei
+	const feeReserve = "100000000000000000"    // 0.1 PC in wei for gas fees
 	maxRetries := 10
+	var finalBalance string
 
 	for tries := 0; tries < maxRetries; {
 		balCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -329,6 +331,7 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 		reqInt.SetString(requiredBalance, 10)
 		if balInt.Cmp(reqInt) >= 0 {
 			fmt.Println(p.Colors.Success("✅ Sufficient balance"))
+			finalBalance = bal
 			break
 		}
 		pcAmount := "0.000000"
@@ -351,9 +354,79 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 		reader := bufio.NewReader(os.Stdin)
 		_, _ = reader.ReadString('\n')
 	}
+
+	// Interactive stake amount selection
 	stake := amount
-	if stake == "" {
-		stake = stakeAmount
+	if stake == "" && flagOutput != "json" {
+		// Calculate max stakeable amount (balance - fee reserve)
+		balInt := new(big.Int)
+		balInt.SetString(finalBalance, 10)
+		feeInt := new(big.Int)
+		feeInt.SetString(feeReserve, 10)
+		maxStakeable := new(big.Int).Sub(balInt, feeInt)
+
+		minStakeInt := new(big.Int)
+		minStakeInt.SetString(minStake, 10)
+
+		// Display balance and staking range
+		fmt.Println()
+		balFloat, _ := new(big.Float).SetString(finalBalance)
+		divisor := new(big.Float).SetFloat64(1e18)
+		balPC := new(big.Float).Quo(balFloat, divisor)
+
+		maxStakeFloat, _ := new(big.Float).SetString(maxStakeable.String())
+		maxPC := new(big.Float).Quo(maxStakeFloat, divisor)
+
+		p.KeyValueLine("Current Balance", fmt.Sprintf("%.6f", balPC)+" PC", "blue")
+		p.KeyValueLine("Available to Stake", fmt.Sprintf("%.6f", maxPC)+" PC", "blue")
+		p.KeyValueLine("Reserved for Fees", "0.1 PC", "dim")
+		fmt.Println()
+
+		// Prompt for stake amount with validation loop
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			minStakePC := 1.5
+			maxStakePC, _ := strconv.ParseFloat(fmt.Sprintf("%.6f", maxPC), 64)
+
+			fmt.Printf("Enter stake amount (%.1f - %.1f PC) [1.5]: ", minStakePC, maxStakePC)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+
+			// Default to 1.5 PC if empty
+			if input == "" {
+				stake = minStake
+				fmt.Println(p.Colors.Success("✓ Will stake 1.5 PC"))
+				fmt.Println()
+				break
+			}
+
+			// Parse user input
+			stakeAmount, err := strconv.ParseFloat(input, 64)
+			if err != nil {
+				fmt.Println(p.Colors.Error("⚠ Invalid amount. Enter a number. Try again."))
+				continue
+			}
+
+			// Validate bounds
+			if stakeAmount < minStakePC {
+				fmt.Printf(p.Colors.Error("⚠ Amount too low. Minimum stake is %.1f PC. Try again.\n"), minStakePC)
+				continue
+			}
+			if stakeAmount > maxStakePC {
+				fmt.Printf(p.Colors.Error("⚠ Insufficient balance. Maximum: %.1f PC. Try again.\n"), maxStakePC)
+				continue
+			}
+
+			// Convert to wei
+			stakeWei := new(big.Float).Mul(new(big.Float).SetFloat64(stakeAmount), new(big.Float).SetFloat64(1e18))
+			stake = stakeWei.Text('f', 0)
+
+			fmt.Printf(p.Colors.Success("✓ Will stake %.6f PC\n"), stakeAmount)
+			fmt.Println()
+			break
+		}
+	} else if stake == "" {
+		stake = minStake
 	}
 	// Create fresh context for registration transaction (independent of earlier operations)
 	regCtx, regCancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -392,7 +465,7 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 
 	// Success output
 	if flagOutput == "json" {
-		getPrinter().JSON(map[string]any{"ok": true, "txhash": txHash, "moniker": moniker, "key_name": keyName, "commission_rate": commissionRate})
+		getPrinter().JSON(map[string]any{"ok": true, "txhash": txHash, "moniker": moniker, "key_name": keyName, "commission_rate": commissionRate, "stake_amount": stake})
 	} else {
 		fmt.Println()
 		p := getPrinter()
@@ -402,6 +475,12 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 		// Display registration details
 		p.KeyValueLine("Transaction Hash", txHash, "green")
 		p.KeyValueLine("Validator Name", moniker, "blue")
+
+		// Convert stake amount from wei to PC for display
+		stakeFloat, _ := new(big.Float).SetString(stake)
+		divisor := new(big.Float).SetFloat64(1e18)
+		stakePC := new(big.Float).Quo(stakeFloat, divisor)
+		p.KeyValueLine("Staked Amount", fmt.Sprintf("%.6f", stakePC)+" PC", "yellow")
 
 		// Convert commission rate back to percentage for display
 		commRate, _ := strconv.ParseFloat(commissionRate, 64)

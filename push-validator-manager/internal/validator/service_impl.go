@@ -365,3 +365,56 @@ func improveRewardErrorMessage(msg string) string {
 
 	return msg
 }
+
+// Delegate performs delegation (staking more tokens) to a validator
+func (s *svc) Delegate(ctx context.Context, args DelegateArgs) (string, error) {
+	if s.opts.BinPath == "" {
+		s.opts.BinPath = "pchaind"
+	}
+	if args.ValidatorAddress == "" {
+		return "", errors.New("validator address required")
+	}
+	if args.Amount == "" {
+		return "", errors.New("amount required")
+	}
+
+	// Submit delegation transaction
+	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+	ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctxTimeout, s.opts.BinPath, "tx", "staking", "delegate",
+		args.ValidatorAddress,
+		fmt.Sprintf("%s%s", args.Amount, s.opts.Denom),
+		"--from", args.KeyName,
+		"--chain-id", s.opts.ChainID,
+		"--keyring-backend", s.opts.Keyring,
+		"--home", s.opts.HomeDir,
+		"--node", remote,
+		"--gas=auto", "--gas-adjustment=1.3", fmt.Sprintf("--gas-prices=1000000000%s", s.opts.Denom),
+		"--yes",
+	)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Try to extract a clean error message
+		msg := extractErrorLine(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", errors.New(msg)
+	}
+
+	// Extract tx hash from output
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "txhash:") {
+			parts := strings.SplitN(line, "txhash:", 2)
+			if len(parts) > 1 {
+				return strings.TrimSpace(parts[1]), nil
+			}
+		}
+	}
+
+	return "", errors.New("delegation successful but transaction hash not found in output")
+}

@@ -267,11 +267,16 @@ func printStatusText(result statusResult) {
         rpcVal = "Listening"
     }
 
-    syncIcon := c.StatusIcon("success")
-    syncVal := "In Sync"
-    if result.CatchingUp {
-        syncIcon = c.StatusIcon("syncing")
-        syncVal = "Catching Up"
+    syncIcon := c.StatusIcon("offline")
+    syncVal := "N/A"
+    if result.RPCListening {
+        if result.CatchingUp {
+            syncIcon = c.StatusIcon("syncing")
+            syncVal = "Catching Up"
+        } else {
+            syncIcon = c.StatusIcon("success")
+            syncVal = "In Sync"
+        }
     }
 
     validatorIcon := c.StatusIcon("offline")

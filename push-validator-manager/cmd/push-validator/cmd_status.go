@@ -61,6 +61,9 @@ type statusResult struct {
     OutstandingRewards string `json:"outstanding_rewards,omitempty"`
     IsJailed     bool   `json:"is_jailed,omitempty"`
     JailReason   string `json:"jail_reason,omitempty"`
+    JailedUntil  string `json:"jailed_until,omitempty"`     // RFC3339 timestamp
+    MissedBlocks int64  `json:"missed_blocks,omitempty"`
+    Tombstoned   bool   `json:"tombstoned,omitempty"`
 
     // Errors
     Error        string `json:"error,omitempty"`
@@ -126,6 +129,15 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
                     res.JailReason = myVal.SlashingInfo.JailReason
                 }
 
+                // Add detailed jail information
+                if myVal.SlashingInfo.JailedUntil != "" {
+                    res.JailedUntil = myVal.SlashingInfo.JailedUntil
+                }
+                if myVal.SlashingInfo.MissedBlocks > 0 {
+                    res.MissedBlocks = myVal.SlashingInfo.MissedBlocks
+                }
+                res.Tombstoned = myVal.SlashingInfo.Tombstoned
+
                 // Fetch rewards (best-effort, 2s timeout)
                 rewardCtx, rewardCancel := context.WithTimeout(context.Background(), 2*time.Second)
                 commRewards, outRewards, _ := validator.GetCachedRewards(rewardCtx, cfg, myVal.Address)
@@ -163,6 +175,17 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
             if snap.Network.Peers > 0 {
                 res.Peers = snap.Network.Peers
             }
+
+            // Fetch peer list for detailed display (best-effort, 2s timeout)
+            peerCtx, peerCancel := context.WithTimeout(context.Background(), 2*time.Second)
+            peers, _ := cli.Peers(peerCtx)
+            peerCancel()
+            if len(peers) > 0 {
+                for _, p := range peers {
+                    res.PeerList = append(res.PeerList, p.ID)
+                }
+            }
+
             if snap.Network.LatencyMS > 0 { res.LatencyMS = snap.Network.LatencyMS }
 
             // Capture system metrics
@@ -252,7 +275,7 @@ func printStatusText(result statusResult) {
         Width(46).
         Align(lipgloss.Center)
 
-    // Build NODE STATUS box - Enhanced with system metrics
+    // Build NODE STATUS box - Enhanced with system metrics and version
     nodeLines := []string{
         fmt.Sprintf("%s %s", nodeIcon, nodeVal),
         fmt.Sprintf("%s %s", rpcIcon, rpcVal),
@@ -263,29 +286,26 @@ func printStatusText(result statusResult) {
     if result.DiskPct > 0 {
         nodeLines = append(nodeLines, fmt.Sprintf("  Disk: %.1f%%", result.DiskPct))
     }
+    if result.BinaryVer != "" {
+        nodeLines = append(nodeLines, fmt.Sprintf("  Version: %s", result.BinaryVer))
+    }
     nodeBox := boxStyle.Render(
         titleStyle.Render("NODE STATUS") + "\n" + strings.Join(nodeLines, "\n"),
     )
 
-    // Build CHAIN STATUS box - Enhanced with sync details and progress bar
-    chainLines := []string{
-        fmt.Sprintf("%s %s", syncIcon, syncVal),
-    }
+    // Build CHAIN STATUS box - Dashboard-style with progress bar and block counts
+    chainLines := []string{}
 
-    // Add progress bar if catching up with remote height data
-    if result.CatchingUp && result.RemoteHeight > 0 && result.Height > 0 {
-        pct := float64(result.Height) / float64(result.RemoteHeight) * 100
-        if pct > 100 {
-            pct = 100
+    if result.RPCListening && result.RemoteHeight > 0 {
+        // Use dashboard-style progress rendering with block counts
+        syncLine := renderSyncProgressDashboard(result.Height, result.RemoteHeight, result.CatchingUp)
+        chainLines = append(chainLines, syncLine)
+    } else {
+        // Fallback to simple format if RPC not available
+        chainLines = append(chainLines, fmt.Sprintf("%s %s", syncIcon, syncVal))
+        if result.Height > 0 {
+            chainLines = append(chainLines, fmt.Sprintf("Height: %s", heightVal))
         }
-        progBar := renderProgressBar(pct, 20)
-        chainLines = append(chainLines, fmt.Sprintf("  %s", progBar))
-    }
-
-    chainLines = append(chainLines, fmt.Sprintf("  Height: %s", heightVal))
-
-    if result.RemoteHeight > 0 {
-        chainLines = append(chainLines, fmt.Sprintf("  Remote: %s", ui.FormatNumber(result.RemoteHeight)))
     }
 
     chainBox := boxStyle.Render(
@@ -295,21 +315,34 @@ func printStatusText(result statusResult) {
     // Top row: NODE STATUS | CHAIN STATUS
     topRow := lipgloss.JoinHorizontal(lipgloss.Top, nodeBox, chainBox)
 
-    // Build NETWORK STATUS box - Enhanced with network details
-    networkLines := []string{
-        fmt.Sprintf("%s %s", c.Info("•"), peers),
+    // Build NETWORK STATUS box - Enhanced with full peer list
+    networkLines := []string{}
+
+    if len(result.PeerList) > 0 {
+        networkLines = append(networkLines, fmt.Sprintf("Connected to %d peers:", len(result.PeerList)))
+        maxDisplay := 3  // Show first 3 peers like dashboard
+        for i, peer := range result.PeerList {
+            if i >= maxDisplay {
+                networkLines = append(networkLines, fmt.Sprintf("  ... and %d more", len(result.PeerList)-maxDisplay))
+                break
+            }
+            networkLines = append(networkLines, fmt.Sprintf("  %s", peer))
+        }
+    } else {
+        networkLines = append(networkLines, fmt.Sprintf("%s %s", c.Info("•"), peers))
+    }
+
+    if result.LatencyMS > 0 {
+        networkLines = append(networkLines, fmt.Sprintf("Latency: %dms", result.LatencyMS))
     }
     if result.Network != "" {
-        networkLines = append(networkLines, fmt.Sprintf("  Network: %s", result.Network))
-    }
-    if result.LatencyMS > 0 {
-        networkLines = append(networkLines, fmt.Sprintf("  Latency: %dms", result.LatencyMS))
+        networkLines = append(networkLines, fmt.Sprintf("Chain: %s", result.Network))
     }
     if result.NodeID != "" {
-        networkLines = append(networkLines, fmt.Sprintf("  Node: %s", truncateNodeID(result.NodeID)))
+        networkLines = append(networkLines, fmt.Sprintf("Node: %s", result.NodeID))
     }
     if result.Moniker != "" {
-        networkLines = append(networkLines, fmt.Sprintf("  Moniker: %s", result.Moniker))
+        networkLines = append(networkLines, fmt.Sprintf("Name: %s", result.Moniker))
     }
 
     networkBox := boxStyle.Render(
@@ -369,7 +402,33 @@ func printStatusText(result statusResult) {
             validatorLines = append(validatorLines, "")
             validatorLines = append(validatorLines, "  STATUS DETAILS")
             validatorLines = append(validatorLines, "")
-            validatorLines = append(validatorLines, fmt.Sprintf("    Reason: %s", result.JailReason))
+            if result.JailReason != "" {
+                validatorLines = append(validatorLines, fmt.Sprintf("    Reason: %s", result.JailReason))
+            }
+
+            // Add missed blocks if available
+            if result.MissedBlocks > 0 {
+                validatorLines = append(validatorLines, fmt.Sprintf("    Missed: %s blks", ui.FormatNumber(result.MissedBlocks)))
+            }
+
+            // Add tombstoned status if applicable
+            if result.Tombstoned {
+                validatorLines = append(validatorLines, fmt.Sprintf("    %s Tombstoned: Yes", c.StatusIcon("offline")))
+            }
+
+            // Add jail until time if available
+            if result.JailedUntil != "" {
+                formatted := formatTimestamp(result.JailedUntil)
+                if formatted != "" {
+                    validatorLines = append(validatorLines, fmt.Sprintf("    Until: %s", formatted))
+                }
+
+                // Add time remaining if applicable
+                remaining := timeUntil(result.JailedUntil)
+                if remaining != "" && remaining != "0s" {
+                    validatorLines = append(validatorLines, fmt.Sprintf("    Remaining: %s", remaining))
+                }
+            }
 
             // Show unjail information
             validatorLines = append(validatorLines, "")
@@ -418,4 +477,112 @@ func renderProgressBar(percent float64, width int) string {
 
     bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
     return fmt.Sprintf("[%s] %.2f%%", bar, percent)
+}
+
+// formatWithCommas adds comma separators to large numbers
+func formatWithCommas(n int64) string {
+    if n < 1000 {
+        return fmt.Sprintf("%d", n)
+    }
+    s := fmt.Sprintf("%d", n)
+    var result string
+    for i, c := range s {
+        if i > 0 && (len(s)-i)%3 == 0 {
+            result += ","
+        }
+        result += string(c)
+    }
+    return result
+}
+
+// formatTimestamp converts RFC3339 timestamp to "Jan 02, 03:04 PM MST" format
+func formatTimestamp(rfcTime string) string {
+    if rfcTime == "" {
+        return ""
+    }
+    t, err := time.Parse(time.RFC3339Nano, rfcTime)
+    if err != nil {
+        return ""
+    }
+    return t.Local().Format("Jan 02, 03:04 PM MST")
+}
+
+// timeUntil calculates human-readable time remaining until a given RFC3339 timestamp
+func timeUntil(rfcTime string) string {
+    if rfcTime == "" {
+        return ""
+    }
+    t, err := time.Parse(time.RFC3339Nano, rfcTime)
+    if err != nil {
+        return ""
+    }
+    remaining := time.Until(t)
+    if remaining <= 0 {
+        return "0s"
+    }
+    return durationShort(remaining)
+}
+
+// durationShort formats duration concisely (e.g., "2h30m", "45s")
+func durationShort(d time.Duration) string {
+    if d < time.Minute {
+        return fmt.Sprintf("%ds", int(d.Seconds()))
+    }
+    if d < time.Hour {
+        return fmt.Sprintf("%dm", int(d.Minutes()))
+    }
+    if d < 24*time.Hour {
+        h := int(d.Hours())
+        m := int(d.Minutes()) % 60
+        if m == 0 {
+            return fmt.Sprintf("%dh", h)
+        }
+        return fmt.Sprintf("%dh%dm", h, m)
+    }
+    days := int(d.Hours()) / 24
+    h := int(d.Hours()) % 24
+    if h == 0 {
+        return fmt.Sprintf("%dd", days)
+    }
+    return fmt.Sprintf("%dd%dh", days, h)
+}
+
+// renderSyncProgressDashboard creates dashboard-style sync progress line
+func renderSyncProgressDashboard(local, remote int64, isCatchingUp bool) string {
+    if remote <= 0 {
+        return ""
+    }
+
+    percent := float64(local) / float64(remote) * 100
+    if percent < 0 {
+        percent = 0
+    }
+    if percent > 100 {
+        percent = 100
+    }
+
+    width := 28
+    filled := int(percent / 100 * float64(width))
+    if filled < 0 {
+        filled = 0
+    }
+    if filled > width {
+        filled = width
+    }
+
+    // Create colored progress bar
+    greenBar := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(strings.Repeat("█", filled))
+    greyBar := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("░", width-filled))
+    bar := greenBar + greyBar
+
+    // Status label
+    icon := "📊 Syncing"
+    if !isCatchingUp {
+        icon = "📊 In Sync"
+    }
+
+    return fmt.Sprintf("%s [%s] %.2f%% | %s/%s blocks",
+        icon, bar, percent,
+        formatWithCommas(local),
+        formatWithCommas(remote))
 }

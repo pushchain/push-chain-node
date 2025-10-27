@@ -232,16 +232,6 @@ func printStatusText(result statusResult) {
         heightVal = c.Error(result.Error)
     }
 
-    // Progress bar only when catching up
-    prog := ""
-    if result.CatchingUp && result.RemoteHeight > 0 && result.Height > 0 {
-        pct := float64(result.Height) / float64(result.RemoteHeight) * 100
-        if pct > 100 {
-            pct = 100
-        }
-        prog = fmt.Sprintf(" %.1f%%", pct)
-    }
-
     peers := "0 peers"
     if result.Peers == 1 {
         peers = "1 peer"
@@ -249,17 +239,17 @@ func printStatusText(result statusResult) {
         peers = fmt.Sprintf("%d peers", result.Peers)
     }
 
-    // Define box styling (matching dashboard)
+    // Define box styling (enhanced layout with wider boxes)
     boxStyle := lipgloss.NewStyle().
         Border(lipgloss.RoundedBorder()).
         BorderForeground(lipgloss.Color("63")).
         Padding(0, 1).
-        Width(30)
+        Width(50)
 
     titleStyle := lipgloss.NewStyle().
         Bold(true).
         Foreground(lipgloss.Color("39")). // Bright cyan
-        Width(26).
+        Width(46).
         Align(lipgloss.Center)
 
     // Build NODE STATUS box - Enhanced with system metrics
@@ -277,14 +267,27 @@ func printStatusText(result statusResult) {
         titleStyle.Render("NODE STATUS") + "\n" + strings.Join(nodeLines, "\n"),
     )
 
-    // Build CHAIN STATUS box - Enhanced with sync details
+    // Build CHAIN STATUS box - Enhanced with sync details and progress bar
     chainLines := []string{
-        fmt.Sprintf("%s %s%s", syncIcon, syncVal, prog),
-        fmt.Sprintf("  Height: %s", heightVal),
+        fmt.Sprintf("%s %s", syncIcon, syncVal),
     }
+
+    // Add progress bar if catching up with remote height data
+    if result.CatchingUp && result.RemoteHeight > 0 && result.Height > 0 {
+        pct := float64(result.Height) / float64(result.RemoteHeight) * 100
+        if pct > 100 {
+            pct = 100
+        }
+        progBar := renderProgressBar(pct, 20)
+        chainLines = append(chainLines, fmt.Sprintf("  %s", progBar))
+    }
+
+    chainLines = append(chainLines, fmt.Sprintf("  Height: %s", heightVal))
+
     if result.RemoteHeight > 0 {
         chainLines = append(chainLines, fmt.Sprintf("  Remote: %s", ui.FormatNumber(result.RemoteHeight)))
     }
+
     chainBox := boxStyle.Render(
         titleStyle.Render("CHAIN STATUS") + "\n" + strings.Join(chainLines, "\n"),
     )
@@ -313,14 +316,25 @@ func printStatusText(result statusResult) {
         titleStyle.Render("NETWORK STATUS") + "\n" + strings.Join(networkLines, "\n"),
     )
 
-    // Build VALIDATOR STATUS box - Enhanced with validator details
+    // Build VALIDATOR STATUS box - Enhanced with detailed validator information
     validatorLines := []string{
         fmt.Sprintf("%s %s", validatorIcon, validatorVal),
     }
+
     if result.IsValidator {
         if result.ValidatorMoniker != "" {
             validatorLines = append(validatorLines, fmt.Sprintf("  Moniker: %s", result.ValidatorMoniker))
         }
+
+        // Show validator status with jail indicator
+        if result.ValidatorStatus != "" {
+            statusText := result.ValidatorStatus
+            if result.IsJailed {
+                statusText = fmt.Sprintf("%s (JAILED)", result.ValidatorStatus)
+            }
+            validatorLines = append(validatorLines, fmt.Sprintf("  Status: %s", statusText))
+        }
+
         if result.VotingPower > 0 {
             vpStr := ui.FormatNumber(result.VotingPower)
             if result.VotingPct > 0 {
@@ -328,25 +342,39 @@ func printStatusText(result statusResult) {
             }
             validatorLines = append(validatorLines, fmt.Sprintf("  Power: %s", vpStr))
         }
+
         if result.Commission != "" {
             validatorLines = append(validatorLines, fmt.Sprintf("  Commission: %s", result.Commission))
         }
+
         // Show rewards if available
         hasCommRewards := result.CommissionRewards != "" && result.CommissionRewards != "—" && result.CommissionRewards != "0"
         hasOutRewards := result.OutstandingRewards != "" && result.OutstandingRewards != "—" && result.OutstandingRewards != "0"
+
         if hasCommRewards || hasOutRewards {
+            validatorLines = append(validatorLines, "")
+            validatorLines = append(validatorLines, fmt.Sprintf("  %s Withdraw available!", c.StatusIcon("online")))
+            validatorLines = append(validatorLines, fmt.Sprintf("  Run: push-validator withdraw-rewards"))
+
             if hasCommRewards {
-                validatorLines = append(validatorLines, fmt.Sprintf("  Comm Rewards: %s", result.CommissionRewards))
+                validatorLines = append(validatorLines, fmt.Sprintf("    Comm Rewards: %s PC", result.CommissionRewards))
             }
             if hasOutRewards {
-                validatorLines = append(validatorLines, fmt.Sprintf("  Out Rewards: %s", result.OutstandingRewards))
+                validatorLines = append(validatorLines, fmt.Sprintf("    Out Rewards: %s PC", result.OutstandingRewards))
             }
         }
+
+        // If jailed, show detailed status information
         if result.IsJailed {
-            validatorLines = append(validatorLines, fmt.Sprintf("  %s Jailed", c.StatusIcon("error")))
-            if result.JailReason != "" {
-                validatorLines = append(validatorLines, fmt.Sprintf("    Reason: %s", result.JailReason))
-            }
+            validatorLines = append(validatorLines, "")
+            validatorLines = append(validatorLines, "  STATUS DETAILS")
+            validatorLines = append(validatorLines, "")
+            validatorLines = append(validatorLines, fmt.Sprintf("    Reason: %s", result.JailReason))
+
+            // Show unjail information
+            validatorLines = append(validatorLines, "")
+            validatorLines = append(validatorLines, fmt.Sprintf("  %s Ready to unjail!", c.StatusIcon("online")))
+            validatorLines = append(validatorLines, fmt.Sprintf("  Run: push-validator unjail"))
         }
     }
 
@@ -374,4 +402,20 @@ func truncateNodeID(nodeID string) string {
         return nodeID
     }
     return nodeID[:8] + "..." + nodeID[len(nodeID)-8:]
+}
+
+// renderProgressBar creates a visual progress bar using block characters
+func renderProgressBar(percent float64, width int) string {
+    if percent < 0 {
+        percent = 0
+    }
+    if percent > 100 {
+        percent = 100
+    }
+
+    filled := int(float64(width) * (percent / 100))
+    empty := width - filled
+
+    bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
+    return fmt.Sprintf("[%s] %.2f%%", bar, percent)
 }

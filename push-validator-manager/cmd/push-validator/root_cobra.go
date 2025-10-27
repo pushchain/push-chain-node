@@ -203,6 +203,7 @@ func init() {
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := loadCfg()
+			p := getPrinter()
 			if initMoniker == "" {
 				initMoniker = getenvDefault("MONIKER", "push-validator")
 			}
@@ -212,6 +213,14 @@ func init() {
 			if initSnapshotRPC == "" {
 				initSnapshotRPC = cfg.SnapshotRPC
 			}
+
+			// Create progress callback that shows init steps
+			progressCallback := func(msg string) {
+				if flagOutput != "json" {
+					fmt.Printf("  → %s\n", msg)
+				}
+			}
+
 			svc := bootstrap.New()
 			if err := svc.Init(cmd.Context(), bootstrap.Options{
 				HomeDir:              cfg.HomeDir,
@@ -221,6 +230,7 @@ func init() {
 				BinPath:              findPchaind(),
 				SnapshotRPCPrimary:   initSnapshotRPC,
 				SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+				Progress:             progressCallback,
 			}); err != nil {
 				ui.PrintError(ui.ErrorMessage{
 					Problem: "Initialization failed",
@@ -237,6 +247,9 @@ func init() {
 					Hints: []string{"push-validator validators --output json"},
 				})
 				return err
+			}
+			if flagOutput != "json" {
+				p.Success("✓ Initialization complete")
 			}
 			return nil
 		},
@@ -262,6 +275,14 @@ func init() {
 				// Auto-initialize on first start
 				if flagOutput != "json" {
 					p.Info("Initializing node (first time)...")
+					fmt.Println()
+				}
+
+				// Create progress callback that shows init steps
+				progressCallback := func(msg string) {
+					if flagOutput != "json" {
+						fmt.Printf("  → %s\n", msg)
+					}
 				}
 
 				svc := bootstrap.New()
@@ -273,6 +294,7 @@ func init() {
 					BinPath:              findPchaind(),
 					SnapshotRPCPrimary:   cfg.SnapshotRPC,
 					SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+					Progress:             progressCallback,
 				}); err != nil {
 					ui.PrintError(ui.ErrorMessage{
 						Problem: "Initialization failed",
@@ -291,6 +313,7 @@ func init() {
 				}
 
 				if flagOutput != "json" {
+					fmt.Println()
 					p.Success("✓ Initialization complete")
 				}
 			}

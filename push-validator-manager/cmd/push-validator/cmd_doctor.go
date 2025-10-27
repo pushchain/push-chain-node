@@ -26,7 +26,9 @@ var doctorCmd = &cobra.Command{
 - Network connectivity (RPC, P2P, remote endpoints)
 - Disk space and permissions
 - Common configuration issues`,
-	RunE: runDoctor,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          runDoctor,
 }
 
 type checkResult struct {
@@ -81,7 +83,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	summary := fmt.Sprintf("Checks: %d passed, %d warnings, %d failed", passed, warned, failed)
 	if failed > 0 {
 		fmt.Println(c.Error("✗ " + summary))
-		return exitcodes.ValidationErr("health checks failed")
+		return exitcodes.ValidationErr("")
 	} else if warned > 0 {
 		fmt.Println(c.Warning("⚠ " + summary))
 	} else {

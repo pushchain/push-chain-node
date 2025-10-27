@@ -27,6 +27,7 @@ type Options struct {
     BinPath       string // pchaind path
     SnapshotRPCPrimary   string // e.g., https://rpc-testnet-donut-node2.push.org
     SnapshotRPCSecondary string // optional; if empty uses primary
+    Progress      func(string) // optional callback for progress messages
 }
 
 type Service interface { Init(ctx context.Context, opts Options) error }
@@ -73,13 +74,20 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     if opts.BinPath == "" { opts.BinPath = "pchaind" }
     if opts.GenesisDomain == "" { return errors.New("GenesisDomain required") }
 
+    progress := opts.Progress
+    if progress == nil {
+        progress = func(string) {} // no-op if not provided
+    }
+
     // Ensure base dirs
+    progress("Setting up node directories...")
     if err := os.MkdirAll(filepath.Join(opts.HomeDir, "config"), 0o755); err != nil { return err }
     if err := os.MkdirAll(filepath.Join(opts.HomeDir, "logs"), 0o755); err != nil { return err }
 
     // Run `pchaind init` if config is missing
     cfgPath := filepath.Join(opts.HomeDir, "config", "config.toml")
     if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+        progress("Running pchaind init...")
         if err := s.run.Run(ctx, opts.BinPath, "init", opts.Moniker, "--chain-id", opts.ChainID, "--default-denom", opts.Denom, "--home", opts.HomeDir, "--overwrite"); err != nil {
             return fmt.Errorf("pchaind init: %w", err)
         }
@@ -92,6 +100,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     }
 
     // Fetch genesis from remote
+    progress("Fetching genesis from network...")
     base := baseURL(opts.GenesisDomain)
     genesisURL := base + "/genesis"
     gen, err := s.getGenesis(ctx, genesisURL)
@@ -102,6 +111,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     if err := os.WriteFile(genPath, gen, 0o644); err != nil { return err }
 
     // Build peers from net_info; fallback to known RPC nodes
+    progress("Discovering network peers...")
     peers := s.peersFromNetInfo(ctx, base+"/net_info")
     if len(peers) == 0 {
         peers = s.fallbackPeers(ctx, base)
@@ -139,6 +149,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     }
 
     // Configure state sync parameters using snapshot RPC (reuse variable from above)
+    progress("Configuring state sync parameters...")
     tp, err := s.stp.ComputeTrust(ctx, snapPrimary)
     if err != nil {
         return fmt.Errorf("compute trust params: %w", err)
@@ -168,7 +179,9 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
         }
         rpcServers = append(rpcServers, fallback)
     }
+    progress("Backing up configuration...")
     if _, err := cfgs.Backup(); err == nil { /* best-effort */ }
+    progress("Enabling state sync...")
     if err := cfgs.EnableStateSync(files.StateSyncParams{
         TrustHeight: tp.Height,
         TrustHash:   tp.Hash,
@@ -179,6 +192,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     }
 
     // Clear data for state sync
+    progress("Preparing for initial sync...")
     _ = s.run.Run(ctx, opts.BinPath, "tendermint", "unsafe-reset-all", "--home", opts.HomeDir, "--keep-addr-book")
     // Mark initial state sync flag
     _ = os.WriteFile(filepath.Join(opts.HomeDir, ".initial_state_sync"), []byte(time.Now().Format(time.RFC3339)), 0o644)

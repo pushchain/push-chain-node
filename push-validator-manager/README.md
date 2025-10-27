@@ -1,0 +1,102 @@
+# Push Validator Manager (Go)
+
+**Fast validator setup with automatic recovery for Push Chain**
+
+## 🚀 Quick Start (2-3 minutes)
+
+### Step 1: Install & Start
+```bash
+curl -fsSL https://get.push.network/node/install.sh | bash
+```
+Automatically installs and starts your validator using state sync (no full sync needed).
+
+> **Note:** Restart terminal or run `source ~/.bashrc` to use `push-validator` from anywhere.
+
+### Step 2: Verify Sync
+```bash
+push-validator status
+```
+Wait for: `✅ Catching Up: false` (takes ~2-3 minutes with state sync)
+
+### Step 3: Register Validator
+```bash
+push-validator register-validator
+```
+**Requirements:** 2+ PC tokens from [faucet](https://faucet.push.org)
+
+**Done! Your validator is running with automatic recovery enabled! 🎉**
+
+## 📖 Commands
+
+### Core
+```bash
+push-validator start                # Start with state sync (2-3 min)
+push-validator stop                 # Stop node
+push-validator status               # Check sync & validator status
+push-validator register-validator   # Register as validator
+push-validator logs                 # View logs
+```
+
+### Monitoring
+```bash
+push-validator sync            # Monitor sync progress
+push-validator peers           # Show peer connections
+push-validator doctor          # Run health diagnostics
+```
+
+### Management
+```bash
+push-validator restart         # Restart node
+push-validator validators      # List validators
+push-validator balance         # Check balance
+push-validator reset           # Reset data
+push-validator backup          # Backup node
+push-validator update          # Update to latest version
+```
+
+## ⚡ Features
+
+- **State Sync**: 2-3 minute setup (no full blockchain download)
+- **Interactive Logs**: Real-time log viewer with search and filtering
+- **Smart Detection**: Monitors for sync stalls and network issues
+- **Reliable Snapshots**: Uses trusted RPC nodes for recovery
+- **Multiple Outputs**: JSON, YAML, or text format support
+
+## 📊 Network
+
+- **Chain**: `push_42101-1` (Testnet)
+- **Min Stake**: 2 PC
+- **Faucet**: https://faucet.push.org
+- **Explorer**: https://donut.push.network
+
+
+## 🔧 Advanced Setup (Optional)
+
+### Setup NGINX with SSL
+```bash
+bash scripts/setup-nginx.sh yourdomain.com
+```
+**Creates:**
+- `https://yourdomain.com` - Cosmos RPC endpoint
+- `https://evm.yourdomain.com` - EVM RPC endpoint
+- Automatic SSL certificates via Let's Encrypt
+- Rate limiting and security headers
+
+**Requirements:**
+- Domain pointing to your server IP
+- Ports 80/443 open
+- Ubuntu/Debian system
+
+### Log Rotation
+```bash
+bash scripts/setup-log-rotation.sh
+```
+Configures daily rotation with 14-day retention and compression.
+
+### File Locations
+- **Manager**: `~/.local/bin/push-validator`
+- **Binary**: `~/.local/bin/pchaind`
+- **Config**: `~/.pchain/config/`
+- **Data**: `~/.pchain/data/`
+- **Logs**: `~/.pchain/logs/pchaind.log`
+- **Backups**: `~/push-node-backups/`

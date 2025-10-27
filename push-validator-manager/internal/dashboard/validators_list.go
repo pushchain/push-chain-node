@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -161,6 +162,13 @@ func (c *ValidatorsList) getSortedValidators() []struct {
 	}
 
 	sort.Slice(validators, func(i, j int) bool {
+		// My validator always comes first
+		iIsOurs := validators[i].Address == c.myValidatorAddress
+		jIsOurs := validators[j].Address == c.myValidatorAddress
+		if iIsOurs != jIsOurs {
+			return iIsOurs // True (our validator) sorts before false
+		}
+
 		// Sort by status first (BONDED < UNBONDING < UNBONDED)
 		iOrder := statusOrder(validators[i].Status)
 		jOrder := statusOrder(validators[j].Status)
@@ -278,10 +286,10 @@ func (c *ValidatorsList) renderContent(w int) string {
 	} else {
 		addressLabel = "ADDRESS (COSMOS)"
 	}
-	headerLine := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s", "MONIKER", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION_REWARDS", "OUTSTANDING_REWARDS", addressLabel)
+	headerLine := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s", "NODE NAME", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION REWARDS", "OUTSTANDING REWARDS", addressLabel)
 	lines = append(lines, headerLine)
-	// Create separator line that matches the header width
-	lines = append(lines, strings.Repeat("─", len(headerLine)))
+	// Create separator line that spans full component width
+	lines = append(lines, strings.Repeat("─", inner))
 
 	// Calculate pagination bounds
 	totalValidators := len(validators)
@@ -301,86 +309,93 @@ func (c *ValidatorsList) renderContent(w int) string {
 		}
 	}
 
-	// Display validators for current page
-	for i := startIdx; i < endIdx; i++ {
-		v := validators[i]
+	// Display validators for current page (always show pageSize rows for consistent layout)
+	for row := 0; row < c.pageSize; row++ {
+		i := startIdx + row
 
-		// Check if this is our validator
-		isOurValidator := c.myValidatorAddress != "" && v.Address == c.myValidatorAddress
+		// If we have a validator at this position, render it
+		if i < endIdx && i < totalValidators {
+			v := validators[i]
 
-		// Show full moniker with indicator if our validator
-		moniker := v.Moniker
-		if isOurValidator {
-			moniker = moniker + " [My Validator]"
-		}
-		// Truncate if still too long (40 chars max for display)
-		moniker = truncateWithEllipsis(moniker, 40)
+			// Check if this is our validator
+			isOurValidator := c.myValidatorAddress != "" && v.Address == c.myValidatorAddress
 
-		// Show full status with jail indicator
-		status := v.Status
-		if v.Jailed && (v.Status == "UNBONDING" || v.Status == "UNBONDED") {
-			status = status + " (JAILED)"
-		}
-
-		// Format voting power (compact display)
-		powerStr := fmt.Sprintf("%s", HumanInt(v.VotingPower))
-
-		// Commission percentage (already formatted from staking query)
-		commission := v.Commission
-		if len(commission) > 5 {
-			commission = commission[:5]
-		}
-
-		// Commission rewards (fetched on-demand with 30s cache)
-		commRewards := v.CommissionRewards
-		c.rewardsCacheMu.Lock()
-		if cached, exists := c.rewardsCache[v.Address]; exists {
-			commRewards = cached.Commission
-		}
-		c.rewardsCacheMu.Unlock()
-		if commRewards == "" {
-			commRewards = "—"
-		}
-
-		// Outstanding rewards (fetched on-demand with 30s cache)
-		outRewards := v.OutstandingRewards
-		c.rewardsCacheMu.Lock()
-		if cached, exists := c.rewardsCache[v.Address]; exists {
-			outRewards = cached.Outstanding
-		}
-		c.rewardsCacheMu.Unlock()
-		if outRewards == "" {
-			outRewards = "—"
-		}
-
-		// Select address based on toggle
-		address := v.Address
-		if c.showEVMAddress {
-			// Try to get from cache first, fallback to data, then placeholder
-			cachedAddr := c.getEVMAddressFromCache(v.Address)
-			if cachedAddr != "" {
-				address = cachedAddr
-			} else if v.EVMAddress != "" {
-				address = v.EVMAddress
-			} else {
-				address = "—"
+			// Show full moniker with indicator if our validator
+			moniker := v.Moniker
+			if isOurValidator {
+				moniker = moniker + " [My Validator]"
 			}
+			// Truncate if still too long (40 chars max for display)
+			moniker = truncateWithEllipsis(moniker, 40)
+
+			// Show full status with jail indicator
+			status := v.Status
+			if v.Jailed && (v.Status == "UNBONDING" || v.Status == "UNBONDED") {
+				status = status + " (JAILED)"
+			}
+
+			// Format voting power (compact display)
+			powerStr := fmt.Sprintf("%s", HumanInt(v.VotingPower))
+
+			// Commission percentage (already formatted from staking query)
+			commission := v.Commission
+			if len(commission) > 5 {
+				commission = commission[:5]
+			}
+
+			// Commission rewards (fetched on-demand with 30s cache)
+			commRewards := v.CommissionRewards
+			c.rewardsCacheMu.Lock()
+			if cached, exists := c.rewardsCache[v.Address]; exists {
+				commRewards = cached.Commission
+			}
+			c.rewardsCacheMu.Unlock()
+			if commRewards == "" {
+				commRewards = "—"
+			}
+
+			// Outstanding rewards (fetched on-demand with 30s cache)
+			outRewards := v.OutstandingRewards
+			c.rewardsCacheMu.Lock()
+			if cached, exists := c.rewardsCache[v.Address]; exists {
+				outRewards = cached.Outstanding
+			}
+			c.rewardsCacheMu.Unlock()
+			if outRewards == "" {
+				outRewards = "—"
+			}
+
+			// Select address based on toggle
+			address := v.Address
+			if c.showEVMAddress {
+				// Try to get from cache first, fallback to data, then placeholder
+				cachedAddr := c.getEVMAddressFromCache(v.Address)
+				if cachedAddr != "" {
+					address = cachedAddr
+				} else if v.EVMAddress != "" {
+					address = v.EVMAddress
+				} else {
+					address = "—"
+				}
+			}
+
+			// Build row with flexible-width columns
+			line := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s",
+				moniker, status, powerStr, commission, commRewards, outRewards, address)
+
+			// Apply highlighting to own validator rows
+			if isOurValidator {
+				// Light green for own validator
+				highlightStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("10")) // Light green
+				line = highlightStyle.Render(line)
+			}
+
+			lines = append(lines, line)
+		} else {
+			// Add empty line for padding to maintain consistent table height
+			lines = append(lines, "")
 		}
-
-		// Build row with flexible-width columns
-		line := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s",
-			moniker, status, powerStr, commission, commRewards, outRewards, address)
-
-		// Apply highlighting to own validator rows
-		if isOurValidator {
-			// Bold + bright green for own validator
-			highlightStyle := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("10")) // Bright green
-			line = highlightStyle.Render(line)
-		}
-
-		lines = append(lines, line)
 	}
 
 	lines = append(lines, "")
@@ -478,8 +493,9 @@ func (c *ValidatorsList) fetchPageRewardsCmd() tea.Cmd {
 			go func(addr string) {
 				defer wg.Done()
 
-				// Fetch with a 5-second timeout per validator
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				// Fetch with a 15-second timeout per validator
+				// Increased from 5s to handle network latency and slower nodes
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 				defer cancel()
 
 				if commRwd, outRwd, err := validator.GetValidatorRewards(ctx, c.cfg, addr); err == nil {
@@ -492,6 +508,9 @@ func (c *ValidatorsList) fetchPageRewardsCmd() tea.Cmd {
 						Outstanding: outRwd,
 					}
 					c.rewardsCacheMu.Unlock()
+				} else {
+					// Log fetch errors for debugging
+					fmt.Fprintf(os.Stderr, "Failed to fetch rewards for validator %s: %v\n", addr, err)
 				}
 			}(v.Address)
 		}

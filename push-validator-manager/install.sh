@@ -41,6 +41,17 @@ phase()  { echo -e "\n${BOLD}${CYAN}▸ $*${NC}"; }
 step()   { echo -e "  ${DIM}→${NC} $*"; }
 verbose() { [[ "$VERBOSE" = "yes" ]] && echo -e "  ${DIM}$*${NC}" || true; }
 
+# Helper: Indent output lines (adds 2-space prefix)
+indent_output() {
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            echo "  $line"
+        else
+            echo ""
+        fi
+    done
+}
+
 # Helper: Find timeout command (macOS needs gtimeout)
 timeout_cmd() {
     if command -v timeout >/dev/null 2>&1; then
@@ -621,7 +632,7 @@ if [[ "$AUTO_START" = "yes" ]]; then
       step "Restarting node (attempt $((RETRY_COUNT + 1))/$((MAX_RETRIES + 1)))"
     fi
 
-    "$MANAGER_BIN" start --no-prompt --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" || { err "start failed"; exit 1; }
+    "$MANAGER_BIN" start --no-prompt --home "$HOME_DIR" --bin "${PCHAIND:-pchaind}" 2>&1 | indent_output || { err "start failed"; exit 1; }
 
     step "Waiting for state sync"
     # Stream compact sync until fully synced (monitor prints snapshot/block progress)

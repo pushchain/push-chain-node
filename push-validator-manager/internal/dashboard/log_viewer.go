@@ -143,7 +143,8 @@ func (lv *LogViewer) MinWidth() int {
 
 // MinHeight returns minimum height
 func (lv *LogViewer) MinHeight() int {
-	return 12
+	// Fixed 8 lines + title (1) + footer (1) + border padding (2) + spacing (1) = 13
+	return 13
 }
 
 // Update receives messages
@@ -300,15 +301,10 @@ func (lv *LogViewer) renderContent(w, h int) string {
 		filteredLines = allLines
 	}
 
-	// Calculate visible lines accounting for:
-	// - Title (1 line)
-	// - Footer (1 line)
-	// - Border padding (2 lines for top/bottom)
-	// - Extra spacing to prevent border overlap (1 line)
-	availableLines := h - 5
-	if availableLines < 1 {
-		availableLines = 1
-	}
+	// Fixed 8-line display for stable log viewing
+	// This prevents the display from constantly adjusting as logs stream in
+	const fixedLogLines = 8
+	availableLines := fixedLogLines
 
 	// Apply scroll position
 	totalLines := len(filteredLines)

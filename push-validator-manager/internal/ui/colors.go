@@ -91,8 +91,8 @@ func DefaultTheme() *Theme {
 		// UI elements - Professional and readable
 		Header:      Bold + BrightCyan,
 		SubHeader:   Bold + Cyan,
-		Label:       Bold + White,
-		Value:       BrightWhite,
+		Label:       Bold,  // Bold + terminal default color for visibility on all backgrounds
+		Value:       "",  // Use terminal default foreground color for best contrast
 		Command:     Bold + BrightGreen,
 		Flag:        BrightYellow,
 		Description: BrightBlack,

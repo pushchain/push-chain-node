@@ -240,11 +240,27 @@ func init() {
 				}
 			}
 
+			// Check if node is already running
+			sup := process.New(cfg.HomeDir)
+			isAlreadyRunning := sup.IsRunning()
+
+			if flagOutput != "json" {
+				if isAlreadyRunning {
+					if pid, ok := sup.PID(); ok {
+						p.Success(fmt.Sprintf("✓ Node is running (PID: %d)", pid))
+					} else {
+						p.Success("✓ Node is running")
+					}
+				} else {
+					p.Info("Starting node...")
+				}
+			}
+
 			// Continue with normal start
 			if startBin != "" {
 				os.Setenv("PCHAIND", startBin)
 			}
-			_, err := process.New(cfg.HomeDir).Start(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
+			_, err := sup.Start(process.StartOpts{HomeDir: cfg.HomeDir, Moniker: os.Getenv("MONIKER"), BinPath: findPchaind()})
 			if err != nil {
 				ui.PrintError(ui.ErrorMessage{
 					Problem: "Failed to start node",
@@ -262,22 +278,15 @@ func init() {
 				return err
 			}
 			if flagOutput == "json" {
-				p.JSON(map[string]any{"ok": true, "action": "start"})
+				p.JSON(map[string]any{"ok": true, "action": "start", "already_running": isAlreadyRunning})
 			} else {
-				p.Success("  Node started")
+				if !isAlreadyRunning {
+					p.Success("✓ Node started successfully")
+				}
 
 				// Check validator status and show appropriate next steps (skip if --no-prompt)
 				if !startNoPrompt {
 					fmt.Println()
-					fmt.Println(p.Colors.Info("Useful commands:"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator status"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (check node health)"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator dashboard"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (live dashboard)"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator logs"))
-					fmt.Println(p.Colors.Apply(p.Colors.Theme.Description, "  (view logs)"))
-					fmt.Println()
-
 					if !handlePostStartFlow(cfg, &p) {
 						// If post-start flow fails, just continue (node is already started)
 						return nil
@@ -472,37 +481,40 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		Denom:         cfg.Denom,
 	})
 
+	// Show status checking message
+	fmt.Println(p.Colors.Info("▸ Checking Validator Status"))
+
 	statusCtx, statusCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	isValidator, err := v.IsValidator(statusCtx, "")
 	statusCancel()
 
 	if err != nil {
-		// If we can't check status, show dashboard
-		fmt.Println(p.Colors.Warning("⚠ Could not verify validator status"))
-		fmt.Println()
-		_ = handleDashboard(cfg)
+		// If we can't check status, show warning but continue to dashboard
+		fmt.Println(p.Colors.Warning("  ⚠ Could not verify validator status (will retry in dashboard)"))
+		showDashboardPrompt(cfg, p)
 		return false
 	}
 
 	if isValidator {
-		// Already a validator - show dashboard immediately
-		fmt.Println(p.Colors.Success("✓ Already registered as validator"))
-		fmt.Println()
-		_ = handleDashboard(cfg)
+		// Already a validator - show success and dashboard
+		fmt.Println(p.Colors.Success("  ✓ Registered as validator"))
+		showDashboardPrompt(cfg, p)
 		return true
 	}
 
-	// Not a validator - show registration flow
+	// Not a validator - show registration prompt
+	fmt.Println(p.Colors.Warning("  ⚠ Not registered as validator"))
 	fmt.Println()
-	fmt.Println("Next steps:")
-	fmt.Println("1. Get test tokens from: https://faucet.push.org")
-	fmt.Println("2. Register as validator: push-validator register-validator")
+	fmt.Println("Next steps to register as validator:")
+	fmt.Println("1. Get test tokens: https://faucet.push.org")
+	fmt.Println("2. Check balance: push-validator balance")
+	fmt.Println("3. Register: push-validator register-validator")
 	fmt.Println()
 
 	// Check if we're in an interactive terminal
 	if !isTerminalInteractive() {
-		// Non-interactive - show dashboard
-		_ = handleDashboard(cfg)
+		// Non-interactive - show dashboard with prompt
+		showDashboardPrompt(cfg, p)
 		return true
 	}
 
@@ -518,7 +530,8 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		ttyFile.Close()
 		if readErr != nil {
 			// Error reading input - show dashboard
-			_ = handleDashboard(cfg)
+			fmt.Println()
+			showDashboardPrompt(cfg, p)
 			return false
 		}
 		response = strings.ToLower(strings.TrimSpace(line))
@@ -527,7 +540,8 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		reader := bufio.NewReader(os.Stdin)
 		line, readErr := reader.ReadString('\n')
 		if readErr != nil {
-			_ = handleDashboard(cfg)
+			fmt.Println()
+			showDashboardPrompt(cfg, p)
 			return false
 		}
 		response = strings.ToLower(strings.TrimSpace(line))
@@ -541,7 +555,7 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 	}
 
 	// Always show dashboard at the end
-	_ = handleDashboard(cfg)
+	showDashboardPrompt(cfg, p)
 	return true
 }
 
@@ -556,6 +570,77 @@ func handleDashboard(cfg config.Config) error {
 		Debug:           false,
 	}
 	return runDashboardInteractive(opts)
+}
+
+// showDashboardPrompt displays a prompt asking user to press ENTER to launch dashboard
+// Always shows the prompt, but handles timeouts gracefully in non-interactive environments
+// Follows the install flow pattern with clear before/after messages
+func showDashboardPrompt(cfg config.Config, p *ui.Printer) {
+	fmt.Println()
+	fmt.Println("╔═══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                   DASHBOARD AVAILABLE                         ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Println("  The node is running in the background.")
+	fmt.Println("  Press ENTER to open the interactive dashboard (or Ctrl+C to skip)")
+	fmt.Println("  Note: The node will continue running in the background.")
+	fmt.Println()
+	fmt.Println("─────────────────────────────────────────────────────────────")
+	fmt.Print("Press ENTER to continue to the dashboard... ")
+
+	// Try /dev/tty first (best for interactive terminals)
+	ttyFile, err := os.OpenFile("/dev/tty", os.O_RDONLY, 0)
+	if err == nil {
+		// TTY available - wait for ENTER indefinitely (user is present)
+		reader := bufio.NewReader(ttyFile)
+		_, readErr := reader.ReadString('\n')
+		ttyFile.Close()
+		if readErr != nil {
+			// Ctrl+C or error
+			fmt.Println()
+			fmt.Println("  Dashboard skipped. Node is running in background.")
+			fmt.Println()
+			return
+		}
+		// User pressed ENTER - launch dashboard
+		fmt.Println()
+		_ = handleDashboard(cfg)
+
+		// After dashboard exit, show status
+		fmt.Println()
+		fmt.Println("═══════════════════════════════════════════════════════════════")
+		fmt.Println(p.Colors.Success("✓ Dashboard closed. Node is still running in background."))
+		fmt.Println("═══════════════════════════════════════════════════════════════")
+		fmt.Println()
+		return
+	}
+
+	// No TTY available - try stdin with timeout (for scripts/CI/non-interactive)
+	done := make(chan bool, 1)
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		_, _ = reader.ReadString('\n')
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		// Got input - launch dashboard
+		fmt.Println()
+		_ = handleDashboard(cfg)
+
+		// After dashboard exit, show status
+		fmt.Println()
+		fmt.Println("═══════════════════════════════════════════════════════════════")
+		fmt.Println(p.Colors.Success("✓ Dashboard closed. Node is still running in background."))
+		fmt.Println("═══════════════════════════════════════════════════════════════")
+		fmt.Println()
+	case <-time.After(2 * time.Second):
+		// Timeout - likely script/CI with no input available
+		fmt.Println()
+		fmt.Println("  Dashboard is available - run: push-validator dashboard")
+		fmt.Println()
+	}
 }
 
 // isTerminalInteractive checks if we're running in an interactive terminal

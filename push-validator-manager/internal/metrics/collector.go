@@ -50,26 +50,74 @@ type Collector struct {
 	mu         sync.RWMutex
 	lastCPU    float64
 	cpuRunning bool
+	cpuDone    chan struct{} // Signal to stop CPU collection
 }
 
+// New creates a Collector with background CPU monitoring started immediately
+// Use this for long-running processes like the dashboard
 func New() *Collector {
-	c := &Collector{}
+	c := &Collector{
+		cpuDone: make(chan struct{}),
+	}
 	// Start background CPU collection immediately
 	go c.updateCPU()
 	return c
 }
 
+// NewWithoutCPU creates a Collector without starting CPU monitoring
+// Use this for short-lived commands like status that don't need continuous CPU tracking
+func NewWithoutCPU() *Collector {
+	return &Collector{
+		cpuDone: make(chan struct{}),
+	}
+}
+
+// Start begins background CPU collection (safe to call on any collector)
+func (c *Collector) Start() {
+	c.mu.Lock()
+	if !c.cpuRunning {
+		c.cpuRunning = true
+		c.mu.Unlock()
+		go c.updateCPU()
+	} else {
+		c.mu.Unlock()
+	}
+}
+
+// Stop halts background CPU collection
+func (c *Collector) Stop() {
+	c.mu.Lock()
+	if c.cpuRunning {
+		c.cpuRunning = false
+		c.mu.Unlock()
+		select {
+		case c.cpuDone <- struct{}{}:
+		default:
+		}
+	} else {
+		c.mu.Unlock()
+	}
+}
+
 // updateCPU runs in background to continuously update CPU metrics
 func (c *Collector) updateCPU() {
-	c.cpuRunning = true
 	for {
-		if percent, err := cpu.Percent(time.Second, false); err == nil && len(percent) > 0 {
+		select {
+		case <-c.cpuDone:
+			// Stop signal received
 			c.mu.Lock()
-			c.lastCPU = percent[0]
+			c.cpuRunning = false
 			c.mu.Unlock()
+			return
+		default:
+			if percent, err := cpu.Percent(time.Second, false); err == nil && len(percent) > 0 {
+				c.mu.Lock()
+				c.lastCPU = percent[0]
+				c.mu.Unlock()
+			}
+			// Small sleep to prevent tight loop
+			time.Sleep(100 * time.Millisecond)
 		}
-		// Small sleep to prevent tight loop
-		time.Sleep(100 * time.Millisecond)
 	}
 }
 

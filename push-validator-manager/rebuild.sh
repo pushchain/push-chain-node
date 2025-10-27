@@ -4,7 +4,7 @@
 set -e
 
 echo "Building push-validator..."
-CGO_ENABLED=0 go build -o build/push-validator ./cmd/push-validator
+CGO_ENABLED=0 go build -a -o build/push-validator ./cmd/push-validator
 
 echo "✓ Built: build/push-validator"
 

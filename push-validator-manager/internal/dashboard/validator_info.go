@@ -143,14 +143,14 @@ func (c *ValidatorInfo) renderContent(w int) string {
 	if !c.data.MyValidator.IsValidator {
 		// Check for moniker conflict
 		if c.data.MyValidator.ValidatorExistsWithSameMoniker {
-			return fmt.Sprintf("%s\n\n%s Not registered\n\n%s Moniker conflict detected!\nA different validator is using\nmoniker '%s'\n\nUse a different moniker to register:\npush-validator-manager register",
+			return fmt.Sprintf("%s\n\n%s Not registered\n\n%s Moniker conflict detected!\nA different validator is using\nmoniker '%s'\n\nUse a different moniker to register:\npush-validator register",
 				FormatTitle(c.Title(), inner),
 				c.icons.Warn,
 				c.icons.Err,
 				truncateWithEllipsis(c.data.MyValidator.ConflictingMoniker, 20))
 		}
 
-		return fmt.Sprintf("%s\n\n%s Not registered as validator\n\nTo register, run:\npush-validator-manager register", FormatTitle(c.Title(), inner), c.icons.Warn)
+		return fmt.Sprintf("%s\n\n%s Not registered as validator\n\nTo register, run:\npush-validator register", FormatTitle(c.Title(), inner), c.icons.Warn)
 	}
 
 	// Build left column
@@ -184,12 +184,12 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 	// Commission Rewards
 	if c.data.MyValidator.CommissionRewards != "" && c.data.MyValidator.CommissionRewards != "—" {
-		leftLines = append(leftLines, fmt.Sprintf("Comm Rewards: %s PC", c.data.MyValidator.CommissionRewards))
+		leftLines = append(leftLines, fmt.Sprintf("Commission Rewards: %s PC", c.data.MyValidator.CommissionRewards))
 	}
 
 	// Outstanding Rewards
 	if c.data.MyValidator.OutstandingRewards != "" && c.data.MyValidator.OutstandingRewards != "—" {
-		leftLines = append(leftLines, fmt.Sprintf("Outstnd Rewards: %s PC", c.data.MyValidator.OutstandingRewards))
+		leftLines = append(leftLines, fmt.Sprintf("Outstanding Rewards: %s PC", c.data.MyValidator.OutstandingRewards))
 	}
 
 	// Check if validator has any rewards to withdraw
@@ -202,8 +202,9 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 	if hasCommRewards || hasOutRewards {
 		leftLines = append(leftLines, "")
-		leftLines = append(leftLines, "Withdraw available!")
-		leftLines = append(leftLines, "Run: push-validator-manager withdraw-rewards")
+		withdrawStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+		leftLines = append(leftLines, withdrawStyle.Render("Withdraw available!"))
+		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator withdraw-rewards"))
 	}
 
 	// If jailed, create two-column layout with jail details on the right
@@ -211,7 +212,15 @@ func (c *ValidatorInfo) renderContent(w int) string {
 		var rightLines []string
 
 		// Right column header
-		rightLines = append(rightLines, "JAIL DETAILS")
+		rightLines = append(rightLines, "STATUS DETAILS")
+		rightLines = append(rightLines, "")
+
+		// Add status with jail indicator
+		statusText := c.data.MyValidator.Status
+		if c.data.MyValidator.Jailed {
+			statusText = fmt.Sprintf("%s (JAILED)", c.data.MyValidator.Status)
+		}
+		rightLines = append(rightLines, statusText)
 		rightLines = append(rightLines, "")
 
 		// Jail Reason
@@ -247,8 +256,9 @@ func (c *ValidatorInfo) renderContent(w int) string {
 			// Check if jail period has expired
 			if parseTimeExpired(c.data.MyValidator.SlashingInfo.JailedUntil) {
 				rightLines = append(rightLines, "")
-				rightLines = append(rightLines, fmt.Sprintf("%s Ready to unjail!", c.icons.OK))
-				rightLines = append(rightLines, "Run: push-validator-manager unjail")
+				unjailStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+				rightLines = append(rightLines, unjailStyle.Render(fmt.Sprintf("%s Ready to unjail!", c.icons.OK)))
+				rightLines = append(rightLines, unjailStyle.Render("Run: push-validator unjail"))
 			}
 		}
 

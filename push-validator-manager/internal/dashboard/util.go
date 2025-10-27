@@ -32,9 +32,9 @@ func HumanInt(n int64) string {
 	return sign + reverse(result.String())
 }
 
-// Percent formats percentage - takes fraction in [0,1], returns formatted %
+// Percent formats percentage - takes fraction in [0,1], returns formatted % with up to 5 decimal places
 // IMPORTANT: Input convention is [0,1], not [0,100]
-// Example: Percent(0.123) → "12.3%"
+// Example: Percent(0.00123) → "0.123%", Percent(0.123) → "12.3%"
 func Percent(fraction float64) string {
 	if fraction < 0 {
 		return "0.0%"
@@ -42,7 +42,11 @@ func Percent(fraction float64) string {
 	if fraction > 1 {
 		return "100.0%"
 	}
-	return fmt.Sprintf("%.1f%%", fraction*100)
+	// Format with up to 5 decimal places, removing trailing zeros for cleaner display
+	formatted := fmt.Sprintf("%.5f", fraction*100)
+	formatted = strings.TrimRight(formatted, "0")
+	formatted = strings.TrimRight(formatted, ".")
+	return formatted + "%"
 }
 
 // truncateWithEllipsis caps string length to prevent overflow in fixed-width cells

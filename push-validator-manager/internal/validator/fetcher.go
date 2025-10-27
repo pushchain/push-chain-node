@@ -483,9 +483,10 @@ func GetValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr s
 		return "—", "—", fmt.Errorf("pchaind not found: %w", err)
 	}
 
-	// Create child context with 5s timeout per validator to avoid deadline issues
+	// Create child context with 15s timeout per validator to avoid deadline issues
 	// when fetching rewards for multiple validators in parallel
-	queryCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Increased from 5s to handle network latency and slower nodes
+	queryCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
@@ -510,10 +511,29 @@ func GetValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr s
 		}
 	}
 
-	// Fetch outstanding rewards
+	// Fetch outstanding rewards with retry logic
 	outstandingRewards := "—"
-	outCmd := exec.CommandContext(queryCtx, bin, "query", "distribution", "validator-outstanding-rewards", validatorAddr, "--node", remote, "-o", "json")
-	if outOutput, err := outCmd.Output(); err == nil {
+	var outOutput []byte
+	var outErr error
+
+	// Retry up to 2 times with 2s delay on failure
+	maxRetries := 2
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		outCmd := exec.CommandContext(queryCtx, bin, "query", "distribution", "validator-outstanding-rewards", validatorAddr, "--node", remote, "-o", "json")
+		outOutput, outErr = outCmd.Output()
+
+		if outErr == nil {
+			break // Success, exit retry loop
+		}
+
+		// Wait before retry (except on last attempt)
+		if attempt < maxRetries {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// Parse outstanding rewards if fetch succeeded
+	if outErr == nil {
 		var outResult struct {
 			Rewards struct {
 				Rewards []string `json:"rewards"`

@@ -397,8 +397,7 @@ func (m *Dashboard) View() string {
 	textStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 	cmdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("10")).
-		Bold(true)
+		Foreground(lipgloss.Color("10"))
 
 	// Line 1: Dashboard controls
 	controlsLine := textStyle.Render("Controls: ") +

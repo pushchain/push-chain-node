@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "net/url"
+    "os/exec"
     "strings"
     "time"
 
@@ -201,6 +202,10 @@ func computeStatus(cfg config.Config, sup process.Supervisor) statusResult {
             res.Error = fmt.Sprintf("RPC status error: %v", err)
         }
     }
+
+    // Fetch binary version (best-effort)
+    res.BinaryVer = getBinaryVersion(cfg)
+
     return res
 }
 
@@ -211,6 +216,32 @@ func getProcessMetrics(pid int, res *statusResult) {
     // Try using `ps` command to get memory usage
     // Example: ps -p <pid> -o %mem= gives percentage of memory
     // This is simplified for now to avoid external dependencies
+}
+
+// getBinaryVersion fetches the binary version string from pchaind
+func getBinaryVersion(cfg config.Config) string {
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
+
+    cmd := exec.CommandContext(ctx, "pchaind", "version", "--long")
+    output, err := cmd.Output()
+    if err != nil {
+        return ""
+    }
+
+    // Parse version from output
+    // Format is usually "version: v0.x.x-..." on first line
+    lines := strings.Split(string(output), "\n")
+    for _, line := range lines {
+        if strings.HasPrefix(strings.TrimSpace(line), "version") {
+            parts := strings.SplitN(line, ":", 2)
+            if len(parts) == 2 {
+                return strings.TrimSpace(parts[1])
+            }
+        }
+    }
+
+    return ""
 }
 
 // printStatusText prints a human-friendly status summary matching the dashboard layout.
@@ -267,12 +298,12 @@ func printStatusText(result statusResult) {
         Border(lipgloss.RoundedBorder()).
         BorderForeground(lipgloss.Color("63")).
         Padding(0, 1).
-        Width(50)
+        Width(80)
 
     titleStyle := lipgloss.NewStyle().
         Bold(true).
         Foreground(lipgloss.Color("39")). // Bright cyan
-        Width(46).
+        Width(76).
         Align(lipgloss.Center)
 
     // Build NODE STATUS box - Enhanced with system metrics and version
@@ -349,23 +380,24 @@ func printStatusText(result statusResult) {
         titleStyle.Render("NETWORK STATUS") + "\n" + strings.Join(networkLines, "\n"),
     )
 
-    // Build VALIDATOR STATUS box - Enhanced with detailed validator information
-    validatorLines := []string{
-        fmt.Sprintf("%s %s", validatorIcon, validatorVal),
-    }
+    // Build VALIDATOR STATUS box - Enhanced with two-column layout when jailed
+    var validatorBoxContent string
 
-    if result.IsValidator {
-        if result.ValidatorMoniker != "" {
-            validatorLines = append(validatorLines, fmt.Sprintf("  Moniker: %s", result.ValidatorMoniker))
+    if result.IsValidator && result.IsJailed {
+        // Two-column layout for jailed validators (matching dashboard)
+
+        // LEFT column: Basic validator info and rewards
+        leftLines := []string{
+            fmt.Sprintf("%s %s", validatorIcon, validatorVal),
         }
 
-        // Show validator status with jail indicator
+        if result.ValidatorMoniker != "" {
+            leftLines = append(leftLines, fmt.Sprintf("  Moniker: %s", result.ValidatorMoniker))
+        }
+
+        // Show basic status on left
         if result.ValidatorStatus != "" {
-            statusText := result.ValidatorStatus
-            if result.IsJailed {
-                statusText = fmt.Sprintf("%s (JAILED)", result.ValidatorStatus)
-            }
-            validatorLines = append(validatorLines, fmt.Sprintf("  Status: %s", statusText))
+            leftLines = append(leftLines, fmt.Sprintf("  ★ Status: %s", result.ValidatorStatus))
         }
 
         if result.VotingPower > 0 {
@@ -373,11 +405,11 @@ func printStatusText(result statusResult) {
             if result.VotingPct > 0 {
                 vpStr += fmt.Sprintf(" (%.3f%%)", result.VotingPct*100)
             }
-            validatorLines = append(validatorLines, fmt.Sprintf("  Power: %s", vpStr))
+            leftLines = append(leftLines, fmt.Sprintf("  Power: %s", vpStr))
         }
 
         if result.Commission != "" {
-            validatorLines = append(validatorLines, fmt.Sprintf("  Commission: %s", result.Commission))
+            leftLines = append(leftLines, fmt.Sprintf("  Commission: %s", result.Commission))
         }
 
         // Show rewards if available
@@ -385,61 +417,146 @@ func printStatusText(result statusResult) {
         hasOutRewards := result.OutstandingRewards != "" && result.OutstandingRewards != "—" && result.OutstandingRewards != "0"
 
         if hasCommRewards || hasOutRewards {
-            validatorLines = append(validatorLines, "")
-            validatorLines = append(validatorLines, fmt.Sprintf("  %s Withdraw available!", c.StatusIcon("online")))
-            validatorLines = append(validatorLines, fmt.Sprintf("  Run: push-validator withdraw-rewards"))
-
+            // Add reward amounts first
             if hasCommRewards {
-                validatorLines = append(validatorLines, fmt.Sprintf("    Comm Rewards: %s PC", result.CommissionRewards))
+                leftLines = append(leftLines, fmt.Sprintf("  Comm Rewards: %s", result.CommissionRewards))
             }
             if hasOutRewards {
-                validatorLines = append(validatorLines, fmt.Sprintf("    Out Rewards: %s PC", result.OutstandingRewards))
+                leftLines = append(leftLines, fmt.Sprintf("  Outstanding Rewards: %s", result.OutstandingRewards))
+            }
+
+            leftLines = append(leftLines, "")
+            // Create command style for colored output
+            commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+            leftLines = append(leftLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Withdraw available!")))
+            leftLines = append(leftLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
+        }
+
+        // RIGHT column: Status details
+        rightLines := []string{
+            "STATUS DETAILS",
+        }
+        rightLines = append(rightLines, "")
+
+        // Show status with jail indicator on right
+        statusText := fmt.Sprintf("%s (JAILED)", result.ValidatorStatus)
+        rightLines = append(rightLines, statusText)
+        rightLines = append(rightLines, "")
+
+        if result.JailReason != "" {
+            rightLines = append(rightLines, fmt.Sprintf("  Reason: %s", result.JailReason))
+        }
+
+        // Add missed blocks if available
+        if result.MissedBlocks > 0 {
+            rightLines = append(rightLines, fmt.Sprintf("  Missed: %s blks", ui.FormatNumber(result.MissedBlocks)))
+        }
+
+        // Add tombstoned status if applicable
+        if result.Tombstoned {
+            rightLines = append(rightLines, fmt.Sprintf("  %s Tombstoned: Yes", c.StatusIcon("offline")))
+        }
+
+        // Add jail until time if available
+        if result.JailedUntil != "" {
+            formatted := formatTimestamp(result.JailedUntil)
+            if formatted != "" {
+                rightLines = append(rightLines, fmt.Sprintf("  Until: %s", formatted))
+            }
+
+            // Add time remaining if applicable
+            remaining := timeUntil(result.JailedUntil)
+            if remaining != "" && remaining != "0s" {
+                rightLines = append(rightLines, fmt.Sprintf("  Remaining: %s", remaining))
+            } else if remaining == "0s" || remaining == "" {
+                rightLines = append(rightLines, fmt.Sprintf("  Remaining: 0s (Ready"))
+                rightLines = append(rightLines, fmt.Sprintf("  now!)"))
             }
         }
 
-        // If jailed, show detailed status information
-        if result.IsJailed {
-            validatorLines = append(validatorLines, "")
-            validatorLines = append(validatorLines, "  STATUS DETAILS")
-            validatorLines = append(validatorLines, "")
-            if result.JailReason != "" {
-                validatorLines = append(validatorLines, fmt.Sprintf("    Reason: %s", result.JailReason))
-            }
+        // Show unjail information
+        rightLines = append(rightLines, "")
+        // Create command style for colored output
+        commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+        rightLines = append(rightLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Ready to unjail!")))
+        rightLines = append(rightLines, commandStyle.Render("  Run: push-validator unjail"))
 
-            // Add missed blocks if available
-            if result.MissedBlocks > 0 {
-                validatorLines = append(validatorLines, fmt.Sprintf("    Missed: %s blks", ui.FormatNumber(result.MissedBlocks)))
-            }
+        // Build two-column layout
+        leftContent := strings.Join(leftLines, "\n")
+        rightContent := strings.Join(rightLines, "\n")
 
-            // Add tombstoned status if applicable
-            if result.Tombstoned {
-                validatorLines = append(validatorLines, fmt.Sprintf("    %s Tombstoned: Yes", c.StatusIcon("offline")))
-            }
+        // Calculate column widths: assume box is ~78 chars wide (80 - 2 borders)
+        // Split roughly in half with 2-char spacing between
+        const boxInnerWidth = 78
+        leftWidth := (boxInnerWidth / 2) - 1  // ~38 chars
+        rightWidth := boxInnerWidth - leftWidth - 2 // ~38 chars with 2-space separator
 
-            // Add jail until time if available
-            if result.JailedUntil != "" {
-                formatted := formatTimestamp(result.JailedUntil)
-                if formatted != "" {
-                    validatorLines = append(validatorLines, fmt.Sprintf("    Until: %s", formatted))
-                }
+        // Use lipgloss to join columns horizontally
+        leftStyle := lipgloss.NewStyle().Width(leftWidth)
+        rightStyle := lipgloss.NewStyle().Width(rightWidth)
 
-                // Add time remaining if applicable
-                remaining := timeUntil(result.JailedUntil)
-                if remaining != "" && remaining != "0s" {
-                    validatorLines = append(validatorLines, fmt.Sprintf("    Remaining: %s", remaining))
-                }
-            }
+        leftRendered := leftStyle.Render(leftContent)
+        rightRendered := rightStyle.Render(rightContent)
 
-            // Show unjail information
-            validatorLines = append(validatorLines, "")
-            validatorLines = append(validatorLines, fmt.Sprintf("  %s Ready to unjail!", c.StatusIcon("online")))
-            validatorLines = append(validatorLines, fmt.Sprintf("  Run: push-validator unjail"))
+        validatorBoxContent = titleStyle.Render("MY VALIDATOR STATUS") + "\n" +
+            lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, "  ", rightRendered)
+    } else {
+        // Single column layout for non-jailed or non-registered validators
+        validatorLines := []string{
+            fmt.Sprintf("%s %s", validatorIcon, validatorVal),
         }
+
+        if result.IsValidator {
+            if result.ValidatorMoniker != "" {
+                validatorLines = append(validatorLines, fmt.Sprintf("  Moniker: %s", result.ValidatorMoniker))
+            }
+
+            // Show validator status with jail indicator
+            if result.ValidatorStatus != "" {
+                statusText := result.ValidatorStatus
+                if result.IsJailed {
+                    statusText = fmt.Sprintf("%s (JAILED)", result.ValidatorStatus)
+                }
+                validatorLines = append(validatorLines, fmt.Sprintf("  Status: %s", statusText))
+            }
+
+            if result.VotingPower > 0 {
+                vpStr := ui.FormatNumber(result.VotingPower)
+                if result.VotingPct > 0 {
+                    vpStr += fmt.Sprintf(" (%.3f%%)", result.VotingPct*100)
+                }
+                validatorLines = append(validatorLines, fmt.Sprintf("  Power: %s", vpStr))
+            }
+
+            if result.Commission != "" {
+                validatorLines = append(validatorLines, fmt.Sprintf("  Commission: %s", result.Commission))
+            }
+
+            // Show rewards if available
+            hasCommRewards := result.CommissionRewards != "" && result.CommissionRewards != "—" && result.CommissionRewards != "0"
+            hasOutRewards := result.OutstandingRewards != "" && result.OutstandingRewards != "—" && result.OutstandingRewards != "0"
+
+            if hasCommRewards || hasOutRewards {
+                // Add reward amounts first
+                if hasCommRewards {
+                    validatorLines = append(validatorLines, fmt.Sprintf("  Comm Rewards: %s PC", result.CommissionRewards))
+                }
+                if hasOutRewards {
+                    validatorLines = append(validatorLines, fmt.Sprintf("  Outstanding Rewards: %s PC", result.OutstandingRewards))
+                }
+
+                validatorLines = append(validatorLines, "")
+                // Create command style for colored output
+                commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+                validatorLines = append(validatorLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Withdraw available!")))
+                validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
+            }
+        }
+
+        validatorBoxContent = titleStyle.Render("MY VALIDATOR STATUS") + "\n" + strings.Join(validatorLines, "\n")
     }
 
-    validatorBox := boxStyle.Render(
-        titleStyle.Render("VALIDATOR STATUS") + "\n" + strings.Join(validatorLines, "\n"),
-    )
+    validatorBox := boxStyle.Render(validatorBoxContent)
 
     // Bottom row: NETWORK STATUS | VALIDATOR STATUS
     bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, networkBox, validatorBox)
@@ -581,8 +698,21 @@ func renderSyncProgressDashboard(local, remote int64, isCatchingUp bool) string 
         icon = "📊 In Sync"
     }
 
-    return fmt.Sprintf("%s [%s] %.2f%% | %s/%s blocks",
+    result := fmt.Sprintf("%s [%s] %.2f%% | %s/%s blocks",
         icon, bar, percent,
         formatWithCommas(local),
         formatWithCommas(remote))
+
+    // Add ETA if syncing
+    if isCatchingUp && remote > local {
+        blocksBehind := remote - local
+        // Assume average block time of ~6 seconds (adjust if needed)
+        eta := blocksBehind * 6
+        result += fmt.Sprintf(" | ETA: %s", durationShort(time.Duration(eta)*time.Second))
+    } else if remote > 0 {
+        // In sync
+        result += " | ETA: 0s"
+    }
+
+    return result
 }

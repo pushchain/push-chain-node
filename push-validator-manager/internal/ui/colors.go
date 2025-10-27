@@ -93,7 +93,7 @@ func DefaultTheme() *Theme {
 		SubHeader:   Bold + Cyan,
 		Label:       Bold,  // Bold + terminal default color for visibility on all backgrounds
 		Value:       "",  // Use terminal default foreground color for best contrast
-		Command:     Bold + BrightGreen,
+		Command:     BrightGreen,
 		Flag:        BrightYellow,
 		Description: BrightBlack,
 		Separator:   BrightBlack,

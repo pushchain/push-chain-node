@@ -107,12 +107,13 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
         commissionRwd  string
         outstandingRwd string
         evmAddress     string
+        isMyValidator  bool
     }
     vals := make([]validatorDisplay, len(result.Validators))
     var wg sync.WaitGroup
 
     for i, v := range result.Validators {
-        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress, jailed: v.Jailed}
+        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress, jailed: v.Jailed, isMyValidator: myValidatorAddr != "" && v.OperatorAddress == myValidatorAddr}
         if vals[i].moniker == "" { vals[i].moniker = "unknown" }
         switch v.Status {
         case "BOND_STATUS_BONDED":
@@ -146,6 +147,10 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
 
     wg.Wait()
     sort.Slice(vals, func(i, j int) bool {
+        // My validator always comes first
+        if vals[i].isMyValidator != vals[j].isMyValidator {
+            return vals[i].isMyValidator
+        }
         if vals[i].statusOrder != vals[j].statusOrder { return vals[i].statusOrder < vals[j].statusOrder }
         return vals[i].tokensPC > vals[j].tokensPC
     })
@@ -157,8 +162,7 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
     for _, v := range vals {
         // Check if this is my validator
         moniker := v.moniker
-        isMyValidator := myValidatorAddr != "" && v.operatorAddr == myValidatorAddr
-        if isMyValidator {
+        if v.isMyValidator {
             moniker = moniker + " [My Validator]"
         }
 
@@ -180,7 +184,7 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
         }
 
         // Apply green highlighting to the entire row if it's my validator
-        if isMyValidator {
+        if v.isMyValidator {
             for i := range row {
                 row[i] = c.Success(row[i])
             }

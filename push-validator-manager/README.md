@@ -1,8 +1,8 @@
-# Push Validator Manager (Go)
+# Push Validator Manager
 
-**Fast validator setup with automatic recovery for Push Chain**
+**Fast validator setup for Push Chain**
 
-## 🚀 Quick Start (2-3 minutes)
+## 🚀 Quick Start (1-2 minutes)
 
 ### Step 1: Install & Start
 ```bash
@@ -16,7 +16,7 @@ Automatically installs and starts your validator using state sync (no full sync 
 ```bash
 push-validator status
 ```
-Wait for: `✅ Catching Up: false` (takes ~2-3 minutes with state sync)
+Wait for: `✅ Catching Up: false` (takes ~1-2 minutes with state sync)
 
 ### Step 3: Register Validator
 ```bash
@@ -26,6 +26,24 @@ push-validator register-validator
 
 **Done! Your validator is running with automatic recovery enabled! 🎉**
 
+## 📊 Dashboard
+
+Monitor your validator in real-time with an interactive dashboard:
+
+```bash
+push-validator dashboard
+```
+
+**Features:**
+- **Node Status** - Process state, RPC connectivity, resource usage (CPU, memory, disk)
+- **Chain Sync** - Real-time block height, sync progress with ETA, network latency
+- **Validator Metrics** - Bonding status, voting power, commission rate, accumulated rewards
+- **Network Overview** - Connected peers, chain ID, active validators list
+- **Live Logs** - Stream node activity with search and filtering
+- **Auto-Refresh** - Updates every 2 seconds for real-time monitoring
+
+The dashboard provides everything you need to monitor validator health and performance at a glance.
+
 ## 📖 Commands
 
 ### Core
@@ -33,30 +51,38 @@ push-validator register-validator
 push-validator start                # Start with state sync (2-3 min)
 push-validator stop                 # Stop node
 push-validator status               # Check sync & validator status
+push-validator dashboard            # Live interactive monitoring dashboard
 push-validator register-validator   # Register as validator
 push-validator logs                 # View logs
+```
+
+### Validator Operations
+```bash
+push-validator increase-stake       # Increase validator stake and voting power
+push-validator unjail               # Restore jailed validator to active status
+push-validator withdraw-rewards     # Withdraw validator rewards and commission
 ```
 
 ### Monitoring
 ```bash
 push-validator sync            # Monitor sync progress
-push-validator peers           # Show peer connections
-push-validator doctor          # Run health diagnostics
+push-validator peers           # Show peer connections (from local RPC)
+push-validator doctor          # Run diagnostic checks on validator setup
 ```
 
 ### Management
 ```bash
 push-validator restart         # Restart node
-push-validator validators      # List validators
-push-validator balance         # Check balance
-push-validator reset           # Reset data
-push-validator backup          # Backup node
-push-validator update          # Update to latest version
+push-validator validators      # List validators (supports --output json)
+push-validator balance         # Check balance (defaults to validator key)
+push-validator reset           # Reset chain data (keeps address book)
+push-validator full-reset      # ⚠️ Complete reset (deletes ALL keys and data)
+push-validator backup          # Backup config and validator state
 ```
 
 ## ⚡ Features
 
-- **State Sync**: 2-3 minute setup (no full blockchain download)
+- **State Sync**: 1-2 minute setup (no full blockchain download)
 - **Interactive Logs**: Real-time log viewer with search and filtering
 - **Smart Detection**: Monitors for sync stalls and network issues
 - **Reliable Snapshots**: Uses trusted RPC nodes for recovery

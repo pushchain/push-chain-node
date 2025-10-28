@@ -91,7 +91,7 @@ push-validator backup          # Backup config and validator state
 ## 📊 Network
 
 - **Chain**: `push_42101-1` (Testnet)
-- **Min Stake**: 2 PC
+- **Min Stake**: 1.5 PC
 - **Faucet**: https://faucet.push.org
 - **Explorer**: https://donut.push.network
 

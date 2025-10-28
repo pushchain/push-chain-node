@@ -375,7 +375,7 @@ func printStatusText(result statusResult) {
         networkLines = append(networkLines, fmt.Sprintf("Chain: %s", result.Network))
     }
     if result.NodeID != "" {
-        networkLines = append(networkLines, fmt.Sprintf("Node: %s", result.NodeID))
+        networkLines = append(networkLines, fmt.Sprintf("Node ID: %s", result.NodeID))
     }
     if result.Moniker != "" {
         networkLines = append(networkLines, fmt.Sprintf("Name: %s", result.Moniker))

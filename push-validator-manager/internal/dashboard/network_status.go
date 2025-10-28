@@ -121,7 +121,7 @@ func (c *NetworkStatus) renderContent(w int) string {
 	// Node ID
 	if c.data.Metrics.Node.NodeID != "" {
 		// Show full node ID
-		lines = append(lines, fmt.Sprintf("Node: %s", c.data.Metrics.Node.NodeID))
+		lines = append(lines, fmt.Sprintf("Node ID: %s", c.data.Metrics.Node.NodeID))
 	}
 
 	// Moniker

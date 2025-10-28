@@ -20,6 +20,7 @@ replace (
 	github.com/cosmos/evm => ../../../evm
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
+	github.com/strangelove-ventures/tokenfactory => github.com/strangelove-ventures/tokenfactory v0.50.7-wasmvm2
 )
 
 replace (
@@ -53,8 +54,7 @@ require (
 	cosmossdk.io/x/nft v0.1.1
 	cosmossdk.io/x/tx v1.2.0-alpha.1
 	cosmossdk.io/x/upgrade v0.2.0
-	github.com/CosmWasm/wasmd v0.50.0
-	github.com/CosmWasm/wasmvm v1.5.4 // indirect
+	github.com/CosmWasm/wasmd v0.51.0
 	github.com/cometbft/cometbft v0.38.17
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
@@ -81,7 +81,7 @@ require (
 	github.com/spf13/cast v1.9.2
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.20.1
-	github.com/strangelove-ventures/tokenfactory v0.50.3
+	github.com/strangelove-ventures/tokenfactory v0.50.7-wasmvm2
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7
 	google.golang.org/grpc v1.75.0

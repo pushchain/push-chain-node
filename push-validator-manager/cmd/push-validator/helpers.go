@@ -63,6 +63,35 @@ func convertValidatorToAccountAddress(validatorAddress string) (string, error) {
 	return "", fmt.Errorf("could not find Bech32 Acc in debug output")
 }
 
+// hexToBech32Address converts a hex address (0x... or just hex bytes) to bech32 format (push1...)
+// using pchaind debug addr command
+func hexToBech32Address(hexAddr string) (string, error) {
+	// Remove 0x prefix if present
+	if strings.HasPrefix(hexAddr, "0x") || strings.HasPrefix(hexAddr, "0X") {
+		hexAddr = hexAddr[2:]
+	}
+
+	bin := findPchaind()
+	cmd := exec.Command(bin, "debug", "addr", hexAddr)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to convert hex address to bech32: %w", err)
+	}
+
+	// Parse the output to find "Bech32 Acc: push1..."
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Bech32 Acc:") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				return parts[2], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("could not find Bech32 Acc in debug output")
+}
+
 // findKeyNameByAddress finds the key name in the keyring that corresponds to the given address
 func findKeyNameByAddress(cfg config.Config, accountAddress string) (string, error) {
 	bin := findPchaind()
@@ -148,9 +177,9 @@ func waitForSufficientBalance(cfg config.Config, accountAddr string, requiredBal
 		// Display funding information
 		fmt.Println()
 		p.KeyValueLine("Current Balance", pcAmount+" PC", "yellow")
-		p.KeyValueLine("Min Balance Required", reqPCStr+" PC", "yellow")
+		p.KeyValueLine("Required for "+operationName, reqPCStr+" PC", "yellow")
 		fmt.Println()
-		fmt.Printf("Please send %s to your account for %s transaction fees.\n\n", p.Colors.Warning(reqPCStr+" PC"), operationName)
+		fmt.Printf("Please send at least %s to your account for %s.\n\n", p.Colors.Warning(reqPCStr+" PC"), operationName)
 		fmt.Printf("Use faucet at %s for testnet validators\n", p.Colors.Info("https://faucet.push.org"))
 		fmt.Printf("or contact us at %s\n\n", p.Colors.Info("push.org/support"))
 

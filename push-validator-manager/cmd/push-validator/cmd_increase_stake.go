@@ -71,9 +71,21 @@ func handleIncreaseStake(cfg config.Config) {
 	p.KeyValueLine("Voting Power", fmt.Sprintf("%.6f", votingPowerPC)+" PC", "yellow")
 	fmt.Println()
 
-	// Get account balance
+	// Convert validator operator address to account address
+	accountAddr, convErr := convertValidatorToAccountAddress(myValInfo.Address)
+	if convErr != nil {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": false, "error": convErr.Error()})
+		} else {
+			fmt.Println(p.Colors.Error("⚠️ Failed to convert validator address"))
+			fmt.Printf("Error: %v\n\n", convErr)
+		}
+		return
+	}
+
+	// Get account balance from Cosmos SDK
 	balCtx, balCancel := context.WithTimeout(context.Background(), 15*time.Second)
-	balance, balErr := v.Balance(balCtx, myValInfo.Address)
+	balance, balErr := v.Balance(balCtx, accountAddr)
 	balCancel()
 
 	if balErr != nil {
@@ -170,17 +182,41 @@ func handleIncreaseStake(cfg config.Config) {
 		break
 	}
 
-	// Get key name (validator key)
-	keyCtx, keyCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	keyInfo, keyErr := v.EnsureKey(keyCtx, "")
-	keyCancel()
+	// Auto-derive key name from validator
+	defaultKeyName := getenvDefault("KEY_NAME", "validator-key")
+	var keyName string
 
-	if keyErr != nil {
-		if flagOutput == "json" {
-			getPrinter().JSON(map[string]any{"ok": false, "error": keyErr.Error()})
+	// Try to auto-derive the key name from the validator's address
+	if myValInfo.Address != "" {
+		// We already have accountAddr from the balance check above, but need to recalculate
+		// in case that logic changes in the future
+		accountAddr, convErr := convertValidatorToAccountAddress(myValInfo.Address)
+		if convErr == nil {
+			// Try to find the key in the keyring
+			if foundKey, findErr := findKeyNameByAddress(cfg, accountAddr); findErr == nil {
+				keyName = foundKey
+				if flagOutput != "json" {
+					fmt.Println()
+					fmt.Printf("🔑 Using key: %s\n", keyName)
+				}
+			} else {
+				// Fall back to default if key not found
+				keyName = defaultKeyName
+			}
 		} else {
-			fmt.Println(p.Colors.Error("⚠️ Failed to retrieve validator key"))
-			fmt.Printf("Error: %v\n\n", keyErr)
+			// Fall back to default if address conversion failed
+			keyName = defaultKeyName
+		}
+	} else {
+		keyName = defaultKeyName
+	}
+
+	if keyName == "" {
+		if flagOutput == "json" {
+			getPrinter().JSON(map[string]any{"ok": false, "error": "could not determine key name"})
+		} else {
+			fmt.Println(p.Colors.Error("⚠️ Could not determine key name"))
+			fmt.Println()
 		}
 		return
 	}
@@ -193,7 +229,7 @@ func handleIncreaseStake(cfg config.Config) {
 	txHash, delegErr := v.Delegate(delegCtx, validator.DelegateArgs{
 		ValidatorAddress: myValInfo.Address,
 		Amount:           delegationAmount,
-		KeyName:          keyInfo.Name,
+		KeyName:          keyName,
 	})
 	delegCancel()
 

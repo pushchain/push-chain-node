@@ -204,9 +204,11 @@ func handleRegisterValidator(cfg config.Config) {
 			commissionRate = getenvDefault("COMMISSION_RATE", "0.10")
 		}
 
-		runRegisterValidator(cfg, moniker, keyName, defaultAmount, commissionRate)
+		// Interactive mode - let user choose stake amount
+		// Pass empty string to trigger the interactive stake selection prompt
+		runRegisterValidator(cfg, moniker, keyName, "", commissionRate)
 	} else {
-		// JSON mode or env vars set
+		// JSON mode or env vars set - use default/env amount
 		commissionRate := getenvDefault("COMMISSION_RATE", "0.10")
 		runRegisterValidator(cfg, moniker, keyName, defaultAmount, commissionRate)
 	}
@@ -342,11 +344,15 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 			pcAmount = fmt.Sprintf("%.6f", result)
 		}
 
-		// Display funding information
+		// Display funding information with breakdown
 		p.KeyValueLine("Current Balance", pcAmount+" PC", "yellow")
-		p.KeyValueLine("Min Balance Required", "1.6 PC", "yellow")
+		p.KeyValueLine("Min Stake Required", "1.5 PC", "yellow")
+		p.KeyValueLine("Gas Reserve", "0.1 PC", "yellow")
+		p.KeyValueLine("Total Required", "1.6 PC", "yellow")
 		fmt.Println()
-		fmt.Printf("Please send %s to the EVM address shown above.\n\n", p.Colors.Warning("1.6 PC"))
+		fmt.Printf("Please send at least %s to the EVM address shown above.\n", p.Colors.Warning("1.6 PC"))
+		fmt.Printf("(Minimum 1.5 PC for staking + 0.1 PC for transaction fees)\n")
+		fmt.Printf("You can stake more than 1.5 PC if desired.\n\n")
 		fmt.Printf("Use faucet at %s for testnet validators\n", p.Colors.Info("https://faucet.push.org"))
 		fmt.Printf("or contact us at %s\n\n", p.Colors.Info("push.org/support"))
 

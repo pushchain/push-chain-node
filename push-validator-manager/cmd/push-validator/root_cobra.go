@@ -121,6 +121,7 @@ func init() {
 		fmt.Fprintln(w, c.FormatCommand("push-validator validators", "List validators (default pretty, --output json)"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator balance [address]", "Check account balance (defaults to KEY_NAME)"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator register-validator", "Register this node as a validator"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator increase-stake", "Increase validator stake"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator unjail", "Restore jailed validator to active status"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator withdraw-rewards", "Withdraw validator rewards and commission"))
 		fmt.Fprintln(w)
@@ -672,15 +673,15 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 	// Not a validator - show registration prompt
 	fmt.Println(p.Colors.Warning("  ⚠ Not registered as validator"))
 	fmt.Println()
-	fmt.Println("Next steps to register as validator:")
-	fmt.Println("1. Get test tokens: https://faucet.push.org")
-	fmt.Println("2. Check balance: push-validator balance")
-	fmt.Println("3. Register: push-validator register-validator")
-	fmt.Println()
 
 	// Check if we're in an interactive terminal
 	if !isTerminalInteractive() {
-		// Non-interactive - show dashboard with prompt
+		// Non-interactive - show next steps for scripts/CI
+		fmt.Println("Next steps to register as validator:")
+		fmt.Println("1. Get test tokens: https://faucet.push.org")
+		fmt.Println("2. Check balance: push-validator balance")
+		fmt.Println("3. Register: push-validator register-validator")
+		fmt.Println()
 		showDashboardPrompt(cfg, p)
 		return true
 	}
@@ -720,7 +721,12 @@ func handlePostStartFlow(cfg config.Config, p *ui.Printer) bool {
 		handleRegisterValidator(cfg)
 		fmt.Println()
 	} else {
-		// User declined - add newline for clean output
+		// User declined - show them the steps to do it manually
+		fmt.Println()
+		fmt.Println("Next steps to register as validator:")
+		fmt.Println("1. Get test tokens: https://faucet.push.org")
+		fmt.Println("2. Check balance: push-validator balance")
+		fmt.Println("3. Register: push-validator register-validator")
 		fmt.Println()
 	}
 

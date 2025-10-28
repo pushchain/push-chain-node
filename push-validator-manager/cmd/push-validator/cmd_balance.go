@@ -31,6 +31,17 @@ func handleBalance(cfg config.Config, args []string) error {
         }
         addr = strings.TrimSpace(string(out))
     }
+
+    // Convert hex address (0x...) to bech32 if needed
+    if strings.HasPrefix(addr, "0x") || strings.HasPrefix(addr, "0X") {
+        bech32Addr, convErr := hexToBech32Address(addr)
+        if convErr != nil {
+            if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": convErr.Error(), "address": addr}) } else { getPrinter().Error(fmt.Sprintf("address conversion error: %v", convErr)) }
+            return convErr
+        }
+        addr = bech32Addr
+    }
+
     v := validator.NewWith(validator.Options{BinPath: findPchaind(), HomeDir: cfg.HomeDir, ChainID: cfg.ChainID, Keyring: cfg.KeyringBackend, GenesisDomain: cfg.GenesisDomain, Denom: cfg.Denom})
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()

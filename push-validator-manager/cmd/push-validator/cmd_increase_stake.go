@@ -66,6 +66,12 @@ func handleIncreaseStake(cfg config.Config) {
 	p.KeyValueLine("Validator Name", myValInfo.Moniker, "blue")
 	p.KeyValueLine("Address", myValInfo.Address, "dim")
 
+	// Get and display EVM address
+	evmAddr, evmErr := getEVMAddress(myValInfo.Address)
+	if evmErr == nil {
+		p.KeyValueLine("EVM Address", evmAddr, "dim")
+	}
+
 	// Display voting power (converted from int64 to PC)
 	votingPowerPC := float64(myValInfo.VotingPower) / 1e6 // Voting power is in units of 1e-6
 	p.KeyValueLine("Voting Power", fmt.Sprintf("%.6f", votingPowerPC)+" PC", "yellow")

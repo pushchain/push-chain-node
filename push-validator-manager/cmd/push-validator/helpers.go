@@ -63,6 +63,35 @@ func convertValidatorToAccountAddress(validatorAddress string) (string, error) {
 	return "", fmt.Errorf("could not find Bech32 Acc in debug output")
 }
 
+// getEVMAddress converts a bech32 address (push...) to EVM hex format (0x...)
+// using pchaind debug addr command
+func getEVMAddress(address string) (string, error) {
+	bin := findPchaind()
+	cmd := exec.Command(bin, "debug", "addr", address)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to convert address to EVM format: %w", err)
+	}
+
+	// Parse the output to find "Address (hex): ..."
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Address (hex):") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				// Add 0x prefix if not present
+				hexAddr := parts[2]
+				if !strings.HasPrefix(hexAddr, "0x") {
+					hexAddr = "0x" + hexAddr
+				}
+				return hexAddr, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("could not find Address (hex) in debug output")
+}
+
 // hexToBech32Address converts a hex address (0x... or just hex bytes) to bech32 format (push1...)
 // using pchaind debug addr command
 func hexToBech32Address(hexAddr string) (string, error) {

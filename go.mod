@@ -7,7 +7,7 @@ toolchain go1.24.3
 // overrides
 replace (
 	cosmossdk.io/api => cosmossdk.io/api v0.7.5
-	cosmossdk.io/client/v2 => cosmossdk.io/client/v2 v2.0.0-beta.5
+	cosmossdk.io/client/v2 => cosmossdk.io/client/v2 v2.0.0-beta.4
 	cosmossdk.io/collections => cosmossdk.io/collections v0.4.0
 	cosmossdk.io/core => cosmossdk.io/core v0.11.1
 	cosmossdk.io/store => cosmossdk.io/store v1.1.1

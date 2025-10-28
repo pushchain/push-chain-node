@@ -13,7 +13,7 @@ replace (
 	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
 	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.7
 	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.53.0
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.53.2
 	github.com/cosmos/evm => ../../../evm
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4
 

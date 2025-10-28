@@ -6,18 +6,20 @@ toolchain go1.24.3
 
 // overrides
 replace (
-	cosmossdk.io/api => cosmossdk.io/api v0.7.6
-	cosmossdk.io/collections => cosmossdk.io/collections v1.3.1
-	cosmossdk.io/core => cosmossdk.io/core v0.11.3
-	cosmossdk.io/store => github.com/evmos/cosmos-sdk/store v0.0.0-20240718141609-414cbd051fbe
+	cosmossdk.io/api => cosmossdk.io/api v0.7.5
+	cosmossdk.io/client/v2 => cosmossdk.io/client/v2 v2.0.0-beta.5
+	cosmossdk.io/collections => cosmossdk.io/collections v0.4.0
+	cosmossdk.io/core => cosmossdk.io/core v0.11.1
+	cosmossdk.io/store => cosmossdk.io/store v1.1.1
+	cosmossdk.io/x/evidence => cosmossdk.io/x/evidence v0.1.1
 	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
-	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.7
-	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.53.2
+	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.3
+	cosmossdk.io/x/upgrade => cosmossdk.io/x/upgrade v0.1.4
+	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0 // Keep v0.55.0
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.10 // Use stable v0.50.10
 	github.com/cosmos/evm => ../../../evm
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4
-
-	github.com/spf13/viper => github.com/spf13/viper v1.17.0 // v1.18+ breaks app overrides
+	github.com/spf13/viper => github.com/spf13/viper v1.17.0
 )
 
 replace (
@@ -94,7 +96,6 @@ require github.com/CosmWasm/wasmvm/v2 v2.2.4
 require (
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go/monitoring v1.21.2 // indirect
-	cosmossdk.io/schema v1.1.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.48.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1 // indirect
@@ -103,7 +104,6 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
-	github.com/mdp/qrterminal/v3 v3.2.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
@@ -111,9 +111,7 @@ require (
 	go.opentelemetry.io/contrib/detectors/gcp v1.36.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.37.0 // indirect
-	go.uber.org/mock v0.5.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	rsc.io/qr v0.2.0 // indirect
 )
 
 require (
@@ -244,7 +242,7 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/linxGnu/grocksdb v1.10.1 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
-	github.com/magiconair/properties v1.8.10 // indirect
+	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

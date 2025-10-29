@@ -12,14 +12,14 @@ var (
 // NewMsgVoteGasPrice creates new instance of MsgVoteGasPrice
 func NewMsgVoteGasPrice(
 	sender sdk.Address,
-	chainId string,
+	observedChainId string,
 	price, blockNum uint64,
 ) *MsgVoteGasPrice {
 	return &MsgVoteGasPrice{
-		Signer:      sender.String(),
-		ChainId:     chainId,
-		Price:       price,
-		BlockNumber: blockNum,
+		Signer:          sender.String(),
+		ObservedChainId: observedChainId,
+		Price:           price,
+		BlockNumber:     blockNum,
 	}
 }
 

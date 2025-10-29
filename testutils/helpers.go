@@ -53,10 +53,10 @@ func ExecVoteGasPrice(
 
 	// Construct MsgVoteGasPrice with core validator as signer
 	msg := &uexecutortypes.MsgVoteGasPrice{
-		Signer:      coreValAddr,
-		ChainId:     chainID,
-		Price:       price,
-		BlockNumber: blockNumber,
+		Signer:          coreValAddr,
+		ObservedChainId: chainID,
+		Price:           price,
+		BlockNumber:     blockNumber,
 	}
 
 	// Wrap it inside MsgExec (executed by universal validator)

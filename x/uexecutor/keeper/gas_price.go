@@ -29,10 +29,10 @@ func (k Keeper) SetGasPrice(ctx context.Context, chainID string, gasPrice types.
 	return k.GasPrices.Set(ctx, chainID, gasPrice)
 }
 
-func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddress, chainId string, price, blockNumber uint64) error {
+func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddress, observedChainId string, price, blockNumber uint64) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	gasPriceEntry, found, err := k.GetGasPrice(ctx, chainId)
+	gasPriceEntry, found, err := k.GetGasPrice(ctx, observedChainId)
 	if err != nil {
 		return sdkerrors.Wrap(err, "failed to fetch gas price entry")
 	}
@@ -40,20 +40,20 @@ func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddr
 	if !found {
 		// First vote for this chain
 		newEntry := types.GasPrice{
-			ChainId:     chainId,
-			Signers:     []string{universalValidator.String()},
-			Prices:      []uint64{price},
-			BlockNums:   []uint64{blockNumber},
-			MedianIndex: 0, // Only one value initially
+			ObservedChainId: observedChainId,
+			Signers:         []string{universalValidator.String()},
+			Prices:          []uint64{price},
+			BlockNums:       []uint64{blockNumber},
+			MedianIndex:     0, // Only one value initially
 		}
 
-		if err := k.SetGasPrice(ctx, chainId, newEntry); err != nil {
+		if err := k.SetGasPrice(ctx, observedChainId, newEntry); err != nil {
 			return sdkerrors.Wrap(err, "failed to set initial gas price entry")
 		}
 
 		// EVM call
 		gasPriceBigInt := math.NewUint(price).BigInt()
-		if _, err := k.CallUniversalCoreSetGasPrice(sdkCtx, chainId, gasPriceBigInt); err != nil {
+		if _, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, gasPriceBigInt); err != nil {
 			return sdkerrors.Wrap(err, "failed to call EVM setGasPrice")
 		}
 
@@ -82,12 +82,12 @@ func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddr
 	gasPriceEntry.MedianIndex = uint64(medianIdx)
 
 	// Call EVM to set gas price
-	if err := k.SetGasPrice(ctx, chainId, gasPriceEntry); err != nil {
+	if err := k.SetGasPrice(ctx, observedChainId, gasPriceEntry); err != nil {
 		return sdkerrors.Wrap(err, "failed to set updated gas price entry")
 	}
 
 	medianPrice := math.NewUint(gasPriceEntry.Prices[medianIdx]).BigInt()
-	if receipt, err := k.CallUniversalCoreSetGasPrice(sdkCtx, chainId, medianPrice); err != nil {
+	if receipt, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, medianPrice); err != nil {
 		fmt.Println(receipt)
 		return sdkerrors.Wrap(err, "failed to call EVM setGasPrice")
 	}

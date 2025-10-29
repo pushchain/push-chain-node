@@ -147,7 +147,7 @@ func (ms msgServer) VoteGasPrice(ctx context.Context, msg *types.MsgVoteGasPrice
 		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
-	err = ms.k.VoteGasPrice(ctx, signerValAddr, msg.ChainId, msg.Price, msg.BlockNumber)
+	err = ms.k.VoteGasPrice(ctx, signerValAddr, msg.ObservedChainId, msg.Price, msg.BlockNumber)
 	if err != nil {
 		return nil, err
 	}

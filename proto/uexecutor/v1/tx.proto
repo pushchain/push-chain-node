@@ -136,7 +136,7 @@ message MsgVoteGasPrice {
   option (cosmos.msg.v1.signer) = "signer";
 
   string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];       // Universal Validator address submitting the vote
-  string chain_id = 2;      // CAIP-2 chain ID (e.g. "eip155:1")
+  string observed_chain_id = 2;      // chain ID of observed external chain (e.g. "1" for ethereum mainnet)
   uint64 price = 3;         // Observed gas price in wei
   uint64 block_number = 4;  // Block number from which price was observed
 }

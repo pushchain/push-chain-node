@@ -12,7 +12,7 @@ message GasPrice {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
-  string chain_id = 1;             // Target chain ID (CAIP-2)
+  string observed_chain_id = 1;              // chain ID of observed external chain (e.g. "1" for ethereum mainnet)
   repeated string signers = 2;     // Validators who submitted votes
   repeated uint64 block_nums = 3;  // Block numbers corresponding to each price
   repeated uint64 prices = 4;      // Submitted gas prices

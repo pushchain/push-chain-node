@@ -99,7 +99,7 @@ message ChainConfig {
   repeated GatewayMethods gateway_methods = 6; // List of methods that can be used for universal operations
 
   ChainEnabled enabled = 7; // Whether this chain is currently enabled or not
-  google.protobuf.Duration oracle_fetch_interval = 8; // how often relayers should fetch gas prices
+  google.protobuf.Duration gas_oracle_fetch_interval = 8 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true]; // how often relayers should fetch gas prices
 }
 
 message NativeRepresentation {

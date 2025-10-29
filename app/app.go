@@ -257,6 +257,15 @@ var (
 	_ servertypes.Application = (*ChainApp)(nil)
 )
 
+type CallbacksCompatibleModule interface {
+	porttypes.IBCModule
+	porttypes.PacketDataUnmarshaler
+}
+
+type PacketDataUnmarshaler interface {
+	UnmarshalPacketData(ctx sdk.Context, portID, channelID string, bz []byte) (interface{}, string, error)
+}
+
 // ChainApp extended ABCI application
 type ChainApp struct {
 	*baseapp.BaseApp
@@ -917,7 +926,6 @@ func NewChainApp(
 	// Create Transfer Stack
 	var transferStack porttypes.IBCModule
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
-	transferStack = ratelimit.NewIBCMiddleware(app.RatelimitKeeper, transferStack)
 	// callbacks wraps the transfer stack as its base app, and uses PacketForwardKeeper as the ICS4Wrapper
 	// i.e. packet-forward-middleware is higher on the stack and sits between callbacks and the ibc channel keeper
 	// Since this is the lowest level middleware of the transfer stack, it should be the first entrypoint for transfer keeper's

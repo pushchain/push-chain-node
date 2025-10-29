@@ -32,6 +32,7 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 			IsInboundEnabled:  true,
 			IsOutboundEnabled: true,
 		},
+		GasOracleFetchInterval: 30,
 	}
 
 	invalidChainConfig := types.ChainConfig{

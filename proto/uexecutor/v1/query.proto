@@ -3,6 +3,7 @@ package uexecutor.v1;
 
 import "google/api/annotations.proto";
 import "uexecutor/v1/types.proto";
+import "uexecutor/v1/gas_price.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
@@ -28,9 +29,42 @@ service Query {
   rpc AllUniversalTx(QueryAllUniversalTxRequest) returns (QueryAllUniversalTxResponse) {
     option (google.api.http).get = "/uexecutor/v1/universal_txs";
   }
+
+  // 🔹 Queries gas price for a specific chain
+  rpc GasPrice(QueryGasPriceRequest) returns (QueryGasPriceResponse) {
+    option (google.api.http).get = "/uexecutor/v1/gas_price/{chain_id}";
+  }
+
+  // 🔹 Queries all gas prices across chains
+  rpc AllGasPrices(QueryAllGasPricesRequest) returns (QueryAllGasPricesResponse) {
+    option (google.api.http).get = "/uexecutor/v1/gas_prices";
+  }
 }
 
-// QueryParamsRequest is the request type for the Query/Params RPC method.
+// ==========================
+// Query messages
+// ==========================
+
+// Single gas price
+message QueryGasPriceRequest {
+  string chain_id = 1;
+}
+
+message QueryGasPriceResponse {
+  GasPrice gas_price = 1;
+}
+
+// All gas prices
+message QueryAllGasPricesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllGasPricesResponse {
+  repeated GasPrice gas_prices = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// Existing types
 message QueryParamsRequest {}
 
 // QueryParamsResponse is the response type for the Query/Params RPC method.
@@ -58,7 +92,6 @@ message QueryGetUniversalTxResponse {
   UniversalTx universal_tx = 1;
 }
 
-// All UniversalTx
 message QueryAllUniversalTxRequest {
   cosmos.base.query.v1beta1.PageRequest pagination = 1;
 }

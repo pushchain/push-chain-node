@@ -55,5 +55,10 @@ func (p ChainConfig) ValidateBasic() error {
 		}
 	}
 
+	// Validate gas oracle fetch interval
+	if p.GasOracleFetchInterval <= 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_oracle_fetch_interval must be positive")
+	}
+
 	return p.BlockConfirmation.ValidateBasic()
 }

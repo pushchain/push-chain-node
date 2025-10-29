@@ -38,6 +38,7 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 					IsInboundEnabled:  true,
 					IsOutboundEnabled: true,
 				},
+				GasOracleFetchInterval: 30,
 			},
 			expectErr: false,
 		},

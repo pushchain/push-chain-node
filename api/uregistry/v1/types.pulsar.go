@@ -9,6 +9,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	io "io"
 	reflect "reflect"
 	sync "sync"
@@ -1998,14 +1999,15 @@ func (x *_ChainConfig_6_list) IsValid() bool {
 }
 
 var (
-	md_ChainConfig                    protoreflect.MessageDescriptor
-	fd_ChainConfig_chain              protoreflect.FieldDescriptor
-	fd_ChainConfig_vm_type            protoreflect.FieldDescriptor
-	fd_ChainConfig_public_rpc_url     protoreflect.FieldDescriptor
-	fd_ChainConfig_gateway_address    protoreflect.FieldDescriptor
-	fd_ChainConfig_block_confirmation protoreflect.FieldDescriptor
-	fd_ChainConfig_gateway_methods    protoreflect.FieldDescriptor
-	fd_ChainConfig_enabled            protoreflect.FieldDescriptor
+	md_ChainConfig                           protoreflect.MessageDescriptor
+	fd_ChainConfig_chain                     protoreflect.FieldDescriptor
+	fd_ChainConfig_vm_type                   protoreflect.FieldDescriptor
+	fd_ChainConfig_public_rpc_url            protoreflect.FieldDescriptor
+	fd_ChainConfig_gateway_address           protoreflect.FieldDescriptor
+	fd_ChainConfig_block_confirmation        protoreflect.FieldDescriptor
+	fd_ChainConfig_gateway_methods           protoreflect.FieldDescriptor
+	fd_ChainConfig_enabled                   protoreflect.FieldDescriptor
+	fd_ChainConfig_gas_oracle_fetch_interval protoreflect.FieldDescriptor
 )
 
 func init() {
@@ -2018,6 +2020,7 @@ func init() {
 	fd_ChainConfig_block_confirmation = md_ChainConfig.Fields().ByName("block_confirmation")
 	fd_ChainConfig_gateway_methods = md_ChainConfig.Fields().ByName("gateway_methods")
 	fd_ChainConfig_enabled = md_ChainConfig.Fields().ByName("enabled")
+	fd_ChainConfig_gas_oracle_fetch_interval = md_ChainConfig.Fields().ByName("gas_oracle_fetch_interval")
 }
 
 var _ protoreflect.Message = (*fastReflection_ChainConfig)(nil)
@@ -2127,6 +2130,12 @@ func (x *fastReflection_ChainConfig) Range(f func(protoreflect.FieldDescriptor, 
 			return
 		}
 	}
+	if x.GasOracleFetchInterval != nil {
+		value := protoreflect.ValueOfMessage(x.GasOracleFetchInterval.ProtoReflect())
+		if !f(fd_ChainConfig_gas_oracle_fetch_interval, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -2156,6 +2165,8 @@ func (x *fastReflection_ChainConfig) Has(fd protoreflect.FieldDescriptor) bool {
 		return len(x.GatewayMethods) != 0
 	case "uregistry.v1.ChainConfig.enabled":
 		return x.Enabled != nil
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		return x.GasOracleFetchInterval != nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.ChainConfig"))
@@ -2186,6 +2197,8 @@ func (x *fastReflection_ChainConfig) Clear(fd protoreflect.FieldDescriptor) {
 		x.GatewayMethods = nil
 	case "uregistry.v1.ChainConfig.enabled":
 		x.Enabled = nil
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		x.GasOracleFetchInterval = nil
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.ChainConfig"))
@@ -2226,6 +2239,9 @@ func (x *fastReflection_ChainConfig) Get(descriptor protoreflect.FieldDescriptor
 	case "uregistry.v1.ChainConfig.enabled":
 		value := x.Enabled
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		value := x.GasOracleFetchInterval
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.ChainConfig"))
@@ -2262,6 +2278,8 @@ func (x *fastReflection_ChainConfig) Set(fd protoreflect.FieldDescriptor, value 
 		x.GatewayMethods = *clv.list
 	case "uregistry.v1.ChainConfig.enabled":
 		x.Enabled = value.Message().Interface().(*ChainEnabled)
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		x.GasOracleFetchInterval = value.Message().Interface().(*durationpb.Duration)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uregistry.v1.ChainConfig"))
@@ -2298,6 +2316,11 @@ func (x *fastReflection_ChainConfig) Mutable(fd protoreflect.FieldDescriptor) pr
 			x.Enabled = new(ChainEnabled)
 		}
 		return protoreflect.ValueOfMessage(x.Enabled.ProtoReflect())
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		if x.GasOracleFetchInterval == nil {
+			x.GasOracleFetchInterval = new(durationpb.Duration)
+		}
+		return protoreflect.ValueOfMessage(x.GasOracleFetchInterval.ProtoReflect())
 	case "uregistry.v1.ChainConfig.chain":
 		panic(fmt.Errorf("field chain of message uregistry.v1.ChainConfig is not mutable"))
 	case "uregistry.v1.ChainConfig.vm_type":
@@ -2335,6 +2358,9 @@ func (x *fastReflection_ChainConfig) NewField(fd protoreflect.FieldDescriptor) p
 		return protoreflect.ValueOfList(&_ChainConfig_6_list{list: &list})
 	case "uregistry.v1.ChainConfig.enabled":
 		m := new(ChainEnabled)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	case "uregistry.v1.ChainConfig.gas_oracle_fetch_interval":
+		m := new(durationpb.Duration)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
@@ -2434,6 +2460,10 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 			l = options.Size(x.Enabled)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
+		if x.GasOracleFetchInterval != nil {
+			l = options.Size(x.GasOracleFetchInterval)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -2462,6 +2492,20 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.GasOracleFetchInterval != nil {
+			encoded, err := options.Marshal(x.GasOracleFetchInterval)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x42
 		}
 		if x.Enabled != nil {
 			encoded, err := options.Marshal(x.Enabled)
@@ -2800,6 +2844,42 @@ func (x *fastReflection_ChainConfig) ProtoMethods() *protoiface.Methods {
 					x.Enabled = &ChainEnabled{}
 				}
 				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Enabled); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			case 8:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field GasOracleFetchInterval", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.GasOracleFetchInterval == nil {
+					x.GasOracleFetchInterval = &durationpb.Duration{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.GasOracleFetchInterval); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -4609,13 +4689,14 @@ type ChainConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Chain             string             `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`                                                  // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
-	VmType            VmType             `protobuf:"varint,2,opt,name=vm_type,json=vmType,proto3,enum=uregistry.v1.VmType" json:"vm_type,omitempty"`        // vm_type is the type of the virtual machine used by the chain
-	PublicRpcUrl      string             `protobuf:"bytes,3,opt,name=public_rpc_url,json=publicRpcUrl,proto3" json:"public_rpc_url,omitempty"`              // RPC URL for the chain
-	GatewayAddress    string             `protobuf:"bytes,4,opt,name=gateway_address,json=gatewayAddress,proto3" json:"gateway_address,omitempty"`          // gateway_address is the address of the fee gateway contract on the external chain
-	BlockConfirmation *BlockConfirmation `protobuf:"bytes,5,opt,name=block_confirmation,json=blockConfirmation,proto3" json:"block_confirmation,omitempty"` // block_confirmation is the number of blocks to wait for confirmation on the external chain
-	GatewayMethods    []*GatewayMethods  `protobuf:"bytes,6,rep,name=gateway_methods,json=gatewayMethods,proto3" json:"gateway_methods,omitempty"`          // List of methods that can be used for universal operations
-	Enabled           *ChainEnabled      `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`                                              // Whether this chain is currently enabled or not
+	Chain                  string               `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`                                                                     // chain is the caip2 identifier of the chain where the owner is located - (e.g. "eip155:1" for Ethereum mainnet)
+	VmType                 VmType               `protobuf:"varint,2,opt,name=vm_type,json=vmType,proto3,enum=uregistry.v1.VmType" json:"vm_type,omitempty"`                           // vm_type is the type of the virtual machine used by the chain
+	PublicRpcUrl           string               `protobuf:"bytes,3,opt,name=public_rpc_url,json=publicRpcUrl,proto3" json:"public_rpc_url,omitempty"`                                 // RPC URL for the chain
+	GatewayAddress         string               `protobuf:"bytes,4,opt,name=gateway_address,json=gatewayAddress,proto3" json:"gateway_address,omitempty"`                             // gateway_address is the address of the fee gateway contract on the external chain
+	BlockConfirmation      *BlockConfirmation   `protobuf:"bytes,5,opt,name=block_confirmation,json=blockConfirmation,proto3" json:"block_confirmation,omitempty"`                    // block_confirmation is the number of blocks to wait for confirmation on the external chain
+	GatewayMethods         []*GatewayMethods    `protobuf:"bytes,6,rep,name=gateway_methods,json=gatewayMethods,proto3" json:"gateway_methods,omitempty"`                             // List of methods that can be used for universal operations
+	Enabled                *ChainEnabled        `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`                                                                 // Whether this chain is currently enabled or not
+	GasOracleFetchInterval *durationpb.Duration `protobuf:"bytes,8,opt,name=gas_oracle_fetch_interval,json=gasOracleFetchInterval,proto3" json:"gas_oracle_fetch_interval,omitempty"` // how often relayers should fetch gas prices
 }
 
 func (x *ChainConfig) Reset() {
@@ -4683,6 +4764,13 @@ func (x *ChainConfig) GetGatewayMethods() []*GatewayMethods {
 func (x *ChainConfig) GetEnabled() *ChainEnabled {
 	if x != nil {
 		return x.Enabled
+	}
+	return nil
+}
+
+func (x *ChainConfig) GetGasOracleFetchInterval() *durationpb.Duration {
+	if x != nil {
+		return x.GasOracleFetchInterval
 	}
 	return nil
 }
@@ -4837,6 +4925,8 @@ var file_uregistry_v1_types_proto_rawDesc = []byte{
 	0x69, 0x73, 0x74, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x1a, 0x14, 0x67, 0x6f, 0x67, 0x6f, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x11,
 	0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2f, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2f, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x22, 0x3d, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x61,
 	0x64, 0x6d, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x61, 0x64, 0x6d, 0x69,
 	0x6e, 0x3a, 0x1d, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x10,
@@ -4873,7 +4963,7 @@ var file_uregistry_v1_types_proto_rawDesc = []byte{
 	0x69, 0x73, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65,
 	0x64, 0x3a, 0x24, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x17,
 	0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f,
-	0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x22, 0x93, 0x03, 0x0a, 0x0b, 0x43, 0x68, 0x61, 0x69,
+	0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x22, 0xf3, 0x03, 0x0a, 0x0b, 0x43, 0x68, 0x61, 0x69,
 	0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x2d, 0x0a,
 	0x07, 0x76, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x14,
@@ -4896,7 +4986,13 @@ var file_uregistry_v1_types_proto_rawDesc = []byte{
 	0x64, 0x73, 0x12, 0x34, 0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18, 0x07, 0x20,
 	0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x2e,
 	0x76, 0x31, 0x2e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x52,
-	0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x3a, 0x23, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0,
+	0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x12, 0x5e, 0x0a, 0x19, 0x67, 0x61, 0x73, 0x5f,
+	0x6f, 0x72, 0x61, 0x63, 0x6c, 0x65, 0x5f, 0x66, 0x65, 0x74, 0x63, 0x68, 0x5f, 0x69, 0x6e, 0x74,
+	0x65, 0x72, 0x76, 0x61, 0x6c, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x08, 0xc8, 0xde, 0x1f, 0x00, 0x98, 0xdf, 0x1f, 0x01,
+	0x52, 0x16, 0x67, 0x61, 0x73, 0x4f, 0x72, 0x61, 0x63, 0x6c, 0x65, 0x46, 0x65, 0x74, 0x63, 0x68,
+	0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x3a, 0x23, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0,
 	0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x16, 0x75, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79,
 	0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x85, 0x01,
 	0x0a, 0x14, 0x4e, 0x61, 0x74, 0x69, 0x76, 0x65, 0x52, 0x65, 0x70, 0x72, 0x65, 0x73, 0x65, 0x6e,
@@ -4991,20 +5087,22 @@ var file_uregistry_v1_types_proto_goTypes = []interface{}{
 	(*ChainConfig)(nil),          // 7: uregistry.v1.ChainConfig
 	(*NativeRepresentation)(nil), // 8: uregistry.v1.NativeRepresentation
 	(*TokenConfig)(nil),          // 9: uregistry.v1.TokenConfig
+	(*durationpb.Duration)(nil),  // 10: google.protobuf.Duration
 }
 var file_uregistry_v1_types_proto_depIdxs = []int32{
-	2, // 0: uregistry.v1.GatewayMethods.confirmation_type:type_name -> uregistry.v1.ConfirmationType
-	0, // 1: uregistry.v1.ChainConfig.vm_type:type_name -> uregistry.v1.VmType
-	5, // 2: uregistry.v1.ChainConfig.block_confirmation:type_name -> uregistry.v1.BlockConfirmation
-	4, // 3: uregistry.v1.ChainConfig.gateway_methods:type_name -> uregistry.v1.GatewayMethods
-	6, // 4: uregistry.v1.ChainConfig.enabled:type_name -> uregistry.v1.ChainEnabled
-	1, // 5: uregistry.v1.TokenConfig.token_type:type_name -> uregistry.v1.TokenType
-	8, // 6: uregistry.v1.TokenConfig.native_representation:type_name -> uregistry.v1.NativeRepresentation
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	2,  // 0: uregistry.v1.GatewayMethods.confirmation_type:type_name -> uregistry.v1.ConfirmationType
+	0,  // 1: uregistry.v1.ChainConfig.vm_type:type_name -> uregistry.v1.VmType
+	5,  // 2: uregistry.v1.ChainConfig.block_confirmation:type_name -> uregistry.v1.BlockConfirmation
+	4,  // 3: uregistry.v1.ChainConfig.gateway_methods:type_name -> uregistry.v1.GatewayMethods
+	6,  // 4: uregistry.v1.ChainConfig.enabled:type_name -> uregistry.v1.ChainEnabled
+	10, // 5: uregistry.v1.ChainConfig.gas_oracle_fetch_interval:type_name -> google.protobuf.Duration
+	1,  // 6: uregistry.v1.TokenConfig.token_type:type_name -> uregistry.v1.TokenType
+	8,  // 7: uregistry.v1.TokenConfig.native_representation:type_name -> uregistry.v1.NativeRepresentation
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_uregistry_v1_types_proto_init() }

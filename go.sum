@@ -869,8 +869,8 @@ github.com/cosmos/cosmos-sdk v0.50.10 h1:zXfeu/z653tWZARr/jESzAEiCUYjgJwwG4ytnYW
 github.com/cosmos/cosmos-sdk v0.50.10/go.mod h1:6Eesrx3ZE7vxBZWpK++30H+Uc7Q4ahQWCL7JKU/LEdU=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
-github.com/cosmos/go-ethereum v1.10.26-evmos-rc4 h1:joJGMIsh3buk1zrSpB13W1/hsAEG8DIafCeimWypj88=
-github.com/cosmos/go-ethereum v1.10.26-evmos-rc4/go.mod h1:/6CsT5Ceen2WPLI/oCA3xMcZ5sWMF/D46SjM/ayY0Oo=
+github.com/cosmos/go-ethereum v1.10.26-evmos-rc4.0.20250402013457-cf9d288f0147 h1:Hm9aFN6PBpc4YV4JZXJu4cLrOsVguDd9QwfnDmb5LGg=
+github.com/cosmos/go-ethereum v1.10.26-evmos-rc4.0.20250402013457-cf9d288f0147/go.mod h1:/6CsT5Ceen2WPLI/oCA3xMcZ5sWMF/D46SjM/ayY0Oo=
 github.com/cosmos/gogogateway v1.2.0 h1:Ae/OivNhp8DqBi/sh2A8a1D0y638GpL3tkmLQAiKxTE=
 github.com/cosmos/gogogateway v1.2.0/go.mod h1:iQpLkGWxYcnCdz5iAdLcRBSw3h7NXeOkZ4GUkT+tbFI=
 github.com/cosmos/gogoproto v1.4.2/go.mod h1:cLxOsn1ljAHSV527CHOtaIP91kK6cCrZETRBrkzItWU=
@@ -1622,6 +1622,8 @@ github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b h1
 github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b/go.mod h1:HRuvtXLZ4WkaB1MItToVH2e8ZwKwZPY5/Rcby+CvvLY=
 github.com/prysmaticlabs/prysm/v5 v5.3.0 h1:7Lr8ndapBTZg00YE+MgujN6+yvJR6Bdfn28ZDSJ00II=
 github.com/prysmaticlabs/prysm/v5 v5.3.0/go.mod h1:r1KhlduqDMIGZ1GhR5pjZ2Ko8Q89noTDYTRoPKwf1+c=
+github.com/pushchain/evm v0.2.1-0.20251013112033-ffd15b85335c h1:V9/cXTaDtXJJAMuTFwfOYgCcPzO03YGxu462/vU0+pI=
+github.com/pushchain/evm v0.2.1-0.20251013112033-ffd15b85335c/go.mod h1:/4D24vd1xRnUVaXzfNryxTo5Gn1c/phJG5FvpH9OvLQ=
 github.com/rakyll/statik v0.1.7 h1:OF3QCZUuyPxuGEP7B4ypUa7sB/iHtqOTDYZXGM8KOdQ=
 github.com/rakyll/statik v0.1.7/go.mod h1:AlZONWzMtEnMs7W4e/1LURLiI49pIMmp6V9Unghqrcc=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=

@@ -215,11 +215,8 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		TxType:      txType,
 	}
 
-	// Check if VerificationData is 0x and replace with TxHash
-	if eventData.VerificationData == "0x" {
-		inboundMsg.VerificationData = txHashHex
-	} else {
-		inboundMsg.VerificationData = eventData.VerificationData
+	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD || txType == uetypes.InboundTxType_GAS_AND_PAYLOAD {
+		inboundMsg.UniversalPayload = &eventData.Payload
 	}
 
 	// Set recipient for transactions that involve funds
@@ -227,9 +224,11 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 		inboundMsg.Recipient = eventData.Recipient
 	}
 
-	if txType == uetypes.InboundTxType_FUNDS_AND_PAYLOAD || txType == uetypes.InboundTxType_GAS_AND_PAYLOAD {
+	// Check if VerificationData is 0x and replace with TxHash
+	if inboundMsg.UniversalPayload != nil && inboundMsg.UniversalPayload.VType == uetypes.VerificationType_universalTxVerification {
+		inboundMsg.VerificationData = txHashHex
+	} else {
 		inboundMsg.VerificationData = eventData.VerificationData
-		inboundMsg.UniversalPayload = &eventData.Payload
 	}
 
 	return inboundMsg, nil

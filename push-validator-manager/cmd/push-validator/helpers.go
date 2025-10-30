@@ -153,7 +153,7 @@ func findKeyNameByAddress(cfg config.Config, accountAddress string) (string, err
 // If not, prompts user to fund the wallet and waits for them to press Enter
 // requiredBalance is in micro-units (upc)
 // Returns true if balance is sufficient, false if check failed
-func waitForSufficientBalance(cfg config.Config, accountAddr string, requiredBalance string, operationName string) bool {
+func waitForSufficientBalance(cfg config.Config, accountAddr string, evmAddr string, requiredBalance string, operationName string) bool {
 	p := ui.NewPrinter(flagOutput)
 	v := validator.NewWith(validator.Options{
 		BinPath:       findPchaind(),
@@ -203,11 +203,15 @@ func waitForSufficientBalance(cfg config.Config, accountAddr string, requiredBal
 		reqPC := new(big.Float).Quo(reqFloat, divisor)
 		reqPCStr := fmt.Sprintf("%.6f", reqPC)
 
-		// Display funding information
+		// Display funding information with address
 		fmt.Println()
 		p.KeyValueLine("Current Balance", pcAmount+" PC", "yellow")
 		p.KeyValueLine("Required for "+operationName, reqPCStr+" PC", "yellow")
 		fmt.Println()
+		if evmAddr != "" {
+			p.KeyValueLine("Send funds to", evmAddr, "blue")
+			fmt.Println()
+		}
 		fmt.Printf("Please send at least %s to your account for %s.\n\n", p.Colors.Warning(reqPCStr+" PC"), operationName)
 		fmt.Printf("Use faucet at %s for testnet validators\n", p.Colors.Info("https://faucet.push.org"))
 		fmt.Printf("or contact us at %s\n\n", p.Colors.Info("push.org/support"))

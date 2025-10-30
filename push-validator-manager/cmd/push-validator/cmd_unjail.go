@@ -238,6 +238,12 @@ func handleUnjail(cfg config.Config) {
 		return
 	}
 
+	// Get EVM address for display
+	evmAddr, evmErr := getEVMAddress(accountAddr)
+	if evmErr != nil {
+		evmAddr = "" // Not critical, we can proceed without EVM address
+	}
+
 	if flagOutput != "json" {
 		fmt.Println(" " + p.Colors.Success("✓"))
 	}
@@ -245,7 +251,7 @@ func handleUnjail(cfg config.Config) {
 	// Wait for sufficient balance (only in interactive mode)
 	if flagOutput != "json" && !flagNonInteractive {
 		const requiredForGasFees = "150000000000000000" // 0.15 PC in micro-units, enough for gas (actual: ~0.1037 PC + 1.45x buffer)
-		if !waitForSufficientBalance(cfg, accountAddr, requiredForGasFees, "unjail") {
+		if !waitForSufficientBalance(cfg, accountAddr, evmAddr, requiredForGasFees, "unjail") {
 			return
 		}
 	}

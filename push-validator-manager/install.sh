@@ -4,7 +4,7 @@
 #   bash install.sh                            # default: reset data, build if needed, init+start, wait for sync
 #   bash install.sh --no-reset --no-start      # install only
 #   bash install.sh --use-local                # use current repo checkout to build
-#   PNM_REF=feature/pnm bash install.sh         # clone specific ref (branch/tag)
+#   PNM_REF=v1.0.0 bash install.sh             # clone specific ref (branch/tag)
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -420,7 +420,7 @@ CHAIN_ID="${CHAIN_ID:-push_42101-1}"
 SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
 RESET_DATA="${RESET_DATA:-yes}"
 AUTO_START="${AUTO_START:-yes}"
-PNM_REF="${PNM_REF:-feature/pnm}"
+PNM_REF="${PNM_REF:-main}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 PREFIX="${PREFIX:-}"
 
@@ -481,7 +481,7 @@ while [[ $# -gt 0 ]]; do
       echo "Environment Variables:"
       echo "  NO_COLOR             Set to disable colors"
       echo "  VERBOSE              Set to 'yes' for verbose output"
-      echo "  PNM_REF              Git ref for push-validator-manager (default: feature/pnm)"
+      echo "  PNM_REF              Git ref for push-validator-manager (default: main)"
       echo "  PCHAIND_REF          Git ref for pchaind binary"
       echo
       echo "Examples:"
@@ -793,7 +793,7 @@ if [[ ! -d "$REPO_DIR/push-validator-manager" ]]; then
   if [[ -n "$LOCAL_CANDIDATE" && -d "$LOCAL_CANDIDATE/push-validator-manager" ]]; then
     warn "Try: bash push-validator-manager/install.sh --use-local"
   fi
-  warn "Or specify a branch/tag that contains it: PNM_REF=feature/pnm bash push-validator-manager/install.sh"
+  warn "Or specify a branch/tag that contains it: PNM_REF=main bash push-validator-manager/install.sh"
   exit 1
 fi
 

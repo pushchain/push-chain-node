@@ -23,7 +23,7 @@ func NewMsgRemoveUniversalValidator(
 // Route returns the name of the module
 func (msg MsgRemoveUniversalValidator) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgRemoveUniversalValidator) Type() string { return "remove_universal_validator" }
 
 // GetSignBytes implements the LegacyMsg interface.

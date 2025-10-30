@@ -1194,12 +1194,23 @@ if [[ "$INTERACTIVE" == "yes" ]]; then
   echo "  Note: The node will continue running in the background."
   echo
   echo "─────────────────────────────────────────────────────────────"
-  read -r -p "Press ENTER to continue to the dashboard... " || {
-    echo
-    echo "  Dashboard skipped. Node is running in background."
-    echo
-    exit 0
-  }
+  # Read from /dev/tty to work correctly when script is piped (e.g., curl | bash)
+  if [[ -e /dev/tty ]]; then
+    read -r -p "Press ENTER to continue to the dashboard... " < /dev/tty 2> /dev/tty || {
+      echo
+      echo "  Dashboard skipped. Node is running in background."
+      echo
+      exit 0
+    }
+  else
+    # Fallback if /dev/tty is not available (shouldn't happen on most systems)
+    read -r -p "Press ENTER to continue to the dashboard... " || {
+      echo
+      echo "  Dashboard skipped. Node is running in background."
+      echo
+      exit 0
+    }
+  fi
 
   echo
   "$MANAGER_BIN" dashboard || true

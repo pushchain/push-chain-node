@@ -107,6 +107,196 @@ print_useful_cmds() {
     echo
 }
 
+# Helper: Prompt for user confirmation
+prompt_yes_no() {
+    local prompt="$1"
+    local default="${2:-n}"
+    local response
+
+    if [[ "$default" == "y" ]]; then
+        echo -n "$prompt [Y/n]: "
+    else
+        echo -n "$prompt [y/N]: "
+    fi
+
+    read -r response
+    response=${response:-$default}
+
+    case "$response" in
+        [yY][eE][sS]|[yY]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Helper: Update shell profile with Go PATH
+update_shell_profile() {
+    local go_install_dir="$1"
+    local profile_updated=0
+
+    # Detect shell and profile files
+    local shell_name="${SHELL##*/}"
+    local profile_files=()
+
+    case "$shell_name" in
+        bash)
+            profile_files=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+            ;;
+        zsh)
+            profile_files=("$HOME/.zshrc" "$HOME/.zprofile")
+            ;;
+        *)
+            profile_files=("$HOME/.profile" "$HOME/.bashrc")
+            ;;
+    esac
+
+    local go_path_line="export PATH=\"$go_install_dir/bin:\$PATH\""
+
+    for profile in "${profile_files[@]}"; do
+        if [[ -f "$profile" ]]; then
+            # Check if Go path already exists
+            if ! grep -q "$go_install_dir/bin" "$profile" 2>/dev/null; then
+                echo "" >> "$profile"
+                echo "# Added by Push Chain installer" >> "$profile"
+                echo "$go_path_line" >> "$profile"
+                profile_updated=1
+                verbose "Updated $profile with Go PATH"
+                break
+            else
+                verbose "Go PATH already in $profile"
+                profile_updated=1  # Mark as updated since PATH already exists
+                break
+            fi
+        fi
+    done
+
+    # Create .profile if no profile exists
+    if [[ $profile_updated -eq 0 ]] && [[ ${#profile_files[@]} -gt 0 ]]; then
+        local default_profile="${profile_files[0]}"
+        echo "" >> "$default_profile"
+        echo "# Added by Push Chain installer" >> "$default_profile"
+        echo "$go_path_line" >> "$default_profile"
+        verbose "Created $default_profile with Go PATH"
+    fi
+
+    # Export for current session
+    export PATH="$go_install_dir/bin:$PATH"
+}
+
+# Helper: Install Go automatically
+install_go() {
+    local go_version="1.23.3"
+    local arch
+    local os="linux"
+    local download_url
+    local install_dir
+    local use_sudo=0
+    local temp_dir
+
+    # Detect architecture
+    case "$(uname -m)" in
+        x86_64|amd64)
+            arch="amd64"
+            ;;
+        aarch64|arm64)
+            arch="arm64"
+            ;;
+        armv7l)
+            arch="armv6l"
+            ;;
+        *)
+            err "Unsupported architecture: $(uname -m)"
+            return 1
+            ;;
+    esac
+
+    # Detect OS (already set to linux, but keeping for future macOS support)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        os="darwin"
+    fi
+
+    download_url="https://go.dev/dl/go${go_version}.${os}-${arch}.tar.gz"
+
+    # Determine installation directory and sudo requirement
+    if [[ -w "/usr/local" ]]; then
+        install_dir="/usr/local"
+        use_sudo=0
+    elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        install_dir="/usr/local"
+        use_sudo=1
+    else
+        # Install to user's home directory
+        install_dir="$HOME/.local"
+        use_sudo=0
+        mkdir -p "$install_dir"
+    fi
+
+    phase "Installing Go ${go_version}"
+
+    # Check if Go already exists at target location
+    if [[ -d "$install_dir/go" ]]; then
+        step "Backing up existing Go installation"
+        if [[ $use_sudo -eq 1 ]]; then
+            sudo mv "$install_dir/go" "$install_dir/go.backup.$(date +%s)" || true
+        else
+            mv "$install_dir/go" "$install_dir/go.backup.$(date +%s)" || true
+        fi
+    fi
+
+    # Create temp directory for download
+    temp_dir=$(mktemp -d)
+    trap "rm -rf '$temp_dir'" EXIT
+
+    step "Downloading Go ${go_version} for ${os}/${arch}"
+    if command -v curl >/dev/null 2>&1; then
+        curl -L --progress-bar -o "$temp_dir/go.tar.gz" "$download_url" || {
+            err "Failed to download Go"
+            return 1
+        }
+    elif command -v wget >/dev/null 2>&1; then
+        wget --show-progress -O "$temp_dir/go.tar.gz" "$download_url" || {
+            err "Failed to download Go"
+            return 1
+        }
+    else
+        err "Neither curl nor wget found. Cannot download Go."
+        return 1
+    fi
+
+    step "Extracting Go to $install_dir"
+    if [[ $use_sudo -eq 1 ]]; then
+        sudo tar -C "$install_dir" -xzf "$temp_dir/go.tar.gz" || {
+            err "Failed to extract Go"
+            return 1
+        }
+    else
+        tar -C "$install_dir" -xzf "$temp_dir/go.tar.gz" || {
+            err "Failed to extract Go"
+            return 1
+        }
+    fi
+
+    # Update PATH for current session and shell profile
+    step "Updating PATH environment"
+    update_shell_profile "$install_dir/go"
+
+    # Verify installation
+    if "$install_dir/go/bin/go" version >/dev/null 2>&1; then
+        local installed_version
+        installed_version=$("$install_dir/go/bin/go" version | awk '{print $3}')
+        ok "Go installed successfully: $installed_version"
+        echo
+        echo -e "${GREEN}Go has been installed to: $install_dir/go${NC}"
+        echo -e "${YELLOW}Note: You may need to restart your shell or run: source ~/.bashrc${NC}"
+        echo
+        trap - EXIT  # Clear the EXIT trap before returning
+        return 0
+    else
+        err "Go installation verification failed"
+        trap - EXIT  # Clear the EXIT trap before returning
+        return 1
+    fi
+}
+
 clean_data_and_preserve_keys() {
     local mode="$1"
     local suffix="${2:-1}"
@@ -213,7 +403,7 @@ PHASE_NUM=0
 TOTAL_PHASES=6  # Will be adjusted based on what's needed
 PHASE_START_TIME=0
 next_phase() {
-    ((PHASE_NUM++))
+    ((++PHASE_NUM))  # Use pre-increment to avoid returning 0 with set -e
     PHASE_START_TIME=$(date +%s)
     phase "[$PHASE_NUM/$TOTAL_PHASES] $1"
 }
@@ -371,53 +561,125 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-# Check Go with helpful guidance (requires 1.23+)
+# Check Go with automatic installation option
+GO_NEEDS_INSTALL=0
+GO_NEEDS_UPGRADE=0
+
 if ! command -v go >/dev/null 2>&1; then
-  err "Missing dependency: go"
+  GO_NEEDS_INSTALL=1
+  warn "Go is not installed"
+else
+  # Validate Go version (requires 1.23+ for pchaind build)
+  GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+  GO_MAJOR=$(echo "$GO_VERSION" | cut -d. -f1)
+  GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
+
+  if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; then
+    GO_NEEDS_UPGRADE=1
+    warn "Go version too old: $GO_VERSION (need 1.23+)"
+  else
+    verbose "Go version check passed: $GO_VERSION"
+  fi
+fi
+
+# Handle Go installation/upgrade if needed
+if [[ $GO_NEEDS_INSTALL -eq 1 ]] || [[ $GO_NEEDS_UPGRADE -eq 1 ]]; then
   echo
-  echo "Go 1.23 or higher is required to build the Push Chain binary."
+  if [[ $GO_NEEDS_INSTALL -eq 1 ]]; then
+    echo -e "${BOLD}Go 1.23 or higher is required to build the Push Chain binary.${NC}"
+  else
+    echo -e "${BOLD}Your Go version is too old. Go 1.23+ is required.${NC}"
+  fi
   echo
-  echo "Install Go:"
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "  • Using Homebrew: brew install go"
-    echo "  • Or download from: https://go.dev/dl/"
-  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    echo "  • Download from: https://go.dev/dl/"
-    echo "  • Or use your package manager (ensure version 1.23+)"
-    if command -v apt-get >/dev/null 2>&1; then
-      echo "  • On Ubuntu/Debian: sudo apt-get install golang-go"
-    elif command -v yum >/dev/null 2>&1; then
-      echo "  • On RHEL/CentOS: sudo yum install golang"
+
+  # Check if we're in non-interactive mode (CI/automation)
+  if [[ ! -t 0 ]] || [[ "${CI:-false}" == "true" ]] || [[ "${NON_INTERACTIVE:-false}" == "true" ]]; then
+    echo "Running in non-interactive mode. Attempting automatic Go installation..."
+    if install_go; then
+      # Re-check Go after installation
+      if ! command -v go >/dev/null 2>&1; then
+        # Try with the newly installed path
+        if [[ -f "$HOME/.local/go/bin/go" ]]; then
+          export PATH="$HOME/.local/go/bin:$PATH"
+        elif [[ -f "/usr/local/go/bin/go" ]]; then
+          export PATH="/usr/local/go/bin:$PATH"
+        fi
+      fi
+
+      # Verify installation worked
+      if command -v go >/dev/null 2>&1; then
+        GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+        verbose "Go successfully installed: $GO_VERSION"
+      else
+        err "Go installation completed but 'go' command not found in PATH"
+        echo "Please add Go to your PATH and run the installer again."
+        exit 1
+      fi
+    else
+      err "Automatic Go installation failed"
+      echo
+      echo "Please install Go manually:"
+      echo "  • Download from: https://go.dev/dl/"
+      echo "  • Or use your package manager (ensure version 1.23+)"
+      exit 1
     fi
   else
-    echo "  • Download from: https://go.dev/dl/"
+    # Interactive mode - prompt user
+    if prompt_yes_no "Would you like to install Go 1.23.3 automatically?" "y"; then
+      if install_go; then
+        # Re-check Go after installation
+        if ! command -v go >/dev/null 2>&1; then
+          # Try with the newly installed path
+          if [[ -f "$HOME/.local/go/bin/go" ]]; then
+            export PATH="$HOME/.local/go/bin:$PATH"
+          elif [[ -f "/usr/local/go/bin/go" ]]; then
+            export PATH="/usr/local/go/bin:$PATH"
+          fi
+        fi
+
+        # Verify installation worked
+        if command -v go >/dev/null 2>&1; then
+          GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+          verbose "Go successfully installed: $GO_VERSION"
+        else
+          err "Go installation completed but 'go' command not found in PATH"
+          echo "Please add Go to your PATH and run the installer again."
+          exit 1
+        fi
+      else
+        err "Go installation failed"
+        echo
+        echo "Please install Go manually and run this installer again."
+        echo "Download from: https://go.dev/dl/"
+        exit 1
+      fi
+    else
+      echo
+      echo "Manual installation required. Please install Go 1.23+ from:"
+      echo "  • Download: https://go.dev/dl/"
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "  • Using Homebrew: brew install go"
+      elif command -v apt-get >/dev/null 2>&1; then
+        echo "  • Using apt: sudo apt-get install golang-go (check version)"
+      elif command -v yum >/dev/null 2>&1; then
+        echo "  • Using yum: sudo yum install golang (check version)"
+      fi
+      echo
+      echo "After installing Go, run this installer again."
+      exit 1
+    fi
   fi
-  echo
-  echo "After installing Go, run this installer again."
-  exit 1
 fi
 
-# Validate Go version (requires 1.23+ for pchaind build)
-GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-GO_MAJOR=$(echo "$GO_VERSION" | cut -d. -f1)
-GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
-
-if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; then
-  err "Go 1.23 or higher is required (found: $GO_VERSION)"
-  echo
-  echo "Your Go version is too old. The pchaind binary requires Go 1.23+ to build."
-  echo
-  echo "Upgrade Go:"
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "  • Using Homebrew: brew upgrade go"
-    echo "  • Or download from: https://go.dev/dl/"
-  else
-    echo "  • Download from: https://go.dev/dl/"
-    echo "  • Or use your package manager to upgrade"
+# Ensure Go is accessible after installation (refresh command cache)
+if ! command -v go >/dev/null 2>&1; then
+  if [[ -f "/usr/local/go/bin/go" ]]; then
+    export PATH="/usr/local/go/bin:$PATH"
+  elif [[ -f "$HOME/.local/go/bin/go" ]]; then
+    export PATH="$HOME/.local/go/bin:$PATH"
   fi
-  exit 1
+  hash -r 2>/dev/null || true  # Refresh bash command cache
 fi
-verbose "Go version check passed: $GO_VERSION"
 
 # Optional dependencies (warn if missing, fallbacks exist)
 if ! command -v jq >/dev/null 2>&1; then

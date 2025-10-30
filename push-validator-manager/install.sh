@@ -890,7 +890,7 @@ if [[ "$INTERACTIVE" == "yes" ]]; then
     echo
     echo "  Dashboard skipped. Node is running in background."
     echo
-    return 0
+    exit 0
   }
 
   echo

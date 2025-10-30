@@ -94,7 +94,7 @@ func (c *NetworkStatus) renderContent(w int) string {
 
 	// Peers list
 	if len(c.data.PeerList) > 0 {
-		lines = append(lines, fmt.Sprintf("Connected to %d peers:", len(c.data.PeerList)))
+		lines = append(lines, fmt.Sprintf("Connected to %d peers (Node ID):", len(c.data.PeerList)))
 		maxDisplay := 5
 		for i, peer := range c.data.PeerList {
 			if i >= maxDisplay {

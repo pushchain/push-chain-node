@@ -184,12 +184,12 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 	// Commission Rewards
 	if c.data.MyValidator.CommissionRewards != "" && c.data.MyValidator.CommissionRewards != "—" {
-		leftLines = append(leftLines, fmt.Sprintf("Commission Rewards: %s PC", c.data.MyValidator.CommissionRewards))
+		leftLines = append(leftLines, fmt.Sprintf("Commission Rewards: %s PC", FormatFloat(c.data.MyValidator.CommissionRewards)))
 	}
 
 	// Outstanding Rewards
 	if c.data.MyValidator.OutstandingRewards != "" && c.data.MyValidator.OutstandingRewards != "—" {
-		leftLines = append(leftLines, fmt.Sprintf("Outstanding Rewards: %s PC", c.data.MyValidator.OutstandingRewards))
+		leftLines = append(leftLines, fmt.Sprintf("Outstanding Rewards: %s PC", FormatFloat(c.data.MyValidator.OutstandingRewards)))
 	}
 
 	// Check if validator has any rewards to withdraw
@@ -203,7 +203,8 @@ func (c *ValidatorInfo) renderContent(w int) string {
 	if hasCommRewards || hasOutRewards {
 		leftLines = append(leftLines, "")
 		withdrawStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-		leftLines = append(leftLines, withdrawStyle.Render("Withdraw available!"))
+		leftLines = append(leftLines, withdrawStyle.Render("Rewards available!"))
+		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator restake"))
 		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator withdraw-rewards"))
 	}
 

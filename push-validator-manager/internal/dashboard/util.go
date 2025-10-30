@@ -32,6 +32,42 @@ func HumanInt(n int64) string {
 	return sign + reverse(result.String())
 }
 
+// FormatFloat formats floating-point numbers with thousand separators
+// Example: "902030185089.93" → "902,030,185,089.93"
+func FormatFloat(s string) string {
+	// Handle empty or placeholder values
+	if s == "" || s == "—" || s == "-" {
+		return s
+	}
+
+	// Split into integer and decimal parts
+	parts := strings.Split(s, ".")
+	intPart := parts[0]
+
+	// Handle short numbers (3 or fewer digits)
+	if len(intPart) <= 3 {
+		if len(parts) == 2 {
+			return intPart + "." + parts[1]
+		}
+		return intPart
+	}
+
+	// Format integer part with commas
+	var result strings.Builder
+	for i, c := range reverse(intPart) {
+		if i > 0 && i%3 == 0 {
+			result.WriteRune(',')
+		}
+		result.WriteRune(c)
+	}
+
+	formatted := reverse(result.String())
+	if len(parts) == 2 {
+		return formatted + "." + parts[1]
+	}
+	return formatted
+}
+
 // Percent formats percentage - takes fraction in [0,1], returns formatted % with up to 5 decimal places
 // IMPORTANT: Input convention is [0,1], not [0,100]
 // Example: Percent(0.00123) → "0.123%", Percent(0.123) → "12.3%"

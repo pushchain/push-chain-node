@@ -355,7 +355,7 @@ func printStatusText(result statusResult) {
     networkLines := []string{}
 
     if len(result.PeerList) > 0 {
-        networkLines = append(networkLines, fmt.Sprintf("Connected to %d peers:", len(result.PeerList)))
+        networkLines = append(networkLines, fmt.Sprintf("Connected to %d peers (Node ID):", len(result.PeerList)))
         maxDisplay := 3  // Show first 3 peers like dashboard
         for i, peer := range result.PeerList {
             if i >= maxDisplay {
@@ -433,7 +433,8 @@ func printStatusText(result statusResult) {
             leftLines = append(leftLines, "")
             // Create command style for colored output
             commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-            leftLines = append(leftLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Withdraw available!")))
+            leftLines = append(leftLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Rewards available!")))
+            leftLines = append(leftLines, commandStyle.Render("  Run: push-validator restake"))
             leftLines = append(leftLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
         }
 
@@ -553,7 +554,8 @@ func printStatusText(result statusResult) {
                 validatorLines = append(validatorLines, "")
                 // Create command style for colored output
                 commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-                validatorLines = append(validatorLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Withdraw available!")))
+                validatorLines = append(validatorLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Rewards available!")))
+                validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator restake"))
                 validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
             }
         }

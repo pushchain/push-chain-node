@@ -57,6 +57,7 @@ func NewValidatorsList(noEmoji bool, cfg config.Config) *ValidatorsList {
 		cfg:             cfg,
 		currentPage:     0,
 		pageSize:        5,
+		showEVMAddress:  true, // Set EVM as default address display
 		evmAddressCache: make(map[string]string),
 		rewardsCache:    make(map[string]struct{ Commission string; Outstanding string }),
 	}
@@ -106,6 +107,13 @@ func (c *ValidatorsList) Update(msg tea.Msg, data DashboardData) (Component, tea
 		// Trigger initial rewards fetch for first page on first data load
 		if oldValidatorCount == 0 && !c.fetchingRewards && len(c.rewardsCache) == 0 {
 			c.fetchingRewards = true
+
+			// Also trigger initial EVM address fetch if showEVMAddress is true on first data load
+			if c.showEVMAddress && len(c.evmAddressCache) == 0 && !c.fetchingEVMCache {
+				c.fetchingEVMCache = true
+				return c, tea.Batch(c.fetchPageRewardsCmd(), c.fetchEVMAddressesCmd())
+			}
+
 			return c, c.fetchPageRewardsCmd()
 		}
 	}
@@ -381,7 +389,7 @@ func (c *ValidatorsList) renderContent(w int) string {
 
 			// Build row with flexible-width columns
 			line := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s",
-				moniker, status, powerStr, commission, commRewards, outRewards, address)
+				moniker, status, powerStr, commission, FormatFloat(commRewards), FormatFloat(outRewards), address)
 
 			// Apply highlighting to own validator rows
 			if isOurValidator {

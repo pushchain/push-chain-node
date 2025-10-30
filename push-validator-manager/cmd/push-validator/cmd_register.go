@@ -394,14 +394,14 @@ func runRegisterValidator(cfg config.Config, moniker, keyName, amount, commissio
 			minStakePC := 1.5
 			maxStakePC, _ := strconv.ParseFloat(fmt.Sprintf("%.6f", maxPC), 64)
 
-			fmt.Printf("Enter stake amount (%.1f - %.1f PC) [1.5]: ", minStakePC, maxStakePC)
+			fmt.Printf("Enter stake amount (%.1f - %.1f PC) [%.1f]: ", minStakePC, maxStakePC, maxStakePC)
 			input, _ := reader.ReadString('\n')
 			input = strings.TrimSpace(input)
 
-			// Default to 1.5 PC if empty
+			// Default to maximum stakeable amount if empty
 			if input == "" {
-				stake = minStake
-				fmt.Println(p.Colors.Success("✓ Will stake 1.5 PC"))
+				stake = maxStakeable.String()
+				fmt.Printf(p.Colors.Success("✓ Will stake %.6f PC\n"), maxStakePC)
 				fmt.Println()
 				break
 			}

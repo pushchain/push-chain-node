@@ -1213,7 +1213,7 @@ if [[ "$INTERACTIVE" == "yes" ]]; then
   fi
 
   echo
-  "$MANAGER_BIN" dashboard || true
+  "$MANAGER_BIN" dashboard < /dev/tty > /dev/tty 2>&1 || true
 
   # After dashboard exit, show clear status and next steps
   echo

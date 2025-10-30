@@ -348,8 +348,54 @@ verbose "  Root dir: $ROOT_DIR"
 verbose "  Bin dir: $INSTALL_BIN_DIR"
 verbose "  Home dir: $HOME_DIR"
 
-need() { command -v "$1" >/dev/null 2>&1 || { err "Missing dependency: $1"; exit 1; }; }
-need git; need go
+# Check git (simple, always needed)
+if ! command -v git >/dev/null 2>&1; then
+  err "Missing dependency: git"
+  echo
+  echo "Git is required to clone the repository."
+  echo
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "Install with: brew install git"
+    echo "Or download from: https://git-scm.com/downloads"
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "Install with: sudo apt-get install git"
+    elif command -v yum >/dev/null 2>&1; then
+      echo "Install with: sudo yum install git"
+    else
+      echo "Install using your package manager or download from: https://git-scm.com/downloads"
+    fi
+  else
+    echo "Download from: https://git-scm.com/downloads"
+  fi
+  exit 1
+fi
+
+# Check Go with helpful guidance (requires 1.23+)
+if ! command -v go >/dev/null 2>&1; then
+  err "Missing dependency: go"
+  echo
+  echo "Go 1.23 or higher is required to build the Push Chain binary."
+  echo
+  echo "Install Go:"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "  • Using Homebrew: brew install go"
+    echo "  • Or download from: https://go.dev/dl/"
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "  • Download from: https://go.dev/dl/"
+    echo "  • Or use your package manager (ensure version 1.23+)"
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "  • On Ubuntu/Debian: sudo apt-get install golang-go"
+    elif command -v yum >/dev/null 2>&1; then
+      echo "  • On RHEL/CentOS: sudo yum install golang"
+    fi
+  else
+    echo "  • Download from: https://go.dev/dl/"
+  fi
+  echo
+  echo "After installing Go, run this installer again."
+  exit 1
+fi
 
 # Validate Go version (requires 1.23+ for pchaind build)
 GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
@@ -359,9 +405,9 @@ GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
 if [[ "$GO_MAJOR" -lt 1 ]] || [[ "$GO_MAJOR" -eq 1 && "$GO_MINOR" -lt 23 ]]; then
   err "Go 1.23 or higher is required (found: $GO_VERSION)"
   echo
-  echo "The pchaind binary requires Go 1.23+ to build."
+  echo "Your Go version is too old. The pchaind binary requires Go 1.23+ to build."
   echo
-  echo "Please upgrade Go:"
+  echo "Upgrade Go:"
   if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "  • Using Homebrew: brew upgrade go"
     echo "  • Or download from: https://go.dev/dl/"

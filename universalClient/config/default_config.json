@@ -54,6 +54,15 @@
       "gas_price_interval_seconds": 60,
       "event_start_from": 32257378
     },
+    "eip155:97": {
+      "rpc_urls": [
+        "https://binance.llamarpc.com"
+      ],
+      "cleanup_interval_seconds": 1800,
+      "retention_period_seconds": 43200,
+      "gas_price_interval_seconds": 60,
+      "event_start_from": 68905309
+    },
     "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {
       "rpc_urls": [
         "https://api.devnet.solana.com"

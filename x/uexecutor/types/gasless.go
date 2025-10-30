@@ -17,6 +17,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 			sdk.MsgTypeURL(&MsgDeployUEA{}),
 			sdk.MsgTypeURL(&MsgMintPC{}),
 			sdk.MsgTypeURL(&MsgVoteInbound{}),
+			sdk.MsgTypeURL(&MsgVoteGasPrice{}),
 		}
 	)
 

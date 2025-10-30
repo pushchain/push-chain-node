@@ -24,6 +24,7 @@ const (
 	Msg_MintPC_FullMethodName         = "/uexecutor.v1.Msg/MintPC"
 	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
 	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
+	Msg_VoteGasPrice_FullMethodName   = "/uexecutor.v1.Msg/VoteGasPrice"
 )
 
 // MsgClient is the client API for Msg service.
@@ -42,6 +43,8 @@ type MsgClient interface {
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
+	// VoteGasPrice defines a message for universal validators to vote on the gas price
+	VoteGasPrice(ctx context.Context, in *MsgVoteGasPrice, opts ...grpc.CallOption) (*MsgVoteGasPriceResponse, error)
 }
 
 type msgClient struct {
@@ -97,6 +100,15 @@ func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ..
 	return out, nil
 }
 
+func (c *msgClient) VoteGasPrice(ctx context.Context, in *MsgVoteGasPrice, opts ...grpc.CallOption) (*MsgVoteGasPriceResponse, error) {
+	out := new(MsgVoteGasPriceResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteGasPrice_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -113,6 +125,8 @@ type MsgServer interface {
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
+	// VoteGasPrice defines a message for universal validators to vote on the gas price
+	VoteGasPrice(context.Context, *MsgVoteGasPrice) (*MsgVoteGasPriceResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -134,6 +148,9 @@ func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload
 }
 func (UnimplementedMsgServer) VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
+}
+func (UnimplementedMsgServer) VoteGasPrice(context.Context, *MsgVoteGasPrice) (*MsgVoteGasPriceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteGasPrice not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -238,6 +255,24 @@ func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_VoteGasPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteGasPrice)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteGasPrice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteGasPrice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteGasPrice(ctx, req.(*MsgVoteGasPrice))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -264,6 +299,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteInbound",
 			Handler:    _Msg_VoteInbound_Handler,
+		},
+		{
+			MethodName: "VoteGasPrice",
+			Handler:    _Msg_VoteGasPrice_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

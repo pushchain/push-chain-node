@@ -8,6 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
+	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 )
@@ -17,6 +18,7 @@ var Upgrades = []upgrades.Upgrade{
 	feeabs.NewUpgrade(),
 	solanafix.NewUpgrade(),
 	ethhashfix.NewUpgrade(),
+	gasoracle.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -26,7 +26,7 @@ func NewMsgVoteGasPrice(
 // Route returns the name of the module
 func (msg MsgVoteGasPrice) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgVoteGasPrice) Type() string { return "msg_vote_gas_price" }
 
 // GetSignBytes implements the LegacyMsg interface.

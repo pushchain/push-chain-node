@@ -31,7 +31,7 @@ func NewMsgExecutePayload(
 // Route returns the name of the module
 func (msg MsgExecutePayload) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgExecutePayload) Type() string { return "execute_payload" }
 
 // GetSignBytes implements the LegacyMsg interface.

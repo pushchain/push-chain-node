@@ -23,7 +23,7 @@ func NewMsgUpdateChainConfig(
 // Route returns the name of the module
 func (msg MsgUpdateChainConfig) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgUpdateChainConfig) Type() string { return "update_chain_config" }
 
 // GetSignBytes implements the LegacyMsg interface.

@@ -19,6 +19,7 @@ import (
 	txmodule "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/pushchain/push-chain-node/app"
@@ -112,6 +113,19 @@ func NewRootCmd() *cobra.Command {
 	autoCliOpts := tempApp.AutoCliOpts()
 	initClientCtx, _ = config.ReadFromClientConfig(initClientCtx)
 	autoCliOpts.ClientCtx = initClientCtx
+
+	// Skip circuit module to avoid autocli schema mismatch
+	if autoCliOpts.ModuleOptions == nil {
+		autoCliOpts.ModuleOptions = make(map[string]*autocliv1.ModuleOptions)
+	}
+	autoCliOpts.ModuleOptions["circuit"] = &autocliv1.ModuleOptions{
+		Tx: &autocliv1.ServiceCommandDescriptor{
+			Service: "cosmos.circuit.v1.Msg",
+		},
+		Query: &autocliv1.ServiceCommandDescriptor{
+			Service: "cosmos.circuit.v1.Query",
+		},
+	}
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)

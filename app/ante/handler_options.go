@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 )
 
 // BankKeeper defines the contract needed for supply related APIs (noalias)
@@ -38,6 +38,9 @@ type AccountKeeper interface {
 	GetParams(ctx context.Context) (params authtypes.Params)
 	GetSequence(ctx context.Context, addr sdk.AccAddress) (uint64, error)
 	AddressCodec() addresscodec.Codec
+	// RemoveExpiredUnorderedNonces(ctx sdk.Context) error
+	// TryAddUnorderedNonce(sdk.Context, []byte, time.Time) error
+	// UnorderedTransactionsEnabled() bool
 }
 
 // HandlerOptions defines the list of module keepers required to run the EVM
@@ -52,7 +55,7 @@ type HandlerOptions struct {
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	TxFeeChecker           ante.TxFeeChecker // safe to be nil
 
-	WasmConfig            *wasmtypes.WasmConfig
+	WasmConfig            *wasmtypes.NodeConfig
 	WasmKeeper            *wasmkeeper.Keeper
 	TXCounterStoreService corestoretypes.KVStoreService
 

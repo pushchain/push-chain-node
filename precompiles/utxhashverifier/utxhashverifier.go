@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 )
@@ -88,14 +88,14 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, _, _, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
 	switch method.Name {
 	case VerifyTxHashMethod:

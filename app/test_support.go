@@ -1,8 +1,7 @@
 package app
 
 import (
-	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -14,10 +13,6 @@ import (
 
 func (app *ChainApp) GetIBCKeeper() *ibckeeper.Keeper {
 	return app.IBCKeeper
-}
-
-func (app *ChainApp) GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper {
-	return app.ScopedIBCKeeper
 }
 
 func (app *ChainApp) GetBaseApp() *baseapp.BaseApp {

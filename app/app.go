@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
@@ -36,7 +35,7 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	wasmvm "github.com/CosmWasm/wasmvm"
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
@@ -127,40 +126,35 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8/packetforward"
-	packetforwardkeeper "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8/packetforward/keeper"
-	packetforwardtypes "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v8/packetforward/types"
-	ratelimit "github.com/cosmos/ibc-apps/modules/rate-limiting/v8"
-	ratelimitkeeper "github.com/cosmos/ibc-apps/modules/rate-limiting/v8/keeper"
-	ratelimittypes "github.com/cosmos/ibc-apps/modules/rate-limiting/v8/types"
-	"github.com/cosmos/ibc-go/modules/capability"
+	"github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v10/packetforward"
+	packetforwardkeeper "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v10/packetforward/keeper"
+	packetforwardtypes "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v10/packetforward/types"
+	ratelimit "github.com/cosmos/ibc-apps/modules/rate-limiting/v10"
+	ratelimitkeeper "github.com/cosmos/ibc-apps/modules/rate-limiting/v10/keeper"
+	ratelimittypes "github.com/cosmos/ibc-apps/modules/rate-limiting/v10/types"
 	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
-	wasmlc "github.com/cosmos/ibc-go/modules/light-clients/08-wasm"
-	wasmlckeeper "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/keeper"
-	wasmlctypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
-	ica "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts"
-	icacontroller "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller"
-	icacontrollerkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/keeper"
-	icacontrollertypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/types"
-	icahost "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host"
-	icahostkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/keeper"
-	icahosttypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/types"
-	icatypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/types"
-	ibcfee "github.com/cosmos/ibc-go/v8/modules/apps/29-fee"
-	ibcfeekeeper "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/keeper"
-	ibcfeetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	ibc "github.com/cosmos/ibc-go/v8/modules/core"
-	ibcclienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types" //nolint:staticcheck
-	ibcconnectiontypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
-	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
-	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	wasmlc "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10"
+	wasmlckeeper "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/keeper"
+	wasmlctypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
+	ica "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts"
+	icacontroller "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller"
+	icacontrollerkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/keeper"
+	icacontrollertypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/types"
+	icahost "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host"
+	icahostkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/keeper"
+	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
+	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibc "github.com/cosmos/ibc-go/v10/modules/core"
+	ibcclienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types" //nolint:staticcheck
+	ibcconnectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
+	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	// "github.com/ethereum/go-ethereum/core/vm"
-	cosmoscorevm "github.com/cosmos/evm/x/vm/core/vm"
+	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
 
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
@@ -183,6 +177,8 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
+
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 )
 
 const (
@@ -194,14 +190,13 @@ const (
 )
 
 var (
-	capabilities = strings.Join(
-		[]string{
-			"iterator",
-			"staking",
-			"stargate",
-			"cosmwasm_1_1", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4",
-			"token_factory",
-		}, ",")
+	capabilities = []string{
+		"iterator",
+		"staking",
+		"stargate",
+		"cosmwasm_1_1", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4",
+		"token_factory",
+	}
 )
 
 func init() {
@@ -248,7 +243,6 @@ var maccPerms = map[string][]string{
 	nft.ModuleName:                 nil,
 	// non sdk modules
 	ibctransfertypes.ModuleName:  {authtypes.Minter, authtypes.Burner},
-	ibcfeetypes.ModuleName:       nil,
 	icatypes.ModuleName:          nil,
 	wasmtypes.ModuleName:         {authtypes.Burner},
 	tokenfactorytypes.ModuleName: {authtypes.Minter, authtypes.Burner},
@@ -262,6 +256,15 @@ var (
 	_ runtime.AppI            = (*ChainApp)(nil)
 	_ servertypes.Application = (*ChainApp)(nil)
 )
+
+type CallbacksCompatibleModule interface {
+	porttypes.IBCModule
+	porttypes.PacketDataUnmarshaler
+}
+
+type PacketDataUnmarshaler interface {
+	UnmarshalPacketData(ctx sdk.Context, portID, channelID string, bz []byte) (interface{}, string, error)
+}
 
 // ChainApp extended ABCI application
 type ChainApp struct {
@@ -279,7 +282,6 @@ type ChainApp struct {
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
 	BankKeeper            bankkeeper.BaseKeeper
-	CapabilityKeeper      *capabilitykeeper.Keeper
 	StakingKeeper         *stakingkeeper.Keeper
 	SlashingKeeper        slashingkeeper.Keeper
 	MintKeeper            mintkeeper.Keeper
@@ -297,7 +299,6 @@ type ChainApp struct {
 	CircuitKeeper         circuitkeeper.Keeper
 
 	IBCKeeper           *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	IBCFeeKeeper        ibcfeekeeper.Keeper
 	ICAControllerKeeper icacontrollerkeeper.Keeper
 	ICAHostKeeper       icahostkeeper.Keeper
 	TransferKeeper      ibctransferkeeper.Keeper
@@ -312,16 +313,11 @@ type ChainApp struct {
 	EVMKeeper           *evmkeeper.Keeper
 	Erc20Keeper         erc20keeper.Keeper
 
-	ScopedIBCKeeper           capabilitykeeper.ScopedKeeper
-	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
-	ScopedICAControllerKeeper capabilitykeeper.ScopedKeeper
-	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
-	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
-	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
-	UexecutorKeeper           uexecutorkeeper.Keeper
-	UtxverifierKeeper         utxverifierkeeper.Keeper
-	UregistryKeeper           uregistrykeeper.Keeper
-	UvalidatorKeeper          uvalidatorkeeper.Keeper
+	ScopedWasmKeeper  capabilitykeeper.ScopedKeeper
+	UexecutorKeeper   uexecutorkeeper.Keeper
+	UtxverifierKeeper utxverifierkeeper.Keeper
+	UregistryKeeper   uregistrykeeper.Keeper
+	UvalidatorKeeper  uvalidatorkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -420,10 +416,8 @@ func NewChainApp(
 		nftkeeper.StoreKey,
 		group.StoreKey,
 		// non sdk store keys
-		capabilitytypes.StoreKey,
 		ibcexported.StoreKey,
 		ibctransfertypes.StoreKey,
-		ibcfeetypes.StoreKey,
 		wasmtypes.StoreKey,
 		icahosttypes.StoreKey,
 		icacontrollertypes.StoreKey,
@@ -445,7 +439,6 @@ func NewChainApp(
 		evmtypes.TransientKey,
 		feemarkettypes.TransientKey,
 	)
-	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	// register streaming services
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -460,7 +453,6 @@ func NewChainApp(
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
 		tkeys:             tkeys,
-		memKeys:           memKeys,
 	}
 
 	app.ParamsKeeper = initParamsKeeper(
@@ -478,20 +470,6 @@ func NewChainApp(
 		runtime.EventService{},
 	)
 	bApp.SetParamStore(app.ConsensusParamsKeeper.ParamsStore)
-
-	// add capability keeper and ScopeToModule for ibc module
-	app.CapabilityKeeper = capabilitykeeper.NewKeeper(
-		appCodec,
-		keys[capabilitytypes.StoreKey],
-		memKeys[capabilitytypes.MemStoreKey],
-	)
-
-	scopedIBCKeeper := app.CapabilityKeeper.ScopeToModule(ibcexported.ModuleName)
-	scopedICAHostKeeper := app.CapabilityKeeper.ScopeToModule(icahosttypes.SubModuleName)
-	scopedICAControllerKeeper := app.CapabilityKeeper.ScopeToModule(icacontrollertypes.SubModuleName)
-	scopedTransferKeeper := app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
-	scopedWasmKeeper := app.CapabilityKeeper.ScopeToModule(wasmtypes.ModuleName)
-	app.CapabilityKeeper.Seal()
 
 	// add keepers
 
@@ -621,13 +599,20 @@ func NewChainApp(
 
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
-		keys[ibcexported.StoreKey],
+		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
 		app.GetSubspace(ibcexported.ModuleName),
-		app.StakingKeeper,
 		app.UpgradeKeeper,
-		scopedIBCKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
+
+	clientKeeper := app.IBCKeeper.ClientKeeper
+	storeProvider := app.IBCKeeper.ClientKeeper.GetStoreProvider()
+
+	tmLightClientModule := ibctm.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
+
+	wasmLightClientModule := wasmlc.NewLightClientModule(app.WasmClientKeeper, storeProvider)
+	clientKeeper.AddRoute(wasmlctypes.ModuleName, &wasmLightClientModule)
 
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
@@ -692,7 +677,6 @@ func NewChainApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
 		tkeys[feemarkettypes.TransientKey],
-		app.GetSubspace(feemarkettypes.ModuleName),
 	)
 
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
@@ -708,7 +692,7 @@ func NewChainApp(
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
 		&app.Erc20Keeper,
-		tracer, app.GetSubspace(evmtypes.ModuleName),
+		tracer,
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -719,7 +703,6 @@ func NewChainApp(
 		app.BankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
-		app.AuthzKeeper,
 		&app.TransferKeeper,
 	)
 
@@ -773,7 +756,6 @@ func NewChainApp(
 		app.DistrKeeper,
 		app.BankKeeper,
 		app.Erc20Keeper,
-		app.AuthzKeeper, // TODO: get off fork so we can support this
 		app.TransferKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.EVMKeeper,
@@ -820,14 +802,6 @@ func NewChainApp(
 	)
 	wasmOpts = append(wasmOpts, tokenfactorybindings.RegisterCustomPlugins(app.BankKeeper, &app.TokenFactoryKeeper)...)
 
-	// IBC Fee Module keeper
-	app.IBCFeeKeeper = ibcfeekeeper.NewKeeper(
-		appCodec, keys[ibcfeetypes.StoreKey],
-		app.IBCKeeper.ChannelKeeper, // may be replaced with IBC middleware
-		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper, app.AccountKeeper, app.BankKeeper,
-	)
-
 	// Create the ratelimit keeper
 	app.RatelimitKeeper = *ratelimitkeeper.NewKeeper(
 		appCodec,
@@ -836,21 +810,21 @@ func NewChainApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.BankKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCFeeKeeper, // ICS4Wrapper
+		app.IBCKeeper.ClientKeeper,
+		app.IBCKeeper.ChannelKeeper, // Use ChannelKeeper as ICS4Wrapper
 	)
 
-	// Create Transfer Keepers
+	// Create Transfer Keepers : upgraded for ibc-go v10
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
-		keys[ibctransfertypes.StoreKey],
+		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
 		app.GetSubspace(ibctransfertypes.ModuleName),
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
+		app.MsgServiceRouter(),
 		app.AccountKeeper,
 		app.BankKeeper,
-		scopedTransferKeeper,
 		app.Erc20Keeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
@@ -858,7 +832,7 @@ func NewChainApp(
 	// Create the packetfoward keeper
 	app.PacketForwardKeeper = packetforwardkeeper.NewKeeper(
 		appCodec,
-		keys[packetforwardtypes.StoreKey],
+		runtime.NewKVStoreService(keys[packetforwardtypes.StoreKey]),
 		app.TransferKeeper, // will be zero-value here, reference is set later on with SetTransferKeeper.
 		app.IBCKeeper.ChannelKeeper,
 		app.BankKeeper,
@@ -869,32 +843,28 @@ func NewChainApp(
 
 	app.ICAHostKeeper = icahostkeeper.NewKeeper(
 		appCodec,
-		keys[icahosttypes.StoreKey],
+		runtime.NewKVStoreService(keys[icahosttypes.StoreKey]),
 		app.GetSubspace(icahosttypes.SubModuleName),
-		app.IBCFeeKeeper, // use ics29 fee as ics4Wrapper in middleware stack
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
+		app.IBCKeeper.ChannelKeeper,
 		app.AccountKeeper,
-		scopedICAHostKeeper,
 		app.MsgServiceRouter(),
+		app.GRPCQueryRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	app.ICAHostKeeper.WithQueryRouter(app.GRPCQueryRouter())
 
 	app.ICAControllerKeeper = icacontrollerkeeper.NewKeeper(
 		appCodec,
-		keys[icacontrollertypes.StoreKey],
+		runtime.NewKVStoreService(keys[icacontrollertypes.StoreKey]),
 		app.GetSubspace(icacontrollertypes.SubModuleName),
-		app.IBCFeeKeeper, // use ics29 fee as ics4Wrapper in middleware stack
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		scopedICAControllerKeeper,
+		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	wasmDir := filepath.Join(homePath, "data")
-	wasmConfig, err := wasm.ReadWasmConfig(appOpts)
+	wasmConfig, err := wasm.ReadNodeConfig(appOpts)
 	if err != nil {
 		panic(fmt.Sprintf("error while reading wasm config: %s", err))
 	}
@@ -908,31 +878,30 @@ func NewChainApp(
 		app.BankKeeper,
 		app.StakingKeeper,
 		distrkeeper.NewQuerier(app.DistrKeeper),
-		app.IBCFeeKeeper, // ISC4 Wrapper: fee IBC middleware
+		app.IBCKeeper.ChannelKeeper, // ISC4 Wrapper: fee IBC middleware
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		scopedWasmKeeper,
 		app.TransferKeeper,
 		app.MsgServiceRouter(),
 		app.GRPCQueryRouter(),
 		wasmDir,
 		wasmConfig,
-		strings.Join(AllCapabilities(), ","),
+		wasmtypes.VMConfig{WasmLimits: app.WasmKeeper.GetWasmLimits()},
+		AllCapabilities(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		wasmOpts...,
 	)
 
-	wasmLightClientQuerier := wasmlctypes.QueryPlugins{
+	wasmLightClientQuerier := wasmlckeeper.QueryPlugins{
 		// Custom: MyCustomQueryPlugin(),
 		// `myAcceptList` is a `[]string` containing the list of gRPC query paths that the chain wants to allow for the `08-wasm` module to query.
 		// These queries must be registered in the chain's gRPC query router, be deterministic, and track their gas usage.
 		// The `AcceptListStargateQuerier` function will return a query plugin that will only allow queries for the paths in the `myAcceptList`.
 		// The query responses are encoded in protobuf unlike the implementation in `x/wasm`.
-		Stargate: wasmlctypes.AcceptListStargateQuerier([]string{
+		Stargate: wasmlckeeper.AcceptListStargateQuerier([]string{
 			"/ibc.core.client.v1.Query/ClientState",
 			"/ibc.core.client.v1.Query/ConsensusState",
 			"/ibc.core.connection.v1.Query/Connection",
-		}),
+		}, app.GRPCQueryRouter()),
 	}
 
 	dataDir := filepath.Join(homePath, "data")
@@ -952,38 +921,36 @@ func NewChainApp(
 		bApp.GRPCQueryRouter(),
 		wasmlckeeper.WithQueryPlugins(&wasmLightClientQuerier),
 	)
-
+	maxCallbackGas := uint64(10_000_000)
+	wasmStack := wasm.NewIBCHandler(app.WasmKeeper, app.IBCKeeper.ChannelKeeper, app.IBCKeeper.ChannelKeeper)
 	// Create Transfer Stack
 	var transferStack porttypes.IBCModule
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
-	transferStack = ratelimit.NewIBCMiddleware(app.RatelimitKeeper, transferStack)
-	transferStack = ibcfee.NewIBCMiddleware(transferStack, app.IBCFeeKeeper)
+	// callbacks wraps the transfer stack as its base app, and uses PacketForwardKeeper as the ICS4Wrapper
+	// i.e. packet-forward-middleware is higher on the stack and sits between callbacks and the ibc channel keeper
+	// Since this is the lowest level middleware of the transfer stack, it should be the first entrypoint for transfer keeper's
+	// WriteAcknowledgement.
+
+	cbStack := ibccallbacks.NewIBCMiddleware(transferStack, app.PacketForwardKeeper, wasmStack, maxCallbackGas)
 	transferStack = packetforward.NewIBCMiddleware(
-		transferStack,
+		cbStack,
 		app.PacketForwardKeeper,
 		0,
 		packetforwardkeeper.DefaultForwardTransferPacketTimeoutTimestamp,
 	)
-
+	app.TransferKeeper.WithICS4Wrapper(cbStack)
 	// Create Interchain Accounts Stack
 	// SendPacket, since it is originating from the application to core IBC:
 	// icaAuthModuleKeeper.SendTx -> icaController.SendPacket -> fee.SendPacket -> channel.SendPacket
 	var icaControllerStack porttypes.IBCModule
 	// integration point for custom authentication modules
 	// see https://medium.com/the-interchain-foundation/ibc-go-v6-changes-to-interchain-accounts-and-how-it-impacts-your-chain-806c185300d7
-	var noAuthzModule porttypes.IBCModule
-	icaControllerStack = icacontroller.NewIBCMiddleware(noAuthzModule, app.ICAControllerKeeper)
-	icaControllerStack = ibcfee.NewIBCMiddleware(icaControllerStack, app.IBCFeeKeeper)
+	icaControllerStack = icacontroller.NewIBCMiddleware(app.ICAControllerKeeper)
 
 	// RecvPacket, message that originates from core IBC and goes down to app, the flow is:
 	// channel.RecvPacket -> fee.OnRecvPacket -> icaHost.OnRecvPacket
 	var icaHostStack porttypes.IBCModule
 	icaHostStack = icahost.NewIBCModule(app.ICAHostKeeper)
-	icaHostStack = ibcfee.NewIBCMiddleware(icaHostStack, app.IBCFeeKeeper)
-
-	var wasmStack porttypes.IBCModule // Create fee enabled wasm ibc Stack
-	wasmStack = wasm.NewIBCHandler(app.WasmKeeper, app.IBCKeeper.ChannelKeeper, app.IBCFeeKeeper)
-	wasmStack = ibcfee.NewIBCMiddleware(wasmStack, app.IBCFeeKeeper)
 
 	// Create static IBC router, add app routes, then set and seal it
 	ibcRouter := porttypes.NewRouter()
@@ -1029,7 +996,6 @@ func NewChainApp(
 		consensus.NewAppModule(appCodec, app.ConsensusParamsKeeper),
 		circuit.NewAppModule(appCodec, app.CircuitKeeper),
 		// non sdk modules
-		capability.NewAppModule(appCodec, *app.CapabilityKeeper, false),
 		wasm.NewAppModule(appCodec, &app.WasmKeeper,
 			app.StakingKeeper,
 			app.AccountKeeper, app.BankKeeper, app.MsgServiceRouter(), app.GetSubspace(wasmtypes.ModuleName),
@@ -1037,18 +1003,17 @@ func NewChainApp(
 
 		ibc.NewAppModule(app.IBCKeeper),
 		transfer.NewAppModule(app.TransferKeeper),
-		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
-		ibctm.NewAppModule(),
+		ibctm.NewAppModule(tmLightClientModule),
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)),
 		// custom
 		tokenfactory.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(tokenfactorytypes.ModuleName)),
 		packetforward.NewAppModule(app.PacketForwardKeeper, app.GetSubspace(packetforwardtypes.ModuleName)),
 		wasmlc.NewAppModule(app.WasmClientKeeper),
 		ratelimit.NewAppModule(appCodec, app.RatelimitKeeper),
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.GetSubspace(evmtypes.ModuleName)),
-		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
-		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper, app.GetSubspace(erc20types.ModuleName)),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
+		feemarket.NewAppModule(app.FeeMarketKeeper),
+		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
@@ -1070,6 +1035,7 @@ func NewChainApp(
 	// NOTE: upgrade module is required to be prioritized
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
+		authtypes.ModuleName, // NEW
 	)
 	// During begin block slashing happens after distr.BeginBlocker so that
 	// there is nothing left over in the validator fee pool, so as to keep the
@@ -1089,11 +1055,9 @@ func NewChainApp(
 		genutiltypes.ModuleName,
 		authz.ModuleName,
 		// additional non simd modules
-		capabilitytypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		wasmtypes.ModuleName,
 		tokenfactorytypes.ModuleName,
 		packetforwardtypes.ModuleName,
@@ -1114,11 +1078,9 @@ func NewChainApp(
 		group.ModuleName,
 		// additional non simd modules
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
-		capabilitytypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		wasmtypes.ModuleName,
 		tokenfactorytypes.ModuleName,
 		packetforwardtypes.ModuleName,
@@ -1139,7 +1101,6 @@ func NewChainApp(
 	// NOTE: wasm module should be at the end as it can call other module functionality direct or via message dispatching during
 	// genesis phase. For example bank transfer, auth account check, staking, ...
 	genesisModuleOrder := []string{
-		capabilitytypes.ModuleName,
 		// simd modules
 		authtypes.ModuleName,
 		banktypes.ModuleName,
@@ -1170,7 +1131,6 @@ func NewChainApp(
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		wasmtypes.ModuleName, // wasm after ibc transfer
 		tokenfactorytypes.ModuleName,
 		packetforwardtypes.ModuleName,
@@ -1223,7 +1183,6 @@ func NewChainApp(
 	// initialize stores
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
-	app.MountMemoryStores(memKeys)
 
 	// initialize BaseApp
 	app.SetInitChainer(app.InitChainer)
@@ -1263,12 +1222,6 @@ func NewChainApp(
 			panic(fmt.Errorf("failed to register snapshot extension: %s", err))
 		}
 	}
-
-	app.ScopedIBCKeeper = scopedIBCKeeper
-	app.ScopedTransferKeeper = scopedTransferKeeper
-	app.ScopedWasmKeeper = scopedWasmKeeper
-	app.ScopedICAHostKeeper = scopedICAHostKeeper
-	app.ScopedICAControllerKeeper = scopedICAControllerKeeper
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
@@ -1310,8 +1263,8 @@ func NewChainApp(
 			panic(fmt.Sprintf("failed initialize pinned codes %s", err))
 		}
 
-		if err := wasmlckeeper.InitializePinnedCodes(ctx); err != nil {
-			panic(fmt.Sprintf("wasmlckeeper failed initialize pinned codes %s", err))
+		if err := app.WasmClientKeeper.InitializePinnedCodes(ctx); err != nil {
+			panic(fmt.Sprintf("WasmClientKeeper failed initialize pinned codes %s", err))
 		}
 	}
 

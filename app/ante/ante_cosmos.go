@@ -10,7 +10,7 @@ import (
 
 	circuitante "cosmossdk.io/x/circuit/ante"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
-	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
+	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
 	cosmosante "github.com/pushchain/push-chain-node/app/cosmos"
 )
 

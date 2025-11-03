@@ -15,14 +15,15 @@ import (
 
 // GasPriceFetcher handles periodic gas price fetching for all chains
 type GasPriceFetcher struct {
-	chainRegistry *chains.ChainRegistry
-	config        *config.Config
-	logger        zerolog.Logger
-	
-	mu             sync.RWMutex
-	chainFetchers  map[string]*chainGasPriceFetcher // Per-chain fetchers
-	stopCh         chan struct{}
-	stopOnce       sync.Once
+	chainRegistry   *chains.ChainRegistry
+	config          *config.Config
+	logger          zerolog.Logger
+	gasVoteHandlers map[string]*GasVoteHandler // Per-chain handlers for voting on gas prices
+
+	mu            sync.RWMutex
+	chainFetchers map[string]*chainGasPriceFetcher // Per-chain fetchers
+	stopCh        chan struct{}
+	stopOnce      sync.Once
 }
 
 // chainGasPriceFetcher handles gas price fetching for a single chain
@@ -42,11 +43,12 @@ func NewGasPriceFetcher(
 	logger zerolog.Logger,
 ) *GasPriceFetcher {
 	return &GasPriceFetcher{
-		chainRegistry: chainRegistry,
-		config:        cfg,
-		logger:        logger.With().Str("component", "gas_price_fetcher").Logger(),
-		chainFetchers: make(map[string]*chainGasPriceFetcher),
-		stopCh:        make(chan struct{}),
+		chainRegistry:   chainRegistry,
+		config:          cfg,
+		logger:          logger.With().Str("component", "gas_price_fetcher").Logger(),
+		gasVoteHandlers: make(map[string]*GasVoteHandler),
+		chainFetchers:   make(map[string]*chainGasPriceFetcher),
+		stopCh:          make(chan struct{}),
 	}
 }
 
@@ -57,9 +59,10 @@ func (f *GasPriceFetcher) Start(ctx context.Context) error {
 	// Get all registered chains
 	chains := f.chainRegistry.GetAllChains()
 	
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	// Collect fetchers to start
+	fetchersToStart := []*chainGasPriceFetcher{}
 
+	f.mu.Lock()
 	// Start a fetcher for each chain
 	for chainID, client := range chains {
 		if client == nil || !client.IsHealthy() {
@@ -78,7 +81,7 @@ func (f *GasPriceFetcher) Start(ctx context.Context) error {
 			Str("interval", interval.String()).
 			Msg("starting gas price fetcher for chain")
 
-		// Create and start the chain fetcher
+		// Create the chain fetcher
 		fetcher := &chainGasPriceFetcher{
 			chainID:  chainID,
 			client:   client,
@@ -89,14 +92,19 @@ func (f *GasPriceFetcher) Start(ctx context.Context) error {
 				Logger(),
 		}
 
-		// Perform initial fetch
+		f.chainFetchers[chainID] = fetcher
+		fetchersToStart = append(fetchersToStart, fetcher)
+	}
+	f.mu.Unlock()
+
+	// Perform initial fetch and start periodic fetching AFTER releasing the lock
+	for _, fetcher := range fetchersToStart {
+		// Perform initial fetch (outside the lock to avoid deadlock)
 		f.fetchGasPrice(ctx, fetcher)
 
 		// Start periodic fetching
-		fetcher.ticker = time.NewTicker(interval)
+		fetcher.ticker = time.NewTicker(fetcher.interval)
 		go f.runChainFetcher(ctx, fetcher)
-
-		f.chainFetchers[chainID] = fetcher
 	}
 
 	// Watch for chain updates
@@ -148,6 +156,16 @@ func (f *GasPriceFetcher) runChainFetcher(ctx context.Context, fetcher *chainGas
 	}
 }
 
+// SetGasVoteHandler sets the gas vote handler for a specific chain
+func (f *GasPriceFetcher) SetGasVoteHandler(chainID string, handler *GasVoteHandler) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.gasVoteHandlers[chainID] = handler
+	f.logger.Info().
+		Str("chain_id", chainID).
+		Msg("gas vote handler configured for chain")
+}
+
 // fetchGasPrice fetches the gas price for a single chain
 func (f *GasPriceFetcher) fetchGasPrice(ctx context.Context, fetcher *chainGasPriceFetcher) {
 	// Create a timeout context for the fetch operation
@@ -170,11 +188,29 @@ func (f *GasPriceFetcher) fetchGasPrice(ctx context.Context, fetcher *chainGasPr
 	fetcher.logger.Info().
 		Str("gas_price", gasPrice.String()).
 		Dur("fetch_duration", duration).
-		Int64("timestamp", time.Now().Unix()).
 		Msg("gas price fetched successfully")
 
-	// TODO: In the future, store this in a database or metrics system
-	// For now, just logging is sufficient as requested
+	// Vote on the gas price if handler is configured for this chain
+	f.mu.RLock()
+	voteHandler := f.gasVoteHandlers[fetcher.chainID]
+	f.mu.RUnlock()
+
+	if voteHandler == nil {
+		return
+	}
+
+	// Vote on the gas price
+	if err := voteHandler.VoteGasPrice(
+		ctx,
+		fetcher.chainID,
+		gasPrice.Uint64(),
+	); err != nil {
+		fetcher.logger.Error().
+			Err(err).
+			Str("chain_id", fetcher.chainID).
+			Msg("failed to vote on gas price")
+		// Continue - don't stop fetching on vote failure
+	}
 }
 
 // watchChainUpdates watches for chain additions/removals and updates fetchers accordingly
@@ -198,10 +234,11 @@ func (f *GasPriceFetcher) watchChainUpdates(ctx context.Context) {
 // updateChainFetchers updates the list of active chain fetchers based on current chains
 func (f *GasPriceFetcher) updateChainFetchers(ctx context.Context) {
 	currentChains := f.chainRegistry.GetAllChains()
-	
-	f.mu.Lock()
-	defer f.mu.Unlock()
 
+	// Collect new fetchers to start
+	newFetchers := []*chainGasPriceFetcher{}
+
+	f.mu.Lock()
 	// Check for new chains
 	for chainID, client := range currentChains {
 		if _, exists := f.chainFetchers[chainID]; !exists {
@@ -228,14 +265,8 @@ func (f *GasPriceFetcher) updateChainFetchers(ctx context.Context) {
 					Logger(),
 			}
 
-			// Perform initial fetch
-			f.fetchGasPrice(ctx, fetcher)
-
-			// Start periodic fetching
-			fetcher.ticker = time.NewTicker(interval)
-			go f.runChainFetcher(ctx, fetcher)
-
 			f.chainFetchers[chainID] = fetcher
+			newFetchers = append(newFetchers, fetcher)
 		}
 	}
 
@@ -253,6 +284,17 @@ func (f *GasPriceFetcher) updateChainFetchers(ctx context.Context) {
 			close(fetcher.stopCh)
 			delete(f.chainFetchers, chainID)
 		}
+	}
+	f.mu.Unlock()
+
+	// Start new fetchers AFTER releasing the lock to avoid deadlock
+	for _, fetcher := range newFetchers {
+		// Perform initial fetch (outside the lock)
+		f.fetchGasPrice(ctx, fetcher)
+
+		// Start periodic fetching
+		fetcher.ticker = time.NewTicker(fetcher.interval)
+		go f.runChainFetcher(ctx, fetcher)
 	}
 }
 

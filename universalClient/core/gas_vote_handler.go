@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -119,10 +120,19 @@ func (gh *GasVoteHandler) executeVote(
 		return "", fmt.Errorf("granter address is empty - AuthZ not properly configured")
 	}
 
+	// Extract chain reference from CAIP format (e.g., "1" from "eip155:1")
+	chainRef := chainID
+	if strings.Contains(chainID, ":") {
+		parts := strings.Split(chainID, ":")
+		if len(parts) == 2 {
+			chainRef = parts[1]
+		}
+	}
+
 	// Create MsgVoteGasPrice
 	msg := &uetypes.MsgVoteGasPrice{
 		Signer:          gh.granter, // The granter (operator) is the signer
-		ObservedChainId: chainID,
+		ObservedChainId: chainRef,   // Use plain chain reference (e.g., "1")
 		Price:           price,
 		BlockNumber:     0, // Block number not used for gas price voting
 	}

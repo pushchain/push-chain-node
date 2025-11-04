@@ -77,7 +77,7 @@ func TestGasVoteHandler_VoteGasPrice(t *testing.T) {
 						if !ok {
 							return false
 						}
-						return msg.ObservedChainId == "eip155:1" &&
+						return msg.ObservedChainId == "1" &&
 							msg.Price == 50000000000 &&
 							msg.BlockNumber == 0
 					}),
@@ -215,7 +215,7 @@ func TestGasVoteHandler_executeVote(t *testing.T) {
 							return false
 						}
 						return msg.Signer == "cosmos1granter" &&
-							msg.ObservedChainId == "eip155:1" &&
+							msg.ObservedChainId == "1" &&
 							msg.Price == 100000000000 &&
 							msg.BlockNumber == 0
 					}),
@@ -499,7 +499,7 @@ func TestGasVoteHandler_MessageConstruction(t *testing.T) {
 	// Verify message fields
 	require.NotNil(t, capturedMsg)
 	assert.Equal(t, granter, capturedMsg.Signer)
-	assert.Equal(t, chainID, capturedMsg.ObservedChainId)
+	assert.Equal(t, "1", capturedMsg.ObservedChainId) // Extracted from CAIP format "eip155:1"
 	assert.Equal(t, price, capturedMsg.Price)
 	assert.Equal(t, uint64(0), capturedMsg.BlockNumber)
 

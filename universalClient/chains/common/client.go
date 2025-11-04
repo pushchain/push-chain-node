@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -34,7 +35,7 @@ type ChainClient interface {
 	// Configuration access methods
 	GetRPCURLs() []string
 	GetCleanupSettings() (cleanupInterval, retentionPeriod int)
-	GetGasPriceInterval() int
+	GetGasOracleFetchInterval() time.Duration
 	GetChainSpecificConfig() *config.ChainSpecificConfig
 
 	// Gateway operations (optional - clients can implement GatewayOperations)
@@ -131,24 +132,19 @@ func (b *BaseChainClient) GetCleanupSettings() (cleanupInterval, retentionPeriod
 	return cleanupInterval, retentionPeriod
 }
 
-// GetGasPriceInterval returns the gas price fetch interval for this chain
-// Defaults to 60 seconds if not configured
-func (b *BaseChainClient) GetGasPriceInterval() int {
-	// Default to 60 seconds
-	defaultInterval := 60
-	
-	if b.appConfig == nil || b.appConfig.ChainConfigs == nil || b.config == nil {
-		return defaultInterval
+// GetGasOracleFetchInterval returns the onchain gas oracle fetch interval
+// Returns the duration from ChainConfig if available, otherwise defaults to 30 seconds
+func (b *BaseChainClient) GetGasOracleFetchInterval() time.Duration {
+	if b.config == nil {
+		return 30 * time.Second
 	}
-	
-	chainID := b.config.Chain
-	if chainConfig, ok := b.appConfig.ChainConfigs[chainID]; ok {
-		if chainConfig.GasPriceIntervalSeconds != nil {
-			return *chainConfig.GasPriceIntervalSeconds
-		}
+
+	interval := b.config.GetGasOracleFetchInterval()
+	if interval <= 0 {
+		return 30 * time.Second
 	}
-	
-	return defaultInterval
+
+	return interval
 }
 
 // GetChainSpecificConfig returns the complete configuration for this chain

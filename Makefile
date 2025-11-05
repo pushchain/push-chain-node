@@ -217,7 +217,7 @@ proto-gen:
 	@echo "Generating Protobuf files"
 	@$(protoImage) sh ./scripts/protocgen.sh
 # generate the stubs for the proto files from the proto directory
-	@spawn stub-gen
+	@go generate ./...
 	@go mod tidy
 
 proto-format:

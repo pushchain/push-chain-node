@@ -59,7 +59,7 @@ func initCometBFTConfig() *cmtcfg.Config {
 type CustomAppConfig struct {
 	serverconfig.Config
 
-	Wasm    wasmtypes.WasmConfig `mapstructure:"wasm"`
+	Wasm    wasmtypes.NodeConfig `mapstructure:"wasm"`
 	EVM     cosmosevmserverconfig.EVMConfig
 	JSONRPC cosmosevmserverconfig.JSONRPCConfig
 	TLS     cosmosevmserverconfig.TLSConfig
@@ -90,7 +90,7 @@ func initAppConfig() (string, interface{}) {
 
 	customAppConfig := CustomAppConfig{
 		Config:  *srvCfg,
-		Wasm:    wasmtypes.DefaultWasmConfig(),
+		Wasm:    wasmtypes.DefaultNodeConfig(),
 		EVM:     *cosmosevmserverconfig.DefaultEVMConfig(),
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),

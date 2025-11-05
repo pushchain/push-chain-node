@@ -1,0 +1,36 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
+
+// Universal Validator status
+enum UVStatus {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  UV_STATUS_UNSPECIFIED = 0;
+  UV_STATUS_ACTIVE = 1;             // Fully active (votes + signs)
+  UV_STATUS_PENDING_JOIN = 2;       // Waiting for onboarding keygen / vote
+  UV_STATUS_PENDING_LEAVE = 3;      // Marked for removal (still active until TSS reshare)
+  UV_STATUS_INACTIVE = 4;           // No longer part of the validator set
+}
+
+// Validator network metadata
+message NetworkInfo {
+  string ip = 1;                     // Node IP address
+}
+
+// Core Universal Validator object
+message UniversalValidator {
+  option (amino.name) = "uvalidator/universal_validator";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string core_validator_address = 1;      // Core validator address
+  string pubkey = 2;                 // Validator consensus public key
+  UVStatus status = 3;               // Current lifecycle status
+  NetworkInfo network = 4;           // Metadata for networking
+  int64 joined_at_block = 5;         // Block height when added to UV set
+}

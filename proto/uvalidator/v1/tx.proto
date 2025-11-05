@@ -7,6 +7,7 @@ import "uvalidator/v1/genesis.proto";
 import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
 import "uvalidator/v1/types.proto";
+import "uvalidator/v1/validator.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
 
@@ -56,6 +57,12 @@ message MsgAddUniversalValidator {
 
   // core_validator_address is the address of the core validator.
   string core_validator_address = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+
+  // pubkey is the consensus public key for this universal validator
+  string pubkey = 3;
+
+  // network metadata for validator node (IP, etc.)
+  NetworkInfo network = 4;
 }
 
 message MsgAddUniversalValidatorResponse {}

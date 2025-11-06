@@ -2,10 +2,8 @@ package types
 
 import (
 	"encoding/json"
-	"strings"
 
 	"cosmossdk.io/errors"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -21,22 +19,21 @@ func (p UniversalValidator) String() string {
 
 // Validate does the sanity check on the params.
 func (p UniversalValidator) ValidateBasic() error {
-	// Validate core validator address (must be a valid valoper address)
-	_, err := sdk.ValAddressFromBech32(p.CoreValidatorAddress)
-	if err != nil {
-		return errors.Wrap(err, "invalid core validator address")
+
+	// Validate identity info
+	if err := p.IdentifyInfo.ValidateBasic(); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid identify info [%d]: %v", err)
 	}
 
-	// Validate pubkey is non-empty
-	pubkey := strings.TrimSpace(p.Pubkey)
-	if pubkey == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "pubkey cannot be empty")
+	// Validate identity info
+	if err := p.LifecycleInfo.ValidateBasic(); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid lifecycle info [%d]: %v", err)
 	}
 
-	// Validate uv_status is within known enum range
-	if _, ok := UVStatus_name[int32(p.Status)]; !ok {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid uv_status: %v", p.Status)
+	// Validate identity info
+	if err := p.Network.ValidateBasic(); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid network info [%d]: %v", err)
 	}
 
-	return p.Network.ValidateBasic()
+	return nil
 }

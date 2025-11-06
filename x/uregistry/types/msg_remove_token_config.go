@@ -28,7 +28,7 @@ func NewMsgRemoveTokenConfig(
 // Route returns the name of the module
 func (msg MsgRemoveTokenConfig) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgRemoveTokenConfig) Type() string { return "remove_token_config" }
 
 // GetSignBytes implements the LegacyMsg interface.

@@ -36,12 +36,18 @@ message NetworkInfo {
 
 // Lifecycle event info
 message LifecycleEvent {
+  option (amino.name) = "uvalidator/lifecycle_event";
+  option (gogoproto.equal) = true;
+
   UVStatus status = 1;              // Validator status at this point in time
   int64 block_height = 2;           // Block height when this status transition occurred
 }
 
 // Validator lifecycle info
 message LifecycleInfo {
+  option (amino.name) = "uvalidator/lifecyle_info";
+  option (gogoproto.equal) = true;
+
   UVStatus current_status = 1;            // Current validator state
   repeated LifecycleEvent history = 2;       // Added to registry
 }

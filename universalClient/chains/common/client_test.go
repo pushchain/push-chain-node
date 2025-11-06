@@ -195,9 +195,9 @@ func (tc *TestChainClient) GetCleanupSettings() (cleanupInterval, retentionPerio
 	return tc.BaseChainClient.GetCleanupSettings()
 }
 
-// GetGasPriceInterval returns the gas price fetch interval for this chain
-func (tc *TestChainClient) GetGasPriceInterval() int {
-	return tc.BaseChainClient.GetGasPriceInterval()
+// GetGasOracleFetchInterval returns the gas oracle fetch interval for this chain
+func (tc *TestChainClient) GetGasOracleFetchInterval() time.Duration {
+	return tc.BaseChainClient.GetGasOracleFetchInterval()
 }
 
 // GetChainSpecificConfig returns the complete configuration for this chain

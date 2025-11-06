@@ -17,9 +17,33 @@ enum UVStatus {
   UV_STATUS_INACTIVE = 4;           // No longer part of the validator set
 }
 
+// Identity info for validator (chain-level)
+message IdentityInfo {
+  option (amino.name) = "uvalidator/identity_info";
+  option (gogoproto.equal) = true;
+
+  string core_validator_address = 1 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  string pubkey = 2;        // Validator consensus public key
+}
+
 // Validator network metadata
 message NetworkInfo {
+  option (amino.name) = "uvalidator/network_info";
+  option (gogoproto.equal) = true;
+
   string ip = 1;                     // Node IP address
+}
+
+// Lifecycle event info
+message LifecycleEvent {
+  UVStatus status = 1;              // Validator status at this point in time
+  int64 block_height = 2;           // Block height when this status transition occurred
+}
+
+// Validator lifecycle info
+message LifecycleInfo {
+  UVStatus current_status = 1;            // Current validator state
+  repeated LifecycleEvent history = 2;       // Added to registry
 }
 
 // Core Universal Validator object
@@ -28,9 +52,7 @@ message UniversalValidator {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
-  string core_validator_address = 1;      // Core validator address
-  string pubkey = 2;                 // Validator consensus public key
-  UVStatus status = 3;               // Current lifecycle status
-  NetworkInfo network = 4;           // Metadata for networking
-  int64 joined_at_block = 5;         // Block height when added to UV set
+  IdentityInfo identify_info = 1;      // Identity info of the validator
+  NetworkInfo network = 2;           // Metadata for networking
+  LifecycleInfo lifecycle_info = 3;  // Lifecyle info of the validator
 }

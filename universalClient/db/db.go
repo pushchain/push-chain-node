@@ -34,6 +34,7 @@ var (
 	schemaModels = []any{
 		&store.ChainState{},
 		&store.ChainTransaction{},
+		&store.GasVoteTransaction{},
 		// Add additional models here as needed.
 	}
 )

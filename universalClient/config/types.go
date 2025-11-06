@@ -58,9 +58,6 @@ type ChainSpecificConfig struct {
 	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
 	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (optional, uses global default if not set)
 
-	// Gas Price Configuration
-	GasPriceIntervalSeconds *int `json:"gas_price_interval_seconds,omitempty"` // How often to fetch gas price for this chain (optional, defaults to 60 seconds if not set)
-
     // Event Monitoring Configuration
     EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
 

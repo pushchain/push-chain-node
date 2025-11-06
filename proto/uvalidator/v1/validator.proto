@@ -59,6 +59,6 @@ message UniversalValidator {
   option (gogoproto.goproto_stringer) = false;
 
   IdentityInfo identify_info = 1;      // Identity info of the validator
-  NetworkInfo network = 2;           // Metadata for networking
+  NetworkInfo network_info = 2;           // Metadata for networking
   LifecycleInfo lifecycle_info = 3;  // Lifecyle info of the validator
 }

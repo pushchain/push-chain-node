@@ -31,7 +31,7 @@ func (p UniversalValidator) ValidateBasic() error {
 	}
 
 	// Validate identity info
-	if err := p.Network.ValidateBasic(); err != nil {
+	if err := p.NetworkInfo.ValidateBasic(); err != nil {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid network info [%d]: %v", err)
 	}
 

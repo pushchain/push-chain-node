@@ -22,7 +22,7 @@ message IdentityInfo {
   option (amino.name) = "uvalidator/identity_info";
   option (gogoproto.equal) = true;
 
-  string core_validator_address = 1 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  string core_validator_address = 1; // Core validator address
   string pubkey = 2;        // Validator consensus public key
 }
 

@@ -59,6 +59,59 @@ func (UVStatus) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_317d9e276ec46d00, []int{0}
 }
 
+// Identity info for validator (chain-level)
+type IdentityInfo struct {
+	CoreValidatorAddress string `protobuf:"bytes,1,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
+	Pubkey               string `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
+}
+
+func (m *IdentityInfo) Reset()         { *m = IdentityInfo{} }
+func (m *IdentityInfo) String() string { return proto.CompactTextString(m) }
+func (*IdentityInfo) ProtoMessage()    {}
+func (*IdentityInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_317d9e276ec46d00, []int{0}
+}
+func (m *IdentityInfo) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IdentityInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IdentityInfo.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IdentityInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IdentityInfo.Merge(m, src)
+}
+func (m *IdentityInfo) XXX_Size() int {
+	return m.Size()
+}
+func (m *IdentityInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_IdentityInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IdentityInfo proto.InternalMessageInfo
+
+func (m *IdentityInfo) GetCoreValidatorAddress() string {
+	if m != nil {
+		return m.CoreValidatorAddress
+	}
+	return ""
+}
+
+func (m *IdentityInfo) GetPubkey() string {
+	if m != nil {
+		return m.Pubkey
+	}
+	return ""
+}
+
 // Validator network metadata
 type NetworkInfo struct {
 	Ip string `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`
@@ -68,7 +121,7 @@ func (m *NetworkInfo) Reset()         { *m = NetworkInfo{} }
 func (m *NetworkInfo) String() string { return proto.CompactTextString(m) }
 func (*NetworkInfo) ProtoMessage()    {}
 func (*NetworkInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_317d9e276ec46d00, []int{0}
+	return fileDescriptor_317d9e276ec46d00, []int{1}
 }
 func (m *NetworkInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -104,19 +157,123 @@ func (m *NetworkInfo) GetIp() string {
 	return ""
 }
 
+// Lifecycle event info
+type LifecycleEvent struct {
+	Status      UVStatus `protobuf:"varint,1,opt,name=status,proto3,enum=uvalidator.v1.UVStatus" json:"status,omitempty"`
+	BlockHeight int64    `protobuf:"varint,2,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+}
+
+func (m *LifecycleEvent) Reset()         { *m = LifecycleEvent{} }
+func (m *LifecycleEvent) String() string { return proto.CompactTextString(m) }
+func (*LifecycleEvent) ProtoMessage()    {}
+func (*LifecycleEvent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_317d9e276ec46d00, []int{2}
+}
+func (m *LifecycleEvent) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LifecycleEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LifecycleEvent.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LifecycleEvent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LifecycleEvent.Merge(m, src)
+}
+func (m *LifecycleEvent) XXX_Size() int {
+	return m.Size()
+}
+func (m *LifecycleEvent) XXX_DiscardUnknown() {
+	xxx_messageInfo_LifecycleEvent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LifecycleEvent proto.InternalMessageInfo
+
+func (m *LifecycleEvent) GetStatus() UVStatus {
+	if m != nil {
+		return m.Status
+	}
+	return UVStatus_UV_STATUS_UNSPECIFIED
+}
+
+func (m *LifecycleEvent) GetBlockHeight() int64 {
+	if m != nil {
+		return m.BlockHeight
+	}
+	return 0
+}
+
+// Validator lifecycle info
+type LifecycleInfo struct {
+	CurrentStatus UVStatus          `protobuf:"varint,1,opt,name=current_status,json=currentStatus,proto3,enum=uvalidator.v1.UVStatus" json:"current_status,omitempty"`
+	History       []*LifecycleEvent `protobuf:"bytes,2,rep,name=history,proto3" json:"history,omitempty"`
+}
+
+func (m *LifecycleInfo) Reset()         { *m = LifecycleInfo{} }
+func (m *LifecycleInfo) String() string { return proto.CompactTextString(m) }
+func (*LifecycleInfo) ProtoMessage()    {}
+func (*LifecycleInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_317d9e276ec46d00, []int{3}
+}
+func (m *LifecycleInfo) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LifecycleInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LifecycleInfo.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LifecycleInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LifecycleInfo.Merge(m, src)
+}
+func (m *LifecycleInfo) XXX_Size() int {
+	return m.Size()
+}
+func (m *LifecycleInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_LifecycleInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LifecycleInfo proto.InternalMessageInfo
+
+func (m *LifecycleInfo) GetCurrentStatus() UVStatus {
+	if m != nil {
+		return m.CurrentStatus
+	}
+	return UVStatus_UV_STATUS_UNSPECIFIED
+}
+
+func (m *LifecycleInfo) GetHistory() []*LifecycleEvent {
+	if m != nil {
+		return m.History
+	}
+	return nil
+}
+
 // Core Universal Validator object
 type UniversalValidator struct {
-	CoreValidatorAddress string       `protobuf:"bytes,1,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
-	Pubkey               string       `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
-	Status               UVStatus     `protobuf:"varint,3,opt,name=status,proto3,enum=uvalidator.v1.UVStatus" json:"status,omitempty"`
-	Network              *NetworkInfo `protobuf:"bytes,4,opt,name=network,proto3" json:"network,omitempty"`
-	JoinedAtBlock        int64        `protobuf:"varint,5,opt,name=joined_at_block,json=joinedAtBlock,proto3" json:"joined_at_block,omitempty"`
+	IdentifyInfo  *IdentityInfo  `protobuf:"bytes,1,opt,name=identify_info,json=identifyInfo,proto3" json:"identify_info,omitempty"`
+	Network       *NetworkInfo   `protobuf:"bytes,2,opt,name=network,proto3" json:"network,omitempty"`
+	LifecycleInfo *LifecycleInfo `protobuf:"bytes,3,opt,name=lifecycle_info,json=lifecycleInfo,proto3" json:"lifecycle_info,omitempty"`
 }
 
 func (m *UniversalValidator) Reset()      { *m = UniversalValidator{} }
 func (*UniversalValidator) ProtoMessage() {}
 func (*UniversalValidator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_317d9e276ec46d00, []int{1}
+	return fileDescriptor_317d9e276ec46d00, []int{4}
 }
 func (m *UniversalValidator) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -145,25 +302,11 @@ func (m *UniversalValidator) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_UniversalValidator proto.InternalMessageInfo
 
-func (m *UniversalValidator) GetCoreValidatorAddress() string {
+func (m *UniversalValidator) GetIdentifyInfo() *IdentityInfo {
 	if m != nil {
-		return m.CoreValidatorAddress
+		return m.IdentifyInfo
 	}
-	return ""
-}
-
-func (m *UniversalValidator) GetPubkey() string {
-	if m != nil {
-		return m.Pubkey
-	}
-	return ""
-}
-
-func (m *UniversalValidator) GetStatus() UVStatus {
-	if m != nil {
-		return m.Status
-	}
-	return UVStatus_UV_STATUS_UNSPECIFIED
+	return nil
 }
 
 func (m *UniversalValidator) GetNetwork() *NetworkInfo {
@@ -173,55 +316,92 @@ func (m *UniversalValidator) GetNetwork() *NetworkInfo {
 	return nil
 }
 
-func (m *UniversalValidator) GetJoinedAtBlock() int64 {
+func (m *UniversalValidator) GetLifecycleInfo() *LifecycleInfo {
 	if m != nil {
-		return m.JoinedAtBlock
+		return m.LifecycleInfo
 	}
-	return 0
+	return nil
 }
 
 func init() {
 	proto.RegisterEnum("uvalidator.v1.UVStatus", UVStatus_name, UVStatus_value)
+	proto.RegisterType((*IdentityInfo)(nil), "uvalidator.v1.IdentityInfo")
 	proto.RegisterType((*NetworkInfo)(nil), "uvalidator.v1.NetworkInfo")
+	proto.RegisterType((*LifecycleEvent)(nil), "uvalidator.v1.LifecycleEvent")
+	proto.RegisterType((*LifecycleInfo)(nil), "uvalidator.v1.LifecycleInfo")
 	proto.RegisterType((*UniversalValidator)(nil), "uvalidator.v1.UniversalValidator")
 }
 
 func init() { proto.RegisterFile("uvalidator/v1/validator.proto", fileDescriptor_317d9e276ec46d00) }
 
 var fileDescriptor_317d9e276ec46d00 = []byte{
-	// 470 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x92, 0x3f, 0x6f, 0xd3, 0x40,
-	0x18, 0xc6, 0x7d, 0x4e, 0x08, 0x70, 0x55, 0x8b, 0x39, 0x85, 0xc4, 0x18, 0xe1, 0x5a, 0x1d, 0x50,
-	0x54, 0x54, 0x5b, 0x2d, 0x95, 0x90, 0xba, 0x20, 0xb7, 0x35, 0xc8, 0x08, 0x99, 0x92, 0xc4, 0x1e,
-	0x58, 0x2c, 0x27, 0x76, 0x93, 0x23, 0xe9, 0x9d, 0x65, 0x9f, 0x03, 0xfd, 0x0a, 0x4c, 0x88, 0x89,
-	0x09, 0x75, 0x60, 0x60, 0xe4, 0x63, 0x30, 0x66, 0x64, 0x44, 0xc9, 0x00, 0x1f, 0x03, 0xc5, 0x7f,
-	0x62, 0x03, 0x8b, 0xf5, 0xde, 0xf3, 0x7b, 0xde, 0xf3, 0xfb, 0xbc, 0x3a, 0x78, 0x3f, 0x99, 0x79,
-	0x53, 0xec, 0x7b, 0x8c, 0x46, 0xda, 0x6c, 0x5f, 0x5b, 0x1f, 0xd4, 0x30, 0xa2, 0x8c, 0xa2, 0xcd,
-	0x12, 0xab, 0xb3, 0x7d, 0xa9, 0x39, 0xa2, 0x23, 0x9a, 0x12, 0x6d, 0x55, 0x65, 0x26, 0xe9, 0xb6,
-	0x77, 0x81, 0x09, 0xd5, 0xd2, 0x6f, 0x26, 0xed, 0x3c, 0x81, 0x1b, 0x56, 0xc0, 0xde, 0xd2, 0x68,
-	0x62, 0x92, 0x73, 0x8a, 0xb6, 0x20, 0x8f, 0x43, 0x11, 0x28, 0xa0, 0x73, 0xb3, 0xcb, 0xe3, 0xf0,
-	0x48, 0xf9, 0x7d, 0xb5, 0x0d, 0xde, 0xff, 0xfa, 0xb6, 0xdb, 0xae, 0xfc, 0x9e, 0x64, 0x0d, 0x2e,
-	0x26, 0xe7, 0x74, 0xe7, 0x33, 0x0f, 0x91, 0x4d, 0xf0, 0x2c, 0x88, 0x62, 0x6f, 0xea, 0x14, 0x1e,
-	0x74, 0x08, 0x5b, 0x43, 0x1a, 0x05, 0xee, 0xba, 0xcb, 0xf5, 0x7c, 0x3f, 0x0a, 0xe2, 0x38, 0xbf,
-	0xbc, 0xb9, 0xa2, 0x6b, 0xbb, 0x9e, 0x31, 0xd4, 0x82, 0x8d, 0x30, 0x19, 0x4c, 0x82, 0x4b, 0x91,
-	0x4f, 0x5d, 0xf9, 0x09, 0x69, 0xb0, 0x11, 0x33, 0x8f, 0x25, 0xb1, 0x58, 0x53, 0x40, 0x67, 0xeb,
-	0xa0, 0xad, 0xfe, 0x15, 0x57, 0xb5, 0x9d, 0x5e, 0x8a, 0xbb, 0xb9, 0x0d, 0x1d, 0xc2, 0xeb, 0xf9,
-	0x94, 0x62, 0x5d, 0x01, 0x9d, 0x8d, 0x03, 0xe9, 0x9f, 0x8e, 0x4a, 0xe8, 0x6e, 0x61, 0x45, 0x0f,
-	0xe0, 0xad, 0x37, 0x14, 0x93, 0xc0, 0x77, 0x3d, 0xe6, 0x0e, 0xa6, 0x74, 0x38, 0x11, 0xaf, 0x29,
-	0xa0, 0x53, 0xeb, 0x6e, 0x66, 0xb2, 0xce, 0x8e, 0x57, 0xe2, 0xd1, 0xc3, 0x4f, 0x57, 0xdb, 0x5c,
-	0xb1, 0x19, 0xb9, 0xb2, 0x99, 0xa4, 0x58, 0x44, 0x99, 0x7b, 0xf7, 0x23, 0x80, 0x37, 0x8a, 0xf9,
-	0xd0, 0x5d, 0x78, 0xc7, 0x76, 0xdc, 0x5e, 0x5f, 0xef, 0xdb, 0x3d, 0xd7, 0xb6, 0x7a, 0x67, 0xc6,
-	0x89, 0xf9, 0xd4, 0x34, 0x4e, 0x05, 0x0e, 0x35, 0xa1, 0x50, 0x22, 0xfd, 0xa4, 0x6f, 0x3a, 0x86,
-	0x00, 0x90, 0x04, 0x5b, 0xa5, 0x7a, 0x66, 0x58, 0xa7, 0xa6, 0xf5, 0xcc, 0x7d, 0xfe, 0xd2, 0xb4,
-	0x04, 0x1e, 0xdd, 0x83, 0xed, 0xff, 0xd9, 0x0b, 0x43, 0x77, 0x0c, 0xa1, 0x86, 0x5a, 0x10, 0x95,
-	0xd0, 0xb4, 0xf2, 0x0b, 0xeb, 0x52, 0xfd, 0xeb, 0x17, 0x19, 0x1c, 0xbf, 0xfa, 0xbe, 0x90, 0xc1,
-	0x7c, 0x21, 0x83, 0x9f, 0x0b, 0x19, 0x7c, 0x58, 0xca, 0xdc, 0x7c, 0x29, 0x73, 0x3f, 0x96, 0x32,
-	0xf7, 0xfa, 0xf1, 0x08, 0xb3, 0x71, 0x32, 0x50, 0x87, 0xf4, 0x42, 0x0b, 0x93, 0x78, 0x3c, 0x1c,
-	0x7b, 0x98, 0xa4, 0xd5, 0x5e, 0x5a, 0xee, 0x11, 0xea, 0x07, 0xda, 0x3b, 0xad, 0x92, 0x9a, 0x5d,
-	0x86, 0x41, 0x3c, 0x68, 0xa4, 0x0f, 0xea, 0xd1, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x98, 0xa8,
-	0x96, 0x81, 0xa9, 0x02, 0x00, 0x00,
+	// 583 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xbf, 0x6f, 0xd3, 0x40,
+	0x14, 0x8e, 0x93, 0x2a, 0x85, 0xcb, 0x0f, 0x85, 0x53, 0x48, 0x42, 0x4a, 0xdd, 0x36, 0x53, 0x55,
+	0xd4, 0x58, 0x0d, 0x48, 0x95, 0x32, 0x00, 0x21, 0x35, 0x60, 0x54, 0x99, 0xe2, 0xfc, 0x18, 0x58,
+	0x2c, 0xc7, 0xbe, 0xc4, 0xa7, 0xb8, 0x3e, 0xcb, 0x3e, 0x07, 0x32, 0xb1, 0x22, 0x26, 0xc4, 0xc4,
+	0xd8, 0x81, 0x81, 0x91, 0x3f, 0x83, 0xb1, 0x23, 0x23, 0x4a, 0x06, 0xf8, 0x2b, 0x10, 0xca, 0xd9,
+	0x4e, 0xdc, 0x20, 0xa4, 0x2e, 0xd1, 0xbd, 0xf7, 0xbd, 0xf7, 0xbe, 0xf7, 0xbe, 0x2f, 0x06, 0xdb,
+	0xfe, 0x44, 0xb3, 0xb0, 0xa1, 0x51, 0xe2, 0x0a, 0x93, 0x23, 0x61, 0x19, 0xd4, 0x1d, 0x97, 0x50,
+	0x02, 0x73, 0x2b, 0xb8, 0x3e, 0x39, 0xaa, 0x16, 0x47, 0x64, 0x44, 0x18, 0x22, 0x2c, 0x5e, 0x41,
+	0x51, 0xf5, 0x96, 0x76, 0x8e, 0x6d, 0x22, 0xb0, 0xdf, 0x20, 0x55, 0x7b, 0x07, 0xb2, 0x92, 0x81,
+	0x6c, 0x8a, 0xe9, 0x54, 0xb2, 0x87, 0x04, 0x3e, 0x00, 0x25, 0x9d, 0xb8, 0x48, 0x5d, 0x4e, 0x53,
+	0x35, 0xc3, 0x70, 0x91, 0xe7, 0x55, 0xb8, 0x5d, 0x6e, 0xff, 0xa6, 0x52, 0x5c, 0xa0, 0xfd, 0x08,
+	0x6c, 0x05, 0x18, 0x2c, 0x81, 0xb4, 0xe3, 0x0f, 0xc6, 0x68, 0x5a, 0x49, 0xb2, 0xaa, 0x30, 0x6a,
+	0xee, 0xfd, 0xbe, 0xd8, 0xe1, 0x3e, 0xfc, 0xfa, 0x76, 0x50, 0x89, 0x6d, 0x8f, 0x43, 0x3e, 0x15,
+	0xdb, 0x43, 0x52, 0x7b, 0x04, 0x32, 0x32, 0xa2, 0x6f, 0x88, 0x3b, 0x66, 0xfc, 0x79, 0x90, 0xc4,
+	0x4e, 0xc8, 0x95, 0xc4, 0x4e, 0x73, 0x37, 0x9a, 0x50, 0x8e, 0x4d, 0xb0, 0x83, 0x86, 0x60, 0x80,
+	0x01, 0xf2, 0xa7, 0x78, 0x88, 0xf4, 0xa9, 0x6e, 0x21, 0x71, 0x82, 0x6c, 0x0a, 0x05, 0x90, 0xf6,
+	0xa8, 0x46, 0xfd, 0x60, 0xe7, 0x7c, 0xa3, 0x5c, 0xbf, 0x22, 0x4e, 0xbd, 0xd7, 0xef, 0x30, 0x58,
+	0x09, 0xcb, 0xe0, 0x1e, 0xc8, 0x0e, 0x2c, 0xa2, 0x8f, 0x55, 0x13, 0xe1, 0x91, 0x49, 0xd9, 0x11,
+	0x29, 0x25, 0xc3, 0x72, 0xcf, 0x59, 0xaa, 0xf6, 0x9e, 0x03, 0xb9, 0x25, 0x0d, 0xdb, 0xf4, 0x21,
+	0xc8, 0xeb, 0xbe, 0xeb, 0x22, 0x9b, 0xaa, 0xd7, 0x63, 0xcb, 0x85, 0xe5, 0x41, 0x08, 0x8f, 0xc1,
+	0xa6, 0x89, 0x3d, 0x4a, 0xdc, 0x85, 0x68, 0xa9, 0xfd, 0x4c, 0x63, 0x7b, 0xad, 0xf1, 0xea, 0x55,
+	0x4a, 0x54, 0x5d, 0xfb, 0xc3, 0x01, 0xd8, 0xb3, 0xf1, 0x04, 0xb9, 0x9e, 0x66, 0x2d, 0xad, 0x80,
+	0x8f, 0x41, 0x2e, 0x50, 0x76, 0x18, 0x28, 0xcb, 0xd6, 0xc9, 0x34, 0xb6, 0xd6, 0xa6, 0xc6, 0xdd,
+	0x56, 0xb2, 0x51, 0x47, 0xe8, 0xfd, 0x66, 0xa8, 0x2c, 0x53, 0x20, 0xd3, 0xa8, 0xae, 0xf5, 0xc6,
+	0x8c, 0x52, 0xa2, 0x52, 0xd8, 0x06, 0x79, 0x2b, 0xda, 0x34, 0x20, 0x4e, 0xb1, 0xe6, 0xbb, 0xff,
+	0x3b, 0x87, 0xb5, 0xe7, 0xac, 0x78, 0xd8, 0xbc, 0xf7, 0xf9, 0x62, 0x27, 0x11, 0x59, 0xcd, 0xc7,
+	0xac, 0xf6, 0xa3, 0x43, 0x57, 0xff, 0xc8, 0x83, 0x4f, 0x1c, 0xb8, 0x11, 0xa9, 0x0a, 0xef, 0x80,
+	0xdb, 0xbd, 0xbe, 0xda, 0xe9, 0xb6, 0xba, 0xbd, 0x8e, 0xda, 0x93, 0x3b, 0x67, 0x62, 0x5b, 0x7a,
+	0x2a, 0x89, 0x27, 0x85, 0x04, 0x2c, 0x82, 0xc2, 0x0a, 0x6a, 0xb5, 0xbb, 0x52, 0x5f, 0x2c, 0x70,
+	0xb0, 0x0a, 0x4a, 0xab, 0xec, 0x99, 0x28, 0x9f, 0x48, 0xf2, 0x33, 0xf5, 0xc5, 0x4b, 0x49, 0x2e,
+	0x24, 0xe1, 0x16, 0x28, 0xff, 0x8b, 0x9d, 0x8a, 0xad, 0xbe, 0x58, 0x48, 0xc1, 0x12, 0x80, 0x2b,
+	0x50, 0x92, 0xc3, 0x81, 0x1b, 0xd5, 0x8d, 0xaf, 0x5f, 0x78, 0xee, 0xc9, 0xab, 0xef, 0x33, 0x9e,
+	0xbb, 0x9c, 0xf1, 0xdc, 0xcf, 0x19, 0xcf, 0x7d, 0x9c, 0xf3, 0x89, 0xcb, 0x39, 0x9f, 0xf8, 0x31,
+	0xe7, 0x13, 0xaf, 0x8f, 0x47, 0x98, 0x9a, 0xfe, 0xa0, 0xae, 0x93, 0x73, 0xc1, 0xf1, 0x3d, 0x53,
+	0x37, 0x35, 0x6c, 0xb3, 0xd7, 0x21, 0x7b, 0x1e, 0xda, 0xc4, 0x40, 0xc2, 0x5b, 0x21, 0x76, 0x35,
+	0x9d, 0x3a, 0xc8, 0x1b, 0xa4, 0xd9, 0x27, 0x7a, 0xff, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xcc,
+	0x42, 0xe6, 0xc6, 0xfb, 0x03, 0x00, 0x00,
 }
 
+func (this *IdentityInfo) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IdentityInfo)
+	if !ok {
+		that2, ok := that.(IdentityInfo)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.CoreValidatorAddress != that1.CoreValidatorAddress {
+		return false
+	}
+	if this.Pubkey != that1.Pubkey {
+		return false
+	}
+	return true
+}
 func (this *NetworkInfo) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -265,23 +445,54 @@ func (this *UniversalValidator) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if this.CoreValidatorAddress != that1.CoreValidatorAddress {
-		return false
-	}
-	if this.Pubkey != that1.Pubkey {
-		return false
-	}
-	if this.Status != that1.Status {
+	if !this.IdentifyInfo.Equal(that1.IdentifyInfo) {
 		return false
 	}
 	if !this.Network.Equal(that1.Network) {
 		return false
 	}
-	if this.JoinedAtBlock != that1.JoinedAtBlock {
+	if !this.LifecycleInfo.Equal(that1.LifecycleInfo) {
 		return false
 	}
 	return true
 }
+func (m *IdentityInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IdentityInfo) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IdentityInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Pubkey) > 0 {
+		i -= len(m.Pubkey)
+		copy(dAtA[i:], m.Pubkey)
+		i = encodeVarintValidator(dAtA, i, uint64(len(m.Pubkey)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.CoreValidatorAddress) > 0 {
+		i -= len(m.CoreValidatorAddress)
+		copy(dAtA[i:], m.CoreValidatorAddress)
+		i = encodeVarintValidator(dAtA, i, uint64(len(m.CoreValidatorAddress)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *NetworkInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -312,6 +523,81 @@ func (m *NetworkInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *LifecycleEvent) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LifecycleEvent) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LifecycleEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.BlockHeight != 0 {
+		i = encodeVarintValidator(dAtA, i, uint64(m.BlockHeight))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Status != 0 {
+		i = encodeVarintValidator(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *LifecycleInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LifecycleInfo) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LifecycleInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.History) > 0 {
+		for iNdEx := len(m.History) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.History[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintValidator(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.CurrentStatus != 0 {
+		i = encodeVarintValidator(dAtA, i, uint64(m.CurrentStatus))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *UniversalValidator) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -332,10 +618,17 @@ func (m *UniversalValidator) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.JoinedAtBlock != 0 {
-		i = encodeVarintValidator(dAtA, i, uint64(m.JoinedAtBlock))
+	if m.LifecycleInfo != nil {
+		{
+			size, err := m.LifecycleInfo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintValidator(dAtA, i, uint64(size))
+		}
 		i--
-		dAtA[i] = 0x28
+		dAtA[i] = 0x1a
 	}
 	if m.Network != nil {
 		{
@@ -347,24 +640,17 @@ func (m *UniversalValidator) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintValidator(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x22
-	}
-	if m.Status != 0 {
-		i = encodeVarintValidator(dAtA, i, uint64(m.Status))
-		i--
-		dAtA[i] = 0x18
-	}
-	if len(m.Pubkey) > 0 {
-		i -= len(m.Pubkey)
-		copy(dAtA[i:], m.Pubkey)
-		i = encodeVarintValidator(dAtA, i, uint64(len(m.Pubkey)))
-		i--
 		dAtA[i] = 0x12
 	}
-	if len(m.CoreValidatorAddress) > 0 {
-		i -= len(m.CoreValidatorAddress)
-		copy(dAtA[i:], m.CoreValidatorAddress)
-		i = encodeVarintValidator(dAtA, i, uint64(len(m.CoreValidatorAddress)))
+	if m.IdentifyInfo != nil {
+		{
+			size, err := m.IdentifyInfo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintValidator(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0xa
 	}
@@ -382,20 +668,7 @@ func encodeVarintValidator(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *NetworkInfo) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Ip)
-	if l > 0 {
-		n += 1 + l + sovValidator(uint64(l))
-	}
-	return n
-}
-
-func (m *UniversalValidator) Size() (n int) {
+func (m *IdentityInfo) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -409,15 +682,72 @@ func (m *UniversalValidator) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovValidator(uint64(l))
 	}
+	return n
+}
+
+func (m *NetworkInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Ip)
+	if l > 0 {
+		n += 1 + l + sovValidator(uint64(l))
+	}
+	return n
+}
+
+func (m *LifecycleEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Status != 0 {
 		n += 1 + sovValidator(uint64(m.Status))
+	}
+	if m.BlockHeight != 0 {
+		n += 1 + sovValidator(uint64(m.BlockHeight))
+	}
+	return n
+}
+
+func (m *LifecycleInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CurrentStatus != 0 {
+		n += 1 + sovValidator(uint64(m.CurrentStatus))
+	}
+	if len(m.History) > 0 {
+		for _, e := range m.History {
+			l = e.Size()
+			n += 1 + l + sovValidator(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *UniversalValidator) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.IdentifyInfo != nil {
+		l = m.IdentifyInfo.Size()
+		n += 1 + l + sovValidator(uint64(l))
 	}
 	if m.Network != nil {
 		l = m.Network.Size()
 		n += 1 + l + sovValidator(uint64(l))
 	}
-	if m.JoinedAtBlock != 0 {
-		n += 1 + sovValidator(uint64(m.JoinedAtBlock))
+	if m.LifecycleInfo != nil {
+		l = m.LifecycleInfo.Size()
+		n += 1 + l + sovValidator(uint64(l))
 	}
 	return n
 }
@@ -427,6 +757,120 @@ func sovValidator(x uint64) (n int) {
 }
 func sozValidator(x uint64) (n int) {
 	return sovValidator(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *IdentityInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowValidator
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IdentityInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IdentityInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CoreValidatorAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthValidator
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pubkey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthValidator
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Pubkey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipValidator(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *NetworkInfo) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -510,6 +954,197 @@ func (m *NetworkInfo) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *LifecycleEvent) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowValidator
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LifecycleEvent: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LifecycleEvent: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
+			}
+			m.Status = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Status |= UVStatus(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlockHeight", wireType)
+			}
+			m.BlockHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BlockHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipValidator(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LifecycleInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowValidator
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LifecycleInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LifecycleInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CurrentStatus", wireType)
+			}
+			m.CurrentStatus = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CurrentStatus |= UVStatus(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field History", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowValidator
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthValidator
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.History = append(m.History, &LifecycleEvent{})
+			if err := m.History[len(m.History)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipValidator(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *UniversalValidator) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -541,9 +1176,9 @@ func (m *UniversalValidator) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CoreValidatorAddress", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field IdentifyInfo", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowValidator
@@ -553,76 +1188,29 @@ func (m *UniversalValidator) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthValidator
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex < 0 {
 				return ErrInvalidLengthValidator
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
+			if m.IdentifyInfo == nil {
+				m.IdentifyInfo = &IdentityInfo{}
+			}
+			if err := m.IdentifyInfo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Pubkey", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidator
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidator
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidator
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Pubkey = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
-			}
-			m.Status = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidator
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Status |= UVStatus(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Network", wireType)
 			}
@@ -658,11 +1246,11 @@ func (m *UniversalValidator) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field JoinedAtBlock", wireType)
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LifecycleInfo", wireType)
 			}
-			m.JoinedAtBlock = 0
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowValidator
@@ -672,11 +1260,28 @@ func (m *UniversalValidator) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.JoinedAtBlock |= int64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if msglen < 0 {
+				return ErrInvalidLengthValidator
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthValidator
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LifecycleInfo == nil {
+				m.LifecycleInfo = &LifecycleInfo{}
+			}
+			if err := m.LifecycleInfo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipValidator(dAtA[iNdEx:])

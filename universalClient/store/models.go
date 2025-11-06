@@ -37,3 +37,29 @@ type GasVoteTransaction struct {
 	Status     string `gorm:"default:'success'"`
 	ErrorMsg   string `gorm:"type:text"` // Error message if vote failed
 }
+
+// TSSEvent tracks TSS protocol events (KeyGen, KeyRefresh, Sign) from Push Chain.
+// TODO: Finalize Structure
+type TSSEvent struct {
+	gorm.Model
+	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event (e.g., blockNum+txHash)
+	ProtocolType string `gorm:"index;not null"`       // "keygen", "keyrefresh", or "sign"
+	BlockNumber  uint64 `gorm:"index;not null"`       // Block number when event was detected
+	TxHash       string `gorm:"index"`                // Transaction hash that triggered the event
+	Status       string `gorm:"index;not null"`       // "PENDING", "IN_PROGRESS", "SUCCESS", "FAILED"
+	ErrorMsg     string `gorm:"type:text"`            // Error message if status is FAILED
+	EventData    []byte // Raw event data from chain
+}
+
+// ExternalChainSignature tracks signatures that need to be broadcasted to external chains.
+// Created when a Sign protocol completes successfully.
+// TODO: Finalize Structure
+type ChainTSSTransaction struct {
+	gorm.Model
+	TSSEventID      uint   `gorm:"index;not null"` // Reference to TSSEvent
+	Status          string `gorm:"index;not null"` // "PENDING" or "SUCCESS" (after broadcast)
+	Signature       []byte `gorm:"not null"`       // ECDSA signature (65 bytes: R(32) + S(32) + RecoveryID(1))
+	MessageHash     []byte `gorm:"not null"`       // Message hash that was signed
+	BroadcastTxHash string `gorm:"index"`          // Transaction hash after successful broadcast
+	ErrorMsg        string `gorm:"type:text"`      // Error message if broadcast failed
+}

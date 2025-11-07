@@ -38,9 +38,9 @@ func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*type
 func (k Querier) AllUniversalValidators(goCtx context.Context, req *types.QueryUniversalValidatorsSetRequest) (*types.QueryUniversalValidatorsSetResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	var validators []string
-	err := k.Keeper.UniversalValidatorSet.Walk(ctx, nil, func(addr sdk.ValAddress) (stop bool, err error) {
-		validators = append(validators, addr.String())
+	var validators []*types.UniversalValidator
+	err := k.Keeper.UniversalValidatorSet.Walk(ctx, nil, func(addr sdk.ValAddress, val types.UniversalValidator) (stop bool, err error) {
+		validators = append(validators, &val)
 		return false, nil
 	})
 	if err != nil {
@@ -48,7 +48,32 @@ func (k Querier) AllUniversalValidators(goCtx context.Context, req *types.QueryU
 	}
 
 	return &types.QueryUniversalValidatorsSetResponse{
-		Addresses: validators,
+		UniversalValidator: validators,
+	}, nil
+}
+
+func (k Querier) UniversalValidator(goCtx context.Context, req *types.QueryUniversalValidatorRequest) (*types.QueryUniversalValidatorResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if req == nil || req.CoreValidatorAddress == "" {
+		return nil, status.Error(codes.InvalidArgument, "core validator address is required")
+	}
+
+	valAddr, err := sdk.ValAddressFromBech32(req.CoreValidatorAddress)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid validator address: %v", err)
+	}
+
+	val, err := k.Keeper.UniversalValidatorSet.Get(ctx, valAddr)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "universal validator %s not found", req.CoreValidatorAddress)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to fetch validator: %v", err)
+	}
+
+	return &types.QueryUniversalValidatorResponse{
+		UniversalValidator: &val,
 	}, nil
 }
 

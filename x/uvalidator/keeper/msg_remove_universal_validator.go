@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // RemoveUniversalValidator removes a universal validator from the set and its associated mapping.
@@ -19,18 +20,32 @@ func (k Keeper) RemoveUniversalValidator(
 		return fmt.Errorf("invalid universal validator address: %w", err)
 	}
 
-	// Check if the universal validator is in the set
-	exists, err := k.UniversalValidatorSet.Has(ctx, valAddr)
+	// Fetch validator entry
+	val, err := k.UniversalValidatorSet.Get(ctx, valAddr)
 	if err != nil {
-		return fmt.Errorf("failed to check universal validator existence: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("universal validator %s is not registered", universalValidatorAddr)
+		return fmt.Errorf("universal validator %s not found: %w", universalValidatorAddr, err)
 	}
 
-	// Remove from the set
-	if err := k.UniversalValidatorSet.Remove(ctx, valAddr); err != nil {
-		return fmt.Errorf("failed to remove universal validator from set: %w", err)
+	switch val.LifecycleInfo.CurrentStatus {
+	case types.UVStatus_UV_STATUS_ACTIVE:
+		// Active -> Pending Leave
+		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_PENDING_LEAVE); err != nil {
+			return fmt.Errorf("failed to mark validator %s as pending leave: %w", universalValidatorAddr, err)
+		}
+
+	case types.UVStatus_UV_STATUS_PENDING_JOIN:
+		// TODO: check if its present in the current tss process
+		// If part of current keygen, reject removal
+		// Otherwise mark as inactive
+		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_INACTIVE); err != nil {
+			return fmt.Errorf("failed to inactivate validator %s: %w", universalValidatorAddr, err)
+		}
+
+	case types.UVStatus_UV_STATUS_PENDING_LEAVE, types.UVStatus_UV_STATUS_INACTIVE:
+		return fmt.Errorf("validator %s is already in %s state", universalValidatorAddr, val.LifecycleInfo.CurrentStatus)
+
+	default:
+		return fmt.Errorf("invalid lifecycle state for removal: %s", val.LifecycleInfo.CurrentStatus)
 	}
 
 	return nil

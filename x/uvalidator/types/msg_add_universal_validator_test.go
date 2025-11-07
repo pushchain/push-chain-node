@@ -29,6 +29,10 @@ func TestMsgAddUniversalValidator_ValidateBasic(t *testing.T) {
 			msg: types.MsgAddUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: validCoreVal,
+				Pubkey:               "pubkey_temp",
+				Network: &types.NetworkInfo{
+					Ip: "ip",
+				},
 			},
 			wantErr: false,
 		},

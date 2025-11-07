@@ -14,6 +14,7 @@ import (
 	utils "github.com/pushchain/push-chain-node/testutils"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +71,10 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 			fmt.Sprintf("universal-validator-%d", i),
 		)).String()
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr)
+		pubkey := fmt.Sprintf("pubkey-%d", i)
+		network := uvalidatortypes.NetworkInfo{Ip: fmt.Sprintf("192.168.0.%d", i+1)}
+
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
 		require.NoError(t, err)
 
 		universalVals[i] = universalValAddr

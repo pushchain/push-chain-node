@@ -22,17 +22,17 @@ func (p UniversalValidator) ValidateBasic() error {
 
 	// Validate identity info
 	if err := p.IdentifyInfo.ValidateBasic(); err != nil {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid identify info [%d]: %v", err)
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid identify info: %v", err)
 	}
 
-	// Validate identity info
+	// Validate lifecycle info
 	if err := p.LifecycleInfo.ValidateBasic(); err != nil {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid lifecycle info [%d]: %v", err)
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid lifecycle info: %v", err)
 	}
 
-	// Validate identity info
+	// Validate network info
 	if err := p.NetworkInfo.ValidateBasic(); err != nil {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid network info [%d]: %v", err)
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid network info: %v", err)
 	}
 
 	return nil

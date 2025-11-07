@@ -48,7 +48,7 @@ func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAdd
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress)
+	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress, msg.Pubkey, *msg.Network)
 	if err != nil {
 		return nil, err
 	}

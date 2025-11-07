@@ -27,7 +27,7 @@ func (k Keeper) VoteOnInboundBallot(
 
 	ballotKey := types.GetInboundKey(inbound)
 
-	universalValidatorSet, err := k.uvalidatorKeeper.GetUniversalValidatorSet(ctx)
+	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
 	if err != nil {
 		return false, false, err
 	}
@@ -42,7 +42,7 @@ func (k Keeper) VoteOnInboundBallot(
 	// Convert []sdk.ValAddress → []string
 	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
 	for i, v := range universalValidatorSet {
-		universalValidatorSetStrs[i] = v.String()
+		universalValidatorSetStrs[i] = v.IdentifyInfo.CoreValidatorAddress
 	}
 
 	// Step 2: Call VoteOnBallot for this inbound synthetic

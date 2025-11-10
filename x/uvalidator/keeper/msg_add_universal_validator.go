@@ -53,6 +53,9 @@ func (k Keeper) AddUniversalValidator(
 
 		switch existingVal.LifecycleInfo.CurrentStatus {
 		case types.UVStatus_UV_STATUS_INACTIVE:
+			oldStatus := existingVal.LifecycleInfo.CurrentStatus
+			newStatus := types.UVStatus_UV_STATUS_PENDING_JOIN
+
 			// Reactivate: INACTIVE → PENDING_JOIN
 			existingVal.LifecycleInfo.CurrentStatus = types.UVStatus_UV_STATUS_PENDING_JOIN
 			existingVal.LifecycleInfo.History = append(existingVal.LifecycleInfo.History, &types.LifecycleEvent{
@@ -64,6 +67,12 @@ func (k Keeper) AddUniversalValidator(
 
 			if err := k.UniversalValidatorSet.Set(ctx, valAddr, existingVal); err != nil {
 				return fmt.Errorf("failed to reactivate validator: %w", err)
+			}
+
+			// ---- Trigger hooks ----
+			if k.hooks != nil {
+				k.hooks.AfterValidatorStatusChanged(sdkCtx, valAddr, oldStatus, newStatus)
+				k.hooks.AfterValidatorAdded(sdkCtx, valAddr)
 			}
 			return nil
 
@@ -97,6 +106,12 @@ func (k Keeper) AddUniversalValidator(
 	// Store new universal validator
 	if err := k.UniversalValidatorSet.Set(ctx, valAddr, uv); err != nil {
 		return fmt.Errorf("failed to store universal validator: %w", err)
+	}
+
+	// ---- Trigger hooks ----
+	if k.hooks != nil {
+		k.hooks.AfterValidatorStatusChanged(sdkCtx, valAddr, types.UVStatus_UV_STATUS_UNSPECIFIED, types.UVStatus_UV_STATUS_PENDING_JOIN)
+		k.hooks.AfterValidatorAdded(sdkCtx, valAddr)
 	}
 
 	return nil

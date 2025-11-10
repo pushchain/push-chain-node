@@ -36,6 +36,7 @@ type Keeper struct {
 	slashingKeeper types.SlashingKeeper
 
 	authority string
+	hooks     UValidatorHooks
 }
 
 // NewKeeper creates a new Keeper instance
@@ -132,4 +133,12 @@ func (k Keeper) RemoveUniversalValidatorFromSet(ctx context.Context, addr sdk.Va
 func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	return sdkCtx.BlockHeight(), nil
+}
+
+func (k *Keeper) SetHooks(h UValidatorHooks) *Keeper {
+	if k.hooks != nil {
+		panic("cannot set uvalidator hooks twice")
+	}
+	k.hooks = h
+	return k
 }

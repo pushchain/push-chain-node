@@ -420,7 +420,7 @@ CHAIN_ID="${CHAIN_ID:-push_42101-1}"
 SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
 RESET_DATA="${RESET_DATA:-yes}"
 AUTO_START="${AUTO_START:-yes}"
-PNM_REF="${PNM_REF:-main}"
+PNM_REF="${PNM_REF:-push-validator-manager}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 PREFIX="${PREFIX:-}"
 

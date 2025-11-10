@@ -793,7 +793,7 @@ if [[ ! -d "$REPO_DIR/push-validator-manager" ]]; then
   if [[ -n "$LOCAL_CANDIDATE" && -d "$LOCAL_CANDIDATE/push-validator-manager" ]]; then
     warn "Try: bash push-validator-manager/install.sh --use-local"
   fi
-  warn "Or specify a branch/tag that contains it: PNM_REF=main bash push-validator-manager/install.sh"
+  warn "Or specify a branch/tag that contains it: PNM_REF=push-validator-manager bash push-validator-manager/install.sh"
   exit 1
 fi
 

@@ -23,6 +23,9 @@ service Msg {
   // AddUniversalValidator defines a message to add a universal validator.
   rpc AddUniversalValidator(MsgAddUniversalValidator) returns (MsgAddUniversalValidatorResponse);
 
+  // UpdateUniversalValidator defines a message to update a universal validator.
+  rpc UpdateUniversalValidator(MsgUpdateUniversalValidator) returns (MsgUpdateUniversalValidatorResponse);
+
   // RemoveUniversalValidator defines a message to remove a universal validator.
   rpc RemoveUniversalValidator(MsgRemoveUniversalValidator) returns (MsgRemoveUniversalValidatorResponse);
 }
@@ -66,6 +69,25 @@ message MsgAddUniversalValidator {
 }
 
 message MsgAddUniversalValidatorResponse {}
+
+message MsgUpdateUniversalValidator {
+  option (amino.name) = "uvalidator/MsgUpdateUniversalValidator";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the address authorized to execute this message
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // core_validator_address is the address of the core validator.
+  string core_validator_address = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+
+  // pubkey is the consensus public key for this universal validator
+  string pubkey = 3;
+
+  // network metadata for validator node (IP, etc.)
+  NetworkInfo network = 4;
+}
+
+message MsgUpdateUniversalValidatorResponse {}
 
 message MsgRemoveUniversalValidator {
   option (amino.name) = "uvalidator/MsgRemoveUniversalValidator";

@@ -144,24 +144,6 @@ func (m *Manager) Exists(keyID string) (bool, error) {
 	return true, nil
 }
 
-// List returns all keyshare keyIDs (filenames) in the keyshares directory.
-func (m *Manager) List() ([]string, error) {
-	entries, err := os.ReadDir(m.keysharesDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read keyshares directory: %w", err)
-	}
-
-	keyIDs := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		// Only include regular files (not directories)
-		if !entry.IsDir() {
-			keyIDs = append(keyIDs, entry.Name())
-		}
-	}
-
-	return keyIDs, nil
-}
-
 // encrypt encrypts keyshare data using AES-256-GCM with a password-derived key.
 // Returns encrypted data in format: [salt(32) || nonce(12) || ciphertext || tag(16)]
 func (m *Manager) encrypt(keyshareData []byte) ([]byte, error) {

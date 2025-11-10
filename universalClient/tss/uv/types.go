@@ -26,3 +26,4 @@ var (
 	ErrNoEligibleValidators = errors.New("no eligible validators found")
 	ErrInvalidBlockNumber   = errors.New("invalid block number")
 )
+

@@ -3,6 +3,7 @@ package uv
 import (
 	"context"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -12,6 +13,9 @@ import (
 type Manager struct {
 	ctx    context.Context
 	logger zerolog.Logger
+
+	// Thread-safe access
+	mu sync.RWMutex
 
 	// Cached validators
 	validators []*UniversalValidator
@@ -67,30 +71,50 @@ func (m *Manager) refreshLoop() {
 
 // GetUVs returns the current cached list of Universal Validators
 func (m *Manager) GetUVs() []*UniversalValidator {
-	// TODO: Add mutex for thread-safe access
-	return m.validators
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Return a copy to prevent external modification
+	result := make([]*UniversalValidator, len(m.validators))
+	copy(result, m.validators)
+	return result
 }
 
 // Refresh fetches the latest UV set from chain and updates cache
 func (m *Manager) Refresh() error {
 	// TODO: Fetch validators from Push Chain
 	// 1. Query on-chain Universal Validator registry
-	// 2. Parse response into []*tss.UniversalValidator
+	// 2. Parse response into []*UniversalValidator
 	// 3. Update m.validators cache
 
 	m.logger.Debug().Msg("refreshing UV set")
+
+	// TODO: Fetch validators from Push Chain and update cache
+	// For now, the cache remains unchanged
+	// When implemented:
+	//   m.mu.Lock()
+	//   m.validators = fetchedValidators
+	//   m.mu.Unlock()
+
 	return nil
 }
 
-// GetCoordinator returns the coordinator Universal Validator for a given block number
-func (m *Manager) GetCoordinator(blockNum int64) (*UniversalValidator, error) {
+// GetCoordinator returns the coordinator Universal Validator based on the latest block
+func (m *Manager) GetCoordinator() (*UniversalValidator, error) {
+	// TODO: Get latest block number from chain via on-chain call
+	// blockNum, err := chainClient.GetLatestBlockNumber(m.ctx)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get latest block number: %w", err)
+	// }
+	blockNum := int64(0) // Placeholder - will be replaced with actual block number from chain
+
 	validators := m.GetUVs()
 	return m.getCoordinator(blockNum, validators)
 }
 
-// IsCoordinator checks if this node is the coordinator for the given block
-func (m *Manager) IsCoordinator(blockNum int64) (bool, error) {
-	coordinator, err := m.GetCoordinator(blockNum)
+// IsCoordinator checks if this node is the coordinator based on the latest block
+func (m *Manager) IsCoordinator() (bool, error) {
+	coordinator, err := m.GetCoordinator()
 	if err != nil {
 		return false, err
 	}

@@ -195,8 +195,8 @@ func (t *TSS) processEvent(event *store.TSSEvent) error {
 	// Determine process type
 	processType := TssProcessType(event.ProtocolType)
 
-	// Check if this node is the coordinator for this event
-	isCoord, err := t.uvManager.IsCoordinator(int64(event.BlockNumber))
+	// Check if this node is the coordinator (based on latest block)
+	isCoord, err := t.uvManager.IsCoordinator()
 	if err != nil {
 		return fmt.Errorf("failed to check coordinator status: %w", err)
 	}

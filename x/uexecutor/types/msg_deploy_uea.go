@@ -26,7 +26,7 @@ func NewMsgDeployUEA(
 // Route returns the name of the module
 func (msg MsgDeployUEA) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgDeployUEA) Type() string { return "deploy_uea" }
 
 // GetSignBytes implements the LegacyMsg interface.

@@ -27,7 +27,7 @@ func NewMsgMintPC(
 // Route returns the name of the module
 func (msg MsgMintPC) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgMintPC) Type() string { return "mint_pc" }
 
 // GetSignBytes implements the LegacyMsg interface.

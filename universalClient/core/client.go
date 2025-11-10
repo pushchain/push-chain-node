@@ -139,6 +139,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	uc.signerHandler = signerHandler
 
 	// Set vote handlers in chain registry
+	// This will create both inbound vote handlers and gas vote handlers per chain
 	uc.updateVoteHandlersForAllChains()
 
 	// Create query server
@@ -363,6 +364,22 @@ func (uc *UniversalClient) updateVoteHandlersForAllChains() {
 
 			voteHandlers[chainID] = voteHandler
 			processedChains++
+
+			// Also create gas vote handler for this chain
+			gasVoteHandler := NewGasVoteHandler(
+				uc.signerHandler.GetTxSigner(),
+				db,
+				uc.log,
+				uc.signerHandler.GetKeys(),
+				uc.signerHandler.GetGranter(),
+			)
+
+			if gasVoteHandler != nil && uc.gasPriceFetcher != nil {
+				uc.gasPriceFetcher.SetGasVoteHandler(chainID, gasVoteHandler)
+				uc.log.Info().
+					Str("chain_id", chainID).
+					Msg("✅ Created gas vote handler for chain")
+			}
 
 			uc.log.Info().
 				Str("chain_id", chainID).

@@ -26,3 +26,14 @@ type ChainTransaction struct {
 	Data             []byte // Store raw event data
 	VoteTxHash       string // Transaction hash of the vote on pchain
 }
+
+// GasVoteTransaction tracks gas price votes for the chain this database belongs to.
+// Since each chain has its own database, ChainID is not needed.
+// Uses GORM's built-in CreatedAt/UpdatedAt for timestamp tracking.
+type GasVoteTransaction struct {
+	gorm.Model
+	GasPrice   uint64 `gorm:"not null"` // Gas price voted for (in wei)
+	VoteTxHash string `gorm:"index"`    // On-chain vote transaction hash
+	Status     string `gorm:"default:'success'"`
+	ErrorMsg   string `gorm:"type:text"` // Error message if vote failed
+}

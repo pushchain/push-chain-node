@@ -127,9 +127,9 @@ func (m *MockChainClient) GetCleanupSettings() (cleanupInterval, retentionPeriod
 	return 3600, 86400 // 1 hour cleanup, 1 day retention
 }
 
-// GetGasPriceInterval returns the gas price fetch interval for this chain
-func (m *MockChainClient) GetGasPriceInterval() int {
-	return 60 // 60 seconds
+// GetGasOracleFetchInterval returns the gas oracle fetch interval for this chain
+func (m *MockChainClient) GetGasOracleFetchInterval() time.Duration {
+	return 60 * time.Second // 60 seconds
 }
 
 // GetChainSpecificConfig returns the complete configuration for this chain

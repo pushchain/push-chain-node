@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
 	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
+	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
@@ -129,36 +130,180 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
+// Admin initiates new keygen/reshare process
+type MsgInitiateTssKeyProcess struct {
+	Signer       string         `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	ProcessType  TssProcessType `protobuf:"varint,2,opt,name=process_type,json=processType,proto3,enum=utss.v1.TssProcessType" json:"process_type,omitempty"`
+	ExpiryHeight uint64         `protobuf:"varint,3,opt,name=expiry_height,json=expiryHeight,proto3" json:"expiry_height,omitempty"`
+}
+
+func (m *MsgInitiateTssKeyProcess) Reset()         { *m = MsgInitiateTssKeyProcess{} }
+func (m *MsgInitiateTssKeyProcess) String() string { return proto.CompactTextString(m) }
+func (*MsgInitiateTssKeyProcess) ProtoMessage()    {}
+func (*MsgInitiateTssKeyProcess) Descriptor() ([]byte, []int) {
+	return fileDescriptor_4dcb8cba4d8073e4, []int{2}
+}
+func (m *MsgInitiateTssKeyProcess) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgInitiateTssKeyProcess) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgInitiateTssKeyProcess.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgInitiateTssKeyProcess) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgInitiateTssKeyProcess.Merge(m, src)
+}
+func (m *MsgInitiateTssKeyProcess) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgInitiateTssKeyProcess) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgInitiateTssKeyProcess.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgInitiateTssKeyProcess proto.InternalMessageInfo
+
+func (m *MsgInitiateTssKeyProcess) GetSigner() string {
+	if m != nil {
+		return m.Signer
+	}
+	return ""
+}
+
+func (m *MsgInitiateTssKeyProcess) GetProcessType() TssProcessType {
+	if m != nil {
+		return m.ProcessType
+	}
+	return TssProcessType_TSS_PROCESS_KEYGEN
+}
+
+func (m *MsgInitiateTssKeyProcess) GetExpiryHeight() uint64 {
+	if m != nil {
+		return m.ExpiryHeight
+	}
+	return 0
+}
+
+// Universal validator votes on an ongoing TSS key process
+type MsgVoteTssKeyProcess struct {
+	Signer    string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	ProcessId uint64 `protobuf:"varint,2,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
+	TssPubkey string `protobuf:"bytes,3,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
+	KeyId     string `protobuf:"bytes,4,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+}
+
+func (m *MsgVoteTssKeyProcess) Reset()         { *m = MsgVoteTssKeyProcess{} }
+func (m *MsgVoteTssKeyProcess) String() string { return proto.CompactTextString(m) }
+func (*MsgVoteTssKeyProcess) ProtoMessage()    {}
+func (*MsgVoteTssKeyProcess) Descriptor() ([]byte, []int) {
+	return fileDescriptor_4dcb8cba4d8073e4, []int{3}
+}
+func (m *MsgVoteTssKeyProcess) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgVoteTssKeyProcess) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgVoteTssKeyProcess.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgVoteTssKeyProcess) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgVoteTssKeyProcess.Merge(m, src)
+}
+func (m *MsgVoteTssKeyProcess) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgVoteTssKeyProcess) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgVoteTssKeyProcess.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgVoteTssKeyProcess proto.InternalMessageInfo
+
+func (m *MsgVoteTssKeyProcess) GetSigner() string {
+	if m != nil {
+		return m.Signer
+	}
+	return ""
+}
+
+func (m *MsgVoteTssKeyProcess) GetProcessId() uint64 {
+	if m != nil {
+		return m.ProcessId
+	}
+	return 0
+}
+
+func (m *MsgVoteTssKeyProcess) GetTssPubkey() string {
+	if m != nil {
+		return m.TssPubkey
+	}
+	return ""
+}
+
+func (m *MsgVoteTssKeyProcess) GetKeyId() string {
+	if m != nil {
+		return m.KeyId
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "utss.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "utss.v1.MsgUpdateParamsResponse")
+	proto.RegisterType((*MsgInitiateTssKeyProcess)(nil), "utss.v1.MsgInitiateTssKeyProcess")
+	proto.RegisterType((*MsgVoteTssKeyProcess)(nil), "utss.v1.MsgVoteTssKeyProcess")
 }
 
 func init() { proto.RegisterFile("utss/v1/tx.proto", fileDescriptor_4dcb8cba4d8073e4) }
 
 var fileDescriptor_4dcb8cba4d8073e4 = []byte{
-	// 325 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x28, 0x2d, 0x29, 0x2e,
-	0xd6, 0x2f, 0x33, 0xd4, 0x2f, 0xa9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x07, 0x89,
-	0xe8, 0x95, 0x19, 0x4a, 0x89, 0x27, 0xe7, 0x17, 0xe7, 0xe6, 0x17, 0xeb, 0xe7, 0x16, 0xa7, 0x83,
-	0x14, 0xe4, 0x16, 0xa7, 0x43, 0x54, 0x48, 0x89, 0xc2, 0xf4, 0xa4, 0xa7, 0xe6, 0xa5, 0x16, 0x67,
-	0x16, 0x43, 0x85, 0x45, 0xd2, 0xf3, 0xd3, 0xf3, 0xc1, 0x4c, 0x7d, 0x10, 0x0b, 0x2a, 0x2a, 0x09,
-	0x31, 0x25, 0x1e, 0x22, 0x01, 0xe1, 0x40, 0xa4, 0x94, 0x3a, 0x18, 0xb9, 0xf8, 0x7d, 0x8b, 0xd3,
-	0x43, 0x0b, 0x52, 0x12, 0x4b, 0x52, 0x03, 0x12, 0x8b, 0x12, 0x73, 0x8b, 0x85, 0xcc, 0xb8, 0x38,
-	0x13, 0x4b, 0x4b, 0x32, 0xf2, 0x8b, 0x32, 0x4b, 0x2a, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x9d,
-	0x24, 0x2e, 0x6d, 0xd1, 0x15, 0x81, 0x6a, 0x74, 0x4c, 0x49, 0x29, 0x4a, 0x2d, 0x2e, 0x0e, 0x2e,
-	0x29, 0xca, 0xcc, 0x4b, 0x0f, 0x42, 0x28, 0x15, 0xd2, 0xe5, 0x62, 0x2b, 0x00, 0x9b, 0x20, 0xc1,
-	0xa4, 0xc0, 0xa8, 0xc1, 0x6d, 0xc4, 0xaf, 0x07, 0xf5, 0x86, 0x1e, 0xc4, 0x60, 0x27, 0x96, 0x13,
-	0xf7, 0xe4, 0x19, 0x82, 0xa0, 0x8a, 0xac, 0xf8, 0x9a, 0x9e, 0x6f, 0xd0, 0x42, 0x68, 0x57, 0x92,
-	0xe4, 0x12, 0x47, 0x73, 0x49, 0x50, 0x6a, 0x71, 0x41, 0x7e, 0x5e, 0x71, 0xaa, 0x51, 0x04, 0x17,
-	0xb3, 0x6f, 0x71, 0xba, 0x90, 0x17, 0x17, 0x0f, 0x8a, 0x43, 0x25, 0xe0, 0x16, 0xa0, 0x69, 0x94,
-	0x52, 0xc0, 0x25, 0x03, 0x33, 0x52, 0x8a, 0xb5, 0xe1, 0xf9, 0x06, 0x2d, 0x46, 0x27, 0xef, 0x13,
-	0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x71, 0xc2, 0x63, 0x39, 0x86,
-	0x0b, 0x8f, 0xe5, 0x18, 0x6e, 0x3c, 0x96, 0x63, 0x88, 0x32, 0x4c, 0xcf, 0x2c, 0xc9, 0x28, 0x4d,
-	0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x2f, 0x28, 0x2d, 0xce, 0x48, 0xce, 0x48, 0xcc, 0xcc, 0x03, 0xb3,
-	0x74, 0xc1, 0x4c, 0xdd, 0xbc, 0xfc, 0x94, 0x54, 0xfd, 0x0a, 0x7d, 0x70, 0x44, 0x94, 0x54, 0x16,
-	0xa4, 0x16, 0x27, 0xb1, 0x81, 0xc3, 0xd4, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x0a, 0x10, 0x88,
-	0xdc, 0xd1, 0x01, 0x00, 0x00,
+	// 525 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x53, 0xc1, 0x8f, 0xd2, 0x4e,
+	0x14, 0x66, 0x7e, 0xcb, 0xf2, 0x0b, 0xb3, 0xeb, 0xae, 0xd6, 0xdd, 0x50, 0x48, 0xac, 0x04, 0x2f,
+	0x48, 0x42, 0x2b, 0x98, 0x78, 0xe0, 0x26, 0x27, 0x71, 0x43, 0x42, 0x2a, 0x1a, 0xe3, 0x85, 0x14,
+	0x3a, 0x99, 0x4e, 0x48, 0x3b, 0x93, 0xbe, 0x61, 0x43, 0x6f, 0xc6, 0x93, 0xf1, 0xe4, 0x9f, 0xc2,
+	0xc1, 0x3f, 0x82, 0xe3, 0xc6, 0x93, 0x17, 0x8d, 0x81, 0x03, 0xff, 0x86, 0xe9, 0x74, 0x00, 0x97,
+	0xc4, 0x78, 0xf0, 0x42, 0xde, 0x7c, 0xdf, 0x7b, 0x1f, 0xdf, 0x37, 0x6f, 0x8a, 0xef, 0xce, 0x24,
+	0x80, 0x73, 0xdd, 0x72, 0xe4, 0xdc, 0x16, 0x31, 0x97, 0xdc, 0xf8, 0x3f, 0x45, 0xec, 0xeb, 0x56,
+	0xa5, 0x34, 0xe1, 0x10, 0x72, 0x70, 0x42, 0xa0, 0x69, 0x43, 0x08, 0x34, 0xeb, 0xa8, 0x5c, 0x6e,
+	0x67, 0x28, 0x89, 0x08, 0x30, 0xd0, 0xf0, 0xfd, 0x9d, 0x54, 0x22, 0xc8, 0x16, 0xbc, 0xa0, 0x9c,
+	0x72, 0x55, 0x3a, 0x69, 0xa5, 0xd1, 0x72, 0x26, 0x3d, 0xca, 0x88, 0xec, 0xa0, 0xa9, 0x7b, 0x5e,
+	0xc8, 0x22, 0xee, 0xa8, 0xdf, 0x0c, 0xaa, 0x7d, 0x44, 0xf8, 0xbc, 0x0f, 0xf4, 0xb5, 0xf0, 0x3d,
+	0x49, 0x06, 0x5e, 0xec, 0x85, 0x60, 0x3c, 0xc3, 0x45, 0x6f, 0x26, 0x03, 0x1e, 0x33, 0x99, 0x98,
+	0xa8, 0x8a, 0xea, 0xc5, 0xae, 0xf9, 0xf5, 0x4b, 0xf3, 0x42, 0x6b, 0x3d, 0xf7, 0xfd, 0x98, 0x00,
+	0xbc, 0x92, 0x31, 0x8b, 0xa8, 0xbb, 0x6f, 0x35, 0x9a, 0xb8, 0x20, 0x94, 0x82, 0xf9, 0x5f, 0x15,
+	0xd5, 0x4f, 0xda, 0xe7, 0xb6, 0x8e, 0x6b, 0x67, 0xc2, 0xdd, 0xfc, 0xf2, 0xc7, 0xc3, 0x9c, 0xab,
+	0x9b, 0x3a, 0x67, 0x1f, 0x36, 0x8b, 0xc6, 0x7e, 0xbc, 0x56, 0xc6, 0xa5, 0x03, 0x27, 0x2e, 0x01,
+	0xc1, 0x23, 0x20, 0xb5, 0xef, 0x08, 0x9b, 0x7d, 0xa0, 0xbd, 0x88, 0x49, 0xe6, 0x49, 0x32, 0x04,
+	0xb8, 0x22, 0xc9, 0x20, 0xe6, 0x13, 0x02, 0x60, 0x3c, 0xc1, 0x05, 0x60, 0x34, 0x22, 0xf1, 0x5f,
+	0xbd, 0xea, 0x3e, 0xa3, 0x83, 0x4f, 0x45, 0x36, 0x3c, 0x4a, 0xef, 0x53, 0xd9, 0x3d, 0x6b, 0x97,
+	0x76, 0x76, 0x87, 0x00, 0x5a, 0x7c, 0x98, 0x08, 0xe2, 0x9e, 0x88, 0xfd, 0xc1, 0x78, 0x84, 0xef,
+	0x90, 0xb9, 0x60, 0x71, 0x32, 0x0a, 0x08, 0xa3, 0x81, 0x34, 0x8f, 0xaa, 0xa8, 0x9e, 0x77, 0x4f,
+	0x33, 0xf0, 0x85, 0xc2, 0x3a, 0x76, 0x1a, 0x4d, 0xff, 0xdb, 0xa7, 0xcd, 0xa2, 0x61, 0xa9, 0xf5,
+	0xf5, 0x81, 0xbe, 0xe1, 0x92, 0x6c, 0x53, 0xec, 0x23, 0xd4, 0x96, 0x08, 0x5f, 0x68, 0xf6, 0x5f,
+	0xb3, 0x3d, 0xc0, 0x78, 0x9b, 0x8d, 0xf9, 0x2a, 0x59, 0xde, 0x2d, 0x6a, 0xa4, 0xe7, 0xa7, 0xb4,
+	0x04, 0x18, 0x89, 0xd9, 0x78, 0x4a, 0x12, 0xe5, 0xbd, 0xe8, 0x16, 0x25, 0xc0, 0x40, 0x01, 0xc6,
+	0x25, 0x2e, 0x4c, 0x49, 0x92, 0x4e, 0xe6, 0x15, 0x75, 0x3c, 0x25, 0x49, 0xcf, 0xef, 0x3c, 0x3e,
+	0xc8, 0x53, 0xfe, 0x3d, 0xcf, 0x2d, 0xc7, 0xed, 0xb7, 0xf8, 0xa8, 0x0f, 0xd4, 0x78, 0x89, 0x4f,
+	0x6f, 0xbd, 0x29, 0x73, 0x77, 0xb9, 0x07, 0x3b, 0xae, 0x54, 0xff, 0xc4, 0x6c, 0xb7, 0x5f, 0x39,
+	0x7e, 0xbf, 0x59, 0x34, 0x50, 0xf7, 0x6a, 0xb9, 0xb2, 0xd0, 0xcd, 0xca, 0x42, 0x3f, 0x57, 0x16,
+	0xfa, 0xbc, 0xb6, 0x72, 0x37, 0x6b, 0x2b, 0xf7, 0x6d, 0x6d, 0xe5, 0xde, 0xb5, 0x28, 0x93, 0xc1,
+	0x6c, 0x6c, 0x4f, 0x78, 0xe8, 0x88, 0x19, 0x04, 0x93, 0xc0, 0x63, 0x91, 0xaa, 0x9a, 0xaa, 0x6c,
+	0x46, 0xdc, 0x27, 0xce, 0xdc, 0x51, 0xae, 0xd5, 0x17, 0x34, 0x2e, 0xa8, 0xe7, 0xff, 0xf4, 0x57,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xaa, 0xfe, 0x91, 0xa4, 0xa4, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -310,6 +455,95 @@ func (m *MsgUpdateParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgInitiateTssKeyProcess) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgInitiateTssKeyProcess) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgInitiateTssKeyProcess) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ExpiryHeight != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.ExpiryHeight))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.ProcessType != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.ProcessType))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Signer) > 0 {
+		i -= len(m.Signer)
+		copy(dAtA[i:], m.Signer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgVoteTssKeyProcess) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgVoteTssKeyProcess) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgVoteTssKeyProcess) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.KeyId) > 0 {
+		i -= len(m.KeyId)
+		copy(dAtA[i:], m.KeyId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.KeyId)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.TssPubkey) > 0 {
+		i -= len(m.TssPubkey)
+		copy(dAtA[i:], m.TssPubkey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.TssPubkey)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.ProcessId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.ProcessId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Signer) > 0 {
+		i -= len(m.Signer)
+		copy(dAtA[i:], m.Signer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -342,6 +576,49 @@ func (m *MsgUpdateParamsResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	return n
+}
+
+func (m *MsgInitiateTssKeyProcess) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Signer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.ProcessType != 0 {
+		n += 1 + sovTx(uint64(m.ProcessType))
+	}
+	if m.ExpiryHeight != 0 {
+		n += 1 + sovTx(uint64(m.ExpiryHeight))
+	}
+	return n
+}
+
+func (m *MsgVoteTssKeyProcess) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Signer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.ProcessId != 0 {
+		n += 1 + sovTx(uint64(m.ProcessId))
+	}
+	l = len(m.TssPubkey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.KeyId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
 	return n
 }
 
@@ -495,6 +772,291 @@ func (m *MsgUpdateParamsResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: MsgUpdateParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgInitiateTssKeyProcess) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgInitiateTssKeyProcess: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgInitiateTssKeyProcess: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessType", wireType)
+			}
+			m.ProcessType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ProcessType |= TssProcessType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExpiryHeight", wireType)
+			}
+			m.ExpiryHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExpiryHeight |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgVoteTssKeyProcess) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgVoteTssKeyProcess: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgVoteTssKeyProcess: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
+			}
+			m.ProcessId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ProcessId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TssPubkey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeyId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.KeyId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

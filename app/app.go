@@ -760,7 +760,7 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[utsstypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UregistryKeeper,
+		app.UvalidatorKeeper,
 	)
 
 	app.UvalidatorKeeper.SetHooks(
@@ -1038,7 +1038,7 @@ func NewChainApp(
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
-		utss.NewAppModule(appCodec, app.UtssKeeper, app.UregistryKeeper),
+		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,

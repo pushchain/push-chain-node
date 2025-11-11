@@ -2,6 +2,7 @@
 package utssv1
 
 import (
+	_ "cosmossdk.io/api/amino"
 	_ "cosmossdk.io/api/cosmos/msg/v1"
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
@@ -870,6 +871,1118 @@ func (x *fastReflection_MsgUpdateParamsResponse) ProtoMethods() *protoiface.Meth
 	}
 }
 
+var (
+	md_MsgInitiateTssKeyProcess               protoreflect.MessageDescriptor
+	fd_MsgInitiateTssKeyProcess_signer        protoreflect.FieldDescriptor
+	fd_MsgInitiateTssKeyProcess_process_type  protoreflect.FieldDescriptor
+	fd_MsgInitiateTssKeyProcess_expiry_height protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_utss_v1_tx_proto_init()
+	md_MsgInitiateTssKeyProcess = File_utss_v1_tx_proto.Messages().ByName("MsgInitiateTssKeyProcess")
+	fd_MsgInitiateTssKeyProcess_signer = md_MsgInitiateTssKeyProcess.Fields().ByName("signer")
+	fd_MsgInitiateTssKeyProcess_process_type = md_MsgInitiateTssKeyProcess.Fields().ByName("process_type")
+	fd_MsgInitiateTssKeyProcess_expiry_height = md_MsgInitiateTssKeyProcess.Fields().ByName("expiry_height")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgInitiateTssKeyProcess)(nil)
+
+type fastReflection_MsgInitiateTssKeyProcess MsgInitiateTssKeyProcess
+
+func (x *MsgInitiateTssKeyProcess) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgInitiateTssKeyProcess)(x)
+}
+
+func (x *MsgInitiateTssKeyProcess) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_tx_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgInitiateTssKeyProcess_messageType fastReflection_MsgInitiateTssKeyProcess_messageType
+var _ protoreflect.MessageType = fastReflection_MsgInitiateTssKeyProcess_messageType{}
+
+type fastReflection_MsgInitiateTssKeyProcess_messageType struct{}
+
+func (x fastReflection_MsgInitiateTssKeyProcess_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgInitiateTssKeyProcess)(nil)
+}
+func (x fastReflection_MsgInitiateTssKeyProcess_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgInitiateTssKeyProcess)
+}
+func (x fastReflection_MsgInitiateTssKeyProcess_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgInitiateTssKeyProcess
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgInitiateTssKeyProcess
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Type() protoreflect.MessageType {
+	return _fastReflection_MsgInitiateTssKeyProcess_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgInitiateTssKeyProcess) New() protoreflect.Message {
+	return new(fastReflection_MsgInitiateTssKeyProcess)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Interface() protoreflect.ProtoMessage {
+	return (*MsgInitiateTssKeyProcess)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Signer != "" {
+		value := protoreflect.ValueOfString(x.Signer)
+		if !f(fd_MsgInitiateTssKeyProcess_signer, value) {
+			return
+		}
+	}
+	if x.ProcessType != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.ProcessType))
+		if !f(fd_MsgInitiateTssKeyProcess_process_type, value) {
+			return
+		}
+	}
+	if x.ExpiryHeight != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.ExpiryHeight)
+		if !f(fd_MsgInitiateTssKeyProcess_expiry_height, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		return x.Signer != ""
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		return x.ProcessType != 0
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		return x.ExpiryHeight != uint64(0)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		x.Signer = ""
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		x.ProcessType = 0
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		x.ExpiryHeight = uint64(0)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		value := x.Signer
+		return protoreflect.ValueOfString(value)
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		value := x.ProcessType
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		value := x.ExpiryHeight
+		return protoreflect.ValueOfUint64(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		x.Signer = value.Interface().(string)
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		x.ProcessType = (TssProcessType)(value.Enum())
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		x.ExpiryHeight = value.Uint()
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgInitiateTssKeyProcess) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		panic(fmt.Errorf("field signer of message utss.v1.MsgInitiateTssKeyProcess is not mutable"))
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		panic(fmt.Errorf("field process_type of message utss.v1.MsgInitiateTssKeyProcess is not mutable"))
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		panic(fmt.Errorf("field expiry_height of message utss.v1.MsgInitiateTssKeyProcess is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgInitiateTssKeyProcess) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.MsgInitiateTssKeyProcess.signer":
+		return protoreflect.ValueOfString("")
+	case "utss.v1.MsgInitiateTssKeyProcess.process_type":
+		return protoreflect.ValueOfEnum(0)
+	case "utss.v1.MsgInitiateTssKeyProcess.expiry_height":
+		return protoreflect.ValueOfUint64(uint64(0))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgInitiateTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgInitiateTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgInitiateTssKeyProcess) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.MsgInitiateTssKeyProcess", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgInitiateTssKeyProcess) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgInitiateTssKeyProcess) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgInitiateTssKeyProcess) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgInitiateTssKeyProcess) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgInitiateTssKeyProcess)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Signer)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.ProcessType != 0 {
+			n += 1 + runtime.Sov(uint64(x.ProcessType))
+		}
+		if x.ExpiryHeight != 0 {
+			n += 1 + runtime.Sov(uint64(x.ExpiryHeight))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgInitiateTssKeyProcess)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.ExpiryHeight != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.ExpiryHeight))
+			i--
+			dAtA[i] = 0x18
+		}
+		if x.ProcessType != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.ProcessType))
+			i--
+			dAtA[i] = 0x10
+		}
+		if len(x.Signer) > 0 {
+			i -= len(x.Signer)
+			copy(dAtA[i:], x.Signer)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Signer)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgInitiateTssKeyProcess)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgInitiateTssKeyProcess: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgInitiateTssKeyProcess: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Signer = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ProcessType", wireType)
+				}
+				x.ProcessType = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.ProcessType |= TssProcessType(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 3:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ExpiryHeight", wireType)
+				}
+				x.ExpiryHeight = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.ExpiryHeight |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_MsgVoteTssKeyProcess            protoreflect.MessageDescriptor
+	fd_MsgVoteTssKeyProcess_signer     protoreflect.FieldDescriptor
+	fd_MsgVoteTssKeyProcess_process_id protoreflect.FieldDescriptor
+	fd_MsgVoteTssKeyProcess_tss_pubkey protoreflect.FieldDescriptor
+	fd_MsgVoteTssKeyProcess_key_id     protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_utss_v1_tx_proto_init()
+	md_MsgVoteTssKeyProcess = File_utss_v1_tx_proto.Messages().ByName("MsgVoteTssKeyProcess")
+	fd_MsgVoteTssKeyProcess_signer = md_MsgVoteTssKeyProcess.Fields().ByName("signer")
+	fd_MsgVoteTssKeyProcess_process_id = md_MsgVoteTssKeyProcess.Fields().ByName("process_id")
+	fd_MsgVoteTssKeyProcess_tss_pubkey = md_MsgVoteTssKeyProcess.Fields().ByName("tss_pubkey")
+	fd_MsgVoteTssKeyProcess_key_id = md_MsgVoteTssKeyProcess.Fields().ByName("key_id")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVoteTssKeyProcess)(nil)
+
+type fastReflection_MsgVoteTssKeyProcess MsgVoteTssKeyProcess
+
+func (x *MsgVoteTssKeyProcess) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteTssKeyProcess)(x)
+}
+
+func (x *MsgVoteTssKeyProcess) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_tx_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgVoteTssKeyProcess_messageType fastReflection_MsgVoteTssKeyProcess_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteTssKeyProcess_messageType{}
+
+type fastReflection_MsgVoteTssKeyProcess_messageType struct{}
+
+func (x fastReflection_MsgVoteTssKeyProcess_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteTssKeyProcess)(nil)
+}
+func (x fastReflection_MsgVoteTssKeyProcess_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteTssKeyProcess)
+}
+func (x fastReflection_MsgVoteTssKeyProcess_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteTssKeyProcess
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgVoteTssKeyProcess) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteTssKeyProcess
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgVoteTssKeyProcess) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteTssKeyProcess_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVoteTssKeyProcess) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteTssKeyProcess)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgVoteTssKeyProcess) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteTssKeyProcess)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgVoteTssKeyProcess) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Signer != "" {
+		value := protoreflect.ValueOfString(x.Signer)
+		if !f(fd_MsgVoteTssKeyProcess_signer, value) {
+			return
+		}
+	}
+	if x.ProcessId != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.ProcessId)
+		if !f(fd_MsgVoteTssKeyProcess_process_id, value) {
+			return
+		}
+	}
+	if x.TssPubkey != "" {
+		value := protoreflect.ValueOfString(x.TssPubkey)
+		if !f(fd_MsgVoteTssKeyProcess_tss_pubkey, value) {
+			return
+		}
+	}
+	if x.KeyId != "" {
+		value := protoreflect.ValueOfString(x.KeyId)
+		if !f(fd_MsgVoteTssKeyProcess_key_id, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgVoteTssKeyProcess) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		return x.Signer != ""
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		return x.ProcessId != uint64(0)
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		return x.TssPubkey != ""
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		return x.KeyId != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteTssKeyProcess) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		x.Signer = ""
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		x.ProcessId = uint64(0)
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		x.TssPubkey = ""
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		x.KeyId = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgVoteTssKeyProcess) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		value := x.Signer
+		return protoreflect.ValueOfString(value)
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		value := x.ProcessId
+		return protoreflect.ValueOfUint64(value)
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		value := x.TssPubkey
+		return protoreflect.ValueOfString(value)
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		value := x.KeyId
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteTssKeyProcess) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		x.Signer = value.Interface().(string)
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		x.ProcessId = value.Uint()
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		x.TssPubkey = value.Interface().(string)
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		x.KeyId = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteTssKeyProcess) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		panic(fmt.Errorf("field signer of message utss.v1.MsgVoteTssKeyProcess is not mutable"))
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		panic(fmt.Errorf("field process_id of message utss.v1.MsgVoteTssKeyProcess is not mutable"))
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		panic(fmt.Errorf("field tss_pubkey of message utss.v1.MsgVoteTssKeyProcess is not mutable"))
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		panic(fmt.Errorf("field key_id of message utss.v1.MsgVoteTssKeyProcess is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgVoteTssKeyProcess) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.MsgVoteTssKeyProcess.signer":
+		return protoreflect.ValueOfString("")
+	case "utss.v1.MsgVoteTssKeyProcess.process_id":
+		return protoreflect.ValueOfUint64(uint64(0))
+	case "utss.v1.MsgVoteTssKeyProcess.tss_pubkey":
+		return protoreflect.ValueOfString("")
+	case "utss.v1.MsgVoteTssKeyProcess.key_id":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.MsgVoteTssKeyProcess"))
+		}
+		panic(fmt.Errorf("message utss.v1.MsgVoteTssKeyProcess does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgVoteTssKeyProcess) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.MsgVoteTssKeyProcess", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgVoteTssKeyProcess) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteTssKeyProcess) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgVoteTssKeyProcess) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgVoteTssKeyProcess) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVoteTssKeyProcess)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Signer)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.ProcessId != 0 {
+			n += 1 + runtime.Sov(uint64(x.ProcessId))
+		}
+		l = len(x.TssPubkey)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.KeyId)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteTssKeyProcess)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.KeyId) > 0 {
+			i -= len(x.KeyId)
+			copy(dAtA[i:], x.KeyId)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.KeyId)))
+			i--
+			dAtA[i] = 0x22
+		}
+		if len(x.TssPubkey) > 0 {
+			i -= len(x.TssPubkey)
+			copy(dAtA[i:], x.TssPubkey)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.TssPubkey)))
+			i--
+			dAtA[i] = 0x1a
+		}
+		if x.ProcessId != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.ProcessId))
+			i--
+			dAtA[i] = 0x10
+		}
+		if len(x.Signer) > 0 {
+			i -= len(x.Signer)
+			copy(dAtA[i:], x.Signer)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Signer)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteTssKeyProcess)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteTssKeyProcess: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteTssKeyProcess: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Signer = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
+				}
+				x.ProcessId = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.ProcessId |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 3:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.TssPubkey = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 4:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field KeyId", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.KeyId = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -963,6 +2076,118 @@ func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
 	return file_utss_v1_tx_proto_rawDescGZIP(), []int{1}
 }
 
+// Admin initiates new keygen/reshare process
+type MsgInitiateTssKeyProcess struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Signer       string         `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	ProcessType  TssProcessType `protobuf:"varint,2,opt,name=process_type,json=processType,proto3,enum=utss.v1.TssProcessType" json:"process_type,omitempty"`
+	ExpiryHeight uint64         `protobuf:"varint,3,opt,name=expiry_height,json=expiryHeight,proto3" json:"expiry_height,omitempty"`
+}
+
+func (x *MsgInitiateTssKeyProcess) Reset() {
+	*x = MsgInitiateTssKeyProcess{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_utss_v1_tx_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgInitiateTssKeyProcess) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgInitiateTssKeyProcess) ProtoMessage() {}
+
+// Deprecated: Use MsgInitiateTssKeyProcess.ProtoReflect.Descriptor instead.
+func (*MsgInitiateTssKeyProcess) Descriptor() ([]byte, []int) {
+	return file_utss_v1_tx_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MsgInitiateTssKeyProcess) GetSigner() string {
+	if x != nil {
+		return x.Signer
+	}
+	return ""
+}
+
+func (x *MsgInitiateTssKeyProcess) GetProcessType() TssProcessType {
+	if x != nil {
+		return x.ProcessType
+	}
+	return TssProcessType_TSS_PROCESS_KEYGEN
+}
+
+func (x *MsgInitiateTssKeyProcess) GetExpiryHeight() uint64 {
+	if x != nil {
+		return x.ExpiryHeight
+	}
+	return 0
+}
+
+// Universal validator votes on an ongoing TSS key process
+type MsgVoteTssKeyProcess struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Signer    string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	ProcessId uint64 `protobuf:"varint,2,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"` // id of the process
+	TssPubkey string `protobuf:"bytes,3,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
+	KeyId     string `protobuf:"bytes,4,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+}
+
+func (x *MsgVoteTssKeyProcess) Reset() {
+	*x = MsgVoteTssKeyProcess{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_utss_v1_tx_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgVoteTssKeyProcess) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVoteTssKeyProcess) ProtoMessage() {}
+
+// Deprecated: Use MsgVoteTssKeyProcess.ProtoReflect.Descriptor instead.
+func (*MsgVoteTssKeyProcess) Descriptor() ([]byte, []int) {
+	return file_utss_v1_tx_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *MsgVoteTssKeyProcess) GetSigner() string {
+	if x != nil {
+		return x.Signer
+	}
+	return ""
+}
+
+func (x *MsgVoteTssKeyProcess) GetProcessId() uint64 {
+	if x != nil {
+		return x.ProcessId
+	}
+	return 0
+}
+
+func (x *MsgVoteTssKeyProcess) GetTssPubkey() string {
+	if x != nil {
+		return x.TssPubkey
+	}
+	return ""
+}
+
+func (x *MsgVoteTssKeyProcess) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
 var File_utss_v1_tx_proto protoreflect.FileDescriptor
 
 var file_utss_v1_tx_proto_rawDesc = []byte{
@@ -970,36 +2195,65 @@ var file_utss_v1_tx_proto_rawDesc = []byte{
 	0x74, 0x6f, 0x12, 0x07, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x1a, 0x17, 0x63, 0x6f, 0x73,
 	0x6d, 0x6f, 0x73, 0x2f, 0x6d, 0x73, 0x67, 0x2f, 0x76, 0x31, 0x2f, 0x6d, 0x73, 0x67, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x15, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x67, 0x65,
-	0x6e, 0x65, 0x73, 0x69, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x14, 0x67, 0x6f, 0x67,
-	0x6f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x1a, 0x19, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x88, 0x01, 0x0a,
-	0x0f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
-	0x12, 0x36, 0x0a, 0x09, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x18, 0x01, 0x20,
+	0x6e, 0x65, 0x73, 0x69, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x13, 0x75, 0x74, 0x73,
+	0x73, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x1a, 0x14, 0x67, 0x6f, 0x67, 0x6f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x19, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5f, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x1a, 0x11, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2f, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x88, 0x01, 0x0a, 0x0f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61,
+	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x36, 0x0a, 0x09, 0x61, 0x75, 0x74, 0x68,
+	0x6f, 0x72, 0x69, 0x74, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d,
+	0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53,
+	0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x09, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79,
+	0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d,
+	0x73, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x3a,
+	0x0e, 0x82, 0xe7, 0xb0, 0x2a, 0x09, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x22,
+	0x19, 0x0a, 0x17, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61,
+	0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xdd, 0x01, 0x0a, 0x18, 0x4d,
+	0x73, 0x67, 0x49, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x74, 0x65, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79,
+	0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65,
+	0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e,
+	0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x3a, 0x0a, 0x0c, 0x70, 0x72, 0x6f,
+	0x63, 0x65, 0x73, 0x73, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x17, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x50, 0x72, 0x6f,
+	0x63, 0x65, 0x73, 0x73, 0x54, 0x79, 0x70, 0x65, 0x52, 0x0b, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73,
+	0x73, 0x54, 0x79, 0x70, 0x65, 0x12, 0x23, 0x0a, 0x0d, 0x65, 0x78, 0x70, 0x69, 0x72, 0x79, 0x5f,
+	0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0c, 0x65, 0x78,
+	0x70, 0x69, 0x72, 0x79, 0x48, 0x65, 0x69, 0x67, 0x68, 0x74, 0x3a, 0x2e, 0x82, 0xe7, 0xb0, 0x2a,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x1e, 0x75, 0x74, 0x73, 0x73,
+	0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x74, 0x65,
+	0x4b, 0x65, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x22, 0xc8, 0x01, 0x0a, 0x14, 0x4d,
+	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x50, 0x72, 0x6f, 0x63,
+	0x65, 0x73, 0x73, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e,
-	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x09, 0x61,
-	0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e,
-	0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52,
-	0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x3a, 0x0e, 0x82, 0xe7, 0xb0, 0x2a, 0x09, 0x61, 0x75,
-	0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x22, 0x19, 0x0a, 0x17, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x32, 0x58, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x4a, 0x0a, 0x0c, 0x55, 0x70, 0x64,
-	0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x18, 0x2e, 0x75, 0x74, 0x73, 0x73,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72,
-	0x61, 0x6d, 0x73, 0x1a, 0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
-	0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0x8c, 0x01, 0x0a,
-	0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78,
-	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75,
-	0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70,
-	0x69, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73, 0x73, 0x76, 0x31,
-	0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x2e, 0x56, 0x31,
-	0xca, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x74, 0x73,
-	0x73, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61,
-	0xea, 0x02, 0x08, 0x55, 0x74, 0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73,
+	0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x63, 0x65,
+	0x73, 0x73, 0x49, 0x64, 0x12, 0x1d, 0x0a, 0x0a, 0x74, 0x73, 0x73, 0x5f, 0x70, 0x75, 0x62, 0x6b,
+	0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x74, 0x73, 0x73, 0x50, 0x75, 0x62,
+	0x6b, 0x65, 0x79, 0x12, 0x15, 0x0a, 0x06, 0x6b, 0x65, 0x79, 0x5f, 0x69, 0x64, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x05, 0x6b, 0x65, 0x79, 0x49, 0x64, 0x3a, 0x29, 0x82, 0xe7, 0xb0, 0x2a,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x19, 0x75, 0x74, 0x73, 0x73,
+	0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x50, 0x72,
+	0x6f, 0x63, 0x65, 0x73, 0x73, 0x32, 0x58, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x4a, 0x0a, 0x0c,
+	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x18, 0x2e, 0x75,
+	0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42,
+	0x8c, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x42,
+	0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65,
+	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73,
+	0x73, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73,
+	0x2e, 0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13,
+	0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64,
+	0x61, 0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x74, 0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1014,21 +2268,25 @@ func file_utss_v1_tx_proto_rawDescGZIP() []byte {
 	return file_utss_v1_tx_proto_rawDescData
 }
 
-var file_utss_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_utss_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_utss_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),         // 0: utss.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil), // 1: utss.v1.MsgUpdateParamsResponse
-	(*Params)(nil),                  // 2: utss.v1.Params
+	(*MsgUpdateParams)(nil),          // 0: utss.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),  // 1: utss.v1.MsgUpdateParamsResponse
+	(*MsgInitiateTssKeyProcess)(nil), // 2: utss.v1.MsgInitiateTssKeyProcess
+	(*MsgVoteTssKeyProcess)(nil),     // 3: utss.v1.MsgVoteTssKeyProcess
+	(*Params)(nil),                   // 4: utss.v1.Params
+	(TssProcessType)(0),              // 5: utss.v1.TssProcessType
 }
 var file_utss_v1_tx_proto_depIdxs = []int32{
-	2, // 0: utss.v1.MsgUpdateParams.params:type_name -> utss.v1.Params
-	0, // 1: utss.v1.Msg.UpdateParams:input_type -> utss.v1.MsgUpdateParams
-	1, // 2: utss.v1.Msg.UpdateParams:output_type -> utss.v1.MsgUpdateParamsResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4, // 0: utss.v1.MsgUpdateParams.params:type_name -> utss.v1.Params
+	5, // 1: utss.v1.MsgInitiateTssKeyProcess.process_type:type_name -> utss.v1.TssProcessType
+	0, // 2: utss.v1.Msg.UpdateParams:input_type -> utss.v1.MsgUpdateParams
+	1, // 3: utss.v1.Msg.UpdateParams:output_type -> utss.v1.MsgUpdateParamsResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_utss_v1_tx_proto_init() }
@@ -1037,6 +2295,7 @@ func file_utss_v1_tx_proto_init() {
 		return
 	}
 	file_utss_v1_genesis_proto_init()
+	file_utss_v1_types_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_utss_v1_tx_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MsgUpdateParams); i {
@@ -1062,6 +2321,30 @@ func file_utss_v1_tx_proto_init() {
 				return nil
 			}
 		}
+		file_utss_v1_tx_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgInitiateTssKeyProcess); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_utss_v1_tx_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgVoteTssKeyProcess); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1069,7 +2352,7 @@ func file_utss_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_utss_v1_tx_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

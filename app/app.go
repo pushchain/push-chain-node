@@ -166,6 +166,9 @@ import (
 	uregistry "github.com/pushchain/push-chain-node/x/uregistry"
 	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utss "github.com/pushchain/push-chain-node/x/utss"
+	utsskeeper "github.com/pushchain/push-chain-node/x/utss/keeper"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
@@ -318,6 +321,7 @@ type ChainApp struct {
 	UtxverifierKeeper utxverifierkeeper.Keeper
 	UregistryKeeper   uregistrykeeper.Keeper
 	UvalidatorKeeper  uvalidatorkeeper.Keeper
+	UtssKeeper        utsskeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -432,6 +436,7 @@ func NewChainApp(
 		utxverifiertypes.StoreKey,
 		uregistrytypes.StoreKey,
 		uvalidatortypes.StoreKey,
+		utsstypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -749,6 +754,21 @@ func NewChainApp(
 		app.SlashingKeeper,
 	)
 
+	// Create the utss keeper
+	app.UtssKeeper = utsskeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[utsstypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.UregistryKeeper,
+	)
+
+	app.UvalidatorKeeper.SetHooks(
+		uvalidatorkeeper.NewMultiUValidatorHooks(
+			app.UtssKeeper.Hooks(),
+		),
+	)
+
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.
 	corePrecompiles := NewAvailableStaticPrecompiles(
@@ -1018,6 +1038,7 @@ func NewChainApp(
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
+		utss.NewAppModule(appCodec, app.UtssKeeper, app.UregistryKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1067,6 +1088,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1090,6 +1112,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1140,6 +1163,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1580,6 +1604,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
+	paramsKeeper.Subspace(utsstypes.ModuleName)
 
 	return paramsKeeper
 }

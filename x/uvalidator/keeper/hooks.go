@@ -5,24 +5,11 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// UValidatorHooks defines the interface that external modules can implement
-// to react to uvalidator lifecycle events.
-type UValidatorHooks interface {
-	// Triggered when a validator enters PENDING_JOIN (newly added or rejoining)
-	AfterValidatorAdded(ctx sdk.Context, valAddr sdk.ValAddress)
-
-	// Triggered when a validator enters PENDING_LEAVE status (starting removal)
-	AfterValidatorRemoved(ctx sdk.Context, valAddr sdk.ValAddress)
-
-	// Triggered whenever a validator's status changes between any two valid states
-	AfterValidatorStatusChanged(ctx sdk.Context, valAddr sdk.ValAddress, oldStatus, newStatus types.UVStatus)
-}
-
 // MultiUValidatorHooks allows multiple modules to listen to the same events.
-type MultiUValidatorHooks []UValidatorHooks
+type MultiUValidatorHooks []types.UValidatorHooks
 
 // NewMultiUValidatorHooks creates a new combined hook instance.
-func NewMultiUValidatorHooks(hooks ...UValidatorHooks) MultiUValidatorHooks {
+func NewMultiUValidatorHooks(hooks ...types.UValidatorHooks) MultiUValidatorHooks {
 	return hooks
 }
 

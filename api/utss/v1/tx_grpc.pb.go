@@ -19,7 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName = "/utss.v1.Msg/UpdateParams"
+	Msg_UpdateParams_FullMethodName          = "/utss.v1.Msg/UpdateParams"
+	Msg_InitiateTssKeyProcess_FullMethodName = "/utss.v1.Msg/InitiateTssKeyProcess"
+	Msg_VoteTssKeyProcess_FullMethodName     = "/utss.v1.Msg/VoteTssKeyProcess"
 )
 
 // MsgClient is the client API for Msg service.
@@ -30,6 +32,10 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
+	// InitiateTssKeyProcess defines a operation for initiating a new tss key process
+	InitiateTssKeyProcess(ctx context.Context, in *MsgInitiateTssKeyProcess, opts ...grpc.CallOption) (*MsgInitiateTssKeyProcessResponse, error)
+	// VoteTssKeyProcess defines a operation for voting on an existing tss key process
+	VoteTssKeyProcess(ctx context.Context, in *MsgVoteTssKeyProcess, opts ...grpc.CallOption) (*MsgVoteTssKeyProcessResponse, error)
 }
 
 type msgClient struct {
@@ -49,6 +55,24 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
+func (c *msgClient) InitiateTssKeyProcess(ctx context.Context, in *MsgInitiateTssKeyProcess, opts ...grpc.CallOption) (*MsgInitiateTssKeyProcessResponse, error) {
+	out := new(MsgInitiateTssKeyProcessResponse)
+	err := c.cc.Invoke(ctx, Msg_InitiateTssKeyProcess_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) VoteTssKeyProcess(ctx context.Context, in *MsgVoteTssKeyProcess, opts ...grpc.CallOption) (*MsgVoteTssKeyProcessResponse, error) {
+	out := new(MsgVoteTssKeyProcessResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteTssKeyProcess_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -57,6 +81,10 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
+	// InitiateTssKeyProcess defines a operation for initiating a new tss key process
+	InitiateTssKeyProcess(context.Context, *MsgInitiateTssKeyProcess) (*MsgInitiateTssKeyProcessResponse, error)
+	// VoteTssKeyProcess defines a operation for voting on an existing tss key process
+	VoteTssKeyProcess(context.Context, *MsgVoteTssKeyProcess) (*MsgVoteTssKeyProcessResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -66,6 +94,12 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
+}
+func (UnimplementedMsgServer) InitiateTssKeyProcess(context.Context, *MsgInitiateTssKeyProcess) (*MsgInitiateTssKeyProcessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitiateTssKeyProcess not implemented")
+}
+func (UnimplementedMsgServer) VoteTssKeyProcess(context.Context, *MsgVoteTssKeyProcess) (*MsgVoteTssKeyProcessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteTssKeyProcess not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -98,6 +132,42 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_InitiateTssKeyProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgInitiateTssKeyProcess)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).InitiateTssKeyProcess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_InitiateTssKeyProcess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).InitiateTssKeyProcess(ctx, req.(*MsgInitiateTssKeyProcess))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_VoteTssKeyProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteTssKeyProcess)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteTssKeyProcess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteTssKeyProcess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteTssKeyProcess(ctx, req.(*MsgVoteTssKeyProcess))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -108,6 +178,14 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
+		},
+		{
+			MethodName: "InitiateTssKeyProcess",
+			Handler:    _Msg_InitiateTssKeyProcess_Handler,
+		},
+		{
+			MethodName: "VoteTssKeyProcess",
+			Handler:    _Msg_VoteTssKeyProcess_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

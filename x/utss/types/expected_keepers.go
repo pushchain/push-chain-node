@@ -25,4 +25,5 @@ type UValidatorKeeper interface {
 		isNew bool,
 		err error)
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
+	GetAllUniversalValidators(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 }

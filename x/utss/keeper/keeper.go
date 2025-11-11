@@ -20,11 +20,18 @@ type Keeper struct {
 	logger        log.Logger
 	schemaBuilder *collections.SchemaBuilder
 
-	// state management
-	Params collections.Item[types.Params]
+	// Module State
+	Params            collections.Item[types.Params]               // module params
+	NextProcessId     collections.Sequence                         // counter for next process id
+	CurrentTssProcess collections.Item[types.TssKeyProcess]        // current/active process
+	ProcessHistory    collections.Map[uint64, types.TssKeyProcess] // history of past processes
+
+	// TSS Key Storage
+	CurrentTssKey collections.Item[types.TssKey]        // currently active finalized key
+	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id → TssKey
 
 	// keepers
-	uregistryKeeper types.UregistryKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 
 	authority string
 }
@@ -35,7 +42,7 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
-	uregistryKeeper types.UregistryKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -50,10 +57,17 @@ func NewKeeper(
 		logger:        logger,
 		schemaBuilder: sb,
 
-		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		Params:            collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
+		NextProcessId:     collections.NewSequence(sb, types.NextProcessIdKey, "next_process_id"),
+		CurrentTssProcess: collections.NewItem(sb, types.CurrentTssProcessKey, "current_tss_process", codec.CollValue[types.TssKeyProcess](cdc)),
+		ProcessHistory:    collections.NewMap(sb, types.ProcessHistoryKey, "process_history", collections.Uint64Key, codec.CollValue[types.TssKeyProcess](cdc)),
 
-		authority:       authority,
-		uregistryKeeper: uregistryKeeper,
+		// TSS key storage
+		CurrentTssKey: collections.NewItem(sb, types.CurrentTssKeyKeyPrefix, "current_tss_key", codec.CollValue[types.TssKey](cdc)),
+		TssKeyHistory: collections.NewMap(sb, types.TssKeyHistoryKey, "tss_key_history", collections.StringKey, codec.CollValue[types.TssKey](cdc)),
+
+		authority:        authority,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 
 	return k
@@ -66,7 +80,7 @@ func (k Keeper) Logger() log.Logger {
 // InitGenesis initializes the module's state from a genesis state.
 func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) error {
 
-	if err := data.Params.Validate(); err != nil {
+	if err := data.Params.ValidateBasic(); err != nil {
 		return err
 	}
 
@@ -89,6 +103,6 @@ func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
 }
 
-func (k Keeper) GetURegistryKeeper() types.UregistryKeeper {
-	return k.uregistryKeeper
+func (k Keeper) GetUValidatorKeeper() types.UValidatorKeeper {
+	return k.uvalidatorKeeper
 }

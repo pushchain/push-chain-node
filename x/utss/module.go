@@ -43,20 +43,20 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper          keeper.Keeper
-	uregistryKeeper types.UregistryKeeper
+	keeper           keeper.Keeper
+	uvalidatorKeeper types.UValidatorKeeper
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
-	uregistryKeeper types.UregistryKeeper,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) *AppModule {
 	return &AppModule{
-		AppModuleBasic:  AppModuleBasic{cdc: cdc},
-		keeper:          keeper,
-		uregistryKeeper: uregistryKeeper,
+		AppModuleBasic:   AppModuleBasic{cdc: cdc},
+		keeper:           keeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 }
 
@@ -76,7 +76,7 @@ func (a AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, _ client.TxEn
 	if err != nil {
 		return err
 	}
-	if err := data.Params.Validate(); err != nil {
+	if err := data.Params.ValidateBasic(); err != nil {
 		return errorsmod.Wrap(err, "params")
 	}
 	return nil

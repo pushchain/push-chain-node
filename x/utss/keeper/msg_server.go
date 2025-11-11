@@ -6,6 +6,7 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
+	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
@@ -37,13 +38,35 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 
 // InitiateTssKeyProcess implements types.MsgServer.
 func (ms msgServer) InitiateTssKeyProcess(ctx context.Context, msg *types.MsgInitiateTssKeyProcess) (*types.MsgInitiateTssKeyProcessResponse, error) {
-	// ctx := sdk.UnwrapSDKContext(goCtx)
-	panic("InitiateTssKeyProcess is unimplemented")
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.InitiateTssKeyProcess(ctx, msg.ProcessType)
+	if err != nil {
+		return nil, err
+	}
 	return &types.MsgInitiateTssKeyProcessResponse{}, nil
 }
 
 // VoteTssKeyProcess implements types.MsgServer.
 func (ms msgServer) VoteTssKeyProcess(ctx context.Context, msg *types.MsgVoteTssKeyProcess) (*types.MsgVoteTssKeyProcessResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
 	// ctx := sdk.UnwrapSDKContext(goCtx)
 	panic("VoteTssKeyProcess is unimplemented")
 	return &types.MsgVoteTssKeyProcessResponse{}, nil

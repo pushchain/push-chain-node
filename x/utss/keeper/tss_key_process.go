@@ -2,8 +2,10 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"cosmossdk.io/collections"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
@@ -27,4 +29,16 @@ func (k Keeper) FinalizeTssKeyProcess(ctx context.Context, processID uint64, sta
 
 	k.Logger().Info("✅ TSS process finalized", "id", processID, "status", status.String())
 	return nil
+}
+
+// GetTssKeyProcessByID retrieves a specific tss key process from history using process_id.
+func (k Keeper) GetTssKeyProcessByID(ctx context.Context, processID uint64) (types.TssKeyProcess, bool, error) {
+	key, err := k.ProcessHistory.Get(ctx, processID)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return types.TssKeyProcess{}, false, nil
+		}
+		return types.TssKeyProcess{}, false, err
+	}
+	return key, true, nil
 }

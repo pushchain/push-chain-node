@@ -2,6 +2,7 @@ package keeper
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -14,20 +15,35 @@ type Hooks struct {
 func (k Keeper) Hooks() Hooks { return Hooks{k} }
 
 func (h Hooks) AfterValidatorAdded(ctx sdk.Context, valAddr sdk.ValAddress) {
-	// Example: trigger new TSS participation setup
 	h.k.Logger().Info("TSS Hook: Universal validator added", "address", valAddr.String())
 
-	// you can enqueue this validator for keygen participation here
+	if err := h.k.InitiateTssKeyProcess(ctx, types.TssProcessType_TSS_PROCESS_RESHARE); err != nil {
+		h.k.Logger().Error("Failed to initiate TSS key process in hook", "error", err)
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent(
+				"tss_process_initiation_failed",
+				sdk.NewAttribute("reason", err.Error()),
+				sdk.NewAttribute("validator", valAddr.String()),
+			),
+		)
+	}
 }
 
 func (h Hooks) AfterValidatorRemoved(ctx sdk.Context, valAddr sdk.ValAddress) {
 	h.k.Logger().Info("TSS Hook: Universal validator removed", "address", valAddr.String())
 
-	// maybe mark as inactive in current TSS session
+	if err := h.k.InitiateTssKeyProcess(ctx, types.TssProcessType_TSS_PROCESS_RESHARE); err != nil {
+		h.k.Logger().Error("Failed to initiate TSS key process in hook", "error", err)
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent(
+				"tss_process_initiation_failed",
+				sdk.NewAttribute("reason", err.Error()),
+				sdk.NewAttribute("validator", valAddr.String()),
+			),
+		)
+	}
 }
 
 func (h Hooks) AfterValidatorStatusChanged(ctx sdk.Context, valAddr sdk.ValAddress, oldStatus, newStatus uvalidatortypes.UVStatus) {
 	h.k.Logger().Info("TSS Hook: Universal validator status changed", "address", oldStatus, newStatus)
-
-	// maybe mark as inactive in current TSS session
 }

@@ -18,6 +18,12 @@ service Msg {
   //
   // Since: cosmos-sdk 0.47
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // InitiateTssKeyProcess defines a operation for initiating a new tss key process
+  rpc InitiateTssKeyProcess(MsgInitiateTssKeyProcess) returns (MsgInitiateTssKeyProcessResponse);
+
+  // VoteTssKeyProcess defines a operation for voting on an existing tss key process
+  rpc VoteTssKeyProcess(MsgVoteTssKeyProcess) returns (MsgVoteTssKeyProcessResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -52,6 +58,8 @@ message MsgInitiateTssKeyProcess {
   uint64 expiry_height = 3;
 }
 
+message MsgInitiateTssKeyProcessResponse {}
+
 // Universal validator votes on an ongoing TSS key process
 message MsgVoteTssKeyProcess {
   option (amino.name) = "utss/MsgVoteTssKeyProcess";
@@ -62,3 +70,5 @@ message MsgVoteTssKeyProcess {
   string tss_pubkey = 3;
   string key_id = 4;
 }
+
+message MsgVoteTssKeyProcessResponse {}

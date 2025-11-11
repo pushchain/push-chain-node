@@ -39,16 +39,16 @@ type GasVoteTransaction struct {
 }
 
 // TSSEvent tracks TSS protocol events (KeyGen, KeyRefresh, Sign) from Push Chain.
-// TODO: Finalize Structure
 type TSSEvent struct {
 	gorm.Model
-	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event (e.g., blockNum+txHash)
-	ProtocolType string `gorm:"index;not null"`       // "keygen", "keyrefresh", or "sign"
+	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event
 	BlockNumber  uint64 `gorm:"index;not null"`       // Block number when event was detected
-	TxHash       string `gorm:"index"`                // Transaction hash that triggered the event
-	Status       string `gorm:"index;not null"`       // "PENDING", "IN_PROGRESS", "SUCCESS", "FAILED"
-	ErrorMsg     string `gorm:"type:text"`            // Error message if status is FAILED
+	ProtocolType string // "keygen", "keyrefresh", or "sign"
+	Status       string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "SUCCESS", "FAILED", "EXPIRED"
+	ExpiryHeight uint64 `gorm:"index;not null"` // Block height when event expires
 	EventData    []byte // Raw event data from chain
+	VoteTxHash   string // Transaction hash of the vote on pchain
+	ErrorMsg     string `gorm:"type:text"` // Error message if status is FAILED
 }
 
 // ExternalChainSignature tracks signatures that need to be broadcasted to external chains.

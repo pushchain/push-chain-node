@@ -138,21 +138,39 @@ func (t *Transport) Send(ctx context.Context, peerID string, payload []byte) err
 
 	dialCtx, cancel := context.WithTimeout(ctx, t.cfg.DialTimeout)
 	defer cancel()
+
+	// Try to connect (libp2p will reuse existing connections)
 	if err := t.host.Connect(dialCtx, info); err != nil {
-		return err
+		return fmt.Errorf("failed to connect to peer %s: %w", peerID, err)
 	}
 
-	stream, err := t.host.NewStream(dialCtx, info.ID, t.protocolID)
+	// Create stream with timeout
+	streamCtx, streamCancel := context.WithTimeout(ctx, t.cfg.DialTimeout)
+	defer streamCancel()
+
+	stream, err := t.host.NewStream(streamCtx, info.ID, t.protocolID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create stream to peer %s: %w", peerID, err)
 	}
 	defer stream.Close()
 
-	if deadline := time.Now().Add(t.cfg.IOTimeout); true {
-		_ = stream.SetWriteDeadline(deadline)
+	// Set write deadline
+	deadline := time.Now().Add(t.cfg.IOTimeout)
+	if err := stream.SetWriteDeadline(deadline); err != nil {
+		return fmt.Errorf("failed to set write deadline: %w", err)
 	}
 
-	return writeFramed(stream, payload)
+	if err := writeFramed(stream, payload); err != nil {
+		return fmt.Errorf("failed to write payload to peer %s: %w", peerID, err)
+	}
+
+	// Set read deadline for response (if any)
+	if err := stream.SetReadDeadline(deadline); err != nil {
+		// Non-fatal, log and continue
+		t.logger.Debug().Err(err).Str("peer_id", peerID).Msg("failed to set read deadline")
+	}
+
+	return nil
 }
 
 // Close implements transport.Transport.

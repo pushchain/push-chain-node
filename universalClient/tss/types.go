@@ -1,10 +1,17 @@
 package tss
 
-// TssProcessType represents the type of TSS process
-type TssProcessType string
+// ProtocolType enumerates the supported DKLS protocol flows.
+type ProtocolType string
 
 const (
-	TssProcessTypeKeyGen     TssProcessType = "keygen"
-	TssProcessTypeKeyRefresh TssProcessType = "keyrefresh"
-	TssProcessTypeSign       TssProcessType = "sign"
+	ProtocolKeygen     ProtocolType = "keygen"
+	ProtocolKeyrefresh ProtocolType = "keyrefresh"
+	ProtocolSign       ProtocolType = "sign"
 )
+
+// Participant represents a validator that can take part in a TSS session.
+type Participant struct {
+	PartyID    string
+	PeerID     string
+	Multiaddrs []string
+}

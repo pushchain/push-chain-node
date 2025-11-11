@@ -3,6 +3,7 @@ package utss.v1;
 
 import "google/api/annotations.proto";
 import "utss/v1/genesis.proto";
+import "utss/v1/types.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/utss/types";
 

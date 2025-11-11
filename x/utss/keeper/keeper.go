@@ -28,7 +28,7 @@ type Keeper struct {
 
 	// TSS Key Storage
 	CurrentTssKey collections.Item[types.TssKey]        // currently active finalized key
-	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id → TssKey
+	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id -> TssKey
 
 	// keepers
 	uvalidatorKeeper types.UValidatorKeeper

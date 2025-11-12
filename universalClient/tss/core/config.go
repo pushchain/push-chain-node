@@ -13,7 +13,6 @@ import (
 
 // Config controls how the TSS service operates on this node.
 type Config struct {
-	NodeID         string
 	PartyID        string
 	SetupTimeout   time.Duration
 	MessageTimeout time.Duration

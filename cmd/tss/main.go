@@ -201,7 +201,6 @@ func runNode() {
 
 	// Initialize TSS core service with EventStore from coordinator
 	service, err := core.NewService(core.Config{
-		NodeID:         *partyID,
 		PartyID:        *partyID,
 		SetupTimeout:   30 * time.Second,
 		MessageTimeout: 30 * time.Second,

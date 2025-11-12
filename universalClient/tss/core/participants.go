@@ -67,15 +67,3 @@ func (p *partySet) encodedIDs() []byte {
 	p.encoded = ids
 	return ids
 }
-
-func selectCoordinator(blockNumber, rangeSize uint64, parties []tss.Participant) string {
-	if len(parties) == 0 {
-		return ""
-	}
-	if rangeSize == 0 {
-		rangeSize = 1
-	}
-	epoch := blockNumber / rangeSize
-	idx := int(epoch % uint64(len(parties)))
-	return parties[idx].PartyID
-}

@@ -27,7 +27,7 @@ type Service struct {
 
 // NewService wires up a Service instance.
 func NewService(cfg Config, deps Dependencies) (*Service, error) {
-	if cfg.NodeID == "" || cfg.PartyID == "" {
+	if cfg.PartyID == "" {
 		return nil, errInvalidConfig
 	}
 	if deps.Transport == nil || deps.KeyshareStore == nil {

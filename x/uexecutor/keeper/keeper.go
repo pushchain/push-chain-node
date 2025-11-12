@@ -14,7 +14,9 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 
+	globaltypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -193,4 +195,22 @@ func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
 // SetModuleAccountNonce allows explicitly setting the nonce (optional, for migration or testing).
 func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
 	return k.ModuleAccountNonce.Set(ctx, nonce)
+}
+
+// TODO: temporary
+// don't use in any fn
+func (k Keeper) MintPCTokensDirectly(ctx sdk.Context, recipient sdk.AccAddress, amount sdkmath.Int) error {
+	coins := sdk.NewCoins(sdk.NewCoin(globaltypes.BaseDenom, amount))
+
+	// Mint coins to module account
+	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
+		return err
+	}
+
+	// Send coins from module to recipient
+	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
+		return err
+	}
+
+	return nil
 }

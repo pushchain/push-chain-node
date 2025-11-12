@@ -1,20 +1,19 @@
 package integrationtest
 
 import (
-	"bytes"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	utils "github.com/pushchain/push-chain-node/testutils"
+	utils "github.com/pushchain/push-chain-node/test/utils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeployUEA(t *testing.T) {
+func TestMintPC(t *testing.T) {
 	app, ctx, _ := utils.SetAppWithValidators(t)
-
 	chainConfigTest := uregistrytypes.ChainConfig{
 		Chain:          "eip155:11155111",
 		VmType:         uregistrytypes.VmType_EVM,
@@ -38,32 +37,34 @@ func TestDeployUEA(t *testing.T) {
 	app.UregistryKeeper.AddChainConfig(ctx, &chainConfigTest)
 	ms := uexecutorkeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
-	t.Run("Success!", func(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
-		validTxHash := "0x7d5e108ba9709c557a6ed2e238bd6d3c65a40f906fe370617fbf96dd79edd0ce"
+		ethAddr := common.HexToAddress("0x8669BeD121FefA3d9CF2821273f489e717cca95d")
+		cosmosAddr := sdk.AccAddress(ethAddr.Bytes())
 
-		msg := &uexecutortypes.MsgDeployUEA{
+		beforeMinting := app.BankKeeper.GetBalance(ctx, cosmosAddr, "upc")
+
+		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+
+		msg := &uexecutortypes.MsgMintPC{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
 			TxHash:             validTxHash,
 		}
-		resp, err := ms.DeployUEA(ctx, msg)
+
+		_, err := ms.MintPC(ctx, msg)
 		require.NoError(t, err)
-
-		addr := common.HexToAddress("0x8669BeD121FefA3d9CF2821273f489e717cca95d").Bytes()
-
-		var expected [32]byte
-		copy(expected[32-len(addr):], addr)
-
-		require.True(t, bytes.Equal(expected[:], resp.UEA), "address bytes do not match")
+		afterMining := app.BankKeeper.GetBalance(ctx, cosmosAddr, "upc")
+		require.True(t, afterMining.Amount.GT(beforeMinting.Amount), "after balance should be greater than before balance")
 
 	})
-	t.Run("Repeat transaction!", func(t *testing.T) {
+
+	t.Run("Tokens Already Minted!", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -72,32 +73,51 @@ func TestDeployUEA(t *testing.T) {
 
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
-		msg := &uexecutortypes.MsgDeployUEA{
+		msg := &uexecutortypes.MsgMintPC{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
 			TxHash:             validTxHash,
 		}
 
-		_, err := ms.DeployUEA(ctx, msg)
-		require.ErrorContains(t, err, "contract call failed: method 'deployUEA', contract '0x00000000000000000000000000000000000000eA'")
+		_, err := ms.MintPC(ctx, msg)
+		require.ErrorContains(t, err, "evm tx verification failed: tokens already minted for txHash 0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2 on chain eip155:11155111")
+
 	})
-	t.Run("Repeat transaction!", func(t *testing.T) {
+	t.Run("Invalid Signer!", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
-		validTxHash := "0xinvalidhash"
+		validTxHash := "0x59d9c4b86fb9cf62bc857bc9c0463f3bfd11ca6ec00b7e7021db1f660908bdbf"
 
-		msg := &uexecutortypes.MsgDeployUEA{
+		msg := &uexecutortypes.MsgMintPC{
+			Signer:             "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+			UniversalAccountId: validUA,
+			TxHash:             validTxHash,
+		}
+
+		_, err := ms.MintPC(ctx, msg)
+		require.ErrorContains(t, err, "contract call failed")
+
+	})
+
+	t.Run("fail: Invalid TxHash", func(t *testing.T) {
+		validUA := &uexecutortypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+		validTxHash := "0xabc123"
+		msg := &uexecutortypes.MsgMintPC{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
 			TxHash:             validTxHash,
 		}
 
-		_, err := ms.DeployUEA(ctx, msg)
-		require.ErrorContains(t, err, "failed to verify gateway interaction transaction")
+		_, err := ms.MintPC(ctx, msg)
+		require.ErrorContains(t, err, "rpc call failed after retries")
 	})
 
 }

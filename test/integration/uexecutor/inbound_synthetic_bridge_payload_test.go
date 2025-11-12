@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/pushchain/push-chain-node/app"
-	utils "github.com/pushchain/push-chain-node/testutils"
+	utils "github.com/pushchain/push-chain-node/test/utils"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"

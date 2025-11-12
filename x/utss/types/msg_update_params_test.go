@@ -3,11 +3,17 @@ package types_test
 import (
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/app"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMsgUpdateParams_ValidateBasic(t *testing.T) {
+	cfg := sdk.GetConfig()
+	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
+	cfg.SetBech32PrefixForValidator(app.Bech32PrefixValAddr, app.Bech32PrefixValPub)
+
 	validBech32 := "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
 
 	tests := []struct {

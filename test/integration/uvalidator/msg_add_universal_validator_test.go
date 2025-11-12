@@ -15,14 +15,14 @@ import (
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-func setupUniversalValidatorTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []stakingtypes.Validator) {
+func setupAddUniversalValidatorTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Context, []stakingtypes.Validator) {
 	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 	return app, ctx, validators
 }
 
 func TestAddUniversalValidator(t *testing.T) {
 	t.Run("Successfully adds multiple bonded validators", func(t *testing.T) {
-		app, ctx, validators := setupUniversalValidatorTest(t, 3)
+		app, ctx, validators := setupAddUniversalValidatorTest(t, 3)
 
 		for i, val := range validators {
 			coreValAddr := val.OperatorAddress
@@ -46,7 +46,7 @@ func TestAddUniversalValidator(t *testing.T) {
 	})
 
 	t.Run("Reactivates an inactive validator", func(t *testing.T) {
-		app, ctx, validators := setupUniversalValidatorTest(t, 1)
+		app, ctx, validators := setupAddUniversalValidatorTest(t, 1)
 		k := app.UvalidatorKeeper
 		val := validators[0]
 		valAddr, _ := sdk.ValAddressFromBech32(val.OperatorAddress)
@@ -71,7 +71,7 @@ func TestAddUniversalValidator(t *testing.T) {
 	})
 
 	t.Run("Adding already active validator fails", func(t *testing.T) {
-		app, ctx, validators := setupUniversalValidatorTest(t, 1)
+		app, ctx, validators := setupAddUniversalValidatorTest(t, 1)
 		k := app.UvalidatorKeeper
 		val := validators[0]
 		valAddr, _ := sdk.ValAddressFromBech32(val.OperatorAddress)
@@ -89,7 +89,7 @@ func TestAddUniversalValidator(t *testing.T) {
 	})
 
 	t.Run("Unbonded validator cannot join", func(t *testing.T) {
-		app, ctx, validators := setupUniversalValidatorTest(t, 1)
+		app, ctx, validators := setupAddUniversalValidatorTest(t, 1)
 		val := validators[0]
 		valAddr, _ := sdk.ValAddressFromBech32(val.OperatorAddress)
 
@@ -103,7 +103,7 @@ func TestAddUniversalValidator(t *testing.T) {
 	})
 
 	t.Run("Invalid validator address format fails", func(t *testing.T) {
-		app, ctx, _ := setupUniversalValidatorTest(t, 1)
+		app, ctx, _ := setupAddUniversalValidatorTest(t, 1)
 
 		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, "invalid_bech32", "pub", uvalidatortypes.NetworkInfo{})
 		require.ErrorContains(t, err, "invalid core validator address")

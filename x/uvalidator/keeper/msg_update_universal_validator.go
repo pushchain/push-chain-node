@@ -8,12 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// new validator -> added as a PENDING_JOIN status
-// if existing:
-// inactive -> added as a PENDING_JOIN status
-// any other status -> revert
-// UpdateUniversalValidator registers or reactivates a core validator as a universal validator.
-// It ensures the core validator exists, is bonded, and handles lifecycle reactivation.
+// UpdateUniversalValidator updates the metadata of the registered universal validator
 func (k Keeper) UpdateUniversalValidator(
 	ctx context.Context,
 	coreValidatorAddr, pubkey string,
@@ -28,14 +23,9 @@ func (k Keeper) UpdateUniversalValidator(
 	}
 
 	// Ensure validator exists in staking module
-	validator, err := k.stakingKeeper.GetValidator(sdkCtx, valAddr)
+	_, err = k.stakingKeeper.GetValidator(sdkCtx, valAddr)
 	if err != nil {
 		return fmt.Errorf("core validator not found: %w", err)
-	}
-
-	// Must be bonded to join
-	if !validator.IsBonded() {
-		return fmt.Errorf("validator %s is not bonded", coreValidatorAddr)
 	}
 
 	// Check if already exists

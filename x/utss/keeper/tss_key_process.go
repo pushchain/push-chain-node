@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"cosmossdk.io/collections"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
@@ -43,14 +44,18 @@ func (k Keeper) GetTssKeyProcessByID(ctx context.Context, processID uint64) (typ
 	return key, true, nil
 }
 
-// GetCurrentTssParticipants returns the participants of current tss
+// GetCurrentTssParticipants returns the participants of current tss (ongoing)
 func (k Keeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	currentProcess, err := k.CurrentTssProcess.Get(ctx)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return []string{}, nil
 		}
 		return nil, err
+	}
+	if sdkCtx.BlockHeight() < currentProcess.ExpiryHeight {
+		return []string{}, nil
 	}
 	return currentProcess.Participants, nil
 }

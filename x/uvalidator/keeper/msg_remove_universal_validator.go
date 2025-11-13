@@ -11,8 +11,8 @@ import (
 // RemoveUniversalValidator handles universal validator removal lifecycle:
 //   - ACTIVE -> PENDING_LEAVE
 //   - PENDING_JOIN ->
-//   - if in current TSS process → revert (keygen ongoing)
-//   - if not in current TSS process → INACTIVE
+//   - if in current TSS process (ongoing) → revert (keygen ongoing)
+//   - if not in current TSS process (ongoing) → INACTIVE
 //
 // It ensures the validator exists before removal and triggers hooks on status change.
 func (k Keeper) RemoveUniversalValidator(

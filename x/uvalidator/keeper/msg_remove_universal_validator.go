@@ -46,13 +46,29 @@ func (k Keeper) RemoveUniversalValidator(
 		newStatus = types.UVStatus_UV_STATUS_PENDING_LEAVE
 
 	case types.UVStatus_UV_STATUS_PENDING_JOIN:
-		// TODO: check if its present in the current tss process
+		// Check if validator is part of the current TSS process
+		currentParticipants, err := k.utssKeeper.GetCurrentTssParticipants(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch current TSS participants: %w", err)
+		}
+
+		isParticipant := false
+		for _, p := range currentParticipants {
+			if p == universalValidatorAddr {
+				isParticipant = true
+				break
+			}
+		}
+
 		// If part of current keygen, reject removal
-		// Otherwise mark as inactive
+		if isParticipant {
+			return fmt.Errorf("validator %s is part of the current TSS process and cannot be removed", universalValidatorAddr)
+		}
+
+		// Otherwise, mark as inactive
 		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_INACTIVE); err != nil {
 			return fmt.Errorf("failed to inactivate validator %s: %w", universalValidatorAddr, err)
 		}
-
 		newStatus = types.UVStatus_UV_STATUS_INACTIVE
 
 	case types.UVStatus_UV_STATUS_PENDING_LEAVE, types.UVStatus_UV_STATUS_INACTIVE:

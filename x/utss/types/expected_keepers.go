@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -26,4 +27,5 @@ type UValidatorKeeper interface {
 		err error)
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	GetAllUniversalValidators(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
+	UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, newStatus uvalidatortypes.UVStatus) error
 }

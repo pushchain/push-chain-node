@@ -8,6 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 func (k Keeper) VoteTssKeyProcess(
@@ -74,6 +75,43 @@ func (k Keeper) VoteTssKeyProcess(
 	}
 	if err := k.ProcessHistory.Set(ctx, processId, process); err != nil {
 		return errors.Wrap(err, "failed to archive TSS process")
+	}
+
+	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
+	if err != nil {
+		return err
+	}
+
+	for i := range universalValidatorSet {
+		uv := &universalValidatorSet[i]
+		coreValidatorAddress := uv.IdentifyInfo.CoreValidatorAddress
+
+		foundInParticipants := false
+		for _, participant := range tssKey.Participants {
+			if participant == coreValidatorAddress {
+				foundInParticipants = true
+				break
+			}
+		}
+
+		// update pending_join validator to active
+		switch uv.LifecycleInfo.CurrentStatus {
+		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
+			if foundInParticipants {
+				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
+				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, sdk.ValAddress(coreValidatorAddress), uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
+					k.logger.Error("failed to activate universal validator", "valAddr", coreValidatorAddress, "err", err)
+				}
+			}
+		// update pending_leave validator to inactive
+		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
+			if !foundInParticipants {
+				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
+				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, sdk.ValAddress(coreValidatorAddress), uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
+					k.logger.Error("failed to inactivate universal validator", "valAddr", coreValidatorAddress, "err", err)
+				}
+			}
+		}
 	}
 
 	// Step 7: Emit finalized event

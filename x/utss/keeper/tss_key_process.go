@@ -42,3 +42,15 @@ func (k Keeper) GetTssKeyProcessByID(ctx context.Context, processID uint64) (typ
 	}
 	return key, true, nil
 }
+
+// GetCurrentTssParticipants returns the participants of current tss
+func (k Keeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error) {
+	currentProcess, err := k.CurrentTssProcess.Get(ctx)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	return currentProcess.Participants, nil
+}

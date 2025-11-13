@@ -30,6 +30,16 @@ func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAcc
 	}
 	amountToMint := ConvertUsdToPCTokens(&amountOfUsdLocked, usdDecimals)
 
+	// TODO: temporarily
+	// Cap the mint amount at a maximum of 10 * 10^18 (10 PC)
+	maxMint := sdkmath.NewIntFromBigInt(
+		new(big.Int).Mul(big.NewInt(10), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),
+	)
+
+	if amountToMint.GT(maxMint) {
+		amountToMint = maxMint
+	}
+
 	// Calling factory contract to compute the UEA address
 	ueaAddress, _, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {

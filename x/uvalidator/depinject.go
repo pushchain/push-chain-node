@@ -18,6 +18,7 @@ import (
 
 	modulev1 "github.com/pushchain/push-chain-node/api/uvalidator/module/v1"
 	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -44,6 +45,7 @@ type ModuleInputs struct {
 
 	StakingKeeper  stakingkeeper.Keeper
 	SlashingKeeper slashingkeeper.Keeper
+	UtssKeeper     types.UtssKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,8 +58,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.StakingKeeper, in.SlashingKeeper)
-	m := NewAppModule(in.Cdc, k, in.StakingKeeper, in.SlashingKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
+	m := NewAppModule(in.Cdc, k, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

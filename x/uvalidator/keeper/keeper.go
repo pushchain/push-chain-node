@@ -34,6 +34,7 @@ type Keeper struct {
 
 	stakingKeeper  types.StakingKeeper
 	slashingKeeper types.SlashingKeeper
+	utssKeeper     types.UtssKeeper
 
 	authority string
 	hooks     types.UValidatorHooks
@@ -47,6 +48,7 @@ func NewKeeper(
 	authority string,
 	stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
+	utssKeeper types.UtssKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -91,6 +93,7 @@ func NewKeeper(
 		authority:      authority,
 		stakingKeeper:  stakingKeeper,
 		slashingKeeper: slashingKeeper,
+		utssKeeper:     utssKeeper,
 	}
 
 	return k

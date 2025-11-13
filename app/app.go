@@ -752,6 +752,7 @@ func NewChainApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.StakingKeeper,
 		app.SlashingKeeper,
+		&app.UtssKeeper,
 	)
 
 	// Create the utss keeper
@@ -1037,7 +1038,7 @@ func NewChainApp(
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
 	)
 

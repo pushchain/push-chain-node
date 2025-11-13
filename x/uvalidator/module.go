@@ -46,6 +46,7 @@ type AppModule struct {
 	keeper         keeper.Keeper
 	stakingKeeper  types.StakingKeeper
 	slashingKeeper types.SlashingKeeper
+	utssKeeper     types.UtssKeeper
 }
 
 // NewAppModule constructor
@@ -54,12 +55,14 @@ func NewAppModule(
 	keeper keeper.Keeper,
 	stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
+	utssKeeper types.UtssKeeper,
 ) *AppModule {
 	return &AppModule{
 		AppModuleBasic: AppModuleBasic{cdc: cdc},
 		keeper:         keeper,
 		stakingKeeper:  stakingKeeper,
 		slashingKeeper: slashingKeeper,
+		utssKeeper:     utssKeeper,
 	}
 }
 

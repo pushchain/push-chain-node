@@ -95,17 +95,15 @@ func (k Keeper) UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, 
 // only strict rule for two cases, pending join -> active & active -> pending_leave
 // can see in future if a pending leave could be transitioned to pending_join
 func validateStatusTransition(from, to types.UVStatus) error {
-	switch from {
-	case types.UVStatus_UV_STATUS_PENDING_JOIN:
-		if to != types.UVStatus_UV_STATUS_ACTIVE {
-			return fmt.Errorf("invalid transition: PENDING_JOIN → ACTIVE only, got %s", to)
-		}
+	switch to {
 	case types.UVStatus_UV_STATUS_ACTIVE:
-		if to != types.UVStatus_UV_STATUS_PENDING_LEAVE {
-			return fmt.Errorf("invalid transition: ACTIVE → PENDING_LEAVE only, got %s", to)
+		if from != types.UVStatus_UV_STATUS_PENDING_JOIN {
+			return fmt.Errorf("invalid transition: can only become ACTIVE from PENDING_JOIN, got %s → %s", from, to)
 		}
-	default:
-		return fmt.Errorf("unknown current status: %s", from)
+	case types.UVStatus_UV_STATUS_PENDING_LEAVE:
+		if from != types.UVStatus_UV_STATUS_ACTIVE {
+			return fmt.Errorf("invalid transition: can only become PENDING_LEAVE from ACTIVE, got %s → %s", from, to)
+		}
 	}
 	return nil
 }

@@ -84,6 +84,21 @@ func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePay
 	return &types.MsgExecutePayloadResponse{}, nil
 }
 
+// MigrateUEA handles UEA Migration.
+func (ms msgServer) MigrateUEA(ctx context.Context, msg *types.MsgMigrateUEA) (*types.MsgMigrateUEAResponse, error) {
+	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse signer address")
+	}
+
+	err = ms.k.MigrateUEA(ctx, evmFromAddress, msg.UniversalAccountId, msg.UniversalPayload, msg.Signature)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgMigrateUEAResponse{}, nil
+}
+
 // VoteInbound implements types.MsgServer.
 func (ms msgServer) VoteInbound(ctx context.Context, msg *types.MsgVoteInbound) (*types.MsgVoteInboundResponse, error) {
 	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)

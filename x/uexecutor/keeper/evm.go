@@ -127,6 +127,47 @@ func (k Keeper) CallUEAExecutePayload(
 	)
 }
 
+// CallUEAMigrateUEA migrates UEA through existing UEA
+func (k Keeper) CallUEAMigrateUEA(
+	ctx sdk.Context,
+	from, ueaAddr common.Address,
+	universal_payload *types.UniversalPayload,
+	signature string,
+	chain string,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	abi, err := types.ParseUeaABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UEA ABI")
+	}
+
+	abiUniversalPayload, err := types.NewAbiUniversalPayload(universal_payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create universal payload")
+	}
+
+	gasLimit := new(big.Int)
+	gasLimit, ok := gasLimit.SetString(universal_payload.GasLimit, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		from,
+		ueaAddr,
+		big.NewInt(0),
+		gasLimit,
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		false, // not a module sender
+		nil,
+		"migrateUEAEVM",
+		abiUniversalPayload,
+		signature,
+	)
+}
+
 // CallUEADomainSeparator fetches the domainSeparator from the UEA contract
 func (k Keeper) CallUEADomainSeparator(
 	ctx sdk.Context,

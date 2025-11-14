@@ -131,24 +131,17 @@ func (k Keeper) CallUEAExecutePayload(
 func (k Keeper) CallUEAMigrateUEA(
 	ctx sdk.Context,
 	from, ueaAddr common.Address,
-	universal_payload *types.UniversalPayload,
+	migration_payload *types.MigrationPayload,
 	signature string,
-	chain string,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseUeaABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse UEA ABI")
 	}
 
-	abiUniversalPayload, err := types.NewAbiUniversalPayload(universal_payload)
+	abiMigrationPayload, err := types.NewAbiMigrationPayload(migration_payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal payload")
-	}
-
-	gasLimit := new(big.Int)
-	gasLimit, ok := gasLimit.SetString(universal_payload.GasLimit, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
 	}
 
 	return k.evmKeeper.DerivedEVMCall(
@@ -157,13 +150,13 @@ func (k Keeper) CallUEAMigrateUEA(
 		from,
 		ueaAddr,
 		big.NewInt(0),
-		gasLimit,
+		nil,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		false, // not a module sender
 		nil,
-		"migrateUEAEVM",
-		abiUniversalPayload,
+		"migrateUEA",
+		abiMigrationPayload,
 		signature,
 	)
 }

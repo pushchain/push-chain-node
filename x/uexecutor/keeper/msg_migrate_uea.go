@@ -3,24 +3,22 @@ package keeper
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // updateParams is for updating params collections of the module
-func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, universalPayload *types.UniversalPayload, signature string) error {
+func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, migrationPayload *types.MigrationPayload, signature string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
 	// Step 1: Parse and validate payload and verificationData
-	payload, err := types.NewAbiUniversalPayload(universalPayload)
+	_, err := types.NewAbiMigrationPayload(migrationPayload)
 	if err != nil {
 		return errors.Wrapf(err, "invalid universal payload")
 	}
@@ -50,34 +48,35 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	}
 
 	// Step 3: Migrate UEA through UEA
-	receipt, err := k.CallUEAMigrateUEA(sdkCtx, evmFrom, ueaAddr, universalPayload, signature, chainConfig.Chain)
+	receipt, err := k.CallUEAMigrateUEA(sdkCtx, evmFrom, ueaAddr, migrationPayload, signature)
 	if err != nil {
 		return err
 	}
+	fmt.Println(receipt)
 
-	gasUnitsUsed := receipt.GasUsed
-	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
+	// gasUnitsUsed := receipt.GasUsed
+	// gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
 
-	// Step 4: Handle fee calculation and deduction
-	ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
+	// // Step 4: Handle fee calculation and deduction
+	// ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
 
-	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
-	if baseFee.IsNil() {
-		return errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
-	}
+	// baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	// if baseFee.IsNil() {
+	// 	return errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
+	// }
 
-	gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, gasUnitsUsed)
-	if err != nil {
-		return errors.Wrapf(err, "failed to calculate gas cost")
-	}
+	// gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, gasUnitsUsed)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to calculate gas cost")
+	// }
 
-	if gasUnitsUsedBig.Cmp(payload.GasLimit) > 0 {
-		return errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
-	}
+	// if gasUnitsUsedBig.Cmp(payload.GasLimit) > 0 {
+	// 	return errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
+	// }
 
-	if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
-		return errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
-	}
+	// if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
+	// 	return errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
+	// }
 
 	return nil
 }

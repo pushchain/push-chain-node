@@ -3777,7 +3777,7 @@ var (
 	md_MsgMigrateUEA                      protoreflect.MessageDescriptor
 	fd_MsgMigrateUEA_signer               protoreflect.FieldDescriptor
 	fd_MsgMigrateUEA_universal_account_id protoreflect.FieldDescriptor
-	fd_MsgMigrateUEA_universal_payload    protoreflect.FieldDescriptor
+	fd_MsgMigrateUEA_migration_payload    protoreflect.FieldDescriptor
 	fd_MsgMigrateUEA_signature            protoreflect.FieldDescriptor
 )
 
@@ -3786,7 +3786,7 @@ func init() {
 	md_MsgMigrateUEA = File_uexecutor_v1_tx_proto.Messages().ByName("MsgMigrateUEA")
 	fd_MsgMigrateUEA_signer = md_MsgMigrateUEA.Fields().ByName("signer")
 	fd_MsgMigrateUEA_universal_account_id = md_MsgMigrateUEA.Fields().ByName("universal_account_id")
-	fd_MsgMigrateUEA_universal_payload = md_MsgMigrateUEA.Fields().ByName("universal_payload")
+	fd_MsgMigrateUEA_migration_payload = md_MsgMigrateUEA.Fields().ByName("migration_payload")
 	fd_MsgMigrateUEA_signature = md_MsgMigrateUEA.Fields().ByName("signature")
 }
 
@@ -3867,9 +3867,9 @@ func (x *fastReflection_MsgMigrateUEA) Range(f func(protoreflect.FieldDescriptor
 			return
 		}
 	}
-	if x.UniversalPayload != nil {
-		value := protoreflect.ValueOfMessage(x.UniversalPayload.ProtoReflect())
-		if !f(fd_MsgMigrateUEA_universal_payload, value) {
+	if x.MigrationPayload != nil {
+		value := protoreflect.ValueOfMessage(x.MigrationPayload.ProtoReflect())
+		if !f(fd_MsgMigrateUEA_migration_payload, value) {
 			return
 		}
 	}
@@ -3898,8 +3898,8 @@ func (x *fastReflection_MsgMigrateUEA) Has(fd protoreflect.FieldDescriptor) bool
 		return x.Signer != ""
 	case "uexecutor.v1.MsgMigrateUEA.universal_account_id":
 		return x.UniversalAccountId != nil
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		return x.UniversalPayload != nil
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		return x.MigrationPayload != nil
 	case "uexecutor.v1.MsgMigrateUEA.signature":
 		return x.Signature != ""
 	default:
@@ -3922,8 +3922,8 @@ func (x *fastReflection_MsgMigrateUEA) Clear(fd protoreflect.FieldDescriptor) {
 		x.Signer = ""
 	case "uexecutor.v1.MsgMigrateUEA.universal_account_id":
 		x.UniversalAccountId = nil
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		x.UniversalPayload = nil
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		x.MigrationPayload = nil
 	case "uexecutor.v1.MsgMigrateUEA.signature":
 		x.Signature = ""
 	default:
@@ -3948,8 +3948,8 @@ func (x *fastReflection_MsgMigrateUEA) Get(descriptor protoreflect.FieldDescript
 	case "uexecutor.v1.MsgMigrateUEA.universal_account_id":
 		value := x.UniversalAccountId
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		value := x.UniversalPayload
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		value := x.MigrationPayload
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	case "uexecutor.v1.MsgMigrateUEA.signature":
 		value := x.Signature
@@ -3978,8 +3978,8 @@ func (x *fastReflection_MsgMigrateUEA) Set(fd protoreflect.FieldDescriptor, valu
 		x.Signer = value.Interface().(string)
 	case "uexecutor.v1.MsgMigrateUEA.universal_account_id":
 		x.UniversalAccountId = value.Message().Interface().(*UniversalAccountId)
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		x.UniversalPayload = value.Message().Interface().(*UniversalPayload)
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		x.MigrationPayload = value.Message().Interface().(*MigrationPayload)
 	case "uexecutor.v1.MsgMigrateUEA.signature":
 		x.Signature = value.Interface().(string)
 	default:
@@ -4007,11 +4007,11 @@ func (x *fastReflection_MsgMigrateUEA) Mutable(fd protoreflect.FieldDescriptor) 
 			x.UniversalAccountId = new(UniversalAccountId)
 		}
 		return protoreflect.ValueOfMessage(x.UniversalAccountId.ProtoReflect())
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		if x.UniversalPayload == nil {
-			x.UniversalPayload = new(UniversalPayload)
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		if x.MigrationPayload == nil {
+			x.MigrationPayload = new(MigrationPayload)
 		}
-		return protoreflect.ValueOfMessage(x.UniversalPayload.ProtoReflect())
+		return protoreflect.ValueOfMessage(x.MigrationPayload.ProtoReflect())
 	case "uexecutor.v1.MsgMigrateUEA.signer":
 		panic(fmt.Errorf("field signer of message uexecutor.v1.MsgMigrateUEA is not mutable"))
 	case "uexecutor.v1.MsgMigrateUEA.signature":
@@ -4034,8 +4034,8 @@ func (x *fastReflection_MsgMigrateUEA) NewField(fd protoreflect.FieldDescriptor)
 	case "uexecutor.v1.MsgMigrateUEA.universal_account_id":
 		m := new(UniversalAccountId)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
-	case "uexecutor.v1.MsgMigrateUEA.universal_payload":
-		m := new(UniversalPayload)
+	case "uexecutor.v1.MsgMigrateUEA.migration_payload":
+		m := new(MigrationPayload)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	case "uexecutor.v1.MsgMigrateUEA.signature":
 		return protoreflect.ValueOfString("")
@@ -4116,8 +4116,8 @@ func (x *fastReflection_MsgMigrateUEA) ProtoMethods() *protoiface.Methods {
 			l = options.Size(x.UniversalAccountId)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		if x.UniversalPayload != nil {
-			l = options.Size(x.UniversalPayload)
+		if x.MigrationPayload != nil {
+			l = options.Size(x.MigrationPayload)
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		l = len(x.Signature)
@@ -4160,8 +4160,8 @@ func (x *fastReflection_MsgMigrateUEA) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x22
 		}
-		if x.UniversalPayload != nil {
-			encoded, err := options.Marshal(x.UniversalPayload)
+		if x.MigrationPayload != nil {
+			encoded, err := options.Marshal(x.MigrationPayload)
 			if err != nil {
 				return protoiface.MarshalOutput{
 					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -4314,7 +4314,7 @@ func (x *fastReflection_MsgMigrateUEA) ProtoMethods() *protoiface.Methods {
 				iNdEx = postIndex
 			case 3:
 				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UniversalPayload", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field MigrationPayload", wireType)
 				}
 				var msglen int
 				for shift := uint(0); ; shift += 7 {
@@ -4341,10 +4341,10 @@ func (x *fastReflection_MsgMigrateUEA) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.UniversalPayload == nil {
-					x.UniversalPayload = &UniversalPayload{}
+				if x.MigrationPayload == nil {
+					x.MigrationPayload = &MigrationPayload{}
 				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.UniversalPayload); err != nil {
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.MigrationPayload); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -6932,7 +6932,7 @@ type MsgMigrateUEA struct {
 	// universal_account_id is the identifier of the owner account
 	UniversalAccountId *UniversalAccountId `protobuf:"bytes,2,opt,name=universal_account_id,json=universalAccountId,proto3" json:"universal_account_id,omitempty"`
 	// payload is the universal payload to be executed
-	UniversalPayload *UniversalPayload `protobuf:"bytes,3,opt,name=universal_payload,json=universalPayload,proto3" json:"universal_payload,omitempty"`
+	MigrationPayload *MigrationPayload `protobuf:"bytes,3,opt,name=migration_payload,json=migrationPayload,proto3" json:"migration_payload,omitempty"`
 	// verification_data is the bytes passed as verifier data for the given payload.
 	Signature string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
@@ -6971,9 +6971,9 @@ func (x *MsgMigrateUEA) GetUniversalAccountId() *UniversalAccountId {
 	return nil
 }
 
-func (x *MsgMigrateUEA) GetUniversalPayload() *UniversalPayload {
+func (x *MsgMigrateUEA) GetMigrationPayload() *MigrationPayload {
 	if x != nil {
-		return x.UniversalPayload
+		return x.MigrationPayload
 	}
 	return nil
 }
@@ -7258,11 +7258,11 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x32, 0x20, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
 	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74,
 	0x49, 0x64, 0x52, 0x12, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x41, 0x63, 0x63,
-	0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x4b, 0x0a, 0x11, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72,
-	0x73, 0x61, 0x6c, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x6f, 0x75, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x4b, 0x0a, 0x11, 0x6d, 0x69, 0x67, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x5f, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
 	0x0b, 0x32, 0x1e, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
-	0x2e, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x52, 0x10, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x50, 0x61, 0x79, 0x6c,
+	0x2e, 0x4d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61,
+	0x64, 0x52, 0x10, 0x6d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x61, 0x79, 0x6c,
 	0x6f, 0x61, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
 	0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
 	0x65, 0x3a, 0x27, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7,
@@ -7377,7 +7377,8 @@ var file_uexecutor_v1_tx_proto_goTypes = []interface{}{
 	(*Params)(nil),                    // 14: uexecutor.v1.Params
 	(*UniversalAccountId)(nil),        // 15: uexecutor.v1.UniversalAccountId
 	(*UniversalPayload)(nil),          // 16: uexecutor.v1.UniversalPayload
-	(*Inbound)(nil),                   // 17: uexecutor.v1.Inbound
+	(*MigrationPayload)(nil),          // 17: uexecutor.v1.MigrationPayload
+	(*Inbound)(nil),                   // 18: uexecutor.v1.Inbound
 }
 var file_uexecutor_v1_tx_proto_depIdxs = []int32{
 	14, // 0: uexecutor.v1.MsgUpdateParams.params:type_name -> uexecutor.v1.Params
@@ -7386,8 +7387,8 @@ var file_uexecutor_v1_tx_proto_depIdxs = []int32{
 	15, // 3: uexecutor.v1.MsgExecutePayload.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
 	16, // 4: uexecutor.v1.MsgExecutePayload.universal_payload:type_name -> uexecutor.v1.UniversalPayload
 	15, // 5: uexecutor.v1.MsgMigrateUEA.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	16, // 6: uexecutor.v1.MsgMigrateUEA.universal_payload:type_name -> uexecutor.v1.UniversalPayload
-	17, // 7: uexecutor.v1.MsgVoteInbound.inbound:type_name -> uexecutor.v1.Inbound
+	17, // 6: uexecutor.v1.MsgMigrateUEA.migration_payload:type_name -> uexecutor.v1.MigrationPayload
+	18, // 7: uexecutor.v1.MsgVoteInbound.inbound:type_name -> uexecutor.v1.Inbound
 	0,  // 8: uexecutor.v1.Msg.UpdateParams:input_type -> uexecutor.v1.MsgUpdateParams
 	2,  // 9: uexecutor.v1.Msg.DeployUEA:input_type -> uexecutor.v1.MsgDeployUEA
 	4,  // 10: uexecutor.v1.Msg.MintPC:input_type -> uexecutor.v1.MsgMintPC

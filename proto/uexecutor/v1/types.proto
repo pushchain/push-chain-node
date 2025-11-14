@@ -38,6 +38,17 @@ message UniversalPayload {
   VerificationType v_type = 9; // Type of verification to use before execution
 }
 
+// MigrationPayload mirrors the Solidity struct 
+message MigrationPayload {
+  option (amino.name) = "uexecutor/migration_payload";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string migration = 1;             // Migration Address 
+  string nonce = 2;                 // unit256 as string 
+  string deadline = 3;              // unit256 as string 
+}
+
 // UniversalAccountId is the identifier of a owner account
 message UniversalAccountId {
   option (amino.name) = "uexecutor/universal_account";

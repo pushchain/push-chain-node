@@ -699,6 +699,20 @@ func NewAbiUniversalPayload(proto *UniversalPayload) (AbiUniversalPayload, error
 	}, nil
 }
 
+type AbiMigrationPayload struct {
+	Migration common.Address
+	Nonce     *big.Int
+	Deadline  *big.Int
+}
+
+func NewAbiMigrationPayload(proto *MigrationPayload) (AbiMigrationPayload, error) {
+	return AbiMigrationPayload{
+		Migration: common.HexToAddress(proto.Migration),
+		Nonce:     utils.StringToBigInt(proto.Nonce),
+		Deadline:  utils.StringToBigInt(proto.Deadline),
+	}, nil
+}
+
 type AbiUniversalAccountId struct {
 	ChainNamespace string
 	ChainId        string

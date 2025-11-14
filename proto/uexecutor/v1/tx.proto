@@ -132,7 +132,7 @@ message MsgMigrateUEA {
   UniversalAccountId universal_account_id = 2;
 
   // payload is the universal payload to be executed
-  UniversalPayload universal_payload = 3;
+  MigrationPayload migration_payload = 3;
 
   // verification_data is the bytes passed as verifier data for the given payload.
   string signature = 4;

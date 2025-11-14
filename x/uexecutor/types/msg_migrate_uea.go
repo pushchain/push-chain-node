@@ -10,18 +10,18 @@ var (
 	_ sdk.Msg = &MsgMigrateUEA{}
 )
 
-// NewMsgExecutePayload creates new instance of MsgExecutePayload
+// NewMsgMigrateUEA creates new instance of MsgMigrateUEA
 func NewMsgMigrateUEA(
 	sender sdk.Address,
 	universalAccountId *UniversalAccountId,
-	universalPayload *UniversalPayload,
+	migrationPayload *MigrationPayload,
 	signature string,
-) *MsgExecutePayload {
-	return &MsgExecutePayload{
+) *MsgMigrateUEA {
+	return &MsgMigrateUEA{
 		Signer:             sender.String(),
 		UniversalAccountId: universalAccountId,
-		UniversalPayload:   universalPayload,
-		VerificationData:   signature,
+		MigrationPayload:   migrationPayload,
+		Signature:          signature,
 	}
 }
 
@@ -55,7 +55,7 @@ func (msg *MsgMigrateUEA) ValidateBasic() error {
 	}
 
 	// Validate universal payload
-	if msg.UniversalPayload == nil {
+	if msg.MigrationPayload == nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal payload cannot be nil")
 	}
 
@@ -70,7 +70,7 @@ func (msg *MsgMigrateUEA) ValidateBasic() error {
 	}
 
 	// Validate universal payload structure
-	if err := msg.UniversalPayload.ValidateBasic(); err != nil {
+	if err := msg.MigrationPayload.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid universal payload")
 	}
 

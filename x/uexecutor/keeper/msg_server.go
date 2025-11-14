@@ -91,7 +91,7 @@ func (ms msgServer) MigrateUEA(ctx context.Context, msg *types.MsgMigrateUEA) (*
 		return nil, errors.Wrapf(err, "failed to parse signer address")
 	}
 
-	err = ms.k.MigrateUEA(ctx, evmFromAddress, msg.UniversalAccountId, msg.UniversalPayload, msg.Signature)
+	err = ms.k.MigrateUEA(ctx, evmFromAddress, msg.UniversalAccountId, msg.MigrationPayload, msg.Signature)
 	if err != nil {
 		return nil, err
 	}

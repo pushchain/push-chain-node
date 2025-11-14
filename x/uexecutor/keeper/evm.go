@@ -237,7 +237,7 @@ func (k Keeper) CallUniversalCoreSetGasPrice(
 		nil,
 		true,   // commit = true (real tx, not simulation)
 		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		false,  // module sender = true
+		true,   // module sender = true
 		&nonce, // manual nonce of module
 		"setGasPrice",
 		chainID,

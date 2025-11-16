@@ -160,7 +160,7 @@ func (s *svc) IsValidator(ctx context.Context, addr string) (bool, error) {
     if err := json.Unmarshal(b, &pub); err != nil { return false, err }
     if pub.Key == "" { return false, errors.New("empty consensus pubkey") }
     // Query validators from remote
-    remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+    remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
     q := exec.CommandContext(ctx, s.opts.BinPath, "query", "staking", "validators", "--node", remote, "-o", "json")
     vb, err := q.Output()
     if err != nil { return false, fmt.Errorf("query validators: %w", err) }
@@ -176,7 +176,7 @@ func (s *svc) IsValidator(ctx context.Context, addr string) (bool, error) {
 func (s *svc) Balance(ctx context.Context, addr string) (string, error) {
     if s.opts.BinPath == "" { s.opts.BinPath = "pchaind" }
     // Always query remote genesis node for canonical state during validator registration
-    remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+    remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
     q := exec.CommandContext(ctx, s.opts.BinPath, "query", "bank", "balances", addr, "--node", remote, "-o", "json")
     out, err := q.Output()
     if err != nil { return "0", fmt.Errorf("query balance: %w", err) }
@@ -215,7 +215,7 @@ func (s *svc) Register(ctx context.Context, args RegisterArgs) (string, error) {
     _ = tmp.Close()
 
     // Submit TX
-    remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+    remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
     ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
     defer cancel()
     cmd := exec.CommandContext(ctxTimeout, s.opts.BinPath, "tx", "staking", "create-validator", tmp.Name(),
@@ -262,7 +262,7 @@ func (s *svc) Unjail(ctx context.Context, keyName string) (string, error) {
 	if keyName == "" { return "", errors.New("key name required") }
 
 	// Submit unjail transaction
-	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
 	ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
@@ -300,7 +300,7 @@ func (s *svc) WithdrawRewards(ctx context.Context, validatorAddr string, keyName
 	if validatorAddr == "" { return "", errors.New("validator address required") }
 	if keyName == "" { return "", errors.New("key name required") }
 
-	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
 
 	// Build the withdraw rewards command using validator address directly
 	args := []string{
@@ -379,7 +379,7 @@ func (s *svc) Delegate(ctx context.Context, args DelegateArgs) (string, error) {
 	}
 
 	// Submit delegation transaction
-	remote := fmt.Sprintf("tcp://%s:26657", s.opts.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", s.opts.GenesisDomain)
 	ctxTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 

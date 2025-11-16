@@ -1194,26 +1194,43 @@ if [[ "$INTERACTIVE" == "yes" ]]; then
   echo "  Note: The node will continue running in the background."
   echo
   echo "─────────────────────────────────────────────────────────────"
+
+  # Terminal cleanup function to handle Ctrl+C gracefully
+  cleanup_terminal() {
+    # Reset terminal state to clear any escape sequences
+    printf "\033c" > /dev/tty 2>&1 || true
+    echo
+    echo "  Dashboard skipped. Node is running in background."
+    echo
+  }
+
+  # Setup trap to clean terminal on Ctrl+C (INT signal)
+  trap cleanup_terminal INT
+
   # Read from /dev/tty to work correctly when script is piped (e.g., curl | bash)
   if [[ -e /dev/tty ]]; then
     read -r -p "Press ENTER to continue to the dashboard... " < /dev/tty 2> /dev/tty || {
-      echo
-      echo "  Dashboard skipped. Node is running in background."
-      echo
+      cleanup_terminal
+      trap - INT  # Remove trap before exit
       exit 0
     }
   else
     # Fallback if /dev/tty is not available (shouldn't happen on most systems)
     read -r -p "Press ENTER to continue to the dashboard... " || {
-      echo
-      echo "  Dashboard skipped. Node is running in background."
-      echo
+      cleanup_terminal
+      trap - INT  # Remove trap before exit
       exit 0
     }
   fi
 
+  # Remove trap before launching dashboard (it has its own signal handling)
+  trap - INT
+
   echo
   "$MANAGER_BIN" dashboard < /dev/tty > /dev/tty 2>&1 || true
+
+  # Reset terminal after dashboard exit (in case it crashed or was interrupted)
+  printf "\033c" > /dev/tty 2>&1 || true
 
   # After dashboard exit, show clear status and next steps
   echo

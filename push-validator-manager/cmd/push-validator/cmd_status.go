@@ -10,6 +10,7 @@ import (
 
     "github.com/charmbracelet/lipgloss"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
+    "github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/node"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/process"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/metrics"
@@ -424,17 +425,17 @@ func printStatusText(result statusResult) {
         if hasCommRewards || hasOutRewards {
             // Add reward amounts first
             if hasCommRewards {
-                leftLines = append(leftLines, fmt.Sprintf("  Comm Rewards: %s", result.CommissionRewards))
+                leftLines = append(leftLines, fmt.Sprintf("  Comm Rewards: %s", dashboard.FormatSmartNumber(result.CommissionRewards)))
             }
             if hasOutRewards {
-                leftLines = append(leftLines, fmt.Sprintf("  Outstanding Rewards: %s", result.OutstandingRewards))
+                leftLines = append(leftLines, fmt.Sprintf("  Outstanding Rewards: %s", dashboard.FormatSmartNumber(result.OutstandingRewards)))
             }
 
             leftLines = append(leftLines, "")
             // Create command style for colored output
             commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
             leftLines = append(leftLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Rewards available!")))
-            leftLines = append(leftLines, commandStyle.Render("  Run: push-validator restake"))
+            leftLines = append(leftLines, commandStyle.Render("  Run: push-validator restake-rewards"))
             leftLines = append(leftLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
         }
 
@@ -545,17 +546,17 @@ func printStatusText(result statusResult) {
             if hasCommRewards || hasOutRewards {
                 // Add reward amounts first
                 if hasCommRewards {
-                    validatorLines = append(validatorLines, fmt.Sprintf("  Comm Rewards: %s PC", result.CommissionRewards))
+                    validatorLines = append(validatorLines, fmt.Sprintf("  Comm Rewards: %s PC", dashboard.FormatSmartNumber(result.CommissionRewards)))
                 }
                 if hasOutRewards {
-                    validatorLines = append(validatorLines, fmt.Sprintf("  Outstanding Rewards: %s PC", result.OutstandingRewards))
+                    validatorLines = append(validatorLines, fmt.Sprintf("  Outstanding Rewards: %s PC", dashboard.FormatSmartNumber(result.OutstandingRewards)))
                 }
 
                 validatorLines = append(validatorLines, "")
                 // Create command style for colored output
                 commandStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
                 validatorLines = append(validatorLines, fmt.Sprintf("  %s %s", c.StatusIcon("online"), commandStyle.Render("Rewards available!")))
-                validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator restake"))
+                validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator restake-rewards"))
                 validatorLines = append(validatorLines, commandStyle.Render("  Run: push-validator withdraw-rewards"))
             }
         }

@@ -204,7 +204,7 @@ func (c *ValidatorInfo) renderContent(w int) string {
 		leftLines = append(leftLines, "")
 		withdrawStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
 		leftLines = append(leftLines, withdrawStyle.Render("Rewards available!"))
-		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator restake"))
+		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator restake-rewards"))
 		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator withdraw-rewards"))
 	}
 
@@ -226,10 +226,20 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 		// Jail Reason
 		jailReason := c.data.MyValidator.SlashingInfo.JailReason
-		if jailReason == "" {
-			jailReason = "Unknown"
+
+		// Check if slashing info fetch failed
+		if c.data.MyValidator.SlashingInfoError != "" {
+			// Display error message
+			errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("208")) // Orange
+			rightLines = append(rightLines, errorStyle.Render("Reason: Unable to fetch"))
+			rightLines = append(rightLines, errorStyle.Render(fmt.Sprintf("Error: %s", c.data.MyValidator.SlashingInfoError)))
+		} else if jailReason == "" {
+			// No jail reason available (shouldn't happen, but handle gracefully)
+			rightLines = append(rightLines, "Reason: Fetching...")
+		} else {
+			// Display jail reason
+			rightLines = append(rightLines, fmt.Sprintf("Reason: %s", jailReason))
 		}
-		rightLines = append(rightLines, fmt.Sprintf("Reason: %s", jailReason))
 
 		// Missed Blocks
 		if c.data.MyValidator.SlashingInfo.MissedBlocks > 0 {

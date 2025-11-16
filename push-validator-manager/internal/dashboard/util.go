@@ -32,6 +32,30 @@ func HumanInt(n int64) string {
 	return sign + reverse(result.String())
 }
 
+// FormatLargeNumber abbreviates large numbers with K/M/B/T suffixes for compact display
+func FormatLargeNumber(n int64) string {
+	sign := ""
+	if n < 0 {
+		sign = "-"
+		n = -n
+	}
+
+	absN := float64(n)
+	if absN >= 1e12 {
+		return fmt.Sprintf("%s%.2fT", sign, absN/1e12)
+	}
+	if absN >= 1e9 {
+		return fmt.Sprintf("%s%.2fB", sign, absN/1e9)
+	}
+	if absN >= 1e6 {
+		return fmt.Sprintf("%s%.2fM", sign, absN/1e6)
+	}
+	if absN >= 1e3 {
+		return fmt.Sprintf("%s%.2fK", sign, absN/1e3)
+	}
+	return fmt.Sprintf("%s%d", sign, n)
+}
+
 // FormatFloat formats floating-point numbers with thousand separators
 // Example: "902030185089.93" → "902,030,185,089.93"
 func FormatFloat(s string) string {
@@ -66,6 +90,40 @@ func FormatFloat(s string) string {
 		return formatted + "." + parts[1]
 	}
 	return formatted
+}
+
+// FormatSmartNumber intelligently formats numbers: abbreviates if >1B, otherwise adds thousand separators
+// Example: "1500000000.5" → "1.50B", "123456.78" → "123,456.78"
+func FormatSmartNumber(s string) string {
+	// Handle empty or placeholder values
+	if s == "" || s == "—" || s == "-" {
+		return s
+	}
+
+	// Try to parse as float
+	val, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", ""), 64)
+	if err != nil {
+		// If parsing fails, return original string
+		return s
+	}
+
+	// If >= 1 billion, use abbreviation
+	if val >= 1e9 || val <= -1e9 {
+		absVal := val
+		sign := ""
+		if val < 0 {
+			sign = "-"
+			absVal = -val
+		}
+
+		if absVal >= 1e12 {
+			return fmt.Sprintf("%s%.2fT", sign, absVal/1e12)
+		}
+		return fmt.Sprintf("%s%.2fB", sign, absVal/1e9)
+	}
+
+	// Otherwise, use FormatFloat for thousand separators
+	return FormatFloat(s)
 }
 
 // Percent formats percentage - takes fraction in [0,1], returns formatted % with up to 5 decimal places

@@ -12,6 +12,7 @@ import (
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
+    "github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
     ui "github.com/pushchain/push-chain-node/push-validator-manager/internal/ui"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/validator"
 )
@@ -176,10 +177,10 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
             moniker,
             truncateAddress(v.cosmosAddr, 24),
             statusStr,
-            fmt.Sprintf("%.1f", v.tokensPC),
+            dashboard.FormatLargeNumber(int64(v.tokensPC)),
             fmt.Sprintf("%.0f%%", v.commissionPct),
-            v.commissionRwd,
-            v.outstandingRwd,
+            dashboard.FormatSmartNumber(v.commissionRwd),
+            dashboard.FormatSmartNumber(v.outstandingRwd),
             truncateAddress(v.evmAddress, 16),
         }
 

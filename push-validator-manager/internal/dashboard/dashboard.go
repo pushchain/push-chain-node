@@ -172,10 +172,9 @@ func New(opts Options) *Dashboard {
 	}
 	layout := NewLayout(layoutConfig, registry)
 
-	// Initialize spinner
+	// Initialize spinner (style will be set in Init() to avoid terminal queries before alt screen)
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	return &Dashboard{
 		opts:      opts,
@@ -192,6 +191,9 @@ func New(opts Options) *Dashboard {
 
 // Init initializes the dashboard (Bubble Tea lifecycle)
 func (m *Dashboard) Init() tea.Cmd {
+	// Set spinner style here (after alt screen is active) to avoid terminal queries
+	m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return tea.Batch(
 		m.spinner.Tick,
 		m.fetchCmd(),
@@ -644,6 +646,7 @@ func (m *Dashboard) fetchData(ctx context.Context) (DashboardData, error) {
 		data.MyValidator.SlashingInfo.JailedUntil = myVal.SlashingInfo.JailedUntil
 		data.MyValidator.SlashingInfo.Tombstoned = myVal.SlashingInfo.Tombstoned
 		data.MyValidator.SlashingInfo.MissedBlocks = myVal.SlashingInfo.MissedBlocks
+		data.MyValidator.SlashingInfoError = myVal.SlashingInfoError
 		data.MyValidator.ValidatorExistsWithSameMoniker = myVal.ValidatorExistsWithSameMoniker
 		data.MyValidator.ConflictingMoniker = myVal.ConflictingMoniker
 

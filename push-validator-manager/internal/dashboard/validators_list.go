@@ -294,7 +294,12 @@ func (c *ValidatorsList) renderContent(w int) string {
 	} else {
 		addressLabel = "ADDRESS (COSMOS)"
 	}
-	headerLine := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s", "NODE NAME", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION REWARDS", "OUTSTANDING REWARDS", addressLabel)
+	// Determine ADDRESS column width based on mode
+	addressWidth := 42 // EVM addresses
+	if !c.showEVMAddress {
+		addressWidth = 47 // Cosmos addresses
+	}
+	headerLine := fmt.Sprintf("%-30s %-20s %12s %11s %20s %20s %-*s", "NODE NAME", "STATUS", "STAKE(PC)", "COMMISSION%", "COMMISSION REWARDS", "OUTSTANDING REWARDS", addressWidth, addressLabel)
 	lines = append(lines, headerLine)
 	// Create separator line that spans full component width
 	lines = append(lines, strings.Repeat("─", inner))
@@ -333,8 +338,8 @@ func (c *ValidatorsList) renderContent(w int) string {
 			if isOurValidator {
 				moniker = moniker + " [My Validator]"
 			}
-			// Truncate if still too long (40 chars max for display)
-			moniker = truncateWithEllipsis(moniker, 40)
+			// Truncate if still too long (30 chars max for display)
+			moniker = truncateWithEllipsis(moniker, 30)
 
 			// Show full status with jail indicator
 			status := v.Status
@@ -342,8 +347,8 @@ func (c *ValidatorsList) renderContent(w int) string {
 				status = status + " (JAILED)"
 			}
 
-			// Format voting power (compact display)
-			powerStr := fmt.Sprintf("%s", HumanInt(v.VotingPower))
+			// Format voting power (compact display with abbreviations)
+			powerStr := FormatLargeNumber(v.VotingPower)
 
 			// Commission percentage (already formatted from staking query)
 			commission := v.Commission
@@ -387,9 +392,9 @@ func (c *ValidatorsList) renderContent(w int) string {
 				}
 			}
 
-			// Build row with flexible-width columns
-			line := fmt.Sprintf("%-40s %-24s %-9s %-11s %-18s %-18s %s",
-				moniker, status, powerStr, commission, FormatFloat(commRewards), FormatFloat(outRewards), address)
+			// Build row with fixed-width columns (numeric columns right-aligned)
+			line := fmt.Sprintf("%-30s %-20s %12s %11s %20s %20s %-*s",
+				moniker, status, powerStr, commission, FormatSmartNumber(commRewards), FormatSmartNumber(outRewards), addressWidth, address)
 
 			// Apply highlighting to own validator rows
 			if isOurValidator {

@@ -135,7 +135,7 @@ func (f *Fetcher) fetchAllValidators(ctx context.Context, cfg config.Config) (Va
 		return ValidatorList{}, fmt.Errorf("pchaind not found: %w", err)
 	}
 
-	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", cfg.GenesisDomain)
 	cmd := exec.CommandContext(ctx, bin, "query", "staking", "validators", "--node", remote, "-o", "json")
 	output, err := cmd.Output()
 	if err != nil {
@@ -248,7 +248,7 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 	}
 
 	// Fetch all validators to match by consensus pubkey
-	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", cfg.GenesisDomain)
 	queryCmd := exec.CommandContext(ctx, bin, "query", "staking", "validators", "--node", remote, "-o", "json")
 	valsOutput, err := queryCmd.Output()
 	if err != nil {
@@ -335,13 +335,16 @@ func (f *Fetcher) fetchMyValidator(ctx context.Context, cfg config.Config) (MyVa
 				ConflictingMoniker:            monikerConflict,
 			}
 
-			// If jailed, fetch slashing info with timeout (3s)
+			// If jailed, fetch slashing info with timeout (10s)
 			if v.Jailed {
-				slashCtx, slashCancel := context.WithTimeout(context.Background(), 3*time.Second)
+				slashCtx, slashCancel := context.WithTimeout(context.Background(), 10*time.Second)
 				slashingInfo, err := GetSlashingInfo(slashCtx, cfg, fullPubkeyJSON)
 				slashCancel()
 				if err == nil {
 					info.SlashingInfo = slashingInfo
+				} else {
+					// Store error for display in UI
+					info.SlashingInfoError = fmt.Sprintf("Failed to fetch jail reason: %v", err)
 				}
 			}
 
@@ -489,7 +492,7 @@ func GetValidatorRewards(ctx context.Context, cfg config.Config, validatorAddr s
 	queryCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", cfg.GenesisDomain)
 
 	// Fetch commission rewards
 	commissionRewards := "—"
@@ -636,7 +639,7 @@ func GetSlashingInfo(ctx context.Context, cfg config.Config, consensusPubkey str
 		return SlashingInfo{}, fmt.Errorf("pchaind not found: %w", err)
 	}
 
-	remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
+	remote := fmt.Sprintf("https://%s", cfg.GenesisDomain)
 
 	// Query signing info to get jail details
 	// consensusPubkey should be a JSON string like: {"@type":"/cosmos.crypto.ed25519.PubKey","key":"..."}

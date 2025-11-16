@@ -23,9 +23,9 @@ func Defaults() Config {
     return Config{
         ChainID:        "push_42101-1",
         HomeDir:        filepath.Join(home, ".pchain"),
-        GenesisDomain:  "rpc-testnet-donut-node1.push.org",
+        GenesisDomain:  "donut.rpc.push.org",
         KeyringBackend: "test",
-        SnapshotRPC:    "https://rpc-testnet-donut-node2.push.org",
+        SnapshotRPC:    "https://donut.rpc.push.org",
         RPCLocal:       "http://127.0.0.1:26657",
         Denom:          "upc",
     }

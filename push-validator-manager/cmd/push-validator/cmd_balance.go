@@ -9,6 +9,7 @@ import (
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
+    "github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/validator"
 )
 
@@ -50,6 +51,6 @@ func handleBalance(cfg config.Config, args []string) error {
         if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": false, "error": err.Error(), "address": addr}) } else { getPrinter().Error(fmt.Sprintf("balance error: %v", err)) }
         return err
     }
-    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "address": addr, "balance": bal, "denom": cfg.Denom}) } else { getPrinter().Info(fmt.Sprintf("%s %s", bal, cfg.Denom)) }
+    if flagOutput == "json" { getPrinter().JSON(map[string]any{"ok": true, "address": addr, "balance": bal, "denom": cfg.Denom}) } else { getPrinter().Info(fmt.Sprintf("%s %s", dashboard.FormatSmartNumber(bal), cfg.Denom)) }
     return nil
 }

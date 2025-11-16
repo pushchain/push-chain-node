@@ -120,7 +120,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     // CRITICAL: Ensure snapshot RPC server is included as P2P peer for snapshot discovery
     // State sync discovers snapshots via P2P (port 26656), not HTTP
     snapPrimary := opts.SnapshotRPCPrimary
-    if snapPrimary == "" { snapPrimary = "https://rpc-testnet-donut-node2.push.org" }
+    if snapPrimary == "" { snapPrimary = "https://donut.rpc.push.org" }
 
     // Fetch node ID for snapshot server and add to peers
     snapPeers := s.getSnapshotPeers(ctx, []string{snapPrimary})
@@ -160,7 +160,7 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
     snapSecondary := opts.SnapshotRPCSecondary
     if snapSecondary == "" {
         // Default to node1 as secondary witness if not specified
-        snapSecondary = "https://rpc-testnet-donut-node1.push.org"
+        snapSecondary = "https://donut.rpc.push.org"
     }
     if snapSecondary != snapPrimary {
         candidates = append(candidates, hostToStateSyncURL(snapSecondary))
@@ -261,8 +261,8 @@ func (s *svc) fallbackPeers(ctx context.Context, base string) []string {
             return out
         }
     }
-    if id := fetchID("https://rpc-testnet-donut-node1.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@rpc-testnet-donut-node1.push.org:26656", id)) }
-    if id := fetchID("https://rpc-testnet-donut-node2.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@rpc-testnet-donut-node2.push.org:26656", id)) }
+    if id := fetchID("https://donut.rpc.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@donut.rpc.push.org:26656", id)) }
+    if id := fetchID("https://donut.rpc.push.org/status"); id != "" { out = append(out, fmt.Sprintf("%s@donut.rpc.push.org:26656", id)) }
     return out
 }
 

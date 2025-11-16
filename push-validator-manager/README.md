@@ -61,7 +61,7 @@ push-validator logs                 # View logs
 push-validator increase-stake       # Increase validator stake and voting power
 push-validator unjail               # Restore jailed validator to active status
 push-validator withdraw-rewards     # Withdraw validator rewards and commission
-push-validator restake              # Auto-withdraw and restake all rewards to increase validator power
+push-validator restake-rewards      # Auto-withdraw and restake all rewards to increase validator power
 ```
 
 ### Monitoring

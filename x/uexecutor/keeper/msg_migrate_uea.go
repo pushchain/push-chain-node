@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -24,6 +25,10 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	}
 
 	// add signature verification
+	signatureVal, err := utils.HexToBytes(signature)
+	if err != nil {
+		return errors.Wrapf(err, "invalid verificationData format")
+	}
 
 	chainConfig, err := k.uregistryKeeper.GetChainConfig(sdkCtx, caip2Identifier)
 	if err != nil {
@@ -48,7 +53,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	}
 
 	// Step 3: Migrate UEA through UEA
-	receipt, err := k.CallUEAMigrateUEA(sdkCtx, evmFrom, ueaAddr, migrationPayload, signature)
+	receipt, err := k.CallUEAMigrateUEA(sdkCtx, evmFrom, ueaAddr, migrationPayload, signatureVal)
 	if err != nil {
 		return err
 	}

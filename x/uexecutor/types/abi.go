@@ -152,58 +152,65 @@ const FactoryV1ABI = `[
 
 // UeaV1ABI contains the ABI for the UEA contract
 const UeaV1ABI = `[
-	{
-      "type": "function",
-      "name": "executePayload",
-      "inputs": [
-        {
-          "name": "payload",
-          "type": "tuple",
-          "internalType": "struct UniversalPayload",
-          "components": [
-            { "name": "to", "type": "address", "internalType": "address" },
-            { "name": "value", "type": "uint256", "internalType": "uint256" },
-            { "name": "data", "type": "bytes", "internalType": "bytes" },
-            {
-              "name": "gasLimit",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "maxFeePerGas",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "maxPriorityFeePerGas",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            { "name": "nonce", "type": "uint256", "internalType": "uint256" },
-            {
-              "name": "deadline",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "vType",
-              "type": "uint8",
-              "internalType": "enum VerificationType"
-            }
-          ]
-        },
-        { "name": "verificationData", "type": "bytes", "internalType": "bytes" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "domainSeparator",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
-      "stateMutability": "view"
-    }
+  {
+    "type": "function",
+    "name": "executePayload",
+    "inputs": [
+      {
+        "name": "payload",
+        "type": "tuple",
+        "internalType": "struct UniversalPayload",
+        "components": [
+          { "name": "to", "type": "address", "internalType": "address" },
+          { "name": "value", "type": "uint256", "internalType": "uint256" },
+          { "name": "data", "type": "bytes", "internalType": "bytes" },
+          { "name": "gasLimit", "type": "uint256", "internalType": "uint256" },
+          { "name": "maxFeePerGas", "type": "uint256", "internalType": "uint256" },
+          { "name": "maxPriorityFeePerGas", "type": "uint256", "internalType": "uint256" },
+          { "name": "nonce", "type": "uint256", "internalType": "uint256" },
+          { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+          { "name": "vType", "type": "uint8", "internalType": "enum VerificationType" }
+        ]
+      },
+      { "name": "verificationData", "type": "bytes", "internalType": "bytes" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+
+  {
+    "type": "function",
+    "name": "migrateUEA",
+    "inputs": [
+      {
+        "name": "payload",
+        "type": "tuple",
+        "internalType": "struct MigrationPayload",
+        "components": [
+          { "name": "migration", "type": "address", "internalType": "address" },
+          { "name": "nonce", "type": "uint256", "internalType": "uint256" },
+          { "name": "deadline", "type": "uint256", "internalType": "uint256" }
+        ]
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+
+  {
+    "type": "function",
+    "name": "domainSeparator",
+    "inputs": [],
+    "outputs": [
+      { "name": "", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "stateMutability": "view"
+  }
 ]`
 
 const UNIVERSAL_CORE_ABI = `[

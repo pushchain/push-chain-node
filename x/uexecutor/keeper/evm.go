@@ -132,7 +132,7 @@ func (k Keeper) CallUEAMigrateUEA(
 	ctx sdk.Context,
 	from, ueaAddr common.Address,
 	migration_payload *types.MigrationPayload,
-	signature string,
+	signature []byte,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	abi, err := types.ParseUeaABI()
 	if err != nil {

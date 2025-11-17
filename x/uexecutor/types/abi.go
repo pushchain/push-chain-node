@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"strings"
 
+	"errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/utils"
@@ -713,6 +715,9 @@ type AbiMigrationPayload struct {
 }
 
 func NewAbiMigrationPayload(proto *MigrationPayload) (AbiMigrationPayload, error) {
+	if proto.Migration == "" {
+		return AbiMigrationPayload{}, errors.New("invalid migration payload")
+	}
 	return AbiMigrationPayload{
 		Migration: common.HexToAddress(proto.Migration),
 		Nonce:     utils.StringToBigInt(proto.Nonce),

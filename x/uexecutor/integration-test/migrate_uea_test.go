@@ -51,7 +51,7 @@ func TestMigrateUEA(t *testing.T) {
 
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
-		validUP := &uexecutortypes.MigrationPayload{
+		validMP := &uexecutortypes.MigrationPayload{
 			Migration: "0x527F3692F5C53CfA83F7689885995606F93b6164",
 			Nonce:     "1",
 			Deadline:  "9999999999",
@@ -78,12 +78,64 @@ func TestMigrateUEA(t *testing.T) {
 		msg := &uexecutortypes.MsgMigrateUEA{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
-			MigrationPayload:   validUP,
+			MigrationPayload:   validMP,
 			Signature:          "0x075bcd15",
 		}
 
 		_, err = ms.MigrateUEA(ctx, msg)
 		require.NoError(t, err)
+
+	})
+	t.Run("Invalid Migration Payload!", func(t *testing.T) {
+		validUA := &uexecutortypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+
+		validMP := &uexecutortypes.MigrationPayload{
+			Migration: "",
+			Nonce:     "1",
+			Deadline:  "9999999999",
+		}
+
+		msg := &uexecutortypes.MsgMigrateUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			MigrationPayload:   validMP,
+		}
+
+		_, err := ms.MigrateUEA(ctx, msg)
+		require.ErrorContains(t, err, "invalid migration payload")
+
+	})
+
+	t.Run("Invalid Signature Data", func(t *testing.T) {
+		validUA := &uexecutortypes.UniversalAccountId{
+			ChainNamespace: "eip155",
+			ChainId:        "11155111",
+			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
+		}
+
+		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
+
+		validMP := &uexecutortypes.MigrationPayload{
+			Migration: "0x527F3692F5C53CfA83F7689885995606F93b6164",
+			Nonce:     "1",
+			Deadline:  "9999999999",
+		}
+
+		msg := &uexecutortypes.MsgMigrateUEA{
+			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			UniversalAccountId: validUA,
+			MigrationPayload:   validMP,
+			Signature:          "0xZZZZ",
+		}
+
+		_, err := ms.MigrateUEA(ctx, msg)
+		require.ErrorContains(t, err, "invalid signature format")
 
 	})
 }

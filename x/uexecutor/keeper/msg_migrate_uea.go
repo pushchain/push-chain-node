@@ -27,7 +27,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	// add signature verification
 	signatureVal, err := utils.HexToBytes(signature)
 	if err != nil {
-		return errors.Wrapf(err, "invalid verificationData format")
+		return errors.Wrapf(err, "invalid signature format")
 	}
 
 	chainConfig, err := k.uregistryKeeper.GetChainConfig(sdkCtx, caip2Identifier)

@@ -19,15 +19,33 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName = "/utss.v1.Query/Params"
+	Query_Params_FullMethodName         = "/utss.v1.Query/Params"
+	Query_CurrentProcess_FullMethodName = "/utss.v1.Query/CurrentProcess"
+	Query_ProcessById_FullMethodName    = "/utss.v1.Query/ProcessById"
+	Query_AllProcesses_FullMethodName   = "/utss.v1.Query/AllProcesses"
+	Query_CurrentKey_FullMethodName     = "/utss.v1.Query/CurrentKey"
+	Query_KeyById_FullMethodName        = "/utss.v1.Query/KeyById"
+	Query_AllKeys_FullMethodName        = "/utss.v1.Query/AllKeys"
 )
 
 // QueryClient is the client API for Query service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type QueryClient interface {
-	// Params queries all parameters of the module.
+	// Params queries module parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// Current TSS Process
+	CurrentProcess(ctx context.Context, in *QueryCurrentProcessRequest, opts ...grpc.CallOption) (*QueryCurrentProcessResponse, error)
+	// Process by ID
+	ProcessById(ctx context.Context, in *QueryProcessByIdRequest, opts ...grpc.CallOption) (*QueryProcessByIdResponse, error)
+	// List all processes (paginated)
+	AllProcesses(ctx context.Context, in *QueryAllProcessesRequest, opts ...grpc.CallOption) (*QueryAllProcessesResponse, error)
+	// Current TSS Key
+	CurrentKey(ctx context.Context, in *QueryCurrentKeyRequest, opts ...grpc.CallOption) (*QueryCurrentKeyResponse, error)
+	// Get finalized TSS key by key_id
+	KeyById(ctx context.Context, in *QueryKeyByIdRequest, opts ...grpc.CallOption) (*QueryKeyByIdResponse, error)
+	// List all finalized keys (paginated)
+	AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts ...grpc.CallOption) (*QueryAllKeysResponse, error)
 }
 
 type queryClient struct {
@@ -47,12 +65,78 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	return out, nil
 }
 
+func (c *queryClient) CurrentProcess(ctx context.Context, in *QueryCurrentProcessRequest, opts ...grpc.CallOption) (*QueryCurrentProcessResponse, error) {
+	out := new(QueryCurrentProcessResponse)
+	err := c.cc.Invoke(ctx, Query_CurrentProcess_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ProcessById(ctx context.Context, in *QueryProcessByIdRequest, opts ...grpc.CallOption) (*QueryProcessByIdResponse, error) {
+	out := new(QueryProcessByIdResponse)
+	err := c.cc.Invoke(ctx, Query_ProcessById_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllProcesses(ctx context.Context, in *QueryAllProcessesRequest, opts ...grpc.CallOption) (*QueryAllProcessesResponse, error) {
+	out := new(QueryAllProcessesResponse)
+	err := c.cc.Invoke(ctx, Query_AllProcesses_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) CurrentKey(ctx context.Context, in *QueryCurrentKeyRequest, opts ...grpc.CallOption) (*QueryCurrentKeyResponse, error) {
+	out := new(QueryCurrentKeyResponse)
+	err := c.cc.Invoke(ctx, Query_CurrentKey_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) KeyById(ctx context.Context, in *QueryKeyByIdRequest, opts ...grpc.CallOption) (*QueryKeyByIdResponse, error) {
+	out := new(QueryKeyByIdResponse)
+	err := c.cc.Invoke(ctx, Query_KeyById_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts ...grpc.CallOption) (*QueryAllKeysResponse, error) {
+	out := new(QueryAllKeysResponse)
+	err := c.cc.Invoke(ctx, Query_AllKeys_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
 type QueryServer interface {
-	// Params queries all parameters of the module.
+	// Params queries module parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// Current TSS Process
+	CurrentProcess(context.Context, *QueryCurrentProcessRequest) (*QueryCurrentProcessResponse, error)
+	// Process by ID
+	ProcessById(context.Context, *QueryProcessByIdRequest) (*QueryProcessByIdResponse, error)
+	// List all processes (paginated)
+	AllProcesses(context.Context, *QueryAllProcessesRequest) (*QueryAllProcessesResponse, error)
+	// Current TSS Key
+	CurrentKey(context.Context, *QueryCurrentKeyRequest) (*QueryCurrentKeyResponse, error)
+	// Get finalized TSS key by key_id
+	KeyById(context.Context, *QueryKeyByIdRequest) (*QueryKeyByIdResponse, error)
+	// List all finalized keys (paginated)
+	AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -62,6 +146,24 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (UnimplementedQueryServer) CurrentProcess(context.Context, *QueryCurrentProcessRequest) (*QueryCurrentProcessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CurrentProcess not implemented")
+}
+func (UnimplementedQueryServer) ProcessById(context.Context, *QueryProcessByIdRequest) (*QueryProcessByIdResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessById not implemented")
+}
+func (UnimplementedQueryServer) AllProcesses(context.Context, *QueryAllProcessesRequest) (*QueryAllProcessesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllProcesses not implemented")
+}
+func (UnimplementedQueryServer) CurrentKey(context.Context, *QueryCurrentKeyRequest) (*QueryCurrentKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CurrentKey not implemented")
+}
+func (UnimplementedQueryServer) KeyById(context.Context, *QueryKeyByIdRequest) (*QueryKeyByIdResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyById not implemented")
+}
+func (UnimplementedQueryServer) AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllKeys not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -94,6 +196,114 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_CurrentProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryCurrentProcessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).CurrentProcess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_CurrentProcess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).CurrentProcess(ctx, req.(*QueryCurrentProcessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ProcessById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryProcessByIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ProcessById(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ProcessById_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ProcessById(ctx, req.(*QueryProcessByIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllProcesses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllProcessesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllProcesses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllProcesses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllProcesses(ctx, req.(*QueryAllProcessesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_CurrentKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryCurrentKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).CurrentKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_CurrentKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).CurrentKey(ctx, req.(*QueryCurrentKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_KeyById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryKeyByIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).KeyById(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_KeyById_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).KeyById(ctx, req.(*QueryKeyByIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllKeys(ctx, req.(*QueryAllKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -104,6 +314,30 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "CurrentProcess",
+			Handler:    _Query_CurrentProcess_Handler,
+		},
+		{
+			MethodName: "ProcessById",
+			Handler:    _Query_ProcessById_Handler,
+		},
+		{
+			MethodName: "AllProcesses",
+			Handler:    _Query_AllProcesses_Handler,
+		},
+		{
+			MethodName: "CurrentKey",
+			Handler:    _Query_CurrentKey_Handler,
+		},
+		{
+			MethodName: "KeyById",
+			Handler:    _Query_KeyById_Handler,
+		},
+		{
+			MethodName: "AllKeys",
+			Handler:    _Query_AllKeys_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

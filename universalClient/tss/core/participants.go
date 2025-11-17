@@ -8,31 +8,35 @@ import (
 )
 
 type partySet struct {
-	list    []tss.Participant
-	idx     map[string]tss.Participant
+	list    []*tss.UniversalValidator
+	idx     map[string]*tss.UniversalValidator
 	encoded []byte
 }
 
-func newPartySet(participants []tss.Participant) (*partySet, error) {
+func newPartySet(participants []*tss.UniversalValidator) (*partySet, error) {
 	if len(participants) == 0 {
 		return nil, errMissingParticipants
 	}
-	copied := make([]tss.Participant, len(participants))
+	copied := make([]*tss.UniversalValidator, len(participants))
 	copy(copied, participants)
 
 	sort.Slice(copied, func(i, j int) bool {
-		return copied[i].PartyID < copied[j].PartyID
+		return copied[i].PartyID() < copied[j].PartyID()
 	})
 
-	idx := make(map[string]tss.Participant, len(copied))
+	idx := make(map[string]*tss.UniversalValidator, len(copied))
 	for _, p := range copied {
-		if p.PartyID == "" || p.PeerID == "" || len(p.Multiaddrs) == 0 {
-			return nil, fmt.Errorf("participant %s missing peer or multiaddr", p.PartyID)
+		if p == nil {
+			return nil, fmt.Errorf("nil participant")
 		}
-		if _, exists := idx[p.PartyID]; exists {
-			return nil, fmt.Errorf("duplicate participant %s", p.PartyID)
+		partyID := p.PartyID()
+		if partyID == "" || p.PeerID() == "" || len(p.Multiaddrs()) == 0 {
+			return nil, fmt.Errorf("participant %s missing peer or multiaddr", partyID)
 		}
-		idx[p.PartyID] = p
+		if _, exists := idx[partyID]; exists {
+			return nil, fmt.Errorf("duplicate participant %s", partyID)
+		}
+		idx[partyID] = p
 	}
 
 	return &partySet{
@@ -48,7 +52,7 @@ func (p *partySet) contains(partyID string) bool {
 	return ok
 }
 
-func (p *partySet) peerInfo(partyID string) (tss.Participant, bool) {
+func (p *partySet) peerInfo(partyID string) (*tss.UniversalValidator, bool) {
 	participant, ok := p.idx[partyID]
 	return participant, ok
 }
@@ -62,7 +66,7 @@ func (p *partySet) encodedIDs() []byte {
 		if i > 0 {
 			ids = append(ids, 0)
 		}
-		ids = append(ids, []byte(party.PartyID)...)
+		ids = append(ids, []byte(party.PartyID())...)
 	}
 	p.encoded = ids
 	return ids

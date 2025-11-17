@@ -237,7 +237,7 @@ func (s *Service) runKeyshareProtocol(
 	eventID, keyID string,
 	threshold int,
 	blockNumber uint64,
-	participants []tss.Participant,
+	participants []*tss.UniversalValidator,
 	isCoordinator bool,
 	setupBuilder func(*partySet) ([]byte, error),
 	sessionBuilder func([]byte) (session.Handle, error),
@@ -336,7 +336,7 @@ func (s *Service) runKeyshareProtocol(
 	}
 }
 
-func (s *Service) validateRequest(eventID, keyID string, threshold int, blockNumber uint64, participants []tss.Participant) error {
+func (s *Service) validateRequest(eventID, keyID string, threshold int, blockNumber uint64, participants []*tss.UniversalValidator) error {
 	if eventID == "" || keyID == "" {
 		return errInvalidConfig
 	}
@@ -355,7 +355,7 @@ func (s *Service) validateRequest(eventID, keyID string, threshold int, blockNum
 	return nil
 }
 
-func (s *Service) prepareSession(protocol tss.ProtocolType, eventID string, blockNumber uint64, participants []tss.Participant) (*sessionState, *partySet, error) {
+func (s *Service) prepareSession(protocol tss.ProtocolType, eventID string, blockNumber uint64, participants []*tss.UniversalValidator) (*sessionState, *partySet, error) {
 	parties, err := newPartySet(participants)
 	if err != nil {
 		return nil, nil, err
@@ -372,7 +372,7 @@ func (s *Service) prepareSession(protocol tss.ProtocolType, eventID string, bloc
 
 // RegisterSessionForEvent allows external callers (like coordinator) to pre-register a session
 // before the coordinator broadcasts setup messages. This ensures all nodes have sessions ready.
-func (s *Service) RegisterSessionForEvent(protocol tss.ProtocolType, eventID string, blockNumber uint64, participants []tss.Participant) error {
+func (s *Service) RegisterSessionForEvent(protocol tss.ProtocolType, eventID string, blockNumber uint64, participants []*tss.UniversalValidator) error {
 	parties, err := newPartySet(participants)
 	if err != nil {
 		return err
@@ -391,26 +391,26 @@ func deriveKeyID(keyID string) []byte {
 
 func (s *Service) ensurePeers(parties *partySet) error {
 	for _, p := range parties.list {
-		if p.PartyID == s.cfg.PartyID {
+		if p.PartyID() == s.cfg.PartyID {
 			continue
 		}
 		// Retry peer registration with exponential backoff
 		maxRetries := 3
 		var peerErr error
 		for attempt := 0; attempt < maxRetries; attempt++ {
-			if err := s.deps.Transport.EnsurePeer(p.PeerID, p.Multiaddrs); err != nil {
+			if err := s.deps.Transport.EnsurePeer(p.PeerID(), p.Multiaddrs()); err != nil {
 				peerErr = err
 				if attempt < maxRetries-1 {
 					backoff := time.Duration(attempt+1) * 500 * time.Millisecond
 					s.logger.Debug().
-						Str("peer_id", p.PeerID).
+						Str("peer_id", p.PeerID()).
 						Int("attempt", attempt+1).
 						Dur("backoff", backoff).
 						Msg("retrying peer registration")
 					time.Sleep(backoff)
 					continue
 				}
-				return fmt.Errorf("failed to register peer %s after %d attempts: %w", p.PeerID, maxRetries, peerErr)
+				return fmt.Errorf("failed to register peer %s after %d attempts: %w", p.PeerID(), maxRetries, peerErr)
 			}
 			peerErr = nil
 			break
@@ -431,8 +431,8 @@ func (s *Service) buildSetupEnvelope(keyID string, threshold int, parties *party
 	}
 	for _, p := range parties.list {
 		env.Participants = append(env.Participants, participantEntry{
-			PartyID: p.PartyID,
-			PeerID:  p.PeerID,
+			PartyID: p.PartyID(),
+			PeerID:  p.PeerID(),
 		})
 	}
 	return env
@@ -454,36 +454,36 @@ func (s *Service) broadcastSetup(ctx context.Context, protocol tss.ProtocolType,
 	// Send to all participants with retry logic
 	var sendErrors []error
 	for _, p := range parties.list {
-		if p.PartyID == s.cfg.PartyID {
+		if p.PartyID() == s.cfg.PartyID {
 			continue
 		}
 		s.logger.Debug().
 			Str("event", eventID).
-			Str("receiver", p.PartyID).
+			Str("receiver", p.PartyID()).
 			Msg("sending setup")
 
 		// Retry sending with exponential backoff
 		maxRetries := 3
 		var sendErr error
 		for attempt := 0; attempt < maxRetries; attempt++ {
-			if err := s.deps.Transport.Send(ctx, p.PeerID, payload); err != nil {
+			if err := s.deps.Transport.Send(ctx, p.PeerID(), payload); err != nil {
 				sendErr = err
 				if attempt < maxRetries-1 {
 					backoff := time.Duration(attempt+1) * 500 * time.Millisecond
 					s.logger.Debug().
 						Str("event", eventID).
-						Str("receiver", p.PartyID).
+						Str("receiver", p.PartyID()).
 						Int("attempt", attempt+1).
 						Dur("backoff", backoff).
 						Msg("retrying setup send")
 					time.Sleep(backoff)
 					continue
 				}
-				sendErrors = append(sendErrors, fmt.Errorf("failed to send setup to %s: %w", p.PartyID, sendErr))
+				sendErrors = append(sendErrors, fmt.Errorf("failed to send setup to %s: %w", p.PartyID(), sendErr))
 				s.logger.Error().
 					Err(sendErr).
 					Str("event", eventID).
-					Str("receiver", p.PartyID).
+					Str("receiver", p.PartyID()).
 					Msg("failed to send setup after retries")
 			} else {
 				sendErr = nil
@@ -590,7 +590,7 @@ func (s *Service) sendKeyshareOutputs(
 			maxRetries := 3
 			var sendErr error
 			for attempt := 0; attempt < maxRetries; attempt++ {
-				if err := s.deps.Transport.Send(ctx, peer.PeerID, payload); err != nil {
+				if err := s.deps.Transport.Send(ctx, peer.PeerID(), payload); err != nil {
 					sendErr = err
 					if attempt < maxRetries-1 {
 						backoff := time.Duration(attempt+1) * 200 * time.Millisecond
@@ -674,7 +674,7 @@ func (s *Service) sendSignOutputs(
 			maxRetries := 3
 			var sendErr error
 			for attempt := 0; attempt < maxRetries; attempt++ {
-				if err := s.deps.Transport.Send(ctx, peer.PeerID, payload); err != nil {
+				if err := s.deps.Transport.Send(ctx, peer.PeerID(), payload); err != nil {
 					sendErr = err
 					if attempt < maxRetries-1 {
 						backoff := time.Duration(attempt+1) * 200 * time.Millisecond
@@ -705,28 +705,28 @@ func (s *Service) sendSignOutputs(
 
 // isCoordinatorForEvent determines if this node is the coordinator for an event.
 // This is a simplified check - in production, the coordinator package handles this.
-func (s *Service) isCoordinatorForEvent(blockNumber uint64, participants []tss.Participant) bool {
+func (s *Service) isCoordinatorForEvent(blockNumber uint64, participants []*tss.UniversalValidator) bool {
 	coordinatorParty := s.selectCoordinator(blockNumber, participants)
 	return coordinatorParty == s.cfg.PartyID
 }
 
 // selectCoordinator selects the coordinator for a block number (simplified version).
 // In production, the coordinator package uses more sophisticated logic with range sizes.
-func (s *Service) selectCoordinator(blockNumber uint64, parties []tss.Participant) string {
+func (s *Service) selectCoordinator(blockNumber uint64, parties []*tss.UniversalValidator) string {
 	if len(parties) == 0 {
 		return ""
 	}
 	// Sort for consistency
-	sorted := make([]tss.Participant, len(parties))
+	sorted := make([]*tss.UniversalValidator, len(parties))
 	copy(sorted, parties)
 	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].PartyID < sorted[j].PartyID
+		return sorted[i].PartyID() < sorted[j].PartyID()
 	})
 	idx := int(blockNumber % uint64(len(sorted)))
 	if idx >= len(sorted) {
 		return ""
 	}
-	return sorted[idx].PartyID
+	return sorted[idx].PartyID()
 }
 
 func (s *Service) registerSession(protocol tss.ProtocolType, eventID string, blockNumber uint64, parties *partySet) (*sessionState, error) {
@@ -747,11 +747,14 @@ func (s *Service) registerSession(protocol tss.ProtocolType, eventID string, blo
 
 	state := newSessionState(protocol, eventID, s.cfg.SetupTimeout, s.cfg.MessageTimeout)
 	// Determine coordinator (simplified - coordinator package handles this in production)
-	coordinatorParty := s.selectCoordinator(blockNumber, parties.list)
+	// Convert partySet.list to []*tss.UniversalValidator for selectCoordinator
+	participants := make([]*tss.UniversalValidator, len(parties.list))
+	copy(participants, parties.list)
+	coordinatorParty := s.selectCoordinator(blockNumber, participants)
 	var coordinatorPeer string
 	if coordinatorParty != "" {
 		if peer, ok := parties.peerInfo(coordinatorParty); ok {
-			coordinatorPeer = peer.PeerID
+			coordinatorPeer = peer.PeerID()
 		}
 	}
 	state.setMetadata(blockNumber, coordinatorParty, coordinatorPeer, parties)

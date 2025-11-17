@@ -38,7 +38,7 @@ type ParticipantProvider interface {
 	// GetParticipants returns the list of active validators for the given protocol type.
 	// protocolType: "keygen", "keyrefresh", or "sign"
 	// Returns participants sorted by PartyID (validator address).
-	GetParticipants(ctx context.Context, protocolType string, blockNumber uint64) ([]tss.Participant, error)
+	GetParticipants(ctx context.Context, protocolType string, blockNumber uint64) ([]*tss.UniversalValidator, error)
 }
 
 // Coordinator orchestrates TSS operations by polling the database for events.
@@ -281,7 +281,7 @@ func (c *Coordinator) processEvent(ctx context.Context, event store.TSSEvent) {
 	// Check if this node is in the participant list
 	var isParticipant bool
 	for _, p := range participants {
-		if p.PartyID == c.partyID {
+		if p.PartyID() == c.partyID {
 			isParticipant = true
 			break
 		}
@@ -367,7 +367,7 @@ func (c *Coordinator) processEvent(ctx context.Context, event store.TSSEvent) {
 	}
 }
 
-func (c *Coordinator) isCoordinator(blockNumber uint64, participants []tss.Participant) bool {
+func (c *Coordinator) isCoordinator(blockNumber uint64, participants []*tss.UniversalValidator) bool {
 	if len(participants) == 0 {
 		return false
 	}
@@ -376,10 +376,10 @@ func (c *Coordinator) isCoordinator(blockNumber uint64, participants []tss.Parti
 	if idx >= len(participants) {
 		return false
 	}
-	return participants[idx].PartyID == c.partyID
+	return participants[idx].PartyID() == c.partyID
 }
 
-func (c *Coordinator) handleKeygen(ctx context.Context, event store.TSSEvent, eventData EventData, participants []tss.Participant) error {
+func (c *Coordinator) handleKeygen(ctx context.Context, event store.TSSEvent, eventData EventData, participants []*tss.UniversalValidator) error {
 	c.mu.RLock()
 	service := c.service
 	c.mu.RUnlock()
@@ -398,7 +398,7 @@ func (c *Coordinator) handleKeygen(ctx context.Context, event store.TSSEvent, ev
 	return err
 }
 
-func (c *Coordinator) handleKeyrefresh(ctx context.Context, event store.TSSEvent, eventData EventData, participants []tss.Participant) error {
+func (c *Coordinator) handleKeyrefresh(ctx context.Context, event store.TSSEvent, eventData EventData, participants []*tss.UniversalValidator) error {
 	c.mu.RLock()
 	service := c.service
 	c.mu.RUnlock()
@@ -417,7 +417,7 @@ func (c *Coordinator) handleKeyrefresh(ctx context.Context, event store.TSSEvent
 	return err
 }
 
-func (c *Coordinator) handleSign(ctx context.Context, event store.TSSEvent, eventData EventData, participants []tss.Participant) error {
+func (c *Coordinator) handleSign(ctx context.Context, event store.TSSEvent, eventData EventData, participants []*tss.UniversalValidator) error {
 	c.mu.RLock()
 	service := c.service
 	c.mu.RUnlock()

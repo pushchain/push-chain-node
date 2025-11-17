@@ -64,7 +64,7 @@ func (s *sessionState) setMetadata(blockNumber uint64, coordinatorPartyID, coord
 	if len(parties.list) > 0 {
 		s.participants = make(map[string]string, len(parties.list))
 		for _, party := range parties.list {
-			s.participants[party.PeerID] = party.PartyID
+			s.participants[party.PeerID()] = party.PartyID()
 		}
 	}
 }

@@ -39,7 +39,7 @@ type EventInfo struct {
 	BlockNumber  uint64
 	ProtocolType string
 	Status       string
-	Participants []tss.Participant
+	Participants []*tss.UniversalValidator
 }
 
 // Dependencies groups the runtime dependencies required by the service.
@@ -55,7 +55,7 @@ type KeygenRequest struct {
 	KeyID        string
 	Threshold    int
 	BlockNumber  uint64
-	Participants []tss.Participant
+	Participants []*tss.UniversalValidator
 }
 
 type KeyrefreshRequest struct {
@@ -63,7 +63,7 @@ type KeyrefreshRequest struct {
 	KeyID        string
 	Threshold    int
 	BlockNumber  uint64
-	Participants []tss.Participant
+	Participants []*tss.UniversalValidator
 }
 
 type SignRequest struct {
@@ -73,7 +73,7 @@ type SignRequest struct {
 	MessageHash  []byte
 	ChainPath    []byte
 	BlockNumber  uint64
-	Participants []tss.Participant
+	Participants []*tss.UniversalValidator
 }
 
 type KeygenResult struct {

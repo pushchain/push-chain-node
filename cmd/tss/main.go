@@ -414,14 +414,14 @@ func writePeerInfo(filename, partyID, peerID string, addrs []string, logger zero
 }
 
 // loadAllPeerInfo loads peer information from the shared file.
-func loadAllPeerInfo(filename string) (map[string]tss.Participant, error) {
+func loadAllPeerInfo(filename string) (map[string]*tss.UniversalValidator, error) {
 	type peerInfo struct {
 		PartyID    string   `json:"party_id"`
 		PeerID     string   `json:"peer_id"`
 		Multiaddrs []string `json:"multiaddrs"`
 	}
 
-	peers := make(map[string]tss.Participant)
+	peers := make(map[string]*tss.UniversalValidator)
 
 	// Read all peer info files (party-1.json, party-2.json, party-3.json)
 	for i := 1; i <= 3; i++ {
@@ -441,10 +441,14 @@ func loadAllPeerInfo(filename string) (map[string]tss.Participant, error) {
 			continue // Skip invalid entries
 		}
 
-		peers[info.PartyID] = tss.Participant{
-			PartyID:    info.PartyID,
-			PeerID:     info.PeerID,
-			Multiaddrs: info.Multiaddrs,
+		peers[info.PartyID] = &tss.UniversalValidator{
+			ValidatorAddress: info.PartyID,
+			Status:           tss.UVStatusActive,
+			Network: tss.NetworkInfo{
+				PeerID:     info.PeerID,
+				Multiaddrs: info.Multiaddrs,
+			},
+			JoinedAtBlock: 0,
 		}
 	}
 
@@ -462,7 +466,7 @@ func loadParticipantProvider(peersFile, sharedPeerFile, partyID, peerID string, 
 			return nil, fmt.Errorf("failed to read peers file: %w", err)
 		}
 
-		var peers map[string][]tss.Participant
+		var peers map[string][]*tss.UniversalValidator
 		if err := json.Unmarshal(data, &peers); err != nil {
 			return nil, fmt.Errorf("failed to parse peers file: %w", err)
 		}
@@ -479,33 +483,45 @@ func loadParticipantProvider(peersFile, sharedPeerFile, partyID, peerID string, 
 		}
 
 		// Create default participants for 3-node demo
-		participants := []tss.Participant{
+		participants := []*tss.UniversalValidator{
 			{
-				PartyID:    "party-1",
-				PeerID:     "unknown",
-				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39001"},
+				ValidatorAddress: "party-1",
+				Status:           tss.UVStatusActive,
+				Network: tss.NetworkInfo{
+					PeerID:     "unknown",
+					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39001"},
+				},
+				JoinedAtBlock: 0,
 			},
 			{
-				PartyID:    "party-2",
-				PeerID:     "unknown",
-				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39002"},
+				ValidatorAddress: "party-2",
+				Status:           tss.UVStatusActive,
+				Network: tss.NetworkInfo{
+					PeerID:     "unknown",
+					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39002"},
+				},
+				JoinedAtBlock: 0,
 			},
 			{
-				PartyID:    "party-3",
-				PeerID:     "unknown",
-				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39003"},
+				ValidatorAddress: "party-3",
+				Status:           tss.UVStatusActive,
+				Network: tss.NetworkInfo{
+					PeerID:     "unknown",
+					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39003"},
+				},
+				JoinedAtBlock: 0,
 			},
 		}
 
 		// Update with known peer info
 		for i := range participants {
-			if p, ok := allPeers[participants[i].PartyID]; ok {
-				participants[i].PeerID = p.PeerID
-				participants[i].Multiaddrs = p.Multiaddrs
-			} else if participants[i].PartyID == partyID {
+			if p, ok := allPeers[participants[i].ValidatorAddress]; ok {
+				participants[i].Network.PeerID = p.Network.PeerID
+				participants[i].Network.Multiaddrs = p.Network.Multiaddrs
+			} else if participants[i].ValidatorAddress == partyID {
 				// Use this node's actual info
-				participants[i].PeerID = peerID
-				participants[i].Multiaddrs = addrs
+				participants[i].Network.PeerID = peerID
+				participants[i].Network.Multiaddrs = addrs
 			}
 		}
 

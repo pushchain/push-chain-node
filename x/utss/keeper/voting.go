@@ -34,15 +34,25 @@ func (k Keeper) VoteOnTssBallot(
 		)
 	}
 
-	if sdkCtx.BlockHeight() >= existing.ExpiryHeight {
-		return false, false, fmt.Errorf("process expired")
+	currentHeight := sdkCtx.BlockHeight()
+
+	// ensure process hasn't expired
+	if currentHeight >= existing.ExpiryHeight {
+		return false, false, fmt.Errorf("process expired at height %d (current %d)", existing.ExpiryHeight, currentHeight)
 	}
 
-	expiryHeight := existing.ExpiryHeight
+	// compute delta = number of blocks from now until expiry
+	expiryAfterBlocks := existing.ExpiryHeight - currentHeight
+	if expiryAfterBlocks <= 0 {
+		return false, false, fmt.Errorf("invalid expiry delta: %d", expiryAfterBlocks)
+	}
 
 	// votesNeeded = number of participants in the tss process
 	// 100% quorum needed
-	votesNeeded := len(existing.Participants)
+	votesNeeded := int64(len(existing.Participants))
+	if votesNeeded <= 0 {
+		return false, false, fmt.Errorf("no participants in process %d", processId)
+	}
 
 	// Step 2: Call VoteOnBallot for tss
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
@@ -53,7 +63,7 @@ func (k Keeper) VoteOnTssBallot(
 		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
 		existing.Participants,
 		int64(votesNeeded),
-		expiryHeight,
+		expiryAfterBlocks,
 	)
 	if err != nil {
 		return false, false, err

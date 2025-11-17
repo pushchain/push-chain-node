@@ -1,6 +1,10 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+
 	"cosmossdk.io/collections"
 )
 
@@ -49,3 +53,9 @@ const (
 
 	QuerierRoute = ModuleName
 )
+
+func GetTssBallotKey(processId uint64, tssPubKey, keyId string) string {
+	canonical := fmt.Sprintf("%d:%s:%s", processId, tssPubKey, keyId)
+	h := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(h[:])
+}

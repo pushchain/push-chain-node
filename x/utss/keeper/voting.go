@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	"github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -13,13 +13,13 @@ func (k Keeper) VoteOnTssBallot(
 	ctx context.Context,
 	universalValidator sdk.ValAddress,
 	processId uint64,
-	keyId string,
+	tssPubKey, keyId string,
 ) (isFinalized bool,
 	isNew bool,
 	err error) {
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	ballotKey := keyId
+	ballotKey := types.GetTssBallotKey(processId, tssPubKey, keyId)
 
 	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
 	if err != nil {

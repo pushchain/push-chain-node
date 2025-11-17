@@ -532,43 +532,4 @@ func TestMsgServer_MigrateUEA(t *testing.T) {
 		_, err := f.msgServer.MigrateUEA(f.ctx, msg)
 		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
 	})
-
-	// after signature verification logic is added
-	// t.Run("Fail : Invalid Signature", func(t *testing.T) {
-	// 	avalidMP := &types.MigrationPayload{
-	// 		Migration: "0x8ba1f109551bD432803012645Ac136ddd64DBA72", // 20‑byte address
-	// 		Nonce:     "0",
-	// 		Deadline:  "0",
-	// 	}
-	// 	// You can inject failure in f.app or f.k.utvKeeper if mockable
-	// 	msg := &types.MsgMigrateUEA{
-	// 		Signer:             validSigner.String(),
-	// 		UniversalAccountId: validUA,
-	// 		MigrationPayload:   avalidMP,
-	// 		Signature:          "test-signature",
-	// 	}
-	// 	chainConfigTest := uregistrytypes.ChainConfig{
-	// 		Chain:          "eip155:11155111",
-	// 		VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
-	// 		PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
-	// 		GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
-	// 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
-	// 			FastInbound:     3,
-	// 			StandardInbound: 10,
-	// 		},
-	// 		GatewayMethods: []*uregistrytypes.GatewayMethods{},
-	// 		Enabled: &uregistrytypes.ChainEnabled{
-	// 			IsInboundEnabled:  true,
-	// 			IsOutboundEnabled: true,
-	// 		},
-	// 	}
-
-	// 	f.mockUregistryKeeper.EXPECT().
-	// 		GetChainConfig(gomock.Any(), "eip155:11155111").
-	// 		Return(chainConfigTest, nil)
-
-	// 	_, err := f.msgServer.MigrateUEA(f.ctx, msg)
-	// 	require.ErrorContains(t, err, "invalid verificationData format")
-	// })
-
 }

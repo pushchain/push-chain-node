@@ -25,7 +25,10 @@ func (k Keeper) VoteOnInboundBallot(
 		return false, false, fmt.Errorf("inbound tx is not enabled")
 	}
 
-	ballotKey := types.GetInboundKey(inbound)
+	ballotKey, err := types.GetInboundBallotKey(inbound)
+	if err != nil {
+		return false, false, err
+	}
 
 	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
 	if err != nil {

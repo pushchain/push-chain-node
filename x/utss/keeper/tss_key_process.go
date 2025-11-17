@@ -28,7 +28,7 @@ func (k Keeper) FinalizeTssKeyProcess(ctx context.Context, processID uint64, sta
 		}
 	}
 
-	k.Logger().Info("✅ TSS process finalized", "id", processID, "status", status.String())
+	k.Logger().Info("TSS process finalized", "id", processID, "status", status.String())
 	return nil
 }
 

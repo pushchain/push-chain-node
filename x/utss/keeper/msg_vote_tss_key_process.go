@@ -14,10 +14,20 @@ import (
 func (k Keeper) VoteTssKeyProcess(
 	ctx context.Context,
 	universalValidator sdk.ValAddress,
-	processId uint64,
 	tssPubKey, keyId string,
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	process, err := k.CurrentTssProcess.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("no active TSS process running")
+	}
+
+	processId := process.Id
+
+	if sdkCtx.BlockHeight() >= process.ExpiryHeight {
+		return fmt.Errorf("TSS process %d has expired", process.Id)
+	}
 
 	// Step 1: Ensure the key doesn't already exist
 	_, found, err := k.GetTssKeyByID(ctx, keyId)
@@ -30,7 +40,7 @@ func (k Keeper) VoteTssKeyProcess(
 
 	// Step 2: Vote on the ballot (using a cache context so we don’t mutate state on failure)
 	tmpCtx, commit := sdkCtx.CacheContext()
-	isFinalized, _, err := k.VoteOnTssBallot(tmpCtx, universalValidator, processId, keyId)
+	isFinalized, _, err := k.VoteOnTssBallot(tmpCtx, universalValidator, processId, tssPubKey, keyId)
 	if err != nil {
 		return errors.Wrap(err, "failed to vote on TSS ballot")
 	}
@@ -43,21 +53,13 @@ func (k Keeper) VoteTssKeyProcess(
 		return nil
 	}
 
-	// Step 4: Mark process as successful
-	process, found, err := k.GetTssKeyProcessByID(ctx, processId)
-	if err != nil {
-		return errors.Wrap(err, "failed to fetch TSS process")
-	}
-	if !found {
-		return fmt.Errorf("TSS process %d not found", processId)
-	}
 	process.Status = types.TssKeyProcessStatus_TSS_KEY_PROCESS_SUCCESS
 
 	// Step 5: Ballot finalized — create the TssKey record
 	tssKey := types.TssKey{
 		TssPubkey:            tssPubKey,
 		KeyId:                keyId,
-		Participants:         []string{universalValidator.String()},
+		Participants:         process.Participants,
 		FinalizedBlockHeight: sdkCtx.BlockHeight(),
 		KeygenBlockHeight:    process.BlockHeight,
 		ProcessId:            processId,
@@ -70,11 +72,8 @@ func (k Keeper) VoteTssKeyProcess(
 	if err := k.TssKeyHistory.Set(ctx, keyId, tssKey); err != nil {
 		return errors.Wrap(err, "failed to store TSS key history")
 	}
-	if err := k.CurrentTssProcess.Remove(ctx); err != nil {
-		return errors.Wrap(err, "failed to clear current TSS process")
-	}
-	if err := k.ProcessHistory.Set(ctx, processId, process); err != nil {
-		return errors.Wrap(err, "failed to archive TSS process")
+	if err := k.FinalizeTssKeyProcess(ctx, processId, types.TssKeyProcessStatus_TSS_KEY_PROCESS_SUCCESS); err != nil {
+		return errors.Wrap(err, "failed to finalise TSS process")
 	}
 
 	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
@@ -94,12 +93,17 @@ func (k Keeper) VoteTssKeyProcess(
 			}
 		}
 
+		valAddr, err := sdk.ValAddressFromBech32(coreValidatorAddress)
+		if err != nil {
+			return err
+		}
+
 		// update pending_join validator to active
 		switch uv.LifecycleInfo.CurrentStatus {
 		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
 			if foundInParticipants {
 				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
-				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, sdk.ValAddress(coreValidatorAddress), uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
+				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
 					k.logger.Error("failed to activate universal validator", "valAddr", coreValidatorAddress, "err", err)
 				}
 			}
@@ -107,7 +111,7 @@ func (k Keeper) VoteTssKeyProcess(
 		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
 			if !foundInParticipants {
 				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
-				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, sdk.ValAddress(coreValidatorAddress), uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
+				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
 					k.logger.Error("failed to inactivate universal validator", "valAddr", coreValidatorAddress, "err", err)
 				}
 			}

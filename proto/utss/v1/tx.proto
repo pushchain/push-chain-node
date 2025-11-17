@@ -65,9 +65,8 @@ message MsgVoteTssKeyProcess {
   option (cosmos.msg.v1.signer) = "signer";
 
   string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"]; ;    // universal validator address
-  uint64 process_id = 2; // id of the process
-  string tss_pubkey = 3;
-  string key_id = 4;
+  string tss_pubkey = 2;
+  string key_id = 3;
 }
 
 message MsgVoteTssKeyProcessResponse {}

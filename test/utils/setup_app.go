@@ -36,6 +36,10 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 	app := SetupApp(t)
 
 	ctx := app.BaseApp.NewContext(true)
+
+	// start with block height 1
+	ctx = ctx.WithBlockHeight(1)
+
 	//configure EVM params for PUSH0 opcode
 	configureEVMParams(app, ctx)
 
@@ -59,6 +63,9 @@ func SetAppWithMultipleValidators(t *testing.T, numVals int) (*app.ChainApp, sdk
 	app := SetupApp(t)
 
 	ctx := app.BaseApp.NewContext(true)
+
+	// start with block height 1
+	ctx = ctx.WithBlockHeight(1)
 
 	params, err := app.StakingKeeper.GetParams(ctx)
 	require.NoError(t, err)

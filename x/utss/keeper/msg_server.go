@@ -84,7 +84,7 @@ func (ms msgServer) VoteTssKeyProcess(ctx context.Context, msg *types.MsgVoteTss
 		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
-	err = ms.k.VoteTssKeyProcess(ctx, signerValAddr, msg.ProcessId, msg.TssPubkey, msg.KeyId)
+	err = ms.k.VoteTssKeyProcess(ctx, signerValAddr, msg.TssPubkey, msg.KeyId)
 	if err != nil {
 		return nil, err
 	}

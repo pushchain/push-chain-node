@@ -30,7 +30,7 @@ func (p TssKeyProcess) ValidateBasic() error {
 	}
 
 	// Validate block height
-	if p.BlockHeight <= 0 {
+	if p.BlockHeight < 0 {
 		return errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "invalid block height: %d", p.BlockHeight)
 	}
 
@@ -49,11 +49,6 @@ func (p TssKeyProcess) ValidateBasic() error {
 		p.Status != TssKeyProcessStatus_TSS_KEY_PROCESS_SUCCESS &&
 		p.Status != TssKeyProcessStatus_TSS_KEY_PROCESS_FAILED {
 		return errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "invalid process status: %v", p.Status)
-	}
-
-	// Validate ID
-	if p.Id == 0 {
-		return errorsmod.Wrap(sdkerrors.ErrInvalidRequest, "process id cannot be zero")
 	}
 
 	return nil

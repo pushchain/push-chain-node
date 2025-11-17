@@ -28,10 +28,19 @@ func (k Keeper) VoteOnTssBallot(
 
 	// Check if a current process exists and is still active (not expired and pending)
 	existing, err := k.CurrentTssProcess.Get(ctx)
-	if err == nil {
-		if sdkCtx.BlockHeight() < existing.ExpiryHeight {
-			return false, false, fmt.Errorf("an active TSS process already exists (id: %d)", existing.Id)
-		}
+	if err != nil {
+		return false, false, fmt.Errorf("no active TSS process")
+	}
+
+	if existing.Id != processId {
+		return false, false, fmt.Errorf(
+			"invalid vote: active process is %d, got %d",
+			existing.Id, processId,
+		)
+	}
+
+	if sdkCtx.BlockHeight() >= existing.ExpiryHeight {
+		return false, false, fmt.Errorf("process expired")
 	}
 
 	expiryHeight := existing.ExpiryHeight

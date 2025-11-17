@@ -48,7 +48,7 @@ func (k Keeper) InitiateTssKeyProcess(
 		Status:       types.TssKeyProcessStatus_TSS_KEY_PROCESS_PENDING,
 		Participants: universalValidatorSetStrs,
 		BlockHeight:  sdkCtx.BlockHeight(),
-		ExpiryHeight: int64(types.DefaultTssProcessExpiryAfterBlocks),
+		ExpiryHeight: sdkCtx.BlockHeight() + int64(types.DefaultTssProcessExpiryAfterBlocks),
 		ProcessType:  processType,
 		Id:           processID,
 	}

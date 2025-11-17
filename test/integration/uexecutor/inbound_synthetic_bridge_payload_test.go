@@ -223,7 +223,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		require.NoError(t, err)
 
 		// Now check UniversalTx state
-		utxKey := uexecutortypes.GetInboundKey(*invalidInbound)
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*invalidInbound)
 		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
 		require.NoError(t, err)
 		require.True(t, found, "universal tx should exist after quorum is reached")
@@ -301,7 +301,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		}
 
 		// Get the universal tx
-		utxKey := uexecutortypes.GetInboundKey(*inbound)
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
 		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
 		require.NoError(t, err)
 		require.True(t, found)

@@ -21,11 +21,6 @@ func (k Keeper) VoteOnTssBallot(
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	ballotKey := types.GetTssBallotKey(processId, tssPubKey, keyId)
 
-	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
-	if err != nil {
-		return false, false, err
-	}
-
 	// Check if a current process exists and is still active (not expired and pending)
 	existing, err := k.CurrentTssProcess.Get(ctx)
 	if err != nil {
@@ -45,27 +40,18 @@ func (k Keeper) VoteOnTssBallot(
 
 	expiryHeight := existing.ExpiryHeight
 
-	// number of validators
-	totalValidators := len(universalValidatorSet)
+	// votesNeeded = number of participants in the tss process
+	// 100% quorum needed
+	votesNeeded := len(existing.Participants)
 
-	// votesNeeded = ceil(2/3 * totalValidators)
-	// >2/3 quorum similar to tendermint
-	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
-
-	// Convert []sdk.ValAddress -> []string
-	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
-	for i, v := range universalValidatorSet {
-		universalValidatorSetStrs[i] = v.IdentifyInfo.CoreValidatorAddress
-	}
-
-	// Step 2: Call VoteOnBallot for this inbound synthetic
+	// Step 2: Call VoteOnBallot for tss
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
 		ctx,
 		ballotKey,
 		uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_TSS_KEY,
 		universalValidator.String(),
 		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
-		universalValidatorSetStrs,
+		existing.Participants,
 		int64(votesNeeded),
 		expiryHeight,
 	)

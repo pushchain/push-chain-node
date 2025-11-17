@@ -47,7 +47,7 @@ func NewTssProcessInitiatedEvent(e TssProcessInitiatedEvent) (sdk.Event, error) 
 // String returns a readable log for CLI.
 func (e TssProcessInitiatedEvent) String() string {
 	return fmt.Sprintf(
-		"TSS process initiated | ID: %d | Type: %s | Participants: %d | ExpiryHeight: %d",
+		"TSS process initiated | ID: %d | Type: %s | Participants: %v | ExpiryHeight: %d",
 		e.ProcessID, e.ProcessType, e.Participants, e.ExpiryHeight,
 	)
 }

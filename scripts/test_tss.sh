@@ -18,27 +18,38 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-# Default values
-PARTY_ID="${1:-party-1}"
-P2P_PORT="${2:-39001}"
-API_PORT="${3:-8081}"
+# All 3 arguments are required
+if [ $# -lt 3 ]; then
+    echo -e "${RED}Error: All 3 arguments are required${NC}"
+    echo "Usage: $0 <validator-address> <p2p-port> <private-key-hex>"
+    echo "Example: $0 pushvaloper1... 39001 30B0D912700C3DF94F4743F440D1613F7EA67E1CEF32C73B925DB6CD7F1A1544"
+    exit 1
+fi
+
+VALIDATOR_ADDRESS="$1"
+P2P_PORT="$2"
+PRIVATE_KEY="$3"
 
 # Cleanup function
 cleanup() {
     echo -e "${YELLOW}Cleaning up previous runs...${NC}"
-    pkill -f "tss.*-party=$PARTY_ID" || true
-    pkill -f "tss node.*-party=$PARTY_ID" || true
+    
+    if [ -n "$VALIDATOR_ADDRESS" ]; then
+        pkill -f "tss.*-validator-address=$VALIDATOR_ADDRESS" || true
+        pkill -f "tss node.*-validator-address=$VALIDATOR_ADDRESS" || true
+    fi
     sleep 1
     
-    # Clean up database file for this node
-    DB_FILE="/tmp/tss-$PARTY_ID.db"
+    # Clean up database file for this node (using sanitized validator address)
+    SANITIZED=$(echo "$VALIDATOR_ADDRESS" | sed 's/:/_/g' | sed 's/\//_/g')
+    DB_FILE="/tmp/tss-$SANITIZED.db"
     if [ -f "$DB_FILE" ]; then
         echo -e "${YELLOW}Removing database file: $DB_FILE${NC}"
         rm -f "$DB_FILE"
     fi
     
     # Clean up home directory for this node
-    HOME_DIR="/tmp/tss-$PARTY_ID"
+    HOME_DIR="/tmp/tss-$SANITIZED"
     if [ -d "$HOME_DIR" ]; then
         echo -e "${YELLOW}Removing home directory: $HOME_DIR${NC}"
         rm -rf "$HOME_DIR"
@@ -49,13 +60,15 @@ cleanup() {
 cleanup
 
 # Create fresh home directory
-HOME_DIR="/tmp/tss-$PARTY_ID"
+SANITIZED=$(echo "$VALIDATOR_ADDRESS" | sed 's/:/_/g' | sed 's/\//_/g')
+HOME_DIR="/tmp/tss-$SANITIZED"
 mkdir -p "$HOME_DIR"
 echo -e "${GREEN}Using home directory: $HOME_DIR${NC}"
 
 echo -e "${GREEN}=== TSS Test Node ===${NC}"
-echo "Party ID: $PARTY_ID"
+echo "Validator Address: $VALIDATOR_ADDRESS"
 echo "P2P Port: $P2P_PORT"
+echo "Private Key: [provided]"
 echo ""
 
 # Always build binary to ensure we use the latest version
@@ -69,30 +82,19 @@ echo -e "${GREEN}✓ Binary built${NC}"
 echo ""
 
 
-# Check for existing peer IDs file
-PEER_IDS_FILE="/tmp/tss-peer-ids.json"
+# Note: Peer IDs are now deterministic from hardcoded keys, so no file-based discovery needed
+# The -peer-ids flag is optional and can override if needed
 PEER_IDS_FLAG=""
 
-# If peer IDs file exists, use it
-if [ -f "$PEER_IDS_FILE" ]; then
-    # Read peer IDs from file and format as flag
-    PEER_IDS=$(cat "$PEER_IDS_FILE" | jq -r 'to_entries | map("\(.key):\(.value)") | join(",")' 2>/dev/null || echo "")
-    if [ -n "$PEER_IDS" ]; then
-        PEER_IDS_FLAG="-peer-ids=$PEER_IDS"
-        echo -e "${GREEN}Using peer IDs from $PEER_IDS_FILE${NC}"
-    fi
-fi
-
-# Start the node and capture peer ID
+# Start the node
 echo -e "${BLUE}Starting node...${NC}"
 echo -e "${YELLOW}Note: Peer ID will be logged when node starts.${NC}"
-echo -e "${YELLOW}To share peer IDs, copy them to $PEER_IDS_FILE in format:${NC}"
-echo -e "${YELLOW}  {\"party-1\": \"peer-id-1\", \"party-2\": \"peer-id-2\"}${NC}"
 echo ""
 
-./build/tss node \
-    -party="$PARTY_ID" \
-    -p2p-listen="/ip4/127.0.0.1/tcp/$P2P_PORT" \
-    -home="$HOME_DIR" \
-    $PEER_IDS_FLAG \
-    2>&1 | tee "/tmp/tss-$PARTY_ID.log"
+# Build command with required private key
+CMD="./build/tss node -validator-address=\"$VALIDATOR_ADDRESS\" -p2p-listen=\"/ip4/127.0.0.1/tcp/$P2P_PORT\" -home=\"$HOME_DIR\" -private-key=\"$PRIVATE_KEY\""
+if [ -n "$PEER_IDS_FLAG" ]; then
+    CMD="$CMD $PEER_IDS_FLAG"
+fi
+
+eval "$CMD" 2>&1 | tee "/tmp/tss-$SANITIZED.log"

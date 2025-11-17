@@ -6,5 +6,5 @@ const (
 	VotesThresholdDenominator = 3
 
 	// Default number of blocks after which tss process expires
-	DefaultTssProcessExpiryAfterBlocks = 1000
+	DefaultTssProcessExpiryAfterBlocks = 500
 )

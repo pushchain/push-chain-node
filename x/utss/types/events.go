@@ -14,10 +14,10 @@ const (
 
 // TssProcessInitiatedEvent represents the emitted event when a new TSS key process starts.
 type TssProcessInitiatedEvent struct {
-	ProcessID    uint64 `json:"process_id"`
-	ProcessType  string `json:"process_type"`
-	Participants int    `json:"participants"`
-	ExpiryHeight int64  `json:"expiry_height"`
+	ProcessID    uint64   `json:"process_id"`
+	ProcessType  string   `json:"process_type"`
+	Participants []string `json:"participants"`
+	ExpiryHeight int64    `json:"expiry_height"`
 }
 
 // NewTssProcessInitiatedEvent creates and returns a Cosmos SDK event.
@@ -27,11 +27,16 @@ func NewTssProcessInitiatedEvent(e TssProcessInitiatedEvent) (sdk.Event, error) 
 		return sdk.Event{}, fmt.Errorf("failed to marshal event: %w", err)
 	}
 
+	participantsJSON, err := json.Marshal(e.Participants)
+	if err != nil {
+		return sdk.Event{}, fmt.Errorf("failed to marshal participants: %w", err)
+	}
+
 	event := sdk.NewEvent(
 		EventTypeTssProcessInitiated,
 		sdk.NewAttribute("process_id", fmt.Sprintf("%d", e.ProcessID)),
 		sdk.NewAttribute("process_type", e.ProcessType),
-		sdk.NewAttribute("participants", fmt.Sprintf("%d", e.Participants)),
+		sdk.NewAttribute("participants", string(participantsJSON)),
 		sdk.NewAttribute("expiry_height", fmt.Sprintf("%d", e.ExpiryHeight)),
 		sdk.NewAttribute("data", string(bz)), // full JSON payload for off-chain consumption
 	)

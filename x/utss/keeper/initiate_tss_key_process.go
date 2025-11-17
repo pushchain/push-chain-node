@@ -71,7 +71,7 @@ func (k Keeper) InitiateTssKeyProcess(
 	event, err := types.NewTssProcessInitiatedEvent(types.TssProcessInitiatedEvent{
 		ProcessID:    process.Id,
 		ProcessType:  process.ProcessType.String(),
-		Participants: len(process.Participants),
+		Participants: process.Participants,
 		ExpiryHeight: process.ExpiryHeight,
 	})
 	if err != nil {

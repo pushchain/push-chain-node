@@ -29,18 +29,29 @@ cleanup() {
     pkill -f "tss.*-party=$PARTY_ID" || true
     pkill -f "tss node.*-party=$PARTY_ID" || true
     sleep 1
+    
+    # Clean up database file for this node
+    DB_FILE="/tmp/tss-$PARTY_ID.db"
+    if [ -f "$DB_FILE" ]; then
+        echo -e "${YELLOW}Removing database file: $DB_FILE${NC}"
+        rm -f "$DB_FILE"
+    fi
+    
+    # Clean up home directory for this node
+    HOME_DIR="/tmp/tss-$PARTY_ID"
+    if [ -d "$HOME_DIR" ]; then
+        echo -e "${YELLOW}Removing home directory: $HOME_DIR${NC}"
+        rm -rf "$HOME_DIR"
+    fi
 }
 
 # Cleanup at start
 cleanup
 
-# Clear home directory for this node
+# Create fresh home directory
 HOME_DIR="/tmp/tss-$PARTY_ID"
-if [ -d "$HOME_DIR" ]; then
-    echo -e "${YELLOW}Clearing home directory: $HOME_DIR${NC}"
-    rm -rf "$HOME_DIR"
-fi
 mkdir -p "$HOME_DIR"
+echo -e "${GREEN}Using home directory: $HOME_DIR${NC}"
 
 echo -e "${GREEN}=== TSS Test Node ===${NC}"
 echo "Party ID: $PARTY_ID"
@@ -58,10 +69,30 @@ echo -e "${GREEN}✓ Binary built${NC}"
 echo ""
 
 
-# Start the node
+# Check for existing peer IDs file
+PEER_IDS_FILE="/tmp/tss-peer-ids.json"
+PEER_IDS_FLAG=""
+
+# If peer IDs file exists, use it
+if [ -f "$PEER_IDS_FILE" ]; then
+    # Read peer IDs from file and format as flag
+    PEER_IDS=$(cat "$PEER_IDS_FILE" | jq -r 'to_entries | map("\(.key):\(.value)") | join(",")' 2>/dev/null || echo "")
+    if [ -n "$PEER_IDS" ]; then
+        PEER_IDS_FLAG="-peer-ids=$PEER_IDS"
+        echo -e "${GREEN}Using peer IDs from $PEER_IDS_FILE${NC}"
+    fi
+fi
+
+# Start the node and capture peer ID
 echo -e "${BLUE}Starting node...${NC}"
+echo -e "${YELLOW}Note: Peer ID will be logged when node starts.${NC}"
+echo -e "${YELLOW}To share peer IDs, copy them to $PEER_IDS_FILE in format:${NC}"
+echo -e "${YELLOW}  {\"party-1\": \"peer-id-1\", \"party-2\": \"peer-id-2\"}${NC}"
+echo ""
+
 ./build/tss node \
     -party="$PARTY_ID" \
     -p2p-listen="/ip4/127.0.0.1/tcp/$P2P_PORT" \
     -home="$HOME_DIR" \
-    2>&1
+    $PEER_IDS_FLAG \
+    2>&1 | tee "/tmp/tss-$PARTY_ID.log"

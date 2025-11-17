@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,7 +68,7 @@ func runNode() {
 		libp2pListen = flag.String("p2p-listen", "/ip4/127.0.0.1/tcp/0", "libp2p listen multiaddr")
 		homeDir      = flag.String("home", "", "directory for keyshare storage (defaults to temp)")
 		password     = flag.String("password", "demo-password", "encryption password for keyshares")
-		peersFile    = flag.String("peers", "", "JSON file with peer information (for demo)")
+		peerIDs      = flag.String("peer-ids", "", "comma-separated peer IDs in format party-1:peerid1,party-2:peerid2")
 	)
 	flag.Parse()
 
@@ -118,10 +119,23 @@ func runNode() {
 
 	// Get listen addresses
 	listenAddrs := tr.ListenAddrs()
+	peerID := tr.ID()
 	logger.Info().
-		Str("peer_id", tr.ID()).
+		Str("peer_id", peerID).
 		Strs("addrs", listenAddrs).
 		Msg("libp2p transport started")
+
+	// Write peer ID to shared file so other nodes can discover it
+	peerInfoFile := fmt.Sprintf("/tmp/tss-peer-%s.json", *partyID)
+	peerInfo := map[string]interface{}{
+		"party_id": *partyID,
+		"peer_id":  peerID,
+		"addrs":    listenAddrs,
+	}
+	if data, err := json.Marshal(peerInfo); err == nil {
+		os.WriteFile(peerInfoFile, data, 0644)
+		logger.Debug().Str("file", peerInfoFile).Msg("wrote peer info to file")
+	}
 
 	// Setup database file for this node (each node has its own database)
 	// In production, these databases are populated by on-chain event listening
@@ -133,42 +147,52 @@ func runNode() {
 	defer database.Close()
 	logger.Info().Str("db_path", dbPath).Msg("using node-specific database")
 
-	// Write this node's info to shared file (one file per party)
-	peerInfoFile := "/tmp/tss-demo-peers.json"
-	partyPeerFile := fmt.Sprintf("%s.%s", peerInfoFile, *partyID)
-	if err := writePeerInfo(partyPeerFile, *partyID, tr.ID(), listenAddrs, logger); err != nil {
-		logger.Warn().Err(err).Msg("failed to write peer info, continuing anyway")
-	}
+	// Load peer IDs from files written by other nodes, or from command line flag
+	peerIDMap := make(map[string]string)
 
-	// Load or create participant information
-	// Wait a bit for other nodes to write their peer info
-	time.Sleep(2 * time.Second)
-
-	participantProvider, err := loadParticipantProvider(*peersFile, peerInfoFile, *partyID, tr.ID(), listenAddrs, logger)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to load participant provider")
-	}
-
-	// Periodically refresh participant info to pick up new nodes
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				updated, err := loadParticipantProvider(*peersFile, peerInfoFile, *partyID, tr.ID(), listenAddrs, logger)
-				if err == nil {
-					// Update provider with latest peer info
-					for protocol := range map[string]bool{"": true, "keygen": true, "keyrefresh": true, "sign": true} {
-						participants, _ := updated.GetParticipants(ctx, protocol, 0)
-						participantProvider.SetParticipants(protocol, participants)
-					}
+	// First, try to load from files (written by other nodes)
+	for i := 1; i <= 3; i++ {
+		partyIDKey := fmt.Sprintf("party-%d", i)
+		if partyIDKey == *partyID {
+			continue // Skip self
+		}
+		peerInfoFile := fmt.Sprintf("/tmp/tss-peer-%s.json", partyIDKey)
+		if data, err := os.ReadFile(peerInfoFile); err == nil {
+			var info map[string]interface{}
+			if err := json.Unmarshal(data, &info); err == nil {
+				if pid, ok := info["peer_id"].(string); ok {
+					peerIDMap[partyIDKey] = pid
+					logger.Debug().Str("party", partyIDKey).Str("peer_id", pid).Msg("loaded peer ID from file")
 				}
 			}
 		}
-	}()
+	}
+
+	// Override with command line flag if provided
+	if *peerIDs != "" {
+		pairs := strings.Split(*peerIDs, ",")
+		for _, pair := range pairs {
+			parts := strings.Split(strings.TrimSpace(pair), ":")
+			if len(parts) == 2 {
+				peerIDMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	// Create simple data provider for demo
+	dataProvider := &staticPushChainDataProvider{
+		partyID:   *partyID,
+		peerID:    tr.ID(),
+		addrs:     listenAddrs,
+		peerIDMap: peerIDMap,
+		logger:    logger,
+	}
+
+	// Get validator address for this party ID
+	validatorAddress, err := dataProvider.GetValidatorAddressForParty(*partyID)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to get validator address for party")
+	}
 
 	// Initialize coordinator first (needed for EventStore)
 	// We'll create a temporary coordinator to get EventStore, then create service with it
@@ -183,13 +207,10 @@ func runNode() {
 
 	// Initialize coordinator (we'll update service reference later)
 	coord, err := coordinator.NewCoordinator(coordinator.Config{
-		DB:                  database.Client(),
-		Service:             nil, // Will be set after service creation
-		ParticipantProvider: participantProvider,
-		PartyID:             *partyID,
-		BlockNumberGetter: func() uint64 {
-			return uint64(time.Now().Unix()) // Use timestamp as block number for demo
-		},
+		DB:                database.Client(),
+		Service:           nil, // Will be set after service creation
+		DataProvider:      dataProvider,
+		PartyID:           validatorAddress,
 		Logger:            logger,
 		PollInterval:      500 * time.Millisecond,
 		ProcessingTimeout: 2 * time.Minute,
@@ -201,7 +222,7 @@ func runNode() {
 
 	// Initialize TSS core service with EventStore from coordinator
 	service, err := core.NewService(core.Config{
-		PartyID:        *partyID,
+		PartyID:        validatorAddress,
 		SetupTimeout:   30 * time.Second,
 		MessageTimeout: 30 * time.Second,
 		Logger:         logger,
@@ -384,154 +405,128 @@ func runCommand(command string) {
 	fmt.Println("Check the node logs to see the progress.")
 }
 
-// writePeerInfo writes this node's peer information to a shared file.
-func writePeerInfo(filename, partyID, peerID string, addrs []string, logger zerolog.Logger) error {
-	type peerInfo struct {
-		PartyID    string   `json:"party_id"`
-		PeerID     string   `json:"peer_id"`
-		Multiaddrs []string `json:"multiaddrs"`
-		UpdatedAt  int64    `json:"updated_at"`
-	}
-
-	info := peerInfo{
-		PartyID:    partyID,
-		PeerID:     peerID,
-		Multiaddrs: addrs,
-		UpdatedAt:  time.Now().Unix(),
-	}
-
-	data, err := json.MarshalIndent(info, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	// Use file locking or atomic write
-	tmpFile := filename + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmpFile, filename)
+// staticPushChainDataProvider implements PushChainDataProvider for demo/testing.
+type staticPushChainDataProvider struct {
+	partyID   string
+	peerID    string
+	addrs     []string
+	peerIDMap map[string]string // partyID -> peerID mapping (can be updated)
+	logger    zerolog.Logger
 }
 
-// loadAllPeerInfo loads peer information from the shared file.
-func loadAllPeerInfo(filename string) (map[string]*tss.UniversalValidator, error) {
-	type peerInfo struct {
-		PartyID    string   `json:"party_id"`
-		PeerID     string   `json:"peer_id"`
-		Multiaddrs []string `json:"multiaddrs"`
+// refreshPeerIDs reloads peer IDs from files written by other nodes
+func (p *staticPushChainDataProvider) refreshPeerIDs() {
+	for i := 1; i <= 3; i++ {
+		partyIDKey := fmt.Sprintf("party-%d", i)
+		if partyIDKey == p.partyID {
+			continue // Skip self
+		}
+		peerInfoFile := fmt.Sprintf("/tmp/tss-peer-%s.json", partyIDKey)
+		if data, err := os.ReadFile(peerInfoFile); err == nil {
+			var info map[string]interface{}
+			if err := json.Unmarshal(data, &info); err == nil {
+				if pid, ok := info["peer_id"].(string); ok {
+					p.peerIDMap[partyIDKey] = pid
+				}
+			}
+		}
+	}
+}
+
+// GetLatestBlockNum implements coordinator.PushChainDataProvider.
+func (p *staticPushChainDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+	// Use timestamp as block number for demo
+	return uint64(time.Now().Unix()), nil
+}
+
+// GetUniversalValidators implements coordinator.PushChainDataProvider.
+func (p *staticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*tss.UniversalValidator, error) {
+	// Refresh peer IDs from files (other nodes may have started)
+	p.refreshPeerIDs()
+
+	// Map validator addresses to party IDs for demo
+	validatorToParty := map[string]string{
+		"pushvaloper1fv2fm76q7cjnr58wdwyntzrjgtc7qya6n7dmlu": "party-1",
+		"pushvaloper12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddty2fl75": "party-2",
+		"pushvaloper1vzuw2x3k2ccme70zcgswv8d88kyc07grdpvw3e": "party-3",
 	}
 
-	peers := make(map[string]*tss.UniversalValidator)
-
-	// Read all peer info files (party-1.json, party-2.json, party-3.json)
-	for i := 1; i <= 3; i++ {
-		partyID := fmt.Sprintf("party-%d", i)
-		file := fmt.Sprintf("%s.%s", filename, partyID)
-
-		data, err := os.ReadFile(file)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue // Node not started yet
-			}
-			return nil, err
+	// Helper to get peer ID for a validator address
+	getPeerIDForValidator := func(validatorAddr string) string {
+		partyID, ok := validatorToParty[validatorAddr]
+		if !ok {
+			return "unknown"
 		}
-
-		var info peerInfo
-		if err := json.Unmarshal(data, &info); err != nil {
-			continue // Skip invalid entries
+		// If this is the local party, use the actual peer ID
+		if partyID == p.partyID {
+			return p.peerID
 		}
+		// Otherwise, look it up in the peerIDMap
+		if peerID, ok := p.peerIDMap[partyID]; ok {
+			return peerID
+		}
+		return "unknown"
+	}
 
-		peers[info.PartyID] = &tss.UniversalValidator{
-			ValidatorAddress: info.PartyID,
+	// Return default 3-node setup for demo
+	return []*tss.UniversalValidator{
+		{
+			ValidatorAddress: "pushvaloper1fv2fm76q7cjnr58wdwyntzrjgtc7qya6n7dmlu",
 			Status:           tss.UVStatusActive,
 			Network: tss.NetworkInfo{
-				PeerID:     info.PeerID,
-				Multiaddrs: info.Multiaddrs,
+				PeerID:     getPeerIDForValidator("pushvaloper1fv2fm76q7cjnr58wdwyntzrjgtc7qya6n7dmlu"),
+				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39001"},
 			},
 			JoinedAtBlock: 0,
-		}
-	}
-
-	return peers, nil
+		},
+		{
+			ValidatorAddress: "pushvaloper12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddty2fl75",
+			Status:           tss.UVStatusActive,
+			Network: tss.NetworkInfo{
+				PeerID:     getPeerIDForValidator("pushvaloper12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddty2fl75"),
+				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39002"},
+			},
+			JoinedAtBlock: 0,
+		},
+		{
+			ValidatorAddress: "pushvaloper1vzuw2x3k2ccme70zcgswv8d88kyc07grdpvw3e",
+			Status:           tss.UVStatusActive,
+			Network: tss.NetworkInfo{
+				PeerID:     getPeerIDForValidator("pushvaloper1vzuw2x3k2ccme70zcgswv8d88kyc07grdpvw3e"),
+				Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39003"},
+			},
+			JoinedAtBlock: 0,
+		},
+	}, nil
 }
 
-// loadParticipantProvider loads or creates participant information for the demo.
-func loadParticipantProvider(peersFile, sharedPeerFile, partyID, peerID string, addrs []string, logger zerolog.Logger) (*coordinator.StaticParticipantProvider, error) {
-	provider := coordinator.NewStaticParticipantProvider(logger)
-
-	if peersFile != "" {
-		// Load from explicit file
-		data, err := os.ReadFile(peersFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read peers file: %w", err)
+// GetUniversalValidator implements coordinator.PushChainDataProvider.
+func (p *staticPushChainDataProvider) GetUniversalValidator(ctx context.Context, validatorAddress string) (*tss.UniversalValidator, error) {
+	validators, err := p.GetUniversalValidators(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range validators {
+		if v.ValidatorAddress == validatorAddress {
+			return v, nil
 		}
+	}
+	return nil, fmt.Errorf("validator not found: %s", validatorAddress)
+}
 
-		var peers map[string][]*tss.UniversalValidator
-		if err := json.Unmarshal(data, &peers); err != nil {
-			return nil, fmt.Errorf("failed to parse peers file: %w", err)
-		}
-
-		for protocol, participants := range peers {
-			provider.SetParticipants(protocol, participants)
-		}
-		logger.Info().Str("file", peersFile).Msg("loaded participants from file")
-	} else {
-		// Try to load from shared peer info files
-		allPeers, err := loadAllPeerInfo(sharedPeerFile)
-		if err != nil {
-			logger.Debug().Err(err).Msg("failed to load shared peer info")
-		}
-
-		// Create default participants for 3-node demo
-		participants := []*tss.UniversalValidator{
-			{
-				ValidatorAddress: "party-1",
-				Status:           tss.UVStatusActive,
-				Network: tss.NetworkInfo{
-					PeerID:     "unknown",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39001"},
-				},
-				JoinedAtBlock: 0,
-			},
-			{
-				ValidatorAddress: "party-2",
-				Status:           tss.UVStatusActive,
-				Network: tss.NetworkInfo{
-					PeerID:     "unknown",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39002"},
-				},
-				JoinedAtBlock: 0,
-			},
-			{
-				ValidatorAddress: "party-3",
-				Status:           tss.UVStatusActive,
-				Network: tss.NetworkInfo{
-					PeerID:     "unknown",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/39003"},
-				},
-				JoinedAtBlock: 0,
-			},
-		}
-
-		// Update with known peer info
-		for i := range participants {
-			if p, ok := allPeers[participants[i].ValidatorAddress]; ok {
-				participants[i].Network.PeerID = p.Network.PeerID
-				participants[i].Network.Multiaddrs = p.Network.Multiaddrs
-			} else if participants[i].ValidatorAddress == partyID {
-				// Use this node's actual info
-				participants[i].Network.PeerID = peerID
-				participants[i].Network.Multiaddrs = addrs
-			}
-		}
-
-		provider.SetParticipants("", participants) // Default for all protocols
-		logger.Info().
-			Str("local_party", partyID).
-			Str("local_peer_id", peerID).
-			Int("known_peers", len(allPeers)).
-			Msg("loaded participant configuration")
+// GetValidatorAddressForParty returns the validator address for a given party ID.
+func (p *staticPushChainDataProvider) GetValidatorAddressForParty(partyID string) (string, error) {
+	validatorToParty := map[string]string{
+		"pushvaloper1fv2fm76q7cjnr58wdwyntzrjgtc7qya6n7dmlu": "party-1",
+		"pushvaloper12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddty2fl75": "party-2",
+		"pushvaloper1vzuw2x3k2ccme70zcgswv8d88kyc07grdpvw3e": "party-3",
 	}
 
-	return provider, nil
+	// Reverse lookup: party ID -> validator address
+	for validatorAddr, pID := range validatorToParty {
+		if pID == partyID {
+			return validatorAddr, nil
+		}
+	}
+	return "", fmt.Errorf("no validator address found for party: %s", partyID)
 }

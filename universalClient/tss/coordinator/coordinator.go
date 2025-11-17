@@ -32,23 +32,25 @@ const (
 	DefaultProcessingTimeout = 5 * time.Minute
 )
 
-// ParticipantProvider provides the list of validators that can participate in TSS operations.
-// In production, this would query on-chain validator registry.
-type ParticipantProvider interface {
-	// GetParticipants returns the list of active validators for the given protocol type.
-	// protocolType: "keygen", "keyrefresh", or "sign"
-	// Returns participants sorted by PartyID (validator address).
-	GetParticipants(ctx context.Context, protocolType string, blockNumber uint64) ([]*tss.UniversalValidator, error)
+// PushChainDataProvider provides access to Push Chain data including validators and block information.
+type PushChainDataProvider interface {
+	// GetLatestBlockNum returns the latest block number from the chain.
+	GetLatestBlockNum(ctx context.Context) (uint64, error)
+
+	// GetUniversalValidators returns all universal validators.
+	GetUniversalValidators(ctx context.Context) ([]*tss.UniversalValidator, error)
+
+	// GetUniversalValidator returns a specific universal validator by its validator address.
+	GetUniversalValidator(ctx context.Context, validatorAddress string) (*tss.UniversalValidator, error)
 }
 
 // Coordinator orchestrates TSS operations by polling the database for events.
 type Coordinator struct {
-	db                  *gorm.DB
-	service             *core.Service
-	participantProvider ParticipantProvider
-	partyID             string        // This node's party ID (validator address)
-	blockNumberGetter   func() uint64 // Function to get current block number
-	logger              zerolog.Logger
+	db           *gorm.DB
+	service      *core.Service
+	dataProvider PushChainDataProvider
+	partyID      string // This node's party ID (validator address)
+	logger       zerolog.Logger
 
 	// Configuration
 	pollInterval      time.Duration
@@ -65,12 +67,11 @@ type Coordinator struct {
 
 // Config holds coordinator configuration.
 type Config struct {
-	DB                  *gorm.DB
-	Service             *core.Service
-	ParticipantProvider ParticipantProvider
-	PartyID             string
-	BlockNumberGetter   func() uint64
-	Logger              zerolog.Logger
+	DB           *gorm.DB
+	Service      *core.Service
+	DataProvider PushChainDataProvider
+	PartyID      string
+	Logger       zerolog.Logger
 
 	// Optional configuration
 	PollInterval      time.Duration
@@ -84,14 +85,11 @@ func NewCoordinator(cfg Config) (*Coordinator, error) {
 		return nil, errors.New("database is required")
 	}
 	// Service can be nil initially and set later via SetService
-	if cfg.ParticipantProvider == nil {
-		return nil, errors.New("participant provider is required")
+	if cfg.DataProvider == nil {
+		return nil, errors.New("data provider is required")
 	}
 	if cfg.PartyID == "" {
 		return nil, errors.New("party ID is required")
-	}
-	if cfg.BlockNumberGetter == nil {
-		return nil, errors.New("block number getter is required")
 	}
 
 	if cfg.PollInterval == 0 {
@@ -107,17 +105,16 @@ func NewCoordinator(cfg Config) (*Coordinator, error) {
 	logger := cfg.Logger.With().Str("component", "tss_coordinator").Logger()
 
 	return &Coordinator{
-		db:                  cfg.DB,
-		service:             cfg.Service,
-		participantProvider: cfg.ParticipantProvider,
-		partyID:             cfg.PartyID,
-		blockNumberGetter:   cfg.BlockNumberGetter,
-		logger:              logger,
-		pollInterval:        cfg.PollInterval,
-		processingTimeout:   cfg.ProcessingTimeout,
-		coordinatorRange:    cfg.CoordinatorRange,
-		stopCh:              make(chan struct{}),
-		activeEvents:        make(map[string]context.CancelFunc),
+		db:                cfg.DB,
+		service:           cfg.Service,
+		dataProvider:      cfg.DataProvider,
+		partyID:           cfg.PartyID,
+		logger:            logger,
+		pollInterval:      cfg.PollInterval,
+		processingTimeout: cfg.ProcessingTimeout,
+		coordinatorRange:  cfg.CoordinatorRange,
+		stopCh:            make(chan struct{}),
+		activeEvents:      make(map[string]context.CancelFunc),
 	}, nil
 }
 
@@ -191,7 +188,10 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		return errors.Wrap(err, "failed to query pending events")
 	}
 
-	currentBlock := c.blockNumberGetter()
+	currentBlock, err := c.dataProvider.GetLatestBlockNum(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get latest block number")
+	}
 
 	for _, event := range events {
 		// Only process events that are at least 10 blocks before current block
@@ -259,22 +259,30 @@ func (c *Coordinator) processEvent(ctx context.Context, event store.TSSEvent) {
 		Uint64("block_number", event.BlockNumber).
 		Msg("processing TSS event")
 
-	// Get participants for this protocol
-	participants, err := c.participantProvider.GetParticipants(eventCtx, event.ProtocolType, event.BlockNumber)
+	// Get all universal validators and filter for active ones
+	allValidators, err := c.dataProvider.GetUniversalValidators(eventCtx)
 	if err != nil {
 		c.logger.Error().
 			Err(err).
 			Str("event_id", event.EventID).
-			Msg("failed to get participants")
+			Msg("failed to get universal validators")
 		c.updateEventStatus(event.EventID, StatusFailed, err.Error())
 		return
+	}
+
+	// Filter for active validators only
+	var participants []*tss.UniversalValidator
+	for _, v := range allValidators {
+		if v.Status == tss.UVStatusActive {
+			participants = append(participants, v)
+		}
 	}
 
 	if len(participants) == 0 {
 		c.logger.Warn().
 			Str("event_id", event.EventID).
-			Msg("no participants available")
-		c.updateEventStatus(event.EventID, StatusFailed, "no participants available")
+			Msg("no active participants available")
+		c.updateEventStatus(event.EventID, StatusFailed, "no active participants available")
 		return
 	}
 
@@ -445,10 +453,18 @@ func (c *Coordinator) GetEvent(eventID string) (*core.EventInfo, error) {
 		return nil, err
 	}
 
-	// Get participants for this event
-	participants, err := c.participantProvider.GetParticipants(context.Background(), event.ProtocolType, event.BlockNumber)
+	// Get all universal validators and filter for active ones
+	allValidators, err := c.dataProvider.GetUniversalValidators(context.Background())
 	if err != nil {
 		return nil, err
+	}
+
+	// Filter for active validators only
+	var participants []*tss.UniversalValidator
+	for _, v := range allValidators {
+		if v.Status == tss.UVStatusActive {
+			participants = append(participants, v)
+		}
 	}
 
 	return &core.EventInfo{

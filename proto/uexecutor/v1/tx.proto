@@ -131,10 +131,10 @@ message MsgMigrateUEA {
   // universal_account_id is the identifier of the owner account
   UniversalAccountId universal_account_id = 2;
 
-  // payload is the universal payload to be executed
+  // payload is the migration payload to be executed
   MigrationPayload migration_payload = 3;
 
-  // verification_data is the bytes passed as verifier data for the given payload.
+  // signature is the bytes passed as verifier data for the given payload.
   string signature = 4;
 }
 

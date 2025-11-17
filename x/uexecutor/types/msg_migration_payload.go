@@ -22,7 +22,7 @@ func (p MigrationPayload) String() string {
 
 // ValidateBasic does the sanity check on the UniversalPayload fields.
 func (p MigrationPayload) ValidateBasic() error {
-	// Validate 'to' address
+	// Validate 'migration' address
 	if strings.TrimSpace(p.Migration) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "to address cannot be empty")
 	}

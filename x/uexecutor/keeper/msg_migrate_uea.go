@@ -17,10 +17,10 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
-	// Step 1: Parse and validate payload and verificationData
+	// Step 1: Parse and validate payload and signature
 	_, err := types.NewAbiMigrationPayload(migrationPayload)
 	if err != nil {
-		return errors.Wrapf(err, "invalid universal payload")
+		return errors.Wrapf(err, "invalid migration payload")
 	}
 
 	// add signature verification

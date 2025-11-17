@@ -107,3 +107,20 @@ func validateStatusTransition(from, to types.UVStatus) error {
 	}
 	return nil
 }
+
+// GetUniversalValidator returns a single UniversalValidator by address.
+func (k Keeper) GetUniversalValidator(
+	ctx context.Context,
+	addr sdk.ValAddress,
+) (types.UniversalValidator, bool, error) {
+
+	val, err := k.UniversalValidatorSet.Get(ctx, addr)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return types.UniversalValidator{}, false, nil
+		}
+		return types.UniversalValidator{}, false, err
+	}
+
+	return val, true, nil
+}

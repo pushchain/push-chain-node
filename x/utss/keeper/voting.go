@@ -50,7 +50,7 @@ func (k Keeper) VoteOnTssBallot(
 
 	// votesNeeded = ceil(2/3 * totalValidators)
 	// >2/3 quorum similar to tendermint
-	votesNeeded := (totalValidators*types.VotesThresholdNumerator + types.VotesThresholdDenominator - 1) / types.VotesThresholdDenominator
+	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
 	// Convert []sdk.ValAddress -> []string
 	universalValidatorSetStrs := make([]string, len(universalValidatorSet))

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"sync"
@@ -171,7 +172,12 @@ func (s *Service) RunSign(ctx context.Context, req SignRequest) (*SignResult, er
 			Msg("coordinator waiting for other nodes to register sessions")
 		time.Sleep(5 * time.Second)
 
-		setup, err := session.DklsSignSetupMsgNew(deriveKeyID(req.KeyID), req.ChainPath, req.MessageHash, parties.encodedIDs())
+		// Use nil for empty chain path to avoid C wrapper panic
+		chainPath := req.ChainPath
+		if len(chainPath) == 0 {
+			chainPath = nil
+		}
+		setup, err := session.DklsSignSetupMsgNew(deriveKeyID(req.KeyID), chainPath, req.MessageHash, parties.encodedIDs())
 		if err != nil {
 			return nil, err
 		}
@@ -221,11 +227,16 @@ func (s *Service) RunSign(ctx context.Context, req SignRequest) (*SignResult, er
 			if err != nil {
 				return nil, err
 			}
+
+			// Log signature
 			s.logger.Info().
 				Str("event", req.EventID).
+				Str("key_id", req.KeyID).
 				Uint64("block", req.BlockNumber).
+				Str("signature_hex", hex.EncodeToString(sig)).
 				Int("participants", parties.len()).
-				Msg("sign finished")
+				Msg("sign finished with signature")
+
 			return &SignResult{KeyID: req.KeyID, Signature: sig, NumParties: parties.len()}, nil
 		}
 	}
@@ -331,6 +342,20 @@ func (s *Service) runKeyshareProtocol(
 			if err != nil {
 				return nil, err
 			}
+
+			// Log keyshare and pubkey
+			protocolName := "keygen"
+			if protocol == tss.ProtocolKeyrefresh {
+				protocolName = "keyrefresh"
+			}
+			s.logger.Info().
+				Str("key_id", keyID).
+				Str("protocol", protocolName).
+				// Str("keyshare_hex", hex.EncodeToString(raw)).
+				Str("pubkey_hex", hex.EncodeToString(pub)).
+				Int("participants", parties.len()).
+				Msgf("%s completed with keyshare and pubkey", protocolName)
+
 			return &KeygenResult{KeyID: keyID, PublicKey: pub, NumParties: parties.len()}, nil
 		}
 	}

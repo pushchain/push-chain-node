@@ -19,7 +19,8 @@ import (
 type Keeper struct {
 	cdc codec.BinaryCodec
 
-	logger log.Logger
+	logger        log.Logger
+	schemaBuilder *collections.SchemaBuilder
 
 	// state management
 	Params collections.Item[types.Params]
@@ -59,8 +60,9 @@ func NewKeeper(
 	}
 
 	k := Keeper{
-		cdc:    cdc,
-		logger: logger,
+		cdc:           cdc,
+		logger:        logger,
+		schemaBuilder: sb,
 
 		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
@@ -144,4 +146,8 @@ func (k *Keeper) SetHooks(h types.UValidatorHooks) *Keeper {
 	}
 	k.hooks = h
 	return k
+}
+
+func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
+	return k.schemaBuilder
 }

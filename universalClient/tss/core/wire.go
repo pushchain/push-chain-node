@@ -18,8 +18,6 @@ type wireMessage struct {
 	Protocol tss.ProtocolType `json:"protocol"`
 	Type     messageType      `json:"type"`
 	EventID  string           `json:"event_id"`
-	Sender   string           `json:"sender"`
-	Receiver string           `json:"receiver,omitempty"`
 	Setup    *setupEnvelope   `json:"setup,omitempty"`
 	Payload  []byte           `json:"payload,omitempty"`
 }

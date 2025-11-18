@@ -15,10 +15,8 @@ type sessionState struct {
 	setupDeadline   time.Duration
 	payloadDeadline time.Duration
 
-	blockNumber        uint64
-	coordinatorPartyID string
-	coordinatorPeerID  string
-	participants       map[string]string
+	coordinatorPeerID string
+	knownPeers        map[string]bool // peerID -> true
 }
 
 func newSessionState(protocol tss.ProtocolType, eventID string, setupTimeout, payloadTimeout time.Duration) *sessionState {
@@ -52,9 +50,7 @@ func (s *sessionState) enqueuePayload(data []byte) error {
 	}
 }
 
-func (s *sessionState) setMetadata(blockNumber uint64, coordinatorPartyID, coordinatorPeerID string, parties *partySet) {
-	s.blockNumber = blockNumber
-	s.coordinatorPartyID = coordinatorPartyID
+func (s *sessionState) setMetadata(coordinatorPeerID string, parties *partySet) {
 	s.coordinatorPeerID = coordinatorPeerID
 
 	if parties == nil {
@@ -62,22 +58,21 @@ func (s *sessionState) setMetadata(blockNumber uint64, coordinatorPartyID, coord
 	}
 
 	if len(parties.list) > 0 {
-		s.participants = make(map[string]string, len(parties.list))
+		s.knownPeers = make(map[string]bool, len(parties.list))
 		for _, party := range parties.list {
-			s.participants[party.PeerID()] = party.PartyID()
+			s.knownPeers[party.PeerID()] = true
 		}
 	}
 }
 
-func (s *sessionState) isKnownPeer(peerID string) bool {
-	if len(s.participants) == 0 {
+func (s *sessionState) isParticipant(peerID string) bool {
+	if s.knownPeers == nil {
 		return false
 	}
-	_, ok := s.participants[peerID]
-	return ok
+	return s.knownPeers[peerID]
 }
 
-func (s *sessionState) isCoordinatorPeer(peerID string) bool {
+func (s *sessionState) isCoordinator(peerID string) bool {
 	if s.coordinatorPeerID == "" {
 		return false
 	}

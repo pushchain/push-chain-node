@@ -443,7 +443,6 @@ func (s *Service) broadcastSetup(ctx context.Context, protocol tss.ProtocolType,
 		Protocol: protocol,
 		Type:     messageSetup,
 		EventID:  eventID,
-		Sender:   s.deps.Transport.ID(),
 		Setup:    env,
 	}
 	payload, err := encodeWire(msg)
@@ -574,8 +573,6 @@ func (s *Service) sendKeyshareOutputs(
 				Protocol: protocol,
 				Type:     messagePayload,
 				EventID:  eventID,
-				Sender:   s.deps.Transport.ID(),
-				Receiver: receiver,
 				Payload:  msg,
 			}
 			payload, err := encodeWire(wire)
@@ -658,8 +655,6 @@ func (s *Service) sendSignOutputs(
 				Protocol: protocol,
 				Type:     messagePayload,
 				EventID:  eventID,
-				Sender:   s.deps.Transport.ID(),
-				Receiver: receiver,
 				Payload:  msg,
 			}
 			payload, err := encodeWire(wire)
@@ -757,7 +752,7 @@ func (s *Service) registerSession(protocol tss.ProtocolType, eventID string, blo
 			coordinatorPeer = peer.PeerID()
 		}
 	}
-	state.setMetadata(blockNumber, coordinatorParty, coordinatorPeer, parties)
+	state.setMetadata(coordinatorPeer, parties)
 	s.sessions[key] = state
 
 	s.logger.Info().
@@ -799,17 +794,7 @@ func (s *Service) handleTransportMessage(ctx context.Context, sender string, pay
 		return fmt.Errorf("failed to decode message: %w", err)
 	}
 
-	if msg.Sender == "" {
-		msg.Sender = sender
-	} else if msg.Sender != sender {
-		s.logger.Warn().
-			Str("event", msg.EventID).
-			Str("claimed_sender", msg.Sender).
-			Str("transport_sender", sender).
-			Str("protocol", string(msg.Protocol)).
-			Msg("dropping message with mismatched sender info")
-		return fmt.Errorf("sender mismatch for event %s", msg.EventID)
-	}
+	// Sender is determined from transport layer, no need to validate
 
 	state := s.getSession(msg.Protocol, msg.EventID)
 	if state == nil {
@@ -871,7 +856,7 @@ func (s *Service) handleTransportMessage(ctx context.Context, sender string, pay
 		}
 	}
 
-	if !state.isKnownPeer(sender) {
+	if !state.isParticipant(sender) {
 		s.logger.Warn().
 			Str("event", msg.EventID).
 			Str("sender", sender).
@@ -889,11 +874,10 @@ func (s *Service) handleTransportMessage(ctx context.Context, sender string, pay
 				Msg("received setup message without envelope")
 			return fmt.Errorf("missing setup envelope")
 		}
-		if !state.isCoordinatorPeer(sender) {
+		if !state.isCoordinator(sender) {
 			s.logger.Warn().
 				Str("event", msg.EventID).
 				Str("sender", sender).
-				Str("expected_coordinator", state.coordinatorPartyID).
 				Str("expected_coordinator_peer", state.coordinatorPeerID).
 				Msg("setup ignored because sender is not coordinator")
 			return fmt.Errorf("setup from non-coordinator for event %s", msg.EventID)
@@ -906,14 +890,6 @@ func (s *Service) handleTransportMessage(ctx context.Context, sender string, pay
 			Msg("received setup message from coordinator")
 		return state.enqueueSetup(msg.Setup)
 	case messagePayload:
-		if msg.Receiver != "" && msg.Receiver != s.cfg.PartyID {
-			s.logger.Debug().
-				Str("event", msg.EventID).
-				Str("receiver", msg.Receiver).
-				Str("local_party", s.cfg.PartyID).
-				Msg("payload not for this party, ignoring")
-			return nil
-		}
 		s.logger.Debug().
 			Str("event", msg.EventID).
 			Str("sender", sender).

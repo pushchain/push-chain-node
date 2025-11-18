@@ -8,9 +8,8 @@ import (
 )
 
 type partySet struct {
-	list    []*tss.UniversalValidator
-	idx     map[string]*tss.UniversalValidator
-	encoded []byte
+	list []*tss.UniversalValidator
+	idx  map[string]*tss.UniversalValidator
 }
 
 func newPartySet(participants []*tss.UniversalValidator) (*partySet, error) {
@@ -58,9 +57,6 @@ func (p *partySet) peerInfo(partyID string) (*tss.UniversalValidator, bool) {
 }
 
 func (p *partySet) encodedIDs() []byte {
-	if p.encoded != nil {
-		return p.encoded
-	}
 	ids := make([]byte, 0, len(p.list)*10)
 	for i, party := range p.list {
 		if i > 0 {
@@ -68,6 +64,5 @@ func (p *partySet) encodedIDs() []byte {
 		}
 		ids = append(ids, []byte(party.PartyID())...)
 	}
-	p.encoded = ids
 	return ids
 }

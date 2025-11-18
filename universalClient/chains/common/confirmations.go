@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
@@ -72,6 +73,20 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		Int("data_size", len(data)).
 		Msg("tracking transaction with data")
 
+	// Extract LogIndex from data
+	var logIndex uint
+	if len(data) > 0 {
+		var eventData UniversalTx
+		if err := json.Unmarshal(data, &eventData); err == nil {
+			logIndex = eventData.LogIndex
+		} else {
+			ct.logger.Warn().
+				Err(err).
+				Str("tx_hash", txHash).
+				Msg("failed to unmarshal data to extract LogIndex, using 0")
+		}
+	}
+
 	// Start database transaction to avoid race conditions and improve performance
 	dbTx := ct.db.Client().Begin()
 	defer func() {
@@ -86,9 +101,10 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	}()
 
 	// Check if transaction already exists using FOR UPDATE to prevent race conditions
+	// Use composite key (tx_hash + log_index)
 	var existing store.ChainTransaction
 	err = dbTx.Set("gorm:query_option", "FOR UPDATE").
-		Where("tx_hash = ?", txHash).
+		Where("tx_hash = ? AND log_index = ?", txHash, logIndex).
 		First(&existing).Error
 
 	if err == nil {
@@ -105,6 +121,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 			ct.logger.Error().
 				Err(err).
 				Str("tx_hash", txHash).
+				Uint("log_index", logIndex).
 				Msg("failed to update existing transaction")
 			return fmt.Errorf("failed to update transaction: %w", err)
 		}
@@ -115,6 +132,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 
 		ct.logger.Debug().
 			Str("tx_hash", txHash).
+			Uint("log_index", logIndex).
 			Uint64("block", blockNumber).
 			Msg("updated existing transaction")
 
@@ -124,6 +142,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 	// Create new transaction record
 	tx := &store.ChainTransaction{
 		TxHash:           txHash,
+		LogIndex:         logIndex,
 		BlockNumber:      blockNumber,
 		EventIdentifier:  eventID,
 		Status:           "confirmation_pending",
@@ -137,6 +156,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 		ct.logger.Error().
 			Err(err).
 			Str("tx_hash", txHash).
+			Uint("log_index", logIndex).
 			Msg("failed to create transaction")
 		return fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -147,6 +167,7 @@ func (ct *ConfirmationTracker) TrackTransaction(
 
 	ct.logger.Debug().
 		Str("tx_hash", txHash).
+		Uint("log_index", logIndex).
 		Uint64("block", blockNumber).
 		Msg("tracking new transaction")
 

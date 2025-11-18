@@ -394,10 +394,14 @@ func (c *Coordinator) handleKeygen(ctx context.Context, event store.TSSEvent, ev
 	if service == nil {
 		return errors.New("service not initialized")
 	}
+
+	// Calculate threshold as > 2/3 of participants
+	threshold := calculateThreshold(len(participants))
+
 	req := core.KeygenRequest{
 		EventID:      event.EventID,
 		KeyID:        eventData.KeyID,
-		Threshold:    eventData.Threshold,
+		Threshold:    threshold,
 		BlockNumber:  event.BlockNumber,
 		Participants: participants,
 	}
@@ -413,10 +417,14 @@ func (c *Coordinator) handleKeyrefresh(ctx context.Context, event store.TSSEvent
 	if service == nil {
 		return errors.New("service not initialized")
 	}
+
+	// Calculate threshold as > 2/3 of participants
+	threshold := calculateThreshold(len(participants))
+
 	req := core.KeyrefreshRequest{
 		EventID:      event.EventID,
 		KeyID:        eventData.KeyID,
-		Threshold:    eventData.Threshold,
+		Threshold:    threshold,
 		BlockNumber:  event.BlockNumber,
 		Participants: participants,
 	}
@@ -432,10 +440,14 @@ func (c *Coordinator) handleSign(ctx context.Context, event store.TSSEvent, even
 	if service == nil {
 		return errors.New("service not initialized")
 	}
+
+	// Calculate threshold as > 2/3 of participants
+	threshold := calculateThreshold(len(participants))
+
 	req := core.SignRequest{
 		EventID:      event.EventID,
 		KeyID:        eventData.KeyID,
-		Threshold:    eventData.Threshold,
+		Threshold:    threshold,
 		MessageHash:  eventData.MessageHash,
 		ChainPath:    eventData.ChainPath,
 		BlockNumber:  event.BlockNumber,
@@ -509,7 +521,23 @@ func (c *Coordinator) updateEventStatus(eventID, status, errorMsg string) error 
 // EventData represents the parsed event data from the database.
 type EventData struct {
 	KeyID       string `json:"key_id"`
-	Threshold   int    `json:"threshold"`
 	MessageHash []byte `json:"message_hash,omitempty"`
 	ChainPath   []byte `json:"chain_path,omitempty"`
+}
+
+// calculateThreshold calculates the threshold as > 2/3 of participants.
+// Formula: threshold = floor((2 * n) / 3) + 1
+// This ensures threshold > 2/3 * n
+// Examples: 3->3, 4->3, 5->4, 6->5, 7->5, 8->6, 9->7
+func calculateThreshold(numParticipants int) int {
+	if numParticipants <= 0 {
+		return 1
+	}
+	// Calculate > 2/3: floor((2 * n) / 3) + 1
+	// This ensures we need more than 2/3 of participants
+	threshold := (2*numParticipants)/3 + 1
+	if threshold > numParticipants {
+		threshold = numParticipants
+	}
+	return threshold
 }

@@ -25,13 +25,13 @@ func NewStaticPushChainDataProvider(validatorAddress string, logger zerolog.Logg
 	}
 }
 
-// GetLatestBlockNum implements coordinator.PushChainDataProvider.
+// GetLatestBlockNum returns the latest block number.
 func (p *StaticPushChainDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error) {
 	// Use timestamp as block number for demo
 	return uint64(time.Now().Unix()), nil
 }
 
-// GetUniversalValidators implements coordinator.PushChainDataProvider.
+// GetUniversalValidators returns all universal validators.
 func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*tss.UniversalValidator, error) {
 	// Read nodes from shared registry file
 	nodes, err := readNodeRegistry(p.logger)
@@ -56,7 +56,7 @@ func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context
 	return validators, nil
 }
 
-// GetUniversalValidator implements coordinator.PushChainDataProvider.
+// GetUniversalValidator returns a specific universal validator by address.
 func (p *StaticPushChainDataProvider) GetUniversalValidator(ctx context.Context, validatorAddress string) (*tss.UniversalValidator, error) {
 	validators, err := p.GetUniversalValidators(ctx)
 	if err != nil {

@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	tssnode "github.com/pushchain/push-chain-node/universalClient/tss/node"
+	"github.com/pushchain/push-chain-node/universalClient/tss/node"
 )
 
 const (
@@ -179,30 +179,24 @@ func runNode() {
 	// Create simple data provider for demo
 	dataProvider := NewStaticPushChainDataProvider(*validatorAddr, logger)
 
-	// Initialize TSS node using the node package
-	tssNode, err := tssnode.NewNode(ctx, tssnode.Config{
-		ValidatorAddress: *validatorAddr,
-		PrivateKeyHex:    strings.TrimSpace(*privateKeyHex),
-		LibP2PListen:     *libp2pListen,
-		HomeDir:          *homeDir,
-		Password:         *password,
-		Database:         nil, // Will create default database
-		DataProvider:     dataProvider,
-		Logger:           logger,
-		CoordinatorConfig: &tssnode.CoordinatorConfig{
-			PollInterval:      500 * time.Millisecond,
-			ProcessingTimeout: 2 * time.Minute,
-			CoordinatorRange:  100,
-		},
-		ServiceConfig: &tssnode.ServiceConfig{
-			SetupTimeout:   30 * time.Second,
-			MessageTimeout: 30 * time.Second,
-		},
-		TransportConfig: &tssnode.TransportConfig{
-			ProtocolID:  "/tss/demo/1.0.0",
-			DialTimeout: 10 * time.Second,
-			IOTimeout:   15 * time.Second,
-		},
+	// Initialize TSS node
+	tssNode, err := node.NewNode(ctx, node.Config{
+		ValidatorAddress:  *validatorAddr,
+		PrivateKeyHex:     strings.TrimSpace(*privateKeyHex),
+		LibP2PListen:      *libp2pListen,
+		HomeDir:           *homeDir,
+		Password:          *password,
+		Database:          nil, // Will create default database
+		DataProvider:      dataProvider,
+		Logger:            logger,
+		PollInterval:      500 * time.Millisecond,
+		ProcessingTimeout: 2 * time.Minute,
+		CoordinatorRange:  100,
+		SetupTimeout:      30 * time.Second,
+		MessageTimeout:    30 * time.Second,
+		ProtocolID:        "/tss/demo/1.0.0",
+		DialTimeout:       10 * time.Second,
+		IOTimeout:         15 * time.Second,
 	})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to create TSS node")
@@ -227,19 +221,6 @@ func runNode() {
 	if err := tssNode.Start(ctx); err != nil {
 		logger.Fatal().Err(err).Msg("failed to start TSS node")
 	}
-
-	logger.Info().Msg("TSS demo node started and ready")
-
-	// Print node info
-	fmt.Printf("\n=== Node Info ===\n")
-	fmt.Printf("Validator Address: %s\n", *validatorAddr)
-	fmt.Printf("Peer ID: %s\n", peerID)
-	fmt.Printf("Addresses: %v\n", listenAddrs)
-	fmt.Printf("\nUse the CLI to trigger operations:\n")
-	fmt.Printf("  ./build/tss keygen -key-id=<key-id>\n")
-	fmt.Printf("  ./build/tss keyrefresh -key-id=<key-id>\n")
-	fmt.Printf("  ./build/tss sign -key-id=<key-id> -message=<message>\n")
-	fmt.Printf("\nWaiting for events...\n\n")
 
 	// Wait for shutdown
 	<-ctx.Done()

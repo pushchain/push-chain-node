@@ -65,12 +65,6 @@ HOME_DIR="/tmp/tss-$SANITIZED"
 mkdir -p "$HOME_DIR"
 echo -e "${GREEN}Using home directory: $HOME_DIR${NC}"
 
-echo -e "${GREEN}=== TSS Test Node ===${NC}"
-echo "Validator Address: $VALIDATOR_ADDRESS"
-echo "P2P Port: $P2P_PORT"
-echo "Private Key: [provided]"
-echo ""
-
 # Always build binary to ensure we use the latest version
 echo -e "${YELLOW}Building tss binary...${NC}"
 mkdir -p build
@@ -88,7 +82,6 @@ PEER_IDS_FLAG=""
 
 # Start the node
 echo -e "${BLUE}Starting node...${NC}"
-echo -e "${YELLOW}Note: Peer ID will be logged when node starts.${NC}"
 echo ""
 
 # Build command with required private key

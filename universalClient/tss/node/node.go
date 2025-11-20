@@ -115,7 +115,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if home == "" {
 		// Use validator address (sanitized) for temp dir name
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(cfg.ValidatorAddress, ":", "_"), "/", "_")
-		tmp, err := createTempDir("tss-", sanitized)
+		tmp, err := os.MkdirTemp("", "tss-"+sanitized+"-")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temp dir: %w", err)
 		}
@@ -320,21 +320,6 @@ func (n *Node) ListenAddrs() []string {
 	return n.transport.ListenAddrs()
 }
 
-// ValidatorAddress returns the validator address of this node.
-func (n *Node) ValidatorAddress() string {
-	return n.validatorAddress
-}
-
-// Service returns the TSS service instance (for advanced usage).
-func (n *Node) Service() *core.Service {
-	return n.service
-}
-
-// Coordinator returns the coordinator instance (for advanced usage).
-func (n *Node) Coordinator() *coordinator.Coordinator {
-	return n.coordinator
-}
-
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
 func convertPrivateKeyHexToBase64(hexKey string) (string, error) {
 	if hexKey == "" {
@@ -380,12 +365,6 @@ func convertPrivateKeyHexToBase64(hexKey string) (string, error) {
 
 	// Convert to base64 (libp2p transport expects base64-encoded)
 	return base64.StdEncoding.EncodeToString(marshaled), nil
-}
-
-// createTempDir creates a temporary directory with the given prefix and suffix.
-// This is a helper function that can be overridden for testing.
-var createTempDir = func(prefix, suffix string) (string, error) {
-	return os.MkdirTemp("", prefix+suffix+"-")
 }
 
 // eventStoreAdapter wraps a coordinator to implement core.EventStore interface.

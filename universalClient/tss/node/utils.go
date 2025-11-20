@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
+
+	"github.com/pushchain/push-chain-node/universalClient/tss"
 )
 
 // calculateThreshold calculates the threshold as > 2/3 of participants.
@@ -53,4 +55,17 @@ func convertPrivateKeyHexToBase64(hexKey string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(marshaled), nil
+}
+
+// isCoordinator determines if this node is the coordinator for the given block number.
+func isCoordinator(blockNumber uint64, coordinatorRange uint64, validatorAddress string, participants []*tss.UniversalValidator) bool {
+	if len(participants) == 0 {
+		return false
+	}
+	epoch := blockNumber / coordinatorRange
+	idx := int(epoch % uint64(len(participants)))
+	if idx >= len(participants) {
+		return false
+	}
+	return participants[idx].PartyID() == validatorAddress
 }

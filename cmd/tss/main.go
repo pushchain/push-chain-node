@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,8 +37,8 @@ func main() {
 	switch command {
 	case "node":
 		runNode()
-	case "keygen", "keyrefresh", "sign":
-		runCommand(command)
+	case "keygen":
+		runKeygen()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
@@ -53,15 +52,11 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  node          Run a TSS node")
 	fmt.Println("  keygen        Trigger a keygen operation")
-	fmt.Println("  keyrefresh    Trigger a keyrefresh operation")
-	fmt.Println("  sign          Trigger a sign operation")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  tss node -validator-address=pushvaloper1... -p2p-listen=/ip4/127.0.0.1/tcp/39001")
 	fmt.Println("  tss node -validator-address=pushvaloper1... -private-key=30B0D9... -p2p-listen=/ip4/127.0.0.1/tcp/39001")
 	fmt.Println("  tss keygen -key-id=demo-key-1")
-	fmt.Println("  tss keyrefresh -key-id=demo-key-1")
-	fmt.Println("  tss sign -key-id=demo-key-1")
 }
 
 // nodeRegistryEntry represents a single node's registration info
@@ -192,8 +187,6 @@ func runNode() {
 		PollInterval:      500 * time.Millisecond,
 		ProcessingTimeout: 2 * time.Minute,
 		CoordinatorRange:  100,
-		SetupTimeout:      30 * time.Second,
-		MessageTimeout:    30 * time.Second,
 		ProtocolID:        "/tss/demo/1.0.0",
 		DialTimeout:       10 * time.Second,
 		IOTimeout:         15 * time.Second,
@@ -217,6 +210,7 @@ func runNode() {
 	if err := registerNode(nodeInfo, logger); err != nil {
 		logger.Fatal().Err(err).Msg("failed to register node in registry")
 	}
+
 	// Start the TSS node
 	if err := tssNode.Start(ctx); err != nil {
 		logger.Fatal().Err(err).Msg("failed to start TSS node")
@@ -227,15 +221,15 @@ func runNode() {
 	logger.Info().Msg("shutting down")
 }
 
-func runCommand(command string) {
+func runKeygen() {
 	var (
-		keyID = flag.String("key-id", "", "key ID (required)")
+		keyID = flag.String("key-id", "", "key ID (optional, will be generated if not provided)")
 	)
 	flag.Parse()
 
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
 		With().
-		Str("command", command).
+		Str("command", "keygen").
 		Timestamp().
 		Logger()
 
@@ -258,96 +252,59 @@ func runCommand(command string) {
 
 	blockNum := uint64(time.Now().Unix())
 
-	// Generate key ID if not provided (only for keygen)
+	// Generate key ID if not provided
 	if *keyID == "" {
-		if command == "keygen" {
-			*keyID = fmt.Sprintf("demo-key-%d", time.Now().Unix())
-		} else {
-			logger.Fatal().Msg("key-id is required")
-		}
+		*keyID = fmt.Sprintf("demo-key-%d", time.Now().Unix())
 	}
 
-	// Create event data based on command type
-	var eventData []byte
-	var protocolType string
-	var eventIDPrefix string
+	// Create event data
+	eventData, _ := json.Marshal(map[string]interface{}{
+		"key_id": *keyID,
+	})
 
-	switch command {
-	case "keygen":
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id": *keyID,
-		})
-		protocolType = "keygen"
-		eventIDPrefix = "keygen"
-	case "keyrefresh":
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id": *keyID,
-		})
-		protocolType = "keyrefresh"
-		eventIDPrefix = "keyrefresh"
-	case "sign":
-		hash := sha256.Sum256([]byte("hello world")) // Simple default message
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id":       *keyID,
-			"message_hash": hash[:],
-			"chain_path":   []byte{},
-		})
-		protocolType = "sign"
-		eventIDPrefix = "sign"
-	default:
-		logger.Fatal().Msgf("unknown command: %s", command)
-	}
+	eventID := fmt.Sprintf("keygen-%s-%d", *keyID, blockNum)
 
-	event := store.TSSEvent{
-		EventID:      fmt.Sprintf("%s-%d-%s", eventIDPrefix, blockNum, *keyID),
-		BlockNumber:  blockNum,
-		ProtocolType: protocolType,
-		Status:       "PENDING",
-		ExpiryHeight: blockNum + 1000,
-		EventData:    eventData,
-	}
-
-	// Write event to all node databases
-	var successCount int
-	var errors []string
-	for _, dbPath := range nodeDBs {
-		db, err := gorm.Open(sqlite.Open(dbPath+"?mode=rwc&cache=shared"), &gorm.Config{})
+	// Create event in all node databases
+	for i, dbPath := range nodeDBs {
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", dbPath, err))
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to open database, skipping")
 			continue
 		}
 
+		// Auto-migrate
 		if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
-			errors = append(errors, fmt.Sprintf("%s (migrate): %v", dbPath, err))
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to migrate database, skipping")
 			continue
 		}
 
-		eventCopy := event
-		if err := db.Create(&eventCopy).Error; err != nil {
-			errors = append(errors, fmt.Sprintf("%s (create): %v", dbPath, err))
-		} else {
-			successCount++
+		event := store.TSSEvent{
+			EventID:      eventID,
+			BlockNumber:  blockNum,
+			ProtocolType: "keygen",
+			Status:       "PENDING",
+			EventData:    eventData,
+			ExpiryHeight: blockNum + 1000, // Expire after 1000 blocks
 		}
-	}
 
-	if successCount == 0 {
-		logger.Fatal().
-			Strs("errors", errors).
-			Msg("failed to create event in any database")
+		if err := db.Create(&event).Error; err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to create event, skipping")
+			continue
+		}
+
+		if i == 0 {
+			logger.Info().
+				Str("event_id", eventID).
+				Str("key_id", *keyID).
+				Uint64("block", blockNum).
+				Str("db", dbPath).
+				Msg("created keygen event")
+		}
 	}
 
 	logger.Info().
-		Str("event_id", event.EventID).
-		Int("databases_updated", successCount).
-		Int("total_databases", len(nodeDBs)).
-		Msg("created event in node databases")
-
-	if len(errors) > 0 {
-		logger.Warn().
-			Strs("errors", errors).
-			Msg("some databases failed to update")
-	}
-
-	fmt.Printf("\nEvent created in %d/%d node databases!\n", successCount, len(nodeDBs))
-	fmt.Println("The coordinators will pick it up and process it.")
+		Str("event_id", eventID).
+		Str("key_id", *keyID).
+		Int("nodes", len(nodes)).
+		Msg("keygen event created in all node databases")
 }

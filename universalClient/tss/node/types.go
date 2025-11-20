@@ -10,14 +10,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss"
 )
 
-const (
-	statusPending    = "PENDING"
-	statusInProgress = "IN_PROGRESS"
-	statusSuccess    = "SUCCESS"
-	statusFailed     = "FAILED"
-	statusExpired    = "EXPIRED"
-)
-
 // PushChainDataProvider provides access to Push Chain data.
 type PushChainDataProvider interface {
 	GetLatestBlockNum(ctx context.Context) (uint64, error)
@@ -40,8 +32,6 @@ type Config struct {
 	PollInterval      time.Duration
 	ProcessingTimeout time.Duration
 	CoordinatorRange  uint64
-	SetupTimeout      time.Duration
-	MessageTimeout    time.Duration
 	ProtocolID        string
 	DialTimeout       time.Duration
 	IOTimeout         time.Duration

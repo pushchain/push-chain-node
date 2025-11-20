@@ -2,15 +2,12 @@ package node
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
-	"github.com/pushchain/push-chain-node/universalClient/tss/core"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
@@ -47,11 +44,10 @@ func (n *Node) processPendingEvents(ctx context.Context) error {
 	}
 
 	for _, event := range events {
-		n.mu.RLock()
-		_, alreadyProcessing := n.activeEvents[event.EventID]
-		n.mu.RUnlock()
-		if alreadyProcessing {
-			continue
+		// Check if event is already in progress (using database status)
+		existingEvent, err := n.eventStore.GetEvent(event.EventID)
+		if err == nil && existingEvent != nil && existingEvent.Status == eventstore.StatusInProgress {
+			continue // Already being processed
 		}
 
 		n.processingWg.Add(1)
@@ -66,18 +62,11 @@ func (n *Node) processPendingEvents(ctx context.Context) error {
 
 // processEvent processes a single TSS event.
 func (n *Node) processEvent(ctx context.Context, event store.TSSEvent) {
+	// Mark event as in progress
+	n.eventStore.UpdateStatus(event.EventID, eventstore.StatusInProgress, "")
+
 	eventCtx, cancel := context.WithTimeout(ctx, n.processingTimeout)
 	defer cancel()
-
-	n.mu.Lock()
-	n.activeEvents[event.EventID] = cancel
-	n.mu.Unlock()
-
-	defer func() {
-		n.mu.Lock()
-		delete(n.activeEvents, event.EventID)
-		n.mu.Unlock()
-	}()
 
 	n.logger.Info().
 		Str("event_id", event.EventID).
@@ -118,68 +107,31 @@ func (n *Node) processEvent(ctx context.Context, event store.TSSEvent) {
 	}
 
 	// Check if we're coordinator
-	isCoordinator := n.isCoordinator(event.BlockNumber, participants)
+	isCoordinator := isCoordinator(event.BlockNumber, n.coordinatorRange, n.validatorAddress, participants)
 	if isCoordinator {
 		n.logger.Info().Str("event_id", event.EventID).Msg("acting as coordinator")
 		n.eventStore.UpdateStatus(event.EventID, eventstore.StatusInProgress, "")
 	}
 
-	// Parse event data
-	var eventData struct {
-		KeyID       string `json:"key_id"`
-		MessageHash []byte `json:"message_hash,omitempty"`
-		ChainPath   []byte `json:"chain_path,omitempty"`
-	}
-	if len(event.EventData) > 0 {
-		if err := json.Unmarshal(event.EventData, &eventData); err != nil {
-			n.eventStore.UpdateStatus(event.EventID, eventstore.StatusFailed, fmt.Sprintf("failed to parse event data: %v", err))
-			return
-		}
-	}
-
-	// Pre-register session
-	protocolType := tss.ProtocolType(event.ProtocolType)
-	if err := n.service.RegisterSessionForEvent(protocolType, event.EventID, event.BlockNumber, participants); err != nil {
-		n.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to pre-register session")
-	}
-
-	// Execute TSS operation
-	threshold := calculateThreshold(len(participants))
+	// Execute TSS operation based on protocol type
 	var resultErr error
 
 	switch event.ProtocolType {
 	case string(tss.ProtocolKeygen):
-		_, resultErr = n.service.RunKeygen(eventCtx, core.KeygenRequest{
-			EventID:      event.EventID,
-			KeyID:        eventData.KeyID,
-			Threshold:    threshold,
-			BlockNumber:  event.BlockNumber,
-			Participants: participants,
+		_, resultErr = n.executeKeygen(eventCtx, KeygenRequest{
+			EventID:       event.EventID,
+			BlockNumber:   event.BlockNumber,
+			Participants:  participants,
+			IsCoordinator: isCoordinator,
 		})
 	case string(tss.ProtocolKeyrefresh):
-		_, resultErr = n.service.RunKeyrefresh(eventCtx, core.KeyrefreshRequest{
-			EventID:      event.EventID,
-			KeyID:        eventData.KeyID,
-			Threshold:    threshold,
-			BlockNumber:  event.BlockNumber,
-			Participants: participants,
-		})
+		// TODO: Implement keyrefresh
+		resultErr = errors.New("keyrefresh not yet implemented")
 	case string(tss.ProtocolSign):
-		chainPath := eventData.ChainPath
-		if len(chainPath) == 0 {
-			chainPath = nil
-		}
-		_, resultErr = n.service.RunSign(eventCtx, core.SignRequest{
-			EventID:      event.EventID,
-			KeyID:        eventData.KeyID,
-			Threshold:    threshold,
-			MessageHash:  eventData.MessageHash,
-			ChainPath:    chainPath,
-			BlockNumber:  event.BlockNumber,
-			Participants: participants,
-		})
+		// TODO: Implement sign
+		resultErr = errors.New("sign not yet implemented")
 	default:
-		resultErr = fmt.Errorf("unknown protocol type: %s", event.ProtocolType)
+		resultErr = errors.Errorf("unknown protocol type: %s", event.ProtocolType)
 	}
 
 	if resultErr != nil {
@@ -189,17 +141,4 @@ func (n *Node) processEvent(ctx context.Context, event store.TSSEvent) {
 		n.logger.Info().Str("event_id", event.EventID).Msg("TSS operation completed successfully")
 		n.eventStore.UpdateStatus(event.EventID, eventstore.StatusSuccess, "")
 	}
-}
-
-// isCoordinator determines if this node is the coordinator for the given block number.
-func (n *Node) isCoordinator(blockNumber uint64, participants []*tss.UniversalValidator) bool {
-	if len(participants) == 0 {
-		return false
-	}
-	epoch := blockNumber / n.coordinatorRange
-	idx := int(epoch % uint64(len(participants)))
-	if idx >= len(participants) {
-		return false
-	}
-	return participants[idx].PartyID() == n.validatorAddress
 }

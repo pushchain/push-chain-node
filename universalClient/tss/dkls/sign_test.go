@@ -8,25 +8,36 @@ import (
 )
 
 func TestNewSignSession_Validation(t *testing.T) {
+	// Create a valid setup for tests that need it (need at least 2 participants for threshold 2)
+	participants := []string{"party1", "party2"}
+	participantIDs := encodeParticipantIDs(participants)
+	validSetup, err := session.DklsKeygenSetupMsgNew(2, nil, participantIDs)
+	if err != nil {
+		t.Fatalf("failed to create setup: %v", err)
+	}
+
 	tests := []struct {
 		name         string
+		setupData    []byte
 		partyID      string
 		participants []string
 		keyshare     []byte
 		messageHash  []byte
 		wantErr      string
 	}{
-		{"empty party ID", "", []string{"party1"}, []byte("keyshare"), []byte("hash"), "party ID required"},
-		{"empty participants", "party1", []string{}, []byte("keyshare"), []byte("hash"), "participants required"},
-		{"nil participants", "party1", nil, []byte("keyshare"), []byte("hash"), "participants required"},
-		{"empty keyshare", "party1", []string{"party1"}, []byte{}, []byte("hash"), "keyshare required"},
-		{"nil keyshare", "party1", []string{"party1"}, nil, []byte("hash"), "keyshare required"},
-		{"empty message hash", "party1", []string{"party1"}, []byte("keyshare"), []byte{}, "message hash required"},
+		{"nil setupData", nil, "party1", participants, []byte("keyshare"), []byte("hash"), "setupData is required"},
+		{"empty setupData", []byte{}, "party1", participants, []byte("keyshare"), []byte("hash"), "setupData is required"},
+		{"empty party ID", validSetup, "", participants, []byte("keyshare"), []byte("hash"), "party ID required"},
+		{"empty participants", validSetup, "party1", []string{}, []byte("keyshare"), []byte("hash"), "participants required"},
+		{"nil participants", validSetup, "party1", nil, []byte("keyshare"), []byte("hash"), "participants required"},
+		{"empty keyshare", validSetup, "party1", participants, []byte{}, []byte("hash"), "keyshare required"},
+		{"nil keyshare", validSetup, "party1", participants, nil, []byte("hash"), "keyshare required"},
+		{"empty message hash", validSetup, "party1", participants, []byte("keyshare"), []byte{}, "message hash required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewSignSession(nil, "test-event", tt.partyID, tt.participants, tt.keyshare, tt.messageHash, nil)
+			_, err := NewSignSession(tt.setupData, "test-event", tt.partyID, tt.participants, tt.keyshare, tt.messageHash, nil)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("expected error containing %q, got %v", tt.wantErr, err)
 			}

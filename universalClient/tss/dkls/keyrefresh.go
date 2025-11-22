@@ -16,7 +16,7 @@ type keyrefreshSession struct {
 }
 
 // NewKeyrefreshSession creates a new keyrefresh session.
-// setupData: The setup message (nil if this node is coordinator and will create it)
+// setupData: The setup message (required - must be provided by caller)
 // sessionID: Session identifier (typically eventID)
 // partyID: This node's party ID
 // participants: List of participant party IDs (sorted)
@@ -30,6 +30,9 @@ func NewKeyrefreshSession(
 	threshold int,
 	oldKeyshare []byte,
 ) (Session, error) {
+	if len(setupData) == 0 {
+		return nil, fmt.Errorf("setupData is required")
+	}
 	if partyID == "" {
 		return nil, fmt.Errorf("party ID required")
 	}
@@ -46,17 +49,6 @@ func NewKeyrefreshSession(
 		return nil, fmt.Errorf("failed to load old keyshare: %w", err)
 	}
 	defer session.DklsKeyshareFree(oldHandle)
-
-	// If setupData is nil, this is the coordinator - create setup
-	// Pass nil for keyID - it will be extracted from the keyshare
-	if setupData == nil {
-		participantIDs := encodeParticipantIDs(participants)
-		var err error
-		setupData, err = session.DklsKeygenSetupMsgNew(threshold, nil, participantIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create keyrefresh setup: %w", err)
-		}
-	}
 
 	// Create session from setup
 	handle, err := session.DklsKeyRefreshSessionFromSetup(setupData, []byte(partyID), oldHandle)

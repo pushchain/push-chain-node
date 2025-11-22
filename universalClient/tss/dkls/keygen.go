@@ -16,7 +16,7 @@ type keygenSession struct {
 }
 
 // NewKeygenSession creates a new keygen session.
-// setupData: The setup message (nil if this node is coordinator and will create it)
+// setupData: The setup message (required - must be provided by caller)
 // sessionID: Session identifier (typically eventID)
 // partyID: This node's party ID
 // participants: List of participant party IDs (sorted)
@@ -28,22 +28,14 @@ func NewKeygenSession(
 	participants []string,
 	threshold int,
 ) (Session, error) {
+	if len(setupData) == 0 {
+		return nil, fmt.Errorf("setupData is required")
+	}
 	if partyID == "" {
 		return nil, fmt.Errorf("party ID required")
 	}
 	if len(participants) == 0 {
 		return nil, fmt.Errorf("participants required")
-	}
-
-	// If setupData is nil, this is the coordinator - create setup
-	// Pass nil for keyID so DKLS library automatically generates one
-	if setupData == nil {
-		participantIDs := encodeParticipantIDs(participants)
-		var err error
-		setupData, err = session.DklsKeygenSetupMsgNew(threshold, nil, participantIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create keygen setup: %w", err)
-		}
 	}
 
 	// Create session from setup

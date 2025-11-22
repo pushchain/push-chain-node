@@ -8,20 +8,31 @@ import (
 )
 
 func TestNewKeygenSession_Validation(t *testing.T) {
+	// Create a valid setup for tests that need it (need at least 2 participants for threshold 2)
+	participants := []string{"party1", "party2"}
+	participantIDs := encodeParticipantIDs(participants)
+	validSetup, err := session.DklsKeygenSetupMsgNew(2, nil, participantIDs)
+	if err != nil {
+		t.Fatalf("failed to create setup: %v", err)
+	}
+
 	tests := []struct {
 		name         string
+		setupData    []byte
 		partyID      string
 		participants []string
 		wantErr      string
 	}{
-		{"empty party ID", "", []string{"party1"}, "party ID required"},
-		{"empty participants", "party1", []string{}, "participants required"},
-		{"nil participants", "party1", nil, "participants required"},
+		{"nil setupData", nil, "party1", participants, "setupData is required"},
+		{"empty setupData", []byte{}, "party1", participants, "setupData is required"},
+		{"empty party ID", validSetup, "", participants, "party ID required"},
+		{"empty participants", validSetup, "party1", []string{}, "participants required"},
+		{"nil participants", validSetup, "party1", nil, "participants required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewKeygenSession(nil, "test-event", tt.partyID, tt.participants, 2)
+			_, err := NewKeygenSession(tt.setupData, "test-event", tt.partyID, tt.participants, 2)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("expected error containing %q, got %v", tt.wantErr, err)
 			}

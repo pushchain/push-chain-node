@@ -32,6 +32,10 @@ func NewSignSession(
 	messageHash []byte,
 	chainPath []byte,
 ) (Session, error) {
+	// setupData is required - check first
+	if len(setupData) == 0 {
+		return nil, fmt.Errorf("setupData is required")
+	}
 	if partyID == "" {
 		return nil, fmt.Errorf("party ID required")
 	}
@@ -51,12 +55,6 @@ func NewSignSession(
 		return nil, fmt.Errorf("failed to load keyshare: %w", err)
 	}
 	defer session.DklsKeyshareFree(keyshareHandle)
-
-	// setupData must be provided - keyID is extracted from keyshare by the caller
-	// The session creation will validate that setup matches the keyshare's keyID
-	if setupData == nil {
-		return nil, fmt.Errorf("setupData required for sign (keyID is extracted from keyshare by caller)")
-	}
 
 	// Create session from setup
 	handle, err := session.DklsSignSessionFromSetup(setupData, []byte(partyID), keyshareHandle)

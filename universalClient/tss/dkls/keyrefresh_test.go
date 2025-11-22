@@ -8,23 +8,34 @@ import (
 )
 
 func TestNewKeyrefreshSession_Validation(t *testing.T) {
+	// Create a valid setup for tests that need it (need at least 2 participants for threshold 2)
+	participants := []string{"party1", "party2"}
+	participantIDs := encodeParticipantIDs(participants)
+	validSetup, err := session.DklsKeygenSetupMsgNew(2, nil, participantIDs)
+	if err != nil {
+		t.Fatalf("failed to create setup: %v", err)
+	}
+
 	tests := []struct {
 		name         string
+		setupData    []byte
 		partyID      string
 		participants []string
 		oldKeyshare  []byte
 		wantErr      string
 	}{
-		{"empty party ID", "", []string{"party1"}, []byte("keyshare"), "party ID required"},
-		{"empty participants", "party1", []string{}, []byte("keyshare"), "participants required"},
-		{"nil participants", "party1", nil, []byte("keyshare"), "participants required"},
-		{"empty old keyshare", "party1", []string{"party1"}, []byte{}, "old keyshare required"},
-		{"nil old keyshare", "party1", []string{"party1"}, nil, "old keyshare required"},
+		{"nil setupData", nil, "party1", participants, []byte("keyshare"), "setupData is required"},
+		{"empty setupData", []byte{}, "party1", participants, []byte("keyshare"), "setupData is required"},
+		{"empty party ID", validSetup, "", participants, []byte("keyshare"), "party ID required"},
+		{"empty participants", validSetup, "party1", []string{}, []byte("keyshare"), "participants required"},
+		{"nil participants", validSetup, "party1", nil, []byte("keyshare"), "participants required"},
+		{"empty old keyshare", validSetup, "party1", participants, []byte{}, "old keyshare required"},
+		{"nil old keyshare", validSetup, "party1", participants, nil, "old keyshare required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewKeyrefreshSession(nil, "test-event", tt.partyID, tt.participants, 2, tt.oldKeyshare)
+			_, err := NewKeyrefreshSession(tt.setupData, "test-event", tt.partyID, tt.participants, 2, tt.oldKeyshare)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("expected error containing %q, got %v", tt.wantErr, err)
 			}

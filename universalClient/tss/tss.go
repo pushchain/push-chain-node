@@ -1,0 +1,338 @@
+package tss
+
+import (
+	"context"
+	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
+	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
+	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
+)
+
+// Config holds configuration for initializing a TSS node.
+type Config struct {
+	ValidatorAddress string
+	PrivateKeyHex    string
+	LibP2PListen     string
+	HomeDir          string
+	Password         string
+	Database         *db.DB
+	DataProvider     coordinator.DataProvider
+	Logger           zerolog.Logger
+
+	// Optional configuration
+	PollInterval      time.Duration
+	ProcessingTimeout time.Duration
+	CoordinatorRange  uint64
+	ProtocolID        string
+	DialTimeout       time.Duration
+	IOTimeout         time.Duration
+}
+
+// convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
+func convertPrivateKeyHexToBase64(hexKey string) (string, error) {
+	hexKey = strings.TrimSpace(hexKey)
+	keyBytes, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return "", fmt.Errorf("hex decode failed: %w", err)
+	}
+	if len(keyBytes) != 32 {
+		return "", fmt.Errorf("wrong key length: got %d bytes, expected 32", len(keyBytes))
+	}
+
+	privKey := ed25519.NewKeyFromSeed(keyBytes)
+	pubKey := privKey.Public().(ed25519.PublicKey)
+
+	libp2pKeyBytes := make([]byte, 64)
+	copy(libp2pKeyBytes[:32], privKey[:32])
+	copy(libp2pKeyBytes[32:], pubKey)
+
+	libp2pPrivKey, err := crypto.UnmarshalEd25519PrivateKey(libp2pKeyBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal Ed25519 key: %w", err)
+	}
+
+	marshaled, err := crypto.MarshalPrivateKey(libp2pPrivKey)
+	if err != nil {
+		return "", fmt.Errorf("marshal failed: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(marshaled), nil
+}
+
+// Node represents a TSS node that can participate in TSS operations.
+type Node struct {
+	validatorAddress string
+	network          networking.Network
+	keyshareManager  *keyshare.Manager
+	database         *db.DB
+	dataProvider     coordinator.DataProvider
+	logger           zerolog.Logger
+	eventStore       *eventstore.Store
+	coordinator      *coordinator.Coordinator
+	sessionManager   *sessionmanager.SessionManager
+
+	// Network configuration (used during Start)
+	networkCfg libp2pnet.Config
+
+	// Coordinator configuration
+	coordinatorRange        uint64
+	coordinatorPollInterval time.Duration
+
+	// Internal state
+	mu           sync.RWMutex
+	running      bool
+	stopCh       chan struct{}
+	processingWg sync.WaitGroup
+}
+
+// NewNode initializes a new TSS node.
+func NewNode(ctx context.Context, cfg Config) (*Node, error) {
+	if cfg.ValidatorAddress == "" {
+		return nil, fmt.Errorf("validator address is required")
+	}
+	if cfg.PrivateKeyHex == "" {
+		return nil, fmt.Errorf("private key is required")
+	}
+	if cfg.DataProvider == nil {
+		return nil, fmt.Errorf("data provider is required")
+	}
+	if cfg.HomeDir == "" {
+		return nil, fmt.Errorf("home directory is required")
+	}
+	if cfg.Database == nil {
+		return nil, fmt.Errorf("database is required")
+	}
+
+	logger := cfg.Logger.With().
+		Str("component", "tss_node").
+		Str("validator", cfg.ValidatorAddress).
+		Logger()
+
+	// Use provided home directory
+	home := cfg.HomeDir
+
+	// Initialize keyshare manager
+	mgr, err := keyshare.NewManager(home, cfg.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keyshare manager: %w", err)
+	}
+
+	// Convert private key
+	privateKeyBase64, err := convertPrivateKeyHexToBase64(cfg.PrivateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key: %w", err)
+	}
+
+	// Setup networking configuration (will be used in Start)
+	networkCfg := libp2pnet.Config{
+		ListenAddrs:      []string{cfg.LibP2PListen},
+		PrivateKeyBase64: privateKeyBase64,
+	}
+	if cfg.ProtocolID != "" {
+		networkCfg.ProtocolID = cfg.ProtocolID
+	}
+	if cfg.DialTimeout > 0 {
+		networkCfg.DialTimeout = cfg.DialTimeout
+	}
+	if cfg.IOTimeout > 0 {
+		networkCfg.IOTimeout = cfg.IOTimeout
+	}
+
+	// Use provided database
+	database := cfg.Database
+
+	// Set defaults
+	pollInterval := cfg.PollInterval
+	if pollInterval == 0 {
+		pollInterval = 10 * time.Second
+	}
+	processingTimeout := cfg.ProcessingTimeout
+	if processingTimeout == 0 {
+		processingTimeout = 5 * time.Minute
+	}
+	coordinatorRange := cfg.CoordinatorRange
+	if coordinatorRange == 0 {
+		coordinatorRange = 1000
+	}
+
+	// Create event store for database access
+	evtStore := eventstore.NewStore(database.Client(), logger)
+
+	// Create session manager
+	sessionMgr := sessionmanager.NewSessionManager(logger)
+
+	// Create node (network will be started in Start)
+	node := &Node{
+		validatorAddress:        cfg.ValidatorAddress,
+		keyshareManager:         mgr,
+		database:                database,
+		dataProvider:            cfg.DataProvider,
+		logger:                  logger,
+		eventStore:              evtStore,
+		sessionManager:          sessionMgr,
+		networkCfg:              networkCfg,
+		coordinatorRange:        coordinatorRange,
+		coordinatorPollInterval: pollInterval,
+		stopCh:                  make(chan struct{}),
+	}
+
+	return node, nil
+}
+
+// Start starts the TSS node and begins processing events.
+func (n *Node) Start(ctx context.Context) error {
+	n.mu.Lock()
+	if n.running {
+		n.mu.Unlock()
+		return errors.New("node is already running")
+	}
+	n.running = true
+	n.mu.Unlock()
+
+	n.logger.Info().Msg("starting TSS node")
+
+	// Start libp2p network
+	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
+	if err != nil {
+		return fmt.Errorf("failed to start libp2p network: %w", err)
+	}
+	n.network = net
+
+	// Register global message handler
+	if err := net.RegisterHandler(n.onReceive); err != nil {
+		net.Close()
+		return fmt.Errorf("failed to register message handler: %w", err)
+	}
+
+	n.logger.Info().
+		Str("peer_id", net.ID()).
+		Strs("addrs", net.ListenAddrs()).
+		Msg("libp2p network started")
+
+	// Create coordinator with send function using node's Send method
+	if n.coordinator == nil {
+		coord := coordinator.NewCoordinator(
+			n.eventStore,
+			n.dataProvider,
+			n.keyshareManager,
+			n.validatorAddress,
+			n.coordinatorRange,
+			n.coordinatorPollInterval,
+			func(ctx context.Context, peerID string, data []byte) error {
+				return n.Send(ctx, peerID, data)
+			},
+			n.logger,
+		)
+		n.coordinator = coord
+	}
+
+	// Start coordinator
+	n.coordinator.Start(ctx)
+
+	n.logger.Info().
+		Str("peer_id", net.ID()).
+		Strs("addrs", net.ListenAddrs()).
+		Msg("TSS node started and ready")
+
+	return nil
+}
+
+// Stop stops the TSS node.
+func (n *Node) Stop() error {
+	n.mu.Lock()
+	if !n.running {
+		n.mu.Unlock()
+		return nil
+	}
+	n.running = false
+	close(n.stopCh)
+	n.mu.Unlock()
+
+	n.logger.Info().Msg("stopping TSS node")
+
+	// Stop coordinator
+	n.coordinator.Stop()
+
+	// Wait for processing to finish
+	n.processingWg.Wait()
+
+	// Close resources
+	var errs []error
+	if n.network != nil {
+		if err := n.network.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close network: %w", err))
+		}
+	}
+	if n.database != nil {
+		if err := n.database.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close database: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("errors during shutdown: %v", errs)
+	}
+
+	n.logger.Info().Msg("TSS node stopped")
+	return nil
+}
+
+// Send sends a message to a peer.
+// If peerID is the node's own peerID, it calls onReceive directly instead of sending over network.
+func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
+	if n.network == nil {
+		return errors.New("network not initialized")
+	}
+
+	// If sending to self, call onReceive directly
+	if peerID == n.network.ID() {
+		n.onReceive(peerID, data)
+		return nil
+	}
+
+	return n.network.Send(ctx, peerID, data)
+}
+
+// onReceive handles incoming messages from p2p network.
+// It passes raw data directly to sessionManager.
+func (n *Node) onReceive(peerID string, data []byte) {
+	ctx := context.Background()
+	if err := n.sessionManager.HandleIncomingMessage(ctx, peerID, data); err != nil {
+		n.logger.Warn().
+			Err(err).
+			Str("peer_id", peerID).
+			Int("data_len", len(data)).
+			Msg("failed to handle incoming message")
+	}
+}
+
+// PeerID returns the libp2p peer ID (helper function).
+func (n *Node) PeerID() string {
+	if n.network == nil {
+		return ""
+	}
+	return n.network.ID()
+}
+
+// ListenAddrs returns the libp2p listen addresses (helper function).
+func (n *Node) ListenAddrs() []string {
+	if n.network == nil {
+		return nil
+	}
+	return n.network.ListenAddrs()
+}

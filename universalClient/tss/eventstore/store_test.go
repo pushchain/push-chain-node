@@ -120,7 +120,7 @@ func TestGetPendingEvents(t *testing.T) {
 		createTestEvent(t, s, "pending-1", 80, StatusPending, 200)
 		createTestEvent(t, s, "in-progress-1", 80, StatusInProgress, 200)
 		createTestEvent(t, s, "success-1", 80, StatusSuccess, 200)
-		createTestEvent(t, s, "failed-1", 80, StatusFailed, 200)
+		createTestEvent(t, s, "expired-1", 80, StatusExpired, 200)
 
 		events, err := s.GetPendingEvents(100, 10)
 		if err != nil {
@@ -268,7 +268,8 @@ func TestUpdateStatus(t *testing.T) {
 		createTestEvent(t, s, "event-1", 100, StatusPending, 200)
 
 		errorMsg := "test error message"
-		err := s.UpdateStatus("event-1", StatusFailed, errorMsg)
+		// On failure, events are reset to PENDING for retry
+		err := s.UpdateStatus("event-1", StatusPending, errorMsg)
 		if err != nil {
 			t.Fatalf("UpdateStatus() error = %v, want nil", err)
 		}
@@ -277,8 +278,8 @@ func TestUpdateStatus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetEvent() error = %v, want nil", err)
 		}
-		if event.Status != StatusFailed {
-			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusFailed)
+		if event.Status != StatusPending {
+			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusPending)
 		}
 		if event.ErrorMsg != errorMsg {
 			t.Errorf("UpdateStatus() error message = %s, want %s", event.ErrorMsg, errorMsg)
@@ -324,7 +325,7 @@ func TestGetEventsByStatus(t *testing.T) {
 		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
 		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
 		createTestEvent(t, s, "success-1", 102, StatusSuccess, 200)
-		createTestEvent(t, s, "failed-1", 103, StatusFailed, 200)
+		createTestEvent(t, s, "expired-1", 103, StatusExpired, 200)
 
 		events, err := s.GetEventsByStatus(StatusPending, 0)
 		if err != nil {
@@ -385,3 +386,40 @@ func TestGetEventsByStatus(t *testing.T) {
 	})
 }
 
+func TestClearExpiredAndSuccessfulEvents(t *testing.T) {
+	t.Run("clear both expired and successful events", func(t *testing.T) {
+		s := setupTestStore(t)
+		createTestEvent(t, s, "success-1", 100, StatusSuccess, 200)
+		createTestEvent(t, s, "expired-1", 101, StatusExpired, 200)
+		createTestEvent(t, s, "pending-1", 102, StatusPending, 200)
+		createTestEvent(t, s, "in-progress-1", 103, StatusInProgress, 200)
+
+		deleted, err := s.ClearExpiredAndSuccessfulEvents()
+		if err != nil {
+			t.Fatalf("ClearExpiredAndSuccessfulEvents() error = %v, want nil", err)
+		}
+		if deleted != 2 {
+			t.Errorf("ClearExpiredAndSuccessfulEvents() deleted %d events, want 2", deleted)
+		}
+
+		// Verify both types are gone
+		success, _ := s.GetEventsByStatus(StatusSuccess, 0)
+		if len(success) != 0 {
+			t.Errorf("GetEventsByStatus(StatusSuccess) returned %d events, want 0", len(success))
+		}
+		expired, _ := s.GetEventsByStatus(StatusExpired, 0)
+		if len(expired) != 0 {
+			t.Errorf("GetEventsByStatus(StatusExpired) returned %d events, want 0", len(expired))
+		}
+
+		// Verify other events still exist
+		pending, _ := s.GetEventsByStatus(StatusPending, 0)
+		if len(pending) != 1 {
+			t.Errorf("GetEventsByStatus(StatusPending) returned %d events, want 1", len(pending))
+		}
+		inProgress, _ := s.GetEventsByStatus(StatusInProgress, 0)
+		if len(inProgress) != 1 {
+			t.Errorf("GetEventsByStatus(StatusInProgress) returned %d events, want 1", len(inProgress))
+		}
+	})
+}

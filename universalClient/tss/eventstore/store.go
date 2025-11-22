@@ -12,7 +12,6 @@ const (
 	StatusPending    = "PENDING"
 	StatusInProgress = "IN_PROGRESS"
 	StatusSuccess    = "SUCCESS"
-	StatusFailed     = "FAILED"
 	StatusExpired    = "EXPIRED"
 )
 
@@ -101,4 +100,16 @@ func (s *Store) GetEventsByStatus(status string, limit int) ([]store.TSSEvent, e
 		return nil, errors.Wrapf(err, "failed to query events with status %s", status)
 	}
 	return events, nil
+}
+
+// ClearExpiredAndSuccessfulEvents deletes both expired and successful events.
+func (s *Store) ClearExpiredAndSuccessfulEvents() (int64, error) {
+	result := s.db.Where("status IN ?", []string{StatusExpired, StatusSuccess}).Delete(&store.TSSEvent{})
+	if result.Error != nil {
+		return 0, errors.Wrap(result.Error, "failed to clear expired and successful events")
+	}
+	s.logger.Info().
+		Int64("deleted_count", result.RowsAffected).
+		Msg("cleared expired and successful events")
+	return result.RowsAffected, nil
 }

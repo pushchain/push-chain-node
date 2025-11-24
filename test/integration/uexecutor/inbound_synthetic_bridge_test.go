@@ -116,7 +116,7 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 		Amount:           "1000000",
 		AssetAddr:        prc20Address.String(),
 		LogIndex:         "1",
-		TxType:           uexecutortypes.InboundTxType_FUNDS,
+		TxType:           uexecutortypes.TxType_FUNDS,
 		UniversalPayload: nil,
 		VerificationData: "",
 	}

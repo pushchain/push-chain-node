@@ -113,6 +113,31 @@ func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) 
 	return "", errors.Errorf("partyID %s not found in validators", partyID)
 }
 
+// GetMultiAddrsFromPeerID gets the multiaddrs for a given peerID.
+// Uses cached allValidators for performance.
+func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string) ([]string, error) {
+	// Use cached validators
+	c.mu.RLock()
+	allValidators := c.allValidators
+	c.mu.RUnlock()
+
+	if len(allValidators) == 0 {
+		// If cache is empty, try to update it
+		c.updateValidators(ctx)
+		c.mu.RLock()
+		allValidators = c.allValidators
+		c.mu.RUnlock()
+	}
+
+	for _, v := range allValidators {
+		if v.Network.PeerID == peerID {
+			return v.Network.Multiaddrs, nil
+		}
+	}
+
+	return nil, errors.Errorf("peerID %s not found in validators", peerID)
+}
+
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
@@ -301,8 +326,18 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get pending events")
 	}
 
+	c.logger.Info().
+		Int("count", len(events)).
+		Uint64("current_block", currentBlock).
+		Msg("found pending events")
+
 	// Process each event: create setup message and send to all participants
 	for _, event := range events {
+		c.logger.Info().
+			Str("event_id", event.EventID).
+			Str("protocol_type", event.ProtocolType).
+			Uint64("block_number", event.BlockNumber).
+			Msg("processing event as coordinator")
 		// Get participants based on protocol type (using cached allValidators)
 		var participants []*UniversalValidator
 		switch event.ProtocolType {

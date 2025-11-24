@@ -98,6 +98,10 @@ type Node struct {
 	running      bool
 	stopCh       chan struct{}
 	processingWg sync.WaitGroup
+
+	// Registered peers tracking
+	registeredPeersMu sync.RWMutex
+	registeredPeers   map[string]bool // peerID -> registered
 }
 
 // NewNode initializes a new TSS node.
@@ -189,6 +193,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		coordinatorRange:        coordinatorRange,
 		coordinatorPollInterval: pollInterval,
 		stopCh:                  make(chan struct{}),
+		registeredPeers:         make(map[string]bool),
 	}
 
 	return node, nil
@@ -309,6 +314,7 @@ func (n *Node) Stop() error {
 
 // Send sends a message to a peer.
 // If peerID is the node's own peerID, it calls onReceive directly instead of sending over network.
+// If the peer is not registered, it will automatically register it from validators before sending.
 func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 	if n.network == nil {
 		return errors.New("network not initialized")
@@ -320,6 +326,42 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 		return nil
 	}
 
+	// Check if peer is registered
+	n.registeredPeersMu.RLock()
+	isRegistered := n.registeredPeers[peerID]
+	n.registeredPeersMu.RUnlock()
+
+	// If not registered, register it using coordinator
+	if !isRegistered {
+		if n.coordinator == nil {
+			return errors.New("coordinator not initialized")
+		}
+
+		multiaddrs, err := n.coordinator.GetMultiAddrsFromPeerID(ctx, peerID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get multiaddrs for peer %s", peerID)
+		}
+
+		if len(multiaddrs) == 0 {
+			return errors.Errorf("peer %s has no addresses", peerID)
+		}
+
+		if err := n.network.EnsurePeer(peerID, multiaddrs); err != nil {
+			return errors.Wrapf(err, "failed to register peer %s", peerID)
+		}
+
+		// Mark as registered
+		n.registeredPeersMu.Lock()
+		n.registeredPeers[peerID] = true
+		n.registeredPeersMu.Unlock()
+
+		n.logger.Debug().
+			Str("peer_id", peerID).
+			Strs("addrs", multiaddrs).
+			Msg("registered peer on-demand")
+	}
+
+	// Send message
 	return n.network.Send(ctx, peerID, data)
 }
 

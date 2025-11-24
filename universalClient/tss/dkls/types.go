@@ -6,15 +6,6 @@ type Message struct {
 	Data     []byte // Protocol message data
 }
 
-// SessionType represents the type of DKLS protocol session.
-type SessionType string
-
-const (
-	SessionTypeKeygen     SessionType = "keygen"
-	SessionTypeKeyrefresh SessionType = "keyrefresh"
-	SessionTypeSign       SessionType = "sign"
-)
-
 // Session manages a DKLS protocol session (keygen, keyrefresh, or sign).
 type Session interface {
 	// Step processes the next protocol step and returns messages to send.

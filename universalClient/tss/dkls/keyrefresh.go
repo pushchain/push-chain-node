@@ -13,7 +13,6 @@ type keyrefreshSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string
-	sessionType  SessionType
 }
 
 // NewKeyrefreshSession creates a new keyrefresh session.
@@ -63,7 +62,6 @@ func NewKeyrefreshSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
-		sessionType:  SessionTypeKeyrefresh,
 	}, nil
 }
 
@@ -135,7 +133,6 @@ func (s *keyrefreshSession) enqueuePayload(data []byte) error {
 func (s *keyrefreshSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
-
 
 // GetResult returns the result when finished.
 func (s *keyrefreshSession) GetResult() (*Result, error) {

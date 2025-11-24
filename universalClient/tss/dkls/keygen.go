@@ -13,7 +13,6 @@ type keygenSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string // Party IDs in order
-	sessionType  SessionType
 }
 
 // NewKeygenSession creates a new keygen session.
@@ -51,7 +50,6 @@ func NewKeygenSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
-		sessionType:  SessionTypeKeygen,
 	}, nil
 }
 
@@ -127,7 +125,6 @@ func (s *keygenSession) enqueuePayload(data []byte) error {
 func (s *keygenSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
-
 
 // GetResult returns the result when finished.
 func (s *keygenSession) GetResult() (*Result, error) {

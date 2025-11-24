@@ -13,7 +13,6 @@ type signSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string
-	sessionType  SessionType
 }
 
 // NewSignSession creates a new sign session.
@@ -69,7 +68,6 @@ func NewSignSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
-		sessionType:  SessionTypeSign,
 	}, nil
 }
 
@@ -142,7 +140,6 @@ func (s *signSession) enqueuePayload(data []byte) error {
 func (s *signSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
-
 
 // GetResult returns the result when finished.
 func (s *signSession) GetResult() (*Result, error) {

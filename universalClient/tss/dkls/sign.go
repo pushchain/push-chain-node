@@ -13,6 +13,7 @@ type signSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string
+	sessionType  SessionType
 }
 
 // NewSignSession creates a new sign session.
@@ -68,6 +69,7 @@ func NewSignSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
+		sessionType:  SessionTypeSign,
 	}, nil
 }
 
@@ -147,6 +149,11 @@ func (s *signSession) GetParticipants() []string {
 	participants := make([]string, len(s.participants))
 	copy(participants, s.participants)
 	return participants
+}
+
+// GetType returns the type of the session.
+func (s *signSession) GetType() SessionType {
+	return s.sessionType
 }
 
 // GetResult returns the result when finished.

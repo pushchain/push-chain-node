@@ -13,6 +13,7 @@ type keyrefreshSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string
+	sessionType  SessionType
 }
 
 // NewKeyrefreshSession creates a new keyrefresh session.
@@ -62,6 +63,7 @@ func NewKeyrefreshSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
+		sessionType:  SessionTypeKeyrefresh,
 	}, nil
 }
 
@@ -140,6 +142,11 @@ func (s *keyrefreshSession) GetParticipants() []string {
 	participants := make([]string, len(s.participants))
 	copy(participants, s.participants)
 	return participants
+}
+
+// GetType returns the type of the session.
+func (s *keyrefreshSession) GetType() SessionType {
+	return s.sessionType
 }
 
 // GetResult returns the result when finished.

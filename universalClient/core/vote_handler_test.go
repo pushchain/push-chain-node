@@ -127,12 +127,12 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 		{
 			name: "vote transaction fails with non-zero code",
 			tx: &store.ChainTransaction{
-				TxHash:        "0x456",
-				BlockNumber:   200,
-				EventIdentifier:        "add_funds",
-				Status:        "pending",
-				Confirmations: 15,
-				Data:          json.RawMessage(`{}`),
+				TxHash:          "0x456",
+				BlockNumber:     200,
+				EventIdentifier: "add_funds",
+				Status:          "pending",
+				Confirmations:   15,
+				Data:            json.RawMessage(`{}`),
 			},
 			setupMock: func(m *MockTxSigner) {
 				m.On("SignAndBroadcastAuthZTx",
@@ -152,12 +152,12 @@ func TestVoteHandler_VoteAndConfirm(t *testing.T) {
 		{
 			name: "broadcast error",
 			tx: &store.ChainTransaction{
-				TxHash:        "0x789",
-				BlockNumber:   300,
-				EventIdentifier:        "addFunds",
-				Status:        "pending",
-				Confirmations: 20,
-				Data:          json.RawMessage(`{}`),
+				TxHash:          "0x789",
+				BlockNumber:     300,
+				EventIdentifier: "addFunds",
+				Status:          "pending",
+				Confirmations:   20,
+				Data:            json.RawMessage(`{}`),
 			},
 			setupMock: func(m *MockTxSigner) {
 				m.On("SignAndBroadcastAuthZTx",
@@ -228,7 +228,7 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 		{
 			name: "complete data for EVM transaction",
 			tx: &store.ChainTransaction{
-				TxHash: "0xabc123",
+				TxHash:          "0xabc123",
 				EventIdentifier: "addFunds",
 				Data: json.RawMessage(`{
 					"sourceChain": "eip155:1",
@@ -248,15 +248,15 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "1000000",
 				AssetAddr:   "0x333",
 				LogIndex:    "5",
-				TxType:      uetypes.InboundTxType_FUNDS_AND_PAYLOAD,
+				TxType:      uetypes.TxType_FUNDS_AND_PAYLOAD,
 			},
 		},
 		{
 			name: "minimal data with defaults",
 			tx: &store.ChainTransaction{
-				TxHash: "0xdef456",
+				TxHash:          "0xdef456",
 				EventIdentifier: "add_funds",
-				Data:   json.RawMessage(`{}`),
+				Data:            json.RawMessage(`{}`),
 			},
 			expected: &uetypes.Inbound{
 				SourceChain: "",
@@ -266,15 +266,15 @@ func TestVoteHandler_constructInbound(t *testing.T) {
 				Amount:      "",
 				AssetAddr:   "",
 				LogIndex:    "0",
-				TxType:      uetypes.InboundTxType_GAS,
+				TxType:      uetypes.TxType_GAS,
 			},
 		},
 		{
 			name: "nil data returns error",
 			tx: &store.ChainTransaction{
-				TxHash: "0x789",
+				TxHash:          "0x789",
 				EventIdentifier: "addFunds",
-				Data:   nil,
+				Data:            nil,
 			},
 			wantError: true,
 		},
@@ -565,7 +565,7 @@ func TestVoteHandler_VoteTxHashNotOverwritten(t *testing.T) {
 	// Create transaction that already has a vote tx hash
 	existingVoteTxHash := "existing_vote_tx_123"
 	tx := &store.ChainTransaction{
-		TxHash:        "0xalready_voted",
+		TxHash:          "0xalready_voted",
 		BlockNumber:     2000,
 		EventIdentifier: "0xf9bfe8a7",
 		Status:          "confirmed",

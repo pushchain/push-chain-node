@@ -112,6 +112,9 @@ message PCTx {
 }
 
 message OutboundObservation {
+  option (amino.name) = "uexecutor/outbound_observation";
+  option (gogoproto.equal) = true;
+
   string destination_chain = 1; // chain where the tx was executed
   bool success = 2;             // whether execution succeeded
   uint64 block_height = 3;      // block height on external chain
@@ -121,7 +124,6 @@ message OutboundObservation {
 message Originating_Pc_TX {
   option (amino.name) = "uexecutor/originating_pc_tx";
   option (gogoproto.equal) = true;
-  option (gogoproto.goproto_stringer) = false;
 
   string tx_hash = 1;    // pc_tx hash that initiated the outbound
   string log_index = 2;    // log_index that initiated the outbound

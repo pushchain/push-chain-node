@@ -43,6 +43,8 @@ func TestMigrateUEA(t *testing.T) {
 	ms := uexecutorkeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
 	t.Run("Success!", func(t *testing.T) {
+		migratedAddress := utils.DeployMigrationContract(t, app, ctx)
+
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -52,7 +54,7 @@ func TestMigrateUEA(t *testing.T) {
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		validMP := &uexecutortypes.MigrationPayload{
-			Migration: "0x527F3692F5C53CfA83F7689885995606F93b6164",
+			Migration: migratedAddress.Hex(),
 			Nonce:     "1",
 			Deadline:  "9999999999",
 		}

@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"math/big"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -203,11 +204,18 @@ func registerEVMChainAndUEA(
 	packed, err := chainArgs.Pack("eip155", "11155111")
 	require.NoError(t, err)
 
-	ChainHash := crypto.Keccak256Hash(packed)
+	ChainHashEVM := crypto.Keccak256Hash(packed)
 
-	t.Logf("Computed chainHash: %s", ChainHash.Hex())
+	t.Logf("Computed chainHash (EVM): %s", ChainHashEVM.Hex())
 
-	// Register new chain
+	packed, err = chainArgs.Pack("solana", "EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
+	require.NoError(t, err)
+
+	ChainHashSVM := crypto.Keccak256Hash(packed)
+
+	t.Logf("Computed chainHash (SVM): %s", ChainHashSVM.Hex())
+
+	// Register new EVM chain
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
@@ -215,7 +223,20 @@ func registerEVMChainAndUEA(
 		factoryAddr,
 		true,
 		"registerNewChain",
-		ChainHash,
+		ChainHashEVM,
+		EVMHash,
+	)
+	require.NoError(t, err)
+
+	// Register new SVM chain
+	_, err = chainApp.EVMKeeper.CallEVM(
+		ctx,
+		factoryABI,
+		owner,
+		factoryAddr,
+		true,
+		"registerNewChain",
+		ChainHashSVM,
 		EVMHash,
 	)
 	require.NoError(t, err)
@@ -229,7 +250,16 @@ func registerEVMChainAndUEA(
 		UEA_EVM_BYTECODE,
 	)
 
-	// Register UEA
+	// Deploy SVM Implementation
+	SVMImplAddress := DeployContract(
+		t,
+		chainApp,
+		ctx,
+		opts.Addresses.SVMImplAddr,
+		UEA_SVM_BYTECODE,
+	)
+
+	// Register UEA : EVM
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
@@ -237,28 +267,80 @@ func registerEVMChainAndUEA(
 		factoryAddr,
 		true,
 		"registerUEA",
-		ChainHash,
+		ChainHashEVM,
 		EVMHash,
 		EVMImplAddress,
 	)
 	require.NoError(t, err)
 
-	// Get UEA address
-	ueaAddrResult, err := chainApp.EVMKeeper.CallEVM(
+	// Register UEA : SVM
+	_, err = chainApp.EVMKeeper.CallEVM(
+		ctx,
+		factoryABI,
+		owner,
+		factoryAddr,
+		true,
+		"registerUEA",
+		ChainHashSVM,
+		EVMHash,
+		SVMImplAddress,
+	)
+	require.NoError(t, err)
+
+	// Get UEA (EVM) address
+	ueaAddrResultEVM, err := chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
 		"getUEA",
-		ChainHash,
+		ChainHashEVM,
 	)
 	require.NoError(t, err)
 
-	UEAAddress := common.BytesToAddress(ueaAddrResult.Ret)
+	UEAAddress := common.BytesToAddress(ueaAddrResultEVM.Ret)
+	t.Logf("UEA registered at: %s", UEAAddress.Hex())
+
+	// Get UEA (SVM) address
+	ueaAddrResultSVM, err := chainApp.EVMKeeper.CallEVM(
+		ctx,
+		factoryABI,
+		owner,
+		factoryAddr,
+		true,
+		"getUEA",
+		ChainHashSVM,
+	)
+	require.NoError(t, err)
+
+	UEAAddress = common.BytesToAddress(ueaAddrResultSVM.Ret)
 	t.Logf("UEA registered at: %s", UEAAddress.Hex())
 
 	return nil
+}
+
+func DeployMigrationContract(
+	t *testing.T,
+	app *app.ChainApp,
+	ctx sdk.Context,
+) common.Address {
+	Addresses := GetDefaultAddresses()
+	bytecode, err := hexutil.Decode("0x" + UEA_MIGRATION_BYTECODE)
+	require.NoError(t, err)
+
+	codeHash := crypto.Keccak256Hash(bytecode)
+
+	evmAcc := app.EVMKeeper.GetAccountOrEmpty(ctx, Addresses.MigratedUEAAddr)
+	evmAcc.CodeHash = codeHash.Bytes()
+	app.EVMKeeper.SetAccount(ctx, Addresses.MigratedUEAAddr, evmAcc)
+	app.EVMKeeper.SetCode(ctx, codeHash.Bytes(), bytecode)
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(0)), common.LeftPadBytes(Addresses.MigratedUEAAddr.Bytes(), 32))
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(1)), common.LeftPadBytes(Addresses.EVMImplAddr.Bytes(), 32))
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(2)), common.LeftPadBytes(Addresses.SVMImplAddr.Bytes(), 32))
+
+	return Addresses.MigratedUEAAddr
+
 }
 
 func DeployContract(

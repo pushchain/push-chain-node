@@ -134,6 +134,14 @@ func (s *keyrefreshSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
 
+// GetParticipants returns the list of participant party IDs.
+func (s *keyrefreshSession) GetParticipants() []string {
+	// Return a copy to avoid mutation
+	participants := make([]string, len(s.participants))
+	copy(participants, s.participants)
+	return participants
+}
+
 // GetResult returns the result when finished.
 func (s *keyrefreshSession) GetResult() (*Result, error) {
 	keyHandle, err := session.DklsKeygenSessionFinish(s.handle)

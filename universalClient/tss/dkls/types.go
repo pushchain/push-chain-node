@@ -20,6 +20,9 @@ type Session interface {
 	// For sign: returns signature (keyshare will be nil)
 	GetResult() (*Result, error)
 
+	// GetParticipants returns the list of participant party IDs.
+	GetParticipants() []string
+
 	// Close cleans up the session.
 	Close()
 }

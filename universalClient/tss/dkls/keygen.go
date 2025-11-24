@@ -126,6 +126,14 @@ func (s *keygenSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
 
+// GetParticipants returns the list of participant party IDs.
+func (s *keygenSession) GetParticipants() []string {
+	// Return a copy to avoid mutation
+	participants := make([]string, len(s.participants))
+	copy(participants, s.participants)
+	return participants
+}
+
 // GetResult returns the result when finished.
 func (s *keygenSession) GetResult() (*Result, error) {
 	// Finish the session

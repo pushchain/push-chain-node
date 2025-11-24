@@ -20,6 +20,11 @@ func (p UniversalTx) String() string {
 
 // ValidateBasic does the sanity check on the UniversalTx fields.
 func (p UniversalTx) ValidateBasic() error {
+	// Validate Id is non-empty
+	if len(p.Id) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "id cannot be empty")
+	}
+
 	// Validate inbound_tx
 	if err := p.InboundTx.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid inbound_tx")

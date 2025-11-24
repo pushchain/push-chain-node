@@ -46,6 +46,7 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 
 	// Voting is finalized
 	utx := types.UniversalTx{
+		Id:              universalTxKey,
 		InboundTx:       &inbound,
 		PcTx:            nil,
 		OutboundTx:      nil,

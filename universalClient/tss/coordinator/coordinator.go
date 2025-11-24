@@ -63,6 +63,56 @@ func NewCoordinator(
 	}
 }
 
+// GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
+// Uses cached allValidators for performance.
+func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (string, error) {
+	// Use cached validators
+	c.mu.RLock()
+	allValidators := c.allValidators
+	c.mu.RUnlock()
+
+	if len(allValidators) == 0 {
+		// If cache is empty, try to update it
+		c.updateValidators(ctx)
+		c.mu.RLock()
+		allValidators = c.allValidators
+		c.mu.RUnlock()
+	}
+
+	for _, v := range allValidators {
+		if v.Network.PeerID == peerID {
+			return v.ValidatorAddress, nil
+		}
+	}
+
+	return "", errors.Errorf("peerID %s not found in validators", peerID)
+}
+
+// GetPeerIDFromPartyID gets the peerID for a given partyID (validator address).
+// Uses cached allValidators for performance.
+func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) (string, error) {
+	// Use cached validators
+	c.mu.RLock()
+	allValidators := c.allValidators
+	c.mu.RUnlock()
+
+	if len(allValidators) == 0 {
+		// If cache is empty, try to update it
+		c.updateValidators(ctx)
+		c.mu.RLock()
+		allValidators = c.allValidators
+		c.mu.RUnlock()
+	}
+
+	for _, v := range allValidators {
+		if v.ValidatorAddress == partyID {
+			return v.Network.PeerID, nil
+		}
+	}
+
+	return "", errors.Errorf("partyID %s not found in validators", partyID)
+}
+
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
@@ -105,6 +155,11 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 		return false, nil
 	}
 	return coordinatorParticipants[idx].ValidatorAddress == validatorAddress, nil
+}
+
+// GetCurrentTSSKeyId gets the current TSS key ID from the data provider.
+func (c *Coordinator) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
+	return c.dataProvider.GetCurrentTSSKeyId(ctx)
 }
 
 // GetEligibleUV returns eligible validators for the given protocol type.
@@ -292,7 +347,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	}
 
 	// Calculate threshold
-	threshold := calculateThreshold(len(partyIDs))
+	threshold := CalculateThreshold(len(partyIDs))
 
 	// Create setup message based on event type
 	var setupData []byte

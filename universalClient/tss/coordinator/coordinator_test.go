@@ -262,7 +262,7 @@ func TestCalculateThreshold(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := calculateThreshold(tt.numParticipants)
+			result := CalculateThreshold(tt.numParticipants)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

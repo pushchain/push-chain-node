@@ -5,10 +5,10 @@ import (
 	"math/rand"
 )
 
-// calculateThreshold calculates the threshold as > 2/3 of participants.
+// CalculateThreshold calculates the threshold as > 2/3 of participants.
 // Formula: threshold = floor((2 * n) / 3) + 1
 // This ensures threshold > 2/3 * n
-func calculateThreshold(numParticipants int) int {
+func CalculateThreshold(numParticipants int) int {
 	if numParticipants <= 0 {
 		return 1
 	}
@@ -33,7 +33,7 @@ func selectRandomThreshold(eligible []*UniversalValidator) []*UniversalValidator
 	}
 
 	// Calculate minimum required: >2/3 (same as threshold calculation)
-	minRequired := calculateThreshold(len(eligible))
+	minRequired := CalculateThreshold(len(eligible))
 
 	// If we have fewer than minRequired, return all
 	if len(eligible) <= minRequired {

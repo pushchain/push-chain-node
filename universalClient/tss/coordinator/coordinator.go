@@ -313,9 +313,10 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create and send setup message to all participants
 	setupMsg := Message{
-		Type:    "setup",
-		EventID: event.EventID,
-		Payload: setupData,
+		Type:         "setup",
+		EventID:      event.EventID,
+		Payload:      setupData,
+		Participants: partyIDs,
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {

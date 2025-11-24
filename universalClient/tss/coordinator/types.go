@@ -50,9 +50,10 @@ const (
 	ProtocolSign       ProtocolType = "sign"
 )
 
-// Message represents a simple message with type, eventId, and payload.
+// Message represents a simple message with type, eventId, payload, and participants.
 type Message struct {
-	Type    string `json:"type"`
-	EventID string `json:"eventId"`
-	Payload []byte `json:"payload"`
+	Type         string   `json:"type"`
+	EventID      string   `json:"eventId"`
+	Payload      []byte   `json:"payload"`
+	Participants []string `json:"participants"` // Array of PartyIDs (validator addresses) participating in this process
 }

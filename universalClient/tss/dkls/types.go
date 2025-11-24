@@ -29,12 +29,6 @@ type Session interface {
 	// For sign: returns signature (keyshare will be nil)
 	GetResult() (*Result, error)
 
-	// GetParticipants returns the list of participant party IDs.
-	GetParticipants() []string
-
-	// GetType returns the type of the session (keygen, keyrefresh, or sign).
-	GetType() SessionType
-
 	// Close cleans up the session.
 	Close()
 }

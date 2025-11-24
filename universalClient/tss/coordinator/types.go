@@ -52,7 +52,7 @@ const (
 
 // Message represents a simple message with type, eventId, payload, and participants.
 type Message struct {
-	Type         string   `json:"type"`
+	Type         string   `json:"type"` // "setup", "ack", "begin", "step"
 	EventID      string   `json:"eventId"`
 	Payload      []byte   `json:"payload"`
 	Participants []string `json:"participants"` // Array of PartyIDs (validator addresses) participating in this process

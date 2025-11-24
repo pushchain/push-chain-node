@@ -143,18 +143,6 @@ func (s *signSession) InputMessage(data []byte) error {
 	return s.enqueuePayload(data)
 }
 
-// GetParticipants returns the list of participant party IDs.
-func (s *signSession) GetParticipants() []string {
-	// Return a copy to avoid mutation
-	participants := make([]string, len(s.participants))
-	copy(participants, s.participants)
-	return participants
-}
-
-// GetType returns the type of the session.
-func (s *signSession) GetType() SessionType {
-	return s.sessionType
-}
 
 // GetResult returns the result when finished.
 func (s *signSession) GetResult() (*Result, error) {

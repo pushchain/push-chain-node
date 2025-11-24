@@ -72,12 +72,13 @@ message InboundStatus {
   Status status = 1;
 }
 
-enum InboundTxType {
+enum TxType {
   UNSPECIFIED_TX = 0;
   GAS = 1; // fee abstraction
   FUNDS = 2; // synthetic
   FUNDS_AND_PAYLOAD = 3; // synthetic + payload exec
   GAS_AND_PAYLOAD = 4; // fee abstraction + payload exec
+  PAYLOAD = 5;
 }
 
 message Inbound {
@@ -92,7 +93,7 @@ message Inbound {
   string amount = 5; // synthetic token amount bridged in
   string asset_addr        = 6;  // address of erc20 token address on source chain
   string log_index = 7; // log index that originated the cross chain tx
-  InboundTxType tx_type = 8; // inbound tx type
+  TxType tx_type = 8; // inbound tx type
   UniversalPayload universal_payload = 9; // payload is the universal payload to be executed
   string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
 }
@@ -110,16 +111,38 @@ message PCTx {
   string error_msg    = 7; // optional error info if failed
 }
 
+message OutboundObservation {
+  string destination_chain = 1; // chain where the tx was executed
+  bool success = 2;             // whether execution succeeded
+  uint64 block_height = 3;      // block height on external chain
+  string tx_hash = 4;           // external chain tx hash
+}
+
+message Originating_Pc_TX {
+  option (amino.name) = "uexecutor/originating_pc_tx";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string tx_hash = 1;    // pc_tx hash that initiated the outbound
+  string log_index = 2;    // log_index that initiated the outbound
+}
+
 message OutboundTx {
   option (amino.name) = "uexecutor/outbound_tx";
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
   string destination_chain = 1;    // chain where this outbound is sent
-  string tx_hash           = 2;    // outbound tx hash on destination chain
-  string recipient         = 3;    // recipient on destination chain
-  string amount            = 4;    // token amount or payload
-  string asset_addr        = 5;    // token contract if applicable
+  string recipient         = 2;    // recipient on destination chain
+  string amount            = 3;    // token amount
+  string asset_addr        = 4;    // token contract if applicable
+  string sender = 5; // sender of the outbound tx
+  string payload = 6; // payload to be executed
+  string gas_limit = 7; // gas limit to be used for the outbound tx
+  TxType tx_type = 8; // outbound tx type
+  Originating_Pc_TX pc_tx = 9; // pc_tx that originated the outbound
+  OutboundObservation observed_tx = 10; // observed tx on destination chain
+  string index = 11; // index of outbound tx
 }
 
 message UniversalTx {
@@ -127,8 +150,9 @@ message UniversalTx {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
   
-  Inbound inbound_tx = 1;    // Full inbound tx data
-  repeated PCTx pc_tx = 2;               // Execution details on Push Chain
-  OutboundTx outbound_tx = 3;    // Outbound tx triggered by this tx
-  UniversalTxStatus universal_status = 4;       // Current status
+  string id = 1;
+  Inbound inbound_tx = 2;    // Full inbound tx data
+  repeated PCTx pc_tx = 3;               // Execution details on Push Chain
+  OutboundTx outbound_tx = 4;    // Outbound tx triggered by this tx
+  UniversalTxStatus universal_status = 5;       // Current status
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -21,16 +22,21 @@ type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
 // SessionManager manages TSS protocol sessions and handles incoming messages.
 type SessionManager struct {
-	eventStore      *eventstore.Store
-	coordinator     *coordinator.Coordinator
-	keyshareManager *keyshare.Manager
-	send            SendFunc
-	partyID         string // Our validator address
-	logger          zerolog.Logger
+	eventStore        *eventstore.Store
+	coordinator       *coordinator.Coordinator
+	keyshareManager   *keyshare.Manager
+	send              SendFunc
+	partyID           string // Our validator address
+	logger            zerolog.Logger
+	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
 
 	// Session storage
 	mu       sync.RWMutex
 	sessions map[string]dkls.Session // eventID -> Session
+	// Coordinator tracking per session
+	coordinators map[string]string // eventID -> coordinatorPeerID
+	// Session expiry tracking
+	sessionExpiry map[string]time.Time // eventID -> expiry time
 }
 
 // NewSessionManager creates a new session manager.
@@ -40,16 +46,20 @@ func NewSessionManager(
 	keyshareManager *keyshare.Manager,
 	send SendFunc,
 	partyID string,
+	sessionExpiryTime time.Duration,
 	logger zerolog.Logger,
 ) *SessionManager {
 	return &SessionManager{
-		eventStore:      eventStore,
-		coordinator:     coord,
-		keyshareManager: keyshareManager,
-		send:            send,
-		partyID:         partyID,
-		logger:          logger,
-		sessions:        make(map[string]dkls.Session),
+		eventStore:        eventStore,
+		coordinator:       coord,
+		keyshareManager:   keyshareManager,
+		send:              send,
+		partyID:           partyID,
+		sessionExpiryTime: sessionExpiryTime,
+		logger:            logger,
+		sessions:          make(map[string]dkls.Session),
+		coordinators:      make(map[string]string),
+		sessionExpiry:     make(map[string]time.Time),
 	}
 }
 
@@ -118,9 +128,12 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return errors.Wrapf(err, "failed to create session for event %s", msg.EventID)
 	}
 
-	// 6. Store session
+	// 6. Store session, coordinator, and set expiry time
 	sm.mu.Lock()
 	sm.sessions[msg.EventID] = session
+	sm.coordinators[msg.EventID] = senderPeerID
+	// Set expiry time
+	sm.sessionExpiry[msg.EventID] = time.Now().Add(sm.sessionExpiryTime)
 	sm.mu.Unlock()
 
 	// 7. Update event status to IN_PROGRESS
@@ -244,16 +257,22 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 	return nil
 }
 
+// cleanSession removes a session and all associated data (coordinator tracking, expiry).
+// It closes the session and logs the cleanup.
+func (sm *SessionManager) cleanSession(eventID string, session dkls.Session) {
+	sm.mu.Lock()
+	delete(sm.sessions, eventID)
+	delete(sm.coordinators, eventID)
+	delete(sm.sessionExpiry, eventID)
+	sm.mu.Unlock()
+	session.Close()
+	sm.logger.Info().Str("event_id", eventID).Msg("session cleaned up")
+}
+
 // handleSessionFinished handles a completed session.
 func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID string, session dkls.Session) error {
 	// Ensure session is cleaned up even on error
-	defer func() {
-		sm.mu.Lock()
-		delete(sm.sessions, eventID)
-		sm.mu.Unlock()
-		session.Close()
-		sm.logger.Info().Str("event_id", eventID).Msg("session cleaned up")
-	}()
+	defer sm.cleanSession(eventID, session)
 
 	// Get result
 	result, err := session.GetResult()
@@ -458,4 +477,77 @@ func extractMessageHash(eventData []byte) ([]byte, error) {
 	// Hash the message
 	hash := sha256.Sum256(eventData)
 	return hash[:], nil
+}
+
+// StartExpiryChecker starts a background goroutine that periodically checks for expired sessions.
+func (sm *SessionManager) StartExpiryChecker(ctx context.Context, checkInterval time.Duration, blockDelay uint64) {
+	if checkInterval == 0 {
+		checkInterval = 30 * time.Second
+	}
+	if blockDelay == 0 {
+		blockDelay = 60 // Default: retry after 60 blocks ( Approx 1 Minute for PC)
+	}
+
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sm.checkExpiredSessions(ctx, blockDelay)
+		}
+	}
+}
+
+// checkExpiredSessions checks for expired sessions and marks their events as pending for retry.
+func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay uint64) {
+	now := time.Now()
+	var expiredSessions []string
+
+	// Find expired sessions
+	sm.mu.RLock()
+	for eventID, expiryTime := range sm.sessionExpiry {
+		if now.After(expiryTime) {
+			expiredSessions = append(expiredSessions, eventID)
+		}
+	}
+	sm.mu.RUnlock()
+
+	// Process expired sessions
+	for _, eventID := range expiredSessions {
+		sm.mu.Lock()
+		session, hasSession := sm.sessions[eventID]
+		sm.mu.Unlock()
+
+		if hasSession {
+			// Get current block number from coordinator
+			currentBlock, err := sm.coordinator.GetLatestBlockNum(ctx)
+			if err != nil {
+				sm.logger.Warn().
+					Err(err).
+					Str("event_id", eventID).
+					Msg("failed to get current block number for expired session")
+				continue
+			}
+
+			// Clean up session
+			sm.cleanSession(eventID, session)
+
+			// Update event: mark as pending and set new block number (current + delay)
+			newBlockNumber := currentBlock + blockDelay
+			if err := sm.eventStore.UpdateStatusAndBlockNumber(eventID, eventstore.StatusPending, newBlockNumber); err != nil {
+				sm.logger.Warn().
+					Err(err).
+					Str("event_id", eventID).
+					Msg("failed to update expired session event")
+			} else {
+				sm.logger.Info().
+					Str("event_id", eventID).
+					Uint64("new_block_number", newBlockNumber).
+					Msg("expired session removed, event marked as pending for retry")
+			}
+		}
+	}
 }

@@ -89,6 +89,24 @@ func (s *Store) UpdateStatus(eventID, status, errorMsg string) error {
 	return nil
 }
 
+// UpdateStatusAndBlockNumber updates the status and block number of an event.
+func (s *Store) UpdateStatusAndBlockNumber(eventID, status string, blockNumber uint64) error {
+	update := map[string]any{
+		"status":       status,
+		"block_number": blockNumber,
+	}
+	result := s.db.Model(&store.TSSEvent{}).
+		Where("event_id = ?", eventID).
+		Updates(update)
+	if result.Error != nil {
+		return errors.Wrapf(result.Error, "failed to update event %s", eventID)
+	}
+	if result.RowsAffected == 0 {
+		return errors.Errorf("event %s not found", eventID)
+	}
+	return nil
+}
+
 // GetEventsByStatus returns all events with the given status.
 func (s *Store) GetEventsByStatus(status string, limit int) ([]store.TSSEvent, error) {
 	var events []store.TSSEvent

@@ -41,6 +41,11 @@ type Config struct {
 	ProtocolID        string
 	DialTimeout       time.Duration
 	IOTimeout         time.Duration
+
+	// Session expiry checker configuration
+	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
+	SessionExpiryCheckInterval time.Duration // How often to check for expired sessions (default: 30s)
+	SessionExpiryBlockDelay    uint64        // How many blocks to delay retry after expiry (default: 10)
 }
 
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
@@ -92,6 +97,11 @@ type Node struct {
 	// Coordinator configuration
 	coordinatorRange        uint64
 	coordinatorPollInterval time.Duration
+
+	// Session expiry checker configuration
+	sessionExpiryTime          time.Duration
+	sessionExpiryCheckInterval time.Duration
+	sessionExpiryBlockDelay    uint64
 
 	// Internal state
 	mu           sync.RWMutex
@@ -174,6 +184,21 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		coordinatorRange = 1000
 	}
 
+	sessionExpiryTime := cfg.SessionExpiryTime
+	if sessionExpiryTime == 0 {
+		sessionExpiryTime = 3 * time.Minute // Default: 3 minutes
+	}
+
+	sessionExpiryCheckInterval := cfg.SessionExpiryCheckInterval
+	if sessionExpiryCheckInterval == 0 {
+		sessionExpiryCheckInterval = 30 * time.Second // Default: check every 30 seconds
+	}
+
+	sessionExpiryBlockDelay := cfg.SessionExpiryBlockDelay
+	if sessionExpiryBlockDelay == 0 {
+		sessionExpiryBlockDelay = 60 // Default: retry after 60 blocks ( Approx 1 Minute for PC)
+	}
+
 	// Create event store for database access
 	evtStore := eventstore.NewStore(database.Client(), logger)
 
@@ -182,18 +207,21 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 
 	// Create node (network will be started in Start)
 	node := &Node{
-		validatorAddress:        cfg.ValidatorAddress,
-		keyshareManager:         mgr,
-		database:                database,
-		dataProvider:            cfg.DataProvider,
-		logger:                  logger,
-		eventStore:              evtStore,
-		sessionManager:          nil, // Will be initialized in Start()
-		networkCfg:              networkCfg,
-		coordinatorRange:        coordinatorRange,
-		coordinatorPollInterval: pollInterval,
-		stopCh:                  make(chan struct{}),
-		registeredPeers:         make(map[string]bool),
+		validatorAddress:           cfg.ValidatorAddress,
+		keyshareManager:            mgr,
+		database:                   database,
+		dataProvider:               cfg.DataProvider,
+		logger:                     logger,
+		eventStore:                 evtStore,
+		sessionManager:             nil, // Will be initialized in Start()
+		networkCfg:                 networkCfg,
+		coordinatorRange:           coordinatorRange,
+		coordinatorPollInterval:    pollInterval,
+		sessionExpiryTime:          sessionExpiryTime,
+		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
+		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
+		stopCh:                     make(chan struct{}),
+		registeredPeers:            make(map[string]bool),
 	}
 
 	return node, nil
@@ -256,6 +284,7 @@ func (n *Node) Start(ctx context.Context) error {
 				return n.Send(ctx, peerID, data)
 			},
 			n.validatorAddress,
+			n.sessionExpiryTime,
 			n.logger,
 		)
 		n.sessionManager = sessionMgr
@@ -263,6 +292,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	// Start coordinator
 	n.coordinator.Start(ctx)
+
+	// Start session manager expiry checker
+	go n.sessionManager.StartExpiryChecker(ctx, n.sessionExpiryCheckInterval, n.sessionExpiryBlockDelay)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

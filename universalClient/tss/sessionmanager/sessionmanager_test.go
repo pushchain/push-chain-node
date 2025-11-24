@@ -171,6 +171,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		keyshareMgr,
 		sendFn,
 		"validator1",
+		3*time.Minute, // sessionExpiryTime
 		zerolog.Nop(),
 	)
 

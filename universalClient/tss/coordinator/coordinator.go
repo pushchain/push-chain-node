@@ -138,6 +138,11 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 	return nil, errors.Errorf("peerID %s not found in validators", peerID)
 }
 
+// GetLatestBlockNum gets the latest block number from the data provider.
+func (c *Coordinator) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+	return c.dataProvider.GetLatestBlockNum(ctx)
+}
+
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {

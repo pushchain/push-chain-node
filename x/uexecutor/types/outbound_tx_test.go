@@ -7,15 +7,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOutboundTx_ValidateBasic(t *testing.T) {
-	validOutbound := types.OutboundTx{
+func baseValidOutbound() types.OutboundTx {
+	return types.OutboundTx{
 		DestinationChain: "eip155:11155111",
-		TxHash:           "0x123abc",
 		Recipient:        "0x000000000000000000000000000000000000beef",
+		Sender:           "0x000000000000000000000000000000000000dead",
 		Amount:           "1000",
 		AssetAddr:        "0x000000000000000000000000000000000000cafe",
+		Payload:          "0xabcdef",
+		GasLimit:         "21000",
+		TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+		PcTx: &types.Originating_Pc_TX{
+			TxHash:   "0xpc123",
+			LogIndex: "1",
+		},
+		Index: "0",
 	}
+}
 
+func TestOutboundTx_ValidateBasic(t *testing.T) {
 	tests := []struct {
 		name        string
 		outbound    types.OutboundTx
@@ -23,14 +33,30 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:        "valid outbound",
-			outbound:    validOutbound,
+			name: "valid FUNDS tx",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_FUNDS
+				ob.Payload = ""
+				return ob
+			}(),
 			expectError: false,
 		},
 		{
-			name: "empty destination chain",
+			name: "valid PAYLOAD tx",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_PAYLOAD
+				ob.Amount = ""
+				ob.AssetAddr = ""
+				return ob
+			}(),
+			expectError: false,
+		},
+		{
+			name: "empty destination_chain",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
 				ob.DestinationChain = ""
 				return ob
 			}(),
@@ -38,49 +64,40 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 			errContains: "destination_chain cannot be empty",
 		},
 		{
-			name: "invalid destination chain format",
+			name: "invalid CAIP-2 chain",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
-				ob.DestinationChain = "eip155" // missing ":"
+				ob := baseValidOutbound()
+				ob.DestinationChain = "eip155"
 				return ob
 			}(),
 			expectError: true,
-			errContains: "CAIP-2 format",
+			errContains: "CAIP-2",
 		},
 		{
-			name: "empty tx_hash",
+			name: "empty sender",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
-				ob.TxHash = ""
+				ob := baseValidOutbound()
+				ob.Sender = ""
 				return ob
 			}(),
 			expectError: true,
-			errContains: "tx_hash cannot be empty",
+			errContains: "sender cannot be empty",
 		},
 		{
-			name: "empty recipient",
+			name: "unsupported tx type",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
-				ob.Recipient = ""
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_GAS
 				return ob
 			}(),
 			expectError: true,
-			errContains: "recipient cannot be empty",
+			errContains: "unsupported tx_type",
 		},
 		{
-			name: "invalid recipient address",
+			name: "FUNDS tx missing amount",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
-				ob.Recipient = "0xzzzzzzzz"
-				return ob
-			}(),
-			expectError: true,
-			errContains: "invalid recipient address",
-		},
-		{
-			name: "empty amount",
-			outbound: func() types.OutboundTx {
-				ob := validOutbound
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_FUNDS
 				ob.Amount = ""
 				return ob
 			}(),
@@ -88,24 +105,56 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 			errContains: "amount cannot be empty",
 		},
 		{
-			name: "negative amount",
+			name: "PAYLOAD tx missing payload",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
-				ob.Amount = "-100"
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_PAYLOAD
+				ob.Payload = ""
 				return ob
 			}(),
 			expectError: true,
-			errContains: "amount must be a valid positive uint256",
+			errContains: "payload cannot be empty",
 		},
 		{
-			name: "empty asset_addr",
+			name: "FUNDS tx missing asset_addr",
 			outbound: func() types.OutboundTx {
-				ob := validOutbound
+				ob := baseValidOutbound()
+				ob.TxType = types.TxType_FUNDS
 				ob.AssetAddr = ""
 				return ob
 			}(),
 			expectError: true,
 			errContains: "asset_addr cannot be empty",
+		},
+		{
+			name: "empty pc_tx hash",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.PcTx.TxHash = ""
+				return ob
+			}(),
+			expectError: true,
+			errContains: "pc_tx.tx_hash cannot be empty",
+		},
+		{
+			name: "empty pc_tx log_index",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.PcTx.LogIndex = ""
+				return ob
+			}(),
+			expectError: true,
+			errContains: "pc_tx.log_index cannot be empty",
+		},
+		{
+			name: "empty index",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.Index = ""
+				return ob
+			}(),
+			expectError: true,
+			errContains: "index cannot be empty",
 		},
 	}
 

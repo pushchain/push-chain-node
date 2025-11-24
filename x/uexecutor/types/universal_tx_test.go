@@ -17,7 +17,7 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			Amount:      "1000",
 			AssetAddr:   "0x000000000000000000000000000000000000cafe",
 			LogIndex:    "1",
-			TxType:      types.InboundTxType_FUNDS,
+			TxType:      types.TxType_FUNDS,
 		},
 		PcTx: []*types.PCTx{
 			{
@@ -30,10 +30,18 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 		},
 		OutboundTx: &types.OutboundTx{
 			DestinationChain: "eip155:11155111",
-			TxHash:           "0x456def",
 			Recipient:        "0x000000000000000000000000000000000000beef",
-			Amount:           "500",
+			Sender:           "0x000000000000000000000000000000000000dead",
+			Amount:           "1000",
 			AssetAddr:        "0x000000000000000000000000000000000000cafe",
+			Payload:          "0xabcdef",
+			GasLimit:         "21000",
+			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+			PcTx: &types.Originating_Pc_TX{
+				TxHash:   "0xpc123",
+				LogIndex: "1",
+			},
+			Index: "0",
 		},
 		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,
 	}

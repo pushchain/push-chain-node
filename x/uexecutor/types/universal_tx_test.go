@@ -9,6 +9,7 @@ import (
 
 func TestUniversalTx_ValidateBasic(t *testing.T) {
 	validUniversal := types.UniversalTx{
+		Id: "1",
 		InboundTx: &types.Inbound{
 			SourceChain: "eip155:11155111",
 			TxHash:      "0x123abc",

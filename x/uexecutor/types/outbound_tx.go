@@ -90,12 +90,14 @@ func (p OutboundTx) ValidateBasic() error {
 	}
 
 	// observed tx validation (if present)
-	if strings.TrimSpace(p.ObservedTx.TxHash) != "" {
-		if strings.TrimSpace(p.ObservedTx.DestinationChain) == "" {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.destination_chain cannot be empty")
-		}
-		if p.ObservedTx.BlockHeight == 0 {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.block_height must be > 0")
+	if p.ObservedTx != nil {
+		if strings.TrimSpace(p.ObservedTx.TxHash) != "" {
+			if strings.TrimSpace(p.ObservedTx.DestinationChain) == "" {
+				return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.destination_chain cannot be empty")
+			}
+			if p.ObservedTx.BlockHeight == 0 {
+				return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.block_height must be > 0")
+			}
 		}
 	}
 

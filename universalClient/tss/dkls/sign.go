@@ -163,6 +163,18 @@ func (s *signSession) GetResult() (*Result, error) {
 		return nil, fmt.Errorf("failed to finish sign session: %w", err)
 	}
 
+	// Extract keyID and publicKey from keyshare handle
+	keyIDBytes, err := session.DklsKeyshareKeyID(s.handle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract keyID: %w", err)
+	}
+	keyID := string(keyIDBytes)
+
+	publicKey, err := session.DklsKeysharePublicKey(s.handle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract publicKey: %w", err)
+	}
+
 	// Return participants list (copy to avoid mutation)
 	participants := make([]string, len(s.participants))
 	copy(participants, s.participants)
@@ -170,6 +182,8 @@ func (s *signSession) GetResult() (*Result, error) {
 	return &Result{
 		Keyshare:     nil,
 		Signature:    sig,
+		KeyID:        keyID,
+		PublicKey:    publicKey,
 		Participants: participants,
 	}, nil
 }

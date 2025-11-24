@@ -156,6 +156,18 @@ func (s *keygenSession) GetResult() (*Result, error) {
 		return nil, fmt.Errorf("failed to extract keyshare: %w", err)
 	}
 
+	// Extract keyID and publicKey from keyshare handle
+	keyIDBytes, err := session.DklsKeyshareKeyID(keyHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract keyID: %w", err)
+	}
+	keyID := string(keyIDBytes)
+
+	publicKey, err := session.DklsKeysharePublicKey(keyHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract publicKey: %w", err)
+	}
+
 	// Return participants list (copy to avoid mutation)
 	participants := make([]string, len(s.participants))
 	copy(participants, s.participants)
@@ -163,6 +175,8 @@ func (s *keygenSession) GetResult() (*Result, error) {
 	return &Result{
 		Keyshare:     keyshare,
 		Signature:    nil,
+		KeyID:        keyID,
+		PublicKey:    publicKey,
 		Participants: participants,
 	}, nil
 }

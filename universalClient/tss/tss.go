@@ -173,8 +173,8 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	// Create event store for database access
 	evtStore := eventstore.NewStore(database.Client(), logger)
 
-	// Create session manager
-	sessionMgr := sessionmanager.NewSessionManager(logger)
+	// Session manager will be created in Start() after coordinator is initialized
+	// (it needs coordinator reference)
 
 	// Create node (network will be started in Start)
 	node := &Node{
@@ -184,7 +184,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		dataProvider:            cfg.DataProvider,
 		logger:                  logger,
 		eventStore:              evtStore,
-		sessionManager:          sessionMgr,
+		sessionManager:          nil, // Will be initialized in Start()
 		networkCfg:              networkCfg,
 		coordinatorRange:        coordinatorRange,
 		coordinatorPollInterval: pollInterval,
@@ -239,6 +239,21 @@ func (n *Node) Start(ctx context.Context) error {
 			n.logger,
 		)
 		n.coordinator = coord
+	}
+
+	// Create session manager (needs coordinator reference)
+	if n.sessionManager == nil {
+		sessionMgr := sessionmanager.NewSessionManager(
+			n.eventStore,
+			n.coordinator,
+			n.keyshareManager,
+			func(ctx context.Context, peerID string, data []byte) error {
+				return n.Send(ctx, peerID, data)
+			},
+			n.validatorAddress,
+			n.logger,
+		)
+		n.sessionManager = sessionMgr
 	}
 
 	// Start coordinator

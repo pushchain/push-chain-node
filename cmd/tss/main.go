@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,8 +17,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/tss/node"
+	"github.com/pushchain/push-chain-node/universalClient/tss"
 )
 
 const (
@@ -38,8 +39,12 @@ func main() {
 	switch command {
 	case "node":
 		runNode()
-	case "keygen", "keyrefresh", "sign":
-		runCommand(command)
+	case "keygen":
+		runKeygen()
+	case "keyrefresh":
+		runKeyrefresh()
+	case "sign":
+		runSign()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
@@ -57,11 +62,10 @@ func printUsage() {
 	fmt.Println("  sign          Trigger a sign operation")
 	fmt.Println("")
 	fmt.Println("Examples:")
-	fmt.Println("  tss node -validator-address=pushvaloper1... -p2p-listen=/ip4/127.0.0.1/tcp/39001")
 	fmt.Println("  tss node -validator-address=pushvaloper1... -private-key=30B0D9... -p2p-listen=/ip4/127.0.0.1/tcp/39001")
-	fmt.Println("  tss keygen -key-id=demo-key-1")
-	fmt.Println("  tss keyrefresh -key-id=demo-key-1")
-	fmt.Println("  tss sign -key-id=demo-key-1")
+	fmt.Println("  tss keygen")
+	fmt.Println("  tss keyrefresh")
+	fmt.Println("  tss sign -message=\"Hello, World!\"")
 }
 
 // nodeRegistryEntry represents a single node's registration info
@@ -150,8 +154,9 @@ func runNode() {
 		validatorAddr = flag.String("validator-address", "", "validator address (unique per node)")
 		privateKeyHex = flag.String("private-key", "", "Ed25519 private key in hex format (required)")
 		libp2pListen  = flag.String("p2p-listen", "/ip4/127.0.0.1/tcp/0", "libp2p listen multiaddr")
-		homeDir       = flag.String("home", "", "directory for keyshare storage (defaults to temp)")
+		homeDir       = flag.String("home", "", "directory for keyshare storage (defaults to /tmp/tss-<validator>)")
 		password      = flag.String("password", "demo-password", "encryption password for keyshares")
+		dbPath        = flag.String("db", "", "database file path (defaults to /tmp/tss-<validator>.db)")
 	)
 	flag.Parse()
 
@@ -167,6 +172,16 @@ func runNode() {
 		os.Exit(1)
 	}
 
+	// Set defaults for home and db if not provided
+	if *homeDir == "" {
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(*validatorAddr, ":", "_"), "/", "_")
+		*homeDir = fmt.Sprintf("/tmp/tss-%s", sanitized)
+	}
+	if *dbPath == "" {
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(*validatorAddr, ":", "_"), "/", "_")
+		*dbPath = fmt.Sprintf("/tmp/tss-%s.db", sanitized)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -176,24 +191,31 @@ func runNode() {
 		Timestamp().
 		Logger()
 
+	// Create database (extract dir and filename from dbPath)
+	dbDir := filepath.Dir(*dbPath)
+	dbFilename := filepath.Base(*dbPath)
+	database, err := db.OpenFileDB(dbDir, dbFilename, true)
+	if err != nil {
+		logger.Fatal().Err(err).Str("db_path", *dbPath).Msg("failed to open database")
+	}
+	defer database.Close()
+
 	// Create simple data provider for demo
 	dataProvider := NewStaticPushChainDataProvider(*validatorAddr, logger)
 
 	// Initialize TSS node
-	tssNode, err := node.NewNode(ctx, node.Config{
+	tssNode, err := tss.NewNode(ctx, tss.Config{
 		ValidatorAddress:  *validatorAddr,
 		PrivateKeyHex:     strings.TrimSpace(*privateKeyHex),
 		LibP2PListen:      *libp2pListen,
 		HomeDir:           *homeDir,
 		Password:          *password,
-		Database:          nil, // Will create default database
+		Database:          database,
 		DataProvider:      dataProvider,
 		Logger:            logger,
-		PollInterval:      500 * time.Millisecond,
+		PollInterval:      2 * time.Second,
 		ProcessingTimeout: 2 * time.Minute,
-		CoordinatorRange:  100,
-		SetupTimeout:      30 * time.Second,
-		MessageTimeout:    30 * time.Second,
+		CoordinatorRange:  1000,
 		ProtocolID:        "/tss/demo/1.0.0",
 		DialTimeout:       10 * time.Second,
 		IOTimeout:         15 * time.Second,
@@ -203,9 +225,18 @@ func runNode() {
 	}
 	defer tssNode.Stop()
 
-	// Get listen addresses and peer ID for registry
+	// Start the TSS node (network must be started before we can get peer ID and addresses)
+	if err := tssNode.Start(ctx); err != nil {
+		logger.Fatal().Err(err).Msg("failed to start TSS node")
+	}
+
+	// Get listen addresses and peer ID for registry (after network is started)
 	listenAddrs := tssNode.ListenAddrs()
 	peerID := tssNode.PeerID()
+
+	if peerID == "" {
+		logger.Warn().Msg("peer ID is empty, node may not be properly registered")
+	}
 
 	// Register this node in the shared registry file
 	nodeInfo := nodeRegistryEntry{
@@ -217,25 +248,23 @@ func runNode() {
 	if err := registerNode(nodeInfo, logger); err != nil {
 		logger.Fatal().Err(err).Msg("failed to register node in registry")
 	}
-	// Start the TSS node
-	if err := tssNode.Start(ctx); err != nil {
-		logger.Fatal().Err(err).Msg("failed to start TSS node")
-	}
+
+	logger.Info().
+		Str("peer_id", peerID).
+		Strs("multiaddrs", listenAddrs).
+		Msg("node registered in registry")
 
 	// Wait for shutdown
 	<-ctx.Done()
 	logger.Info().Msg("shutting down")
 }
 
-func runCommand(command string) {
-	var (
-		keyID = flag.String("key-id", "", "key ID (required)")
-	)
+func runKeygen() {
 	flag.Parse()
 
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
 		With().
-		Str("command", command).
+		Str("command", "keygen").
 		Timestamp().
 		Logger()
 
@@ -257,97 +286,212 @@ func runCommand(command string) {
 	}
 
 	blockNum := uint64(time.Now().Unix())
+	eventID := fmt.Sprintf("keygen-%d", blockNum)
 
-	// Generate key ID if not provided (only for keygen)
-	if *keyID == "" {
-		if command == "keygen" {
-			*keyID = fmt.Sprintf("demo-key-%d", time.Now().Unix())
-		} else {
-			logger.Fatal().Msg("key-id is required")
-		}
-	}
-
-	// Create event data based on command type
-	var eventData []byte
-	var protocolType string
-	var eventIDPrefix string
-
-	switch command {
-	case "keygen":
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id": *keyID,
-		})
-		protocolType = "keygen"
-		eventIDPrefix = "keygen"
-	case "keyrefresh":
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id": *keyID,
-		})
-		protocolType = "keyrefresh"
-		eventIDPrefix = "keyrefresh"
-	case "sign":
-		hash := sha256.Sum256([]byte("hello world")) // Simple default message
-		eventData, _ = json.Marshal(map[string]interface{}{
-			"key_id":       *keyID,
-			"message_hash": hash[:],
-			"chain_path":   []byte{},
-		})
-		protocolType = "sign"
-		eventIDPrefix = "sign"
-	default:
-		logger.Fatal().Msgf("unknown command: %s", command)
-	}
-
-	event := store.TSSEvent{
-		EventID:      fmt.Sprintf("%s-%d-%s", eventIDPrefix, blockNum, *keyID),
-		BlockNumber:  blockNum,
-		ProtocolType: protocolType,
-		Status:       "PENDING",
-		ExpiryHeight: blockNum + 1000,
-		EventData:    eventData,
-	}
-
-	// Write event to all node databases
-	var successCount int
-	var errors []string
+	// Create event in all node databases
+	// eventData is empty for keygen (keyID will be generated by DKLS)
+	successCount := 0
 	for _, dbPath := range nodeDBs {
-		db, err := gorm.Open(sqlite.Open(dbPath+"?mode=rwc&cache=shared"), &gorm.Config{})
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", dbPath, err))
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to open database, skipping")
 			continue
 		}
 
+		// Auto-migrate
 		if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
-			errors = append(errors, fmt.Sprintf("%s (migrate): %v", dbPath, err))
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to migrate database, skipping")
 			continue
 		}
 
-		eventCopy := event
-		if err := db.Create(&eventCopy).Error; err != nil {
-			errors = append(errors, fmt.Sprintf("%s (create): %v", dbPath, err))
-		} else {
-			successCount++
+		event := store.TSSEvent{
+			EventID:      eventID,
+			BlockNumber:  blockNum,
+			ProtocolType: "keygen",
+			Status:       "PENDING",
+			EventData:    nil,             // Empty for keygen
+			ExpiryHeight: blockNum + 1000, // Expire after 1000 blocks
 		}
-	}
 
-	if successCount == 0 {
-		logger.Fatal().
-			Strs("errors", errors).
-			Msg("failed to create event in any database")
+		if err := db.Create(&event).Error; err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to create event, skipping")
+			continue
+		}
+
+		successCount++
+		logger.Info().
+			Str("event_id", eventID).
+			Uint64("block", blockNum).
+			Str("db", dbPath).
+			Msg("created keygen event in database")
 	}
 
 	logger.Info().
-		Str("event_id", event.EventID).
-		Int("databases_updated", successCount).
-		Int("total_databases", len(nodeDBs)).
-		Msg("created event in node databases")
+		Str("event_id", eventID).
+		Int("success", successCount).
+		Int("total", len(nodes)).
+		Msg("keygen event creation completed")
+}
 
-	if len(errors) > 0 {
-		logger.Warn().
-			Strs("errors", errors).
-			Msg("some databases failed to update")
+func runKeyrefresh() {
+	flag.Parse()
+
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
+		With().
+		Str("command", "keyrefresh").
+		Timestamp().
+		Logger()
+
+	// Read all nodes from registry
+	nodes, err := readNodeRegistry(logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to read node registry")
 	}
 
-	fmt.Printf("\nEvent created in %d/%d node databases!\n", successCount, len(nodeDBs))
-	fmt.Println("The coordinators will pick it up and process it.")
+	if len(nodes) == 0 {
+		logger.Fatal().Msg("no nodes found in registry - start at least one node first")
+	}
+
+	// Get all database paths
+	nodeDBs := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeDBs = append(nodeDBs, fmt.Sprintf("/tmp/tss-%s.db", sanitized))
+	}
+
+	blockNum := uint64(time.Now().Unix())
+	eventID := fmt.Sprintf("keyrefresh-%d", blockNum)
+
+	// Create event in all node databases
+	// eventData is empty for keyrefresh
+	successCount := 0
+	for _, dbPath := range nodeDBs {
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+		if err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to open database, skipping")
+			continue
+		}
+
+		// Auto-migrate
+		if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to migrate database, skipping")
+			continue
+		}
+
+		event := store.TSSEvent{
+			EventID:      eventID,
+			BlockNumber:  blockNum,
+			ProtocolType: "keyrefresh",
+			Status:       "PENDING",
+			EventData:    nil,             // Empty for keyrefresh
+			ExpiryHeight: blockNum + 1000, // Expire after 1000 blocks
+		}
+
+		if err := db.Create(&event).Error; err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to create event, skipping")
+			continue
+		}
+
+		successCount++
+		logger.Info().
+			Str("event_id", eventID).
+			Uint64("block", blockNum).
+			Str("db", dbPath).
+			Msg("created keyrefresh event in database")
+	}
+
+	logger.Info().
+		Str("event_id", eventID).
+		Int("success", successCount).
+		Int("total", len(nodes)).
+		Msg("keyrefresh event creation completed")
+}
+
+func runSign() {
+	var (
+		message = flag.String("message", "", "message to sign (required)")
+	)
+	flag.Parse()
+
+	if *message == "" {
+		fmt.Println("message flag is required for sign command")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
+		With().
+		Str("command", "sign").
+		Timestamp().
+		Logger()
+
+	// Read all nodes from registry
+	nodes, err := readNodeRegistry(logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to read node registry")
+	}
+
+	if len(nodes) == 0 {
+		logger.Fatal().Msg("no nodes found in registry - start at least one node first")
+	}
+
+	// Get all database paths
+	nodeDBs := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeDBs = append(nodeDBs, fmt.Sprintf("/tmp/tss-%s.db", sanitized))
+	}
+
+	blockNum := uint64(time.Now().Unix())
+	eventID := fmt.Sprintf("sign-%d", blockNum)
+
+	// Create event data with message
+	eventData, _ := json.Marshal(map[string]string{
+		"message": *message,
+	})
+
+	// Create event in all node databases
+	successCount := 0
+	for _, dbPath := range nodeDBs {
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+		if err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to open database, skipping")
+			continue
+		}
+
+		// Auto-migrate
+		if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to migrate database, skipping")
+			continue
+		}
+
+		event := store.TSSEvent{
+			EventID:      eventID,
+			BlockNumber:  blockNum,
+			ProtocolType: "sign",
+			Status:       "PENDING",
+			EventData:    eventData,
+			ExpiryHeight: blockNum + 1000, // Expire after 1000 blocks
+		}
+
+		if err := db.Create(&event).Error; err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to create event, skipping")
+			continue
+		}
+
+		successCount++
+		logger.Info().
+			Str("event_id", eventID).
+			Str("message", *message).
+			Uint64("block", blockNum).
+			Str("db", dbPath).
+			Msg("created sign event in database")
+	}
+
+	logger.Info().
+		Str("event_id", eventID).
+		Str("message", *message).
+		Int("success", successCount).
+		Int("total", len(nodes)).
+		Msg("sign event creation completed")
 }

@@ -1,108 +1,91 @@
 # TSS Architecture
 
-This document describes the structure of the `universalClient/tss` package.
-
 ## Package Structure
 
 ```
-universalClient/tss
-├── core/         # TSS service and protocol execution
-├── transport/    # libp2p networking
-├── coordinator/  # Database-driven event processing
-├── keyshare/     # Encrypted keyshare storage
-└── cmd/tss/      # Command-line tool
+universalClient/tss/
+├── dkls/          # Pure DKLS protocol execution (no networking)
+├── networking/    # libp2p networking layer (protocol-agnostic)
+├── node/          # Orchestration layer (coordinates dkls + networking)
+├── keyshare/      # Encrypted keyshare storage
+├── eventstore/    # Database access for TSS events
+└── cmd/tss/       # Command-line tool
 ```
 
-### `core/`
+## Components
 
-TSS service that handles keygen, keyrefresh, and signing operations. Uses `UniversalValidator` for participants and selects coordinators deterministically based on block numbers.
+### `dkls/`
 
-### `transport/`
+Pure DKLS protocol execution. Handles keygen, keyrefresh, and sign sessions. No networking or coordinator logic.
 
-libp2p transport for peer-to-peer communication. Handles peer discovery, connection management, and message routing.
+**Key responsibilities:**
+
+- Manages DKLS sessions
+- Executes protocol steps
+- Produces/consumes protocol messages
+
+### `networking/`
+
+libp2p networking layer. Protocol-agnostic - only handles raw bytes.
+
+**Key responsibilities:**
+
+- Peer discovery and connection management
+- Message routing via peer IDs
+- Send/receive raw bytes
+
+### `node/`
+
+Orchestration layer that coordinates DKLS protocol and networking.
+
+**Key responsibilities:**
+
+- Event polling and processing
+- Coordinator selection
+- Coordinates dkls sessions + networking
+- Updates event status
+
+**Files:**
+
+- `node.go` - Node initialization and lifecycle
+- `coordinator.go` - Event polling and processing
+- `keygen.go` - Keygen operation (coordinates dkls + networking)
+- `types.go` - Types and interfaces
+- `utils.go` - Helper functions
 
 ### `keyshare/`
 
-Encrypted storage for keyshares and signatures.
+Encrypted storage for keyshares and signatures. Uses password-based encryption.
 
-### `coordinator/`
+### `eventstore/`
 
-Polls database for TSS events and triggers operations. Uses `PushChainDataProvider` to discover validators:
-
-- `GetLatestBlockNum()` - Current block number
-- `GetUniversalValidators()` - All validators
-- `GetUniversalValidator()` - Specific validator by address
+Database access layer for TSS events. Provides methods for getting pending events, updating status, and querying events.
 
 ### `cmd/tss/`
 
-Command-line tool for running nodes and triggering operations. Nodes register themselves in `/tmp/tss-nodes.json` for discovery.
+Command-line tool for running nodes and triggering operations.
 
 ## How It Works
 
-1. Nodes register in registry file on startup
-2. CLI creates `PENDING` events in node databases
-3. Coordinator polls for events and discovers validators via `PushChainDataProvider`
-4. Coordinator selected deterministically based on block number
-5. All nodes register sessions and execute DKLS protocol
-6. Results stored and status updated
+1. Nodes register themselves in `/tmp/tss-nodes.json` on startup
+2. Commands discover nodes from registry and update databases
+3. Each node polls database for `PENDING` events
+4. Coordinator is selected deterministically based on block number
+5. Coordinator creates and broadcasts setup message to all participants
+6. All nodes execute DKLS protocol via networking layer
+7. Status updates: `PENDING` → `IN_PROGRESS` → `SUCCESS`/`FAILED`
 
-## Component Flow
+## Coordinator Selection
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Coordinator                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Polls DB for PENDING events                         │   │
-│  │  Uses PushChainDataProvider to get validators        │   │
-│  │  Selects coordinator deterministically               │   │
-│  │  Calls core.Service methods                          │   │
-│  └──────────────────┬───────────────────────────────────┘   │
-└─────────────────────┼───────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Core Service                           │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Manages TSS sessions                                │   │
-│  │  Executes DKLS protocol (keygen/keyrefresh/sign)     │   │
-│  │  Handles coordinator selection                       │   │
-│  └──────┬───────────────────────┬───────────────────────┘   │
-│         │                       │                           │
-│         ▼                       ▼                           │
-│  ┌──────────────┐      ┌──────────────┐                     │
-│  │  Transport   │      │ KeyshareStore│                     │
-│  │  (libp2p)    │      │  (encrypted) │                     │
-│  └──────────────┘      └──────────────┘                     │
-└─────────────────────────────────────────────────────────────┘
-         │
-         │ Sends/receives messages
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Transport (libp2p)                       │
-│  - Peer discovery and connection management                 │
-│  - Message routing via peer IDs                             │
-│  - Handles network layer                                    │
-└─────────────────────────────────────────────────────────────┘
-```
+Selected deterministically based on block number:
 
-**Flow:**
+- **Formula**: `coordinator_index = (block_number / coordinator_range) % num_participants`
+- **Default range**: 100 blocks per coordinator
+- **Rotation**: Coordinator rotates every `coordinator_range` blocks
 
-1. Coordinator polls database → finds PENDING events
-2. Coordinator queries PushChainDataProvider → gets validators
-3. Coordinator calls core.Service → triggers TSS operation
-4. Core Service uses Transport → sends/receives messages
-5. Core Service uses KeyshareStore → saves keyshares/signatures
-6. Coordinator updates database → event status (SUCCESS/FAILED)
+## Threshold Calculation
 
-## Demo
+Automatically calculated as > 2/3 of participants:
 
-For local demo setup and usage, see [cmd/tss/README.md](../../../cmd/tss/README.md).
-
-## Production vs Demo
-
-| Aspect                    | Demo                    | Production            |
-| ------------------------- | ----------------------- | --------------------- |
-| **Node Discovery**        | File registry           | On-chain registry     |
-| **Event Source**          | CLI writes to databases | On-chain events       |
-| **Block Numbers**         | Unix timestamp          | Chain block numbers   |
-| **PushChainDataProvider** | Reads registry file     | Queries on-chain data |
+- **Formula**: `threshold = floor((2 * n) / 3) + 1`
+- **Examples**: 3→3, 4→3, 5→4, 6→5, 7→5, 8→6, 9→7

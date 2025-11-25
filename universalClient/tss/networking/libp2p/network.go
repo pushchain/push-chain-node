@@ -22,17 +22,17 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/tss/transport"
+	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 )
 
-// Transport implements transport.Transport on top of libp2p.
-type Transport struct {
+// Network implements networking.Network using libp2p.
+type Network struct {
 	cfg        Config
 	host       host.Host
 	protocolID protocol.ID
 
 	handlerMu sync.RWMutex
-	handler   transport.Handler
+	handler   networking.MessageHandler
 
 	peerMu sync.RWMutex
 	peers  map[string]peer.AddrInfo
@@ -40,8 +40,8 @@ type Transport struct {
 	logger zerolog.Logger
 }
 
-// New creates a libp2p transport instance.
-func New(ctx context.Context, cfg Config, logger zerolog.Logger) (*Transport, error) {
+// New creates a new libp2p network instance.
+func New(ctx context.Context, cfg Config, logger zerolog.Logger) (*Network, error) {
 	cfg.setDefaults()
 	if logger.GetLevel() == zerolog.Disabled {
 		logger = zerolog.New(io.Discard)
@@ -60,58 +60,58 @@ func New(ctx context.Context, cfg Config, logger zerolog.Logger) (*Transport, er
 		return nil, err
 	}
 
-	tr := &Transport{
+	n := &Network{
 		cfg:        cfg,
 		host:       host,
 		protocolID: protocol.ID(cfg.ProtocolID),
 		peers:      make(map[string]peer.AddrInfo),
-		logger:     logger.With().Str("component", "tss_transport_libp2p").Logger(),
+		logger:     logger.With().Str("component", "networking_libp2p").Logger(),
 	}
 
-	host.SetStreamHandler(tr.protocolID, tr.handleStream)
-	return tr, nil
+	host.SetStreamHandler(n.protocolID, n.handleStream)
+	return n, nil
 }
 
-// ID implements transport.Transport.
-func (t *Transport) ID() string {
-	return t.host.ID().String()
+// ID implements networking.Network.
+func (n *Network) ID() string {
+	return n.host.ID().String()
 }
 
-// ListenAddrs implements transport.Transport.
-func (t *Transport) ListenAddrs() []string {
-	addrs := t.host.Addrs()
+// ListenAddrs implements networking.Network.
+func (n *Network) ListenAddrs() []string {
+	addrs := n.host.Addrs()
 	var filtered []string
 	for _, addr := range addrs {
 		if isUnspecified(addr) {
 			continue
 		}
-		filtered = append(filtered, addr.String()+"/p2p/"+t.host.ID().String())
+		filtered = append(filtered, addr.String()+"/p2p/"+n.host.ID().String())
 	}
 	if len(filtered) == 0 {
 		out := make([]string, len(addrs))
 		for i, addr := range addrs {
-			out[i] = addr.String() + "/p2p/" + t.host.ID().String()
+			out[i] = addr.String() + "/p2p/" + n.host.ID().String()
 		}
 		return out
 	}
 	return filtered
 }
 
-// RegisterHandler implements transport.Transport.
-func (t *Transport) RegisterHandler(handler transport.Handler) error {
-	t.handlerMu.Lock()
-	defer t.handlerMu.Unlock()
-	if t.handler != nil {
-		return fmt.Errorf("libp2p transport: handler already registered")
+// RegisterHandler implements networking.Network.
+func (n *Network) RegisterHandler(handler networking.MessageHandler) error {
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
+	if n.handler != nil {
+		return fmt.Errorf("handler already registered")
 	}
-	t.handler = handler
+	n.handler = handler
 	return nil
 }
 
-// EnsurePeer implements transport.Transport.
-func (t *Transport) EnsurePeer(peerID string, addrs []string) error {
+// EnsurePeer implements networking.Network.
+func (n *Network) EnsurePeer(peerID string, addrs []string) error {
 	if peerID == "" || len(addrs) == 0 {
-		return fmt.Errorf("libp2p transport: invalid peer info")
+		return fmt.Errorf("invalid peer info")
 	}
 	id, err := peer.Decode(peerID)
 	if err != nil {
@@ -123,96 +123,92 @@ func (t *Transport) EnsurePeer(peerID string, addrs []string) error {
 		return err
 	}
 
-	t.peerMu.Lock()
-	t.peers[peerID] = peer.AddrInfo{ID: id, Addrs: multiaddrs}
-	t.peerMu.Unlock()
+	n.peerMu.Lock()
+	n.peers[peerID] = peer.AddrInfo{ID: id, Addrs: multiaddrs}
+	n.peerMu.Unlock()
 	return nil
 }
 
-// Send implements transport.Transport.
-func (t *Transport) Send(ctx context.Context, peerID string, payload []byte) error {
-	info, err := t.lookupPeer(peerID)
+// Send implements networking.Network.
+func (n *Network) Send(ctx context.Context, peerID string, data []byte) error {
+	info, err := n.lookupPeer(peerID)
 	if err != nil {
 		return err
 	}
 
-	dialCtx, cancel := context.WithTimeout(ctx, t.cfg.DialTimeout)
+	dialCtx, cancel := context.WithTimeout(ctx, n.cfg.DialTimeout)
 	defer cancel()
 
 	// Try to connect (libp2p will reuse existing connections)
-	if err := t.host.Connect(dialCtx, info); err != nil {
+	if err := n.host.Connect(dialCtx, info); err != nil {
 		return fmt.Errorf("failed to connect to peer %s: %w", peerID, err)
 	}
 
 	// Create stream with timeout
-	streamCtx, streamCancel := context.WithTimeout(ctx, t.cfg.DialTimeout)
+	streamCtx, streamCancel := context.WithTimeout(ctx, n.cfg.DialTimeout)
 	defer streamCancel()
 
-	stream, err := t.host.NewStream(streamCtx, info.ID, t.protocolID)
+	stream, err := n.host.NewStream(streamCtx, info.ID, n.protocolID)
 	if err != nil {
 		return fmt.Errorf("failed to create stream to peer %s: %w", peerID, err)
 	}
 	defer stream.Close()
 
 	// Set write deadline
-	deadline := time.Now().Add(t.cfg.IOTimeout)
+	deadline := time.Now().Add(n.cfg.IOTimeout)
 	if err := stream.SetWriteDeadline(deadline); err != nil {
 		return fmt.Errorf("failed to set write deadline: %w", err)
 	}
 
-	if err := writeFramed(stream, payload); err != nil {
-		return fmt.Errorf("failed to write payload to peer %s: %w", peerID, err)
+	if err := writeFramed(stream, data); err != nil {
+		return fmt.Errorf("failed to write data to peer %s: %w", peerID, err)
 	}
 
 	// Set read deadline for response (if any)
 	if err := stream.SetReadDeadline(deadline); err != nil {
 		// Non-fatal, log and continue
-		t.logger.Debug().Err(err).Str("peer_id", peerID).Msg("failed to set read deadline")
+		n.logger.Debug().Err(err).Str("peer_id", peerID).Msg("failed to set read deadline")
 	}
 
 	return nil
 }
 
-// Close implements transport.Transport.
-func (t *Transport) Close() error {
-	return t.host.Close()
+func (n *Network) Close() error {
+	return n.host.Close()
 }
 
-func (t *Transport) lookupPeer(peerID string) (peer.AddrInfo, error) {
-	t.peerMu.RLock()
-	info, ok := t.peers[peerID]
-	t.peerMu.RUnlock()
+func (n *Network) lookupPeer(peerID string) (peer.AddrInfo, error) {
+	n.peerMu.RLock()
+	info, ok := n.peers[peerID]
+	n.peerMu.RUnlock()
 	if !ok {
-		return peer.AddrInfo{}, fmt.Errorf("libp2p transport: unknown peer %s", peerID)
+		return peer.AddrInfo{}, fmt.Errorf("unknown peer %s", peerID)
 	}
 	return info, nil
 }
 
-func (t *Transport) handleStream(stream network.Stream) {
+func (n *Network) handleStream(stream network.Stream) {
 	defer stream.Close()
 
-	if deadline := time.Now().Add(t.cfg.IOTimeout); true {
+	if deadline := time.Now().Add(n.cfg.IOTimeout); true {
 		_ = stream.SetReadDeadline(deadline)
 	}
 
-	payload, err := readFramed(stream)
+	data, err := readFramed(stream)
 	if err != nil {
-		t.logger.Warn().Err(err).Msg("libp2p read failed")
+		n.logger.Warn().Err(err).Msg("read failed")
 		return
 	}
 
-	t.handlerMu.RLock()
-	handler := t.handler
-	t.handlerMu.RUnlock()
+	n.handlerMu.RLock()
+	handler := n.handler
+	n.handlerMu.RUnlock()
 	if handler == nil {
 		return
 	}
 
-	go func() {
-		if err := handler(context.Background(), stream.Conn().RemotePeer().String(), payload); err != nil {
-			t.logger.Warn().Err(err).Msg("libp2p handler error")
-		}
-	}()
+	// Call handler in a goroutine to avoid blocking
+	go handler(stream.Conn().RemotePeer().String(), data)
 }
 
 func loadIdentity(base64Key string) (crypto.PrivKey, error) {
@@ -227,12 +223,12 @@ func loadIdentity(base64Key string) (crypto.PrivKey, error) {
 	return crypto.UnmarshalPrivateKey(raw)
 }
 
-func writeFramed(w io.Writer, payload []byte) error {
+func writeFramed(w io.Writer, data []byte) error {
 	bw := bufio.NewWriter(w)
-	if err := binary.Write(bw, binary.BigEndian, uint32(len(payload))); err != nil {
+	if err := binary.Write(bw, binary.BigEndian, uint32(len(data))); err != nil {
 		return err
 	}
-	if _, err := bw.Write(payload); err != nil {
+	if _, err := bw.Write(data); err != nil {
 		return err
 	}
 	return bw.Flush()

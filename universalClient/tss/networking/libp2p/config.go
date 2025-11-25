@@ -2,7 +2,7 @@ package libp2p
 
 import "time"
 
-// Config controls the libp2p transport behaviour.
+// Config controls the libp2p network behaviour.
 type Config struct {
 	// ListenAddrs is the list of multiaddrs to bind to. Defaults to /ip4/0.0.0.0/tcp/0.
 	ListenAddrs []string
@@ -17,6 +17,7 @@ type Config struct {
 	IOTimeout time.Duration
 }
 
+// setDefaults sets default values for unset fields.
 func (c *Config) setDefaults() {
 	if len(c.ListenAddrs) == 0 {
 		c.ListenAddrs = []string{"/ip4/0.0.0.0/tcp/0"}
@@ -31,3 +32,4 @@ func (c *Config) setDefaults() {
 		c.IOTimeout = 15 * time.Second
 	}
 }
+

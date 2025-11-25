@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
 	utils "github.com/pushchain/push-chain-node/testutils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -65,7 +66,7 @@ func TestMigrateUEA(t *testing.T) {
 			TxHash:             validTxHash,
 		}
 
-		_, err := ms.DeployUEA(ctx, msgDeploy)
+		deployUEAResponse, err := ms.DeployUEA(ctx, msgDeploy)
 		require.NoError(t, err)
 
 		msgMint := &uexecutortypes.MsgMintPC{
@@ -86,6 +87,9 @@ func TestMigrateUEA(t *testing.T) {
 
 		_, err = ms.MigrateUEA(ctx, msg)
 		require.NoError(t, err)
+
+		stored := app.EVMKeeper.GetState(ctx, common.BytesToAddress(deployUEAResponse.UEA[12:]), common.HexToHash("0x868a771a75a4aa6c2be13e9a9617cb8ea240ed84a3a90c8469537393ec3e115d"))
+		require.Equal(t, stored, migratedAddress)
 
 	})
 	t.Run("Invalid Migration Payload!", func(t *testing.T) {

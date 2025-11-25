@@ -12,6 +12,8 @@ type Addresses struct {
 	UEProxyAddr     common.Address
 	EVMImplAddr     common.Address
 	SVMImplAddr     common.Address
+	NewEVMImplAddr  common.Address
+	NewSVMImplAddr  common.Address
 	HandlerAddr     common.Address
 	PRC20USDCAddr   common.Address
 	MigratedUEAAddr common.Address
@@ -32,7 +34,9 @@ func GetDefaultAddresses() Addresses {
 		FactoryAddr:     common.HexToAddress("0x00000000000000000000000000000000000000ea"),
 		UEProxyAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e09"),
 		EVMImplAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e01"),
-		SVMImplAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e02"),
+		SVMImplAddr:     common.HexToAddress("0x0000000000000000000000000000000000000e03"),
+		NewEVMImplAddr:  common.HexToAddress("0x0000000000000000000000000000000000000e04"),
+		NewSVMImplAddr:  common.HexToAddress("0x0000000000000000000000000000000000000e05"),
 		HandlerAddr:     common.HexToAddress("0x00000000000000000000000000000000000000C0"),
 		PRC20USDCAddr:   common.HexToAddress("0x0000000000000000000000000000000000000e06"),
 		MigratedUEAAddr: common.HexToAddress("0x0000000000000000000000000000000000000e08"),

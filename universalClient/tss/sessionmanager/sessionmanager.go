@@ -410,14 +410,13 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Msg("saved new keyshare from keyrefresh")
 
 	case SessionTypeSign:
-		// Log signature
 		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
 			Str("event_id", eventID).
 			Str("signature", hex.EncodeToString(result.Signature)).
 			Str("key_id", result.KeyID).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Msg("signature generated from sign session")
+			Msg("signature generated and verified from sign session")
 
 	default:
 		return errors.Errorf("unknown session type: %s", state.sessionType)

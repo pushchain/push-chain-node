@@ -3,6 +3,7 @@ package sessionmanager
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"sync"
 	"time"
@@ -385,10 +386,13 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
 		}
+		// Calculate SHA256 hash of keyshare for verification
+		keyshareHash := sha256.Sum256(result.Keyshare)
 		sm.logger.Info().
 			Str("event_id", eventID).
 			Str("key_id", result.KeyID).
-			Int("public_key_len", len(result.PublicKey)).
+			Str("public_key", hex.EncodeToString(result.PublicKey)).
+			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved keyshare from keygen")
 
 	case SessionTypeKeyrefresh:
@@ -396,10 +400,13 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
 		}
+		// Calculate SHA256 hash of keyshare for verification
+		keyshareHash := sha256.Sum256(result.Keyshare)
 		sm.logger.Info().
 			Str("event_id", eventID).
-			Str("new_key_id", result.KeyID).
-			Int("public_key_len", len(result.PublicKey)).
+			Str("key_id", result.KeyID).
+			Str("public_key", hex.EncodeToString(result.PublicKey)).
+			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved new keyshare from keyrefresh")
 
 	case SessionTypeSign:
@@ -407,7 +414,9 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
 			Str("event_id", eventID).
-			Int("signature_len", len(result.Signature)).
+			Str("signature", hex.EncodeToString(result.Signature)).
+			Str("key_id", result.KeyID).
+			Str("public_key", hex.EncodeToString(result.PublicKey)).
 			Msg("signature generated from sign session")
 
 	default:

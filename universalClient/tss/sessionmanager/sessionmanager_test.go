@@ -61,19 +61,6 @@ func (m *mockSession) GetResult() (*dkls.Result, error) {
 	return args.Get(0).(*dkls.Result), args.Error(1)
 }
 
-func (m *mockSession) GetParticipants() []string {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).([]string)
-}
-
-func (m *mockSession) GetType() dkls.SessionType {
-	args := m.Called()
-	return args.Get(0).(dkls.SessionType)
-}
-
 func (m *mockSession) Close() {
 	m.Called()
 }
@@ -288,11 +275,15 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 	t.Run("sender not in participants", func(t *testing.T) {
 		// Create a mock session
 		mockSess := new(mockSession)
-		mockSess.On("GetParticipants").Return([]string{"validator2", "validator3"}).Once()
-		mockSess.On("GetType").Return(dkls.SessionTypeKeygen).Maybe()
 
 		sm.mu.Lock()
-		sm.sessions["event1"] = mockSess
+		sm.sessions["event1"] = &sessionState{
+			session:      mockSess,
+			sessionType:  SessionTypeKeygen,
+			coordinator:  "coordinator1",
+			expiryTime:   time.Now().Add(5 * time.Minute),
+			participants: []string{"validator2", "validator3"},
+		}
 		sm.mu.Unlock()
 
 		// Set up mockDP so GetPartyIDFromPeerID works

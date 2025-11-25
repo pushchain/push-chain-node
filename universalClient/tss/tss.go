@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -401,6 +402,24 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 // It passes raw data directly to sessionManager.
 func (n *Node) onReceive(peerID string, data []byte) {
 	ctx := context.Background()
+
+	// Unmarshal to check message type
+	var msg coordinator.Message
+	if err := json.Unmarshal(data, &msg); err == nil {
+		// If it's an ACK message, route it to coordinator only (not session manager)
+		if msg.Type == "ack" {
+			if err := n.HandleACKMessage(ctx, peerID, &msg); err != nil {
+				n.logger.Warn().
+					Err(err).
+					Str("peer_id", peerID).
+					Str("event_id", msg.EventID).
+					Msg("failed to handle ACK message")
+			}
+			return // ACK messages are handled by coordinator only
+		}
+	}
+
+	// Pass non-ACK messages to session manager
 	if err := n.sessionManager.HandleIncomingMessage(ctx, peerID, data); err != nil {
 		n.logger.Warn().
 			Err(err).
@@ -408,6 +427,17 @@ func (n *Node) onReceive(peerID string, data []byte) {
 			Int("data_len", len(data)).
 			Msg("failed to handle incoming message")
 	}
+}
+
+// HandleACKMessage handles ACK messages and forwards them to coordinator.
+// This allows coordinator to track ACKs even when it's not a participant.
+func (n *Node) HandleACKMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
+	if n.coordinator == nil {
+		return errors.New("coordinator not initialized")
+	}
+
+	// Forward ACK to coordinator for tracking
+	return n.coordinator.HandleACK(ctx, senderPeerID, msg.EventID)
 }
 
 // PeerID returns the libp2p peer ID (helper function).

@@ -1,6 +1,7 @@
 package dkls
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	session "go-wrapper/go-dkls/sessions"
@@ -152,7 +153,9 @@ func (s *keyrefreshSession) GetResult() (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract keyID: %w", err)
 	}
-	keyID := string(keyIDBytes)
+	// Sanitize keyID by hex-encoding it to ensure it's safe for use as a filename
+	// This prevents issues with invalid characters like /, \, .., etc.
+	keyID := hex.EncodeToString(keyIDBytes)
 
 	publicKey, err := session.DklsKeysharePublicKey(keyHandle)
 	if err != nil {

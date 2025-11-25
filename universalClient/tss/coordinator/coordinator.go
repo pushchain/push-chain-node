@@ -34,6 +34,17 @@ type Coordinator struct {
 	running       bool
 	stopCh        chan struct{}
 	allValidators []*UniversalValidator // Cached validators, updated at polling interval
+
+	// ACK tracking for events we're coordinating (even if not participant)
+	ackTracking map[string]*ackState // eventID -> ackState
+	ackMu       sync.RWMutex
+}
+
+// ackState tracks ACK status for an event
+type ackState struct {
+	participants []string        // List of participant partyIDs
+	ackedBy      map[string]bool // participant peerID -> has ACKed
+	ackCount     int
 }
 
 // NewCoordinator creates a new coordinator.
@@ -60,6 +71,7 @@ func NewCoordinator(
 		logger:           logger,
 		send:             send,
 		stopCh:           make(chan struct{}),
+		ackTracking:      make(map[string]*ackState),
 	}
 }
 
@@ -418,6 +430,15 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 		return errors.Wrapf(err, "failed to marshal setup message for event %s", event.EventID)
 	}
 
+	// Initialize ACK tracking for this event
+	c.ackMu.Lock()
+	c.ackTracking[event.EventID] = &ackState{
+		participants: partyIDs,
+		ackedBy:      make(map[string]bool),
+		ackCount:     0,
+	}
+	c.ackMu.Unlock()
+
 	// Send to all participants via sendFn
 	for _, p := range sortedParticipants {
 		if err := c.send(ctx, p.Network.PeerID, setupMsgBytes); err != nil {
@@ -433,6 +454,108 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 				Str("receiver", p.ValidatorAddress).
 				Msg("sent setup message to participant")
 		}
+	}
+
+	return nil
+}
+
+// HandleACK processes an ACK message from a participant.
+// This is called by the session manager when coordinator receives an ACK.
+func (c *Coordinator) HandleACK(ctx context.Context, senderPeerID string, eventID string) error {
+	c.ackMu.Lock()
+	defer c.ackMu.Unlock()
+
+	state, exists := c.ackTracking[eventID]
+	if !exists {
+		// Not tracking this event, ignore (might be from a different coordinator)
+		return nil
+	}
+
+	// Check if already ACKed
+	if state.ackedBy[senderPeerID] {
+		c.logger.Debug().
+			Str("event_id", eventID).
+			Str("sender", senderPeerID).
+			Msg("duplicate ACK received, ignoring")
+		return nil
+	}
+
+	// Verify sender is a participant
+	senderPartyID, err := c.GetPartyIDFromPeerID(ctx, senderPeerID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get partyID for sender peerID %s", senderPeerID)
+	}
+
+	isParticipant := false
+	for _, participantPartyID := range state.participants {
+		if participantPartyID == senderPartyID {
+			isParticipant = true
+			break
+		}
+	}
+	if !isParticipant {
+		return errors.Errorf("sender %s (partyID: %s) is not a participant for event %s", senderPeerID, senderPartyID, eventID)
+	}
+
+	// Mark as ACKed
+	state.ackedBy[senderPeerID] = true
+	state.ackCount++
+
+	c.logger.Debug().
+		Str("event_id", eventID).
+		Str("sender", senderPeerID).
+		Str("sender_party_id", senderPartyID).
+		Int("ack_count", state.ackCount).
+		Int("expected_participants", len(state.participants)).
+		Msg("coordinator received ACK")
+
+	// Check if all participants have ACKed
+	if state.ackCount == len(state.participants) {
+		c.logger.Info().
+			Str("event_id", eventID).
+			Int("total_participants", len(state.participants)).
+			Msg("all participants ACKed, coordinator will send BEGIN message")
+
+		// Send BEGIN message to all participants
+		beginMsg := Message{
+			Type:         "begin",
+			EventID:      eventID,
+			Payload:      nil,
+			Participants: state.participants,
+		}
+		beginMsgBytes, err := json.Marshal(beginMsg)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal begin message")
+		}
+
+		// Send to all participants
+		for _, participantPartyID := range state.participants {
+			participantPeerID, err := c.GetPeerIDFromPartyID(ctx, participantPartyID)
+			if err != nil {
+				c.logger.Warn().
+					Err(err).
+					Str("participant_party_id", participantPartyID).
+					Msg("failed to get peerID for participant, skipping begin message")
+				continue
+			}
+
+			if err := c.send(ctx, participantPeerID, beginMsgBytes); err != nil {
+				c.logger.Warn().
+					Err(err).
+					Str("participant_peer_id", participantPeerID).
+					Str("participant_party_id", participantPartyID).
+					Msg("failed to send begin message to participant")
+				continue
+			}
+
+			c.logger.Debug().
+				Str("event_id", eventID).
+				Str("participant_peer_id", participantPeerID).
+				Msg("coordinator sent begin message to participant")
+		}
+
+		// Clean up ACK tracking after sending BEGIN
+		delete(c.ackTracking, eventID)
 	}
 
 	return nil

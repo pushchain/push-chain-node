@@ -215,7 +215,7 @@ func runNode() {
 		Logger:            logger,
 		PollInterval:      2 * time.Second,
 		ProcessingTimeout: 2 * time.Minute,
-		CoordinatorRange:  100,
+		CoordinatorRange:  1000,
 		ProtocolID:        "/tss/demo/1.0.0",
 		DialTimeout:       10 * time.Second,
 		IOTimeout:         15 * time.Second,

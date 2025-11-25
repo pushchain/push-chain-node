@@ -20,6 +20,25 @@ import (
 // SendFunc is a function type for sending messages to participants.
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
+// SessionType represents the type of TSS protocol session.
+type SessionType string
+
+const (
+	SessionTypeKeygen     SessionType = "keygen"
+	SessionTypeKeyrefresh SessionType = "keyrefresh"
+	SessionTypeSign       SessionType = "sign"
+)
+
+// sessionState holds all state for a single session.
+type sessionState struct {
+	session      dkls.Session
+	sessionType  SessionType // type of session (keygen, keyrefresh, sign)
+	coordinator  string      // coordinatorPeerID
+	expiryTime   time.Time   // when session expires
+	participants []string    // list of participants (from setup message)
+	stepMu       sync.Mutex  // mutex to serialize Step() calls (DKLS may not be thread-safe)
+}
+
 // SessionManager manages TSS protocol sessions and handles incoming messages.
 type SessionManager struct {
 	eventStore        *eventstore.Store
@@ -32,11 +51,7 @@ type SessionManager struct {
 
 	// Session storage
 	mu       sync.RWMutex
-	sessions map[string]dkls.Session // eventID -> Session
-	// Coordinator tracking per session
-	coordinators map[string]string // eventID -> coordinatorPeerID
-	// Session expiry tracking
-	sessionExpiry map[string]time.Time // eventID -> expiry time
+	sessions map[string]*sessionState // eventID -> sessionState
 }
 
 // NewSessionManager creates a new session manager.
@@ -57,9 +72,7 @@ func NewSessionManager(
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
-		sessions:          make(map[string]dkls.Session),
-		coordinators:      make(map[string]string),
-		sessionExpiry:     make(map[string]time.Time),
+		sessions:          make(map[string]*sessionState),
 	}
 }
 
@@ -84,6 +97,8 @@ func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID stri
 	switch msg.Type {
 	case "setup":
 		return sm.handleSetupMessage(ctx, peerID, &msg)
+	case "begin":
+		return sm.handleBeginMessage(ctx, peerID, &msg)
 	case "step":
 		return sm.handleStepMessage(ctx, peerID, &msg)
 	default:
@@ -128,15 +143,31 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return errors.Wrapf(err, "failed to create session for event %s", msg.EventID)
 	}
 
-	// 6. Store session, coordinator, and set expiry time
+	// 6. Determine session type from event protocol type
+	var sessionType SessionType
+	switch event.ProtocolType {
+	case "keygen":
+		sessionType = SessionTypeKeygen
+	case "keyrefresh":
+		sessionType = SessionTypeKeyrefresh
+	case "sign":
+		sessionType = SessionTypeSign
+	default:
+		return errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+	}
+
+	// 7. Store session state
 	sm.mu.Lock()
-	sm.sessions[msg.EventID] = session
-	sm.coordinators[msg.EventID] = senderPeerID
-	// Set expiry time
-	sm.sessionExpiry[msg.EventID] = time.Now().Add(sm.sessionExpiryTime)
+	sm.sessions[msg.EventID] = &sessionState{
+		session:      session,
+		sessionType:  sessionType,
+		coordinator:  senderPeerID,
+		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
+		participants: msg.Participants,
+	}
 	sm.mu.Unlock()
 
-	// 7. Update event status to IN_PROGRESS
+	// 8. Update event status to IN_PROGRESS
 	if err := sm.eventStore.UpdateStatus(msg.EventID, eventstore.StatusInProgress, ""); err != nil {
 		sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
 	}
@@ -146,24 +177,35 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		Str("protocol", event.ProtocolType).
 		Msg("created session from setup message")
 
-	// 8. Process initial step to get output messages
-	return sm.processSessionStep(ctx, msg.EventID)
+	// 9. Send ACK to coordinator
+	if err := sm.sendACK(ctx, senderPeerID, msg.EventID); err != nil {
+		sm.logger.Warn().
+			Err(err).
+			Str("event_id", msg.EventID).
+			Msg("failed to send ACK to coordinator")
+		// Continue anyway - session is created
+	}
+
+	// Wait for BEGIN message from coordinator to start the protocol
+	return nil
 }
 
 // handleStepMessage validates and processes a step message.
 func (sm *SessionManager) handleStepMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
-	// 1. Get session
+	// 1. Get session state
 	sm.mu.RLock()
-	session, exists := sm.sessions[msg.EventID]
+	state, exists := sm.sessions[msg.EventID]
 	sm.mu.RUnlock()
 
 	if !exists {
 		return errors.Errorf("session for event %s does not exist", msg.EventID)
 	}
 
+	session := state.session
+
 	// 2. Validate sender is from session participants
-	// Get participants from session
-	sessionParticipants := session.GetParticipants()
+	// Get participants from state
+	sessionParticipants := state.participants
 
 	// Get sender's validator address from peerID
 	senderPartyID, err := sm.coordinator.GetPartyIDFromPeerID(ctx, senderPeerID)
@@ -195,15 +237,20 @@ func (sm *SessionManager) handleStepMessage(ctx context.Context, senderPeerID st
 // processSessionStep processes a step for the given session and sends output messages.
 func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string) error {
 	sm.mu.RLock()
-	session, exists := sm.sessions[eventID]
+	state, exists := sm.sessions[eventID]
 	sm.mu.RUnlock()
 
 	if !exists {
 		return errors.Errorf("session for event %s does not exist", eventID)
 	}
 
-	// Step the session
+	session := state.session
+
+	// Step the session (serialize to prevent concurrent access - DKLS may not be thread-safe)
+	state.stepMu.Lock()
 	messages, finished, err := session.Step()
+	state.stepMu.Unlock()
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to step session %s", eventID)
 	}
@@ -251,28 +298,79 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 
 	// If finished, handle result
 	if finished {
-		return sm.handleSessionFinished(ctx, eventID, session)
+		return sm.handleSessionFinished(ctx, eventID, state)
 	}
 
 	return nil
 }
 
-// cleanSession removes a session and all associated data (coordinator tracking, expiry).
+// cleanSession removes a session and all associated data.
 // It closes the session and logs the cleanup.
-func (sm *SessionManager) cleanSession(eventID string, session dkls.Session) {
+func (sm *SessionManager) cleanSession(eventID string, state *sessionState) {
 	sm.mu.Lock()
 	delete(sm.sessions, eventID)
-	delete(sm.coordinators, eventID)
-	delete(sm.sessionExpiry, eventID)
 	sm.mu.Unlock()
-	session.Close()
+	state.session.Close()
 	sm.logger.Info().Str("event_id", eventID).Msg("session cleaned up")
 }
 
+// handleBeginMessage processes a begin message from the coordinator.
+// This message signals that all participants have ACKed and the protocol should start.
+func (sm *SessionManager) handleBeginMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
+	// 1. Get session state
+	sm.mu.RLock()
+	state, exists := sm.sessions[msg.EventID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return errors.Errorf("session for event %s does not exist", msg.EventID)
+	}
+
+	// 2. Validate sender is the coordinator for this session
+	if senderPeerID != state.coordinator {
+		return errors.Errorf("begin message must come from coordinator %s, but received from %s", state.coordinator, senderPeerID)
+	}
+
+	sm.logger.Info().
+		Str("event_id", msg.EventID).
+		Str("coordinator", senderPeerID).
+		Msg("received begin message, starting session processing")
+
+	// 3. Start processing the session by triggering the first step
+	return sm.processSessionStep(ctx, msg.EventID)
+}
+
+// sendACK sends an ACK message to the coordinator after successfully creating a session.
+func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string, eventID string) error {
+	ackMsg := coordinator.Message{
+		Type:         "ack",
+		EventID:      eventID,
+		Payload:      nil, // ACK doesn't need payload
+		Participants: nil, // ACK doesn't need participants
+	}
+	msgBytes, err := json.Marshal(ackMsg)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal ACK message")
+	}
+
+	if err := sm.send(ctx, coordinatorPeerID, msgBytes); err != nil {
+		return errors.Wrap(err, "failed to send ACK message")
+	}
+
+	sm.logger.Debug().
+		Str("event_id", eventID).
+		Str("coordinator", coordinatorPeerID).
+		Msg("sent ACK to coordinator")
+
+	return nil
+}
+
 // handleSessionFinished handles a completed session.
-func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID string, session dkls.Session) error {
+func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID string, state *sessionState) error {
 	// Ensure session is cleaned up even on error
-	defer sm.cleanSession(eventID, session)
+	defer sm.cleanSession(eventID, state)
+
+	session := state.session
 
 	// Get result
 	result, err := session.GetResult()
@@ -280,12 +378,9 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return errors.Wrapf(err, "failed to get result for session %s", eventID)
 	}
 
-	// Get session type
-	sessionType := session.GetType()
-
 	// Handle based on session type
-	switch sessionType {
-	case dkls.SessionTypeKeygen:
+	switch state.sessionType {
+	case SessionTypeKeygen:
 		// Save keyshare using keyID from result
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -296,7 +391,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Int("public_key_len", len(result.PublicKey)).
 			Msg("saved keyshare from keygen")
 
-	case dkls.SessionTypeKeyrefresh:
+	case SessionTypeKeyrefresh:
 		// Save new keyshare using keyID from result
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -307,7 +402,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Int("public_key_len", len(result.PublicKey)).
 			Msg("saved new keyshare from keyrefresh")
 
-	case dkls.SessionTypeSign:
+	case SessionTypeSign:
 		// Log signature
 		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
@@ -316,7 +411,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Msg("signature generated from sign session")
 
 	default:
-		return errors.Errorf("unknown session type: %s", sessionType)
+		return errors.Errorf("unknown session type: %s", state.sessionType)
 	}
 
 	// Update event status to SUCCESS (common for all session types)
@@ -508,8 +603,8 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 
 	// Find expired sessions
 	sm.mu.RLock()
-	for eventID, expiryTime := range sm.sessionExpiry {
-		if now.After(expiryTime) {
+	for eventID, state := range sm.sessions {
+		if now.After(state.expiryTime) {
 			expiredSessions = append(expiredSessions, eventID)
 		}
 	}
@@ -518,7 +613,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 	// Process expired sessions
 	for _, eventID := range expiredSessions {
 		sm.mu.Lock()
-		session, hasSession := sm.sessions[eventID]
+		state, hasSession := sm.sessions[eventID]
 		sm.mu.Unlock()
 
 		if hasSession {
@@ -533,7 +628,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			}
 
 			// Clean up session
-			sm.cleanSession(eventID, session)
+			sm.cleanSession(eventID, state)
 
 			// Update event: mark as pending and set new block number (current + delay)
 			newBlockNumber := currentBlock + blockDelay

@@ -7,6 +7,8 @@ import (
 
 	// sdk "github.com/cosmos/cosmos-sdk/types"
 	"cosmossdk.io/collections"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -86,4 +88,17 @@ func (k Keeper) GetUniversalTxStatus(ctx context.Context, key string) (types.Uni
 		return types.UniversalTxStatus_UNIVERSAL_TX_STATUS_UNSPECIFIED, false, nil
 	}
 	return utx.UniversalStatus, true, nil
+}
+
+func (k Keeper) BuildPcUniversalTxKey(ctx context.Context, pc types.PCTx) (string, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	evmChainID, err := utils.ExtractEvmChainID(sdkCtx.ChainID())
+	if err != nil {
+		return "", err
+	}
+
+	pcCaip := fmt.Sprintf("eip155:%s", evmChainID)
+
+	return types.GetPcUniversalTxKey(pcCaip, pc), nil
 }

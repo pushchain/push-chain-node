@@ -53,3 +53,9 @@ func GetInboundBallotKey(inbound Inbound) (string, error) {
 	}
 	return hex.EncodeToString(bz), nil
 }
+
+func GetPcUniversalTxKey(pcCaip string, pc PCTx) string {
+	data := fmt.Sprintf("%s:%s", pcCaip, pc.TxHash)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
+}

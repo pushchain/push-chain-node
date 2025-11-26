@@ -6190,6 +6190,57 @@ func (x *_UniversalTx_3_list) IsValid() bool {
 	return x.list != nil
 }
 
+var _ protoreflect.List = (*_UniversalTx_4_list)(nil)
+
+type _UniversalTx_4_list struct {
+	list *[]*OutboundTx
+}
+
+func (x *_UniversalTx_4_list) Len() int {
+	if x.list == nil {
+		return 0
+	}
+	return len(*x.list)
+}
+
+func (x *_UniversalTx_4_list) Get(i int) protoreflect.Value {
+	return protoreflect.ValueOfMessage((*x.list)[i].ProtoReflect())
+}
+
+func (x *_UniversalTx_4_list) Set(i int, value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*OutboundTx)
+	(*x.list)[i] = concreteValue
+}
+
+func (x *_UniversalTx_4_list) Append(value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*OutboundTx)
+	*x.list = append(*x.list, concreteValue)
+}
+
+func (x *_UniversalTx_4_list) AppendMutable() protoreflect.Value {
+	v := new(OutboundTx)
+	*x.list = append(*x.list, v)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_UniversalTx_4_list) Truncate(n int) {
+	for i := n; i < len(*x.list); i++ {
+		(*x.list)[i] = nil
+	}
+	*x.list = (*x.list)[:n]
+}
+
+func (x *_UniversalTx_4_list) NewElement() protoreflect.Value {
+	v := new(OutboundTx)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_UniversalTx_4_list) IsValid() bool {
+	return x.list != nil
+}
+
 var (
 	md_UniversalTx                  protoreflect.MessageDescriptor
 	fd_UniversalTx_id               protoreflect.FieldDescriptor
@@ -6292,8 +6343,8 @@ func (x *fastReflection_UniversalTx) Range(f func(protoreflect.FieldDescriptor, 
 			return
 		}
 	}
-	if x.OutboundTx != nil {
-		value := protoreflect.ValueOfMessage(x.OutboundTx.ProtoReflect())
+	if len(x.OutboundTx) != 0 {
+		value := protoreflect.ValueOfList(&_UniversalTx_4_list{list: &x.OutboundTx})
 		if !f(fd_UniversalTx_outbound_tx, value) {
 			return
 		}
@@ -6326,7 +6377,7 @@ func (x *fastReflection_UniversalTx) Has(fd protoreflect.FieldDescriptor) bool {
 	case "uexecutor.v1.UniversalTx.pc_tx":
 		return len(x.PcTx) != 0
 	case "uexecutor.v1.UniversalTx.outbound_tx":
-		return x.OutboundTx != nil
+		return len(x.OutboundTx) != 0
 	case "uexecutor.v1.UniversalTx.universal_status":
 		return x.UniversalStatus != 0
 	default:
@@ -6384,8 +6435,11 @@ func (x *fastReflection_UniversalTx) Get(descriptor protoreflect.FieldDescriptor
 		listValue := &_UniversalTx_3_list{list: &x.PcTx}
 		return protoreflect.ValueOfList(listValue)
 	case "uexecutor.v1.UniversalTx.outbound_tx":
-		value := x.OutboundTx
-		return protoreflect.ValueOfMessage(value.ProtoReflect())
+		if len(x.OutboundTx) == 0 {
+			return protoreflect.ValueOfList(&_UniversalTx_4_list{})
+		}
+		listValue := &_UniversalTx_4_list{list: &x.OutboundTx}
+		return protoreflect.ValueOfList(listValue)
 	case "uexecutor.v1.UniversalTx.universal_status":
 		value := x.UniversalStatus
 		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
@@ -6418,7 +6472,9 @@ func (x *fastReflection_UniversalTx) Set(fd protoreflect.FieldDescriptor, value 
 		clv := lv.(*_UniversalTx_3_list)
 		x.PcTx = *clv.list
 	case "uexecutor.v1.UniversalTx.outbound_tx":
-		x.OutboundTx = value.Message().Interface().(*OutboundTx)
+		lv := value.List()
+		clv := lv.(*_UniversalTx_4_list)
+		x.OutboundTx = *clv.list
 	case "uexecutor.v1.UniversalTx.universal_status":
 		x.UniversalStatus = (UniversalTxStatus)(value.Enum())
 	default:
@@ -6454,9 +6510,10 @@ func (x *fastReflection_UniversalTx) Mutable(fd protoreflect.FieldDescriptor) pr
 		return protoreflect.ValueOfList(value)
 	case "uexecutor.v1.UniversalTx.outbound_tx":
 		if x.OutboundTx == nil {
-			x.OutboundTx = new(OutboundTx)
+			x.OutboundTx = []*OutboundTx{}
 		}
-		return protoreflect.ValueOfMessage(x.OutboundTx.ProtoReflect())
+		value := &_UniversalTx_4_list{list: &x.OutboundTx}
+		return protoreflect.ValueOfList(value)
 	case "uexecutor.v1.UniversalTx.id":
 		panic(fmt.Errorf("field id of message uexecutor.v1.UniversalTx is not mutable"))
 	case "uexecutor.v1.UniversalTx.universal_status":
@@ -6483,8 +6540,8 @@ func (x *fastReflection_UniversalTx) NewField(fd protoreflect.FieldDescriptor) p
 		list := []*PCTx{}
 		return protoreflect.ValueOfList(&_UniversalTx_3_list{list: &list})
 	case "uexecutor.v1.UniversalTx.outbound_tx":
-		m := new(OutboundTx)
-		return protoreflect.ValueOfMessage(m.ProtoReflect())
+		list := []*OutboundTx{}
+		return protoreflect.ValueOfList(&_UniversalTx_4_list{list: &list})
 	case "uexecutor.v1.UniversalTx.universal_status":
 		return protoreflect.ValueOfEnum(0)
 	default:
@@ -6570,9 +6627,11 @@ func (x *fastReflection_UniversalTx) ProtoMethods() *protoiface.Methods {
 				n += 1 + l + runtime.Sov(uint64(l))
 			}
 		}
-		if x.OutboundTx != nil {
-			l = options.Size(x.OutboundTx)
-			n += 1 + l + runtime.Sov(uint64(l))
+		if len(x.OutboundTx) > 0 {
+			for _, e := range x.OutboundTx {
+				l = options.Size(e)
+				n += 1 + l + runtime.Sov(uint64(l))
+			}
 		}
 		if x.UniversalStatus != 0 {
 			n += 1 + runtime.Sov(uint64(x.UniversalStatus))
@@ -6611,19 +6670,21 @@ func (x *fastReflection_UniversalTx) ProtoMethods() *protoiface.Methods {
 			i--
 			dAtA[i] = 0x28
 		}
-		if x.OutboundTx != nil {
-			encoded, err := options.Marshal(x.OutboundTx)
-			if err != nil {
-				return protoiface.MarshalOutput{
-					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
-					Buf:               input.Buf,
-				}, err
+		if len(x.OutboundTx) > 0 {
+			for iNdEx := len(x.OutboundTx) - 1; iNdEx >= 0; iNdEx-- {
+				encoded, err := options.Marshal(x.OutboundTx[iNdEx])
+				if err != nil {
+					return protoiface.MarshalOutput{
+						NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+						Buf:               input.Buf,
+					}, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+				i--
+				dAtA[i] = 0x22
 			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
-			i--
-			dAtA[i] = 0x22
 		}
 		if len(x.PcTx) > 0 {
 			for iNdEx := len(x.PcTx) - 1; iNdEx >= 0; iNdEx-- {
@@ -6842,10 +6903,8 @@ func (x *fastReflection_UniversalTx) ProtoMethods() *protoiface.Methods {
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				if x.OutboundTx == nil {
-					x.OutboundTx = &OutboundTx{}
-				}
-				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.OutboundTx); err != nil {
+				x.OutboundTx = append(x.OutboundTx, &OutboundTx{})
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.OutboundTx[len(x.OutboundTx)-1]); err != nil {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
@@ -7770,7 +7829,7 @@ type UniversalTx struct {
 	Id              string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	InboundTx       *Inbound          `protobuf:"bytes,2,opt,name=inbound_tx,json=inboundTx,proto3" json:"inbound_tx,omitempty"`                                                        // Full inbound tx data
 	PcTx            []*PCTx           `protobuf:"bytes,3,rep,name=pc_tx,json=pcTx,proto3" json:"pc_tx,omitempty"`                                                                       // Execution details on Push Chain
-	OutboundTx      *OutboundTx       `protobuf:"bytes,4,opt,name=outbound_tx,json=outboundTx,proto3" json:"outbound_tx,omitempty"`                                                     // Outbound tx triggered by this tx
+	OutboundTx      []*OutboundTx     `protobuf:"bytes,4,rep,name=outbound_tx,json=outboundTx,proto3" json:"outbound_tx,omitempty"`                                                     // Outbound tx triggered by this tx
 	UniversalStatus UniversalTxStatus `protobuf:"varint,5,opt,name=universal_status,json=universalStatus,proto3,enum=uexecutor.v1.UniversalTxStatus" json:"universal_status,omitempty"` // Current status
 }
 
@@ -7815,7 +7874,7 @@ func (x *UniversalTx) GetPcTx() []*PCTx {
 	return nil
 }
 
-func (x *UniversalTx) GetOutboundTx() *OutboundTx {
+func (x *UniversalTx) GetOutboundTx() []*OutboundTx {
 	if x != nil {
 		return x.OutboundTx
 	}
@@ -7972,7 +8031,7 @@ var file_uexecutor_v1_types_proto_rawDesc = []byte{
 	0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
 	0x2e, 0x76, 0x31, 0x2e, 0x50, 0x43, 0x54, 0x78, 0x52, 0x04, 0x70, 0x63, 0x54, 0x78, 0x12, 0x39,
 	0x0a, 0x0b, 0x6f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x74, 0x78, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
+	0x03, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
 	0x76, 0x31, 0x2e, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x52, 0x0a, 0x6f,
 	0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x12, 0x4a, 0x0a, 0x10, 0x75, 0x6e, 0x69,
 	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x05, 0x20,

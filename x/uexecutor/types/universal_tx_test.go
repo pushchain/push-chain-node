@@ -29,20 +29,22 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 				Status:      "SUCCESS",
 			},
 		},
-		OutboundTx: &types.OutboundTx{
-			DestinationChain: "eip155:11155111",
-			Recipient:        "0x000000000000000000000000000000000000beef",
-			Sender:           "0x000000000000000000000000000000000000dead",
-			Amount:           "1000",
-			AssetAddr:        "0x000000000000000000000000000000000000cafe",
-			Payload:          "0xabcdef",
-			GasLimit:         "21000",
-			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
-			PcTx: &types.Originating_Pc_TX{
-				TxHash:   "0xpc123",
-				LogIndex: "1",
+		OutboundTx: []*types.OutboundTx{
+			{
+				DestinationChain: "eip155:11155111",
+				Recipient:        "0x000000000000000000000000000000000000beef",
+				Sender:           "0x000000000000000000000000000000000000dead",
+				Amount:           "1000",
+				AssetAddr:        "0x000000000000000000000000000000000000cafe",
+				Payload:          "0xabcdef",
+				GasLimit:         "21000",
+				TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+				PcTx: &types.Originating_Pc_TX{
+					TxHash:   "0xpc123",
+					LogIndex: "1",
+				},
+				Index: "0",
 			},
-			Index: "0",
 		},
 		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,
 	}
@@ -84,7 +86,9 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			name: "invalid outbound",
 			universal: func() types.UniversalTx {
 				utx := validUniversal
-				utx.OutboundTx = &types.OutboundTx{} // Recipient empty
+				utx.OutboundTx = []*types.OutboundTx{
+					{},
+				} // Recipient empty
 				return utx
 			}(),
 			expectError: true,

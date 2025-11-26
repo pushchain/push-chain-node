@@ -155,6 +155,6 @@ message UniversalTx {
   string id = 1;
   Inbound inbound_tx = 2;    // Full inbound tx data
   repeated PCTx pc_tx = 3;               // Execution details on Push Chain
-  OutboundTx outbound_tx = 4;    // Outbound tx triggered by this tx
+  repeated OutboundTx outbound_tx = 4;    // Outbound tx triggered by this tx
   UniversalTxStatus universal_status = 5;       // Current status
 }

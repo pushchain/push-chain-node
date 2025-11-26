@@ -208,13 +208,6 @@ func registerEVMChainAndUEA(
 
 	t.Logf("Computed chainHash (EVM): %s", ChainHashEVM.Hex())
 
-	packed, err = chainArgs.Pack("solana", "EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
-	require.NoError(t, err)
-
-	ChainHashSVM := crypto.Keccak256Hash(packed)
-
-	t.Logf("Computed chainHash (SVM): %s", ChainHashSVM.Hex())
-
 	// Register new EVM chain
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
@@ -228,19 +221,6 @@ func registerEVMChainAndUEA(
 	)
 	require.NoError(t, err)
 
-	// Register new SVM chain
-	_, err = chainApp.EVMKeeper.CallEVM(
-		ctx,
-		factoryABI,
-		owner,
-		factoryAddr,
-		true,
-		"registerNewChain",
-		ChainHashSVM,
-		EVMHash,
-	)
-	require.NoError(t, err)
-
 	// Deploy EVM implementation
 	EVMImplAddress := DeployContract(
 		t,
@@ -250,21 +230,12 @@ func registerEVMChainAndUEA(
 		UEA_EVM_BYTECODE,
 	)
 
-	// Deploy SVM Implementation
-	SVMImplAddress := DeployContract(
-		t,
-		chainApp,
-		ctx,
-		opts.Addresses.SVMImplAddr,
-		UEA_SVM_BYTECODE,
-	)
-
 	DeployContract(
 		t,
 		chainApp,
 		ctx,
-		opts.Addresses.NewSVMImplAddr,
-		UEA_SVM_BYTECODE,
+		opts.Addresses.NewEVMImplAddr,
+		UEA_EVM_BYTECODE,
 	)
 
 	// Register UEA : EVM
@@ -281,20 +252,6 @@ func registerEVMChainAndUEA(
 	)
 	require.NoError(t, err)
 
-	// Register UEA : SVM
-	_, err = chainApp.EVMKeeper.CallEVM(
-		ctx,
-		factoryABI,
-		owner,
-		factoryAddr,
-		true,
-		"registerUEA",
-		ChainHashSVM,
-		EVMHash,
-		SVMImplAddress,
-	)
-	require.NoError(t, err)
-
 	// Get UEA (EVM) address
 	ueaAddrResultEVM, err := chainApp.EVMKeeper.CallEVM(
 		ctx,
@@ -308,21 +265,6 @@ func registerEVMChainAndUEA(
 	require.NoError(t, err)
 
 	UEAAddress := common.BytesToAddress(ueaAddrResultEVM.Ret)
-	t.Logf("UEA registered at: %s", UEAAddress.Hex())
-
-	// Get UEA (SVM) address
-	ueaAddrResultSVM, err := chainApp.EVMKeeper.CallEVM(
-		ctx,
-		factoryABI,
-		owner,
-		factoryAddr,
-		true,
-		"getUEA",
-		ChainHashSVM,
-	)
-	require.NoError(t, err)
-
-	UEAAddress = common.BytesToAddress(ueaAddrResultSVM.Ret)
 	t.Logf("UEA registered at: %s", UEAAddress.Hex())
 
 	return nil

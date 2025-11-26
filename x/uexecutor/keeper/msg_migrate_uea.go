@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"cosmossdk.io/errors"
@@ -58,6 +59,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 		return err
 	}
 	fmt.Println(receipt)
+	fmt.Println("Returned bytes:", hex.EncodeToString(receipt.Ret))
 
 	// gasUnitsUsed := receipt.GasUsed
 	// gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)

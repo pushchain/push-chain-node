@@ -1,9 +1,12 @@
 package types
 
 import (
+	"encoding/hex"
+	fmt "fmt"
 	"math/big"
 	"strings"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/utils"
@@ -716,4 +719,61 @@ func NewAbiUniversalAccountId(proto *UniversalAccountId) (AbiUniversalAccountId,
 		ChainId:        proto.ChainId,
 		Owner:          owner,
 	}, nil
+}
+
+type UniversalWithdrawEvent struct {
+	Sender      string
+	ChainId     string
+	Token       string
+	Target      string
+	Amount      *big.Int
+	GasToken    string
+	GasFee      *big.Int
+	GasLimit    *big.Int
+	Payload     string
+	ProtocolFee *big.Int
+}
+
+func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalWithdrawEvent, error) {
+	if len(log.Topics) < 4 {
+		return nil, fmt.Errorf("insufficient topics for UniversalTxWithdraw")
+	}
+
+	event := &UniversalWithdrawEvent{}
+
+	// Indexed parameters
+	event.Sender = common.HexToAddress(log.Topics[1]).Hex()
+	event.ChainId = string(common.FromHex(log.Topics[2]))
+	event.Token = common.HexToAddress(log.Topics[3]).Hex()
+
+	// Correct ABI type construction
+	bytesType, _ := abi.NewType("bytes", "", nil)
+	uint256Type, _ := abi.NewType("uint256", "", nil)
+	addressType, _ := abi.NewType("address", "", nil)
+
+	// Decode non-indexed data
+	arguments := abi.Arguments{
+		{Type: bytesType},   // target
+		{Type: uint256Type}, // amount
+		{Type: addressType}, // gasToken
+		{Type: uint256Type}, // gasFee
+		{Type: uint256Type}, // gasLimit
+		{Type: bytesType},   // payload
+		{Type: uint256Type}, // protocolFee
+	}
+
+	values, err := arguments.Unpack(log.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	event.Target = hex.EncodeToString(values[0].([]byte))
+	event.Amount = values[1].(*big.Int)
+	event.GasToken = values[2].(common.Address).Hex()
+	event.GasFee = values[3].(*big.Int)
+	event.GasLimit = values[4].(*big.Int)
+	event.Payload = hex.EncodeToString(values[5].([]byte))
+	event.ProtocolFee = values[6].(*big.Int)
+
+	return event, nil
 }

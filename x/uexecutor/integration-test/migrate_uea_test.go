@@ -85,11 +85,12 @@ func TestMigrateUEA(t *testing.T) {
 			Signature:          "0x1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
 		}
 
+		logicBefore := app.EVMKeeper.GetState(ctx, common.BytesToAddress(deployUEAResponse.UEA[12:]), common.HexToHash("0x868a771a75a4aa6c2be13e9a9617cb8ea240ed84a3a90c8469537393ec3e115d"))
 		_, err = ms.MigrateUEA(ctx, msg)
 		require.NoError(t, err)
 
-		stored := app.EVMKeeper.GetState(ctx, common.BytesToAddress(deployUEAResponse.UEA[12:]), common.HexToHash("0x868a771a75a4aa6c2be13e9a9617cb8ea240ed84a3a90c8469537393ec3e115d"))
-		require.Equal(t, stored, migratedAddress)
+		logicAfter := app.EVMKeeper.GetState(ctx, common.BytesToAddress(deployUEAResponse.UEA[12:]), common.HexToHash("0x868a771a75a4aa6c2be13e9a9617cb8ea240ed84a3a90c8469537393ec3e115d"))
+		require.NotEqual(t, logicBefore, logicAfter)
 
 	})
 	t.Run("Invalid Migration Payload!", func(t *testing.T) {

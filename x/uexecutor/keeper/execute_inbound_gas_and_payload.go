@@ -143,6 +143,10 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"
+
+		if receipt != nil {
+			_ = k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx)
+		}
 	}
 
 	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

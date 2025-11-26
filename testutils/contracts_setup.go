@@ -274,7 +274,7 @@ func DeployMigrationContract(
 	t *testing.T,
 	app *app.ChainApp,
 	ctx sdk.Context,
-) common.Address {
+) (common.Address, common.Address) {
 	Addresses := GetDefaultAddresses()
 	bytecode, err := hexutil.Decode("0x" + UEA_MIGRATION_BYTECODE)
 	require.NoError(t, err)
@@ -288,8 +288,7 @@ func DeployMigrationContract(
 	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(0)), common.LeftPadBytes(Addresses.MigratedUEAAddr.Bytes(), 32))
 	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(1)), common.LeftPadBytes(Addresses.NewEVMImplAddr.Bytes(), 32))
 	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(2)), common.LeftPadBytes(Addresses.NewSVMImplAddr.Bytes(), 32))
-
-	return Addresses.MigratedUEAAddr
+	return Addresses.MigratedUEAAddr, Addresses.NewEVMImplAddr
 
 }
 

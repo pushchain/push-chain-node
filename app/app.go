@@ -770,6 +770,8 @@ func NewChainApp(
 		),
 	)
 
+	app.EVMKeeper.SetHooks(uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper))
+
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.
 	corePrecompiles := NewAvailableStaticPrecompiles(

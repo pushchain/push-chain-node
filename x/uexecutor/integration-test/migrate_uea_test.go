@@ -56,7 +56,7 @@ func TestMigrateUEA(t *testing.T) {
 
 		validMP := &uexecutortypes.MigrationPayload{
 			Migration: migratedAddress.Hex(),
-			Nonce:     "1",
+			Nonce:     "0",
 			Deadline:  "0",
 		}
 
@@ -82,7 +82,7 @@ func TestMigrateUEA(t *testing.T) {
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
 			MigrationPayload:   validMP,
-			Signature:          "0x1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+			Signature:          "0xd1d343e944b77d71542ff15b545244464d0a9bb5606a69ca97d123abc52ec84a54cd46e50cf771fcdf40df0cdb047c50c1dcc17f6482d5def3895ad94e0b1cad1c",
 		}
 
 		_, err = ms.MigrateUEA(ctx, msg)

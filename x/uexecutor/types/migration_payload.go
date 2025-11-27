@@ -24,10 +24,10 @@ func (p MigrationPayload) String() string {
 func (p MigrationPayload) ValidateBasic() error {
 	// Validate 'migration' address
 	if strings.TrimSpace(p.Migration) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidAddress, "to address cannot be empty")
+		return errors.Wrap(sdkerrors.ErrInvalidAddress, "migration address cannot be empty")
 	}
 	if !utils.IsValidAddress(p.Migration, utils.HEX) {
-		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid to address format: %s", p.Migration)
+		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid migration contract address format: %s", p.Migration)
 	}
 
 	// Validate all numeric string fields as uint256

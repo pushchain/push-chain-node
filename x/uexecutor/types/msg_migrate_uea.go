@@ -29,7 +29,7 @@ func NewMsgMigrateUEA(
 func (msg MsgMigrateUEA) Route() string { return ModuleName }
 
 // Type returns the action
-func (msg MsgMigrateUEA) Type() string { return "execute_payload" }
+func (msg MsgMigrateUEA) Type() string { return "migrate_uea" }
 
 // GetSignBytes implements the LegacyMsg interface.
 func (msg MsgMigrateUEA) GetSignBytes() []byte {
@@ -54,14 +54,14 @@ func (msg *MsgMigrateUEA) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal account cannot be nil")
 	}
 
-	// Validate universal payload
+	// Validate migration payload
 	if msg.MigrationPayload == nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "universal payload cannot be nil")
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "migration payload cannot be nil")
 	}
 
 	// Validate Signature
 	if len(msg.Signature) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "verificationData cannot be empty")
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "signature cannot be empty")
 	}
 
 	// Validate universalAccountId structure
@@ -69,9 +69,9 @@ func (msg *MsgMigrateUEA) ValidateBasic() error {
 		return errors.Wrap(err, "invalid universalAccountId")
 	}
 
-	// Validate universal payload structure
+	// Validate migration payload structure
 	if err := msg.MigrationPayload.ValidateBasic(); err != nil {
-		return errors.Wrap(err, "invalid universal payload")
+		return errors.Wrap(err, "invalid migration payload")
 	}
 
 	return nil

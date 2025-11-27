@@ -36,6 +36,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 		return errors.Wrapf(err, "failed to get chain config for chain %s", caip2Identifier)
 	}
 
+	// TODO: Decide later if migration should be disabled if inbound is disabled
 	if !chainConfig.Enabled.IsInboundEnabled {
 		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
 	}
@@ -58,32 +59,9 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	if err != nil {
 		return err
 	}
+
 	fmt.Println(receipt)
 	fmt.Println("Returned bytes:", hex.EncodeToString(receipt.Ret))
-
-	// gasUnitsUsed := receipt.GasUsed
-	// gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
-
-	// // Step 4: Handle fee calculation and deduction
-	// ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
-
-	// baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
-	// if baseFee.IsNil() {
-	// 	return errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
-	// }
-
-	// gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, gasUnitsUsed)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "failed to calculate gas cost")
-	// }
-
-	// if gasUnitsUsedBig.Cmp(payload.GasLimit) > 0 {
-	// 	return errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
-	// }
-
-	// if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
-	// 	return errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
-	// }
 
 	return nil
 }

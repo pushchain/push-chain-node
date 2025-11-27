@@ -152,7 +152,7 @@ func (k Keeper) CallUEAMigrateUEA(
 		big.NewInt(0),
 		nil,
 		true,  // commit = true (real tx, not simulation)
-		true,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		false, // not a module sender
 		nil,
 		"migrateUEA",

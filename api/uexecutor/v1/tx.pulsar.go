@@ -4629,6 +4629,989 @@ func (x *fastReflection_MsgVoteInboundResponse) ProtoMethods() *protoiface.Metho
 }
 
 var (
+	md_MsgVoteOutbound                protoreflect.MessageDescriptor
+	fd_MsgVoteOutbound_signer         protoreflect.FieldDescriptor
+	fd_MsgVoteOutbound_utx_id         protoreflect.FieldDescriptor
+	fd_MsgVoteOutbound_outbound_index protoreflect.FieldDescriptor
+	fd_MsgVoteOutbound_observed_tx    protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_uexecutor_v1_tx_proto_init()
+	md_MsgVoteOutbound = File_uexecutor_v1_tx_proto.Messages().ByName("MsgVoteOutbound")
+	fd_MsgVoteOutbound_signer = md_MsgVoteOutbound.Fields().ByName("signer")
+	fd_MsgVoteOutbound_utx_id = md_MsgVoteOutbound.Fields().ByName("utx_id")
+	fd_MsgVoteOutbound_outbound_index = md_MsgVoteOutbound.Fields().ByName("outbound_index")
+	fd_MsgVoteOutbound_observed_tx = md_MsgVoteOutbound.Fields().ByName("observed_tx")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVoteOutbound)(nil)
+
+type fastReflection_MsgVoteOutbound MsgVoteOutbound
+
+func (x *MsgVoteOutbound) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteOutbound)(x)
+}
+
+func (x *MsgVoteOutbound) slowProtoReflect() protoreflect.Message {
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgVoteOutbound_messageType fastReflection_MsgVoteOutbound_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteOutbound_messageType{}
+
+type fastReflection_MsgVoteOutbound_messageType struct{}
+
+func (x fastReflection_MsgVoteOutbound_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteOutbound)(nil)
+}
+func (x fastReflection_MsgVoteOutbound_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteOutbound)
+}
+func (x fastReflection_MsgVoteOutbound_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteOutbound
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgVoteOutbound) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteOutbound
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgVoteOutbound) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteOutbound_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVoteOutbound) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteOutbound)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgVoteOutbound) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteOutbound)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgVoteOutbound) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Signer != "" {
+		value := protoreflect.ValueOfString(x.Signer)
+		if !f(fd_MsgVoteOutbound_signer, value) {
+			return
+		}
+	}
+	if x.UtxId != "" {
+		value := protoreflect.ValueOfString(x.UtxId)
+		if !f(fd_MsgVoteOutbound_utx_id, value) {
+			return
+		}
+	}
+	if x.OutboundIndex != "" {
+		value := protoreflect.ValueOfString(x.OutboundIndex)
+		if !f(fd_MsgVoteOutbound_outbound_index, value) {
+			return
+		}
+	}
+	if x.ObservedTx != nil {
+		value := protoreflect.ValueOfMessage(x.ObservedTx.ProtoReflect())
+		if !f(fd_MsgVoteOutbound_observed_tx, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgVoteOutbound) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		return x.Signer != ""
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		return x.UtxId != ""
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		return x.OutboundIndex != ""
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		return x.ObservedTx != nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutbound) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		x.Signer = ""
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		x.UtxId = ""
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		x.OutboundIndex = ""
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		x.ObservedTx = nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgVoteOutbound) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		value := x.Signer
+		return protoreflect.ValueOfString(value)
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		value := x.UtxId
+		return protoreflect.ValueOfString(value)
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		value := x.OutboundIndex
+		return protoreflect.ValueOfString(value)
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		value := x.ObservedTx
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutbound) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		x.Signer = value.Interface().(string)
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		x.UtxId = value.Interface().(string)
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		x.OutboundIndex = value.Interface().(string)
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		x.ObservedTx = value.Message().Interface().(*OutboundObservation)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutbound) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		if x.ObservedTx == nil {
+			x.ObservedTx = new(OutboundObservation)
+		}
+		return protoreflect.ValueOfMessage(x.ObservedTx.ProtoReflect())
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		panic(fmt.Errorf("field signer of message uexecutor.v1.MsgVoteOutbound is not mutable"))
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		panic(fmt.Errorf("field utx_id of message uexecutor.v1.MsgVoteOutbound is not mutable"))
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		panic(fmt.Errorf("field outbound_index of message uexecutor.v1.MsgVoteOutbound is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgVoteOutbound) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "uexecutor.v1.MsgVoteOutbound.signer":
+		return protoreflect.ValueOfString("")
+	case "uexecutor.v1.MsgVoteOutbound.utx_id":
+		return protoreflect.ValueOfString("")
+	case "uexecutor.v1.MsgVoteOutbound.outbound_index":
+		return protoreflect.ValueOfString("")
+	case "uexecutor.v1.MsgVoteOutbound.observed_tx":
+		m := new(OutboundObservation)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutbound"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutbound does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgVoteOutbound) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgVoteOutbound", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgVoteOutbound) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutbound) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgVoteOutbound) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgVoteOutbound) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVoteOutbound)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Signer)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.UtxId)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.OutboundIndex)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.ObservedTx != nil {
+			l = options.Size(x.ObservedTx)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteOutbound)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.ObservedTx != nil {
+			encoded, err := options.Marshal(x.ObservedTx)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x22
+		}
+		if len(x.OutboundIndex) > 0 {
+			i -= len(x.OutboundIndex)
+			copy(dAtA[i:], x.OutboundIndex)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.OutboundIndex)))
+			i--
+			dAtA[i] = 0x1a
+		}
+		if len(x.UtxId) > 0 {
+			i -= len(x.UtxId)
+			copy(dAtA[i:], x.UtxId)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.UtxId)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if len(x.Signer) > 0 {
+			i -= len(x.Signer)
+			copy(dAtA[i:], x.Signer)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Signer)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteOutbound)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteOutbound: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteOutbound: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Signer = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field UtxId", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.UtxId = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field OutboundIndex", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.OutboundIndex = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 4:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ObservedTx", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.ObservedTx == nil {
+					x.ObservedTx = &OutboundObservation{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.ObservedTx); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_MsgVoteOutboundResponse protoreflect.MessageDescriptor
+)
+
+func init() {
+	file_uexecutor_v1_tx_proto_init()
+	md_MsgVoteOutboundResponse = File_uexecutor_v1_tx_proto.Messages().ByName("MsgVoteOutboundResponse")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgVoteOutboundResponse)(nil)
+
+type fastReflection_MsgVoteOutboundResponse MsgVoteOutboundResponse
+
+func (x *MsgVoteOutboundResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgVoteOutboundResponse)(x)
+}
+
+func (x *MsgVoteOutboundResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgVoteOutboundResponse_messageType fastReflection_MsgVoteOutboundResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgVoteOutboundResponse_messageType{}
+
+type fastReflection_MsgVoteOutboundResponse_messageType struct{}
+
+func (x fastReflection_MsgVoteOutboundResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgVoteOutboundResponse)(nil)
+}
+func (x fastReflection_MsgVoteOutboundResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteOutboundResponse)
+}
+func (x fastReflection_MsgVoteOutboundResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteOutboundResponse
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgVoteOutboundResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgVoteOutboundResponse
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgVoteOutboundResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgVoteOutboundResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgVoteOutboundResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgVoteOutboundResponse)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgVoteOutboundResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgVoteOutboundResponse)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgVoteOutboundResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgVoteOutboundResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutboundResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgVoteOutboundResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutboundResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutboundResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgVoteOutboundResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.MsgVoteOutboundResponse"))
+		}
+		panic(fmt.Errorf("message uexecutor.v1.MsgVoteOutboundResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgVoteOutboundResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in uexecutor.v1.MsgVoteOutboundResponse", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgVoteOutboundResponse) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgVoteOutboundResponse) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgVoteOutboundResponse) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgVoteOutboundResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgVoteOutboundResponse)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteOutboundResponse)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgVoteOutboundResponse)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteOutboundResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgVoteOutboundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
 	md_MsgVoteGasPrice                   protoreflect.MessageDescriptor
 	fd_MsgVoteGasPrice_signer            protoreflect.FieldDescriptor
 	fd_MsgVoteGasPrice_observed_chain_id protoreflect.FieldDescriptor
@@ -4654,7 +5637,7 @@ func (x *MsgVoteGasPrice) ProtoReflect() protoreflect.Message {
 }
 
 func (x *MsgVoteGasPrice) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5226,7 +6209,7 @@ func (x *MsgVoteGasPriceResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *MsgVoteGasPriceResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
+	mi := &file_uexecutor_v1_tx_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5995,6 +6978,94 @@ func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
 	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
+// MsgVoteOutbound allows a universal validator to vote on an outbound tx observation.
+type MsgVoteOutbound struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// signer is the Cosmos address initiating the tx (used for tx signing)
+	Signer        string               `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	UtxId         string               `protobuf:"bytes,2,opt,name=utx_id,json=utxId,proto3" json:"utx_id,omitempty"`                         // UniversalTx Id
+	OutboundIndex string               `protobuf:"bytes,3,opt,name=outbound_index,json=outboundIndex,proto3" json:"outbound_index,omitempty"` // index of outbound tx
+	ObservedTx    *OutboundObservation `protobuf:"bytes,4,opt,name=observed_tx,json=observedTx,proto3" json:"observed_tx,omitempty"`          // observed tx on destination chain
+}
+
+func (x *MsgVoteOutbound) Reset() {
+	*x = MsgVoteOutbound{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgVoteOutbound) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVoteOutbound) ProtoMessage() {}
+
+// Deprecated: Use MsgVoteOutbound.ProtoReflect.Descriptor instead.
+func (*MsgVoteOutbound) Descriptor() ([]byte, []int) {
+	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *MsgVoteOutbound) GetSigner() string {
+	if x != nil {
+		return x.Signer
+	}
+	return ""
+}
+
+func (x *MsgVoteOutbound) GetUtxId() string {
+	if x != nil {
+		return x.UtxId
+	}
+	return ""
+}
+
+func (x *MsgVoteOutbound) GetOutboundIndex() string {
+	if x != nil {
+		return x.OutboundIndex
+	}
+	return ""
+}
+
+func (x *MsgVoteOutbound) GetObservedTx() *OutboundObservation {
+	if x != nil {
+		return x.ObservedTx
+	}
+	return nil
+}
+
+// MsgVoteInboundResponse defines the response for MsgExecutePayload.
+type MsgVoteOutboundResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *MsgVoteOutboundResponse) Reset() {
+	*x = MsgVoteOutboundResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgVoteOutboundResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVoteOutboundResponse) ProtoMessage() {}
+
+// Deprecated: Use MsgVoteOutboundResponse.ProtoReflect.Descriptor instead.
+func (*MsgVoteOutboundResponse) Descriptor() ([]byte, []int) {
+	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{11}
+}
+
 // MsgVoteGasPrice is broadcasted by Universal Validators to submit their observed gas prices
 type MsgVoteGasPrice struct {
 	state         protoimpl.MessageState
@@ -6010,7 +7081,7 @@ type MsgVoteGasPrice struct {
 func (x *MsgVoteGasPrice) Reset() {
 	*x = MsgVoteGasPrice{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[10]
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6024,7 +7095,7 @@ func (*MsgVoteGasPrice) ProtoMessage() {}
 
 // Deprecated: Use MsgVoteGasPrice.ProtoReflect.Descriptor instead.
 func (*MsgVoteGasPrice) Descriptor() ([]byte, []int) {
-	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{10}
+	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *MsgVoteGasPrice) GetSigner() string {
@@ -6065,7 +7136,7 @@ type MsgVoteGasPriceResponse struct {
 func (x *MsgVoteGasPriceResponse) Reset() {
 	*x = MsgVoteGasPriceResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_uexecutor_v1_tx_proto_msgTypes[11]
+		mi := &file_uexecutor_v1_tx_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6079,7 +7150,7 @@ func (*MsgVoteGasPriceResponse) ProtoMessage() {}
 
 // Deprecated: Use MsgVoteGasPriceResponse.ProtoReflect.Descriptor instead.
 func (*MsgVoteGasPriceResponse) Descriptor() ([]byte, []int) {
-	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{11}
+	return file_uexecutor_v1_tx_proto_rawDescGZIP(), []int{13}
 }
 
 var File_uexecutor_v1_tx_proto protoreflect.FileDescriptor
@@ -6171,65 +7242,87 @@ var file_uexecutor_v1_tx_proto_rawDesc = []byte{
 	0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x11, 0x75, 0x65, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65,
 	0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x18, 0x0a, 0x16, 0x4d, 0x73, 0x67, 0x56, 0x6f,
 	0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0xd3, 0x01, 0x0a, 0x0f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73,
-	0x50, 0x72, 0x69, 0x63, 0x65, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18,
+	0x65, 0x22, 0xe9, 0x01, 0x0a, 0x0f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x4f, 0x75, 0x74,
+	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
 	0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52,
-	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x2a, 0x0a, 0x11, 0x6f, 0x62, 0x73, 0x65, 0x72,
-	0x76, 0x65, 0x64, 0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x0f, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64, 0x43, 0x68, 0x61, 0x69,
-	0x6e, 0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x70, 0x72, 0x69, 0x63, 0x65, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x05, 0x70, 0x72, 0x69, 0x63, 0x65, 0x12, 0x21, 0x0a, 0x0c, 0x62, 0x6c, 0x6f,
-	0x63, 0x6b, 0x5f, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04, 0x52,
-	0x0b, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x3a, 0x29, 0x82, 0xe7,
-	0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x19, 0x75, 0x65,
-	0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47,
-	0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x22, 0x19, 0x0a, 0x17, 0x4d, 0x73, 0x67, 0x56, 0x6f,
-	0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x32, 0xf8, 0x03, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x54, 0x0a, 0x0c, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1d, 0x2e, 0x75, 0x65, 0x78,
-	0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64,
-	0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x25, 0x2e, 0x75, 0x65, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x4b, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x12, 0x1a, 0x2e,
-	0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x1a, 0x22, 0x2e, 0x75, 0x65, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c,
-	0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x42, 0x0a,
-	0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x17, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x15, 0x0a, 0x06, 0x75, 0x74, 0x78, 0x5f, 0x69,
+	0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x75, 0x74, 0x78, 0x49, 0x64, 0x12, 0x25,
+	0x0a, 0x0e, 0x6f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x6f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64,
+	0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x42, 0x0a, 0x0b, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65,
+	0x64, 0x5f, 0x74, 0x78, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x75, 0x65, 0x78,
+	0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75,
+	0x6e, 0x64, 0x4f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0a, 0x6f,
+	0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64, 0x54, 0x78, 0x3a, 0x22, 0x82, 0xe7, 0xb0, 0x2a, 0x06,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x12, 0x75, 0x65, 0x2f, 0x4d, 0x73,
+	0x67, 0x56, 0x6f, 0x74, 0x65, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x22, 0x19, 0x0a,
+	0x17, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xd3, 0x01, 0x0a, 0x0f, 0x4d, 0x73, 0x67,
+	0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x12, 0x30, 0x0a, 0x06,
+	0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4,
+	0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
+	0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x2a,
+	0x0a, 0x11, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64, 0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0f, 0x6f, 0x62, 0x73, 0x65, 0x72,
+	0x76, 0x65, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x70, 0x72,
+	0x69, 0x63, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x70, 0x72, 0x69, 0x63, 0x65,
+	0x12, 0x21, 0x0a, 0x0c, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72,
+	0x18, 0x04, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0b, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x4e, 0x75, 0x6d,
+	0x62, 0x65, 0x72, 0x3a, 0x29, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
+	0x8a, 0xe7, 0xb0, 0x2a, 0x19, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x4d,
+	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x22, 0x19,
+	0x0a, 0x17, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63,
+	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xce, 0x04, 0x0a, 0x03, 0x4d, 0x73,
+	0x67, 0x12, 0x54, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d,
+	0x73, 0x12, 0x1d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
+	0x1a, 0x25, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
+	0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a, 0x09, 0x44, 0x65, 0x70, 0x6c, 0x6f,
+	0x79, 0x55, 0x45, 0x41, 0x12, 0x1a, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
+	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41,
+	0x1a, 0x22, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
+	0x4d, 0x73, 0x67, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x55, 0x45, 0x41, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x42, 0x0a, 0x06, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x12, 0x17,
+	0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
+	0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x1a, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75,
 	0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43,
-	0x1a, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x4d, 0x69, 0x6e, 0x74, 0x50, 0x43, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x5a, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c,
-	0x6f, 0x61, 0x64, 0x12, 0x1f, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
-	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79,
-	0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x27, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
-	0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61,
-	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x51, 0x0a,
-	0x0b, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x1c, 0x2e, 0x75,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x5a, 0x0a, 0x0e, 0x45, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1f, 0x2e, 0x75, 0x65, 0x78,
+	0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x1a, 0x27, 0x2e, 0x75, 0x65,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x45, 0x78,
+	0x65, 0x63, 0x75, 0x74, 0x65, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x51, 0x0a, 0x0b, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f,
+	0x75, 0x6e, 0x64, 0x12, 0x1c, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
+	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e,
+	0x64, 0x1a, 0x24, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54, 0x0a, 0x0c, 0x56, 0x6f, 0x74, 0x65, 0x4f,
+	0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x12, 0x1d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75,
+	0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x4f, 0x75,
+	0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a, 0x25, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x4f, 0x75, 0x74,
+	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54, 0x0a,
+	0x0c, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x12, 0x1d, 0x2e,
+	0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x1a, 0x25, 0x2e, 0x75,
 	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56,
-	0x6f, 0x74, 0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x1a, 0x24, 0x2e, 0x75, 0x65, 0x78,
-	0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74,
-	0x65, 0x49, 0x6e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x54, 0x0a, 0x0c, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65,
-	0x12, 0x1d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x1a,
-	0x25, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
-	0x73, 0x67, 0x56, 0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0xaf, 0x01,
-	0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
-	0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e,
-	0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
-	0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76, 0x31,
-	0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x6f, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
-	0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x18, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72,
-	0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea,
-	0x02, 0x0d, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x74, 0x65, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a, 0x01, 0x42, 0xaf, 0x01, 0x0a, 0x10, 0x63,
+	0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42,
+	0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65,
+	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x76,
+	0x31, 0x3b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03,
+	0x55, 0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e,
+	0x56, 0x31, 0xca, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56,
+	0x31, 0xe2, 0x02, 0x18, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
+	0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55,
+	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -6244,7 +7337,7 @@ func file_uexecutor_v1_tx_proto_rawDescGZIP() []byte {
 	return file_uexecutor_v1_tx_proto_rawDescData
 }
 
-var file_uexecutor_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_uexecutor_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_uexecutor_v1_tx_proto_goTypes = []interface{}{
 	(*MsgUpdateParams)(nil),           // 0: uexecutor.v1.MsgUpdateParams
 	(*MsgUpdateParamsResponse)(nil),   // 1: uexecutor.v1.MsgUpdateParamsResponse
@@ -6256,37 +7349,43 @@ var file_uexecutor_v1_tx_proto_goTypes = []interface{}{
 	(*MsgExecutePayloadResponse)(nil), // 7: uexecutor.v1.MsgExecutePayloadResponse
 	(*MsgVoteInbound)(nil),            // 8: uexecutor.v1.MsgVoteInbound
 	(*MsgVoteInboundResponse)(nil),    // 9: uexecutor.v1.MsgVoteInboundResponse
-	(*MsgVoteGasPrice)(nil),           // 10: uexecutor.v1.MsgVoteGasPrice
-	(*MsgVoteGasPriceResponse)(nil),   // 11: uexecutor.v1.MsgVoteGasPriceResponse
-	(*Params)(nil),                    // 12: uexecutor.v1.Params
-	(*UniversalAccountId)(nil),        // 13: uexecutor.v1.UniversalAccountId
-	(*UniversalPayload)(nil),          // 14: uexecutor.v1.UniversalPayload
-	(*Inbound)(nil),                   // 15: uexecutor.v1.Inbound
+	(*MsgVoteOutbound)(nil),           // 10: uexecutor.v1.MsgVoteOutbound
+	(*MsgVoteOutboundResponse)(nil),   // 11: uexecutor.v1.MsgVoteOutboundResponse
+	(*MsgVoteGasPrice)(nil),           // 12: uexecutor.v1.MsgVoteGasPrice
+	(*MsgVoteGasPriceResponse)(nil),   // 13: uexecutor.v1.MsgVoteGasPriceResponse
+	(*Params)(nil),                    // 14: uexecutor.v1.Params
+	(*UniversalAccountId)(nil),        // 15: uexecutor.v1.UniversalAccountId
+	(*UniversalPayload)(nil),          // 16: uexecutor.v1.UniversalPayload
+	(*Inbound)(nil),                   // 17: uexecutor.v1.Inbound
+	(*OutboundObservation)(nil),       // 18: uexecutor.v1.OutboundObservation
 }
 var file_uexecutor_v1_tx_proto_depIdxs = []int32{
-	12, // 0: uexecutor.v1.MsgUpdateParams.params:type_name -> uexecutor.v1.Params
-	13, // 1: uexecutor.v1.MsgDeployUEA.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	13, // 2: uexecutor.v1.MsgMintPC.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	13, // 3: uexecutor.v1.MsgExecutePayload.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
-	14, // 4: uexecutor.v1.MsgExecutePayload.universal_payload:type_name -> uexecutor.v1.UniversalPayload
-	15, // 5: uexecutor.v1.MsgVoteInbound.inbound:type_name -> uexecutor.v1.Inbound
-	0,  // 6: uexecutor.v1.Msg.UpdateParams:input_type -> uexecutor.v1.MsgUpdateParams
-	2,  // 7: uexecutor.v1.Msg.DeployUEA:input_type -> uexecutor.v1.MsgDeployUEA
-	4,  // 8: uexecutor.v1.Msg.MintPC:input_type -> uexecutor.v1.MsgMintPC
-	6,  // 9: uexecutor.v1.Msg.ExecutePayload:input_type -> uexecutor.v1.MsgExecutePayload
-	8,  // 10: uexecutor.v1.Msg.VoteInbound:input_type -> uexecutor.v1.MsgVoteInbound
-	10, // 11: uexecutor.v1.Msg.VoteGasPrice:input_type -> uexecutor.v1.MsgVoteGasPrice
-	1,  // 12: uexecutor.v1.Msg.UpdateParams:output_type -> uexecutor.v1.MsgUpdateParamsResponse
-	3,  // 13: uexecutor.v1.Msg.DeployUEA:output_type -> uexecutor.v1.MsgDeployUEAResponse
-	5,  // 14: uexecutor.v1.Msg.MintPC:output_type -> uexecutor.v1.MsgMintPCResponse
-	7,  // 15: uexecutor.v1.Msg.ExecutePayload:output_type -> uexecutor.v1.MsgExecutePayloadResponse
-	9,  // 16: uexecutor.v1.Msg.VoteInbound:output_type -> uexecutor.v1.MsgVoteInboundResponse
-	11, // 17: uexecutor.v1.Msg.VoteGasPrice:output_type -> uexecutor.v1.MsgVoteGasPriceResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	14, // 0: uexecutor.v1.MsgUpdateParams.params:type_name -> uexecutor.v1.Params
+	15, // 1: uexecutor.v1.MsgDeployUEA.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	15, // 2: uexecutor.v1.MsgMintPC.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	15, // 3: uexecutor.v1.MsgExecutePayload.universal_account_id:type_name -> uexecutor.v1.UniversalAccountId
+	16, // 4: uexecutor.v1.MsgExecutePayload.universal_payload:type_name -> uexecutor.v1.UniversalPayload
+	17, // 5: uexecutor.v1.MsgVoteInbound.inbound:type_name -> uexecutor.v1.Inbound
+	18, // 6: uexecutor.v1.MsgVoteOutbound.observed_tx:type_name -> uexecutor.v1.OutboundObservation
+	0,  // 7: uexecutor.v1.Msg.UpdateParams:input_type -> uexecutor.v1.MsgUpdateParams
+	2,  // 8: uexecutor.v1.Msg.DeployUEA:input_type -> uexecutor.v1.MsgDeployUEA
+	4,  // 9: uexecutor.v1.Msg.MintPC:input_type -> uexecutor.v1.MsgMintPC
+	6,  // 10: uexecutor.v1.Msg.ExecutePayload:input_type -> uexecutor.v1.MsgExecutePayload
+	8,  // 11: uexecutor.v1.Msg.VoteInbound:input_type -> uexecutor.v1.MsgVoteInbound
+	10, // 12: uexecutor.v1.Msg.VoteOutbound:input_type -> uexecutor.v1.MsgVoteOutbound
+	12, // 13: uexecutor.v1.Msg.VoteGasPrice:input_type -> uexecutor.v1.MsgVoteGasPrice
+	1,  // 14: uexecutor.v1.Msg.UpdateParams:output_type -> uexecutor.v1.MsgUpdateParamsResponse
+	3,  // 15: uexecutor.v1.Msg.DeployUEA:output_type -> uexecutor.v1.MsgDeployUEAResponse
+	5,  // 16: uexecutor.v1.Msg.MintPC:output_type -> uexecutor.v1.MsgMintPCResponse
+	7,  // 17: uexecutor.v1.Msg.ExecutePayload:output_type -> uexecutor.v1.MsgExecutePayloadResponse
+	9,  // 18: uexecutor.v1.Msg.VoteInbound:output_type -> uexecutor.v1.MsgVoteInboundResponse
+	11, // 19: uexecutor.v1.Msg.VoteOutbound:output_type -> uexecutor.v1.MsgVoteOutboundResponse
+	13, // 20: uexecutor.v1.Msg.VoteGasPrice:output_type -> uexecutor.v1.MsgVoteGasPriceResponse
+	14, // [14:21] is the sub-list for method output_type
+	7,  // [7:14] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_uexecutor_v1_tx_proto_init() }
@@ -6417,7 +7516,7 @@ func file_uexecutor_v1_tx_proto_init() {
 			}
 		}
 		file_uexecutor_v1_tx_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MsgVoteGasPrice); i {
+			switch v := v.(*MsgVoteOutbound); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6429,6 +7528,30 @@ func file_uexecutor_v1_tx_proto_init() {
 			}
 		}
 		file_uexecutor_v1_tx_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgVoteOutboundResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_uexecutor_v1_tx_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgVoteGasPrice); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_uexecutor_v1_tx_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MsgVoteGasPriceResponse); i {
 			case 0:
 				return &v.state
@@ -6447,7 +7570,7 @@ func file_uexecutor_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_uexecutor_v1_tx_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

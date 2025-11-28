@@ -24,6 +24,7 @@ const (
 	Msg_MintPC_FullMethodName         = "/uexecutor.v1.Msg/MintPC"
 	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
 	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
+	Msg_VoteOutbound_FullMethodName   = "/uexecutor.v1.Msg/VoteOutbound"
 	Msg_VoteGasPrice_FullMethodName   = "/uexecutor.v1.Msg/VoteGasPrice"
 )
 
@@ -43,6 +44,8 @@ type MsgClient interface {
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
+	// VoteOutbound defines a message for voting on a observed outbound tx on external chain
+	VoteOutbound(ctx context.Context, in *MsgVoteOutbound, opts ...grpc.CallOption) (*MsgVoteOutboundResponse, error)
 	// VoteGasPrice defines a message for universal validators to vote on the gas price
 	VoteGasPrice(ctx context.Context, in *MsgVoteGasPrice, opts ...grpc.CallOption) (*MsgVoteGasPriceResponse, error)
 }
@@ -100,6 +103,15 @@ func (c *msgClient) VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ..
 	return out, nil
 }
 
+func (c *msgClient) VoteOutbound(ctx context.Context, in *MsgVoteOutbound, opts ...grpc.CallOption) (*MsgVoteOutboundResponse, error) {
+	out := new(MsgVoteOutboundResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteOutbound_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) VoteGasPrice(ctx context.Context, in *MsgVoteGasPrice, opts ...grpc.CallOption) (*MsgVoteGasPriceResponse, error) {
 	out := new(MsgVoteGasPriceResponse)
 	err := c.cc.Invoke(ctx, Msg_VoteGasPrice_FullMethodName, in, out, opts...)
@@ -125,6 +137,8 @@ type MsgServer interface {
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
+	// VoteOutbound defines a message for voting on a observed outbound tx on external chain
+	VoteOutbound(context.Context, *MsgVoteOutbound) (*MsgVoteOutboundResponse, error)
 	// VoteGasPrice defines a message for universal validators to vote on the gas price
 	VoteGasPrice(context.Context, *MsgVoteGasPrice) (*MsgVoteGasPriceResponse, error)
 	mustEmbedUnimplementedMsgServer()
@@ -148,6 +162,9 @@ func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload
 }
 func (UnimplementedMsgServer) VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
+}
+func (UnimplementedMsgServer) VoteOutbound(context.Context, *MsgVoteOutbound) (*MsgVoteOutboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteOutbound not implemented")
 }
 func (UnimplementedMsgServer) VoteGasPrice(context.Context, *MsgVoteGasPrice) (*MsgVoteGasPriceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteGasPrice not implemented")
@@ -255,6 +272,24 @@ func _Msg_VoteInbound_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_VoteOutbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteOutbound)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteOutbound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteOutbound_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteOutbound(ctx, req.(*MsgVoteOutbound))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_VoteGasPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgVoteGasPrice)
 	if err := dec(in); err != nil {
@@ -299,6 +334,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteInbound",
 			Handler:    _Msg_VoteInbound_Handler,
+		},
+		{
+			MethodName: "VoteOutbound",
+			Handler:    _Msg_VoteOutbound_Handler,
 		},
 		{
 			MethodName: "VoteGasPrice",

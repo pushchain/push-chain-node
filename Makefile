@@ -123,7 +123,7 @@ install: go.sum build-dkls23
 .PHONY: build-dkls23
 build-dkls23:
 	@echo "--> Building dkls23-rs dependency"
-	@if [ -n "$$CI" ] || [ -n "$$GITHUB_ACTIONS" ]; then \
+	@if [ -n "$$GITHUB_ACTIONS" ]; then \
 		echo "  Detected CI environment, cloning dkls23-rs..."; \
 		DKLS23_DIR=./.dkls23-build; \
 		rm -rf $$DKLS23_DIR; \

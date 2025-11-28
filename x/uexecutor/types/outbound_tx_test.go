@@ -21,7 +21,7 @@ func baseValidOutbound() types.OutboundTx {
 			TxHash:   "0xpc123",
 			LogIndex: "1",
 		},
-		Index: "0",
+		Id: "0",
 	}
 }
 
@@ -150,11 +150,11 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 			name: "empty index",
 			outbound: func() types.OutboundTx {
 				ob := baseValidOutbound()
-				ob.Index = ""
+				ob.Id = ""
 				return ob
 			}(),
 			expectError: true,
-			errContains: "index cannot be empty",
+			errContains: "id cannot be empty",
 		},
 	}
 

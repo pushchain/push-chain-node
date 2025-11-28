@@ -35,6 +35,8 @@ var (
 		&store.ChainState{},
 		&store.ChainTransaction{},
 		&store.GasVoteTransaction{},
+		&store.TSSEvent{},
+		&store.ChainTSSTransaction{},
 		// Add additional models here as needed.
 	}
 )
@@ -68,7 +70,7 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 	if dsn != InMemorySQLiteDSN && !strings.Contains(dsn, "?") {
 		dsn += "?_journal_mode=WAL&_busy_timeout=5000&cache=shared&mode=rwc"
 	}
-	
+
 	db, err := gorm.Open(sqlite.Open(dsn), gormConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open SQLite database")
@@ -85,7 +87,7 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get underlying sql.DB")
 	}
-	
+
 	// Configure connection pool based on database type
 	if dsn == InMemorySQLiteDSN {
 		// In-memory databases should use single connection to maintain state
@@ -118,19 +120,19 @@ func optimizeSQLiteSettings(db *gorm.DB, dsn string) error {
 	}
 
 	pragmas := []string{
-		"PRAGMA synchronous = NORMAL",    // Faster writes, still safe in WAL mode (2-10x faster)
-		"PRAGMA cache_size = -64000",     // 64MB in-memory page cache (vs default ~2MB)
-		"PRAGMA temp_store = MEMORY",     // Temporary tables and indices stored in RAM
-		"PRAGMA mmap_size = 268435456",   // 256MB memory-mapped I/O for faster reads
-		"PRAGMA foreign_keys = ON",       // Enforce foreign key constraints (data integrity)
+		"PRAGMA synchronous = NORMAL",  // Faster writes, still safe in WAL mode (2-10x faster)
+		"PRAGMA cache_size = -64000",   // 64MB in-memory page cache (vs default ~2MB)
+		"PRAGMA temp_store = MEMORY",   // Temporary tables and indices stored in RAM
+		"PRAGMA mmap_size = 268435456", // 256MB memory-mapped I/O for faster reads
+		"PRAGMA foreign_keys = ON",     // Enforce foreign key constraints (data integrity)
 	}
-	
+
 	for _, pragma := range pragmas {
 		if err := db.Exec(pragma).Error; err != nil {
 			return errors.Wrapf(err, "failed to execute %s", pragma)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -183,13 +185,13 @@ func prepareFilePath(dir, filename string) (string, error) {
 // Returns the number of deleted records and any error encountered.
 func (d *DB) DeleteOldConfirmedTransactions(retentionPeriod time.Duration) (int64, error) {
 	cutoffTime := time.Now().Add(-retentionPeriod)
-	
+
 	result := d.client.Where("status = ? AND updated_at < ?", "confirmed", cutoffTime).
 		Delete(&store.ChainTransaction{})
-	
+
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "failed to delete old confirmed transactions")
 	}
-	
+
 	return result.RowsAffected, nil
 }

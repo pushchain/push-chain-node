@@ -92,9 +92,6 @@ func (p OutboundTx) ValidateBasic() error {
 	// observed tx validation (if present)
 	if p.ObservedTx != nil {
 		if strings.TrimSpace(p.ObservedTx.TxHash) != "" {
-			if strings.TrimSpace(p.ObservedTx.DestinationChain) == "" {
-				return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.destination_chain cannot be empty")
-			}
 			if p.ObservedTx.BlockHeight == 0 {
 				return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.block_height must be > 0")
 			}
@@ -102,8 +99,54 @@ func (p OutboundTx) ValidateBasic() error {
 	}
 
 	// index
-	if strings.TrimSpace(p.Index) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "index cannot be empty")
+	if strings.TrimSpace(p.Id) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "id cannot be empty")
+	}
+
+	// status validation
+	// outbound_status validation
+	switch p.OutboundStatus {
+	case Status_UNSPECIFIED:
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "outbound_status cannot be UNSPECIFIED")
+
+	case Status_PENDING:
+		// PENDING must NOT have observed tx data
+		if p.ObservedTx != nil && strings.TrimSpace(p.ObservedTx.TxHash) != "" {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx must be empty when outbound_status is PENDING",
+			)
+		}
+
+	case Status_OBSERVED:
+		// OBSERVED must have observed tx
+		if p.ObservedTx == nil {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx is required when outbound_status is OBSERVED",
+			)
+		}
+
+		if strings.TrimSpace(p.ObservedTx.TxHash) == "" {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx.tx_hash is required when outbound_status is OBSERVED",
+			)
+		}
+
+		if p.ObservedTx.BlockHeight == 0 {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx.block_height must be > 0 when outbound_status is OBSERVED",
+			)
+		}
+
+	default:
+		return errors.Wrapf(
+			sdkerrors.ErrInvalidRequest,
+			"invalid outbound_status: %d",
+			p.OutboundStatus,
+		)
 	}
 
 	return nil

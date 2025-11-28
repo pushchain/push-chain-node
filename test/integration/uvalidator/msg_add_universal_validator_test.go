@@ -26,10 +26,9 @@ func TestAddUniversalValidator(t *testing.T) {
 
 		for i, val := range validators {
 			coreValAddr := val.OperatorAddress
-			pubkey := fmt.Sprintf("pubkey-%d", i)
-			network := uvalidatortypes.NetworkInfo{Ip: fmt.Sprintf("192.168.1.%d", i+1)}
+			network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
 
-			err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
+			err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, network)
 			require.NoError(t, err)
 
 			valAddr, err := sdk.ValAddressFromBech32(coreValAddr)
@@ -41,7 +40,7 @@ func TestAddUniversalValidator(t *testing.T) {
 
 			uv, _ := app.UvalidatorKeeper.UniversalValidatorSet.Get(ctx, valAddr)
 			require.Equal(t, uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN, uv.LifecycleInfo.CurrentStatus)
-			require.Equal(t, pubkey, uv.IdentifyInfo.Pubkey)
+			require.Equal(t, network, *uv.NetworkInfo)
 		}
 	})
 
@@ -53,21 +52,20 @@ func TestAddUniversalValidator(t *testing.T) {
 
 		// pre-store inactive
 		old := uvalidatortypes.UniversalValidator{
-			IdentifyInfo: &uvalidatortypes.IdentityInfo{CoreValidatorAddress: val.OperatorAddress, Pubkey: "old-pub"},
+			IdentifyInfo: &uvalidatortypes.IdentityInfo{CoreValidatorAddress: val.OperatorAddress},
 			LifecycleInfo: &uvalidatortypes.LifecycleInfo{
 				CurrentStatus: uvalidatortypes.UVStatus_UV_STATUS_INACTIVE,
 			},
 		}
 		require.NoError(t, k.UniversalValidatorSet.Set(ctx, valAddr, old))
 
-		pubkey := "new-pub"
-		network := uvalidatortypes.NetworkInfo{Ip: "10.0.0.1"}
-		err := k.AddUniversalValidator(ctx, val.OperatorAddress, pubkey, network)
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp"), MultiAddrs: []string{"temp"}}
+		err := k.AddUniversalValidator(ctx, val.OperatorAddress, network)
 		require.NoError(t, err)
 
 		uv, _ := k.UniversalValidatorSet.Get(ctx, valAddr)
 		require.Equal(t, uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN, uv.LifecycleInfo.CurrentStatus)
-		require.Equal(t, pubkey, uv.IdentifyInfo.Pubkey)
+		require.Equal(t, network, *uv.NetworkInfo)
 	})
 
 	t.Run("Adding already active validator fails", func(t *testing.T) {
@@ -84,7 +82,7 @@ func TestAddUniversalValidator(t *testing.T) {
 		}
 		require.NoError(t, k.UniversalValidatorSet.Set(ctx, valAddr, active))
 
-		err := k.AddUniversalValidator(ctx, val.OperatorAddress, "pub", uvalidatortypes.NetworkInfo{})
+		err := k.AddUniversalValidator(ctx, val.OperatorAddress, uvalidatortypes.NetworkInfo{})
 		require.ErrorContains(t, err, "already registered")
 	})
 
@@ -98,14 +96,14 @@ func TestAddUniversalValidator(t *testing.T) {
 		valBonded.Status = stakingtypes.Unbonded
 		app.StakingKeeper.SetValidator(ctx, valBonded)
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, valAddr.String(), "pub", uvalidatortypes.NetworkInfo{})
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, valAddr.String(), uvalidatortypes.NetworkInfo{})
 		require.ErrorContains(t, err, "not bonded")
 	})
 
 	t.Run("Invalid validator address format fails", func(t *testing.T) {
 		app, ctx, _ := setupAddUniversalValidatorTest(t, 1)
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, "invalid_bech32", "pub", uvalidatortypes.NetworkInfo{})
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, "invalid_bech32", uvalidatortypes.NetworkInfo{})
 		require.ErrorContains(t, err, "invalid core validator address")
 	})
 }

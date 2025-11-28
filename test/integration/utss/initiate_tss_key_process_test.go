@@ -26,8 +26,8 @@ func setupTssKeyProcessTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 	for i, val := range validators {
 		coreValAddr := val.OperatorAddress
 		pubkey := "pubkey-tss-" + coreValAddr
-		network := uvalidatortypes.NetworkInfo{Ip: "192.168.1." + string(rune(i+1))}
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, network)
 		require.NoError(t, err)
 
 		// Finalize the auto-initiated TSS process BEFORE next validator is added

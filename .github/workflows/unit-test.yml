@@ -41,6 +41,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build dkls23-rs dependency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: make build-dkls23
 
       - name: Verify go.mod was updated

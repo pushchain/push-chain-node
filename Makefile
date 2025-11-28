@@ -127,11 +127,15 @@ build-dkls23:
 		echo "  Detected CI environment, cloning dkls23-rs..."; \
 		DKLS23_DIR=./.dkls23-build; \
 		rm -rf $$DKLS23_DIR; \
-		git config --global url."https://github.com/".insteadOf "git@github.com:" 2>/dev/null || true; \
-		git clone --depth 1 https://github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
-		(echo "  Error: Failed to clone dkls23-rs."; \
-		 echo "  Ensure git credential helper is configured in workflow."; \
-		 exit 1); \
+		if [ -n "$$GITHUB_TOKEN" ]; then \
+			echo "  Using GITHUB_TOKEN for authentication..."; \
+			git clone --depth 1 https://$$GITHUB_TOKEN@github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
+			(echo "  Error: Failed to clone dkls23-rs with GITHUB_TOKEN."; exit 1); \
+		else \
+			git config --global url."https://github.com/".insteadOf "git@github.com:" 2>/dev/null || true; \
+			git clone --depth 1 https://github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
+			(echo "  Error: Failed to clone dkls23-rs. GITHUB_TOKEN not available."; exit 1); \
+		fi; \
 		cd $$DKLS23_DIR/wrapper/go-wrappers && make build; \
 		if [ ! -f "../go-dkls/include/go-dkls.h" ]; then \
 			echo "  Error: Failed to build dkls23-rs in CI. Header file not found."; \

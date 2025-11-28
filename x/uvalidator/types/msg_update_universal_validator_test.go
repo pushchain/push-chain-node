@@ -28,9 +28,9 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 			msg: types.MsgUpdateUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: validCoreVal,
-				Pubkey:               "updated_pubkey_123",
 				Network: &types.NetworkInfo{
-					Ip: "127.0.0.1",
+					PeerId:     "temp peerId",
+					MultiAddrs: []string{"temp multi_addrs"},
 				},
 			},
 			wantErr: false,
@@ -40,9 +40,9 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 			msg: types.MsgUpdateUniversalValidator{
 				Signer:               "invalid_signer",
 				CoreValidatorAddress: validCoreVal,
-				Pubkey:               "pubkey_temp",
 				Network: &types.NetworkInfo{
-					Ip: "10.0.0.1",
+					PeerId:     "temp peerId",
+					MultiAddrs: []string{"temp multi_addrs"},
 				},
 			},
 			wantErr: true,
@@ -53,37 +53,43 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 			msg: types.MsgUpdateUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: "bad_valoper_format",
-				Pubkey:               "pubkey_temp",
 				Network: &types.NetworkInfo{
-					Ip: "10.0.0.1",
+					PeerId:     "temp peerId",
+					MultiAddrs: []string{"temp multi_addrs"},
 				},
 			},
 			wantErr: true,
 			errMsg:  "invalid core validator address",
 		},
 		{
-			name: "empty pubkey should fail",
+			name: "empty peerId should fail",
 			msg: types.MsgUpdateUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: validCoreVal,
-				Pubkey:               "   ",
-				Network: &types.NetworkInfo{
-					Ip: "10.0.0.1",
-				},
+				Network:              &types.NetworkInfo{PeerId: "", MultiAddrs: []string{"temp multi_addrs"}},
 			},
 			wantErr: true,
-			errMsg:  "pubkey cannot be empty",
+			errMsg:  "peerId cannot be empty",
 		},
 		{
-			name: "empty network info should fail",
+			name: "nil multi_addrs in networkInfo should fail",
 			msg: types.MsgUpdateUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: validCoreVal,
-				Pubkey:               "valid_pubkey",
-				Network:              &types.NetworkInfo{Ip: ""},
+				Network:              &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: nil},
 			},
 			wantErr: true,
-			errMsg:  "ip cannot be empty",
+			errMsg:  "multi_addrs cannot be nil",
+		},
+		{
+			name: "empty multi_addrs in networkInfo should fail",
+			msg: types.MsgUpdateUniversalValidator{
+				Signer:               validAdmin,
+				CoreValidatorAddress: validCoreVal,
+				Network:              &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: []string{}},
+			},
+			wantErr: true,
+			errMsg:  "multi_addrs must contain at least one value",
 		},
 	}
 

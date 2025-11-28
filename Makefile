@@ -129,7 +129,7 @@ build-dkls23:
 		rm -rf $$DKLS23_DIR; \
 		if [ -n "$$GITHUB_TOKEN" ]; then \
 			echo "  Using GITHUB_TOKEN for authentication..."; \
-			git clone --depth 1 https://$$GITHUB_TOKEN@github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
+			GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --depth 1 https://$$GITHUB_TOKEN@github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
 			(echo "  Error: Failed to clone dkls23-rs with GITHUB_TOKEN."; exit 1); \
 		else \
 			git config --global url."https://github.com/".insteadOf "git@github.com:" 2>/dev/null || true; \

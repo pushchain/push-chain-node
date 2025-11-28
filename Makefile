@@ -129,7 +129,9 @@ build-dkls23:
 		rm -rf $$DKLS23_DIR; \
 		git config --global url."https://github.com/".insteadOf "git@github.com:" 2>/dev/null || true; \
 		git clone --depth 1 https://github.com/pushchain/dkls23-rs.git $$DKLS23_DIR || \
-		(echo "  Error: Failed to clone dkls23-rs. GITHUB_TOKEN should provide access automatically."; exit 1); \
+		(echo "  Error: Failed to clone dkls23-rs."; \
+		 echo "  Ensure git credential helper is configured in workflow."; \
+		 exit 1); \
 		cd $$DKLS23_DIR/wrapper/go-wrappers && make build; \
 		if [ ! -f "../go-dkls/include/go-dkls.h" ]; then \
 			echo "  Error: Failed to build dkls23-rs in CI. Header file not found."; \

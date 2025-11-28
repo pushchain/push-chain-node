@@ -11,7 +11,7 @@ import (
 // UpdateUniversalValidator updates the metadata of the registered universal validator
 func (k Keeper) UpdateUniversalValidator(
 	ctx context.Context,
-	coreValidatorAddr, pubkey string,
+	coreValidatorAddr string,
 	networkInfo types.NetworkInfo,
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -44,7 +44,6 @@ func (k Keeper) UpdateUniversalValidator(
 	}
 
 	// Update only metadata
-	existingVal.IdentifyInfo.Pubkey = pubkey
 	existingVal.NetworkInfo = &networkInfo
 
 	// Save updated entry

@@ -65,11 +65,7 @@ enum UniversalTxStatus {
 enum Status {
   UNSPECIFIED = 0;
   PENDING = 1;
-  FINALIZED = 2;
-}
-
-message InboundStatus {
-  Status status = 1;
+  OBSERVED = 2;
 }
 
 enum TxType {
@@ -115,10 +111,9 @@ message OutboundObservation {
   option (amino.name) = "uexecutor/outbound_observation";
   option (gogoproto.equal) = true;
 
-  string destination_chain = 1; // chain where the tx was executed
-  bool success = 2;             // whether execution succeeded
-  uint64 block_height = 3;      // block height on external chain
-  string tx_hash = 4;           // external chain tx hash
+  bool success = 1;             // whether execution succeeded
+  uint64 block_height = 2;      // block height on external chain
+  string tx_hash = 3;           // external chain tx hash
 }
 
 message Originating_Pc_TX {
@@ -145,6 +140,7 @@ message OutboundTx {
   Originating_Pc_TX pc_tx = 9; // pc_tx that originated the outbound
   OutboundObservation observed_tx = 10; // observed tx on destination chain
   string index = 11; // index of outbound tx
+  Status outbound_status = 12; // status of outbound tx
 }
 
 message UniversalTx {

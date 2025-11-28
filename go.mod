@@ -21,7 +21,7 @@ replace (
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4.0.20250402013457-cf9d288f0147
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
 	github.com/strangelove-ventures/tokenfactory => github.com/strangelove-ventures/tokenfactory v0.50.7-wasmvm2
-	go-wrapper => ../dkls23-rs/wrapper/go-wrappers // Required for library's internal imports
+	go-wrapper => github.com/pushchain/dkls23-rs/wrapper/go-wrappers v0.0.0-20251128121824-76ff4543102d // Required for library's internal imports
 )
 
 replace (

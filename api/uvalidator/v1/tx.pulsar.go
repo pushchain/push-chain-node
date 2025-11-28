@@ -875,7 +875,6 @@ var (
 	md_MsgAddUniversalValidator                        protoreflect.MessageDescriptor
 	fd_MsgAddUniversalValidator_signer                 protoreflect.FieldDescriptor
 	fd_MsgAddUniversalValidator_core_validator_address protoreflect.FieldDescriptor
-	fd_MsgAddUniversalValidator_pubkey                 protoreflect.FieldDescriptor
 	fd_MsgAddUniversalValidator_network                protoreflect.FieldDescriptor
 )
 
@@ -884,7 +883,6 @@ func init() {
 	md_MsgAddUniversalValidator = File_uvalidator_v1_tx_proto.Messages().ByName("MsgAddUniversalValidator")
 	fd_MsgAddUniversalValidator_signer = md_MsgAddUniversalValidator.Fields().ByName("signer")
 	fd_MsgAddUniversalValidator_core_validator_address = md_MsgAddUniversalValidator.Fields().ByName("core_validator_address")
-	fd_MsgAddUniversalValidator_pubkey = md_MsgAddUniversalValidator.Fields().ByName("pubkey")
 	fd_MsgAddUniversalValidator_network = md_MsgAddUniversalValidator.Fields().ByName("network")
 }
 
@@ -965,12 +963,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Range(f func(protoreflect.Fiel
 			return
 		}
 	}
-	if x.Pubkey != "" {
-		value := protoreflect.ValueOfString(x.Pubkey)
-		if !f(fd_MsgAddUniversalValidator_pubkey, value) {
-			return
-		}
-	}
 	if x.Network != nil {
 		value := protoreflect.ValueOfMessage(x.Network.ProtoReflect())
 		if !f(fd_MsgAddUniversalValidator_network, value) {
@@ -996,8 +988,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Has(fd protoreflect.FieldDescr
 		return x.Signer != ""
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
 		return x.CoreValidatorAddress != ""
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
-		return x.Pubkey != ""
 	case "uvalidator.v1.MsgAddUniversalValidator.network":
 		return x.Network != nil
 	default:
@@ -1020,8 +1010,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Clear(fd protoreflect.FieldDes
 		x.Signer = ""
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
 		x.CoreValidatorAddress = ""
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
-		x.Pubkey = ""
 	case "uvalidator.v1.MsgAddUniversalValidator.network":
 		x.Network = nil
 	default:
@@ -1045,9 +1033,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Get(descriptor protoreflect.Fi
 		return protoreflect.ValueOfString(value)
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
 		value := x.CoreValidatorAddress
-		return protoreflect.ValueOfString(value)
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
-		value := x.Pubkey
 		return protoreflect.ValueOfString(value)
 	case "uvalidator.v1.MsgAddUniversalValidator.network":
 		value := x.Network
@@ -1076,8 +1061,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Set(fd protoreflect.FieldDescr
 		x.Signer = value.Interface().(string)
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
 		x.CoreValidatorAddress = value.Interface().(string)
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
-		x.Pubkey = value.Interface().(string)
 	case "uvalidator.v1.MsgAddUniversalValidator.network":
 		x.Network = value.Message().Interface().(*NetworkInfo)
 	default:
@@ -1109,8 +1092,6 @@ func (x *fastReflection_MsgAddUniversalValidator) Mutable(fd protoreflect.FieldD
 		panic(fmt.Errorf("field signer of message uvalidator.v1.MsgAddUniversalValidator is not mutable"))
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
 		panic(fmt.Errorf("field core_validator_address of message uvalidator.v1.MsgAddUniversalValidator is not mutable"))
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
-		panic(fmt.Errorf("field pubkey of message uvalidator.v1.MsgAddUniversalValidator is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgAddUniversalValidator"))
@@ -1127,8 +1108,6 @@ func (x *fastReflection_MsgAddUniversalValidator) NewField(fd protoreflect.Field
 	case "uvalidator.v1.MsgAddUniversalValidator.signer":
 		return protoreflect.ValueOfString("")
 	case "uvalidator.v1.MsgAddUniversalValidator.core_validator_address":
-		return protoreflect.ValueOfString("")
-	case "uvalidator.v1.MsgAddUniversalValidator.pubkey":
 		return protoreflect.ValueOfString("")
 	case "uvalidator.v1.MsgAddUniversalValidator.network":
 		m := new(NetworkInfo)
@@ -1210,10 +1189,6 @@ func (x *fastReflection_MsgAddUniversalValidator) ProtoMethods() *protoiface.Met
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		l = len(x.Pubkey)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
 		if x.Network != nil {
 			l = options.Size(x.Network)
 			n += 1 + l + runtime.Sov(uint64(l))
@@ -1260,13 +1235,6 @@ func (x *fastReflection_MsgAddUniversalValidator) ProtoMethods() *protoiface.Met
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
 			i--
 			dAtA[i] = 0x22
-		}
-		if len(x.Pubkey) > 0 {
-			i -= len(x.Pubkey)
-			copy(dAtA[i:], x.Pubkey)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Pubkey)))
-			i--
-			dAtA[i] = 0x1a
 		}
 		if len(x.CoreValidatorAddress) > 0 {
 			i -= len(x.CoreValidatorAddress)
@@ -1394,38 +1362,6 @@ func (x *fastReflection_MsgAddUniversalValidator) ProtoMethods() *protoiface.Met
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
 				x.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 3:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pubkey", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.Pubkey = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 4:
 				if wireType != 2 {
@@ -1858,7 +1794,6 @@ var (
 	md_MsgUpdateUniversalValidator                        protoreflect.MessageDescriptor
 	fd_MsgUpdateUniversalValidator_signer                 protoreflect.FieldDescriptor
 	fd_MsgUpdateUniversalValidator_core_validator_address protoreflect.FieldDescriptor
-	fd_MsgUpdateUniversalValidator_pubkey                 protoreflect.FieldDescriptor
 	fd_MsgUpdateUniversalValidator_network                protoreflect.FieldDescriptor
 )
 
@@ -1867,7 +1802,6 @@ func init() {
 	md_MsgUpdateUniversalValidator = File_uvalidator_v1_tx_proto.Messages().ByName("MsgUpdateUniversalValidator")
 	fd_MsgUpdateUniversalValidator_signer = md_MsgUpdateUniversalValidator.Fields().ByName("signer")
 	fd_MsgUpdateUniversalValidator_core_validator_address = md_MsgUpdateUniversalValidator.Fields().ByName("core_validator_address")
-	fd_MsgUpdateUniversalValidator_pubkey = md_MsgUpdateUniversalValidator.Fields().ByName("pubkey")
 	fd_MsgUpdateUniversalValidator_network = md_MsgUpdateUniversalValidator.Fields().ByName("network")
 }
 
@@ -1948,12 +1882,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Range(f func(protoreflect.F
 			return
 		}
 	}
-	if x.Pubkey != "" {
-		value := protoreflect.ValueOfString(x.Pubkey)
-		if !f(fd_MsgUpdateUniversalValidator_pubkey, value) {
-			return
-		}
-	}
 	if x.Network != nil {
 		value := protoreflect.ValueOfMessage(x.Network.ProtoReflect())
 		if !f(fd_MsgUpdateUniversalValidator_network, value) {
@@ -1979,8 +1907,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Has(fd protoreflect.FieldDe
 		return x.Signer != ""
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
 		return x.CoreValidatorAddress != ""
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
-		return x.Pubkey != ""
 	case "uvalidator.v1.MsgUpdateUniversalValidator.network":
 		return x.Network != nil
 	default:
@@ -2003,8 +1929,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Clear(fd protoreflect.Field
 		x.Signer = ""
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
 		x.CoreValidatorAddress = ""
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
-		x.Pubkey = ""
 	case "uvalidator.v1.MsgUpdateUniversalValidator.network":
 		x.Network = nil
 	default:
@@ -2028,9 +1952,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Get(descriptor protoreflect
 		return protoreflect.ValueOfString(value)
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
 		value := x.CoreValidatorAddress
-		return protoreflect.ValueOfString(value)
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
-		value := x.Pubkey
 		return protoreflect.ValueOfString(value)
 	case "uvalidator.v1.MsgUpdateUniversalValidator.network":
 		value := x.Network
@@ -2059,8 +1980,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Set(fd protoreflect.FieldDe
 		x.Signer = value.Interface().(string)
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
 		x.CoreValidatorAddress = value.Interface().(string)
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
-		x.Pubkey = value.Interface().(string)
 	case "uvalidator.v1.MsgUpdateUniversalValidator.network":
 		x.Network = value.Message().Interface().(*NetworkInfo)
 	default:
@@ -2092,8 +2011,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) Mutable(fd protoreflect.Fie
 		panic(fmt.Errorf("field signer of message uvalidator.v1.MsgUpdateUniversalValidator is not mutable"))
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
 		panic(fmt.Errorf("field core_validator_address of message uvalidator.v1.MsgUpdateUniversalValidator is not mutable"))
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
-		panic(fmt.Errorf("field pubkey of message uvalidator.v1.MsgUpdateUniversalValidator is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidator"))
@@ -2110,8 +2027,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) NewField(fd protoreflect.Fi
 	case "uvalidator.v1.MsgUpdateUniversalValidator.signer":
 		return protoreflect.ValueOfString("")
 	case "uvalidator.v1.MsgUpdateUniversalValidator.core_validator_address":
-		return protoreflect.ValueOfString("")
-	case "uvalidator.v1.MsgUpdateUniversalValidator.pubkey":
 		return protoreflect.ValueOfString("")
 	case "uvalidator.v1.MsgUpdateUniversalValidator.network":
 		m := new(NetworkInfo)
@@ -2193,10 +2108,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) ProtoMethods() *protoiface.
 		if l > 0 {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
-		l = len(x.Pubkey)
-		if l > 0 {
-			n += 1 + l + runtime.Sov(uint64(l))
-		}
 		if x.Network != nil {
 			l = options.Size(x.Network)
 			n += 1 + l + runtime.Sov(uint64(l))
@@ -2241,13 +2152,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) ProtoMethods() *protoiface.
 			i -= len(encoded)
 			copy(dAtA[i:], encoded)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
-			i--
-			dAtA[i] = 0x22
-		}
-		if len(x.Pubkey) > 0 {
-			i -= len(x.Pubkey)
-			copy(dAtA[i:], x.Pubkey)
-			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Pubkey)))
 			i--
 			dAtA[i] = 0x1a
 		}
@@ -2379,38 +2283,6 @@ func (x *fastReflection_MsgUpdateUniversalValidator) ProtoMethods() *protoiface.
 				x.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 3:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Pubkey", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
-					}
-					if iNdEx >= l {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.Pubkey = string(dAtA[iNdEx:postIndex])
-				iNdEx = postIndex
-			case 4:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Network", wireType)
 				}
@@ -3779,8 +3651,6 @@ type MsgAddUniversalValidator struct {
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
 	// core_validator_address is the address of the core validator.
 	CoreValidatorAddress string `protobuf:"bytes,2,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
-	// pubkey is the consensus public key for this universal validator
-	Pubkey string `protobuf:"bytes,3,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
 	// network metadata for validator node (IP, etc.)
 	Network *NetworkInfo `protobuf:"bytes,4,opt,name=network,proto3" json:"network,omitempty"`
 }
@@ -3815,13 +3685,6 @@ func (x *MsgAddUniversalValidator) GetSigner() string {
 func (x *MsgAddUniversalValidator) GetCoreValidatorAddress() string {
 	if x != nil {
 		return x.CoreValidatorAddress
-	}
-	return ""
-}
-
-func (x *MsgAddUniversalValidator) GetPubkey() string {
-	if x != nil {
-		return x.Pubkey
 	}
 	return ""
 }
@@ -3868,10 +3731,8 @@ type MsgUpdateUniversalValidator struct {
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
 	// core_validator_address is the address of the core validator.
 	CoreValidatorAddress string `protobuf:"bytes,2,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
-	// pubkey is the consensus public key for this universal validator
-	Pubkey string `protobuf:"bytes,3,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
-	// network metadata for validator node (IP, etc.)
-	Network *NetworkInfo `protobuf:"bytes,4,opt,name=network,proto3" json:"network,omitempty"`
+	// network metadata for validator node
+	Network *NetworkInfo `protobuf:"bytes,3,opt,name=network,proto3" json:"network,omitempty"`
 }
 
 func (x *MsgUpdateUniversalValidator) Reset() {
@@ -3904,13 +3765,6 @@ func (x *MsgUpdateUniversalValidator) GetSigner() string {
 func (x *MsgUpdateUniversalValidator) GetCoreValidatorAddress() string {
 	if x != nil {
 		return x.CoreValidatorAddress
-	}
-	return ""
-}
-
-func (x *MsgUpdateUniversalValidator) GetPubkey() string {
-	if x != nil {
-		return x.Pubkey
 	}
 	return ""
 }
@@ -4046,7 +3900,7 @@ var file_uvalidator_v1_tx_proto_rawDesc = []byte{
 	0xc8, 0xde, 0x1f, 0x00, 0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x3a, 0x0e, 0x82, 0xe7,
 	0xb0, 0x2a, 0x09, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x74, 0x79, 0x22, 0x19, 0x0a, 0x17,
 	0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xa8, 0x02, 0x0a, 0x18, 0x4d, 0x73, 0x67, 0x41,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x90, 0x02, 0x0a, 0x18, 0x4d, 0x73, 0x67, 0x41,
 	0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64,
 	0x61, 0x74, 0x6f, 0x72, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
@@ -4057,30 +3911,27 @@ var file_uvalidator_v1_tx_proto_rawDesc = []byte{
 	0x6f, 0x73, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72,
 	0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x14, 0x63, 0x6f, 0x72, 0x65, 0x56,
 	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12,
-	0x16, 0x0a, 0x06, 0x70, 0x75, 0x62, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x06, 0x70, 0x75, 0x62, 0x6b, 0x65, 0x79, 0x12, 0x34, 0x0a, 0x07, 0x6e, 0x65, 0x74, 0x77, 0x6f,
-	0x72, 0x6b, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
-	0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x3a, 0x33, 0x82,
-	0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x23, 0x75,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64,
-	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x6f, 0x72, 0x22, 0x22, 0x0a, 0x20, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76,
-	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xae, 0x02, 0x0a, 0x1b, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d,
-	0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67,
-	0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x57, 0x0a, 0x16, 0x63, 0x6f, 0x72, 0x65,
-	0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65,
-	0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x42, 0x21, 0xd2, 0xb4, 0x2d, 0x1d, 0x63, 0x6f,
-	0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64,
-	0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x14, 0x63, 0x6f, 0x72,
-	0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x12, 0x16, 0x0a, 0x06, 0x70, 0x75, 0x62, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x06, 0x70, 0x75, 0x62, 0x6b, 0x65, 0x79, 0x12, 0x34, 0x0a, 0x07, 0x6e, 0x65, 0x74,
-	0x77, 0x6f, 0x72, 0x6b, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x75, 0x76, 0x61,
+	0x34, 0x0a, 0x07, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1a, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x6e, 0x65,
+	0x74, 0x77, 0x6f, 0x72, 0x6b, 0x3a, 0x33, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e,
+	0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x23, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x72, 0x2f, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
+	0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x22, 0x22, 0x0a, 0x20, 0x4d, 0x73,
+	0x67, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x96,
+	0x02, 0x0a, 0x1b, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x30,
+	0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18,
+	0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72,
+	0x12, 0x57, 0x0a, 0x16, 0x63, 0x6f, 0x72, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x42, 0x21, 0xd2, 0xb4, 0x2d, 0x1d, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x56, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72,
+	0x69, 0x6e, 0x67, 0x52, 0x14, 0x63, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x34, 0x0a, 0x07, 0x6e, 0x65, 0x74,
+	0x77, 0x6f, 0x72, 0x6b, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x75, 0x76, 0x61,
 	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f,
 	0x72, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x3a,
 	0x36, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a,

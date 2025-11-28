@@ -190,7 +190,7 @@ distclean: clean
 ########################################
 ### Testing
 
-test: test-unit
+test: build-dkls23 test-unit
 test-all: test-race test-cover test-system
 
 test-unit:

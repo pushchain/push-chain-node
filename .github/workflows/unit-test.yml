@@ -33,5 +33,16 @@ jobs:
       - name: Install Rust (for dkls23-rs dependency)
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build dkls23-rs dependency
+        run: make build-dkls23
+
+      - name: Verify go.mod was updated
+        run: |
+          echo "Current go.mod replace directive:"
+          grep "go-wrapper =>" go.mod || echo "Not found"
+          if grep -q "go-wrapper => \.\.\/dkls23-rs" go.mod; then
+            echo "Warning: go.mod still uses local path, should be updated in CI"
+          fi
+
       - name: Tests
         run: make test

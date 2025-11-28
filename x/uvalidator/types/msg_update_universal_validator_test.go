@@ -14,8 +14,7 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
 	cfg.SetBech32PrefixForValidator(app.Bech32PrefixValAddr, app.Bech32PrefixValPub)
 
-	validAdmin := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
-	validCoreVal := "pushvaloper1gjaw568e35hjc8udhat0xnsxxmkm2snrjnakhg"
+	validSigner := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
 
 	tests := []struct {
 		name    string
@@ -26,8 +25,7 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "valid message",
 			msg: types.MsgUpdateUniversalValidator{
-				Signer:               validAdmin,
-				CoreValidatorAddress: validCoreVal,
+				Signer: validSigner,
 				Network: &types.NetworkInfo{
 					PeerId:     "temp peerId",
 					MultiAddrs: []string{"temp multi_addrs"},
@@ -38,8 +36,7 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "invalid signer address",
 			msg: types.MsgUpdateUniversalValidator{
-				Signer:               "invalid_signer",
-				CoreValidatorAddress: validCoreVal,
+				Signer: "invalid_signer",
 				Network: &types.NetworkInfo{
 					PeerId:     "temp peerId",
 					MultiAddrs: []string{"temp multi_addrs"},
@@ -49,24 +46,10 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 			errMsg:  "invalid signer address",
 		},
 		{
-			name: "invalid core validator address format",
-			msg: types.MsgUpdateUniversalValidator{
-				Signer:               validAdmin,
-				CoreValidatorAddress: "bad_valoper_format",
-				Network: &types.NetworkInfo{
-					PeerId:     "temp peerId",
-					MultiAddrs: []string{"temp multi_addrs"},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid core validator address",
-		},
-		{
 			name: "empty peerId should fail",
 			msg: types.MsgUpdateUniversalValidator{
-				Signer:               validAdmin,
-				CoreValidatorAddress: validCoreVal,
-				Network:              &types.NetworkInfo{PeerId: "", MultiAddrs: []string{"temp multi_addrs"}},
+				Signer:  validSigner,
+				Network: &types.NetworkInfo{PeerId: "", MultiAddrs: []string{"temp multi_addrs"}},
 			},
 			wantErr: true,
 			errMsg:  "peerId cannot be empty",
@@ -74,9 +57,8 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "nil multi_addrs in networkInfo should fail",
 			msg: types.MsgUpdateUniversalValidator{
-				Signer:               validAdmin,
-				CoreValidatorAddress: validCoreVal,
-				Network:              &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: nil},
+				Signer:  validSigner,
+				Network: &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: nil},
 			},
 			wantErr: true,
 			errMsg:  "multi_addrs cannot be nil",
@@ -84,9 +66,8 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 		{
 			name: "empty multi_addrs in networkInfo should fail",
 			msg: types.MsgUpdateUniversalValidator{
-				Signer:               validAdmin,
-				CoreValidatorAddress: validCoreVal,
-				Network:              &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: []string{}},
+				Signer:  validSigner,
+				Network: &types.NetworkInfo{PeerId: "temp peerId", MultiAddrs: []string{}},
 			},
 			wantErr: true,
 			errMsg:  "multi_addrs must contain at least one value",

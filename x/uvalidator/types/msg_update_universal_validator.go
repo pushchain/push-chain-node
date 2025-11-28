@@ -1,11 +1,8 @@
 package types
 
 import (
-	"strings"
-
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
@@ -16,13 +13,11 @@ var (
 func NewMsgUpdateUniversalValidator(
 	sender sdk.Address,
 	coreValidatorAddress sdk.Address,
-	pubKey string,
 	network NetworkInfo,
 ) *MsgUpdateUniversalValidator {
 	return &MsgUpdateUniversalValidator{
 		Signer:               sender.String(),
 		CoreValidatorAddress: coreValidatorAddress.String(),
-		Pubkey:               pubKey,
 		Network:              &network,
 	}
 }
@@ -54,12 +49,6 @@ func (msg *MsgUpdateUniversalValidator) ValidateBasic() error {
 	_, err := sdk.ValAddressFromBech32(msg.CoreValidatorAddress)
 	if err != nil {
 		return errors.Wrap(err, "invalid core validator address")
-	}
-
-	// Validate pubkey is non-empty
-	pubkey := strings.TrimSpace(msg.Pubkey)
-	if pubkey == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "pubkey cannot be empty")
 	}
 
 	return msg.Network.ValidateBasic()

@@ -135,6 +135,8 @@ type MsgAddUniversalValidator struct {
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
 	// core_validator_address is the address of the core validator.
 	CoreValidatorAddress string `protobuf:"bytes,2,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
+	// network metadata for validator node (IP, etc.)
+	Network *NetworkInfo `protobuf:"bytes,4,opt,name=network,proto3" json:"network,omitempty"`
 }
 
 func (m *MsgAddUniversalValidator) Reset()         { *m = MsgAddUniversalValidator{} }
@@ -184,6 +186,13 @@ func (m *MsgAddUniversalValidator) GetCoreValidatorAddress() string {
 	return ""
 }
 
+func (m *MsgAddUniversalValidator) GetNetwork() *NetworkInfo {
+	if m != nil {
+		return m.Network
+	}
+	return nil
+}
+
 type MsgAddUniversalValidatorResponse struct {
 }
 
@@ -220,6 +229,96 @@ func (m *MsgAddUniversalValidatorResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgAddUniversalValidatorResponse proto.InternalMessageInfo
 
+type MsgUpdateUniversalValidator struct {
+	// signer is the address authorized to execute this message
+	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	// network metadata for validator node
+	Network *NetworkInfo `protobuf:"bytes,2,opt,name=network,proto3" json:"network,omitempty"`
+}
+
+func (m *MsgUpdateUniversalValidator) Reset()         { *m = MsgUpdateUniversalValidator{} }
+func (m *MsgUpdateUniversalValidator) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateUniversalValidator) ProtoMessage()    {}
+func (*MsgUpdateUniversalValidator) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bea4c2a0c904c8a7, []int{4}
+}
+func (m *MsgUpdateUniversalValidator) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateUniversalValidator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateUniversalValidator.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateUniversalValidator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateUniversalValidator.Merge(m, src)
+}
+func (m *MsgUpdateUniversalValidator) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateUniversalValidator) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateUniversalValidator.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateUniversalValidator proto.InternalMessageInfo
+
+func (m *MsgUpdateUniversalValidator) GetSigner() string {
+	if m != nil {
+		return m.Signer
+	}
+	return ""
+}
+
+func (m *MsgUpdateUniversalValidator) GetNetwork() *NetworkInfo {
+	if m != nil {
+		return m.Network
+	}
+	return nil
+}
+
+type MsgUpdateUniversalValidatorResponse struct {
+}
+
+func (m *MsgUpdateUniversalValidatorResponse) Reset()         { *m = MsgUpdateUniversalValidatorResponse{} }
+func (m *MsgUpdateUniversalValidatorResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateUniversalValidatorResponse) ProtoMessage()    {}
+func (*MsgUpdateUniversalValidatorResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bea4c2a0c904c8a7, []int{5}
+}
+func (m *MsgUpdateUniversalValidatorResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateUniversalValidatorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateUniversalValidatorResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateUniversalValidatorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateUniversalValidatorResponse.Merge(m, src)
+}
+func (m *MsgUpdateUniversalValidatorResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateUniversalValidatorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateUniversalValidatorResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateUniversalValidatorResponse proto.InternalMessageInfo
+
 type MsgRemoveUniversalValidator struct {
 	// signer is the address authorized to execute this message
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
@@ -231,7 +330,7 @@ func (m *MsgRemoveUniversalValidator) Reset()         { *m = MsgRemoveUniversalV
 func (m *MsgRemoveUniversalValidator) String() string { return proto.CompactTextString(m) }
 func (*MsgRemoveUniversalValidator) ProtoMessage()    {}
 func (*MsgRemoveUniversalValidator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bea4c2a0c904c8a7, []int{4}
+	return fileDescriptor_bea4c2a0c904c8a7, []int{6}
 }
 func (m *MsgRemoveUniversalValidator) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -281,7 +380,7 @@ func (m *MsgRemoveUniversalValidatorResponse) Reset()         { *m = MsgRemoveUn
 func (m *MsgRemoveUniversalValidatorResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgRemoveUniversalValidatorResponse) ProtoMessage()    {}
 func (*MsgRemoveUniversalValidatorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bea4c2a0c904c8a7, []int{5}
+	return fileDescriptor_bea4c2a0c904c8a7, []int{7}
 }
 func (m *MsgRemoveUniversalValidatorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -315,6 +414,8 @@ func init() {
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "uvalidator.v1.MsgUpdateParamsResponse")
 	proto.RegisterType((*MsgAddUniversalValidator)(nil), "uvalidator.v1.MsgAddUniversalValidator")
 	proto.RegisterType((*MsgAddUniversalValidatorResponse)(nil), "uvalidator.v1.MsgAddUniversalValidatorResponse")
+	proto.RegisterType((*MsgUpdateUniversalValidator)(nil), "uvalidator.v1.MsgUpdateUniversalValidator")
+	proto.RegisterType((*MsgUpdateUniversalValidatorResponse)(nil), "uvalidator.v1.MsgUpdateUniversalValidatorResponse")
 	proto.RegisterType((*MsgRemoveUniversalValidator)(nil), "uvalidator.v1.MsgRemoveUniversalValidator")
 	proto.RegisterType((*MsgRemoveUniversalValidatorResponse)(nil), "uvalidator.v1.MsgRemoveUniversalValidatorResponse")
 }
@@ -322,40 +423,44 @@ func init() {
 func init() { proto.RegisterFile("uvalidator/v1/tx.proto", fileDescriptor_bea4c2a0c904c8a7) }
 
 var fileDescriptor_bea4c2a0c904c8a7 = []byte{
-	// 522 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0x3d, 0x6f, 0xd3, 0x40,
-	0x18, 0xc7, 0x73, 0x05, 0x22, 0xe5, 0x78, 0x13, 0x56, 0xda, 0xba, 0xae, 0x30, 0xc1, 0x15, 0xa5,
-	0x8a, 0x14, 0x9b, 0x26, 0x52, 0x91, 0xba, 0x35, 0x7b, 0x10, 0x04, 0xb5, 0x48, 0x2c, 0xd1, 0x35,
-	0x3e, 0x5d, 0x2c, 0xd5, 0x3e, 0x73, 0x8f, 0x63, 0xb5, 0x4c, 0x88, 0x91, 0x01, 0xf1, 0x51, 0x32,
-	0xf4, 0x43, 0x74, 0xac, 0xca, 0x00, 0x62, 0x40, 0x28, 0x19, 0xf2, 0x35, 0x50, 0xec, 0x73, 0x52,
-	0xbb, 0x71, 0x9b, 0xa1, 0x4b, 0xf4, 0xe4, 0xfe, 0x7f, 0xff, 0x9e, 0x97, 0x7b, 0x74, 0x78, 0xa5,
-	0x1f, 0x92, 0x23, 0xc7, 0x26, 0x01, 0x17, 0x56, 0xb8, 0x6d, 0x05, 0xc7, 0xa6, 0x2f, 0x78, 0xc0,
-	0x95, 0x87, 0xb3, 0x73, 0x33, 0xdc, 0xd6, 0x9e, 0x10, 0xd7, 0xf1, 0xb8, 0x15, 0xfd, 0xc6, 0x0e,
-	0x6d, 0xb5, 0xcb, 0xc1, 0xe5, 0x60, 0xb9, 0xc0, 0x26, 0x5f, 0xba, 0xc0, 0xa4, 0xb0, 0x9e, 0x46,
-	0x32, 0xea, 0x51, 0x70, 0x40, 0x8a, 0x65, 0xc6, 0x19, 0x8f, 0x42, 0x6b, 0x12, 0xc9, 0xd3, 0xb5,
-	0x98, 0xd5, 0x89, 0x85, 0xf8, 0x4f, 0x22, 0x65, 0x0a, 0x3c, 0xf1, 0xa9, 0x94, 0x8c, 0xef, 0x08,
-	0x3f, 0x6e, 0x01, 0xdb, 0xf7, 0x6d, 0x12, 0xd0, 0xb7, 0x44, 0x10, 0x17, 0x94, 0x1d, 0x5c, 0x22,
-	0xfd, 0xa0, 0xc7, 0x85, 0x13, 0x9c, 0xa8, 0xa8, 0x82, 0xb6, 0x4a, 0x4d, 0xf5, 0xe2, 0xb4, 0x56,
-	0x96, 0xcc, 0x3d, 0xdb, 0x16, 0x14, 0xe0, 0x7d, 0x20, 0x1c, 0x8f, 0xb5, 0x67, 0x56, 0xa5, 0x81,
-	0x8b, 0x7e, 0x44, 0x50, 0x97, 0x2a, 0x68, 0xeb, 0x7e, 0x7d, 0xd9, 0x4c, 0x0d, 0xc0, 0x8c, 0xf1,
-	0xcd, 0xbb, 0x67, 0x7f, 0x9f, 0x15, 0xda, 0xd2, 0xba, 0xfb, 0xe8, 0xeb, 0x78, 0x50, 0x9d, 0x41,
-	0x8c, 0x35, 0xbc, 0x9a, 0xa9, 0xa7, 0x4d, 0xc1, 0xe7, 0x1e, 0x50, 0xe3, 0x0f, 0xc2, 0x6a, 0x0b,
-	0xd8, 0x9e, 0x6d, 0xef, 0x7b, 0x4e, 0x48, 0x05, 0x90, 0xa3, 0x83, 0x84, 0xaf, 0xbc, 0xc2, 0x45,
-	0x70, 0x98, 0x47, 0xc5, 0x8d, 0x15, 0x4b, 0x9f, 0xf2, 0x01, 0xaf, 0x74, 0xb9, 0xa0, 0x9d, 0x69,
-	0x8d, 0x1d, 0x12, 0xfb, 0xa2, 0xf2, 0x4b, 0xcd, 0xe7, 0x17, 0xa7, 0xb5, 0xa7, 0x92, 0x30, 0xcd,
-	0x93, 0x46, 0x95, 0x27, 0x80, 0xac, 0xb6, 0xdb, 0x98, 0xb4, 0x24, 0xb3, 0x7c, 0x1b, 0x0f, 0xaa,
-	0x1b, 0x97, 0xc6, 0x9f, 0x57, 0xbf, 0x61, 0xe0, 0x4a, 0x9e, 0x36, 0x1d, 0xc0, 0x2f, 0x84, 0xd7,
-	0x5b, 0xc0, 0xda, 0xd4, 0xe5, 0x21, 0xbd, 0x95, 0x19, 0xbc, 0xb9, 0x61, 0x06, 0xf9, 0x84, 0xf9,
-	0xad, 0xef, 0x64, 0x5a, 0xdf, 0x4c, 0xb7, 0x9e, 0x57, 0xb9, 0xf1, 0x02, 0x6f, 0x5c, 0x23, 0x27,
-	0x03, 0xa8, 0xff, 0x5c, 0xc2, 0x77, 0x5a, 0xc0, 0x94, 0x03, 0xfc, 0x20, 0xb5, 0xb1, 0x7a, 0x66,
-	0xd3, 0x32, 0x1b, 0xa4, 0x6d, 0x5e, 0xaf, 0x27, 0x7c, 0xe5, 0x13, 0x5e, 0x9e, 0xbf, 0x5d, 0x2f,
-	0xaf, 0x02, 0xe6, 0x1a, 0x35, 0x6b, 0x41, 0xe3, 0x34, 0xe5, 0x67, 0xac, 0xe6, 0xde, 0x67, 0xf5,
-	0x2a, 0x2c, 0xcf, 0xab, 0xd5, 0x17, 0xf7, 0x26, 0xb9, 0xb5, 0x7b, 0x5f, 0xc6, 0x83, 0x2a, 0x6a,
-	0xbe, 0x3b, 0x1b, 0xea, 0xe8, 0x7c, 0xa8, 0xa3, 0x7f, 0x43, 0x1d, 0xfd, 0x18, 0xe9, 0x85, 0xf3,
-	0x91, 0x5e, 0xf8, 0x3d, 0xd2, 0x0b, 0x1f, 0x5f, 0x33, 0x27, 0xe8, 0xf5, 0x0f, 0xcd, 0x2e, 0x77,
-	0x2d, 0xbf, 0x0f, 0xbd, 0x6e, 0x8f, 0x38, 0x5e, 0x14, 0xd5, 0xa2, 0xb0, 0xe6, 0x71, 0x9b, 0x5a,
-	0xc7, 0xd6, 0xa5, 0x5b, 0x8e, 0x1e, 0x97, 0xc3, 0x62, 0xf4, 0xba, 0x34, 0xfe, 0x07, 0x00, 0x00,
-	0xff, 0xff, 0x06, 0xae, 0x7f, 0x17, 0x1b, 0x05, 0x00, 0x00,
+	// 589 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xbf, 0x6f, 0xd3, 0x40,
+	0x18, 0x8d, 0xd3, 0x12, 0x94, 0xe3, 0x97, 0xb0, 0xd2, 0xd6, 0x75, 0x55, 0x13, 0x5c, 0x51, 0xaa,
+	0x48, 0x89, 0x69, 0x82, 0x8a, 0xd4, 0xad, 0xd9, 0x18, 0x52, 0x41, 0x50, 0x8b, 0xc4, 0x12, 0xb9,
+	0xf1, 0x71, 0xb1, 0xa8, 0xef, 0xcc, 0x9d, 0x13, 0x5a, 0x26, 0xc4, 0xc8, 0x80, 0xfa, 0xa7, 0x64,
+	0xe8, 0xca, 0xde, 0x8d, 0xaa, 0x0b, 0x4c, 0x08, 0x25, 0x43, 0xfe, 0x0d, 0x94, 0xf3, 0x8f, 0xc4,
+	0xc6, 0xd7, 0x64, 0xe8, 0x12, 0x7d, 0xf1, 0x7b, 0x79, 0xdf, 0xfb, 0xde, 0x7d, 0x17, 0x83, 0xe5,
+	0x6e, 0xcf, 0x3c, 0xb6, 0x2d, 0xd3, 0x23, 0xd4, 0xe8, 0x6d, 0x1b, 0xde, 0x49, 0xc5, 0xa5, 0xc4,
+	0x23, 0xf2, 0xbd, 0xc9, 0xf3, 0x4a, 0x6f, 0x5b, 0x7d, 0x68, 0x3a, 0x36, 0x26, 0x06, 0xff, 0xf4,
+	0x19, 0xea, 0x4a, 0x9b, 0x30, 0x87, 0x30, 0xc3, 0x61, 0x68, 0xfc, 0x4b, 0x87, 0xa1, 0x00, 0x58,
+	0x8b, 0x4b, 0x22, 0x88, 0x21, 0xb3, 0x59, 0x00, 0x16, 0x10, 0x41, 0x84, 0x97, 0xc6, 0xb8, 0x0a,
+	0x9e, 0xae, 0xfa, 0x5a, 0x2d, 0x1f, 0xf0, 0xbf, 0x84, 0x50, 0xc2, 0xe0, 0xa9, 0x0b, 0x43, 0x68,
+	0x3d, 0x0e, 0x4d, 0x0c, 0x73, 0x58, 0xff, 0x2e, 0x81, 0x07, 0x0d, 0x86, 0x0e, 0x5c, 0xcb, 0xf4,
+	0xe0, 0x2b, 0x93, 0x9a, 0x0e, 0x93, 0x77, 0x40, 0xde, 0xec, 0x7a, 0x1d, 0x42, 0x6d, 0xef, 0x54,
+	0x91, 0x8a, 0xd2, 0x56, 0xbe, 0xae, 0x5c, 0x9d, 0x97, 0x0b, 0x41, 0xcb, 0x3d, 0xcb, 0xa2, 0x90,
+	0xb1, 0x37, 0x1e, 0xb5, 0x31, 0x6a, 0x4e, 0xa8, 0x72, 0x0d, 0xe4, 0x5c, 0xae, 0xa0, 0x64, 0x8b,
+	0xd2, 0xd6, 0x9d, 0xea, 0x52, 0x25, 0x96, 0x4f, 0xc5, 0x97, 0xaf, 0x2f, 0x5e, 0xfc, 0x79, 0x94,
+	0x69, 0x06, 0xd4, 0xdd, 0xfb, 0x5f, 0x47, 0xfd, 0xd2, 0x44, 0x44, 0x5f, 0x05, 0x2b, 0x09, 0x3f,
+	0x4d, 0xc8, 0x5c, 0x82, 0x19, 0xd4, 0xcf, 0xb2, 0x40, 0x69, 0x30, 0xb4, 0x67, 0x59, 0x07, 0xd8,
+	0xee, 0x41, 0xca, 0xcc, 0xe3, 0xc3, 0x50, 0x5f, 0x7e, 0x06, 0x72, 0xcc, 0x46, 0x18, 0xd2, 0x99,
+	0x8e, 0x03, 0x9e, 0xfc, 0x16, 0x2c, 0xb7, 0x09, 0x85, 0xad, 0xc8, 0x63, 0xcb, 0xf4, 0x79, 0xdc,
+	0x7e, 0xbe, 0xfe, 0xf8, 0xea, 0xbc, 0xbc, 0x1e, 0x28, 0x44, 0x7d, 0xe2, 0x52, 0x85, 0xb1, 0x40,
+	0x12, 0x93, 0x9f, 0x83, 0xdb, 0x18, 0x7a, 0x9f, 0x08, 0xfd, 0xa0, 0x2c, 0xf2, 0x20, 0xd4, 0x44,
+	0x10, 0xfb, 0x3e, 0xfa, 0x12, 0xbf, 0x27, 0xcd, 0x90, 0xba, 0x5b, 0x1b, 0x07, 0x11, 0x78, 0xfb,
+	0x36, 0xea, 0x97, 0x36, 0xa6, 0x0e, 0x4e, 0x34, 0xb5, 0xae, 0x83, 0xa2, 0x08, 0x8b, 0x62, 0xfb,
+	0x21, 0x81, 0xb5, 0x28, 0xd2, 0x1b, 0x49, 0x6e, 0x6a, 0xc0, 0xec, 0xfc, 0x03, 0xee, 0x24, 0x06,
+	0xdc, 0x8c, 0x0f, 0x28, 0xf2, 0xa7, 0x3f, 0x01, 0x1b, 0xd7, 0xc0, 0xd1, 0x98, 0xbf, 0xfc, 0x31,
+	0x9b, 0xd0, 0x21, 0xbd, 0x9b, 0x19, 0x73, 0x7f, 0xc6, 0x82, 0x88, 0x15, 0x52, 0xf7, 0x62, 0x56,
+	0x00, 0x22, 0xe7, 0x41, 0x00, 0x22, 0x38, 0x0c, 0xa0, 0xfa, 0x73, 0x01, 0x2c, 0x34, 0x18, 0x92,
+	0x0f, 0xc1, 0xdd, 0xd8, 0x75, 0xd6, 0x12, 0x87, 0x93, 0xb8, 0x5e, 0xea, 0xe6, 0xf5, 0x78, 0xa8,
+	0x2f, 0x7f, 0x04, 0x4b, 0xe9, 0x57, 0xef, 0xe9, 0xff, 0x02, 0xa9, 0x44, 0xd5, 0x98, 0x93, 0x18,
+	0xb5, 0xfc, 0x0c, 0x14, 0xe1, 0xda, 0x96, 0x44, 0xb6, 0x53, 0x1a, 0x57, 0xe7, 0xe7, 0x4e, 0xf7,
+	0x16, 0xee, 0x52, 0x4a, 0x6f, 0x11, 0x37, 0xad, 0xf7, 0xac, 0xa3, 0x54, 0x6f, 0x7d, 0x19, 0xf5,
+	0x4b, 0x52, 0xfd, 0xf5, 0xc5, 0x40, 0x93, 0x2e, 0x07, 0x9a, 0xf4, 0x77, 0xa0, 0x49, 0x67, 0x43,
+	0x2d, 0x73, 0x39, 0xd4, 0x32, 0xbf, 0x87, 0x5a, 0xe6, 0xdd, 0x0b, 0x64, 0x7b, 0x9d, 0xee, 0x51,
+	0xa5, 0x4d, 0x1c, 0xc3, 0xed, 0xb2, 0x4e, 0xbb, 0x63, 0xda, 0x98, 0x57, 0x65, 0x5e, 0x96, 0x31,
+	0xb1, 0xa0, 0x71, 0x62, 0x4c, 0x6d, 0x18, 0x7f, 0x29, 0x1c, 0xe5, 0xf8, 0xdf, 0x7e, 0xed, 0x5f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xd4, 0x5f, 0x0e, 0xc7, 0xd3, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -376,6 +481,8 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// AddUniversalValidator defines a message to add a universal validator.
 	AddUniversalValidator(ctx context.Context, in *MsgAddUniversalValidator, opts ...grpc.CallOption) (*MsgAddUniversalValidatorResponse, error)
+	// UpdateUniversalValidator defines a message to update a universal validator.
+	UpdateUniversalValidator(ctx context.Context, in *MsgUpdateUniversalValidator, opts ...grpc.CallOption) (*MsgUpdateUniversalValidatorResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(ctx context.Context, in *MsgRemoveUniversalValidator, opts ...grpc.CallOption) (*MsgRemoveUniversalValidatorResponse, error)
 }
@@ -406,6 +513,15 @@ func (c *msgClient) AddUniversalValidator(ctx context.Context, in *MsgAddUnivers
 	return out, nil
 }
 
+func (c *msgClient) UpdateUniversalValidator(ctx context.Context, in *MsgUpdateUniversalValidator, opts ...grpc.CallOption) (*MsgUpdateUniversalValidatorResponse, error) {
+	out := new(MsgUpdateUniversalValidatorResponse)
+	err := c.cc.Invoke(ctx, "/uvalidator.v1.Msg/UpdateUniversalValidator", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) RemoveUniversalValidator(ctx context.Context, in *MsgRemoveUniversalValidator, opts ...grpc.CallOption) (*MsgRemoveUniversalValidatorResponse, error) {
 	out := new(MsgRemoveUniversalValidatorResponse)
 	err := c.cc.Invoke(ctx, "/uvalidator.v1.Msg/RemoveUniversalValidator", in, out, opts...)
@@ -423,6 +539,8 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// AddUniversalValidator defines a message to add a universal validator.
 	AddUniversalValidator(context.Context, *MsgAddUniversalValidator) (*MsgAddUniversalValidatorResponse, error)
+	// UpdateUniversalValidator defines a message to update a universal validator.
+	UpdateUniversalValidator(context.Context, *MsgUpdateUniversalValidator) (*MsgUpdateUniversalValidatorResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(context.Context, *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error)
 }
@@ -436,6 +554,9 @@ func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateP
 }
 func (*UnimplementedMsgServer) AddUniversalValidator(ctx context.Context, req *MsgAddUniversalValidator) (*MsgAddUniversalValidatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddUniversalValidator not implemented")
+}
+func (*UnimplementedMsgServer) UpdateUniversalValidator(ctx context.Context, req *MsgUpdateUniversalValidator) (*MsgUpdateUniversalValidatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUniversalValidator not implemented")
 }
 func (*UnimplementedMsgServer) RemoveUniversalValidator(ctx context.Context, req *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveUniversalValidator not implemented")
@@ -481,6 +602,24 @@ func _Msg_AddUniversalValidator_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_UpdateUniversalValidator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateUniversalValidator)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateUniversalValidator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uvalidator.v1.Msg/UpdateUniversalValidator",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateUniversalValidator(ctx, req.(*MsgUpdateUniversalValidator))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_RemoveUniversalValidator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgRemoveUniversalValidator)
 	if err := dec(in); err != nil {
@@ -510,6 +649,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddUniversalValidator",
 			Handler:    _Msg_AddUniversalValidator_Handler,
+		},
+		{
+			MethodName: "UpdateUniversalValidator",
+			Handler:    _Msg_UpdateUniversalValidator_Handler,
 		},
 		{
 			MethodName: "RemoveUniversalValidator",
@@ -603,6 +746,18 @@ func (m *MsgAddUniversalValidator) MarshalToSizedBuffer(dAtA []byte) (int, error
 	_ = i
 	var l int
 	_ = l
+	if m.Network != nil {
+		{
+			size, err := m.Network.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTx(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
 	if len(m.CoreValidatorAddress) > 0 {
 		i -= len(m.CoreValidatorAddress)
 		copy(dAtA[i:], m.CoreValidatorAddress)
@@ -636,6 +791,71 @@ func (m *MsgAddUniversalValidatorResponse) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *MsgAddUniversalValidatorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateUniversalValidator) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateUniversalValidator) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateUniversalValidator) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Network != nil {
+		{
+			size, err := m.Network.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTx(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Signer) > 0 {
+		i -= len(m.Signer)
+		copy(dAtA[i:], m.Signer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateUniversalValidatorResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateUniversalValidatorResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateUniversalValidatorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -752,10 +972,40 @@ func (m *MsgAddUniversalValidator) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
+	if m.Network != nil {
+		l = m.Network.Size()
+		n += 1 + l + sovTx(uint64(l))
+	}
 	return n
 }
 
 func (m *MsgAddUniversalValidatorResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgUpdateUniversalValidator) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Signer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.Network != nil {
+		l = m.Network.Size()
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgUpdateUniversalValidatorResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1054,6 +1304,42 @@ func (m *MsgAddUniversalValidator) Unmarshal(dAtA []byte) error {
 			}
 			m.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Network", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Network == nil {
+				m.Network = &NetworkInfo{}
+			}
+			if err := m.Network.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])
@@ -1102,6 +1388,174 @@ func (m *MsgAddUniversalValidatorResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgAddUniversalValidatorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateUniversalValidator) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateUniversalValidator: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateUniversalValidator: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Network", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Network == nil {
+				m.Network = &NetworkInfo{}
+			}
+			if err := m.Network.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateUniversalValidatorResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateUniversalValidatorResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateUniversalValidatorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

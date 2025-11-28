@@ -12,6 +12,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
+	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 )
 
 // Upgrades list of chain upgrades
@@ -21,6 +22,7 @@ var Upgrades = []upgrades.Upgrade{
 	ethhashfix.NewUpgrade(),
 	gasoracle.NewUpgrade(),
 	pcmintcap.NewUpgrade(),
+	tsscore.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

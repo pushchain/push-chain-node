@@ -14,13 +14,13 @@ import (
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Step 1: Check if inbound synthetic is there in the UTX
-	key := types.GetInboundKey(inbound)
-	found, err := k.HasUniversalTx(ctx, key)
+	universalTxKey := types.GetInboundUniversalTxKey(inbound)
+	found, err := k.HasUniversalTx(ctx, universalTxKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to check UniversalTx")
 	}
 	if found {
-		return fmt.Errorf("universal tx with key %s already exists", key)
+		return fmt.Errorf("universal tx with key %s already exists", universalTxKey)
 	}
 
 	// use a temporary context to not commit any ballot state change in case of error
@@ -51,8 +51,6 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 		OutboundTx:      nil,
 		UniversalStatus: types.UniversalTxStatus_PENDING_INBOUND_EXECUTION,
 	}
-
-	universalTxKey := types.GetInboundKey(inbound)
 
 	// Step 4: If finalized, create the UniversalTx
 	if err := k.CreateUniversalTx(ctx, universalTxKey, utx); err != nil {

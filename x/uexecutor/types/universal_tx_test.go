@@ -43,7 +43,7 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 					TxHash:   "0xpc123",
 					LogIndex: "1",
 				},
-				Index: "0",
+				Id: "0",
 			},
 		},
 		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,

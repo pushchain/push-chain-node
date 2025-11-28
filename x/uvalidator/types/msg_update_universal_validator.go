@@ -16,9 +16,8 @@ func NewMsgUpdateUniversalValidator(
 	network NetworkInfo,
 ) *MsgUpdateUniversalValidator {
 	return &MsgUpdateUniversalValidator{
-		Signer:               sender.String(),
-		CoreValidatorAddress: coreValidatorAddress.String(),
-		Network:              &network,
+		Signer:  sender.String(),
+		Network: &network,
 	}
 }
 
@@ -43,12 +42,6 @@ func (msg *MsgUpdateUniversalValidator) ValidateBasic() error {
 	// Validate signer
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
-	}
-
-	// Validate core validator address (must be a valid valoper address)
-	_, err := sdk.ValAddressFromBech32(msg.CoreValidatorAddress)
-	if err != nil {
-		return errors.Wrap(err, "invalid core validator address")
 	}
 
 	return msg.Network.ValidateBasic()

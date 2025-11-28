@@ -13,6 +13,7 @@ import (
 )
 
 func (k Keeper) BuildOutboundsFromReceipt(
+	utxId string,
 	receipt *evmtypes.MsgEthereumTxResponse,
 ) ([]*types.OutboundTx, error) {
 
@@ -54,7 +55,8 @@ func (k Keeper) BuildOutboundsFromReceipt(
 				TxHash:   receipt.Hash,
 				LogIndex: fmt.Sprintf("%d", lg.Index),
 			},
-			Index: fmt.Sprintf("%s:%d", receipt.Hash, lg.Index),
+			OutboundStatus: types.Status_PENDING,
+			Id:             types.GetOutboundIndex(utxId, receipt.Hash, lg.Index),
 		}
 
 		outbounds = append(outbounds, outbound)
@@ -104,7 +106,7 @@ func (k Keeper) AttachOutboundsToExistingUniversalTx(
 	receipt *evmtypes.MsgEthereumTxResponse,
 	utx types.UniversalTx,
 ) error {
-	outbounds, err := k.BuildOutboundsFromReceipt(receipt)
+	outbounds, err := k.BuildOutboundsFromReceipt(utx.Id, receipt)
 	if err != nil {
 		return err
 	}
@@ -120,7 +122,12 @@ func (k Keeper) CreateUniversalTxFromReceiptIfOutbound(
 	receipt *evmtypes.MsgEthereumTxResponse,
 	pcTx types.PCTx,
 ) error {
-	outbounds, err := k.BuildOutboundsFromReceipt(receipt)
+	universalTxKey, err := k.BuildPcUniversalTxKey(ctx, pcTx)
+	if err != nil {
+		return errors.Wrap(err, "failed to create UniversalTx key")
+	}
+
+	outbounds, err := k.BuildOutboundsFromReceipt(universalTxKey, receipt)
 	if err != nil {
 		return err
 	}
@@ -154,12 +161,15 @@ func (k Keeper) attachOutboundsToUtx(
 			utx.OutboundTx = append(utx.OutboundTx, outbound)
 
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
-				OutboundIndex:    outbound.Index,
+				UniversalTxId:    utxId,
+				OutboundId:       outbound.Id,
 				DestinationChain: outbound.DestinationChain,
 				Recipient:        outbound.Recipient,
 				Amount:           outbound.Amount,
 				AssetAddr:        outbound.AssetAddr,
 				Sender:           outbound.Sender,
+				Payload:          outbound.Payload,
+				GasLimit:         outbound.GasLimit,
 				TxType:           outbound.TxType.String(),
 				PcTxHash:         outbound.PcTx.TxHash,
 				LogIndex:         outbound.PcTx.LogIndex,

@@ -56,7 +56,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 				LogIndex: fmt.Sprintf("%d", lg.Index),
 			},
 			OutboundStatus: types.Status_PENDING,
-			Id:             types.GetOutboundIndex(utxId, receipt.Hash, lg.Index),
+			Id:             types.GetOutboundId(utxId, receipt.Hash, lg.Index),
 		}
 
 		outbounds = append(outbounds, outbound)

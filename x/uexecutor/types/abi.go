@@ -735,24 +735,24 @@ type UniversalWithdrawEvent struct {
 }
 
 func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalWithdrawEvent, error) {
-	if len(log.Topics) < 4 {
+	if len(log.Topics) < 3 {
 		return nil, fmt.Errorf("insufficient topics for UniversalTxWithdraw")
 	}
 
 	event := &UniversalWithdrawEvent{}
 
-	// Indexed parameters
+	// Indexed params
 	event.Sender = common.HexToAddress(log.Topics[1]).Hex()
-	event.ChainId = string(common.FromHex(log.Topics[2]))
-	event.Token = common.HexToAddress(log.Topics[3]).Hex()
+	event.Token = common.HexToAddress(log.Topics[2]).Hex()
 
-	// Correct ABI type construction
+	// ABI types
+	stringType, _ := abi.NewType("string", "", nil)
 	bytesType, _ := abi.NewType("bytes", "", nil)
 	uint256Type, _ := abi.NewType("uint256", "", nil)
 	addressType, _ := abi.NewType("address", "", nil)
 
-	// Decode non-indexed data
 	arguments := abi.Arguments{
+		{Type: stringType},  // chainId
 		{Type: bytesType},   // target
 		{Type: uint256Type}, // amount
 		{Type: addressType}, // gasToken
@@ -767,13 +767,14 @@ func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalWithdrawEven
 		return nil, err
 	}
 
-	event.Target = hex.EncodeToString(values[0].([]byte))
-	event.Amount = values[1].(*big.Int)
-	event.GasToken = values[2].(common.Address).Hex()
-	event.GasFee = values[3].(*big.Int)
-	event.GasLimit = values[4].(*big.Int)
-	event.Payload = hex.EncodeToString(values[5].([]byte))
-	event.ProtocolFee = values[6].(*big.Int)
+	event.ChainId = values[0].(string)
+	event.Target = hex.EncodeToString(values[1].([]byte))
+	event.Amount = values[2].(*big.Int)
+	event.GasToken = values[3].(common.Address).Hex()
+	event.GasFee = values[4].(*big.Int)
+	event.GasLimit = values[5].(*big.Int)
+	event.Payload = hex.EncodeToString(values[6].([]byte))
+	event.ProtocolFee = values[7].(*big.Int)
 
 	return event, nil
 }

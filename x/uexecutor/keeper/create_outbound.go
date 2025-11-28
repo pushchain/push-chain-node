@@ -18,7 +18,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 ) ([]*types.OutboundTx, error) {
 
 	outbounds := []*types.OutboundTx{}
-	universalGatewayPC := strings.ToLower(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+	universalGatewayPC := strings.ToLower(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_GATEWAY_PC"].Address)
 
 	for _, lg := range receipt.Logs {
 		if lg.Removed {

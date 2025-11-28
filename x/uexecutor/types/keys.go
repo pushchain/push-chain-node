@@ -40,8 +40,16 @@ const (
 	QuerierRoute = ModuleName
 )
 
-func GetInboundKey(inbound Inbound) string {
+func GetInboundUniversalTxKey(inbound Inbound) string {
 	data := fmt.Sprintf("%s:%s:%s", inbound.SourceChain, inbound.TxHash, inbound.LogIndex)
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:]) // hash[:] converts [32]byte → []byte
+}
+
+func GetInboundBallotKey(inbound Inbound) (string, error) {
+	bz, err := inbound.Marshal()
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bz), nil
 }

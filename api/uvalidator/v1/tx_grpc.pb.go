@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Msg_UpdateParams_FullMethodName             = "/uvalidator.v1.Msg/UpdateParams"
 	Msg_AddUniversalValidator_FullMethodName    = "/uvalidator.v1.Msg/AddUniversalValidator"
+	Msg_UpdateUniversalValidator_FullMethodName = "/uvalidator.v1.Msg/UpdateUniversalValidator"
 	Msg_RemoveUniversalValidator_FullMethodName = "/uvalidator.v1.Msg/RemoveUniversalValidator"
 )
 
@@ -34,6 +35,8 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// AddUniversalValidator defines a message to add a universal validator.
 	AddUniversalValidator(ctx context.Context, in *MsgAddUniversalValidator, opts ...grpc.CallOption) (*MsgAddUniversalValidatorResponse, error)
+	// UpdateUniversalValidator defines a message to update a universal validator.
+	UpdateUniversalValidator(ctx context.Context, in *MsgUpdateUniversalValidator, opts ...grpc.CallOption) (*MsgUpdateUniversalValidatorResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(ctx context.Context, in *MsgRemoveUniversalValidator, opts ...grpc.CallOption) (*MsgRemoveUniversalValidatorResponse, error)
 }
@@ -64,6 +67,15 @@ func (c *msgClient) AddUniversalValidator(ctx context.Context, in *MsgAddUnivers
 	return out, nil
 }
 
+func (c *msgClient) UpdateUniversalValidator(ctx context.Context, in *MsgUpdateUniversalValidator, opts ...grpc.CallOption) (*MsgUpdateUniversalValidatorResponse, error) {
+	out := new(MsgUpdateUniversalValidatorResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateUniversalValidator_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) RemoveUniversalValidator(ctx context.Context, in *MsgRemoveUniversalValidator, opts ...grpc.CallOption) (*MsgRemoveUniversalValidatorResponse, error) {
 	out := new(MsgRemoveUniversalValidatorResponse)
 	err := c.cc.Invoke(ctx, Msg_RemoveUniversalValidator_FullMethodName, in, out, opts...)
@@ -83,6 +95,8 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// AddUniversalValidator defines a message to add a universal validator.
 	AddUniversalValidator(context.Context, *MsgAddUniversalValidator) (*MsgAddUniversalValidatorResponse, error)
+	// UpdateUniversalValidator defines a message to update a universal validator.
+	UpdateUniversalValidator(context.Context, *MsgUpdateUniversalValidator) (*MsgUpdateUniversalValidatorResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(context.Context, *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error)
 	mustEmbedUnimplementedMsgServer()
@@ -97,6 +111,9 @@ func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*
 }
 func (UnimplementedMsgServer) AddUniversalValidator(context.Context, *MsgAddUniversalValidator) (*MsgAddUniversalValidatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddUniversalValidator not implemented")
+}
+func (UnimplementedMsgServer) UpdateUniversalValidator(context.Context, *MsgUpdateUniversalValidator) (*MsgUpdateUniversalValidatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUniversalValidator not implemented")
 }
 func (UnimplementedMsgServer) RemoveUniversalValidator(context.Context, *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveUniversalValidator not implemented")
@@ -150,6 +167,24 @@ func _Msg_AddUniversalValidator_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_UpdateUniversalValidator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateUniversalValidator)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateUniversalValidator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateUniversalValidator_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateUniversalValidator(ctx, req.(*MsgUpdateUniversalValidator))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_RemoveUniversalValidator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgRemoveUniversalValidator)
 	if err := dec(in); err != nil {
@@ -182,6 +217,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddUniversalValidator",
 			Handler:    _Msg_AddUniversalValidator_Handler,
+		},
+		{
+			MethodName: "UpdateUniversalValidator",
+			Handler:    _Msg_UpdateUniversalValidator_Handler,
 		},
 		{
 			MethodName: "RemoveUniversalValidator",

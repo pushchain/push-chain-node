@@ -29,6 +29,10 @@ func TestMsgAddUniversalValidator_ValidateBasic(t *testing.T) {
 			msg: types.MsgAddUniversalValidator{
 				Signer:               validAdmin,
 				CoreValidatorAddress: validCoreVal,
+				Network: &types.NetworkInfo{
+					PeerId:     "temp peerId",
+					MultiAddrs: []string{"temp multi_addrs"},
+				},
 			},
 			wantErr: false,
 		},

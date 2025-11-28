@@ -1,0 +1,57 @@
+syntax = "proto3";
+package utss.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/utss/types";
+
+message Params {
+  option (amino.name) = "utss/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // The admin account of the utss module.
+  string admin = 1;
+}
+
+enum TssKeyProcessStatus {
+  TSS_KEY_PROCESS_PENDING = 0;
+  TSS_KEY_PROCESS_SUCCESS = 1;
+  TSS_KEY_PROCESS_FAILED  = 2;
+}
+
+enum TssProcessType {
+  TSS_PROCESS_KEYGEN  = 0;
+  TSS_PROCESS_REFRESH = 1;
+}
+
+// TSS key process information
+message TssKeyProcess {
+  option (amino.name) = "utss/tss_key_process";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  TssKeyProcessStatus status = 1;
+  repeated string participants = 2;
+  int64 block_height = 3;
+  int64 expiry_height = 4;
+  TssProcessType process_type = 5;
+  uint64 id = 6; // process id
+}
+
+// Finalized TSS key details
+message TssKey {
+  option (amino.name) = "utss/tss_key";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string tss_pubkey = 1;
+  string key_id = 2;
+  repeated string participants = 3;
+  int64 finalized_block_height = 4;
+  int64 keygen_block_height = 5;
+  uint64 process_id = 6;
+}

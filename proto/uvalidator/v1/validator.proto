@@ -23,7 +23,6 @@ message IdentityInfo {
   option (gogoproto.equal) = true;
 
   string core_validator_address = 1; // Core validator address
-  string pubkey = 2;        // Validator consensus public key
 }
 
 // Validator network metadata
@@ -31,7 +30,8 @@ message NetworkInfo {
   option (amino.name) = "uvalidator/network_info";
   option (gogoproto.equal) = true;
 
-  string ip = 1;                     // Node IP address
+  string peer_id = 1;
+  repeated string multi_addrs = 2;
 }
 
 // Lifecycle event info

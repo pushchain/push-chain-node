@@ -139,7 +139,7 @@ message OutboundTx {
   TxType tx_type = 8; // outbound tx type
   Originating_Pc_TX pc_tx = 9; // pc_tx that originated the outbound
   OutboundObservation observed_tx = 10; // observed tx on destination chain
-  string index = 11; // index of outbound tx
+  string id = 11; // id of outbound tx
   Status outbound_status = 12; // status of outbound tx
 }
 

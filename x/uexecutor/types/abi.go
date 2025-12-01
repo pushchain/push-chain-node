@@ -768,12 +768,12 @@ func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalWithdrawEven
 	}
 
 	event.ChainId = values[0].(string)
-	event.Target = hex.EncodeToString(values[1].([]byte))
+	event.Target = "0x" + hex.EncodeToString(values[1].([]byte))
 	event.Amount = values[2].(*big.Int)
 	event.GasToken = values[3].(common.Address).Hex()
 	event.GasFee = values[4].(*big.Int)
 	event.GasLimit = values[5].(*big.Int)
-	event.Payload = hex.EncodeToString(values[6].([]byte))
+	event.Payload = "0x" + hex.EncodeToString(values[6].([]byte))
 	event.ProtocolFee = values[7].(*big.Int)
 
 	return event, nil

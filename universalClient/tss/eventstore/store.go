@@ -131,3 +131,21 @@ func (s *Store) ClearExpiredAndSuccessfulEvents() (int64, error) {
 		Msg("cleared expired and successful events")
 	return result.RowsAffected, nil
 }
+
+// ResetInProgressEventsToPending resets all IN_PROGRESS events to PENDING status.
+// This should be called on node startup to handle cases where the node crashed
+// while events were in progress, causing sessions to be lost from memory.
+func (s *Store) ResetInProgressEventsToPending() (int64, error) {
+	result := s.db.Model(&store.TSSEvent{}).
+		Where("status = ?", StatusInProgress).
+		Update("status", StatusPending)
+	if result.Error != nil {
+		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to PENDING")
+	}
+	if result.RowsAffected > 0 {
+		s.logger.Info().
+			Int64("reset_count", result.RowsAffected).
+			Msg("reset IN_PROGRESS events to PENDING on node startup")
+	}
+	return result.RowsAffected, nil
+}

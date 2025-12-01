@@ -45,7 +45,7 @@ type TSSEvent struct {
 	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event
 	BlockNumber  uint64 `gorm:"index;not null"`       // Block number when event was detected
 	ProtocolType string // "keygen", "keyrefresh", or "sign"
-	Status       string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "SUCCESS", "FAILED", "EXPIRED"
+	Status       string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "SUCCESS"
 	ExpiryHeight uint64 `gorm:"index;not null"` // Block height when event expires
 	EventData    []byte // Raw event data from chain
 	VoteTxHash   string // Transaction hash of the vote on pchain

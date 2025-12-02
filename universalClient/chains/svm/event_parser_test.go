@@ -82,7 +82,6 @@ func TestNewEventParser(t *testing.T) {
 			parser := NewEventParser(gatewayAddr, tt.config, logger)
 
 			require.NotNil(t, parser)
-			assert.Equal(t, tt.wantTopics, len(parser.eventTopics))
 			assert.Equal(t, gatewayAddr, parser.gatewayAddr)
 			assert.Equal(t, tt.config, parser.config)
 		})
@@ -200,10 +199,10 @@ func TestParseGatewayEvent(t *testing.T) {
 			wantEvent: false,
 		},
 		{
-			name: "filters addFunds discriminator",
+			name: "filters non-UniversalTx discriminator",
 			tx: func() *rpc.GetTransactionResult {
 				eventData := createTestEventData(
-					AddFundsDiscriminator,
+					"wrongdiscriminator",
 					sender[:],
 					recipient,
 					1000,
@@ -229,7 +228,18 @@ func TestParseGatewayEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := parser.ParseGatewayEvent(tt.tx, tt.signature, tt.slot)
+			var event *common.GatewayEvent
+
+			// Iterate through logs and parse each one (similar to EVM pattern)
+			if tt.tx != nil && tt.tx.Meta != nil {
+				for logIndex, log := range tt.tx.Meta.LogMessages {
+					parsedEvent := parser.ParseGatewayEvent(log, tt.signature, tt.slot, uint(logIndex))
+					if parsedEvent != nil {
+						event = parsedEvent
+						break // Take the first valid event found
+					}
+				}
+			}
 
 			if tt.wantEvent {
 				require.NotNil(t, event)
@@ -241,33 +251,6 @@ func TestParseGatewayEvent(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetEventTopics(t *testing.T) {
-	config := &uregistrytypes.ChainConfig{
-		GatewayMethods: []*uregistrytypes.GatewayMethods{
-			{
-				Identifier:      "method1",
-				Name:            "send_funds",
-				EventIdentifier: "discriminator1",
-			},
-			{
-				Identifier:      "method2",
-				Name:            "send_funds_fast",
-				EventIdentifier: "discriminator2",
-			},
-		},
-	}
-
-	logger := zerolog.Nop()
-	gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-	parser := NewEventParser(gatewayAddr, config, logger)
-
-	topics := parser.GetEventTopics()
-
-	assert.Len(t, topics, 2)
-	assert.Contains(t, topics, "discriminator1")
-	assert.Contains(t, topics, "discriminator2")
 }
 
 func TestDecodeUniversalTxEvent(t *testing.T) {

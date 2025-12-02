@@ -214,7 +214,7 @@ func TestGetKeygenKeyrefreshParticipants(t *testing.T) {
 		{ValidatorAddress: "v4", Status: UVStatusInactive},
 	}
 
-	participants := getKeygenKeyrefreshParticipants(validators)
+	participants := getQuorumChangeParticipants(validators)
 	assert.Len(t, participants, 2)
 	assert.Equal(t, "v1", participants[0].ValidatorAddress)
 	assert.Equal(t, "v2", participants[1].ValidatorAddress)

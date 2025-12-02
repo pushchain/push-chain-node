@@ -185,7 +185,7 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 		return false, nil // Peer not found
 	}
 
-	coordinatorParticipants := getKeygenKeyrefreshParticipants(allValidators)
+	coordinatorParticipants := getCoordinatorParticipants(allValidators)
 	if len(coordinatorParticipants) == 0 {
 		return false, nil
 	}
@@ -215,15 +215,8 @@ func (c *Coordinator) GetEligibleUV(protocolType string) []*UniversalValidator {
 		return nil
 	}
 
-	var eligible []*UniversalValidator
-	switch protocolType {
-	case "keygen", "keyrefresh":
-		// For keygen and keyrefresh: Active + Pending Join
-		eligible = getKeygenKeyrefreshParticipants(allValidators)
-	case "sign":
-		// For sign: Random subset of >2/3 of (Active + Pending Leave)
-		eligible = getSignParticipants(allValidators)
-	default:
+	eligible := getParticipantsForProtocol(protocolType, allValidators)
+	if eligible == nil {
 		return nil
 	}
 
@@ -356,13 +349,8 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 			Uint64("block_number", event.BlockNumber).
 			Msg("processing event as coordinator")
 		// Get participants based on protocol type (using cached allValidators)
-		var participants []*UniversalValidator
-		switch event.ProtocolType {
-		case "keygen", "keyrefresh":
-			participants = getKeygenKeyrefreshParticipants(allValidators)
-		case "sign":
-			participants = getSignParticipants(allValidators)
-		default:
+		participants := getParticipantsForProtocol(event.ProtocolType, allValidators)
+		if participants == nil {
 			c.logger.Debug().Str("event_id", event.EventID).Str("protocol_type", event.ProtocolType).Msg("unknown protocol type")
 			continue
 		}
@@ -408,6 +396,8 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	case "keygen", "keyrefresh":
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
+	case "quorumchange":
+		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
 	case "sign":
 		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
@@ -638,8 +628,123 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 	return setupData, nil
 }
 
-// getKeygenKeyrefreshParticipants returns Active + Pending Join validators.
-func getKeygenKeyrefreshParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+// createQcSetup creates a quorumchange setup message.
+// Quorumchange changes the participant set of an existing key.
+// oldParticipantIndices: indices of Active validators (staying participants)
+// newParticipantIndices: indices of Pending Join validators (new participants)
+func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*UniversalValidator) ([]byte, error) {
+	// Get current TSS keyId from dataProvider
+	keyIDStr, err := c.dataProvider.GetCurrentTSSKeyId(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get current TSS keyId")
+	}
+
+	// Load old keyshare to get the key we're changing
+	oldKeyshareBytes, err := c.keyshareManager.Get(keyIDStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
+	}
+
+	// Load keyshare handle from bytes
+	oldKeyshareHandle, err := session.DklsKeyshareFromBytes(oldKeyshareBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load keyshare handle")
+	}
+	defer session.DklsKeyshareFree(oldKeyshareHandle)
+
+	// Create a map of validator address to status for quick lookup
+	validatorStatusMap := make(map[string]UVStatus)
+	for _, v := range participants {
+		validatorStatusMap[v.ValidatorAddress] = v.Status
+	}
+
+	// Calculate old participant indices (Active validators) and new participant indices (Pending Join validators)
+	var oldParticipantIndices []int
+	var newParticipantIndices []int
+
+	for i, partyID := range partyIDs {
+		status, exists := validatorStatusMap[partyID]
+		if !exists {
+			// Validator not found, skip
+			continue
+		}
+
+		switch status {
+		case UVStatusActive:
+			// Active validators are old participants (staying)
+			oldParticipantIndices = append(oldParticipantIndices, i)
+		case UVStatusPendingJoin:
+			// Pending Join validators are new participants (being added)
+			newParticipantIndices = append(newParticipantIndices, i)
+		}
+	}
+
+	setupData, err := session.DklsQcSetupMsgNew(oldKeyshareHandle, threshold, partyIDs, oldParticipantIndices, newParticipantIndices)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create quorumchange setup")
+	}
+	return setupData, nil
+}
+
+// getParticipantsForProtocol returns participants for a given protocol type.
+// This is a centralized function to avoid duplication of participant selection logic.
+func getParticipantsForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
+	switch protocolType {
+	case "keygen", "quorumchange":
+		// For keygen and quorumchange: Active + Pending Join
+		return getQuorumChangeParticipants(allValidators)
+	case "keyrefresh":
+		// For keyrefresh: Only Active
+		return getActiveParticipants(allValidators)
+	case "sign":
+		// For sign: Random subset of >2/3 of (Active + Pending Leave)
+		return getSignParticipants(allValidators)
+	default:
+		return nil
+	}
+}
+
+// getCoordinatorParticipants returns validators eligible to be coordinators.
+// Only Active validators can be coordinators.
+// Special case: If there are no active validators (only pending join and 1 UV), that UV becomes coordinator.
+func getCoordinatorParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+	// First, get all active validators
+	var active []*UniversalValidator
+	for _, v := range allValidators {
+		if v.Status == UVStatusActive {
+			active = append(active, v)
+		}
+	}
+
+	// If we have active validators, use them
+	if len(active) > 0 {
+		return active
+	}
+
+	// Special case: No active validators
+	// If there's exactly 1 validator (pending join or any status), it becomes coordinator
+	if len(allValidators) == 1 {
+		return allValidators
+	}
+
+	// If no active and more than 1 validator, return empty (no coordinator)
+	return nil
+}
+
+// getActiveParticipants returns only Active validators.
+func getActiveParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+	var participants []*UniversalValidator
+	for _, v := range allValidators {
+		if v.Status == UVStatusActive {
+			participants = append(participants, v)
+		}
+	}
+	return participants
+}
+
+// getQuorumChangeParticipants returns Active + Pending Join validators.
+// Used for keygen and quorumchange protocols.
+func getQuorumChangeParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
 	var participants []*UniversalValidator
 	for _, v := range allValidators {
 		if v.Status == UVStatusActive || v.Status == UVStatusPendingJoin {

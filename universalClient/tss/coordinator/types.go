@@ -45,9 +45,10 @@ type UniversalValidator struct {
 type ProtocolType string
 
 const (
-	ProtocolKeygen     ProtocolType = "keygen"
-	ProtocolKeyrefresh ProtocolType = "keyrefresh"
-	ProtocolSign       ProtocolType = "sign"
+	ProtocolKeygen       ProtocolType = "keygen"
+	ProtocolKeyrefresh   ProtocolType = "keyrefresh"
+	ProtocolQuorumChange ProtocolType = "quorumchange"
+	ProtocolSign         ProtocolType = "sign"
 )
 
 // Message represents a simple message with type, eventId, payload, and participants.

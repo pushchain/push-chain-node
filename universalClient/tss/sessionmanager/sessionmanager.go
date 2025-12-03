@@ -41,9 +41,6 @@ type SessionManager struct {
 	logger            zerolog.Logger
 	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
 
-	// Feature flags
-	keyrefreshEnabled bool // TODO: Enable keyrefresh once it doesn't overwrite current keyshare
-
 	// Session storage
 	mu       sync.RWMutex
 	sessions map[string]*sessionState // eventID -> sessionState
@@ -67,7 +64,6 @@ func NewSessionManager(
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
-		keyrefreshEnabled: false, // TODO: Enable keyrefresh once it doesn't overwrite current keyshare
 		sessions:          make(map[string]*sessionState),
 	}
 }
@@ -88,21 +84,6 @@ func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID stri
 		Str("event_id", msg.EventID).
 		Int("participants_count", len(msg.Participants)).
 		Msg("handling incoming message")
-
-	// Check if keyrefresh is disabled (for setup messages)
-	if msg.Type == "setup" {
-		event, err := sm.eventStore.GetEvent(msg.EventID)
-		if err == nil && event.ProtocolType == "keyrefresh" && !sm.keyrefreshEnabled {
-			sm.logger.Warn().
-				Str("event_id", msg.EventID).
-				Msg("keyrefresh is disabled, rejecting message")
-			// Mark event as expired since keyrefresh is disabled
-			if err := sm.eventStore.UpdateStatus(msg.EventID, eventstore.StatusExpired, "keyrefresh is disabled"); err != nil {
-				sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
-			}
-			return errors.New("keyrefresh is disabled")
-		}
-	}
 
 	// Route based on message type
 	switch msg.Type {
@@ -376,47 +357,51 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return errors.Wrapf(err, "failed to get result for session %s", eventID)
 	}
 
+	// Use SHA256 hash of eventID as the storage identifier
+	eventIDHash := sha256.Sum256([]byte(eventID))
+	storageID := hex.EncodeToString(eventIDHash[:])
+
 	// Handle based on protocol type
 	switch state.protocolType {
 	case "keygen":
-		// Save keyshare using keyID from result
-		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
+		// Save keyshare using SHA256 hash of eventID
+		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
 		}
 		// Calculate SHA256 hash of keyshare for verification
 		keyshareHash := sha256.Sum256(result.Keyshare)
 		sm.logger.Info().
 			Str("event_id", eventID).
-			Str("key_id", result.KeyID).
+			Str("storage_id", storageID).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved keyshare from keygen")
 
 	case "keyrefresh":
-		// Save new keyshare using keyID from result
-		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
+		// Save new keyshare using SHA256 hash of eventID
+		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
 		}
 		// Calculate SHA256 hash of keyshare for verification
 		keyshareHash := sha256.Sum256(result.Keyshare)
 		sm.logger.Info().
 			Str("event_id", eventID).
-			Str("key_id", result.KeyID).
+			Str("storage_id", storageID).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved new keyshare from keyrefresh")
 
 	case "quorumchange":
-		// Quorumchange produces a new keyshare with the same keyID but different participants
-		// Save new keyshare using keyID from result
-		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
+		// Quorumchange produces a new keyshare
+		// Save new keyshare using SHA256 hash of eventID
+		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
 		}
 		// Calculate SHA256 hash of keyshare for verification
 		keyshareHash := sha256.Sum256(result.Keyshare)
 		sm.logger.Info().
 			Str("event_id", eventID).
-			Str("key_id", result.KeyID).
+			Str("storage_id", storageID).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Int("participant_count", len(result.Participants)).
@@ -427,7 +412,6 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		sm.logger.Info().
 			Str("event_id", eventID).
 			Str("signature", hex.EncodeToString(result.Signature)).
-			Str("key_id", result.KeyID).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
 			Msg("signature generated and verified from sign session")
 

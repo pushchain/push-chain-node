@@ -41,6 +41,9 @@ type SessionManager struct {
 	logger            zerolog.Logger
 	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
 
+	// Feature flags
+	keyrefreshEnabled bool // TODO: Enable keyrefresh once it doesn't overwrite current keyshare
+
 	// Session storage
 	mu       sync.RWMutex
 	sessions map[string]*sessionState // eventID -> sessionState
@@ -64,6 +67,7 @@ func NewSessionManager(
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
+		keyrefreshEnabled: false, // TODO: Enable keyrefresh once it doesn't overwrite current keyshare
 		sessions:          make(map[string]*sessionState),
 	}
 }
@@ -84,6 +88,21 @@ func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID stri
 		Str("event_id", msg.EventID).
 		Int("participants_count", len(msg.Participants)).
 		Msg("handling incoming message")
+
+	// Check if keyrefresh is disabled (for setup messages)
+	if msg.Type == "setup" {
+		event, err := sm.eventStore.GetEvent(msg.EventID)
+		if err == nil && event.ProtocolType == "keyrefresh" && !sm.keyrefreshEnabled {
+			sm.logger.Warn().
+				Str("event_id", msg.EventID).
+				Msg("keyrefresh is disabled, rejecting message")
+			// Mark event as expired since keyrefresh is disabled
+			if err := sm.eventStore.UpdateStatus(msg.EventID, eventstore.StatusExpired, "keyrefresh is disabled"); err != nil {
+				sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
+			}
+			return errors.New("keyrefresh is disabled")
+		}
+	}
 
 	// Route based on message type
 	switch msg.Type {

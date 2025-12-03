@@ -44,7 +44,7 @@ func TestKeygenSession_EndToEnd(t *testing.T) {
 	participants := []string{"party1", "party2", "party3"}
 	threshold := 2
 
-	// Create setup message (coordinator would do this)
+	// Create setup message
 	participantIDs := encodeParticipantIDs(participants)
 	setupData, err := session.DklsKeygenSetupMsgNew(threshold, nil, participantIDs)
 	if err != nil {
@@ -52,102 +52,34 @@ func TestKeygenSession_EndToEnd(t *testing.T) {
 	}
 
 	// Create all sessions with the same setup
-	coordSession, err := NewKeygenSession(setupData, "test-event", "party1", participants, threshold)
+	party1Session, err := NewKeygenSession(setupData, "test-event", "party1", participants, threshold)
 	if err != nil {
-		t.Fatalf("failed to create coordinator session: %v", err)
+		t.Fatalf("failed to create party1 session: %v", err)
 	}
-	defer coordSession.Close()
 
 	party2Session, err := NewKeygenSession(setupData, "test-event", "party2", participants, threshold)
 	if err != nil {
 		t.Fatalf("failed to create party2 session: %v", err)
 	}
-	defer party2Session.Close()
 
 	party3Session, err := NewKeygenSession(setupData, "test-event", "party3", participants, threshold)
 	if err != nil {
 		t.Fatalf("failed to create party3 session: %v", err)
 	}
-	defer party3Session.Close()
 
 	// Run protocol to completion
-	maxSteps := 100
-	coordDone := false
-	party2Done := false
-	party3Done := false
-
-	for step := 0; step < maxSteps; step++ {
-		// Coordinator step
-		if !coordDone {
-			msgs, done, err := coordSession.Step()
-			if err != nil {
-				t.Fatalf("coordinator Step() error at step %d: %v", step, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party2" {
-					party2Session.InputMessage(msg.Data)
-				} else if msg.Receiver == "party3" {
-					party3Session.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				coordDone = true
-			}
-		}
-
-		// Party2 step
-		if !party2Done {
-			msgs, done, err := party2Session.Step()
-			if err != nil {
-				t.Fatalf("party2 Step() error at step %d: %v", step, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					coordSession.InputMessage(msg.Data)
-				} else if msg.Receiver == "party3" {
-					party3Session.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				party2Done = true
-			}
-		}
-
-		// Party3 step
-		if !party3Done {
-			msgs, done, err := party3Session.Step()
-			if err != nil {
-				t.Fatalf("party3 Step() error at step %d: %v", step, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					coordSession.InputMessage(msg.Data)
-				} else if msg.Receiver == "party2" {
-					party2Session.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				party3Done = true
-			}
-		}
-
-		if coordDone && party2Done && party3Done {
-			break
-		}
+	keygenSessions := map[string]Session{
+		"party1": party1Session,
+		"party2": party2Session,
+		"party3": party3Session,
 	}
+	results := runToCompletion(t, keygenSessions)
 
-	if !coordDone {
-		t.Fatal("coordinator did not finish")
-	}
+	// Verify party1 got keyshare
+	result := results["party1"]
 
-	// Verify coordinator got keyshare
-	result, err := coordSession.GetResult()
-
-	if err != nil {
-		t.Fatalf("coordinator GetResult() failed: %v", err)
-	}
 	if len(result.Keyshare) == 0 {
-		t.Error("coordinator keyshare is empty")
+		t.Error("party1 keyshare is empty")
 	}
 	if result.Signature != nil {
 		t.Error("keygen should not return signature")

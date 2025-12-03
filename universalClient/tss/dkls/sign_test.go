@@ -56,78 +56,36 @@ func TestSignSession_EndToEnd(t *testing.T) {
 		t.Fatalf("failed to create keygen setup: %v", err)
 	}
 
-	keygenCoord, err := NewKeygenSession(setupData, "test-keygen", "party1", participants, threshold)
+	keygenParty1, err := NewKeygenSession(setupData, "test-keygen", "party1", participants, threshold)
 	if err != nil {
-		t.Fatalf("failed to create keygen coordinator: %v", err)
+		t.Fatalf("failed to create keygen party1: %v", err)
 	}
-	defer keygenCoord.Close()
 
 	keygenParty2, err := NewKeygenSession(setupData, "test-keygen", "party2", participants, threshold)
 	if err != nil {
 		t.Fatalf("failed to create keygen party2: %v", err)
 	}
-	defer keygenParty2.Close()
 
-	// Complete keygen - both parties must finish
-	keygenCoordDone := false
-	keygenParty2Done := false
-	for i := 0; i < 100; i++ {
-		if !keygenCoordDone {
-			msgs, done, err := keygenCoord.Step()
-			if err != nil {
-				t.Fatalf("keygen coordinator Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party2" {
-					keygenParty2.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				keygenCoordDone = true
-			}
-		}
-		if !keygenParty2Done {
-			msgs, done, err := keygenParty2.Step()
-			if err != nil {
-				t.Fatalf("keygen party2 Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					keygenCoord.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				keygenParty2Done = true
-			}
-		}
-		if keygenCoordDone && keygenParty2Done {
-			break
-		}
+	// Run keygen to completion
+	keygenSessions := map[string]Session{
+		"party1": keygenParty1,
+		"party2": keygenParty2,
 	}
-
-	if !keygenCoordDone || !keygenParty2Done {
-		t.Fatal("keygen did not complete for all parties")
-	}
+	keygenResults := runToCompletion(t, keygenSessions)
 
 	// Get keyshares from both parties
-	keygenCoordResult, err := keygenCoord.GetResult()
-	if err != nil {
-		t.Fatalf("keygen coordinator GetResult() failed: %v", err)
-	}
-	if len(keygenCoordResult.Keyshare) == 0 {
-		t.Fatal("keygen coordinator keyshare is empty")
-	}
+	keygenParty1Result := keygenResults["party1"]
+	keygenParty2Result := keygenResults["party2"]
 
-	keygenParty2Result, err := keygenParty2.GetResult()
-	if err != nil {
-		t.Fatalf("keygen party2 GetResult() failed: %v", err)
+	if len(keygenParty1Result.Keyshare) == 0 {
+		t.Fatal("keygen party1 keyshare is empty")
 	}
 	if len(keygenParty2Result.Keyshare) == 0 {
 		t.Fatal("keygen party2 keyshare is empty")
 	}
 
 	// Use each party's own keyshare
-	coordKeyshare := keygenCoordResult.Keyshare
+	party1Keyshare := keygenParty1Result.Keyshare
 	party2Keyshare := keygenParty2Result.Keyshare
 	// Message hash must be 32 bytes (SHA256)
 	messageHash := make([]byte, 32)
@@ -143,64 +101,25 @@ func TestSignSession_EndToEnd(t *testing.T) {
 	}
 
 	// Test sign - each party uses their own keyshare
-	signCoord, err := NewSignSession(signSetup, "test-sign", "party1", participants, coordKeyshare, messageHash, nil)
+	signParty1, err := NewSignSession(signSetup, "test-sign", "party1", participants, party1Keyshare, messageHash, nil)
 	if err != nil {
-		t.Fatalf("failed to create sign coordinator: %v", err)
+		t.Fatalf("failed to create sign party1: %v", err)
 	}
-	defer signCoord.Close()
 
 	signParty2, err := NewSignSession(signSetup, "test-sign", "party2", participants, party2Keyshare, messageHash, nil)
 	if err != nil {
 		t.Fatalf("failed to create sign party2: %v", err)
 	}
-	defer signParty2.Close()
 
-	// Run sign to completion - both parties must finish
-	signCoordDone := false
-	signParty2Done := false
-	for i := 0; i < 100; i++ {
-		if !signCoordDone {
-			msgs, done, err := signCoord.Step()
-			if err != nil {
-				t.Fatalf("sign coordinator Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party2" {
-					signParty2.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				signCoordDone = true
-			}
-		}
-		if !signParty2Done {
-			msgs, done, err := signParty2.Step()
-			if err != nil {
-				t.Fatalf("sign party2 Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					signCoord.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				signParty2Done = true
-			}
-		}
-		if signCoordDone && signParty2Done {
-			break
-		}
+	// Run sign to completion
+	signSessions := map[string]Session{
+		"party1": signParty1,
+		"party2": signParty2,
 	}
-
-	if !signCoordDone || !signParty2Done {
-		t.Fatal("sign did not complete for all parties")
-	}
+	signResults := runToCompletion(t, signSessions)
 
 	// Verify signature
-	result, err := signCoord.GetResult()
-	if err != nil {
-		t.Fatalf("sign GetResult() failed: %v", err)
-	}
+	result := signResults["party1"]
 	if len(result.Signature) == 0 {
 		t.Error("signature is empty")
 	}

@@ -54,152 +54,104 @@ func TestKeyrefreshSession_EndToEnd(t *testing.T) {
 		t.Fatalf("failed to create keygen setup: %v", err)
 	}
 
-	keygenCoord, err := NewKeygenSession(setupData, "test-keygen", "party1", participants, threshold)
+	keygenParty1, err := NewKeygenSession(setupData, "test-keygen", "party1", participants, threshold)
 	if err != nil {
-		t.Fatalf("failed to create keygen coordinator: %v", err)
+		t.Fatalf("failed to create keygen party1: %v", err)
 	}
-	defer keygenCoord.Close()
 
 	keygenParty2, err := NewKeygenSession(setupData, "test-keygen", "party2", participants, threshold)
 	if err != nil {
 		t.Fatalf("failed to create keygen party2: %v", err)
 	}
-	defer keygenParty2.Close()
 
-	// Complete keygen to get keyshare - both parties must finish
-	keygenCoordDone := false
-	keygenParty2Done := false
-	for i := 0; i < 100; i++ {
-		if !keygenCoordDone {
-			msgs, done, err := keygenCoord.Step()
-			if err != nil {
-				t.Fatalf("keygen coordinator Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party2" {
-					keygenParty2.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				keygenCoordDone = true
-			}
-		}
-		if !keygenParty2Done {
-			msgs, done, err := keygenParty2.Step()
-			if err != nil {
-				t.Fatalf("keygen party2 Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					keygenCoord.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				keygenParty2Done = true
-			}
-		}
-		if keygenCoordDone && keygenParty2Done {
-			break
-		}
+	// Run keygen to completion
+	keygenSessions := map[string]Session{
+		"party1": keygenParty1,
+		"party2": keygenParty2,
 	}
-
-	if !keygenCoordDone || !keygenParty2Done {
-		t.Fatal("keygen did not complete for all parties")
-	}
+	keygenResults := runToCompletion(t, keygenSessions)
 
 	// Get keyshares from both parties
-	keygenCoordResult, err := keygenCoord.GetResult()
-	if err != nil {
-		t.Fatalf("keygen coordinator GetResult() failed: %v", err)
-	}
-	if len(keygenCoordResult.Keyshare) == 0 {
-		t.Fatal("keygen coordinator keyshare is empty")
-	}
+	keygenParty1Result := keygenResults["party1"]
+	keygenParty2Result := keygenResults["party2"]
 
-	keygenParty2Result, err := keygenParty2.GetResult()
-	if err != nil {
-		t.Fatalf("keygen party2 GetResult() failed: %v", err)
+	if len(keygenParty1Result.Keyshare) == 0 {
+		t.Fatal("keygen party1 keyshare is empty")
 	}
 	if len(keygenParty2Result.Keyshare) == 0 {
 		t.Fatal("keygen party2 keyshare is empty")
 	}
 
+	// Store original keyID and public key for verification
+	originalKeyID := keygenParty1Result.KeyID
+	originalPublicKey := keygenParty2Result.PublicKey
+
 	// Each party uses their own keyshare for keyrefresh
-	coordOldKeyshare := keygenCoordResult.Keyshare
+	party1OldKeyshare := keygenParty1Result.Keyshare
 	party2OldKeyshare := keygenParty2Result.Keyshare
 
 	// Now test keyrefresh with the same setup structure (keyrefresh uses keygen setup)
-	// Use the same setup as keygen (nil keyID for auto-generation)
 	refreshSetup, err := session.DklsKeygenSetupMsgNew(threshold, nil, participantIDs)
 	if err != nil {
 		t.Fatalf("failed to create keyrefresh setup: %v", err)
 	}
 
-	refreshCoord, err := NewKeyrefreshSession(refreshSetup, "test-keyrefresh", "party1", participants, threshold, coordOldKeyshare)
+	refreshParty1, err := NewKeyrefreshSession(refreshSetup, "test-keyrefresh", "party1", participants, threshold, party1OldKeyshare)
 	if err != nil {
-		t.Fatalf("failed to create keyrefresh coordinator: %v", err)
+		t.Fatalf("failed to create keyrefresh party1: %v", err)
 	}
-	defer refreshCoord.Close()
 
 	refreshParty2, err := NewKeyrefreshSession(refreshSetup, "test-keyrefresh", "party2", participants, threshold, party2OldKeyshare)
 	if err != nil {
 		t.Fatalf("failed to create keyrefresh party2: %v", err)
 	}
-	defer refreshParty2.Close()
 
-	// Run keyrefresh to completion - both parties must finish
-	refreshCoordDone := false
-	refreshParty2Done := false
-	for i := 0; i < 100; i++ {
-		if !refreshCoordDone {
-			msgs, done, err := refreshCoord.Step()
-			if err != nil {
-				t.Fatalf("keyrefresh coordinator Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party2" {
-					refreshParty2.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				refreshCoordDone = true
-			}
-		}
-		if !refreshParty2Done {
-			msgs, done, err := refreshParty2.Step()
-			if err != nil {
-				t.Fatalf("keyrefresh party2 Step() error at step %d: %v", i, err)
-			}
-			for _, msg := range msgs {
-				if msg.Receiver == "party1" {
-					refreshCoord.InputMessage(msg.Data)
-				}
-			}
-			if done {
-				refreshParty2Done = true
-			}
-		}
-		if refreshCoordDone && refreshParty2Done {
+	// Run keyrefresh to completion
+	refreshSessions := map[string]Session{
+		"party1": refreshParty1,
+		"party2": refreshParty2,
+	}
+	refreshResults := runToCompletion(t, refreshSessions)
+
+	// Verify new keyshare
+	refreshResult := refreshResults["party1"]
+	if len(refreshResult.Keyshare) == 0 {
+		t.Error("keyrefresh keyshare is empty")
+	}
+	if refreshResult.Signature != nil {
+		t.Error("keyrefresh should not return signature")
+	}
+	if len(refreshResult.Participants) != 2 {
+		t.Errorf("expected 2 participants, got %d", len(refreshResult.Participants))
+	}
+
+	// Verify keyID and public key remain the same
+	if refreshResult.KeyID != originalKeyID {
+		t.Errorf("keyID changed after keyrefresh: got %s, want %s", refreshResult.KeyID, originalKeyID)
+	}
+	if len(refreshResult.PublicKey) != len(originalPublicKey) {
+		t.Errorf("public key length changed: got %d, want %d", len(refreshResult.PublicKey), len(originalPublicKey))
+	}
+	for i := range originalPublicKey {
+		if refreshResult.PublicKey[i] != originalPublicKey[i] {
+			t.Errorf("public key changed at index %d", i)
 			break
 		}
 	}
 
-	if !refreshCoordDone || !refreshParty2Done {
-		t.Fatal("keyrefresh did not complete for all parties")
+	// Verify keyshare is different
+	keyshareChanged := false
+	if len(refreshResult.Keyshare) != len(party1OldKeyshare) {
+		keyshareChanged = true
+	} else {
+		for i := range party1OldKeyshare {
+			if refreshResult.Keyshare[i] != party1OldKeyshare[i] {
+				keyshareChanged = true
+				break
+			}
+		}
 	}
-
-	// Verify new keyshare
-	result, err := refreshCoord.GetResult()
-	if err != nil {
-		t.Fatalf("keyrefresh GetResult() failed: %v", err)
-	}
-	if len(result.Keyshare) == 0 {
-		t.Error("keyrefresh keyshare is empty")
-	}
-	if result.Signature != nil {
-		t.Error("keyrefresh should not return signature")
-	}
-	if len(result.Participants) != 2 {
-		t.Errorf("expected 2 participants, got %d", len(result.Participants))
+	if !keyshareChanged {
+		t.Error("keyshare did not change after keyrefresh")
 	}
 }

@@ -23,8 +23,8 @@ type TrustParams struct {
 
 type provider struct{ http *http.Client }
 
-// New returns a provider with sane timeouts.
-func New() Provider { return &provider{http: &http.Client{Timeout: 6 * time.Second}} }
+// New returns a provider with conservative timeouts for reliable state sync.
+func New() Provider { return &provider{http: &http.Client{Timeout: 15 * time.Second}} }
 
 func (p *provider) ComputeTrust(ctx context.Context, rpcURL string) (TrustParams, error) {
     base := strings.TrimRight(rpcURL, "/")
@@ -37,9 +37,10 @@ func (p *provider) ComputeTrust(ctx context.Context, rpcURL string) (TrustParams
     // We need to align trust heights with these intervals
     snapshotInterval := int64(1000)
 
-    // Try recent snapshot intervals (1-5 intervals back from latest)
-    // This ensures we target actual snapshot heights
-    offsetIntervals := []int{1, 2, 3, 4, 5}
+    // Use conservative offsets (10-25 intervals back from latest) to ensure
+    // trust_height is well BELOW available snapshots. This enables fast forward
+    // verification by the light client instead of slow backward verification.
+    offsetIntervals := []int{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
     var lastErr error
 
     for _, intervals := range offsetIntervals {

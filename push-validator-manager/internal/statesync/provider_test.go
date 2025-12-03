@@ -24,8 +24,8 @@ func TestProvider_ComputeTrust(t *testing.T) {
             _ = json.NewEncoder(w).Encode(resp)
             return
         }
-        // Latest height = 5000
-        resp := map[string]any{"result": map[string]any{"block": map[string]any{"header": map[string]any{"height": "5000"}}}}
+        // Latest height = 35000 (high enough for conservative offsets 10-25)
+        resp := map[string]any{"result": map[string]any{"block": map[string]any{"header": map[string]any{"height": "35000"}}}}
         _ = json.NewEncoder(w).Encode(resp)
     })
     srv := httptest.NewServer(mux)
@@ -34,6 +34,7 @@ func TestProvider_ComputeTrust(t *testing.T) {
     p := New()
     tp, err := p.ComputeTrust(context.Background(), srv.URL)
     if err != nil { t.Fatal(err) }
-    if want := int64(4000); tp.Height != want { t.Fatalf("trust height: got %d want %d", tp.Height, want) }
+    // With latest=35000 and offset=10: (35000/1000 - 10) * 1000 = 25000
+    if want := int64(25000); tp.Height != want { t.Fatalf("trust height: got %d want %d", tp.Height, want) }
     if tp.Hash != "ABC123" { t.Fatalf("trust hash uppercased: got %s", tp.Hash) }
 }

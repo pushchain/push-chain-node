@@ -212,10 +212,13 @@ func (s *svc) Init(ctx context.Context, opts Options) error {
 	}
 	progress("Enabling state sync...")
 	if err := cfgs.EnableStateSync(files.StateSyncParams{
-		TrustHeight: tp.Height,
-		TrustHash:   tp.Hash,
-		RPCServers:  rpcServers,
-		TrustPeriod: "336h0m0s",
+		TrustHeight:         tp.Height,
+		TrustHash:           tp.Hash,
+		RPCServers:          rpcServers,
+		TrustPeriod:         "336h0m0s",
+		ChunkFetchers:       12,      // Aggressive: 3x parallel downloads for faster sync
+		ChunkRequestTimeout: "15m0s", // Generous timeout for congested networks
+		DiscoveryTime:       "90s",   // More time to discover all available snapshots
 	}); err != nil {
 		return err
 	}

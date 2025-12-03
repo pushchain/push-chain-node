@@ -18,11 +18,13 @@ type ConfigStore interface {
 }
 
 type StateSyncParams struct {
-    TrustHeight   int64
-    TrustHash     string
-    RPCServers    []string // full URLs, comma separated when rendered
-    TrustPeriod   string   // e.g., 336h0m0s
-    ChunkFetchers int      // parallel chunk downloads (default: 4)
+    TrustHeight         int64
+    TrustHash           string
+    RPCServers          []string // full URLs, comma separated when rendered
+    TrustPeriod         string   // e.g., 336h0m0s
+    ChunkFetchers       int      // parallel chunk downloads (default: 12)
+    ChunkRequestTimeout string   // timeout for chunk requests (default: 15m0s)
+    DiscoveryTime       string   // time to discover snapshots (default: 90s)
 }
 
 type store struct { home string }
@@ -65,8 +67,9 @@ func (s *store) EnableStateSync(params StateSyncParams) error {
         "trust_height":          fmt.Sprintf("%d", params.TrustHeight),
         "trust_hash":            fmt.Sprintf("\"%s\"", params.TrustHash),
         "trust_period":          fmt.Sprintf("\"%s\"", valueOrDefault(params.TrustPeriod, "336h0m0s")),
-        "chunk_fetchers":        fmt.Sprintf("%d", valueOrDefaultInt(params.ChunkFetchers, 4)),
-        "chunk_request_timeout": "\"5m0s\"",
+        "chunk_fetchers":        fmt.Sprintf("%d", valueOrDefaultInt(params.ChunkFetchers, 12)),
+        "chunk_request_timeout": fmt.Sprintf("\"%s\"", valueOrDefault(params.ChunkRequestTimeout, "15m0s")),
+        "discovery_time":        fmt.Sprintf("\"%s\"", valueOrDefault(params.DiscoveryTime, "90s")),
     })
     return s.writeConfig(content)
 }

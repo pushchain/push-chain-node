@@ -21,23 +21,14 @@ import (
 // SendFunc is a function type for sending messages to participants.
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
-// SessionType represents the type of TSS protocol session.
-type SessionType string
-
-const (
-	SessionTypeKeygen     SessionType = "keygen"
-	SessionTypeKeyrefresh SessionType = "keyrefresh"
-	SessionTypeSign       SessionType = "sign"
-)
-
 // sessionState holds all state for a single session.
 type sessionState struct {
 	session      dkls.Session
-	sessionType  SessionType // type of session (keygen, keyrefresh, sign)
-	coordinator  string      // coordinatorPeerID
-	expiryTime   time.Time   // when session expires
-	participants []string    // list of participants (from setup message)
-	stepMu       sync.Mutex  // mutex to serialize Step() calls (DKLS may not be thread-safe)
+	protocolType string     // type of protocol (keygen, keyrefresh, quorumchange, sign)
+	coordinator  string     // coordinatorPeerID
+	expiryTime   time.Time  // when session expires
+	participants []string   // list of participants (from setup message)
+	stepMu       sync.Mutex // mutex to serialize Step() calls (DKLS may not be thread-safe)
 }
 
 // SessionManager manages TSS protocol sessions and handles incoming messages.
@@ -144,31 +135,18 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return errors.Wrapf(err, "failed to create session for event %s", msg.EventID)
 	}
 
-	// 6. Determine session type from event protocol type
-	var sessionType SessionType
-	switch event.ProtocolType {
-	case "keygen":
-		sessionType = SessionTypeKeygen
-	case "keyrefresh":
-		sessionType = SessionTypeKeyrefresh
-	case "sign":
-		sessionType = SessionTypeSign
-	default:
-		return errors.Errorf("unknown protocol type: %s", event.ProtocolType)
-	}
-
-	// 7. Store session state
+	// 6. Store session state
 	sm.mu.Lock()
 	sm.sessions[msg.EventID] = &sessionState{
 		session:      session,
-		sessionType:  sessionType,
+		protocolType: event.ProtocolType,
 		coordinator:  senderPeerID,
 		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
 		participants: msg.Participants,
 	}
 	sm.mu.Unlock()
 
-	// 8. Update event status to IN_PROGRESS
+	// 7. Update event status to IN_PROGRESS
 	if err := sm.eventStore.UpdateStatus(msg.EventID, eventstore.StatusInProgress, ""); err != nil {
 		sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
 	}
@@ -178,7 +156,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		Str("protocol", event.ProtocolType).
 		Msg("created session from setup message")
 
-	// 9. Send ACK to coordinator
+	// 8. Send ACK to coordinator
 	if err := sm.sendACK(ctx, senderPeerID, msg.EventID); err != nil {
 		sm.logger.Warn().
 			Err(err).
@@ -379,9 +357,9 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return errors.Wrapf(err, "failed to get result for session %s", eventID)
 	}
 
-	// Handle based on session type
-	switch state.sessionType {
-	case SessionTypeKeygen:
+	// Handle based on protocol type
+	switch state.protocolType {
+	case "keygen":
 		// Save keyshare using keyID from result
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -395,7 +373,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved keyshare from keygen")
 
-	case SessionTypeKeyrefresh:
+	case "keyrefresh":
 		// Save new keyshare using keyID from result
 		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -409,7 +387,23 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved new keyshare from keyrefresh")
 
-	case SessionTypeSign:
+	case "quorumchange":
+		// Quorumchange produces a new keyshare with the same keyID but different participants
+		// Save new keyshare using keyID from result
+		if err := sm.keyshareManager.Store(result.Keyshare, result.KeyID); err != nil {
+			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
+		}
+		// Calculate SHA256 hash of keyshare for verification
+		keyshareHash := sha256.Sum256(result.Keyshare)
+		sm.logger.Info().
+			Str("event_id", eventID).
+			Str("key_id", result.KeyID).
+			Str("public_key", hex.EncodeToString(result.PublicKey)).
+			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
+			Int("participant_count", len(result.Participants)).
+			Msg("saved new keyshare from quorumchange with updated participants")
+
+	case "sign":
 		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
 			Str("event_id", eventID).
@@ -419,7 +413,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Msg("signature generated and verified from sign session")
 
 	default:
-		return errors.Errorf("unknown session type: %s", state.sessionType)
+		return errors.Errorf("unknown protocol type: %s", state.protocolType)
 	}
 
 	// Update event status to SUCCESS (common for all session types)
@@ -460,6 +454,40 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		}
 
 		return dkls.NewKeyrefreshSession(
+			msg.Payload, // setupData
+			msg.EventID, // sessionID
+			sm.partyID,
+			msg.Participants,
+			threshold,
+			oldKeyshare,
+		)
+
+	case "quorumchange":
+		// Get current keyID
+		keyID, err := sm.coordinator.GetCurrentTSSKeyId(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get current TSS keyId")
+		}
+
+		// Load old keyshare - if not found, we're a new party (oldKeyshare will be nil)
+		oldKeyshare, err := sm.keyshareManager.Get(keyID)
+		if err != nil {
+			// Check if it's a "not found" error (new party) vs other error
+			if err == keyshare.ErrKeyshareNotFound {
+				// If keyshare not found, we're a new party joining the quorum
+				// This is expected for new participants in quorumchange
+				sm.logger.Info().
+					Str("key_id", keyID).
+					Str("party_id", sm.partyID).
+					Msg("old keyshare not found for quorumchange - treating as new party")
+				oldKeyshare = nil
+			} else {
+				// Other error (decryption failed, etc.) - return error
+				return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyID)
+			}
+		}
+
+		return dkls.NewQuorumChangeSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
 			sm.partyID,
@@ -531,8 +559,8 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 
 	// Protocol-specific validation
 	switch event.ProtocolType {
-	case "keygen", "keyrefresh":
-		// For keygen and keyrefresh: participants must match exactly with eligible participants
+	case "keygen", "keyrefresh", "quorumchange":
+		// For keygen, keyrefresh, and quorumchange: participants must match exactly with eligible participants
 		if len(participants) != len(eligibleList) {
 			return errors.Errorf("participants count %d does not match eligible count %d for %s", len(participants), len(eligibleList), event.ProtocolType)
 		}

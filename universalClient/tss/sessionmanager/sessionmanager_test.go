@@ -279,7 +279,7 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 		sm.mu.Lock()
 		sm.sessions["event1"] = &sessionState{
 			session:      mockSess,
-			sessionType:  SessionTypeKeygen,
+			protocolType: "keygen",
 			coordinator:  "coordinator1",
 			expiryTime:   time.Now().Add(5 * time.Minute),
 			participants: []string{"validator2", "validator3"},

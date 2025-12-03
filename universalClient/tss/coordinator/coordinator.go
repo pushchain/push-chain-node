@@ -206,6 +206,8 @@ func (c *Coordinator) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
 
 // GetEligibleUV returns eligible validators for the given protocol type.
 // Uses cached allValidators for performance.
+// For sign: returns ALL eligible validators (Active + Pending Leave), not a random subset.
+// This is used for validation - the random subset selection happens only in processEventAsCoordinator.
 func (c *Coordinator) GetEligibleUV(protocolType string) []*UniversalValidator {
 	c.mu.RLock()
 	allValidators := c.allValidators
@@ -215,7 +217,7 @@ func (c *Coordinator) GetEligibleUV(protocolType string) []*UniversalValidator {
 		return nil
 	}
 
-	eligible := getParticipantsForProtocol(protocolType, allValidators)
+	eligible := getEligibleForProtocol(protocolType, allValidators)
 	if eligible == nil {
 		return nil
 	}
@@ -689,35 +691,44 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 	return setupData, nil
 }
 
-// getParticipantsForProtocol returns participants for a given protocol type.
-// This is a centralized function to avoid duplication of participant selection logic.
-func getParticipantsForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
+// getEligibleForProtocol returns all eligible validators for a given protocol type.
+// This is used for validation - returns ALL eligible validators, not a random subset.
+// For sign: returns all (Active + Pending Leave) validators.
+func getEligibleForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
 	switch protocolType {
 	case "keygen", "quorumchange":
-		// For keygen and quorumchange: Active + Pending Join
+		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
 	case "keyrefresh":
-		// For keyrefresh: Only Active
+		// Only Active
 		return getActiveParticipants(allValidators)
 	case "sign":
-		// For sign: Random subset of >2/3 of (Active + Pending Leave)
-		return getSignParticipants(allValidators)
+		// Active + Pending Leave
+		return getSignEligible(allValidators)
 	default:
 		return nil
 	}
+}
+
+// getParticipantsForProtocol returns participants for a given protocol type.
+// This is a centralized function to avoid duplication of participant selection logic.
+// For sign: returns a random subset (used by coordinator when creating setup).
+// For other protocols: returns all eligible participants (same as getEligibleForProtocol).
+func getParticipantsForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
+	// For sign, we need random subset; for others, same as eligible
+	if protocolType == "sign" {
+		return getSignParticipants(allValidators)
+	}
+	// For other protocols, return all eligible (same logic)
+	return getEligibleForProtocol(protocolType, allValidators)
 }
 
 // getCoordinatorParticipants returns validators eligible to be coordinators.
 // Only Active validators can be coordinators.
 // Special case: If there are no active validators (only pending join and 1 UV), that UV becomes coordinator.
 func getCoordinatorParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
-	// First, get all active validators
-	var active []*UniversalValidator
-	for _, v := range allValidators {
-		if v.Status == UVStatusActive {
-			active = append(active, v)
-		}
-	}
+	// Get all active validators (reuse existing function)
+	active := getActiveParticipants(allValidators)
 
 	// If we have active validators, use them
 	if len(active) > 0 {
@@ -725,13 +736,7 @@ func getCoordinatorParticipants(allValidators []*UniversalValidator) []*Universa
 	}
 
 	// Special case: No active validators
-	// If there's exactly 1 validator (pending join or any status), it becomes coordinator
-	if len(allValidators) == 1 {
-		return allValidators
-	}
-
-	// If no active and more than 1 validator, return empty (no coordinator)
-	return nil
+	return allValidators
 }
 
 // getActiveParticipants returns only Active validators.
@@ -757,15 +762,23 @@ func getQuorumChangeParticipants(allValidators []*UniversalValidator) []*Univers
 	return participants
 }
 
-// getSignParticipants returns a random subset of >2/3 of (Active + Pending Leave) validators.
-func getSignParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
-	// First, get all eligible validators (Active + Pending Leave)
+// getSignEligible returns ALL eligible validators for sign protocol (Active + Pending Leave).
+// This is used for validation - returns all eligible validators without random selection.
+func getSignEligible(allValidators []*UniversalValidator) []*UniversalValidator {
 	var eligible []*UniversalValidator
 	for _, v := range allValidators {
 		if v.Status == UVStatusActive || v.Status == UVStatusPendingLeave {
 			eligible = append(eligible, v)
 		}
 	}
+	return eligible
+}
+
+// getSignParticipants returns a random subset of >2/3 of (Active + Pending Leave) validators.
+// This is used by the coordinator when creating setup messages.
+func getSignParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+	// First, get all eligible validators (Active + Pending Leave)
+	eligible := getSignEligible(allValidators)
 
 	// Use utils function to select random threshold subset
 	return selectRandomThreshold(eligible)

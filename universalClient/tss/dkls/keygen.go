@@ -94,7 +94,7 @@ func (s *keygenSession) Step() ([]Message, bool, error) {
 
 			// If receiver is self, queue locally for next step
 			if receiver == s.partyID {
-				if err := s.enqueuePayload(msgData); err != nil {
+				if err := s.InputMessage(msgData); err != nil {
 					return nil, false, fmt.Errorf("failed to queue local message: %w", err)
 				}
 				continue
@@ -110,8 +110,8 @@ func (s *keygenSession) Step() ([]Message, bool, error) {
 	return messages, false, nil
 }
 
-// enqueuePayload queues a payload message for the session.
-func (s *keygenSession) enqueuePayload(data []byte) error {
+// InputMessage processes an incoming protocol message.
+func (s *keygenSession) InputMessage(data []byte) error {
 	buf := make([]byte, len(data))
 	copy(buf, data)
 	select {
@@ -120,11 +120,6 @@ func (s *keygenSession) enqueuePayload(data []byte) error {
 	default:
 		return fmt.Errorf("payload buffer full for session %s", s.sessionID)
 	}
-}
-
-// InputMessage processes an incoming protocol message.
-func (s *keygenSession) InputMessage(data []byte) error {
-	return s.enqueuePayload(data)
 }
 
 // GetResult returns the result when finished.

@@ -178,8 +178,28 @@ func TestGetEligibleUV(t *testing.T) {
 
 	t.Run("keyrefresh protocol", func(t *testing.T) {
 		eligible := coord.GetEligibleUV("keyrefresh")
+		// Should return only Active: validator1, validator2 (not validator3 which is PendingJoin)
+		assert.Len(t, eligible, 2)
+		addresses := make(map[string]bool)
+		for _, v := range eligible {
+			addresses[v.ValidatorAddress] = true
+		}
+		assert.True(t, addresses["validator1"])
+		assert.True(t, addresses["validator2"])
+		assert.False(t, addresses["validator3"]) // PendingJoin not eligible for keyrefresh
+	})
+
+	t.Run("quorumchange protocol", func(t *testing.T) {
+		eligible := coord.GetEligibleUV("quorumchange")
 		// Should return Active + Pending Join: validator1, validator2, validator3
 		assert.Len(t, eligible, 3)
+		addresses := make(map[string]bool)
+		for _, v := range eligible {
+			addresses[v.ValidatorAddress] = true
+		}
+		assert.True(t, addresses["validator1"])
+		assert.True(t, addresses["validator2"])
+		assert.True(t, addresses["validator3"])
 	})
 
 	t.Run("sign protocol", func(t *testing.T) {

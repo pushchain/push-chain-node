@@ -6,7 +6,7 @@ type Message struct {
 	Data     []byte // Protocol message data
 }
 
-// Session manages a DKLS protocol session (keygen, keyrefresh, or sign).
+// Session manages a DKLS protocol session (keygen, keyrefresh, quorumchange, or sign).
 type Session interface {
 	// Step processes the next protocol step and returns messages to send.
 	// Returns (messages, finished, error)
@@ -16,7 +16,7 @@ type Session interface {
 	InputMessage(data []byte) error
 
 	// GetResult returns the result when finished.
-	// For keygen/keyrefresh: returns keyshare (signature will be nil)
+	// For keygen/keyrefresh/quorumchange: returns keyshare (signature will be nil)
 	// For sign: returns signature (keyshare will be nil)
 	GetResult() (*Result, error)
 
@@ -26,7 +26,7 @@ type Session interface {
 
 // Result contains the result of a DKLS protocol operation.
 type Result struct {
-	Keyshare     []byte   // For keygen/keyrefresh
+	Keyshare     []byte   // For keygen/keyrefresh/quorumchange
 	Signature    []byte   // For sign
 	KeyID        string   // Key ID
 	PublicKey    []byte   // Public key

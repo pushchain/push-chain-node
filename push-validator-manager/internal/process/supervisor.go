@@ -180,11 +180,23 @@ func (s *supervisor) Start(opts StartOpts) (int, error) {
     // if RPC port env set, leave default
     if len(opts.ExtraArgs) > 0 { args = append(args, opts.ExtraArgs...) }
 
+    // Auto-symlink ~/.env to HomeDir/.env if it exists and target doesn't
+    if home := os.Getenv("HOME"); home != "" {
+        homeEnv := filepath.Join(home, ".env")
+        targetEnv := filepath.Join(opts.HomeDir, ".env")
+        if _, err := os.Stat(homeEnv); err == nil {
+            if _, err := os.Stat(targetEnv); os.IsNotExist(err) {
+                _ = os.Symlink(homeEnv, targetEnv)
+            }
+        }
+    }
+
     // Open/append log file
     lf, err := os.OpenFile(s.logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
     if err != nil { return 0, err }
 
     cmd := exec.Command(bin, args...)
+    cmd.Dir = opts.HomeDir // Set working directory so pchaind finds .env
     cmd.Stdout = lf
     cmd.Stderr = lf
     cmd.Stdin = nil

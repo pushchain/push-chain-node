@@ -135,8 +135,7 @@ func TestQuorumChangeSession_EndToEnd(t *testing.T) {
 		t.Fatal("keygen party3 keyshare is empty")
 	}
 
-	// Store original keyID and public key for verification
-	originalKeyID := kg1Result.KeyID
+	// Store original public key for verification
 	originalPublicKey := kg1Result.PublicKey
 
 	// Now add party4 with threshold 3 (4 nodes total, threshold 3)
@@ -213,11 +212,7 @@ func TestQuorumChangeSession_EndToEnd(t *testing.T) {
 		t.Errorf("expected 4 participants, got %d", len(qcParty1Result.Participants))
 	}
 
-	// Verify keyID changes after QC
-	if qcParty1Result.KeyID == originalKeyID {
-		t.Error("keyID should change after QC")
-	}
-
+	// QuorumChange: produces new keyshare, but same public key as old
 	// Verify public key remains the same
 	if len(qcParty1Result.PublicKey) != len(originalPublicKey) {
 		t.Errorf("public key length changed: got %d, want %d", len(qcParty1Result.PublicKey), len(originalPublicKey))

@@ -28,7 +28,6 @@ type Session interface {
 type Result struct {
 	Keyshare     []byte   // For keygen/keyrefresh/quorumchange
 	Signature    []byte   // For sign
-	KeyID        string   // Key ID
 	PublicKey    []byte   // Public key
 	Participants []string // All participants
 }

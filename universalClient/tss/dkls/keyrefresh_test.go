@@ -82,8 +82,7 @@ func TestKeyrefreshSession_EndToEnd(t *testing.T) {
 		t.Fatal("keygen party2 keyshare is empty")
 	}
 
-	// Store original keyID and public key for verification
-	originalKeyID := keygenParty1Result.KeyID
+	// Store original public key for verification
 	originalPublicKey := keygenParty2Result.PublicKey
 
 	// Each party uses their own keyshare for keyrefresh
@@ -125,10 +124,8 @@ func TestKeyrefreshSession_EndToEnd(t *testing.T) {
 		t.Errorf("expected 2 participants, got %d", len(refreshResult.Participants))
 	}
 
-	// Verify keyID and public key remain the same
-	if refreshResult.KeyID != originalKeyID {
-		t.Errorf("keyID changed after keyrefresh: got %s, want %s", refreshResult.KeyID, originalKeyID)
-	}
+	// KeyRefresh: produces new keyshare, but same public key as old
+	// Verify public key remains the same
 	if len(refreshResult.PublicKey) != len(originalPublicKey) {
 		t.Errorf("public key length changed: got %d, want %d", len(refreshResult.PublicKey), len(originalPublicKey))
 	}

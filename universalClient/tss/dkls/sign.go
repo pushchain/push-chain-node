@@ -2,7 +2,6 @@ package dkls
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -19,7 +18,6 @@ type signSession struct {
 	handle       session.Handle
 	payloadCh    chan []byte
 	participants []string
-	keyID        string // Store keyID for GetResult (can't extract from sign session handle)
 	publicKey    []byte // Store publicKey for GetResult (can't extract from sign session handle)
 	messageHash  []byte // Store messageHash for signature verification
 }
@@ -64,16 +62,8 @@ func NewSignSession(
 		return nil, fmt.Errorf("failed to load keyshare: %w", err)
 	}
 
-	// Extract keyID and publicKey from keyshare before creating sign session
-	// (we can't extract them from sign session handle later)
-	keyIDBytes, err := session.DklsKeyshareKeyID(keyshareHandle)
-	if err != nil {
-		session.DklsKeyshareFree(keyshareHandle)
-		return nil, fmt.Errorf("failed to extract keyID from keyshare: %w", err)
-	}
-	// Sanitize keyID by hex-encoding it to ensure it's safe for use as a filename
-	keyID := hex.EncodeToString(keyIDBytes)
-
+	// Extract publicKey from keyshare before creating sign session
+	// (we can't extract it from sign session handle later)
 	publicKey, err := session.DklsKeysharePublicKey(keyshareHandle)
 	if err != nil {
 		session.DklsKeyshareFree(keyshareHandle)
@@ -95,7 +85,6 @@ func NewSignSession(
 		handle:       handle,
 		payloadCh:    make(chan []byte, 256),
 		participants: participants,
-		keyID:        keyID,
 		publicKey:    publicKey,
 		messageHash:  messageHash, // Store messageHash for verification
 	}, nil
@@ -189,7 +178,6 @@ func (s *signSession) GetResult() (*Result, error) {
 	return &Result{
 		Keyshare:     nil,
 		Signature:    sig,
-		KeyID:        s.keyID,     // Use stored keyID
 		PublicKey:    s.publicKey, // Use stored publicKey
 		Participants: participants,
 	}, nil

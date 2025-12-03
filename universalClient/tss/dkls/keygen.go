@@ -1,7 +1,6 @@
 package dkls
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	session "go-wrapper/go-dkls/sessions"
@@ -137,15 +136,7 @@ func (s *keygenSession) GetResult() (*Result, error) {
 		return nil, fmt.Errorf("failed to extract keyshare: %w", err)
 	}
 
-	// Extract keyID and publicKey from keyshare handle
-	keyIDBytes, err := session.DklsKeyshareKeyID(keyHandle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract keyID: %w", err)
-	}
-	// Sanitize keyID by hex-encoding it to ensure it's safe for use as a filename
-	// This prevents issues with invalid characters like /, \, .., etc.
-	keyID := hex.EncodeToString(keyIDBytes)
-
+	// Extract publicKey from keyshare handle
 	publicKey, err := session.DklsKeysharePublicKey(keyHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract publicKey: %w", err)
@@ -158,7 +149,6 @@ func (s *keygenSession) GetResult() (*Result, error) {
 	return &Result{
 		Keyshare:     keyshare,
 		Signature:    nil,
-		KeyID:        keyID,
 		PublicKey:    publicKey,
 		Participants: participants,
 	}, nil

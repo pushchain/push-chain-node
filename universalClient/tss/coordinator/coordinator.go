@@ -658,10 +658,12 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 		validatorStatusMap[v.ValidatorAddress] = v.Status
 	}
 
-	// Calculate old participant indices (Active validators) and new participant indices (Pending Join validators)
+	// Calculate old participant indices (Active validators)
+	// newParticipantIndices should include all parties in the new quorum (all partyIDs)
 	var oldParticipantIndices []int
 	var newParticipantIndices []int
 
+	// oldParticipantIndices: indices of Active validators (staying participants)
 	for i, partyID := range partyIDs {
 		status, exists := validatorStatusMap[partyID]
 		if !exists {
@@ -669,14 +671,15 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 			continue
 		}
 
-		switch status {
-		case UVStatusActive:
+		if status == UVStatusActive {
 			// Active validators are old participants (staying)
 			oldParticipantIndices = append(oldParticipantIndices, i)
-		case UVStatusPendingJoin:
-			// Pending Join validators are new participants (being added)
-			newParticipantIndices = append(newParticipantIndices, i)
 		}
+	}
+
+	// newParticipantIndices: all parties in the new quorum (all partyIDs)
+	for i := range partyIDs {
+		newParticipantIndices = append(newParticipantIndices, i)
 	}
 
 	setupData, err := session.DklsQcSetupMsgNew(oldKeyshareHandle, threshold, partyIDs, oldParticipantIndices, newParticipantIndices)

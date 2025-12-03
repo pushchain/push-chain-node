@@ -38,85 +38,115 @@ func (p *StaticPushChainDataProvider) GetLatestBlockNum(ctx context.Context) (ui
 
 // GetUniversalValidators returns all universal validators.
 func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*coordinator.UniversalValidator, error) {
-	// Read nodes from shared registry file
+	// Read nodes from shared registry file - already returns UniversalValidator
 	nodes, err := readNodeRegistry(p.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read node registry: %w", err)
 	}
 
-	// Convert to UniversalValidator list
-	validators := make([]*coordinator.UniversalValidator, 0, len(nodes))
+	// Ensure all nodes have valid status (default to pending_join if missing)
 	for _, node := range nodes {
-		validators = append(validators, &coordinator.UniversalValidator{
-			ValidatorAddress: node.ValidatorAddress,
-			Status:           coordinator.UVStatusActive,
-			Network: coordinator.NetworkInfo{
-				PeerID:     node.PeerID,
-				Multiaddrs: node.Multiaddrs,
-			},
-			JoinedAtBlock: 0,
-		})
+		if node.Status == coordinator.UVStatusUnspecified || node.Status == "" {
+			p.logger.Debug().
+				Str("validator", node.ValidatorAddress).
+				Msg("node has unspecified status, defaulting to pending_join")
+			node.Status = coordinator.UVStatusPendingJoin
+		}
 	}
 
-	return validators, nil
+	return nodes, nil
 }
 
 // GetCurrentTSSKeyId returns the current TSS key ID.
-// Checks the latest created keyshare file in the tmp directory.
+// Checks the latest created keyshare file across all valid nodes.
+// New nodes might not have a keyId yet, so we check all nodes and return the latest one found.
 func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
-	// Construct the keyshare directory path based on validator address
-	// Default location is /tmp/tss-<validator>/keyshares
-	sanitized := strings.ReplaceAll(strings.ReplaceAll(p.validatorAddress, ":", "_"), "/", "_")
-	keyshareDir := filepath.Join("/tmp", fmt.Sprintf("tss-%s", sanitized), "keyshares")
-
-	// Check if directory exists
-	if _, err := os.Stat(keyshareDir); os.IsNotExist(err) {
-		// No keyshares directory yet, return empty string
-		return "", nil
-	}
-
-	// Read all files in the keyshare directory
-	entries, err := os.ReadDir(keyshareDir)
+	// Read all nodes from registry
+	nodes, err := readNodeRegistry(p.logger)
 	if err != nil {
-		return "", fmt.Errorf("failed to read keyshare directory: %w", err)
+		return "", fmt.Errorf("failed to read node registry: %w", err)
 	}
 
-	if len(entries) == 0 {
-		// No keyshares found
+	if len(nodes) == 0 {
+		// No nodes found, return empty string
 		return "", nil
 	}
 
-	// Get file info for all entries and sort by modification time
+	// Collect all keyshare files from all nodes
 	type fileInfo struct {
-		name    string
+		keyID   string
 		modTime time.Time
+		node    string
 	}
 
-	files := make([]fileInfo, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
+	allFiles := make([]fileInfo, 0)
+
+	// Check each node's keyshare directory
+	for _, node := range nodes {
+		// Construct the keyshare directory path for this node
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		keyshareDir := filepath.Join("./tss-data", fmt.Sprintf("tss-%s", sanitized), "keyshares")
+
+		// Check if directory exists (new nodes might not have keyshares yet)
+		if _, err := os.Stat(keyshareDir); os.IsNotExist(err) {
+			p.logger.Debug().
+				Str("node", node.ValidatorAddress).
+				Str("keyshare_dir", keyshareDir).
+				Msg("keyshare directory does not exist for node, skipping")
 			continue
 		}
-		info, err := entry.Info()
+
+		// Read all files in the keyshare directory
+		entries, err := os.ReadDir(keyshareDir)
 		if err != nil {
-			p.logger.Warn().Err(err).Str("file", entry.Name()).Msg("failed to get file info, skipping")
+			p.logger.Warn().
+				Err(err).
+				Str("node", node.ValidatorAddress).
+				Str("keyshare_dir", keyshareDir).
+				Msg("failed to read keyshare directory, skipping")
 			continue
 		}
-		files = append(files, fileInfo{
-			name:    entry.Name(),
-			modTime: info.ModTime(),
-		})
+
+		// Get file info for all entries
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			info, err := entry.Info()
+			if err != nil {
+				p.logger.Warn().
+					Err(err).
+					Str("node", node.ValidatorAddress).
+					Str("file", entry.Name()).
+					Msg("failed to get file info, skipping")
+				continue
+			}
+			allFiles = append(allFiles, fileInfo{
+				keyID:   entry.Name(),
+				modTime: info.ModTime(),
+				node:    node.ValidatorAddress,
+			})
+		}
 	}
 
-	if len(files) == 0 {
+	if len(allFiles) == 0 {
+		// No keyshares found across all nodes
 		return "", nil
 	}
 
 	// Sort by modification time (newest first)
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].modTime.After(files[j].modTime)
+	sort.Slice(allFiles, func(i, j int) bool {
+		return allFiles[i].modTime.After(allFiles[j].modTime)
 	})
 
 	// Return the most recent keyshare file name (which is the keyID)
-	return files[0].name, nil
+	latestKeyID := allFiles[0].keyID
+	p.logger.Debug().
+		Str("key_id", latestKeyID).
+		Str("from_node", allFiles[0].node).
+		Time("mod_time", allFiles[0].modTime).
+		Int("total_keyshares", len(allFiles)).
+		Msg("found latest keyId from all nodes")
+
+	return latestKeyID, nil
 }

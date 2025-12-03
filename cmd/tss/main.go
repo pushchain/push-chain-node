@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -20,11 +21,14 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
+	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 )
 
 const (
+	// tssDataDir is the directory in project root for TSS data
+	tssDataDir = "./tss-data"
 	// nodesRegistryFile is the shared file where all nodes register themselves
-	nodesRegistryFile = "/tmp/tss-nodes.json"
+	nodesRegistryFile = "./tss-data/tss-nodes.json"
 )
 
 func main() {
@@ -43,8 +47,14 @@ func main() {
 		runKeygen()
 	case "keyrefresh":
 		runKeyrefresh()
+	case "qc", "quorumchange":
+		runQc()
 	case "sign":
 		runSign()
+	case "prepare":
+		runPrepare()
+	case "status":
+		runStatus()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
@@ -59,26 +69,24 @@ func printUsage() {
 	fmt.Println("  node          Run a TSS node")
 	fmt.Println("  keygen        Trigger a keygen operation")
 	fmt.Println("  keyrefresh    Trigger a keyrefresh operation")
+	fmt.Println("  qc            Trigger a quorumchange operation")
 	fmt.Println("  sign          Trigger a sign operation")
+	fmt.Println("  prepare       Prepare environment (clean TSS files and build latest binary)")
+	fmt.Println("  status        Set node status (active, pending_join, pending_leave, inactive)")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  tss node -validator-address=pushvaloper1... -private-key=30B0D9... -p2p-listen=/ip4/127.0.0.1/tcp/39001")
 	fmt.Println("  tss keygen")
 	fmt.Println("  tss keyrefresh")
+	fmt.Println("  tss qc")
 	fmt.Println("  tss sign -message=\"Hello, World!\"")
-}
-
-// nodeRegistryEntry represents a single node's registration info
-type nodeRegistryEntry struct {
-	ValidatorAddress string    `json:"validator_address"`
-	PeerID           string    `json:"peer_id"`
-	Multiaddrs       []string  `json:"multiaddrs"`
-	LastUpdated      time.Time `json:"last_updated"`
+	fmt.Println("  tss prepare")
 }
 
 // nodeRegistry is the in-memory representation of the registry file
+// Uses UniversalValidator structure directly
 type nodeRegistry struct {
-	Nodes []nodeRegistryEntry `json:"nodes"`
+	Nodes []*coordinator.UniversalValidator `json:"nodes"`
 	mu    sync.RWMutex
 }
 
@@ -87,17 +95,17 @@ var (
 )
 
 // registerNode adds or updates a node in the shared registry file
-func registerNode(node nodeRegistryEntry, logger zerolog.Logger) error {
+func registerNode(node *coordinator.UniversalValidator, logger zerolog.Logger) error {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
 	// Read existing registry
-	registry := &nodeRegistry{Nodes: []nodeRegistryEntry{}}
+	registry := &nodeRegistry{Nodes: []*coordinator.UniversalValidator{}}
 	data, err := os.ReadFile(nodesRegistryFile)
 	if err == nil {
 		if err := json.Unmarshal(data, registry); err != nil {
 			logger.Warn().Err(err).Msg("failed to parse existing registry, creating new one")
-			registry.Nodes = []nodeRegistryEntry{}
+			registry.Nodes = []*coordinator.UniversalValidator{}
 		}
 	}
 
@@ -128,7 +136,7 @@ func registerNode(node nodeRegistryEntry, logger zerolog.Logger) error {
 }
 
 // readNodeRegistry reads all nodes from the shared registry file
-func readNodeRegistry(logger zerolog.Logger) ([]nodeRegistryEntry, error) {
+func readNodeRegistry(logger zerolog.Logger) ([]*coordinator.UniversalValidator, error) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
@@ -136,7 +144,7 @@ func readNodeRegistry(logger zerolog.Logger) ([]nodeRegistryEntry, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// File doesn't exist yet, return empty list
-			return []nodeRegistryEntry{}, nil
+			return []*coordinator.UniversalValidator{}, nil
 		}
 		return nil, fmt.Errorf("failed to read registry file: %w", err)
 	}
@@ -154,9 +162,9 @@ func runNode() {
 		validatorAddr = flag.String("validator-address", "", "validator address (unique per node)")
 		privateKeyHex = flag.String("private-key", "", "Ed25519 private key in hex format (required)")
 		libp2pListen  = flag.String("p2p-listen", "/ip4/127.0.0.1/tcp/0", "libp2p listen multiaddr")
-		homeDir       = flag.String("home", "", "directory for keyshare storage (defaults to /tmp/tss-<validator>)")
+		homeDir       = flag.String("home", "", "directory for keyshare storage (defaults to ./tss-data/tss-<validator>)")
 		password      = flag.String("password", "demo-password", "encryption password for keyshares")
-		dbPath        = flag.String("db", "", "database file path (defaults to /tmp/tss-<validator>.db)")
+		dbPath        = flag.String("db", "", "database file path (defaults to ./tss-data/tss-<validator>/uv.db)")
 	)
 	flag.Parse()
 
@@ -172,14 +180,26 @@ func runNode() {
 		os.Exit(1)
 	}
 
+	// Ensure tss-data directory exists
+	if err := os.MkdirAll(tssDataDir, 0755); err != nil {
+		fmt.Printf("failed to create tss-data directory: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Set defaults for home and db if not provided
 	if *homeDir == "" {
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(*validatorAddr, ":", "_"), "/", "_")
-		*homeDir = fmt.Sprintf("/tmp/tss-%s", sanitized)
+		*homeDir = filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized))
 	}
 	if *dbPath == "" {
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(*validatorAddr, ":", "_"), "/", "_")
-		*dbPath = fmt.Sprintf("/tmp/tss-%s.db", sanitized)
+		// Database is stored as uv.db inside the node's directory
+		nodeDir := filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized))
+		if err := os.MkdirAll(nodeDir, 0755); err != nil {
+			fmt.Printf("failed to create node directory: %v\n", err)
+			os.Exit(1)
+		}
+		*dbPath = filepath.Join(nodeDir, "uv.db")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -239,11 +259,15 @@ func runNode() {
 	}
 
 	// Register this node in the shared registry file
-	nodeInfo := nodeRegistryEntry{
+	// Default status is pending_join for new nodes
+	nodeInfo := &coordinator.UniversalValidator{
 		ValidatorAddress: *validatorAddr,
-		PeerID:           peerID,
-		Multiaddrs:       listenAddrs,
-		LastUpdated:      time.Now(),
+		Status:           coordinator.UVStatusPendingJoin, // Default status for new nodes
+		Network: coordinator.NetworkInfo{
+			PeerID:     peerID,
+			Multiaddrs: listenAddrs,
+		},
+		JoinedAtBlock: 0,
 	}
 	if err := registerNode(nodeInfo, logger); err != nil {
 		logger.Fatal().Err(err).Msg("failed to register node in registry")
@@ -282,7 +306,8 @@ func runKeygen() {
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
-		nodeDBs = append(nodeDBs, fmt.Sprintf("/tmp/tss-%s.db", sanitized))
+		// Database is stored as uv.db inside the node's directory
+		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
 
 	blockNum := uint64(time.Now().Unix())
@@ -356,7 +381,8 @@ func runKeyrefresh() {
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
-		nodeDBs = append(nodeDBs, fmt.Sprintf("/tmp/tss-%s.db", sanitized))
+		// Database is stored as uv.db inside the node's directory
+		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
 
 	blockNum := uint64(time.Now().Unix())
@@ -407,6 +433,81 @@ func runKeyrefresh() {
 		Msg("keyrefresh event creation completed")
 }
 
+func runQc() {
+	flag.Parse()
+
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
+		With().
+		Str("command", "qc").
+		Timestamp().
+		Logger()
+
+	// Read all nodes from registry
+	nodes, err := readNodeRegistry(logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to read node registry")
+	}
+
+	if len(nodes) == 0 {
+		logger.Fatal().Msg("no nodes found in registry - start at least one node first")
+	}
+
+	// Get all database paths
+	nodeDBs := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		// Database is stored as uv.db inside the node's directory
+		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
+	}
+
+	blockNum := uint64(time.Now().Unix())
+	eventID := fmt.Sprintf("qc-%d", blockNum)
+
+	// Create event in all node databases
+	// eventData is empty for quorumchange
+	successCount := 0
+	for _, dbPath := range nodeDBs {
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+		if err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to open database, skipping")
+			continue
+		}
+
+		// Auto-migrate
+		if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to migrate database, skipping")
+			continue
+		}
+
+		event := store.TSSEvent{
+			EventID:      eventID,
+			BlockNumber:  blockNum,
+			ProtocolType: "quorumchange",
+			Status:       "PENDING",
+			EventData:    nil,             // Empty for quorumchange
+			ExpiryHeight: blockNum + 1000, // Expire after 1000 blocks
+		}
+
+		if err := db.Create(&event).Error; err != nil {
+			logger.Warn().Err(err).Str("db", dbPath).Msg("failed to create event, skipping")
+			continue
+		}
+
+		successCount++
+		logger.Info().
+			Str("event_id", eventID).
+			Uint64("block", blockNum).
+			Str("db", dbPath).
+			Msg("created quorumchange event in database")
+	}
+
+	logger.Info().
+		Str("event_id", eventID).
+		Int("success", successCount).
+		Int("total", len(nodes)).
+		Msg("quorumchange event creation completed")
+}
+
 func runSign() {
 	var (
 		message = flag.String("message", "", "message to sign (required)")
@@ -439,7 +540,8 @@ func runSign() {
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
-		nodeDBs = append(nodeDBs, fmt.Sprintf("/tmp/tss-%s.db", sanitized))
+		// Database is stored as uv.db inside the node's directory
+		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
 
 	blockNum := uint64(time.Now().Unix())
@@ -494,4 +596,200 @@ func runSign() {
 		Int("success", successCount).
 		Int("total", len(nodes)).
 		Msg("sign event creation completed")
+}
+
+func runPrepare() {
+	flag.Parse()
+
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
+		With().
+		Str("command", "prepare").
+		Timestamp().
+		Logger()
+
+	logger.Info().Msg("preparing environment: cleaning TSS files and building binary")
+
+	// Step 1: Clean TSS files
+	logger.Info().Str("dir", tssDataDir).Msg("cleaning all TSS-related files")
+
+	// Clean node registry file
+	if err := os.Remove(nodesRegistryFile); err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warn().Err(err).Str("file", nodesRegistryFile).Msg("failed to remove node registry file")
+		} else {
+			logger.Debug().Str("file", nodesRegistryFile).Msg("node registry file does not exist")
+		}
+	} else {
+		logger.Info().Str("file", nodesRegistryFile).Msg("removed node registry file")
+	}
+
+	// Find and remove all TSS directories and database files
+	entries, err := os.ReadDir(tssDataDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger.Info().Str("dir", tssDataDir).Msg("tss-data directory does not exist, nothing to clean")
+		} else {
+			logger.Fatal().Err(err).Str("dir", tssDataDir).Msg("failed to read tss-data directory")
+		}
+	} else {
+		removedDirs := 0
+		removedDBs := 0
+
+		for _, entry := range entries {
+			name := entry.Name()
+
+			// Remove TSS directories (tss-*)
+			if strings.HasPrefix(name, "tss-") && entry.IsDir() {
+				dirPath := filepath.Join(tssDataDir, name)
+				if err := os.RemoveAll(dirPath); err != nil {
+					logger.Warn().Err(err).Str("dir", dirPath).Msg("failed to remove TSS directory")
+				} else {
+					logger.Info().Str("dir", dirPath).Msg("removed TSS directory")
+					removedDirs++
+				}
+			}
+
+			// Remove uv.db files inside tss-* directories
+			if strings.HasPrefix(name, "tss-") && entry.IsDir() {
+				dbPath := filepath.Join(tssDataDir, name, "uv.db")
+				if _, err := os.Stat(dbPath); err == nil {
+					if err := os.Remove(dbPath); err != nil {
+						logger.Warn().Err(err).Str("file", dbPath).Msg("failed to remove TSS database file")
+					} else {
+						logger.Info().Str("file", dbPath).Msg("removed TSS database file")
+						removedDBs++
+					}
+				}
+			}
+		}
+
+		logger.Info().
+			Int("directories_removed", removedDirs).
+			Int("database_files_removed", removedDBs).
+			Msg("clean completed")
+	}
+
+	// Step 2: Build latest binary
+	logger.Info().Msg("building latest binary...")
+
+	// Ensure build directory exists
+	if _, err := os.Stat("./build"); os.IsNotExist(err) {
+		if err := os.MkdirAll("./build", 0755); err != nil {
+			logger.Warn().Err(err).Msg("failed to create build directory, continuing anyway")
+		}
+	}
+
+	// Execute build command
+	cmd := exec.Command("go", "build", "-o", "./build/tss", "./cmd/tss")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		logger.Fatal().Err(err).Msg("failed to build binary")
+	}
+
+	logger.Info().
+		Str("binary", "./build/tss").
+		Msg("prepare completed successfully")
+}
+
+func runStatus() {
+	var (
+		validatorAddr = flag.String("validator-address", "", "validator address (required)")
+		status        = flag.String("status", "", "status to set: active, pending_join, pending_leave, inactive (required)")
+	)
+	flag.Parse()
+
+	if *validatorAddr == "" {
+		fmt.Println("validator-address flag is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if *status == "" {
+		fmt.Println("status flag is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	// Validate status
+	validStatuses := map[string]bool{
+		"active":        true,
+		"pending_join":  true,
+		"pending_leave": true,
+		"inactive":      true,
+	}
+	if !validStatuses[*status] {
+		fmt.Printf("Invalid status: %s. Must be one of: active, pending_join, pending_leave, inactive\n", *status)
+		os.Exit(1)
+	}
+
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).
+		With().
+		Str("command", "status").
+		Timestamp().
+		Logger()
+
+	// Read existing registry
+	registryMu.Lock()
+	defer registryMu.Unlock()
+
+	registry := &nodeRegistry{Nodes: []*coordinator.UniversalValidator{}}
+	data, err := os.ReadFile(nodesRegistryFile)
+	if err == nil {
+		if err := json.Unmarshal(data, registry); err != nil {
+			logger.Warn().Err(err).Msg("failed to parse existing registry, creating new one")
+			registry.Nodes = []*coordinator.UniversalValidator{}
+		}
+	}
+
+	// Map status string to UVStatus
+	var uvStatus coordinator.UVStatus
+	switch *status {
+	case "active":
+		uvStatus = coordinator.UVStatusActive
+	case "pending_join":
+		uvStatus = coordinator.UVStatusPendingJoin
+	case "pending_leave":
+		uvStatus = coordinator.UVStatusPendingLeave
+	case "inactive":
+		uvStatus = coordinator.UVStatusInactive
+	default:
+		logger.Fatal().Str("status", *status).Msg("invalid status")
+	}
+
+	// Find and update the node
+	found := false
+	for i := range registry.Nodes {
+		if registry.Nodes[i].ValidatorAddress == *validatorAddr {
+			registry.Nodes[i].Status = uvStatus
+			found = true
+			logger.Info().
+				Str("validator", *validatorAddr).
+				Str("status", *status).
+				Msg("updated node status")
+			break
+		}
+	}
+
+	if !found {
+		logger.Fatal().
+			Str("validator", *validatorAddr).
+			Msg("node not found in registry - start the node first")
+	}
+
+	// Write back to file
+	data, err = json.MarshalIndent(registry, "", "  ")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to marshal registry")
+	}
+
+	if err := os.WriteFile(nodesRegistryFile, data, 0644); err != nil {
+		logger.Fatal().Err(err).Msg("failed to write registry file")
+	}
+
+	logger.Info().
+		Str("validator", *validatorAddr).
+		Str("status", *status).
+		Msg("status updated successfully")
 }

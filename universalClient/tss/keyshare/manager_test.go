@@ -71,16 +71,16 @@ func TestManager_Store(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key-1"
+		id := "test-key-1"
 		keyshareData := []byte("test keyshare data")
 
-		err = mgr.Store(keyshareData, keyID)
+		err = mgr.Store(keyshareData, id)
 		if err != nil {
 			t.Fatalf("Store() error = %v, want nil", err)
 		}
 
 		// Verify file was created
-		filePath := filepath.Join(mgr.keysharesDir, keyID)
+		filePath := filepath.Join(mgr.keysharesDir, id)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			t.Fatal("keyshare file was not created")
 		}
@@ -96,7 +96,7 @@ func TestManager_Store(t *testing.T) {
 		}
 	})
 
-	t.Run("empty keyID", func(t *testing.T) {
+	t.Run("empty id", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {
@@ -104,12 +104,12 @@ func TestManager_Store(t *testing.T) {
 		}
 
 		err = mgr.Store([]byte("data"), "")
-		if err != ErrInvalidKeyID {
-			t.Errorf("Store() error = %v, want %v", err, ErrInvalidKeyID)
+		if err != ErrInvalidID {
+			t.Errorf("Store() error = %v, want %v", err, ErrInvalidID)
 		}
 	})
 
-	t.Run("keyID with path separator", func(t *testing.T) {
+	t.Run("id with path separator", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {
@@ -123,15 +123,15 @@ func TestManager_Store(t *testing.T) {
 			"key/../../etc/passwd",
 		}
 
-		for _, keyID := range testCases {
-			err = mgr.Store([]byte("data"), keyID)
+		for _, id := range testCases {
+			err = mgr.Store([]byte("data"), id)
 			if err == nil {
-				t.Errorf("Store() with keyID %q error = nil, want error", keyID)
+				t.Errorf("Store() with id %q error = nil, want error", id)
 			}
-			if err != ErrInvalidKeyID && !reflect.TypeOf(err).AssignableTo(reflect.TypeOf(&ErrInvalidKeyID)) {
-				// Check if it's a wrapped ErrInvalidKeyID
+			if err != ErrInvalidID && !reflect.TypeOf(err).AssignableTo(reflect.TypeOf(&ErrInvalidID)) {
+				// Check if it's a wrapped ErrInvalidID
 				if !reflect.TypeOf(err).AssignableTo(reflect.TypeOf((*error)(nil)).Elem()) {
-					t.Errorf("Store() with keyID %q error = %v, want ErrInvalidKeyID", keyID, err)
+					t.Errorf("Store() with id %q error = %v, want ErrInvalidID", id, err)
 				}
 			}
 		}
@@ -145,15 +145,15 @@ func TestManager_Store(t *testing.T) {
 		}
 
 		keyshareData := []byte("sensitive keyshare data")
-		keyID := "test-key"
+		id := "test-key"
 
-		err = mgr.Store(keyshareData, keyID)
+		err = mgr.Store(keyshareData, id)
 		if err != nil {
 			t.Fatalf("Store() error = %v", err)
 		}
 
 		// Read raw file and verify it's encrypted (not plaintext)
-		filePath := filepath.Join(mgr.keysharesDir, keyID)
+		filePath := filepath.Join(mgr.keysharesDir, id)
 		encryptedData, err := os.ReadFile(filePath)
 		if err != nil {
 			t.Fatalf("failed to read encrypted file: %v", err)
@@ -179,17 +179,17 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key-1"
+		id := "test-key-1"
 		originalData := []byte("test keyshare data")
 
 		// Store keyshare
-		err = mgr.Store(originalData, keyID)
+		err = mgr.Store(originalData, id)
 		if err != nil {
 			t.Fatalf("Store() error = %v", err)
 		}
 
 		// Retrieve keyshare
-		retrievedData, err := mgr.Get(keyID)
+		retrievedData, err := mgr.Get(id)
 		if err != nil {
 			t.Fatalf("Get() error = %v, want nil", err)
 		}
@@ -212,7 +212,7 @@ func TestManager_Get(t *testing.T) {
 		}
 	})
 
-	t.Run("empty keyID", func(t *testing.T) {
+	t.Run("empty id", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {
@@ -220,12 +220,12 @@ func TestManager_Get(t *testing.T) {
 		}
 
 		_, err = mgr.Get("")
-		if err != ErrInvalidKeyID {
-			t.Errorf("Get() error = %v, want %v", err, ErrInvalidKeyID)
+		if err != ErrInvalidID {
+			t.Errorf("Get() error = %v, want %v", err, ErrInvalidID)
 		}
 	})
 
-	t.Run("keyID with path separator", func(t *testing.T) {
+	t.Run("id with path separator", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {
@@ -245,11 +245,11 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key"
+		id := "test-key"
 		keyshareData := []byte("test data")
 
 		// Store with correct password
-		err = mgr1.Store(keyshareData, keyID)
+		err = mgr1.Store(keyshareData, id)
 		if err != nil {
 			t.Fatalf("Store() error = %v", err)
 		}
@@ -260,7 +260,7 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		_, err = mgr2.Get(keyID)
+		_, err = mgr2.Get(id)
 		if !errors.Is(err, ErrDecryptionFailed) {
 			t.Errorf("Get() with wrong password error = %v, want %v", err, ErrDecryptionFailed)
 		}
@@ -273,8 +273,8 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key"
-		filePath := filepath.Join(mgr.keysharesDir, keyID)
+		id := "test-key"
+		filePath := filepath.Join(mgr.keysharesDir, id)
 
 		// Write corrupted data
 		corruptedData := []byte("corrupted encrypted data")
@@ -283,7 +283,7 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("failed to write corrupted file: %v", err)
 		}
 
-		_, err = mgr.Get(keyID)
+		_, err = mgr.Get(id)
 		if !errors.Is(err, ErrDecryptionFailed) {
 			t.Errorf("Get() with corrupted data error = %v, want %v", err, ErrDecryptionFailed)
 		}
@@ -296,8 +296,8 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key"
-		filePath := filepath.Join(mgr.keysharesDir, keyID)
+		id := "test-key"
+		filePath := filepath.Join(mgr.keysharesDir, id)
 
 		// Write data that's too short (less than saltLength + nonceLength)
 		shortData := make([]byte, saltLength+nonceLength-1)
@@ -306,7 +306,7 @@ func TestManager_Get(t *testing.T) {
 			t.Fatalf("failed to write short file: %v", err)
 		}
 
-		_, err = mgr.Get(keyID)
+		_, err = mgr.Get(id)
 		if !errors.Is(err, ErrDecryptionFailed) {
 			t.Errorf("Get() with too short data error = %v, want %v", err, ErrDecryptionFailed)
 		}
@@ -321,17 +321,17 @@ func TestManager_Exists(t *testing.T) {
 			t.Fatalf("NewManager() error = %v", err)
 		}
 
-		keyID := "test-key"
+		id := "test-key"
 		keyshareData := []byte("test data")
 
 		// Store keyshare
-		err = mgr.Store(keyshareData, keyID)
+		err = mgr.Store(keyshareData, id)
 		if err != nil {
 			t.Fatalf("Store() error = %v", err)
 		}
 
 		// Check existence
-		exists, err := mgr.Exists(keyID)
+		exists, err := mgr.Exists(id)
 		if err != nil {
 			t.Fatalf("Exists() error = %v, want nil", err)
 		}
@@ -356,7 +356,7 @@ func TestManager_Exists(t *testing.T) {
 		}
 	})
 
-	t.Run("empty keyID", func(t *testing.T) {
+	t.Run("empty id", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {
@@ -364,12 +364,12 @@ func TestManager_Exists(t *testing.T) {
 		}
 
 		_, err = mgr.Exists("")
-		if err != ErrInvalidKeyID {
-			t.Errorf("Exists() error = %v, want %v", err, ErrInvalidKeyID)
+		if err != ErrInvalidID {
+			t.Errorf("Exists() error = %v, want %v", err, ErrInvalidID)
 		}
 	})
 
-	t.Run("keyID with path separator", func(t *testing.T) {
+	t.Run("id with path separator", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		mgr, err := NewManager(tmpDir, "password")
 		if err != nil {

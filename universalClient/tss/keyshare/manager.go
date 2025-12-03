@@ -17,7 +17,7 @@ import (
 
 var (
 	ErrKeyshareNotFound = errors.New("keyshare not found")
-	ErrInvalidKeyID     = errors.New("invalid key ID")
+	ErrInvalidID        = errors.New("invalid ID")
 	ErrInvalidKey       = errors.New("invalid encryption key")
 	ErrDecryptionFailed = errors.New("decryption failed")
 )
@@ -63,15 +63,15 @@ func NewManager(homeDir string, encryptionPassword string) (*Manager, error) {
 
 // Store stores an encrypted keyshare as a file.
 // keyshareBytes: Raw keyshare bytes from DKLS library
-// keyID: Unique key identifier (used as filename)
-func (m *Manager) Store(keyshareBytes []byte, keyID string) error {
-	if keyID == "" {
-		return ErrInvalidKeyID
+// id: Unique identifier (used as filename)
+func (m *Manager) Store(keyshareBytes []byte, id string) error {
+	if id == "" {
+		return ErrInvalidID
 	}
 
-	// Validate keyID doesn't contain path separators or other dangerous characters
-	if strings.Contains(keyID, "/") || strings.Contains(keyID, "\\") || strings.Contains(keyID, "..") {
-		return fmt.Errorf("%w: keyID contains invalid characters", ErrInvalidKeyID)
+	// Validate id doesn't contain path separators or other dangerous characters
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return fmt.Errorf("%w: id contains invalid characters", ErrInvalidID)
 	}
 
 	// Encrypt keyshare
@@ -81,7 +81,7 @@ func (m *Manager) Store(keyshareBytes []byte, keyID string) error {
 	}
 
 	// Write to file
-	filePath := filepath.Join(m.keysharesDir, keyID)
+	filePath := filepath.Join(m.keysharesDir, id)
 	if err := os.WriteFile(filePath, encryptedData, filePerms); err != nil {
 		return fmt.Errorf("failed to write keyshare file: %w", err)
 	}
@@ -91,17 +91,17 @@ func (m *Manager) Store(keyshareBytes []byte, keyID string) error {
 
 // Get retrieves and decrypts a keyshare from a file.
 // Returns the decrypted keyshare bytes.
-func (m *Manager) Get(keyID string) ([]byte, error) {
-	if keyID == "" {
-		return nil, ErrInvalidKeyID
+func (m *Manager) Get(id string) ([]byte, error) {
+	if id == "" {
+		return nil, ErrInvalidID
 	}
 
-	// Validate keyID doesn't contain path separators
-	if strings.Contains(keyID, "/") || strings.Contains(keyID, "\\") || strings.Contains(keyID, "..") {
-		return nil, fmt.Errorf("%w: keyID contains invalid characters", ErrInvalidKeyID)
+	// Validate id doesn't contain path separators
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return nil, fmt.Errorf("%w: id contains invalid characters", ErrInvalidID)
 	}
 
-	filePath := filepath.Join(m.keysharesDir, keyID)
+	filePath := filepath.Join(m.keysharesDir, id)
 
 	// Read encrypted file
 	encryptedData, err := os.ReadFile(filePath)
@@ -121,18 +121,18 @@ func (m *Manager) Get(keyID string) ([]byte, error) {
 	return keyshareBytes, nil
 }
 
-// Exists checks if a keyshare file exists for the given keyID.
-func (m *Manager) Exists(keyID string) (bool, error) {
-	if keyID == "" {
-		return false, ErrInvalidKeyID
+// Exists checks if a keyshare file exists for the given id.
+func (m *Manager) Exists(id string) (bool, error) {
+	if id == "" {
+		return false, ErrInvalidID
 	}
 
-	// Validate keyID doesn't contain path separators
-	if strings.Contains(keyID, "/") || strings.Contains(keyID, "\\") || strings.Contains(keyID, "..") {
-		return false, fmt.Errorf("%w: keyID contains invalid characters", ErrInvalidKeyID)
+	// Validate id doesn't contain path separators
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return false, fmt.Errorf("%w: id contains invalid characters", ErrInvalidID)
 	}
 
-	filePath := filepath.Join(m.keysharesDir, keyID)
+	filePath := filepath.Join(m.keysharesDir, id)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {

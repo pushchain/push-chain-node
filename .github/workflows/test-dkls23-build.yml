@@ -26,20 +26,17 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          # persist-credentials allows git to access private repos in same org automatically
-          persist-credentials: true
 
       - name: Configure Git for private repos
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_DKLS_GARBLING: ${{ secrets.CI_DKLS_GARBLING }}
         run: |
           # Configure git to use HTTPS
           git config --global url."https://github.com/".insteadOf "git@github.com:"
-          # Configure credential helper to use GITHUB_TOKEN
+          # Configure credential helper to use PAT token with dkls/garbling access
           git config --global credential.helper store
-          # Store credentials for git operations
-          echo "https://${GITHUB_TOKEN}@github.com" > ~/.git-credentials
+          # Store credentials for git operations using PAT with dkls access
+          echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials
           chmod 600 ~/.git-credentials
           # Verify git config
           git config --global --list | grep -E "(url|credential)" || true
@@ -55,11 +52,11 @@ jobs:
 
       - name: Test clone dkls23-rs repository
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_DKLS_GARBLING: ${{ secrets.CI_DKLS_GARBLING }}
         run: |
           echo "Testing access to private dkls23-rs repository..."
-          # Try to clone the private repo
-          if git clone --depth 1 https://${GITHUB_TOKEN}@github.com/pushchain/dkls23-rs.git ../dkls23-rs; then
+          # Try to clone the private repo using PAT with dkls access
+          if git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git ../dkls23-rs; then
             echo "✅ Successfully cloned dkls23-rs repository"
             ls -la ../dkls23-rs/ || true
           else
@@ -71,7 +68,7 @@ jobs:
 
       - name: Build dkls23-rs dependency
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_DKLS_GARBLING: ${{ secrets.CI_DKLS_GARBLING }}
         run: |
           echo "Building dkls23-rs dependency..."
           if [ ! -d "../dkls23-rs" ]; then

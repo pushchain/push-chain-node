@@ -1,0 +1,31 @@
+name: 'Setup dkls23-rs'
+description: 'Configure Git and clone dkls23-rs repository for building'
+
+inputs:
+  ci_token:
+    description: 'CI token with access to dkls23-rs repository'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure Git for private repos
+      shell: bash
+      env:
+        CI_DKLS_GARBLING: ${{ inputs.ci_token }}
+      run: |
+        # Configure git to use HTTPS
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        # Configure credential helper to use PAT token with dkls/garbling access
+        git config --global credential.helper store
+        # Store credentials for git operations using PAT with dkls access
+        echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials
+        chmod 600 ~/.git-credentials
+
+    - name: Clone dkls23-rs repository
+      shell: bash
+      env:
+        CI_DKLS_GARBLING: ${{ inputs.ci_token }}
+      run: |
+        echo "Cloning dkls23-rs repository..."
+        git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git ../dkls23-rs

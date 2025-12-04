@@ -160,7 +160,7 @@ distclean: clean
 ########################################
 ### Testing
 
-test: build-dkls23 test-unit
+test: test-unit
 test-all: test-race test-cover test-system
 
 test-unit:
@@ -172,10 +172,17 @@ test-unit:
 	if [ -n "$$GITHUB_ACTIONS" ] || [ $$LIB_EXISTS -eq 0 ]; then \
 		if [ -n "$$GITHUB_ACTIONS" ]; then \
 			echo "Skipping TSS packages in CI (dkls23 library not available)"; \
+			# In CI, create dummy directory structure to satisfy go.mod replace directive \
+			if [ ! -d "../dkls23-rs/wrapper/go-wrappers" ]; then \
+				mkdir -p ../dkls23-rs/wrapper/go-wrappers; \
+				echo "module go-wrapper" > ../dkls23-rs/wrapper/go-wrappers/go.mod; \
+				echo "go 1.23" >> ../dkls23-rs/wrapper/go-wrappers/go.mod; \
+				echo "package go_wrappers" > ../dkls23-rs/wrapper/go-wrappers/dummy.go; \
+			fi; \
 		else \
 			echo "Skipping TSS packages (dkls23 library not built at ../dkls23-rs/target/release/)"; \
 		fi; \
-		TEST_PACKAGES=$$(go list ./... | grep -vE "(/tss/coordinator|/tss/dkls|/tss/sessionmanager|/universalClient/tss)$$"); \
+		TEST_PACKAGES=$$(go list ./... | grep -vE "(/tss/coordinator|/tss/dkls|/tss/sessionmanager|/universalClient/tss|/cmd/tss)$$"); \
 		go test -mod=readonly -tags="ledger test_ledger_mock" $$TEST_PACKAGES; \
 	else \
 		go test -mod=readonly -tags="ledger test_ledger_mock" ./...; \

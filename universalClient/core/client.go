@@ -174,9 +174,6 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			tssHomeDir = filepath.Join(homeDir, ".puniversal", "tss")
 		}
 
-		// Create TSS data provider using pushcore
-		tssDataProvider := pushcore.NewDataProvider(pushCore, log)
-
 		// Create TSS node configuration
 		tssCfg := tss.Config{
 			ValidatorAddress: validatorAddr,
@@ -185,7 +182,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			HomeDir:          tssHomeDir,
 			Password:         cfg.TSSPassword,
 			Database:         tssDB,
-			DataProvider:     tssDataProvider,
+			PushCore:         pushCore,
 			Logger:           log,
 		}
 

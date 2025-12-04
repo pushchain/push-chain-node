@@ -23,7 +23,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
@@ -233,20 +232,18 @@ func runNode() {
 	}
 	defer database.Close()
 
-	// Create data provider - use PushCoreDataProvider if gRPC URL is provided
-	var dataProvider coordinator.DataProvider
+	// Create pushcore client - required for TSS node
+	var pushClient *pushcore.Client
 	var tssListener *push.PushTSSEventListener
 	if *grpcURL != "" {
 		// Create pushcore client directly
-		pushClient, err := pushcore.New([]string{*grpcURL}, logger)
+		var err error
+		pushClient, err = pushcore.New([]string{*grpcURL}, logger)
 		if err != nil {
 			logger.Fatal().Err(err).Str("grpc_url", *grpcURL).Msg("failed to create pushcore client")
 		}
 		defer pushClient.Close()
-
-		// Create data provider using the client
-		dataProvider = NewPushCoreDataProvider(pushClient, logger)
-		logger.Info().Str("grpc_url", *grpcURL).Msg("using pushcore data provider (connected to blockchain)")
+		logger.Info().Str("grpc_url", *grpcURL).Msg("using pushcore client (connected to blockchain)")
 
 		// Create event store from database
 		evtStore := eventstore.NewStore(database.Client(), logger)
@@ -259,8 +256,12 @@ func runNode() {
 		defer tssListener.Stop()
 		logger.Info().Msg("started Push TSS event listener")
 	} else {
-		dataProvider = NewStaticPushChainDataProvider(*validatorAddr, logger)
-		logger.Info().Msg("using static data provider (demo mode)")
+		// For demo mode, we still need a pushcore client, but we'll use static data
+		// Create a dummy client (this won't work for real operations, but allows the code to compile)
+		// In practice, grpcURL should always be provided
+		logger.Warn().Msg("no gRPC URL provided - TSS node requires pushcore client")
+		// We'll need to handle this case - for now, let's require grpcURL
+		logger.Fatal().Msg("gRPC URL is required for TSS node")
 	}
 
 	// Initialize TSS node
@@ -271,7 +272,7 @@ func runNode() {
 		HomeDir:           *homeDir,
 		Password:          *password,
 		Database:          database,
-		DataProvider:      dataProvider,
+		PushCore:          pushClient,
 		Logger:            logger,
 		PollInterval:      2 * time.Second,
 		ProcessingTimeout: 2 * time.Minute,

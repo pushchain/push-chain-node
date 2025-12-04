@@ -13,6 +13,7 @@ import (
 
 	session "go-wrapper/go-dkls/sessions"
 
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -22,7 +23,7 @@ import (
 // Coordinator handles coordinator logic for TSS events.
 type Coordinator struct {
 	eventStore       *eventstore.Store
-	dataProvider     DataProvider
+	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
 	validatorAddress string
 	coordinatorRange uint64
@@ -51,7 +52,7 @@ type ackState struct {
 // NewCoordinator creates a new coordinator.
 func NewCoordinator(
 	eventStore *eventstore.Store,
-	dataProvider DataProvider,
+	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
 	validatorAddress string,
 	coordinatorRange uint64,
@@ -64,7 +65,7 @@ func NewCoordinator(
 	}
 	return &Coordinator{
 		eventStore:       eventStore,
-		dataProvider:     dataProvider,
+		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
 		validatorAddress: validatorAddress,
 		coordinatorRange: coordinatorRange,
@@ -155,15 +156,15 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 	return nil, errors.Errorf("peerID %s not found in validators", peerID)
 }
 
-// GetLatestBlockNum gets the latest block number from the data provider.
+// GetLatestBlockNum gets the latest block number from pushCore.
 func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
-	return c.dataProvider.GetLatestBlockNum()
+	return c.pushCore.GetLatestBlockNum()
 }
 
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
-	currentBlock, err := c.dataProvider.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlockNum()
 	if err != nil {
 		return false, errors.Wrap(err, "failed to get latest block number")
 	}
@@ -210,9 +211,9 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	return coordValidatorAddr == validatorAddress, nil
 }
 
-// GetCurrentTSSKeyId gets the current TSS key ID from the data provider.
+// GetCurrentTSSKeyId gets the current TSS key ID from pushCore.
 func (c *Coordinator) GetCurrentTSSKeyId() (string, error) {
-	return c.dataProvider.GetCurrentTSSKeyId()
+	return c.pushCore.GetCurrentTSSKeyId()
 }
 
 // GetEligibleUV returns eligible validators for the given protocol type.
@@ -293,7 +294,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 
 // updateValidators fetches and caches all validators.
 func (c *Coordinator) updateValidators() {
-	allValidators, err := c.dataProvider.GetUniversalValidators()
+	allValidators, err := c.pushCore.GetUniversalValidators()
 	if err != nil {
 		c.logger.Warn().Err(err).Msg("failed to update validators cache")
 		return
@@ -308,7 +309,7 @@ func (c *Coordinator) updateValidators() {
 
 // processPendingEvents checks if this node is coordinator, and only then reads DB and processes events.
 func (c *Coordinator) processPendingEvents(ctx context.Context) error {
-	currentBlock, err := c.dataProvider.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlockNum()
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest block number")
 	}
@@ -605,8 +606,8 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 // createSignSetup creates a sign setup message.
 // Requires loading the keyshare to extract keyID and messageHash from event data.
 func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, error) {
-	// Get current TSS keyId from dataProvider
-	keyIDStr, err := c.dataProvider.GetCurrentTSSKeyId()
+	// Get current TSS keyId from pushCore
+	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
@@ -665,8 +666,8 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 // oldParticipantIndices: indices of Active validators (staying participants)
 // newParticipantIndices: indices of Pending Join validators (new participants)
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
-	// Get current TSS keyId from dataProvider
-	keyIDStr, err := c.dataProvider.GetCurrentTSSKeyId()
+	// Get current TSS keyId from pushCore
+	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}

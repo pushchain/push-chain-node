@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -32,7 +33,7 @@ type Config struct {
 	HomeDir          string
 	Password         string
 	Database         *db.DB
-	DataProvider     coordinator.DataProvider
+	PushCore         *pushcore.Client
 	Logger           zerolog.Logger
 
 	// Optional configuration
@@ -86,7 +87,7 @@ type Node struct {
 	network          networking.Network
 	keyshareManager  *keyshare.Manager
 	database         *db.DB
-	dataProvider     coordinator.DataProvider
+	pushCore         *pushcore.Client
 	logger           zerolog.Logger
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
@@ -123,8 +124,8 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if cfg.P2PPrivateKeyHex == "" {
 		return nil, fmt.Errorf("private key is required")
 	}
-	if cfg.DataProvider == nil {
-		return nil, fmt.Errorf("data provider is required")
+	if cfg.PushCore == nil {
+		return nil, fmt.Errorf("pushCore is required")
 	}
 	if cfg.HomeDir == "" {
 		return nil, fmt.Errorf("home directory is required")
@@ -211,7 +212,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		validatorAddress:           cfg.ValidatorAddress,
 		keyshareManager:            mgr,
 		database:                   database,
-		dataProvider:               cfg.DataProvider,
+		pushCore:                   cfg.PushCore,
 		logger:                     logger,
 		eventStore:                 evtStore,
 		sessionManager:             nil, // Will be initialized in Start()
@@ -274,7 +275,7 @@ func (n *Node) Start(ctx context.Context) error {
 	if n.coordinator == nil {
 		coord := coordinator.NewCoordinator(
 			n.eventStore,
-			n.dataProvider,
+			n.pushCore,
 			n.keyshareManager,
 			n.validatorAddress,
 			n.coordinatorRange,

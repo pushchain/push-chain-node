@@ -88,7 +88,7 @@ include contrib/devtools/Makefile
 
 all: install lint test
 
-build: go.sum
+build: go.sum build-dkls23
 ifeq ($(OS),Windows_NT)
 	$(error wasmd server not supported. Use "make build-windows-client" for client)
 	exit 1
@@ -111,7 +111,7 @@ else
 	go build -mod=readonly $(BUILD_FLAGS) -o build/contract_tests ./cmd/contract_tests
 endif
 
-install: go.sum
+install: go.sum build-dkls23
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pchaind
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/puniversald
 
@@ -119,24 +119,21 @@ install: go.sum
 ### Tools & dependencies
 
 # Build dkls23-rs dependency
-# For CI: skip (library should be pre-built or tests will be skipped)
-# For local: use local library at ../dkls23-rs
+# Always builds the dkls23-rs library to ensure it's up to date
 .PHONY: build-dkls23
 build-dkls23:
-	@if [ -n "$$GITHUB_ACTIONS" ]; then \
-		echo "--> Skipping dkls23-rs build in CI"; \
-	else \
-		echo "--> Using local dkls23-rs library"; \
-		if [ ! -d "../dkls23-rs" ]; then \
-			echo "  Error: ../dkls23-rs not found. Please clone it manually."; \
-			exit 1; \
-		fi; \
-		if [ ! -f "../dkls23-rs/wrapper/go-wrappers/../go-dkls/include/go-dkls.h" ]; then \
-			echo "  Warning: dkls23-rs header not found. Building..."; \
-			cd ../dkls23-rs/wrapper/go-wrappers && make build; \
-		fi; \
-		echo "  ✓ Using local dkls23-rs library"; \
+	@echo "--> Building dkls23-rs dependency..."
+	@if [ ! -d "../dkls23-rs" ]; then \
+		echo "  Error: ../dkls23-rs not found. Please clone it manually."; \
+		echo "  git clone https://github.com/pushchain/dkls23-rs.git ../dkls23-rs"; \
+		exit 1; \
 	fi
+	@echo "  Building dkls23-rs library..."
+	@cd ../dkls23-rs/wrapper/go-wrappers && make build || { \
+		echo "  Error: Failed to build dkls23-rs. Ensure Rust/Cargo is installed."; \
+		exit 1; \
+	}
+	@echo "  ✓ dkls23-rs library built"
 
 go-mod-cache: go.sum
 	@echo "--> Download go modules to local cache"
@@ -164,37 +161,16 @@ distclean: clean
 test: test-unit
 test-all: test-race test-cover test-system
 
-test-unit:
-	@VERSION=$(VERSION) bash -c '\
-	LIB_EXISTS=0; \
-	if [ -f "../dkls23-rs/target/release/libgodkls.dylib" ] || [ -f "../dkls23-rs/target/release/libgodkls.so" ] || [ -f "../dkls23-rs/target/release/libgodkls.a" ]; then \
-		LIB_EXISTS=1; \
-	fi; \
-	if [ -n "$$GITHUB_ACTIONS" ] || [ $$LIB_EXISTS -eq 0 ]; then \
-		if [ -n "$$GITHUB_ACTIONS" ]; then \
-			echo "Skipping TSS packages in CI (dkls23 library not available)"; \
-			if [ ! -d "../dkls23-rs/wrapper/go-wrappers" ]; then \
-				mkdir -p ../dkls23-rs/wrapper/go-wrappers; \
-				echo "module go-wrapper" > ../dkls23-rs/wrapper/go-wrappers/go.mod; \
-				echo "go 1.23" >> ../dkls23-rs/wrapper/go-wrappers/go.mod; \
-				echo "package go_wrappers" > ../dkls23-rs/wrapper/go-wrappers/dummy.go; \
-			fi; \
-		else \
-			echo "Skipping TSS packages (dkls23 library not built at ../dkls23-rs/target/release/)"; \
-		fi; \
-		TEST_PACKAGES=$$(go list ./... | grep -vE "(/tss/coordinator|/tss/dkls|/tss/sessionmanager|/universalClient/tss|/cmd/tss)$$"); \
-		go test -mod=readonly -tags="ledger test_ledger_mock" $$TEST_PACKAGES; \
-	else \
-		go test -mod=readonly -tags="ledger test_ledger_mock" ./...; \
-	fi'
+test-unit: build-dkls23
+	@VERSION=$(VERSION) go test -mod=readonly -tags="ledger test_ledger_mock" ./...
 
-test-race:
+test-race: build-dkls23
 	@VERSION=$(VERSION) go test -mod=readonly -race -tags='ledger test_ledger_mock' ./...
 
-test-cover:
+test-cover: build-dkls23
 	@go test -mod=readonly -timeout 30m -race -coverprofile=coverage.txt -covermode=atomic -tags='ledger test_ledger_mock' ./...
 
-benchmark:
+benchmark: build-dkls23
 	@go test -mod=readonly -bench=. ./...
 
 test-sim-import-export: runsim

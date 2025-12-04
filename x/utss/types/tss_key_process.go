@@ -40,7 +40,7 @@ func (p TssKeyProcess) ValidateBasic() error {
 	}
 
 	// Validate process type
-	if p.ProcessType != TssProcessType_TSS_PROCESS_KEYGEN && p.ProcessType != TssProcessType_TSS_PROCESS_REFRESH {
+	if p.ProcessType != TssProcessType_TSS_PROCESS_KEYGEN && p.ProcessType != TssProcessType_TSS_PROCESS_REFRESH && p.ProcessType != TssProcessType_TSS_PROCESS_QUORUM_CHANGE {
 		return errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "invalid process type: %v", p.ProcessType)
 	}
 

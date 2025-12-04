@@ -13,9 +13,9 @@ type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
 // DataProvider provides access to Push Chain data.
 type DataProvider interface {
-	GetLatestBlockNum(ctx context.Context) (uint64, error)
-	GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error)
-	GetCurrentTSSKeyId(ctx context.Context) (string, error)
+	GetLatestBlockNum() (uint64, error)
+	GetUniversalValidators() ([]*types.UniversalValidator, error)
+	GetCurrentTSSKeyId() (string, error)
 }
 
 // ProtocolType enumerates the supported DKLS protocol flows.

@@ -20,15 +20,18 @@ cd "$PROJECT_ROOT"
 
 # All 3 arguments are required
 if [ $# -lt 3 ]; then
-    echo -e "${RED}Error: All 3 arguments are required${NC}"
-    echo "Usage: $0 <validator-address> <p2p-port> <private-key-hex>"
+    echo -e "${RED}Error: At least 3 arguments are required${NC}"
+    echo "Usage: $0 <validator-address> <p2p-port> <private-key-hex> [--grpc <grpc-url>]"
     echo "Example: $0 pushvaloper1... 39001 30B0D912700C3DF94F4743F440D1613F7EA67E1CEF32C73B925DB6CD7F1A1544"
+    echo "Example with gRPC: $0 pushvaloper1... 39001 KEY --grpc localhost:9090"
     exit 1
 fi
 
 VALIDATOR_ADDRESS="$1"
 P2P_PORT="$2"
 PRIVATE_KEY="$3"
+shift 3
+EXTRA_ARGS="$@"
 
 # Cleanup function
 cleanup() {
@@ -88,6 +91,9 @@ echo ""
 CMD="./build/tss node -validator-address=\"$VALIDATOR_ADDRESS\" -p2p-listen=\"/ip4/127.0.0.1/tcp/$P2P_PORT\" -home=\"$HOME_DIR\" -private-key=\"$PRIVATE_KEY\""
 if [ -n "$PEER_IDS_FLAG" ]; then
     CMD="$CMD $PEER_IDS_FLAG"
+fi
+if [ -n "$EXTRA_ARGS" ]; then
+    CMD="$CMD $EXTRA_ARGS"
 fi
 
 eval "$CMD" 2>&1 | tee "/tmp/tss-$SANITIZED.log"

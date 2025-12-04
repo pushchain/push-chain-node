@@ -27,7 +27,7 @@ import (
 // Config holds configuration for initializing a TSS node.
 type Config struct {
 	ValidatorAddress string
-	PrivateKeyHex    string
+	P2PPrivateKeyHex string
 	LibP2PListen     string
 	HomeDir          string
 	Password         string
@@ -120,7 +120,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if cfg.ValidatorAddress == "" {
 		return nil, fmt.Errorf("validator address is required")
 	}
-	if cfg.PrivateKeyHex == "" {
+	if cfg.P2PPrivateKeyHex == "" {
 		return nil, fmt.Errorf("private key is required")
 	}
 	if cfg.DataProvider == nil {
@@ -148,7 +148,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	}
 
 	// Convert private key
-	privateKeyBase64, err := convertPrivateKeyHexToBase64(cfg.PrivateKeyHex)
+	privateKeyBase64, err := convertPrivateKeyHexToBase64(cfg.P2PPrivateKeyHex)
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}

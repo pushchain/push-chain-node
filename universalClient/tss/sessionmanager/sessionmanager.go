@@ -445,7 +445,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 
 	case "keyrefresh":
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId(ctx)
+		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -467,7 +467,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 
 	case "quorumchange":
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId(ctx)
+		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -501,7 +501,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 
 	case "sign":
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId(ctx)
+		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -660,7 +660,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 
 		if hasSession {
 			// Get current block number from coordinator
-			currentBlock, err := sm.coordinator.GetLatestBlockNum(ctx)
+			currentBlock, err := sm.coordinator.GetLatestBlockNum()
 			if err != nil {
 				sm.logger.Warn().
 					Err(err).

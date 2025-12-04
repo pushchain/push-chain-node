@@ -18,9 +18,13 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/push"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
+	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -173,6 +177,7 @@ func runNode() {
 		homeDir       = flag.String("home", "", "directory for keyshare storage (defaults to ./tss-data/tss-<validator>)")
 		password      = flag.String("password", "demo-password", "encryption password for keyshares")
 		dbPath        = flag.String("db", "", "database file path (defaults to ./tss-data/tss-<validator>/uv.db)")
+		grpcURL       = flag.String("grpc", "", "Push Chain gRPC URL (e.g., localhost:9090). If not provided, uses static demo provider")
 	)
 	flag.Parse()
 
@@ -228,13 +233,40 @@ func runNode() {
 	}
 	defer database.Close()
 
-	// Create simple data provider for demo
-	dataProvider := NewStaticPushChainDataProvider(*validatorAddr, logger)
+	// Create data provider - use PushCoreDataProvider if gRPC URL is provided
+	var dataProvider coordinator.DataProvider
+	var tssListener *push.PushTSSEventListener
+	if *grpcURL != "" {
+		// Create pushcore client directly
+		pushClient, err := pushcore.New([]string{*grpcURL}, logger)
+		if err != nil {
+			logger.Fatal().Err(err).Str("grpc_url", *grpcURL).Msg("failed to create pushcore client")
+		}
+		defer pushClient.Close()
+
+		// Create data provider using the client
+		dataProvider = NewPushCoreDataProvider(pushClient, logger)
+		logger.Info().Str("grpc_url", *grpcURL).Msg("using pushcore data provider (connected to blockchain)")
+
+		// Create event store from database
+		evtStore := eventstore.NewStore(database.Client(), logger)
+
+		// Create and start the PushTSSEventListener to poll blockchain events
+		tssListener = push.NewPushTSSEventListener(pushClient, evtStore, logger)
+		if err := tssListener.Start(ctx); err != nil {
+			logger.Fatal().Err(err).Msg("failed to start TSS event listener")
+		}
+		defer tssListener.Stop()
+		logger.Info().Msg("started Push TSS event listener")
+	} else {
+		dataProvider = NewStaticPushChainDataProvider(*validatorAddr, logger)
+		logger.Info().Msg("using static data provider (demo mode)")
+	}
 
 	// Initialize TSS node
 	tssNode, err := tss.NewNode(ctx, tss.Config{
 		ValidatorAddress:  *validatorAddr,
-		PrivateKeyHex:     strings.TrimSpace(*privateKeyHex),
+		P2PPrivateKeyHex:  strings.TrimSpace(*privateKeyHex),
 		LibP2PListen:      *libp2pListen,
 		HomeDir:           *homeDir,
 		Password:          *password,

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,8 +10,39 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
+
+// PushCoreDataProvider implements DataProvider using pushcore.Client to connect to the blockchain.
+type PushCoreDataProvider struct {
+	client *pushcore.Client
+	logger zerolog.Logger
+}
+
+// NewPushCoreDataProvider creates a new data provider using an existing pushcore.Client.
+// The caller is responsible for closing the client.
+func NewPushCoreDataProvider(client *pushcore.Client, logger zerolog.Logger) *PushCoreDataProvider {
+	return &PushCoreDataProvider{
+		client: client,
+		logger: logger,
+	}
+}
+
+// GetLatestBlockNum returns the latest block number from the blockchain.
+func (p *PushCoreDataProvider) GetLatestBlockNum() (uint64, error) {
+	return p.client.GetLatestBlockNum()
+}
+
+// GetUniversalValidators returns all universal validators from the blockchain.
+func (p *PushCoreDataProvider) GetUniversalValidators() ([]*types.UniversalValidator, error) {
+	return p.client.GetUniversalValidators()
+}
+
+// GetCurrentTSSKeyId returns the current TSS key ID from the blockchain.
+func (p *PushCoreDataProvider) GetCurrentTSSKeyId() (string, error) {
+	return p.client.GetCurrentTSSKeyId()
+}
 
 // StaticPushChainDataProvider implements PushChainDataProvider for demo/testing.
 // It reads validator information from the shared node registry file.
@@ -32,13 +62,13 @@ func NewStaticPushChainDataProvider(validatorAddress string, logger zerolog.Logg
 // GetLatestBlockNum returns the latest block number.
 // For demo purposes, we return current time + 11 to ensure events created with current time
 // are immediately eligible for processing (GetPendingEvents requires events to be 10 blocks behind).
-func (p *StaticPushChainDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+func (p *StaticPushChainDataProvider) GetLatestBlockNum() (uint64, error) {
 	return uint64(time.Now().Unix()) + 11, nil
 }
 
 // GetUniversalValidators returns all universal validators.
-func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
-	// Read nodes from shared registry file - already returns UniversalValidator
+func (p *StaticPushChainDataProvider) GetUniversalValidators() ([]*types.UniversalValidator, error) {
+	// Read nodes from shared registry file
 	nodes, err := readNodeRegistry(p.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read node registry: %w", err)
@@ -68,7 +98,7 @@ func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context
 // GetCurrentTSSKeyId returns the current TSS key ID.
 // Checks the latest created keyshare file across all valid nodes.
 // New nodes might not have a keyId yet, so we check all nodes and return the latest one found.
-func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
+func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId() (string, error) {
 	// Read all nodes from registry
 	nodes, err := readNodeRegistry(p.logger)
 	if err != nil {

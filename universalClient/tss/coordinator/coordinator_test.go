@@ -28,21 +28,21 @@ type mockDataProvider struct {
 	getKeyIdErr      error
 }
 
-func (m *mockDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+func (m *mockDataProvider) GetLatestBlockNum() (uint64, error) {
 	if m.getBlockNumErr != nil {
 		return 0, m.getBlockNumErr
 	}
 	return m.latestBlock, nil
 }
 
-func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
+func (m *mockDataProvider) GetUniversalValidators() ([]*types.UniversalValidator, error) {
 	if m.getValidatorsErr != nil {
 		return nil, m.getValidatorsErr
 	}
 	return m.validators, nil
 }
 
-func (m *mockDataProvider) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
+func (m *mockDataProvider) GetCurrentTSSKeyId() (string, error) {
 	if m.getKeyIdErr != nil {
 		return "", m.getKeyIdErr
 	}
@@ -125,7 +125,7 @@ func TestIsPeerCoordinator(t *testing.T) {
 	ctx := context.Background()
 
 	// Update validators cache
-	coord.updateValidators(ctx)
+	coord.updateValidators()
 
 	t.Run("peer is coordinator", func(t *testing.T) {
 		// Block 100, epoch 1, should be validator2 (index 1)
@@ -171,10 +171,9 @@ func TestIsPeerCoordinator(t *testing.T) {
 
 func TestGetEligibleUV(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
 
 	// Update validators cache
-	coord.updateValidators(ctx)
+	coord.updateValidators()
 
 	t.Run("keygen protocol", func(t *testing.T) {
 		eligible := coord.GetEligibleUV("keygen")

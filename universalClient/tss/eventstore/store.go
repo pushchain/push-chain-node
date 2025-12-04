@@ -149,3 +149,16 @@ func (s *Store) ResetInProgressEventsToPending() (int64, error) {
 	}
 	return result.RowsAffected, nil
 }
+
+// CreateEvent stores a new TSSEvent. Returns error if event already exists.
+func (s *Store) CreateEvent(event *store.TSSEvent) error {
+	if err := s.db.Create(event).Error; err != nil {
+		return errors.Wrapf(err, "failed to create event %s", event.EventID)
+	}
+	s.logger.Info().
+		Str("event_id", event.EventID).
+		Str("protocol_type", event.ProtocolType).
+		Uint64("block_number", event.BlockNumber).
+		Msg("stored new TSS event")
+	return nil
+}

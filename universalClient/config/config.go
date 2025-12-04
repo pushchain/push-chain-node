@@ -137,6 +137,19 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		return fmt.Errorf("load balancing strategy must be 'round-robin' or 'weighted'")
 	}
 
+	// Set TSS defaults
+	if cfg.TSSP2PListen == "" {
+		cfg.TSSP2PListen = "/ip4/0.0.0.0/tcp/39000"
+	}
+
+	// Validate TSS config (TSS is always enabled)
+	if cfg.TSSP2PPrivateKeyHex == "" {
+		return fmt.Errorf("tss_p2p_private_key_hex is required for TSS")
+	}
+	if cfg.TSSPassword == "" {
+		return fmt.Errorf("tss_password is required for TSS")
+	}
+
 	return nil
 }
 

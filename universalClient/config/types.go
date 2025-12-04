@@ -49,8 +49,7 @@ type Config struct {
 	ChainConfigs map[string]ChainSpecificConfig `json:"chain_configs"` // Map of chain ID to all chain-specific settings
 
 	// TSS Node configuration
-	TSSEnabled       bool   `json:"tss_enabled"`         // Enable TSS node (default: false)
-	TSSPrivateKeyHex string `json:"tss_private_key_hex"` // Ed25519 private key in hex for libp2p identity
+	TSSP2PPrivateKeyHex string `json:"tss_p2p_private_key_hex"` // Ed25519 private key in hex for libp2p identity
 	TSSP2PListen     string `json:"tss_p2p_listen"`      // libp2p listen address (default: /ip4/0.0.0.0/tcp/39000)
 	TSSPassword      string `json:"tss_password"`        // Encryption password for keyshares
 	TSSHomeDir       string `json:"tss_home_dir"`        // Keyshare storage directory (default: ~/.puniversal/tss)

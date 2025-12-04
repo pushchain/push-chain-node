@@ -266,7 +266,7 @@ func runNode() {
 	// Initialize TSS node
 	tssNode, err := tss.NewNode(ctx, tss.Config{
 		ValidatorAddress:  *validatorAddr,
-		PrivateKeyHex:     strings.TrimSpace(*privateKeyHex),
+		P2PPrivateKeyHex:  strings.TrimSpace(*privateKeyHex),
 		LibP2PListen:      *libp2pListen,
 		HomeDir:           *homeDir,
 		Password:          *password,

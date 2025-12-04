@@ -142,14 +142,12 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		cfg.TSSP2PListen = "/ip4/0.0.0.0/tcp/39000"
 	}
 
-	// Validate TSS config when enabled
-	if cfg.TSSEnabled {
-		if cfg.TSSPrivateKeyHex == "" {
-			return fmt.Errorf("tss_private_key_hex is required when TSS is enabled")
-		}
-		if cfg.TSSPassword == "" {
-			return fmt.Errorf("tss_password is required when TSS is enabled")
-		}
+	// Validate TSS config (TSS is always enabled)
+	if cfg.TSSP2PPrivateKeyHex == "" {
+		return fmt.Errorf("tss_p2p_private_key_hex is required for TSS")
+	}
+	if cfg.TSSPassword == "" {
+		return fmt.Errorf("tss_password is required for TSS")
 	}
 
 	return nil

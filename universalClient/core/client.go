@@ -157,9 +157,9 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 
 	uc.signerHandler = signerHandler
 
-	// Initialize TSS node if enabled
-	if cfg.TSSEnabled {
-		log.Info().Msg("🔑 TSS enabled, initializing TSS node...")
+	// Initialize TSS node (always enabled)
+	{
+		log.Info().Msg("🔑 Initializing TSS node...")
 
 		// Use granter address as validator address (this is the valoper address)
 		validatorAddr := signerHandler.GetGranter()
@@ -180,7 +180,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		// Create TSS node configuration
 		tssCfg := tss.Config{
 			ValidatorAddress: validatorAddr,
-			PrivateKeyHex:    cfg.TSSPrivateKeyHex,
+			P2PPrivateKeyHex: cfg.TSSP2PPrivateKeyHex,
 			LibP2PListen:     cfg.TSSP2PListen,
 			HomeDir:          tssHomeDir,
 			Password:         cfg.TSSPassword,

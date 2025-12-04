@@ -1,6 +1,6 @@
 module github.com/pushchain/push-chain-node
 
-go 1.24.6
+go 1.23.8
 
 // overrides
 replace (

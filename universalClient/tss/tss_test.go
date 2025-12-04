@@ -76,7 +76,7 @@ func setupTestNode(t *testing.T) (*Node, *mockDataProvider, *db.DB) {
 
 	cfg := Config{
 		ValidatorAddress: "validator1",
-		PrivateKeyHex:    generateTestPrivateKey(t),
+		P2PPrivateKeyHex:    generateTestPrivateKey(t),
 		LibP2PListen:     "/ip4/127.0.0.1/tcp/0",
 		HomeDir:          t.TempDir(),
 		Password:         "test-password",
@@ -107,7 +107,7 @@ func TestNewNode_Validation(t *testing.T) {
 		{
 			name: "missing validator address",
 			cfg: Config{
-				PrivateKeyHex: generateTestPrivateKey(t),
+				P2PPrivateKeyHex: generateTestPrivateKey(t),
 				HomeDir:       t.TempDir(),
 				Database:      database,
 				DataProvider:  mockDP,
@@ -128,7 +128,7 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing home directory",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				PrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex:    generateTestPrivateKey(t),
 				Database:         database,
 				DataProvider:     mockDP,
 			},
@@ -138,7 +138,7 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing database",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				PrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex:    generateTestPrivateKey(t),
 				HomeDir:          t.TempDir(),
 				DataProvider:     mockDP,
 			},
@@ -148,7 +148,7 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing data provider",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				PrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex:    generateTestPrivateKey(t),
 				HomeDir:          t.TempDir(),
 				Database:         database,
 			},

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
 	utils "github.com/pushchain/push-chain-node/test/utils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExecutePayload(t *testing.T) {
+func TestMigrateUEA(t *testing.T) {
 	app, ctx, _ := utils.SetAppWithValidators(t)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
@@ -43,6 +44,8 @@ func TestExecutePayload(t *testing.T) {
 	ms := uexecutorkeeper.NewMsgServerImpl(app.UexecutorKeeper)
 
 	t.Run("Success!", func(t *testing.T) {
+		migratedAddress, newEVMImplAddr := utils.DeployMigrationContract(t, app, ctx)
+
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -51,16 +54,10 @@ func TestExecutePayload(t *testing.T) {
 
 		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
-		validUP := &uexecutortypes.UniversalPayload{
-			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
-			Value:                "0",
-			Data:                 "0x2ba2ed980000000000000000000000000000000000000000000000000000000000000312",
-			GasLimit:             "21000000",
-			MaxFeePerGas:         "1000000000",
-			MaxPriorityFeePerGas: "200000000",
-			Nonce:                "0",
-			Deadline:             "0",
-			VType:                uexecutortypes.VerificationType(0),
+		validMP := &uexecutortypes.MigrationPayload{
+			Migration: migratedAddress.Hex(),
+			Nonce:     "0",
+			Deadline:  "0",
 		}
 
 		msgDeploy := &uexecutortypes.MsgDeployUEA{
@@ -69,7 +66,7 @@ func TestExecutePayload(t *testing.T) {
 			TxHash:             validTxHash,
 		}
 
-		_, err := ms.DeployUEA(ctx, msgDeploy)
+		deployUEAResponse, err := ms.DeployUEA(ctx, msgDeploy)
 		require.NoError(t, err)
 
 		msgMint := &uexecutortypes.MsgMintPC{
@@ -81,18 +78,21 @@ func TestExecutePayload(t *testing.T) {
 		_, err = ms.MintPC(ctx, msgMint)
 		require.NoError(t, err)
 
-		msg := &uexecutortypes.MsgExecutePayload{
+		msg := &uexecutortypes.MsgMigrateUEA{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
-			VerificationData:   "0x91987784d56359fa91c3e3e0332f4f0cffedf9c081eb12874a63b41d5b5e5c660dc827947c2ae26e658d0551ad4b2d2aa073d62691429a0ae239d2cc58055bf11c",
+			MigrationPayload:   validMP,
+			Signature:          "0xd1d343e944b77d71542ff15b545244464d0a9bb5606a69ca97d123abc52ec84a54cd46e50cf771fcdf40df0cdb047c50c1dcc17f6482d5def3895ad94e0b1cad1c",
 		}
 
-		_, err = ms.ExecutePayload(ctx, msg)
+		_, err = ms.MigrateUEA(ctx, msg)
 		require.NoError(t, err)
 
+		logicAfterMigration := app.EVMKeeper.GetState(ctx, common.BytesToAddress(deployUEAResponse.UEA[12:]), common.HexToHash("0x868a771a75a4aa6c2be13e9a9617cb8ea240ed84a3a90c8469537393ec3e115d"))
+		require.Equal(t, newEVMImplAddr, common.BytesToAddress(logicAfterMigration.Bytes()))
+
 	})
-	t.Run("Invalid Universal Payload!", func(t *testing.T) {
+	t.Run("Invalid Migration Payload!", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -101,29 +101,24 @@ func TestExecutePayload(t *testing.T) {
 
 		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
-		validUP := &uexecutortypes.UniversalPayload{
-			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
-			Value:                "0",
-			Data:                 "0xZZZZ",
-			GasLimit:             "21000000",
-			MaxFeePerGas:         "1000000000",
-			MaxPriorityFeePerGas: "200000000",
-			Nonce:                "1",
-			Deadline:             "9999999999",
+		validMP := &uexecutortypes.MigrationPayload{
+			Migration: "",
+			Nonce:     "1",
+			Deadline:  "9999999999",
 		}
 
-		msg := &uexecutortypes.MsgExecutePayload{
+		msg := &uexecutortypes.MsgMigrateUEA{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
+			MigrationPayload:   validMP,
 		}
 
-		_, err := ms.ExecutePayload(ctx, msg)
-		require.ErrorContains(t, err, "invalid universal payload")
+		_, err := ms.MigrateUEA(ctx, msg)
+		require.ErrorContains(t, err, "invalid migration payload")
 
 	})
 
-	t.Run("Invalid Verification Data", func(t *testing.T) {
+	t.Run("Invalid Signature Data", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -132,28 +127,21 @@ func TestExecutePayload(t *testing.T) {
 
 		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
-		validUP := &uexecutortypes.UniversalPayload{
-			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
-			Value:                "0",
-			Data:                 "0x2ba2ed980000000000000000000000000000000000000000000000000000000000000312",
-			GasLimit:             "21000000",
-			MaxFeePerGas:         "1000000000",
-			MaxPriorityFeePerGas: "200000000",
-			Nonce:                "1",
-			Deadline:             "9999999999",
-			VType:                uexecutortypes.VerificationType(0),
+		validMP := &uexecutortypes.MigrationPayload{
+			Migration: "0x527F3692F5C53CfA83F7689885995606F93b6164",
+			Nonce:     "1",
+			Deadline:  "9999999999",
 		}
 
-		msg := &uexecutortypes.MsgExecutePayload{
+		msg := &uexecutortypes.MsgMigrateUEA{
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
-			UniversalPayload:   validUP,
-			VerificationData:   "0xZZZZ",
+			MigrationPayload:   validMP,
+			Signature:          "0xZZZZ",
 		}
 
-		_, err := ms.ExecutePayload(ctx, msg)
-		require.ErrorContains(t, err, "invalid verificationData format")
+		_, err := ms.MigrateUEA(ctx, msg)
+		require.ErrorContains(t, err, "invalid signature format")
 
 	})
-
 }

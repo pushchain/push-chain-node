@@ -18,6 +18,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // containsAny checks if the string contains any of the substrings.
@@ -68,7 +69,7 @@ func (m *mockSession) Close() {
 // mockDataProvider is a mock implementation of coordinator.DataProvider for testing.
 type mockDataProvider struct {
 	latestBlock      uint64
-	validators       []*coordinator.UniversalValidator
+	validators       []*types.UniversalValidator
 	currentTSSKeyId  string
 	getBlockNumErr   error
 	getValidatorsErr error
@@ -82,7 +83,7 @@ func (m *mockDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error
 	return m.latestBlock, nil
 }
 
-func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*coordinator.UniversalValidator, error) {
+func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
 	if m.getValidatorsErr != nil {
 		return nil, m.getValidatorsErr
 	}
@@ -109,30 +110,30 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 	mockDP := &mockDataProvider{
 		latestBlock:     100,
 		currentTSSKeyId: "test-key-id",
-		validators: []*coordinator.UniversalValidator{
+		validators: []*types.UniversalValidator{
 			{
-				ValidatorAddress: "validator1",
-				Status:           coordinator.UVStatusActive,
-				Network: coordinator.NetworkInfo{
-					PeerID:     "peer1",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
+				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator1"},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer1",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
 				},
+				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
 			},
 			{
-				ValidatorAddress: "validator2",
-				Status:           coordinator.UVStatusActive,
-				Network: coordinator.NetworkInfo{
-					PeerID:     "peer2",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9002"},
+				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator2"},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer2",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9002"},
 				},
+				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
 			},
 			{
-				ValidatorAddress: "validator3",
-				Status:           coordinator.UVStatusPendingJoin,
-				Network: coordinator.NetworkInfo{
-					PeerID:     "peer3",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9003"},
+				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator3"},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer3",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9003"},
 				},
+				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
 			},
 		},
 	}
@@ -287,8 +288,11 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 		sm.mu.Unlock()
 
 		// Set up mockDP so GetPartyIDFromPeerID works
-		mockDP.validators = []*coordinator.UniversalValidator{
-			{ValidatorAddress: "validator1", Network: coordinator.NetworkInfo{PeerID: "peer1"}},
+		mockDP.validators = []*types.UniversalValidator{
+			{
+				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator1"},
+				NetworkInfo:  &types.NetworkInfo{PeerId: "peer1"},
+			},
 		}
 		// Trigger validator cache update by calling IsPeerCoordinator
 		_, _ = coord.IsPeerCoordinator(ctx, "peer1")

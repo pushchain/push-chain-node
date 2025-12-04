@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // mockDataProvider is a mock implementation of coordinator.DataProvider for testing.
 type mockDataProvider struct {
 	latestBlock      uint64
-	validators       []*coordinator.UniversalValidator
+	validators       []*types.UniversalValidator
 	currentTSSKeyId  string
 	getBlockNumErr   error
 	getValidatorsErr error
@@ -33,7 +33,7 @@ func (m *mockDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error
 	return m.latestBlock, nil
 }
 
-func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*coordinator.UniversalValidator, error) {
+func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
 	if m.getValidatorsErr != nil {
 		return nil, m.getValidatorsErr
 	}
@@ -62,14 +62,14 @@ func setupTestNode(t *testing.T) (*Node, *mockDataProvider, *db.DB) {
 	mockDP := &mockDataProvider{
 		latestBlock:     100,
 		currentTSSKeyId: "test-key-id",
-		validators: []*coordinator.UniversalValidator{
+		validators: []*types.UniversalValidator{
 			{
-				ValidatorAddress: "validator1",
-				Status:           coordinator.UVStatusActive,
-				Network: coordinator.NetworkInfo{
-					PeerID:     "peer1",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
+				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator1"},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer1",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
 				},
+				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
 			},
 		},
 	}

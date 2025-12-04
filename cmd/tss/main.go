@@ -21,7 +21,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 const (
@@ -86,7 +86,7 @@ func printUsage() {
 // nodeRegistry is the in-memory representation of the registry file
 // Uses UniversalValidator structure directly
 type nodeRegistry struct {
-	Nodes []*coordinator.UniversalValidator `json:"nodes"`
+	Nodes []*types.UniversalValidator `json:"nodes"`
 	mu    sync.RWMutex
 }
 
@@ -95,24 +95,32 @@ var (
 )
 
 // registerNode adds or updates a node in the shared registry file
-func registerNode(node *coordinator.UniversalValidator, logger zerolog.Logger) error {
+func registerNode(node *types.UniversalValidator, logger zerolog.Logger) error {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
 	// Read existing registry
-	registry := &nodeRegistry{Nodes: []*coordinator.UniversalValidator{}}
+	registry := &nodeRegistry{Nodes: []*types.UniversalValidator{}}
 	data, err := os.ReadFile(nodesRegistryFile)
 	if err == nil {
 		if err := json.Unmarshal(data, registry); err != nil {
 			logger.Warn().Err(err).Msg("failed to parse existing registry, creating new one")
-			registry.Nodes = []*coordinator.UniversalValidator{}
+			registry.Nodes = []*types.UniversalValidator{}
 		}
 	}
 
 	// Update or add node
 	found := false
+	nodeAddr := ""
+	if node.IdentifyInfo != nil {
+		nodeAddr = node.IdentifyInfo.CoreValidatorAddress
+	}
 	for i := range registry.Nodes {
-		if registry.Nodes[i].ValidatorAddress == node.ValidatorAddress {
+		registryAddr := ""
+		if registry.Nodes[i].IdentifyInfo != nil {
+			registryAddr = registry.Nodes[i].IdentifyInfo.CoreValidatorAddress
+		}
+		if registryAddr == nodeAddr {
 			registry.Nodes[i] = node
 			found = true
 			break
@@ -136,7 +144,7 @@ func registerNode(node *coordinator.UniversalValidator, logger zerolog.Logger) e
 }
 
 // readNodeRegistry reads all nodes from the shared registry file
-func readNodeRegistry(logger zerolog.Logger) ([]*coordinator.UniversalValidator, error) {
+func readNodeRegistry(logger zerolog.Logger) ([]*types.UniversalValidator, error) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
@@ -144,7 +152,7 @@ func readNodeRegistry(logger zerolog.Logger) ([]*coordinator.UniversalValidator,
 	if err != nil {
 		if os.IsNotExist(err) {
 			// File doesn't exist yet, return empty list
-			return []*coordinator.UniversalValidator{}, nil
+			return []*types.UniversalValidator{}, nil
 		}
 		return nil, fmt.Errorf("failed to read registry file: %w", err)
 	}
@@ -260,14 +268,17 @@ func runNode() {
 
 	// Register this node in the shared registry file
 	// Default status is pending_join for new nodes
-	nodeInfo := &coordinator.UniversalValidator{
-		ValidatorAddress: *validatorAddr,
-		Status:           coordinator.UVStatusPendingJoin, // Default status for new nodes
-		Network: coordinator.NetworkInfo{
-			PeerID:     peerID,
-			Multiaddrs: listenAddrs,
+	nodeInfo := &types.UniversalValidator{
+		IdentifyInfo: &types.IdentityInfo{
+			CoreValidatorAddress: *validatorAddr,
 		},
-		JoinedAtBlock: 0,
+		NetworkInfo: &types.NetworkInfo{
+			PeerId:     peerID,
+			MultiAddrs: listenAddrs,
+		},
+		LifecycleInfo: &types.LifecycleInfo{
+			CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN, // Default status for new nodes
+		},
 	}
 	if err := registerNode(nodeInfo, logger); err != nil {
 		logger.Fatal().Err(err).Msg("failed to register node in registry")
@@ -305,7 +316,11 @@ func runKeygen() {
 	// Get all database paths
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
-		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeAddr := ""
+		if node.IdentifyInfo != nil {
+			nodeAddr = node.IdentifyInfo.CoreValidatorAddress
+		}
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(nodeAddr, ":", "_"), "/", "_")
 		// Database is stored as uv.db inside the node's directory
 		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
@@ -380,7 +395,11 @@ func runKeyrefresh() {
 	// Get all database paths
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
-		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeAddr := ""
+		if node.IdentifyInfo != nil {
+			nodeAddr = node.IdentifyInfo.CoreValidatorAddress
+		}
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(nodeAddr, ":", "_"), "/", "_")
 		// Database is stored as uv.db inside the node's directory
 		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
@@ -455,7 +474,11 @@ func runQc() {
 	// Get all database paths
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
-		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeAddr := ""
+		if node.IdentifyInfo != nil {
+			nodeAddr = node.IdentifyInfo.CoreValidatorAddress
+		}
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(nodeAddr, ":", "_"), "/", "_")
 		// Database is stored as uv.db inside the node's directory
 		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
@@ -539,7 +562,11 @@ func runSign() {
 	// Get all database paths
 	nodeDBs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
-		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		nodeAddr := ""
+		if node.IdentifyInfo != nil {
+			nodeAddr = node.IdentifyInfo.CoreValidatorAddress
+		}
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(nodeAddr, ":", "_"), "/", "_")
 		// Database is stored as uv.db inside the node's directory
 		nodeDBs = append(nodeDBs, filepath.Join(tssDataDir, fmt.Sprintf("tss-%s", sanitized), "uv.db"))
 	}
@@ -734,26 +761,26 @@ func runStatus() {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
-	registry := &nodeRegistry{Nodes: []*coordinator.UniversalValidator{}}
+	registry := &nodeRegistry{Nodes: []*types.UniversalValidator{}}
 	data, err := os.ReadFile(nodesRegistryFile)
 	if err == nil {
 		if err := json.Unmarshal(data, registry); err != nil {
 			logger.Warn().Err(err).Msg("failed to parse existing registry, creating new one")
-			registry.Nodes = []*coordinator.UniversalValidator{}
+			registry.Nodes = []*types.UniversalValidator{}
 		}
 	}
 
 	// Map status string to UVStatus
-	var uvStatus coordinator.UVStatus
+	var uvStatus types.UVStatus
 	switch *status {
 	case "active":
-		uvStatus = coordinator.UVStatusActive
+		uvStatus = types.UVStatus_UV_STATUS_ACTIVE
 	case "pending_join":
-		uvStatus = coordinator.UVStatusPendingJoin
+		uvStatus = types.UVStatus_UV_STATUS_PENDING_JOIN
 	case "pending_leave":
-		uvStatus = coordinator.UVStatusPendingLeave
+		uvStatus = types.UVStatus_UV_STATUS_PENDING_LEAVE
 	case "inactive":
-		uvStatus = coordinator.UVStatusInactive
+		uvStatus = types.UVStatus_UV_STATUS_INACTIVE
 	default:
 		logger.Fatal().Str("status", *status).Msg("invalid status")
 	}
@@ -761,8 +788,15 @@ func runStatus() {
 	// Find and update the node
 	found := false
 	for i := range registry.Nodes {
-		if registry.Nodes[i].ValidatorAddress == *validatorAddr {
-			registry.Nodes[i].Status = uvStatus
+		nodeAddr := ""
+		if registry.Nodes[i].IdentifyInfo != nil {
+			nodeAddr = registry.Nodes[i].IdentifyInfo.CoreValidatorAddress
+		}
+		if nodeAddr == *validatorAddr {
+			if registry.Nodes[i].LifecycleInfo == nil {
+				registry.Nodes[i].LifecycleInfo = &types.LifecycleInfo{}
+			}
+			registry.Nodes[i].LifecycleInfo.CurrentStatus = uvStatus
 			found = true
 			logger.Info().
 				Str("validator", *validatorAddr).

@@ -11,7 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // StaticPushChainDataProvider implements PushChainDataProvider for demo/testing.
@@ -37,7 +37,7 @@ func (p *StaticPushChainDataProvider) GetLatestBlockNum(ctx context.Context) (ui
 }
 
 // GetUniversalValidators returns all universal validators.
-func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*coordinator.UniversalValidator, error) {
+func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
 	// Read nodes from shared registry file - already returns UniversalValidator
 	nodes, err := readNodeRegistry(p.logger)
 	if err != nil {
@@ -46,11 +46,19 @@ func (p *StaticPushChainDataProvider) GetUniversalValidators(ctx context.Context
 
 	// Ensure all nodes have valid status (default to pending_join if missing)
 	for _, node := range nodes {
-		if node.Status == coordinator.UVStatusUnspecified || node.Status == "" {
+		if node.LifecycleInfo == nil {
+			node.LifecycleInfo = &types.LifecycleInfo{}
+		}
+		if node.LifecycleInfo.CurrentStatus == types.UVStatus_UV_STATUS_UNSPECIFIED {
 			p.logger.Debug().
-				Str("validator", node.ValidatorAddress).
+				Str("validator", func() string {
+					if node.IdentifyInfo != nil {
+						return node.IdentifyInfo.CoreValidatorAddress
+					}
+					return ""
+				}()).
 				Msg("node has unspecified status, defaulting to pending_join")
-			node.Status = coordinator.UVStatusPendingJoin
+			node.LifecycleInfo.CurrentStatus = types.UVStatus_UV_STATUS_PENDING_JOIN
 		}
 	}
 
@@ -83,14 +91,18 @@ func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (s
 
 	// Check each node's keyshare directory
 	for _, node := range nodes {
+		if node.IdentifyInfo == nil {
+			continue
+		}
+		nodeAddr := node.IdentifyInfo.CoreValidatorAddress
 		// Construct the keyshare directory path for this node
-		sanitized := strings.ReplaceAll(strings.ReplaceAll(node.ValidatorAddress, ":", "_"), "/", "_")
+		sanitized := strings.ReplaceAll(strings.ReplaceAll(nodeAddr, ":", "_"), "/", "_")
 		keyshareDir := filepath.Join("./tss-data", fmt.Sprintf("tss-%s", sanitized), "keyshares")
 
 		// Check if directory exists (new nodes might not have keyshares yet)
 		if _, err := os.Stat(keyshareDir); os.IsNotExist(err) {
 			p.logger.Debug().
-				Str("node", node.ValidatorAddress).
+				Str("node", nodeAddr).
 				Str("keyshare_dir", keyshareDir).
 				Msg("keyshare directory does not exist for node, skipping")
 			continue
@@ -101,7 +113,7 @@ func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (s
 		if err != nil {
 			p.logger.Warn().
 				Err(err).
-				Str("node", node.ValidatorAddress).
+				Str("node", nodeAddr).
 				Str("keyshare_dir", keyshareDir).
 				Msg("failed to read keyshare directory, skipping")
 			continue
@@ -116,7 +128,7 @@ func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (s
 			if err != nil {
 				p.logger.Warn().
 					Err(err).
-					Str("node", node.ValidatorAddress).
+					Str("node", nodeAddr).
 					Str("file", entry.Name()).
 					Msg("failed to get file info, skipping")
 				continue
@@ -124,7 +136,7 @@ func (p *StaticPushChainDataProvider) GetCurrentTSSKeyId(ctx context.Context) (s
 			allFiles = append(allFiles, fileInfo{
 				keyID:   entry.Name(),
 				modTime: info.ModTime(),
-				node:    node.ValidatorAddress,
+				node:    nodeAddr,
 			})
 		}
 	}

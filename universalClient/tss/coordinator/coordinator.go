@@ -16,6 +16,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // Coordinator handles coordinator logic for TSS events.
@@ -33,7 +34,7 @@ type Coordinator struct {
 	mu            sync.RWMutex
 	running       bool
 	stopCh        chan struct{}
-	allValidators []*UniversalValidator // Cached validators, updated at polling interval
+	allValidators []*types.UniversalValidator // Cached validators, updated at polling interval
 
 	// ACK tracking for events we're coordinating (even if not participant)
 	ackTracking map[string]*ackState // eventID -> ackState
@@ -92,8 +93,10 @@ func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (
 	}
 
 	for _, v := range allValidators {
-		if v.Network.PeerID == peerID {
-			return v.ValidatorAddress, nil
+		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
+			if v.IdentifyInfo != nil {
+				return v.IdentifyInfo.CoreValidatorAddress, nil
+			}
 		}
 	}
 
@@ -117,8 +120,10 @@ func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) 
 	}
 
 	for _, v := range allValidators {
-		if v.ValidatorAddress == partyID {
-			return v.Network.PeerID, nil
+		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == partyID {
+			if v.NetworkInfo != nil {
+				return v.NetworkInfo.PeerId, nil
+			}
 		}
 	}
 
@@ -142,8 +147,8 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 	}
 
 	for _, v := range allValidators {
-		if v.Network.PeerID == peerID {
-			return v.Network.Multiaddrs, nil
+		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
+			return v.NetworkInfo.MultiAddrs, nil
 		}
 	}
 
@@ -175,9 +180,11 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	// Find validator by peerID
 	var validatorAddress string
 	for _, v := range allValidators {
-		if v.Network.PeerID == peerID {
-			validatorAddress = v.ValidatorAddress
-			break
+		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
+			if v.IdentifyInfo != nil {
+				validatorAddress = v.IdentifyInfo.CoreValidatorAddress
+				break
+			}
 		}
 	}
 
@@ -196,7 +203,11 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	if idx >= len(coordinatorParticipants) {
 		return false, nil
 	}
-	return coordinatorParticipants[idx].ValidatorAddress == validatorAddress, nil
+	coordValidatorAddr := ""
+	if coordinatorParticipants[idx].IdentifyInfo != nil {
+		coordValidatorAddr = coordinatorParticipants[idx].IdentifyInfo.CoreValidatorAddress
+	}
+	return coordValidatorAddr == validatorAddress, nil
 }
 
 // GetCurrentTSSKeyId gets the current TSS key ID from the data provider.
@@ -208,7 +219,7 @@ func (c *Coordinator) GetCurrentTSSKeyId(ctx context.Context) (string, error) {
 // Uses cached allValidators for performance.
 // For sign: returns ALL eligible validators (Active + Pending Leave), not a random subset.
 // This is used for validation - the random subset selection happens only in processEventAsCoordinator.
-func (c *Coordinator) GetEligibleUV(protocolType string) []*UniversalValidator {
+func (c *Coordinator) GetEligibleUV(protocolType string) []*types.UniversalValidator {
 	c.mu.RLock()
 	allValidators := c.allValidators
 	c.mu.RUnlock()
@@ -223,7 +234,7 @@ func (c *Coordinator) GetEligibleUV(protocolType string) []*UniversalValidator {
 	}
 
 	// Return a copy to prevent external modification
-	result := make([]*UniversalValidator, len(eligible))
+	result := make([]*types.UniversalValidator, len(eligible))
 	copy(result, eligible)
 	return result
 }
@@ -315,8 +326,10 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 	// Get our own peerID from network (we need to find it from validators)
 	var ourPeerID string
 	for _, v := range allValidators {
-		if v.ValidatorAddress == c.validatorAddress {
-			ourPeerID = v.Network.PeerID
+		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == c.validatorAddress {
+			if v.NetworkInfo != nil {
+				ourPeerID = v.NetworkInfo.PeerId
+			}
 			break
 		}
 	}
@@ -374,18 +387,28 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 // processEventAsCoordinator processes a TSS event as the coordinator.
 // Creates setup message based on event type and sends to all participants.
-func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.TSSEvent, participants []*UniversalValidator) error {
+func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.TSSEvent, participants []*types.UniversalValidator) error {
 	// Sort participants by party ID for consistency
-	sortedParticipants := make([]*UniversalValidator, len(participants))
+	sortedParticipants := make([]*types.UniversalValidator, len(participants))
 	copy(sortedParticipants, participants)
 	sort.Slice(sortedParticipants, func(i, j int) bool {
-		return sortedParticipants[i].ValidatorAddress < sortedParticipants[j].ValidatorAddress
+		addrI := ""
+		addrJ := ""
+		if sortedParticipants[i].IdentifyInfo != nil {
+			addrI = sortedParticipants[i].IdentifyInfo.CoreValidatorAddress
+		}
+		if sortedParticipants[j].IdentifyInfo != nil {
+			addrJ = sortedParticipants[j].IdentifyInfo.CoreValidatorAddress
+		}
+		return addrI < addrJ
 	})
 
 	// Extract party IDs
 	partyIDs := make([]string, len(sortedParticipants))
 	for i, p := range sortedParticipants {
-		partyIDs[i] = p.ValidatorAddress
+		if p.IdentifyInfo != nil {
+			partyIDs[i] = p.IdentifyInfo.CoreValidatorAddress
+		}
 	}
 
 	// Calculate threshold
@@ -433,17 +456,24 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Send to all participants via sendFn
 	for _, p := range sortedParticipants {
-		if err := c.send(ctx, p.Network.PeerID, setupMsgBytes); err != nil {
+		if p.NetworkInfo == nil {
+			continue
+		}
+		receiverAddr := ""
+		if p.IdentifyInfo != nil {
+			receiverAddr = p.IdentifyInfo.CoreValidatorAddress
+		}
+		if err := c.send(ctx, p.NetworkInfo.PeerId, setupMsgBytes); err != nil {
 			c.logger.Warn().
 				Err(err).
 				Str("event_id", event.EventID).
-				Str("receiver", p.ValidatorAddress).
+				Str("receiver", receiverAddr).
 				Msg("failed to send setup message")
 			// Continue - other participants may still receive it
 		} else {
 			c.logger.Info().
 				Str("event_id", event.EventID).
-				Str("receiver", p.ValidatorAddress).
+				Str("receiver", receiverAddr).
 				Msg("sent setup message to participant")
 		}
 	}
@@ -634,7 +664,7 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 // Quorumchange changes the participant set of an existing key.
 // oldParticipantIndices: indices of Active validators (staying participants)
 // newParticipantIndices: indices of Pending Join validators (new participants)
-func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*UniversalValidator) ([]byte, error) {
+func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
 	// Get current TSS keyId from dataProvider
 	keyIDStr, err := c.dataProvider.GetCurrentTSSKeyId(ctx)
 	if err != nil {
@@ -655,9 +685,11 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 	defer session.DklsKeyshareFree(oldKeyshareHandle)
 
 	// Create a map of validator address to status for quick lookup
-	validatorStatusMap := make(map[string]UVStatus)
+	validatorStatusMap := make(map[string]types.UVStatus)
 	for _, v := range participants {
-		validatorStatusMap[v.ValidatorAddress] = v.Status
+		if v.IdentifyInfo != nil && v.LifecycleInfo != nil {
+			validatorStatusMap[v.IdentifyInfo.CoreValidatorAddress] = v.LifecycleInfo.CurrentStatus
+		}
 	}
 
 	// Calculate old participant indices (Active validators)
@@ -673,7 +705,7 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 			continue
 		}
 
-		if status == UVStatusActive {
+		if status == types.UVStatus_UV_STATUS_ACTIVE {
 			// Active validators are old participants (staying)
 			oldParticipantIndices = append(oldParticipantIndices, i)
 		}
@@ -694,7 +726,7 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 // getEligibleForProtocol returns all eligible validators for a given protocol type.
 // This is used for validation - returns ALL eligible validators, not a random subset.
 // For sign: returns all (Active + Pending Leave) validators.
-func getEligibleForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
+func getEligibleForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	switch protocolType {
 	case "keygen", "quorumchange":
 		// Active + Pending Join
@@ -714,7 +746,7 @@ func getEligibleForProtocol(protocolType string, allValidators []*UniversalValid
 // This is a centralized function to avoid duplication of participant selection logic.
 // For sign: returns a random subset (used by coordinator when creating setup).
 // For other protocols: returns all eligible participants (same as getEligibleForProtocol).
-func getParticipantsForProtocol(protocolType string, allValidators []*UniversalValidator) []*UniversalValidator {
+func getParticipantsForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// For sign, we need random subset; for others, same as eligible
 	if protocolType == "sign" {
 		return getSignParticipants(allValidators)
@@ -726,7 +758,7 @@ func getParticipantsForProtocol(protocolType string, allValidators []*UniversalV
 // getCoordinatorParticipants returns validators eligible to be coordinators.
 // Only Active validators can be coordinators.
 // Special case: If there are no active validators (only pending join and 1 UV), that UV becomes coordinator.
-func getCoordinatorParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+func getCoordinatorParticipants(allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// Get all active validators (reuse existing function)
 	active := getActiveParticipants(allValidators)
 
@@ -740,10 +772,10 @@ func getCoordinatorParticipants(allValidators []*UniversalValidator) []*Universa
 }
 
 // getActiveParticipants returns only Active validators.
-func getActiveParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
-	var participants []*UniversalValidator
+func getActiveParticipants(allValidators []*types.UniversalValidator) []*types.UniversalValidator {
+	var participants []*types.UniversalValidator
 	for _, v := range allValidators {
-		if v.Status == UVStatusActive {
+		if v.LifecycleInfo != nil && v.LifecycleInfo.CurrentStatus == types.UVStatus_UV_STATUS_ACTIVE {
 			participants = append(participants, v)
 		}
 	}
@@ -752,11 +784,14 @@ func getActiveParticipants(allValidators []*UniversalValidator) []*UniversalVali
 
 // getQuorumChangeParticipants returns Active + Pending Join validators.
 // Used for keygen and quorumchange protocols.
-func getQuorumChangeParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
-	var participants []*UniversalValidator
+func getQuorumChangeParticipants(allValidators []*types.UniversalValidator) []*types.UniversalValidator {
+	var participants []*types.UniversalValidator
 	for _, v := range allValidators {
-		if v.Status == UVStatusActive || v.Status == UVStatusPendingJoin {
-			participants = append(participants, v)
+		if v.LifecycleInfo != nil {
+			status := v.LifecycleInfo.CurrentStatus
+			if status == types.UVStatus_UV_STATUS_ACTIVE || status == types.UVStatus_UV_STATUS_PENDING_JOIN {
+				participants = append(participants, v)
+			}
 		}
 	}
 	return participants
@@ -764,11 +799,14 @@ func getQuorumChangeParticipants(allValidators []*UniversalValidator) []*Univers
 
 // getSignEligible returns ALL eligible validators for sign protocol (Active + Pending Leave).
 // This is used for validation - returns all eligible validators without random selection.
-func getSignEligible(allValidators []*UniversalValidator) []*UniversalValidator {
-	var eligible []*UniversalValidator
+func getSignEligible(allValidators []*types.UniversalValidator) []*types.UniversalValidator {
+	var eligible []*types.UniversalValidator
 	for _, v := range allValidators {
-		if v.Status == UVStatusActive || v.Status == UVStatusPendingLeave {
-			eligible = append(eligible, v)
+		if v.LifecycleInfo != nil {
+			status := v.LifecycleInfo.CurrentStatus
+			if status == types.UVStatus_UV_STATUS_ACTIVE || status == types.UVStatus_UV_STATUS_PENDING_LEAVE {
+				eligible = append(eligible, v)
+			}
 		}
 	}
 	return eligible
@@ -776,7 +814,7 @@ func getSignEligible(allValidators []*UniversalValidator) []*UniversalValidator 
 
 // getSignParticipants returns a random subset of >2/3 of (Active + Pending Leave) validators.
 // This is used by the coordinator when creating setup messages.
-func getSignParticipants(allValidators []*UniversalValidator) []*UniversalValidator {
+func getSignParticipants(allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// First, get all eligible validators (Active + Pending Leave)
 	eligible := getSignEligible(allValidators)
 

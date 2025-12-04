@@ -15,12 +15,13 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // mockDataProvider is a mock implementation of DataProvider for testing.
 type mockDataProvider struct {
 	latestBlock      uint64
-	validators       []*UniversalValidator
+	validators       []*types.UniversalValidator
 	currentTSSKeyId  string
 	getBlockNumErr   error
 	getValidatorsErr error
@@ -34,7 +35,7 @@ func (m *mockDataProvider) GetLatestBlockNum(ctx context.Context) (uint64, error
 	return m.latestBlock, nil
 }
 
-func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*UniversalValidator, error) {
+func (m *mockDataProvider) GetUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error) {
 	if m.getValidatorsErr != nil {
 		return nil, m.getValidatorsErr
 	}
@@ -58,29 +59,41 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockDataProvider, *event
 	mockDP := &mockDataProvider{
 		latestBlock:     100,
 		currentTSSKeyId: "test-key-id",
-		validators: []*UniversalValidator{
+		validators: []*types.UniversalValidator{
 			{
-				ValidatorAddress: "validator1",
-				Status:           UVStatusActive,
-				Network: NetworkInfo{
-					PeerID:     "peer1",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
+				IdentifyInfo: &types.IdentityInfo{
+					CoreValidatorAddress: "validator1",
+				},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer1",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
+				},
+				LifecycleInfo: &types.LifecycleInfo{
+					CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE,
 				},
 			},
 			{
-				ValidatorAddress: "validator2",
-				Status:           UVStatusActive,
-				Network: NetworkInfo{
-					PeerID:     "peer2",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9002"},
+				IdentifyInfo: &types.IdentityInfo{
+					CoreValidatorAddress: "validator2",
+				},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer2",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9002"},
+				},
+				LifecycleInfo: &types.LifecycleInfo{
+					CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE,
 				},
 			},
 			{
-				ValidatorAddress: "validator3",
-				Status:           UVStatusPendingJoin,
-				Network: NetworkInfo{
-					PeerID:     "peer3",
-					Multiaddrs: []string{"/ip4/127.0.0.1/tcp/9003"},
+				IdentifyInfo: &types.IdentityInfo{
+					CoreValidatorAddress: "validator3",
+				},
+				NetworkInfo: &types.NetworkInfo{
+					PeerId:     "peer3",
+					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9003"},
+				},
+				LifecycleInfo: &types.LifecycleInfo{
+					CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN,
 				},
 			},
 		},
@@ -169,7 +182,9 @@ func TestGetEligibleUV(t *testing.T) {
 		assert.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
 		for _, v := range eligible {
-			addresses[v.ValidatorAddress] = true
+			if v.IdentifyInfo != nil {
+				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
+			}
 		}
 		assert.True(t, addresses["validator1"])
 		assert.True(t, addresses["validator2"])
@@ -182,7 +197,9 @@ func TestGetEligibleUV(t *testing.T) {
 		assert.Len(t, eligible, 2)
 		addresses := make(map[string]bool)
 		for _, v := range eligible {
-			addresses[v.ValidatorAddress] = true
+			if v.IdentifyInfo != nil {
+				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
+			}
 		}
 		assert.True(t, addresses["validator1"])
 		assert.True(t, addresses["validator2"])
@@ -195,7 +212,9 @@ func TestGetEligibleUV(t *testing.T) {
 		assert.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
 		for _, v := range eligible {
-			addresses[v.ValidatorAddress] = true
+			if v.IdentifyInfo != nil {
+				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
+			}
 		}
 		assert.True(t, addresses["validator1"])
 		assert.True(t, addresses["validator2"])
@@ -227,26 +246,57 @@ func TestGetEligibleUV(t *testing.T) {
 }
 
 func TestGetKeygenKeyrefreshParticipants(t *testing.T) {
-	validators := []*UniversalValidator{
-		{ValidatorAddress: "v1", Status: UVStatusActive},
-		{ValidatorAddress: "v2", Status: UVStatusPendingJoin},
-		{ValidatorAddress: "v3", Status: UVStatusPendingLeave},
-		{ValidatorAddress: "v4", Status: UVStatusInactive},
+	validators := []*types.UniversalValidator{
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE},
+		},
 	}
 
 	participants := getQuorumChangeParticipants(validators)
 	assert.Len(t, participants, 2)
-	assert.Equal(t, "v1", participants[0].ValidatorAddress)
-	assert.Equal(t, "v2", participants[1].ValidatorAddress)
+	if participants[0].IdentifyInfo != nil {
+		assert.Equal(t, "v1", participants[0].IdentifyInfo.CoreValidatorAddress)
+	}
+	if participants[1].IdentifyInfo != nil {
+		assert.Equal(t, "v2", participants[1].IdentifyInfo.CoreValidatorAddress)
+	}
 }
 
 func TestGetSignParticipants(t *testing.T) {
-	validators := []*UniversalValidator{
-		{ValidatorAddress: "v1", Status: UVStatusActive},
-		{ValidatorAddress: "v2", Status: UVStatusActive},
-		{ValidatorAddress: "v3", Status: UVStatusPendingLeave},
-		{ValidatorAddress: "v4", Status: UVStatusPendingJoin},
-		{ValidatorAddress: "v5", Status: UVStatusInactive},
+	validators := []*types.UniversalValidator{
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v5"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE},
+		},
 	}
 
 	participants := getSignParticipants(validators)
@@ -257,7 +307,9 @@ func TestGetSignParticipants(t *testing.T) {
 
 	addresses := make(map[string]bool)
 	for _, v := range participants {
-		addresses[v.ValidatorAddress] = true
+		if v.IdentifyInfo != nil {
+			addresses[v.IdentifyInfo.CoreValidatorAddress] = true
+		}
 	}
 	assert.True(t, addresses["v1"])
 	assert.True(t, addresses["v2"])
@@ -289,12 +341,27 @@ func TestCalculateThreshold(t *testing.T) {
 }
 
 func TestSelectRandomThreshold(t *testing.T) {
-	validators := []*UniversalValidator{
-		{ValidatorAddress: "v1", Status: UVStatusActive},
-		{ValidatorAddress: "v2", Status: UVStatusActive},
-		{ValidatorAddress: "v3", Status: UVStatusActive},
-		{ValidatorAddress: "v4", Status: UVStatusActive},
-		{ValidatorAddress: "v5", Status: UVStatusActive},
+	validators := []*types.UniversalValidator{
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v5"},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
 	}
 
 	t.Run("returns threshold subset", func(t *testing.T) {

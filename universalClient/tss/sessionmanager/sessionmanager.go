@@ -547,8 +547,11 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 	eligibleSet := make(map[string]bool)
 	eligibleList := make([]string, 0, len(eligible))
 	for _, v := range eligible {
-		eligibleSet[v.ValidatorAddress] = true
-		eligibleList = append(eligibleList, v.ValidatorAddress)
+		if v.IdentifyInfo != nil {
+			addr := v.IdentifyInfo.CoreValidatorAddress
+			eligibleSet[addr] = true
+			eligibleList = append(eligibleList, addr)
+		}
 	}
 
 	// Validate all participants are eligible

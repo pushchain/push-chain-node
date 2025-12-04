@@ -3,6 +3,8 @@ package coordinator
 import (
 	"crypto/sha256"
 	"math/rand"
+
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // CalculateThreshold calculates the threshold as > 2/3 of participants.
@@ -27,7 +29,7 @@ func deriveKeyIDBytes(keyID string) []byte {
 
 // selectRandomThreshold selects a random subset of at least threshold count from eligible validators.
 // Returns a shuffled copy of at least threshold validators (or all if fewer than threshold).
-func selectRandomThreshold(eligible []*UniversalValidator) []*UniversalValidator {
+func selectRandomThreshold(eligible []*types.UniversalValidator) []*types.UniversalValidator {
 	if len(eligible) == 0 {
 		return nil
 	}
@@ -42,7 +44,7 @@ func selectRandomThreshold(eligible []*UniversalValidator) []*UniversalValidator
 
 	// Randomly select at least minRequired participants
 	// Shuffle and take first minRequired
-	shuffled := make([]*UniversalValidator, len(eligible))
+	shuffled := make([]*types.UniversalValidator, len(eligible))
 	copy(shuffled, eligible)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]

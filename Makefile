@@ -172,7 +172,6 @@ test-unit:
 	if [ -n "$$GITHUB_ACTIONS" ] || [ $$LIB_EXISTS -eq 0 ]; then \
 		if [ -n "$$GITHUB_ACTIONS" ]; then \
 			echo "Skipping TSS packages in CI (dkls23 library not available)"; \
-			# In CI, create dummy directory structure to satisfy go.mod replace directive \
 			if [ ! -d "../dkls23-rs/wrapper/go-wrappers" ]; then \
 				mkdir -p ../dkls23-rs/wrapper/go-wrappers; \
 				echo "module go-wrapper" > ../dkls23-rs/wrapper/go-wrappers/go.mod; \

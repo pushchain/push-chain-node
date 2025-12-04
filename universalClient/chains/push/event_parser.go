@@ -76,6 +76,8 @@ func convertProcessType(chainType string) string {
 		return ProtocolTypeKeygen
 	case ProcessTypeRefresh:
 		return ProtocolTypeKeyrefresh
+	case ProcessTypeQuorumChange:
+		return ProtocolTypeQuorumChange
 	default:
 		return chainType // Return as-is if unknown
 	}

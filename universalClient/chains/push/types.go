@@ -14,14 +14,16 @@ const (
 	AttrKeyExpiryHeight = "expiry_height"
 
 	// Process type values from the chain
-	ProcessTypeKeygen  = "TSS_PROCESS_KEYGEN"
-	ProcessTypeRefresh = "TSS_PROCESS_REFRESH"
+	ProcessTypeKeygen       = "TSS_PROCESS_KEYGEN"
+	ProcessTypeRefresh      = "TSS_PROCESS_REFRESH"
+	ProcessTypeQuorumChange = "TSS_PROCESS_QUORUM_CHANGE"
 )
 
 // Protocol type values for TSSEvent.ProtocolType field.
 const (
-	ProtocolTypeKeygen     = "keygen"
-	ProtocolTypeKeyrefresh = "keyrefresh"
+	ProtocolTypeKeygen       = "keygen"
+	ProtocolTypeKeyrefresh   = "keyrefresh"
+	ProtocolTypeQuorumChange = "quorumchange"
 )
 
 // Default configuration values.

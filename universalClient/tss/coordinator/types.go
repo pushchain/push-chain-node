@@ -2,21 +2,12 @@ package coordinator
 
 import (
 	"context"
-
-	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
 // peerID: The peer ID of the recipient
 // data: The message bytes
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
-
-// DataProvider provides access to Push Chain data.
-type DataProvider interface {
-	GetLatestBlockNum() (uint64, error)
-	GetUniversalValidators() ([]*types.UniversalValidator, error)
-	GetCurrentTSSKeyId() (string, error)
-}
 
 // ProtocolType enumerates the supported DKLS protocol flows.
 type ProtocolType string

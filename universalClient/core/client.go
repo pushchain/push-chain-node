@@ -18,6 +18,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 	"github.com/rs/zerolog"
 )
 
@@ -150,7 +151,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	}
 
 	// Create unified signer handler with simplified validation result
-	signerHandler, err := NewSignerHandler(ctx, log, validationResult, cfg.PushChainGRPCURLs[0])
+	signerHandler, err := NewSignerHandler(ctx, log, validationResult, cfg.PushChainGRPCURLs[0], cfg.PushChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create signer handler: %w", err)
 	}
@@ -174,8 +175,12 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			tssHomeDir = filepath.Join(homeDir, ".puniversal", "tss")
 		}
 
-		// Create TSS data provider using pushcore
-		tssDataProvider := pushcore.NewDataProvider(pushCore, log)
+		// Create TSS vote handler for on-chain voting after key generation
+		tssVoteHandler := vote.NewHandler(
+			signerHandler.GetTxSigner(),
+			log,
+			signerHandler.GetGranter(),
+		)
 
 		// Create TSS node configuration
 		tssCfg := tss.Config{
@@ -185,8 +190,9 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			HomeDir:          tssHomeDir,
 			Password:         cfg.TSSPassword,
 			Database:         tssDB,
-			DataProvider:     tssDataProvider,
+			PushCore:         pushCore,
 			Logger:           log,
+			VoteHandler:      tssVoteHandler,
 		}
 
 		tssNode, err := tss.NewNode(ctx, tssCfg)
@@ -509,3 +515,4 @@ func (uc *UniversalClient) updateVoteHandlersForAllChains() {
 		Int("vote_handlers", len(voteHandlers)).
 		Msg("✅ Successfully created per-chain vote handlers and updated chain registry")
 }
+

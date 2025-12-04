@@ -23,7 +23,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
@@ -233,35 +232,29 @@ func runNode() {
 	}
 	defer database.Close()
 
-	// Create data provider - use PushCoreDataProvider if gRPC URL is provided
-	var dataProvider coordinator.DataProvider
-	var tssListener *push.PushTSSEventListener
-	if *grpcURL != "" {
-		// Create pushcore client directly
-		pushClient, err := pushcore.New([]string{*grpcURL}, logger)
-		if err != nil {
-			logger.Fatal().Err(err).Str("grpc_url", *grpcURL).Msg("failed to create pushcore client")
-		}
-		defer pushClient.Close()
-
-		// Create data provider using the client
-		dataProvider = NewPushCoreDataProvider(pushClient, logger)
-		logger.Info().Str("grpc_url", *grpcURL).Msg("using pushcore data provider (connected to blockchain)")
-
-		// Create event store from database
-		evtStore := eventstore.NewStore(database.Client(), logger)
-
-		// Create and start the PushTSSEventListener to poll blockchain events
-		tssListener = push.NewPushTSSEventListener(pushClient, evtStore, logger)
-		if err := tssListener.Start(ctx); err != nil {
-			logger.Fatal().Err(err).Msg("failed to start TSS event listener")
-		}
-		defer tssListener.Stop()
-		logger.Info().Msg("started Push TSS event listener")
-	} else {
-		dataProvider = NewStaticPushChainDataProvider(*validatorAddr, logger)
-		logger.Info().Msg("using static data provider (demo mode)")
+	// gRPC URL is required for connecting to the blockchain
+	if *grpcURL == "" {
+		logger.Fatal().Msg("grpc flag is required - TSS node needs blockchain connection")
 	}
+
+	// Create pushcore client
+	pushClient, err := pushcore.New([]string{*grpcURL}, logger)
+	if err != nil {
+		logger.Fatal().Err(err).Str("grpc_url", *grpcURL).Msg("failed to create pushcore client")
+	}
+	defer pushClient.Close()
+	logger.Info().Str("grpc_url", *grpcURL).Msg("connected to blockchain via pushcore")
+
+	// Create event store from database
+	evtStore := eventstore.NewStore(database.Client(), logger)
+
+	// Create and start the PushTSSEventListener to poll blockchain events
+	tssListener := push.NewPushTSSEventListener(pushClient, evtStore, logger)
+	if err := tssListener.Start(ctx); err != nil {
+		logger.Fatal().Err(err).Msg("failed to start TSS event listener")
+	}
+	defer tssListener.Stop()
+	logger.Info().Msg("started Push TSS event listener")
 
 	// Initialize TSS node
 	tssNode, err := tss.NewNode(ctx, tss.Config{
@@ -271,7 +264,7 @@ func runNode() {
 		HomeDir:           *homeDir,
 		Password:          *password,
 		Database:          database,
-		DataProvider:      dataProvider,
+		PushCore:          pushClient,
 		Logger:            logger,
 		PollInterval:      2 * time.Second,
 		ProcessingTimeout: 2 * time.Minute,

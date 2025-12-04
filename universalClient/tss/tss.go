@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -22,6 +23,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -32,7 +34,7 @@ type Config struct {
 	HomeDir          string
 	Password         string
 	Database         *db.DB
-	DataProvider     coordinator.DataProvider
+	PushCore         *pushcore.Client
 	Logger           zerolog.Logger
 
 	// Optional configuration
@@ -47,6 +49,9 @@ type Config struct {
 	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
 	SessionExpiryCheckInterval time.Duration // How often to check for expired sessions (default: 30s)
 	SessionExpiryBlockDelay    uint64        // How many blocks to delay retry after expiry (default: 10)
+
+	// Voting configuration
+	VoteHandler *vote.Handler // Optional - nil if voting disabled
 }
 
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
@@ -86,7 +91,7 @@ type Node struct {
 	network          networking.Network
 	keyshareManager  *keyshare.Manager
 	database         *db.DB
-	dataProvider     coordinator.DataProvider
+	pushCore         *pushcore.Client
 	logger           zerolog.Logger
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
@@ -103,6 +108,9 @@ type Node struct {
 	sessionExpiryTime          time.Duration
 	sessionExpiryCheckInterval time.Duration
 	sessionExpiryBlockDelay    uint64
+
+	// Voting configuration
+	voteHandler *vote.Handler // Optional - nil if voting disabled
 
 	// Internal state
 	mu           sync.RWMutex
@@ -123,8 +131,8 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if cfg.P2PPrivateKeyHex == "" {
 		return nil, fmt.Errorf("private key is required")
 	}
-	if cfg.DataProvider == nil {
-		return nil, fmt.Errorf("data provider is required")
+	if cfg.PushCore == nil {
+		return nil, fmt.Errorf("pushCore is required")
 	}
 	if cfg.HomeDir == "" {
 		return nil, fmt.Errorf("home directory is required")
@@ -211,7 +219,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		validatorAddress:           cfg.ValidatorAddress,
 		keyshareManager:            mgr,
 		database:                   database,
-		dataProvider:               cfg.DataProvider,
+		pushCore:                   cfg.PushCore,
 		logger:                     logger,
 		eventStore:                 evtStore,
 		sessionManager:             nil, // Will be initialized in Start()
@@ -221,6 +229,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		sessionExpiryTime:          sessionExpiryTime,
 		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
 		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
+		voteHandler:                cfg.VoteHandler,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
 	}
@@ -274,7 +283,7 @@ func (n *Node) Start(ctx context.Context) error {
 	if n.coordinator == nil {
 		coord := coordinator.NewCoordinator(
 			n.eventStore,
-			n.dataProvider,
+			n.pushCore,
 			n.keyshareManager,
 			n.validatorAddress,
 			n.coordinatorRange,
@@ -293,12 +302,13 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.coordinator,
 			n.keyshareManager,
+			n.validatorAddress, // partyID for DKLS sessions
 			func(ctx context.Context, peerID string, data []byte) error {
 				return n.Send(ctx, peerID, data)
 			},
-			n.validatorAddress,
 			n.sessionExpiryTime,
 			n.logger,
+			n.voteHandler,
 		)
 		n.sessionManager = sessionMgr
 	}

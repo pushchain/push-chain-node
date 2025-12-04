@@ -16,6 +16,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -36,10 +37,11 @@ type SessionManager struct {
 	eventStore        *eventstore.Store
 	coordinator       *coordinator.Coordinator
 	keyshareManager   *keyshare.Manager
+	partyID           string // Our validator address (valoper format) for use in DKLS sessions
 	send              SendFunc
-	partyID           string // Our validator address
 	logger            zerolog.Logger
 	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
+	voteHandler       *vote.Handler // Optional - nil if voting disabled
 
 	// Session storage
 	mu       sync.RWMutex
@@ -51,21 +53,31 @@ func NewSessionManager(
 	eventStore *eventstore.Store,
 	coord *coordinator.Coordinator,
 	keyshareManager *keyshare.Manager,
+	partyID string, // Our validator address (valoper format)
 	send SendFunc,
-	partyID string,
 	sessionExpiryTime time.Duration,
 	logger zerolog.Logger,
+	voteHandler *vote.Handler, // Optional - nil if voting disabled
 ) *SessionManager {
 	return &SessionManager{
 		eventStore:        eventStore,
 		coordinator:       coord,
 		keyshareManager:   keyshareManager,
-		send:              send,
 		partyID:           partyID,
+		send:              send,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
+		voteHandler:       voteHandler,
 		sessions:          make(map[string]*sessionState),
 	}
+}
+
+// getPartyID returns our validator address (valoper format) for use in DKLS sessions.
+func (sm *SessionManager) getPartyID() (string, error) {
+	if sm.partyID == "" {
+		return "", errors.New("party ID is not set")
+	}
+	return sm.partyID, nil
 }
 
 // HandleIncomingMessage handles an incoming message.
@@ -419,7 +431,24 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return errors.Errorf("unknown protocol type: %s", state.protocolType)
 	}
 
-	// Update event status to SUCCESS (common for all session types)
+	// Vote on TSS key process (keygen/keyrefresh/quorumchange only)
+	if sm.voteHandler != nil && (state.protocolType == "keygen" || state.protocolType == "keyrefresh" || state.protocolType == "quorumchange") {
+		pubKeyHex := hex.EncodeToString(result.PublicKey)
+
+		voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID)
+		if err != nil {
+			sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("TSS vote failed - marking PENDING")
+
+			if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusPending, err.Error()); err != nil {
+				return errors.Wrapf(err, "failed to update event status to PENDING")
+			}
+			return nil // Event will be retried
+		}
+
+		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
+	}
+
+	// Update event status to SUCCESS (only reached if vote succeeded or not required)
 	if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusSuccess, ""); err != nil {
 		return errors.Wrapf(err, "failed to update event status")
 	}
@@ -433,12 +462,18 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEvent, msg *coordinator.Message) (dkls.Session, error) {
 	threshold := coordinator.CalculateThreshold(len(msg.Participants))
 
+	// Get our partyID (CoreValidatorAddress in valoper format) from coordinator's lazy lookup
+	partyID, err := sm.getPartyID()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get partyID")
+	}
+
 	switch event.ProtocolType {
 	case "keygen":
 		return dkls.NewKeygenSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
-			sm.partyID,
+			partyID,
 			msg.Participants,
 			threshold,
 		)
@@ -459,7 +494,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		return dkls.NewKeyrefreshSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
-			sm.partyID,
+			partyID,
 			msg.Participants,
 			threshold,
 			oldKeyshare,
@@ -469,7 +504,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		// Get current keyID
 		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get current TSS keyId")
+			return nil, errors.Wrap(err, "failed to get current TSS keyId for quorumchange")
 		}
 
 		// Load old keyshare - if not found, we're a new party (oldKeyshare will be nil)
@@ -481,7 +516,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 				// This is expected for new participants in quorumchange
 				sm.logger.Info().
 					Str("key_id", keyID).
-					Str("party_id", sm.partyID).
+					Str("party_id", partyID).
 					Msg("old keyshare not found for quorumchange - treating as new party")
 				oldKeyshare = nil
 			} else {
@@ -493,7 +528,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		return dkls.NewQuorumChangeSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
-			sm.partyID,
+			partyID,
 			msg.Participants,
 			threshold,
 			oldKeyshare,
@@ -521,7 +556,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		return dkls.NewSignSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
-			sm.partyID,
+			partyID,
 			msg.Participants,
 			keyshareBytes,
 			messageHash,

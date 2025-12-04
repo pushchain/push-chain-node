@@ -22,6 +22,15 @@ runs:
         echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials
         chmod 600 ~/.git-credentials
 
+    - name: Configure Cargo to use Git CLI
+      shell: bash
+      run: |
+        # Configure Cargo to use Git CLI for fetching dependencies
+        # This allows Cargo to use the Git credentials we set up
+        mkdir -p ~/.cargo
+        echo '[net]' >> ~/.cargo/config.toml
+        echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+
     - name: Clone dkls23-rs repository
       shell: bash
       env:

@@ -7,7 +7,7 @@ name: docker image release
 on:
   push:
     tags:
-    - 'v[0-9]+.[0-9]+.[0-9]+' # ignore rc
+      - 'v[0-9]+.[0-9]+.[0-9]+' # ignore rc
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,16 +25,24 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       # all lowercase ghcr registry
       - run: |
-         DOCKER_REGISTRY=`echo "${{ env.REGISTRY }}/${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]'`
-         echo "DOCKER_REGISTRY=$DOCKER_REGISTRY" >> $GITHUB_ENV
+          DOCKER_REGISTRY=`echo "${{ env.REGISTRY }}/${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]'`
+          echo "DOCKER_REGISTRY=$DOCKER_REGISTRY" >> $GITHUB_ENV
 
-         REPO_NAME=`echo "${{ github.repository }}" | awk -F'/' '{print $2}' | tr '[:upper:]' '[:lower:]'`
-         echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          REPO_NAME=`echo "${{ github.repository }}" | awk -F'/' '{print $2}' | tr '[:upper:]' '[:lower:]'`
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
 
       - name: Parse tag
         id: tag

@@ -1,10 +1,9 @@
 name: Test dkls23-rs Build
 
 on:
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch: # Manual trigger - can be run manually from any branch
   push:
-    branches:
-      - main
+    # Trigger on push to any branch when workflow file or related files change
     paths:
       - '.github/workflows/test-dkls23-build.yml'
       - 'go.mod'
@@ -23,7 +22,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -79,7 +78,7 @@ jobs:
             echo "❌ dkls23-rs directory not found"
             exit 1
           fi
-          
+
           # Check if header file exists
           if [ -f "../dkls23-rs/wrapper/go-wrappers/../go-dkls/include/go-dkls.h" ]; then
             echo "✅ Header file already exists, skipping build"
@@ -94,7 +93,7 @@ jobs:
               exit 1
             }
           fi
-          
+
           # Verify build artifacts
           if [ -f "../dkls23-rs/target/release/libgodkls.dylib" ] || \
              [ -f "../dkls23-rs/target/release/libgodkls.so" ] || \
@@ -176,4 +175,3 @@ jobs:
           else
             echo "⚠️  go mod download may have issues" >> $GITHUB_STEP_SUMMARY
           fi
-

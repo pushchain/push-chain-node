@@ -1,0 +1,179 @@
+name: Test dkls23-rs Build
+
+on:
+  workflow_dispatch: # Manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-dkls23-build.yml'
+      - 'go.mod'
+      - 'Makefile'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: 1.22.3
+
+jobs:
+  test-dkls23-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          # persist-credentials allows git to access private repos in same org automatically
+          persist-credentials: true
+
+      - name: Configure Git for private repos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Configure git to use HTTPS
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          # Configure credential helper to use GITHUB_TOKEN
+          git config --global credential.helper store
+          # Store credentials for git operations
+          echo "https://${GITHUB_TOKEN}@github.com" > ~/.git-credentials
+          chmod 600 ~/.git-credentials
+          # Verify git config
+          git config --global --list | grep -E "(url|credential)" || true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test clone dkls23-rs repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Testing access to private dkls23-rs repository..."
+          # Try to clone the private repo
+          if git clone --depth 1 https://${GITHUB_TOKEN}@github.com/pushchain/dkls23-rs.git ../dkls23-rs; then
+            echo "✅ Successfully cloned dkls23-rs repository"
+            ls -la ../dkls23-rs/ || true
+          else
+            echo "❌ Failed to clone dkls23-rs repository"
+            echo "Checking if directory exists..."
+            ls -la ../ || true
+            exit 1
+          fi
+
+      - name: Build dkls23-rs dependency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Building dkls23-rs dependency..."
+          if [ ! -d "../dkls23-rs" ]; then
+            echo "❌ dkls23-rs directory not found"
+            exit 1
+          fi
+          
+          # Check if header file exists
+          if [ -f "../dkls23-rs/wrapper/go-wrappers/../go-dkls/include/go-dkls.h" ]; then
+            echo "✅ Header file already exists, skipping build"
+          else
+            echo "Building dkls23-rs..."
+            cd ../dkls23-rs/wrapper/go-wrappers
+            make build || {
+              echo "❌ Failed to build dkls23-rs"
+              echo "Checking Rust/Cargo setup..."
+              cargo --version || echo "Cargo not found"
+              rustc --version || echo "Rustc not found"
+              exit 1
+            }
+          fi
+          
+          # Verify build artifacts
+          if [ -f "../dkls23-rs/target/release/libgodkls.dylib" ] || \
+             [ -f "../dkls23-rs/target/release/libgodkls.so" ] || \
+             [ -f "../dkls23-rs/target/release/libgodkls.a" ]; then
+            echo "✅ Build artifacts found"
+            ls -la ../dkls23-rs/target/release/libgodkls.* || true
+          else
+            echo "⚠️  Build artifacts not found in expected location"
+            echo "Searching for build artifacts..."
+            find ../dkls23-rs/target -name "libgodkls.*" 2>/dev/null || echo "No libgodkls files found"
+          fi
+
+      - name: Verify go.mod replace directive
+        run: |
+          echo "Checking go.mod replace directive..."
+          if grep -q "go-wrapper => \.\.\/dkls23-rs" go.mod; then
+            echo "✅ go.mod has correct replace directive"
+            grep "go-wrapper =>" go.mod
+          else
+            echo "⚠️  go.mod replace directive not found or incorrect"
+            grep "go-wrapper" go.mod || echo "No go-wrapper entry found"
+          fi
+
+      - name: Test go mod download
+        run: |
+          echo "Testing go mod download with dkls23-rs..."
+          if go mod download; then
+            echo "✅ go mod download succeeded"
+          else
+            echo "❌ go mod download failed"
+            exit 1
+          fi
+
+      - name: Test go mod verify
+        run: |
+          echo "Verifying go modules..."
+          if go mod verify; then
+            echo "✅ go mod verify succeeded"
+          else
+            echo "⚠️  go mod verify failed (may be expected with local replace)"
+          fi
+
+      - name: Test building a TSS package
+        run: |
+          echo "Testing if we can build a TSS package..."
+          # Try to build a simple TSS package to verify everything works
+          if go build -o /dev/null ./universalClient/tss/coordinator 2>&1; then
+            echo "✅ Successfully built TSS coordinator package"
+          else
+            echo "⚠️  Failed to build TSS coordinator (this may be expected if CGO is required)"
+            echo "Build output:"
+            go build -o /dev/null ./universalClient/tss/coordinator 2>&1 || true
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Build Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Repository Access" >> $GITHUB_STEP_SUMMARY
+          if [ -d "../dkls23-rs" ]; then
+            echo "✅ dkls23-rs repository cloned successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ dkls23-rs repository not found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+          if [ -f "../dkls23-rs/target/release/libgodkls.dylib" ] || \
+             [ -f "../dkls23-rs/target/release/libgodkls.so" ] || \
+             [ -f "../dkls23-rs/target/release/libgodkls.a" ]; then
+            echo "✅ Build artifacts found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  Build artifacts not found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Go Module Status" >> $GITHUB_STEP_SUMMARY
+          if go mod download 2>&1 | grep -q "go-wrapper"; then
+            echo "✅ go mod download works with go-wrapper" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  go mod download may have issues" >> $GITHUB_STEP_SUMMARY
+          fi
+

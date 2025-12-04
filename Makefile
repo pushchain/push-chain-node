@@ -120,12 +120,15 @@ install: go.sum build-dkls23
 
 # Build dkls23-rs dependency
 # Always builds the dkls23-rs library to ensure it's up to date
+# Note: The dkls23-rs repository must be cloned at ../dkls23-rs before running this target
 .PHONY: build-dkls23
 build-dkls23:
 	@echo "--> Building dkls23-rs dependency..."
 	@if [ ! -d "../dkls23-rs" ]; then \
-		echo "  Error: ../dkls23-rs not found. Please clone it manually."; \
-		echo "  git clone https://github.com/pushchain/dkls23-rs.git ../dkls23-rs"; \
+		echo "  ⚠️  Warning: ../dkls23-rs not found."; \
+		echo "  Please clone the dkls23-rs repository:"; \
+		echo "    git clone https://github.com/pushchain/dkls23-rs.git ../dkls23-rs"; \
+		echo "  Then ensure Rust/Cargo is installed and run 'make build-dkls23' again."; \
 		exit 1; \
 	fi
 	@echo "  Building dkls23-rs library..."

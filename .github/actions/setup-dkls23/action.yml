@@ -14,9 +14,14 @@ runs:
       env:
         CI_DKLS_GARBLING: ${{ inputs.ci_token }}
       run: |
-        # Configure Git URL rewrite to include token for pushchain repos (works for both Git and Cargo)
+        # Configure Git URL rewrite to include token for pushchain repos
         git config --global url."https://${CI_DKLS_GARBLING}@github.com/pushchain/".insteadOf "https://github.com/pushchain/"
         git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+        # Also set up credential helper as fallback (for Cargo's git operations)
+        git config --global credential.helper store
+        echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials
+        chmod 600 ~/.git-credentials
 
         # Configure Cargo to use Git CLI for fetching dependencies
         mkdir -p ~/.cargo

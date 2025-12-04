@@ -1,40 +1,27 @@
 name: 'Setup dkls23-rs'
-description: 'Configure Git and clone dkls23-rs repository for building'
+description: 'Configure Git/Cargo and clone dkls23-rs repository for building'
 
 inputs:
   ci_token:
-    description: 'CI token with access to dkls23-rs repository'
+    description: 'CI token with access to dkls23-rs and garbling repositories'
     required: true
 
 runs:
   using: 'composite'
   steps:
-    - name: Configure Git for private repos
+    - name: Setup Git and Cargo for private repos
       shell: bash
       env:
         CI_DKLS_GARBLING: ${{ inputs.ci_token }}
       run: |
-        # Configure git to use HTTPS
+        # Configure Git URL rewrite to include token for pushchain repos (works for both Git and Cargo)
+        git config --global url."https://${CI_DKLS_GARBLING}@github.com/pushchain/".insteadOf "https://github.com/pushchain/"
         git config --global url."https://github.com/".insteadOf "git@github.com:"
-        # Configure credential helper to use PAT token with dkls/garbling access
-        git config --global credential.helper store
-        # Store credentials for git operations using PAT with dkls access
-        echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials
-        chmod 600 ~/.git-credentials
 
-    - name: Configure Cargo to use Git CLI
-      shell: bash
-      run: |
         # Configure Cargo to use Git CLI for fetching dependencies
-        # This allows Cargo to use the Git credentials we set up
         mkdir -p ~/.cargo
         echo '[net]' >> ~/.cargo/config.toml
         echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
 
-    - name: Clone dkls23-rs repository
-      shell: bash
-      env:
-        CI_DKLS_GARBLING: ${{ inputs.ci_token }}
-      run: |
-        echo "Cloning dkls23-rs repository..."
+        # Clone dkls23-rs repository
         git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git ../dkls23-rs

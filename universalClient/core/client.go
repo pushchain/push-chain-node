@@ -3,16 +3,21 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/api"
 	"github.com/pushchain/push-chain-node/universalClient/cache"
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/chains/push"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/cron"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/tss"
+	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/rs/zerolog"
 )
 
@@ -38,6 +43,12 @@ type UniversalClient struct {
 	cache            *cache.Cache
 	chainCacheJob    *cron.ChainCacheJob
 	chainRegistryJob *cron.ChainRegistryJob
+
+	// Push TSS event listener
+	pushTSSListener *push.PushTSSEventListener
+
+	// TSS Node (optional, enabled via config)
+	tssNode *tss.Node
 }
 
 func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.ChainDBManager, cfg *config.Config) (*UniversalClient, error) {
@@ -112,6 +123,14 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	// Register as observer for chain addition events
 	chainRegistry.SetObserver(uc)
 
+	// Create TSS event listener for Push chain events
+	tssDB, err := dbManager.GetChainDB("universal-validator")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TSS database: %w", err)
+	}
+	tssEventStore := eventstore.NewStore(tssDB.Client(), log)
+	uc.pushTSSListener = push.NewPushTSSEventListener(pushCore, tssEventStore, log)
+
 	// Perform mandatory startup validation
 	log.Info().Msg("🔐 Validating hotkey and AuthZ permissions...")
 
@@ -137,6 +156,51 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	}
 
 	uc.signerHandler = signerHandler
+
+	// Initialize TSS node if enabled
+	if cfg.TSSEnabled {
+		log.Info().Msg("🔑 TSS enabled, initializing TSS node...")
+
+		// Use granter address as validator address (this is the valoper address)
+		validatorAddr := signerHandler.GetGranter()
+
+		// Determine TSS home directory
+		tssHomeDir := cfg.TSSHomeDir
+		if tssHomeDir == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get user home directory: %w", err)
+			}
+			tssHomeDir = filepath.Join(homeDir, ".puniversal", "tss")
+		}
+
+		// Create TSS data provider using pushcore
+		tssDataProvider := pushcore.NewDataProvider(pushCore, log)
+
+		// Create TSS node configuration
+		tssCfg := tss.Config{
+			ValidatorAddress: validatorAddr,
+			PrivateKeyHex:    cfg.TSSPrivateKeyHex,
+			LibP2PListen:     cfg.TSSP2PListen,
+			HomeDir:          tssHomeDir,
+			Password:         cfg.TSSPassword,
+			Database:         tssDB,
+			DataProvider:     tssDataProvider,
+			Logger:           log,
+		}
+
+		tssNode, err := tss.NewNode(ctx, tssCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TSS node: %w", err)
+		}
+		uc.tssNode = tssNode
+
+		log.Info().
+			Str("validator", validatorAddr).
+			Str("p2p_listen", cfg.TSSP2PListen).
+			Str("home_dir", tssHomeDir).
+			Msg("✅ TSS node initialized")
+	}
 
 	// Set vote handlers in chain registry
 	// This will create both inbound vote handlers and gas vote handlers per chain
@@ -186,6 +250,28 @@ func (uc *UniversalClient) Start() error {
 		}
 	}
 
+	// Start the Push TSS event listener
+	if uc.pushTSSListener != nil {
+		if err := uc.pushTSSListener.Start(uc.ctx); err != nil {
+			uc.log.Error().Err(err).Msg("failed to start Push TSS listener")
+		} else {
+			uc.log.Info().Msg("✅ Push TSS event listener started")
+		}
+	}
+
+	// Start the TSS node if enabled
+	if uc.tssNode != nil {
+		if err := uc.tssNode.Start(uc.ctx); err != nil {
+			uc.log.Error().Err(err).Msg("failed to start TSS node")
+			// Don't fail startup, TSS can recover
+		} else {
+			uc.log.Info().
+				Str("peer_id", uc.tssNode.PeerID()).
+				Strs("listen_addrs", uc.tssNode.ListenAddrs()).
+				Msg("✅ TSS node started")
+		}
+	}
+
 	// Start the query server
 	if uc.queryServer != nil {
 		uc.log.Info().Int("port", uc.config.QueryServerPort).Msg("Starting query server...")
@@ -215,6 +301,20 @@ func (uc *UniversalClient) Start() error {
 	// Stop gas price fetcher
 	if uc.gasPriceFetcher != nil {
 		uc.gasPriceFetcher.Stop()
+	}
+
+	// Stop Push TSS event listener
+	if uc.pushTSSListener != nil {
+		uc.pushTSSListener.Stop()
+	}
+
+	// Stop TSS node
+	if uc.tssNode != nil {
+		if err := uc.tssNode.Stop(); err != nil {
+			uc.log.Error().Err(err).Msg("error stopping TSS node")
+		} else {
+			uc.log.Info().Msg("✅ TSS node stopped")
+		}
 	}
 
 	// Stop all chain clients

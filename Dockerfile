@@ -49,7 +49,15 @@ RUN set -eux; \
       WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
       wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
     fi; \
-    go mod download;
+    if [ ! -d "/dkls23-rs/wrapper/go-wrappers" ]; then \
+      echo "✗ ERROR: dkls23-rs not found at /dkls23-rs/wrapper/go-wrappers"; \
+      echo "  This is required for the go.mod replace directive"; \
+      exit 1; \
+    fi; \
+    echo "✓ dkls23-rs found, verifying structure..."; \
+    ls -la /dkls23-rs/wrapper/go-wrappers/go.mod || (echo "✗ go.mod not found" && exit 1); \
+    echo "✓ dkls23-rs structure verified"; \
+    echo "  Note: Skipping 'go mod download' here - dependencies will be downloaded during 'make build'";
 
 # Copy over code
 COPY . /code

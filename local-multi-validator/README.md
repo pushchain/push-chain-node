@@ -30,15 +30,56 @@ docker compose up --build
 
 ## Commands
 
+### Primary Commands
+
 | Command | Description |
 |---------|-------------|
-| `./devnet up` | Build and start all validators |
+| `./devnet up` | Start validators (auto-pulls from cache if available) |
+| `./devnet up --build` | Force rebuild images before starting |
+| `./devnet up --skip-cache` | Skip remote cache, build locally |
 | `./devnet down` | Stop all validators |
-| `./devnet logs` | View logs (all or specific container) |
-| `./devnet status` | Show container status |
+| `./devnet restart` | Restart all validators |
+| `./devnet status` | Show network status |
+| `./devnet logs [service]` | View logs (all or specific container) |
+
+### Build Commands
+
+| Command | Description |
+|---------|-------------|
+| `./devnet base` | Build/rebuild base image |
+| `./devnet rebuild [target]` | Rebuild images (all\|core\|universal\|base\|clean) |
+
+### TSS Commands
+
+| Command | Description |
+|---------|-------------|
 | `./devnet tss-keygen` | Initiate TSS key generation |
 | `./devnet tss-refresh` | Initiate TSS key refresh |
 | `./devnet tss-quorum` | Initiate TSS quorum change |
+
+### Setup Commands
+
+| Command | Description |
+|---------|-------------|
+| `./devnet setup-authz` | Setup hot key and AuthZ grants |
+| `./devnet verify-authz` | Verify AuthZ configuration |
+| `./devnet setup-uvalidators` | Register universal validators + grants |
+| `./devnet setup-registry` | Add chains and tokens to registry |
+| `./devnet show-registry` | Display registered chains and tokens |
+
+### Cache Commands
+
+| Command | Description |
+|---------|-------------|
+| `./devnet pull-cache` | Pull pre-built images from GCR |
+| `./devnet push-cache` | Push local images to GCR |
+| `./devnet refresh-cache` | Force rebuild and push to GCR |
+
+### Maintenance
+
+| Command | Description |
+|---------|-------------|
+| `./devnet clean` | Complete reset (removes all data, with confirmation) |
 
 ## Endpoints
 

@@ -13,39 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/x/uvalidator/types"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 )
-
-// mockDataProvider is a mock implementation of coordinator.DataProvider for testing.
-type mockDataProvider struct {
-	latestBlock      uint64
-	validators       []*types.UniversalValidator
-	currentTSSKeyId  string
-	getBlockNumErr   error
-	getValidatorsErr error
-	getKeyIdErr      error
-}
-
-func (m *mockDataProvider) GetLatestBlockNum() (uint64, error) {
-	if m.getBlockNumErr != nil {
-		return 0, m.getBlockNumErr
-	}
-	return m.latestBlock, nil
-}
-
-func (m *mockDataProvider) GetUniversalValidators() ([]*types.UniversalValidator, error) {
-	if m.getValidatorsErr != nil {
-		return nil, m.getValidatorsErr
-	}
-	return m.validators, nil
-}
-
-func (m *mockDataProvider) GetCurrentTSSKeyId() (string, error) {
-	if m.getKeyIdErr != nil {
-		return "", m.getKeyIdErr
-	}
-	return m.currentTSSKeyId, nil
-}
 
 // generateTestPrivateKey generates a random Ed25519 private key for testing.
 func generateTestPrivateKey(t *testing.T) string {
@@ -54,34 +23,23 @@ func generateTestPrivateKey(t *testing.T) string {
 	return hex.EncodeToString(privKey.Seed())
 }
 
-// setupTestNode creates a test TSS node with mock dependencies.
-func setupTestNode(t *testing.T) (*Node, *mockDataProvider, *db.DB) {
+// setupTestNode creates a test TSS node with test dependencies.
+func setupTestNode(t *testing.T) (*Node, *pushcore.Client, *db.DB) {
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
 
-	mockDP := &mockDataProvider{
-		latestBlock:     100,
-		currentTSSKeyId: "test-key-id",
-		validators: []*types.UniversalValidator{
-			{
-				IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator1"},
-				NetworkInfo: &types.NetworkInfo{
-					PeerId:     "peer1",
-					MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
-				},
-				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-			},
-		},
-	}
+	// Create a minimal client (will fail on actual gRPC calls, but that's OK for validation tests)
+	// The node initialization doesn't require actual client calls, only the config validation
+	testClient := &pushcore.Client{}
 
 	cfg := Config{
 		ValidatorAddress: "validator1",
-		P2PPrivateKeyHex:    generateTestPrivateKey(t),
+		P2PPrivateKeyHex: generateTestPrivateKey(t),
 		LibP2PListen:     "/ip4/127.0.0.1/tcp/0",
 		HomeDir:          t.TempDir(),
 		Password:         "test-password",
 		Database:         database,
-		DataProvider:     mockDP,
+		PushCore:         testClient,
 		Logger:           zerolog.Nop(),
 		PollInterval:     100 * time.Millisecond,
 		CoordinatorRange: 100,
@@ -90,14 +48,14 @@ func setupTestNode(t *testing.T) (*Node, *mockDataProvider, *db.DB) {
 	node, err := NewNode(context.Background(), cfg)
 	require.NoError(t, err)
 
-	return node, mockDP, database
+	return node, testClient, database
 }
 
 func TestNewNode_Validation(t *testing.T) {
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
 
-	mockDP := &mockDataProvider{}
+	testClient := &pushcore.Client{}
 
 	tests := []struct {
 		name    string
@@ -108,9 +66,9 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing validator address",
 			cfg: Config{
 				P2PPrivateKeyHex: generateTestPrivateKey(t),
-				HomeDir:       t.TempDir(),
-				Database:      database,
-				DataProvider:  mockDP,
+				HomeDir:          t.TempDir(),
+				Database:         database,
+				PushCore:         testClient,
 			},
 			wantErr: "validator address is required",
 		},
@@ -120,7 +78,7 @@ func TestNewNode_Validation(t *testing.T) {
 				ValidatorAddress: "validator1",
 				HomeDir:          t.TempDir(),
 				Database:         database,
-				DataProvider:     mockDP,
+				PushCore:         testClient,
 			},
 			wantErr: "private key is required",
 		},
@@ -128,9 +86,9 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing home directory",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				P2PPrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex: generateTestPrivateKey(t),
 				Database:         database,
-				DataProvider:     mockDP,
+				PushCore:         testClient,
 			},
 			wantErr: "home directory is required",
 		},
@@ -138,21 +96,21 @@ func TestNewNode_Validation(t *testing.T) {
 			name: "missing database",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				P2PPrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex: generateTestPrivateKey(t),
 				HomeDir:          t.TempDir(),
-				DataProvider:     mockDP,
+				PushCore:         testClient,
 			},
 			wantErr: "database is required",
 		},
 		{
-			name: "missing data provider",
+			name: "missing pushCore",
 			cfg: Config{
 				ValidatorAddress: "validator1",
-				P2PPrivateKeyHex:    generateTestPrivateKey(t),
+				P2PPrivateKeyHex: generateTestPrivateKey(t),
 				HomeDir:          t.TempDir(),
 				Database:         database,
 			},
-			wantErr: "data provider is required",
+			wantErr: "pushCore is required",
 		},
 	}
 

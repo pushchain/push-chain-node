@@ -11,14 +11,17 @@ import (
 )
 
 func TestConfigValidation(t *testing.T) {
-	// Test default settings
-	cfg := &Config{
-		LogLevel:  1,
-		LogFormat: "console",
-	}
-
 	// Load default config for validation
 	defaultCfg, _ := LoadDefaultConfig()
+
+	// Test default settings - provide required TSS fields since default config doesn't have them
+	cfg := &Config{
+		LogLevel:            1,
+		LogFormat:           "console",
+		TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+		TSSPassword:         "test-password",
+	}
+
 	// This should set defaults and validate
 	err := validateConfig(cfg, &defaultCfg)
 	assert.NoError(t, err)
@@ -52,6 +55,8 @@ func TestValidConfigScenarios(t *testing.T) {
 				InitialFetchTimeoutSeconds:   20,
 				PushChainGRPCURLs:            []string{"localhost:9090"},
 				QueryServerPort:              8080,
+				TSSP2PPrivateKeyHex:          "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+				TSSPassword:                  "test-password",
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 2, cfg.LogLevel)
@@ -61,8 +66,10 @@ func TestValidConfigScenarios(t *testing.T) {
 		{
 			name: "Valid config with console log format",
 			config: Config{
-				LogLevel:  1,
-				LogFormat: "console",
+				LogLevel:            1,
+				LogFormat:           "console",
+				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+				TSSPassword:         "test-password",
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.LogLevel)
@@ -72,11 +79,14 @@ func TestValidConfigScenarios(t *testing.T) {
 		{
 			name: "Config with defaults applied",
 			config: Config{
-				LogLevel:  2,
-				LogFormat: "json",
+				LogLevel:            2,
+				LogFormat:           "json",
+				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+				TSSPassword:         "test-password",
 			},
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds)
+				// These should match the default config values
+				assert.Equal(t, 10, cfg.ConfigRefreshIntervalSeconds) // Default is 10, not 60
 				assert.Equal(t, 3, cfg.MaxRetries)
 				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
 				assert.Equal(t, 5, cfg.InitialFetchRetries)
@@ -88,9 +98,11 @@ func TestValidConfigScenarios(t *testing.T) {
 		{
 			name: "Empty PushChainGRPCURLs gets default",
 			config: Config{
-				LogLevel:          2,
-				LogFormat:         "json",
-				PushChainGRPCURLs: []string{},
+				LogLevel:            2,
+				LogFormat:           "json",
+				PushChainGRPCURLs:   []string{},
+				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+				TSSPassword:         "test-password",
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
@@ -99,9 +111,11 @@ func TestValidConfigScenarios(t *testing.T) {
 		{
 			name: "Zero QueryServerPort gets default",
 			config: Config{
-				LogLevel:        2,
-				LogFormat:       "json",
-				QueryServerPort: 0,
+				LogLevel:            2,
+				LogFormat:           "json",
+				QueryServerPort:     0,
+				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+				TSSPassword:         "test-password",
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 8080, cfg.QueryServerPort)
@@ -199,6 +213,8 @@ func TestSaveAndLoad(t *testing.T) {
 			InitialFetchTimeoutSeconds:   60,
 			PushChainGRPCURLs:            []string{"localhost:9090", "localhost:9091"},
 			QueryServerPort:              8888,
+			TSSP2PPrivateKeyHex:          "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+			TSSPassword:                  "test-password",
 		}
 
 		// Save config
@@ -263,8 +279,10 @@ func TestSaveAndLoad(t *testing.T) {
 	t.Run("Save with directory creation", func(t *testing.T) {
 		newDir := filepath.Join(tempDir, "new_dir")
 		cfg := &Config{
-			LogLevel:  2,
-			LogFormat: "json",
+			LogLevel:            2,
+			LogFormat:           "json",
+			TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
+			TSSPassword:         "test-password",
 		}
 
 		err := Save(cfg, newDir)

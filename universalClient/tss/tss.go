@@ -286,6 +286,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.pushCore,
 			n.keyshareManager,
 			n.validatorAddress,
+			net.ID(), // Our libp2p peer ID
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
 			func(ctx context.Context, peerID string, data []byte) error {

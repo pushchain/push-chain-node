@@ -1,23 +1,30 @@
 FROM local-multi-validator-base:latest AS core-builder
 
 # Copy source code in order of change frequency (most stable first)
-COPY Makefile ./
-COPY contrib/ ./contrib/
-COPY api/ ./api/
-COPY precompiles/ ./precompiles/
-COPY types/ ./types/
-COPY utils/ ./utils/
-COPY x/ ./x/
-COPY app/ ./app/
+COPY push-chain/Makefile ./
+COPY push-chain/contrib/ ./contrib/
+COPY push-chain/api/ ./api/
+COPY push-chain/precompiles/ ./precompiles/
+COPY push-chain/types/ ./types/
+COPY push-chain/utils/ ./utils/
+COPY push-chain/x/ ./x/
+COPY push-chain/app/ ./app/
 # Copy cmd/ last as it changes most frequently (especially main.go)
-COPY cmd/ ./cmd/
+COPY push-chain/cmd/ ./cmd/
 
-# Build ONLY pchaind binary with build cache mount for faster incremental builds
+# Download dependencies with cache mount (NOT stored in image layer)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+# Build pchaind binary with cache mounts for fast incremental builds
+# Key: Use -L /lib to tell linker where to find libwasmvm_muslc
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=1 \
+    CGO_LDFLAGS="-L/lib" \
     LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
   -mod=readonly -tags "netgo,muslc" \
-  -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-Wl,-z,muldefs -static"' \
+  -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-L/lib -Wl,-z,muldefs -static"' \
   -trimpath -o build/pchaind ./cmd/pchaind \
   && file /code/build/pchaind \
   && echo "Ensuring pchaind is statically linked ..." \
@@ -36,7 +43,7 @@ RUN apk add --no-cache ca-certificates curl make bash jq sed
 WORKDIR /opt
 
 # Copy setup scripts for both genesis and regular validator setup
-COPY local-multi-validator/scripts/ /opt/scripts/
+COPY push-chain/local-multi-validator/scripts/ /opt/scripts/
 
 # Expose ports for core validators (RPC, GRPC, P2P, WebSocket)
 EXPOSE 1317 26656 26657 26658 26659 8545 8546 8548 8550 9090 9091 9092

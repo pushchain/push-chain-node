@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -18,6 +20,21 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
+
+// accountToValAddr converts an account address (push1...) to a validator address (pushvaloper1...).
+// If the address is already in valoper format, it returns it unchanged.
+func accountToValAddr(addr string) (string, error) {
+	// If already in valoper format, return as-is
+	if strings.HasPrefix(addr, "pushvaloper") {
+		return addr, nil
+	}
+	acc, err := sdk.AccAddressFromBech32(addr)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid account address")
+	}
+	valAddr := sdk.ValAddress(acc)
+	return valAddr.String(), nil
+}
 
 // SendFunc is a function type for sending messages to participants.
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
@@ -73,11 +90,11 @@ func NewSessionManager(
 }
 
 // getPartyID returns our validator address (valoper format) for use in DKLS sessions.
-func (sm *SessionManager) getPartyID() (string, error) {
-	if sm.partyID == "" {
-		return "", errors.New("party ID is not set")
-	}
-	return sm.partyID, nil
+// It uses the on-chain registered CoreValidatorAddress via coordinator lookup.
+func (sm *SessionManager) getPartyID(ctx context.Context) (string, error) {
+	// Use coordinator's on-chain lookup to get the correct partyID
+	// This ensures we use the same address that's in the setup message participants list
+	return sm.coordinator.GetOurPartyID(ctx)
 }
 
 // HandleIncomingMessage handles an incoming message.
@@ -462,11 +479,20 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEvent, msg *coordinator.Message) (dkls.Session, error) {
 	threshold := coordinator.CalculateThreshold(len(msg.Participants))
 
-	// Get our partyID (CoreValidatorAddress in valoper format) from coordinator's lazy lookup
-	partyID, err := sm.getPartyID()
+	// Get our partyID (CoreValidatorAddress in valoper format) from coordinator's on-chain registry lookup
+	partyID, err := sm.getPartyID(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get partyID")
 	}
+
+	// DEBUG: Log partyID and participants for session creation
+	sm.logger.Info().
+		Str("event_id", msg.EventID).
+		Str("protocol_type", event.ProtocolType).
+		Str("our_party_id", partyID).
+		Strs("participants", msg.Participants).
+		Int("threshold", threshold).
+		Msg("createSession: creating session with partyID (from on-chain registry)")
 
 	switch event.ProtocolType {
 	case "keygen":

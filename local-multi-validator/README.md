@@ -1,34 +1,60 @@
 # Local Multi-Validator Setup
 
-Docker-based local development environment for Push Chain with 3 core validators + 3 universal validators.
+## Prerequisites
+
+Run from the parent directory containing:
+```
+PUSH/
+├── push-chain/          # This repo
+├── dkls23-rs/           # TSS library (clone from silence-laboratories)
+└── garbling/            # Garbling circuits (clone from silence-laboratories)
+```
+
+Build the base image first (one-time, ~5-10 min):
+```bash
+cd push-chain/local-multi-validator
+./devnet base
+```
 
 ## Quick Start
 
 ```bash
-./local-validator-manager start    # Start all validators
-./local-validator-manager status   # Check status
-./local-validator-manager stop     # Stop all validators
+cd local-multi-validator
+
+# Build and start (first time ~5-8 min, rebuilds ~1-2 min)
+./devnet up
+
+# Or use docker compose directly
+docker compose up --build
 ```
-
-## Development
-
-```bash
-./local-validator-manager rebuild all  # Rebuild after code changes
-./local-validator-manager dev-watch    # Auto-rebuild on file changes
-```
-
-## Network Access
-
-**Core Validators:**
-- Validator 1: `http://localhost:26657` (RPC), `http://localhost:1317` (REST)
-- Validator 2: `http://localhost:26658` (RPC), `http://localhost:1318` (REST)  
-- Validator 3: `http://localhost:26659` (RPC), `http://localhost:1319` (REST)
-
-**Universal Validators:**
-- Universal 1: `http://localhost:8080`
-- Universal 2: `http://localhost:8081`
-- Universal 3: `http://localhost:8082`
 
 ## Commands
 
-Run `./local-validator-manager help` for all available commands.
+| Command | Description |
+|---------|-------------|
+| `./devnet up` | Build and start all validators |
+| `./devnet down` | Stop all validators |
+| `./devnet logs` | View logs (all or specific container) |
+| `./devnet status` | Show container status |
+| `./devnet tss-keygen` | Initiate TSS key generation |
+| `./devnet tss-refresh` | Initiate TSS key refresh |
+| `./devnet tss-quorum` | Initiate TSS quorum change |
+
+## Endpoints
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Core RPC | 26657 | Tendermint RPC |
+| Core REST | 1317 | REST API |
+| Core gRPC | 9090 | gRPC |
+| EVM HTTP | 8545 | EVM JSON-RPC |
+| Universal API | 8080-8082 | Query API |
+| TSS P2P | 39000-39002 | TSS communication |
+
+## How It Works
+
+The setup runs 6 validators:
+- **3 Core Validators** (`pchaind`) - Consensus and block production
+- **3 Universal Validators** (`puniversald`) - Off-chain compute with TSS signing
+
+Each universal validator connects to its paired core validator via gRPC.

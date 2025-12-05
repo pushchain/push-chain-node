@@ -950,6 +950,142 @@ restart_validator() {
 }
 
 # Show help
+# Setup universal validators on-chain with authz grants
+setup_uvalidators() {
+    print_header "🔐 Setting up Universal Validators"
+
+    # Check if containers are running
+    if ! docker ps --filter "name=core-validator-1" --format "{{.Names}}" | grep -q "core-validator-1"; then
+        print_error "❌ Validators are not running. Start them first with './local-validator-manager start'"
+        exit 1
+    fi
+
+    echo -e "${YELLOW}Registering universal validators and granting AuthZ permissions...${NC}"
+    echo
+
+    for i in 1 2 3; do
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Setting up Universal Validator $i${NC}"
+
+        # 1. Get validator addresses
+        echo -ne "  ${YELLOW}Getting validator addresses:${NC} "
+        VALIDATOR_ADDR=$(docker exec core-validator-$i pchaind keys show validator-$i -a --keyring-backend test 2>/dev/null)
+        VALOPER_ADDR=$(docker exec core-validator-$i pchaind keys show validator-$i --bech val -a --keyring-backend test 2>/dev/null)
+
+        if [ -z "$VALOPER_ADDR" ]; then
+            echo -e "${RED}❌ Failed to get validator address${NC}"
+            continue
+        fi
+        echo -e "${GREEN}✅${NC}"
+        echo -e "    Account: ${CYAN}$VALIDATOR_ADDR${NC}"
+        echo -e "    Valoper: ${CYAN}$VALOPER_ADDR${NC}"
+
+        # 2. Get network info (peer_id and multi_addr)
+        echo -ne "  ${YELLOW}Getting network info:${NC} "
+        # Port mapping: validator 1 = 26650, validator 2 = 26651, validator 3 = 26652
+        local port=$((26650 + i - 1))
+        NODE_ID=$(curl -s "http://localhost:${port}/status" | jq -r '.result.node_info.id' 2>/dev/null)
+
+        if [ -z "$NODE_ID" ] || [ "$NODE_ID" = "null" ]; then
+            echo -e "${RED}❌ Failed to get node ID from port ${port}${NC}"
+            continue
+        fi
+        MULTI_ADDR="/ip4/core-validator-$i/tcp/26656"
+        echo -e "${GREEN}✅${NC}"
+        echo -e "    Node ID: ${CYAN}$NODE_ID${NC}"
+        echo -e "    Multi-addr: ${CYAN}$MULTI_ADDR${NC}"
+
+        # 3. Register as universal validator
+        echo -ne "  ${YELLOW}Registering as universal validator:${NC} "
+        local register_result=$(docker exec core-validator-1 pchaind tx uvalidator add-universal-validator \
+            --core-validator-address "$VALOPER_ADDR" \
+            --network "{\"peer_id\": \"$NODE_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}" \
+            --from genesis-acc-1 \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 1000000000000000upc \
+            --yes \
+            --output json 2>&1)
+
+        if echo "$register_result" | grep -q '"txhash"'; then
+            local txhash=$(echo "$register_result" | jq -r '.txhash')
+            echo -e "${GREEN}✅ TX: ${txhash:0:16}...${NC}"
+        else
+            echo -e "${YELLOW}⚠️ May already be registered or error${NC}"
+            echo -e "    ${DIM}$(echo "$register_result" | head -1)${NC}"
+        fi
+
+        sleep 3
+
+        # 4. Get or create hotkey for this validator
+        echo -ne "  ${YELLOW}Setting up hotkey:${NC} "
+        local container_key_name="container-hotkey"
+        HOTKEY_ADDR=$(docker exec universal-validator-$i puniversald keys show "$container_key_name" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
+
+        if [ -z "$HOTKEY_ADDR" ]; then
+            # Create hotkey if doesn't exist
+            docker exec universal-validator-$i puniversald keys add "$container_key_name" --keyring-backend test --home /root/.puniversal --no-backup >/dev/null 2>&1
+            HOTKEY_ADDR=$(docker exec universal-validator-$i puniversald keys show "$container_key_name" -a --keyring-backend test --home /root/.puniversal 2>/dev/null)
+            echo -e "${GREEN}✅ Created new hotkey${NC}"
+        else
+            echo -e "${GREEN}✅ Using existing hotkey${NC}"
+        fi
+        echo -e "    Hotkey: ${CYAN}$HOTKEY_ADDR${NC}"
+
+        if [ -z "$HOTKEY_ADDR" ]; then
+            echo -e "${RED}❌ Failed to get/create hotkey${NC}"
+            continue
+        fi
+
+        # 5. Grant MsgVoteInbound
+        echo -ne "  ${YELLOW}Granting MsgVoteInbound:${NC} "
+        local grant_inbound=$(docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
+            --msg-type=/uexecutor.v1.MsgVoteInbound \
+            --from validator-$i \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 200000000000000upc \
+            --yes \
+            --output json 2>&1)
+
+        if echo "$grant_inbound" | grep -q '"txhash"'; then
+            echo -e "${GREEN}✅${NC}"
+        else
+            echo -e "${YELLOW}⚠️ May already exist${NC}"
+        fi
+
+        sleep 2
+
+        # 6. Grant MsgVoteGasPrice
+        echo -ne "  ${YELLOW}Granting MsgVoteGasPrice:${NC} "
+        local grant_gas=$(docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
+            --msg-type=/uexecutor.v1.MsgVoteGasPrice \
+            --from validator-$i \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 200000000000000upc \
+            --yes \
+            --output json 2>&1)
+
+        if echo "$grant_gas" | grep -q '"txhash"'; then
+            echo -e "${GREEN}✅${NC}"
+        else
+            echo -e "${YELLOW}⚠️ May already exist${NC}"
+        fi
+
+        sleep 2
+
+        echo -e "  ${GREEN}✅ Validator $i setup complete${NC}"
+        echo
+    done
+
+    echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+    print_success "✅ Universal validators setup complete!"
+    echo
+    echo -e "${BOLD}Verify with:${NC}"
+    echo -e "  docker exec core-validator-1 pchaind query uvalidator list-universal-validators"
+}
+
 show_help() {
     echo
     echo -e "${BOLD}${GREEN}Local Multi-Validator Manager${NC}"
@@ -979,6 +1115,9 @@ show_help() {
     printf "  ${BOLD}%-25s${NC}%s\n" "setup-authz" "Setup hot key and AuthZ grants"
     printf "  ${BOLD}%-25s${NC}%s\n" "exec-authz" "Execute AuthZ transaction tests"
     printf "  ${BOLD}%-25s${NC}%s\n" "verify-authz" "Verify AuthZ configuration"
+    echo
+    echo -e "${BOLD}${CYAN}UNIVERSAL VALIDATOR SETUP${NC}"
+    printf "  ${BOLD}%-25s${NC}%s\n" "setup-uvalidators" "Register universal validators + grant AuthZ"
     echo
     echo -e "${BOLD}${CYAN}REGISTRY CONFIGURATION${NC}"
     printf "  ${BOLD}%-25s${NC}%s\n" "setup-registry" "Add chains and tokens to registry"
@@ -1132,7 +1271,11 @@ case "${1:-help}" in
     exec-authz)
         exec_authz
         ;;
-        
+
+    setup-uvalidators)
+        setup_uvalidators
+        ;;
+
     setup-registry)
         setup_registry
         ;;

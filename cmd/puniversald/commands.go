@@ -2,9 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
+
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	sdkversion "github.com/cosmos/cosmos-sdk/version"
 	"github.com/pushchain/push-chain-node/universalClient/config"
@@ -29,6 +35,7 @@ func InitRootCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(cosmosevmcmd.KeyCommands(constant.DefaultNodeHome, true))
 	rootCmd.AddCommand(authzCmd())
 	rootCmd.AddCommand(setblockCmd())
+	rootCmd.AddCommand(tssPeerIDCmd())
 }
 
 func versionCmd() *cobra.Command {
@@ -236,6 +243,64 @@ func setblockCmd() *cobra.Command {
 	cmd.Flags().StringVar(&chainID, "chain", "", "Chain ID (e.g., 'eip155:11155111' or 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1')")
 	cmd.Flags().Int64Var(&block, "block", -1, "Block number to set")
 	cmd.Flags().BoolVar(&list, "list", false, "List all current block records")
+
+	return cmd
+}
+
+// tssPeerIDCmd computes and prints the libp2p peer ID from a TSS private key hex string.
+// This is used during devnet setup to derive the peer ID for universal validator registration.
+func tssPeerIDCmd() *cobra.Command {
+	var privateKeyHex string
+
+	cmd := &cobra.Command{
+		Use:   "tss-peer-id",
+		Short: "Compute libp2p peer ID from TSS private key hex",
+		Long: `Compute the libp2p peer ID from a 32-byte hex-encoded Ed25519 seed.
+
+This is used during devnet setup to derive the peer ID that matches
+what the TSS node will use, for universal validator registration.
+
+Example:
+  puniversald tss-peer-id --private-key 0101010101010101010101010101010101010101010101010101010101010101`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			privateKeyHex = strings.TrimSpace(privateKeyHex)
+
+			// Decode hex to bytes
+			keyBytes, err := hex.DecodeString(privateKeyHex)
+			if err != nil {
+				return fmt.Errorf("invalid hex: %w", err)
+			}
+			if len(keyBytes) != 32 {
+				return fmt.Errorf("expected 32 bytes, got %d", len(keyBytes))
+			}
+
+			// Create Ed25519 key from seed
+			privKey := ed25519.NewKeyFromSeed(keyBytes)
+			pubKey := privKey.Public().(ed25519.PublicKey)
+
+			// Convert to libp2p format (64 bytes: 32 priv seed + 32 pub)
+			libp2pKeyBytes := make([]byte, 64)
+			copy(libp2pKeyBytes[:32], privKey[:32])
+			copy(libp2pKeyBytes[32:], pubKey)
+
+			libp2pPrivKey, err := crypto.UnmarshalEd25519PrivateKey(libp2pKeyBytes)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal Ed25519 key: %w", err)
+			}
+
+			// Get peer ID from public key
+			peerID, err := peer.IDFromPrivateKey(libp2pPrivKey)
+			if err != nil {
+				return fmt.Errorf("failed to derive peer ID: %w", err)
+			}
+
+			fmt.Println(peerID.String())
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&privateKeyHex, "private-key", "", "Hex-encoded 32-byte Ed25519 seed")
+	cmd.MarkFlagRequired("private-key")
 
 	return cmd
 }

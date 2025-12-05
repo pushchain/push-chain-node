@@ -21,21 +21,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /code
 
-ADD go.mod go.sum ./
-RUN set -eux; \
-    export ARCH=$(uname -m); \
-    WASM_VERSION=$(go list -m all | grep github.com/CosmWasm/wasmvm || true); \
-    if [ ! -z "${WASM_VERSION}" ]; then \
-      WASMVM_REPO=$(echo $WASM_VERSION | awk '{print $1}');\
-      WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
-      wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
-    fi; \
-    go mod download;
-
-# Copy over code
-COPY . /code
-
-# Setup dkls23-rs: configure Git and clone repository
+# Setup dkls23-rs: configure Git and clone repository BEFORE go mod download
 # Clone to /dkls23-rs (parent of /code) so Makefile can find it at ../dkls23-rs
 RUN set -eux; \
     if [ ! -z "${CI_DKLS_GARBLING}" ]; then \
@@ -53,6 +39,20 @@ RUN set -eux; \
     else \
       echo "Warning: CI_DKLS_GARBLING not set, skipping dkls23-rs clone. Build may fail if dkls23-rs is required."; \
     fi
+
+ADD go.mod go.sum ./
+RUN set -eux; \
+    export ARCH=$(uname -m); \
+    WASM_VERSION=$(go list -m all | grep github.com/CosmWasm/wasmvm || true); \
+    if [ ! -z "${WASM_VERSION}" ]; then \
+      WASMVM_REPO=$(echo $WASM_VERSION | awk '{print $1}');\
+      WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
+      wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
+    fi; \
+    go mod download;
+
+# Copy over code
+COPY . /code
 
 # force it to use static lib (from above) not standard libgo_cosmwasm.so file
 # then log output of file /code/bin/pchaind

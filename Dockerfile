@@ -1,10 +1,6 @@
-FROM golang:1.23.8-alpine3.20 AS build-env
+FROM golang:1.23.7-alpine3.20 AS build-env
 
 SHELL ["/bin/sh", "-ecuxo", "pipefail"]
-
-# Build arg for CI token (optional, for private repos)
-ARG CI_DKLS_GARBLING
-ENV CI_DKLS_GARBLING=${CI_DKLS_GARBLING}
 
 RUN set -eux; apk add --no-cache \
     ca-certificates \
@@ -12,33 +8,9 @@ RUN set -eux; apk add --no-cache \
     git \
     linux-headers \
     bash \
-    binutils-gold \
-    curl
-
-# Install Rust for building dkls23-rs
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+    binutils-gold
 
 WORKDIR /code
-
-# Setup dkls23-rs: configure Git and clone repository BEFORE go mod download
-# Clone to /dkls23-rs (parent of /code) so Makefile can find it at ../dkls23-rs
-RUN set -eux; \
-    if [ ! -z "${CI_DKLS_GARBLING}" ]; then \
-      git config --global url."https://${CI_DKLS_GARBLING}@github.com/pushchain/".insteadOf "https://github.com/pushchain/"; \
-      git config --global url."https://github.com/".insteadOf "git@github.com:"; \
-      git config --global credential.helper store; \
-      echo "https://${CI_DKLS_GARBLING}@github.com" > ~/.git-credentials; \
-      chmod 600 ~/.git-credentials; \
-      mkdir -p ~/.cargo; \
-      echo '[net]' >> ~/.cargo/config.toml; \
-      echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml; \
-      if [ ! -d "/dkls23-rs" ]; then \
-        git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git /dkls23-rs; \
-      fi; \
-    else \
-      echo "Warning: CI_DKLS_GARBLING not set, skipping dkls23-rs clone. Build may fail if dkls23-rs is required."; \
-    fi
 
 ADD go.mod go.sum ./
 RUN set -eux; \
@@ -49,15 +21,7 @@ RUN set -eux; \
       WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
       wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
     fi; \
-    if [ ! -d "/dkls23-rs/wrapper/go-wrappers" ]; then \
-      echo "✗ ERROR: dkls23-rs not found at /dkls23-rs/wrapper/go-wrappers"; \
-      echo "  This is required for the go.mod replace directive"; \
-      exit 1; \
-    fi; \
-    echo "✓ dkls23-rs found, verifying structure..."; \
-    ls -la /dkls23-rs/wrapper/go-wrappers/go.mod || (echo "✗ go.mod not found" && exit 1); \
-    echo "✓ dkls23-rs structure verified"; \
-    echo "  Note: Skipping 'go mod download' here - dependencies will be downloaded during 'make build'";
+    go mod download;
 
 # Copy over code
 COPY . /code

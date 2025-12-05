@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package utss.v1;
+
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+
+import "utss/v1/genesis.proto";
+import "utss/v1/types.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/utss/types";
+
+// Query Service
+service Query {
+  // Params queries module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/utss/v1/params";
+  }
+
+  // Current TSS Process
+  rpc CurrentProcess(QueryCurrentProcessRequest) returns (QueryCurrentProcessResponse) {
+    option (google.api.http).get = "/utss/v1/process/current";
+  }
+
+  // Process by ID
+  rpc ProcessById(QueryProcessByIdRequest) returns (QueryProcessByIdResponse) {
+    option (google.api.http).get = "/utss/v1/process/{id}";
+  }
+
+  // List all processes (paginated)
+  rpc AllProcesses(QueryAllProcessesRequest) returns (QueryAllProcessesResponse) {
+    option (google.api.http).get = "/utss/v1/process";
+  }
+
+  // Current TSS Key
+  rpc CurrentKey(QueryCurrentKeyRequest) returns (QueryCurrentKeyResponse) {
+    option (google.api.http).get = "/utss/v1/key/current";
+  }
+
+  // Get finalized TSS key by key_id
+  rpc KeyById(QueryKeyByIdRequest) returns (QueryKeyByIdResponse) {
+    option (google.api.http).get = "/utss/v1/key/{key_id}";
+  }
+
+  // List all finalized keys (paginated)
+  rpc AllKeys(QueryAllKeysRequest) returns (QueryAllKeysResponse) {
+    option (google.api.http).get = "/utss/v1/key";
+  }
+}
+
+// Messages
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryCurrentProcessRequest {}
+message QueryCurrentProcessResponse {
+  TssKeyProcess process = 1;
+}
+
+message QueryProcessByIdRequest {
+  uint64 id = 1;
+}
+message QueryProcessByIdResponse {
+  TssKeyProcess process = 1;
+}
+
+message QueryAllProcessesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryAllProcessesResponse {
+  repeated TssKeyProcess processes = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryCurrentKeyRequest {}
+message QueryCurrentKeyResponse {
+  TssKey key = 1;
+}
+
+message QueryKeyByIdRequest {
+  string key_id = 1;
+}
+message QueryKeyByIdResponse {
+  TssKey key = 1;
+}
+
+message QueryAllKeysRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryAllKeysResponse {
+  repeated TssKey keys = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

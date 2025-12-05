@@ -71,5 +71,32 @@ fi
 echo "==> Initializing $BINARY..."
 "$BINARY" init
 
+# ---------- Enable TSS if requested ----------
+TSS_ENABLED="true"
+if [[ "$TSS_ENABLED" == "true" ]]; then
+  echo "==> Enabling TSS in config..."
+  CONFIG_FILE="$HOME_DIR/config/pushuv_config.json"
+
+  # TSS test private key (32-byte hex seed for ed25519)
+  # This generates a deterministic libp2p peer ID for testing
+  TSS_PRIVATE_KEY="${TSS_PRIVATE_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+  TSS_PASSWORD="${TSS_PASSWORD:-testpassword}"
+  TSS_P2P_LISTEN="${TSS_P2P_LISTEN:-/ip4/0.0.0.0/tcp/39000}"
+  TSS_HOME_DIR="${TSS_HOME_DIR:-$HOME_DIR/tss}"
+
+  # Update config using jq
+  if command -v jq >/dev/null 2>&1; then
+    jq --arg pk "$TSS_PRIVATE_KEY" \
+       --arg pw "$TSS_PASSWORD" \
+       --arg listen "$TSS_P2P_LISTEN" \
+       --arg home "$TSS_HOME_DIR" \
+       '.tss_enabled = true | .tss_private_key_hex = $pk | .tss_password = $pw | .tss_p2p_listen = $listen | .tss_home_dir = $home' \
+       "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    echo "✅ TSS enabled with P2P listen: $TSS_P2P_LISTEN"
+  else
+    echo "WARN: jq not found; cannot enable TSS. Install jq to enable TSS."
+  fi
+fi
+
 echo "==> Starting $BINARY..."
 exec "$BINARY" start

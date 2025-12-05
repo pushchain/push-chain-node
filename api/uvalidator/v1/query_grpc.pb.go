@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Query_Params_FullMethodName                 = "/uvalidator.v1.Query/Params"
+	Query_UniversalValidator_FullMethodName     = "/uvalidator.v1.Query/UniversalValidator"
 	Query_AllUniversalValidators_FullMethodName = "/uvalidator.v1.Query/AllUniversalValidators"
 	Query_Ballot_FullMethodName                 = "/uvalidator.v1.Query/Ballot"
 	Query_AllBallots_FullMethodName             = "/uvalidator.v1.Query/AllBallots"
@@ -37,6 +38,8 @@ const (
 type QueryClient interface {
 	// Params queries all parameters of the module.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// UniversalValidator queries one universal validator by core validator address.
+	UniversalValidator(ctx context.Context, in *QueryUniversalValidatorRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorResponse, error)
 	// AllUniversalValidators queries the details of a specific universal validator by its address.
 	AllUniversalValidators(ctx context.Context, in *QueryUniversalValidatorsSetRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorsSetResponse, error)
 	// Ballot queries one ballot by ID.
@@ -68,6 +71,15 @@ func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
 func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, Query_Params_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) UniversalValidator(ctx context.Context, in *QueryUniversalValidatorRequest, opts ...grpc.CallOption) (*QueryUniversalValidatorResponse, error) {
+	out := new(QueryUniversalValidatorResponse)
+	err := c.cc.Invoke(ctx, Query_UniversalValidator_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +173,8 @@ func (c *queryClient) AllFinalizedBallots(ctx context.Context, in *QueryFinalize
 type QueryServer interface {
 	// Params queries all parameters of the module.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// UniversalValidator queries one universal validator by core validator address.
+	UniversalValidator(context.Context, *QueryUniversalValidatorRequest) (*QueryUniversalValidatorResponse, error)
 	// AllUniversalValidators queries the details of a specific universal validator by its address.
 	AllUniversalValidators(context.Context, *QueryUniversalValidatorsSetRequest) (*QueryUniversalValidatorsSetResponse, error)
 	// Ballot queries one ballot by ID.
@@ -188,6 +202,9 @@ type UnimplementedQueryServer struct {
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+func (UnimplementedQueryServer) UniversalValidator(context.Context, *QueryUniversalValidatorRequest) (*QueryUniversalValidatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UniversalValidator not implemented")
 }
 func (UnimplementedQueryServer) AllUniversalValidators(context.Context, *QueryUniversalValidatorsSetRequest) (*QueryUniversalValidatorsSetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllUniversalValidators not implemented")
@@ -243,6 +260,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_UniversalValidator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryUniversalValidatorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).UniversalValidator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_UniversalValidator_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).UniversalValidator(ctx, req.(*QueryUniversalValidatorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -419,6 +454,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "UniversalValidator",
+			Handler:    _Query_UniversalValidator_Handler,
 		},
 		{
 			MethodName: "AllUniversalValidators",

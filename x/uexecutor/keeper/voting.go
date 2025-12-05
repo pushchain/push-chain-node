@@ -25,9 +25,12 @@ func (k Keeper) VoteOnInboundBallot(
 		return false, false, fmt.Errorf("inbound tx is not enabled")
 	}
 
-	ballotKey := types.GetInboundKey(inbound)
+	ballotKey, err := types.GetInboundBallotKey(inbound)
+	if err != nil {
+		return false, false, err
+	}
 
-	universalValidatorSet, err := k.uvalidatorKeeper.GetUniversalValidatorSet(ctx)
+	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
 	if err != nil {
 		return false, false, err
 	}
@@ -37,12 +40,12 @@ func (k Keeper) VoteOnInboundBallot(
 
 	// votesNeeded = ceil(2/3 * totalValidators)
 	// >2/3 quorum similar to tendermint
-	votesNeeded := (totalValidators*types.VotesThresholdNumerator + types.VotesThresholdDenominator - 1) / types.VotesThresholdDenominator
+	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
 	// Convert []sdk.ValAddress → []string
 	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
 	for i, v := range universalValidatorSet {
-		universalValidatorSetStrs[i] = v.String()
+		universalValidatorSetStrs[i] = v.IdentifyInfo.CoreValidatorAddress
 	}
 
 	// Step 2: Call VoteOnBallot for this inbound synthetic

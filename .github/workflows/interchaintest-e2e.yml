@@ -47,6 +47,14 @@ jobs:
           path: ${{ steps.go-cache-paths.outputs.go-build }}
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
       - name: Download Go Dependencies
         run: |
           go mod download
@@ -61,6 +69,8 @@ jobs:
           context: .
           tags: pchain:local
           outputs: type=docker,dest=${{ env.TAR_PATH }}
+          build-args: |
+            CI_DKLS_GARBLING=${{ secrets.CI_DKLS_GARBLING }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -75,9 +85,9 @@ jobs:
       matrix:
         # names of `make` commands to run tests
         test:
-          - "ictest-basic"
-          - "ictest-wasm"
-          - "ictest-tokenfactory"
+          - 'ictest-basic'
+          - 'ictest-wasm'
+          - 'ictest-tokenfactory'
       fail-fast: false
 
     steps:

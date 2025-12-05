@@ -15,7 +15,7 @@ import (
 func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-	universalTxKey := types.GetInboundKey(inbound)
+	universalTxKey := types.GetInboundUniversalTxKey(inbound)
 
 	// Default pcTx, will be filled along the way
 	pcTx := types.PCTx{

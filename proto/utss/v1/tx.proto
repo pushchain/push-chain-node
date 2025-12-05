@@ -1,0 +1,72 @@
+syntax = "proto3";
+package utss.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "utss/v1/genesis.proto";
+import "utss/v1/types.proto";
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/utss/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a governance operation for updating the parameters.
+  //
+  // Since: cosmos-sdk 0.47
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // InitiateTssKeyProcess defines a operation for initiating a new tss key process
+  rpc InitiateTssKeyProcess(MsgInitiateTssKeyProcess) returns (MsgInitiateTssKeyProcessResponse);
+
+  // VoteTssKeyProcess defines a operation for voting on an existing tss key process
+  rpc VoteTssKeyProcess(MsgVoteTssKeyProcess) returns (MsgVoteTssKeyProcessResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParamsResponse {}
+
+
+// Admin initiates new keygen/reshare process
+message MsgInitiateTssKeyProcess {
+  option (amino.name) = "utss/MsgVoteInitiateKeyProcess";
+  option (cosmos.msg.v1.signer) = "signer";
+  
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"]; 
+  TssProcessType process_type = 2;
+}
+
+message MsgInitiateTssKeyProcessResponse {}
+
+// Universal validator votes on an ongoing TSS key process
+message MsgVoteTssKeyProcess {
+  option (amino.name) = "utss/MsgVoteTssKeyProcess";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"]; ;    // universal validator address
+  string tss_pubkey = 2;
+  string key_id = 3;
+}
+
+message MsgVoteTssKeyProcessResponse {}

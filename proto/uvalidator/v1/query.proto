@@ -5,6 +5,7 @@ import "google/api/annotations.proto";
 import "uvalidator/v1/genesis.proto";
 import "uvalidator/v1/types.proto";
 import "uvalidator/v1/ballot.proto";
+import "uvalidator/v1/validator.proto";
 
 import "cosmos/base/query/v1beta1/pagination.proto";
 
@@ -15,6 +16,11 @@ service Query {
   // Params queries all parameters of the module.
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/uvalidator/v1/params";
+  }
+
+  // UniversalValidator queries one universal validator by core validator address.
+  rpc UniversalValidator(QueryUniversalValidatorRequest) returns (QueryUniversalValidatorResponse) {
+    option (google.api.http).get = "/uvalidator/v1/universal_validator/{core_validator_address}";
   }
 
   // AllUniversalValidators queries the details of a specific universal validator by its address.
@@ -71,13 +77,22 @@ message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
 }
+
+// Single Universal Validator
+message QueryUniversalValidatorRequest {
+  string core_validator_address = 1;
+}
+message QueryUniversalValidatorResponse {
+  UniversalValidator universal_validator = 1;
+}
+
 // QueryUniversalValidatorsSetRequest is the request type for Query/UniversalValidatorAddresses.
 message QueryUniversalValidatorsSetRequest {}
 
 // QueryUniversalValidatorsSetResponse is the response type for Query/UniversalValidatorAddresses.
 message QueryUniversalValidatorsSetResponse {
   // addresses is the list of all universal validator addresses registered in the module.
-  repeated string addresses = 1;
+  repeated UniversalValidator universal_validator = 1;
 }
 
 // Single ballot

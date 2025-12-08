@@ -70,6 +70,15 @@ func initCmd() *cobra.Command {
 				cfg.LogSampler = logSampler
 			}
 
+			// If TSS fields are still empty, use test defaults for init
+			// (user can update config file later or use jq as in the script)
+			if cfg.TSSP2PPrivateKeyHex == "" {
+				cfg.TSSP2PPrivateKeyHex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+			}
+			if cfg.TSSPassword == "" {
+				cfg.TSSPassword = "testpassword"
+			}
+
 			// Save config
 			if err := config.Save(&cfg, constant.DefaultNodeHome); err != nil {
 				return fmt.Errorf("failed to save config: %w", err)

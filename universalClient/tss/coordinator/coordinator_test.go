@@ -22,7 +22,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
-	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // mockPushCoreClient is a mock implementation that can be used in place of *pushcore.Client
@@ -155,6 +154,7 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eve
 		testClient,
 		keyshareMgr,
 		"validator1",
+		"peer1",
 		100, // coordinatorRange
 		100*time.Millisecond,
 		sendFn,

@@ -172,7 +172,7 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 	return nil, errors.Errorf("peerID %s not found in validators", peerID)
 }
 
-// GetLatestBlockNum gets the latest block number from the data provider.
+// GetLatestBlockNum gets the latest block number from pushCore.
 func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
 	return c.pushCore.GetLatestBlockNum()
 }
@@ -262,7 +262,7 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	return isCoord, nil
 }
 
-// GetCurrentTSSKeyId gets the current TSS key ID from the data provider.
+// GetCurrentTSSKeyId gets the current TSS key ID from pushCore.
 func (c *Coordinator) GetCurrentTSSKeyId() (string, error) {
 	return c.pushCore.GetCurrentTSSKeyId()
 }
@@ -667,7 +667,7 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 // createSignSetup creates a sign setup message.
 // Requires loading the keyshare to extract keyID and messageHash from event data.
 func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, error) {
-	// Get current TSS keyId from dataProvider
+	// Get current TSS keyId from pushCore
 	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
@@ -727,7 +727,7 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 // oldParticipantIndices: indices of Active validators (staying participants)
 // newParticipantIndices: indices of Pending Join validators (new participants)
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
-	// Get current TSS keyId from dataProvider
+	// Get current TSS keyId from pushCore
 	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")

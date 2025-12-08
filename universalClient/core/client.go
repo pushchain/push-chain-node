@@ -515,4 +515,3 @@ func (uc *UniversalClient) updateVoteHandlersForAllChains() {
 		Int("vote_handlers", len(voteHandlers)).
 		Msg("✅ Successfully created per-chain vote handlers and updated chain registry")
 }
-

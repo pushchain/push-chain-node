@@ -237,13 +237,13 @@ func runNode() {
 		logger.Fatal().Msg("grpc flag is required - TSS node needs blockchain connection")
 	}
 
-	// Create pushcore client
+	// Create pushcore client - required for TSS node
 	pushClient, err := pushcore.New([]string{*grpcURL}, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Str("grpc_url", *grpcURL).Msg("failed to create pushcore client")
 	}
 	defer pushClient.Close()
-	logger.Info().Str("grpc_url", *grpcURL).Msg("connected to blockchain via pushcore")
+	logger.Info().Str("grpc_url", *grpcURL).Msg("using pushcore client (connected to blockchain)")
 
 	// Create event store from database
 	evtStore := eventstore.NewStore(database.Client(), logger)

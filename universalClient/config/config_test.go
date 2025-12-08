@@ -27,6 +27,7 @@ func TestConfigValidation(t *testing.T) {
 
 	// Load default config for validation
 	defaultCfg, _ := LoadDefaultConfig()
+
 	// This should set defaults and validate
 	err := validateConfig(cfg, &defaultCfg)
 	assert.NoError(t, err)
@@ -90,7 +91,8 @@ func TestValidConfigScenarios(t *testing.T) {
 				TSSPassword:         testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds)
+				// These should match the default config values
+				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds) // Default is 10
 				assert.Equal(t, 3, cfg.MaxRetries)
 				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
 				assert.Equal(t, 5, cfg.InitialFetchRetries)

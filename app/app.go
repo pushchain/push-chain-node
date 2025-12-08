@@ -1265,15 +1265,20 @@ func NewChainApp(
 
 	// At startup, after all modules have been registered, check that all proto
 	// annotations are correct.
+	// Note: This fails at runtime when dependency proto files (e.g., libp2p) have imports that can't be resolved, even though the proto files are properly embedded. - https://github.com/CosmWasm/wasmd/issues/1785
+	// This is a validation check only and doesn't affect functionality.
 	protoFiles, err := proto.MergedRegistry()
 	if err != nil {
-		panic(err)
-	}
-	err = msgservice.ValidateProtoAnnotations(protoFiles)
-	if err != nil {
-		// Once we switch to using protoreflect-based antehandlers, we might
-		// want to panic here instead of logging a warning.
-		_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		// Log warning instead of panicking to allow binaries that use dependencies
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to merge proto registry: %v\n", err)
+		_, _ = fmt.Fprintln(os.Stderr, "Continuing without proto validation...")
+	} else {
+		err = msgservice.ValidateProtoAnnotations(protoFiles)
+		if err != nil {
+			// Once we switch to using protoreflect-based antehandlers, we might
+			// want to panic here instead of logging a warning.
+			_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		}
 	}
 
 	if loadLatest {

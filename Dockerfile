@@ -8,27 +8,40 @@ RUN set -eux; apk add --no-cache \
     git \
     linux-headers \
     bash \
-    binutils-gold
+    binutils-gold \
+    wget
 
 WORKDIR /code
 
+# Download go modules + wasmvm static library
 ADD go.mod go.sum ./
 RUN set -eux; \
-    export ARCH=$(uname -m); \
-    WASM_VERSION=$(go list -m all | grep github.com/CosmWasm/wasmvm || true); \
-    if [ ! -z "${WASM_VERSION}" ]; then \
-      WASMVM_REPO=$(echo $WASM_VERSION | awk '{print $1}' | sed 's|/v2$||');\
-      WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
-      wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
-    fi; \
-    go mod download;
+    go mod download; \
+    \
+    # Detect if wasmvm is being used
+    WASM_VERSION_LINE=$(go list -m -json all | grep -A2 "github.com/CosmWasm/wasmvm" || true); \
+    if [ ! -z "${WASM_VERSION_LINE}" ]; then \
+        WASMVM_VERS=$(go list -m all | grep github.com/CosmWasm/wasmvm | awk '{print $2}'); \
+        ARCH=$(uname -m); \
+        \
+        case "$ARCH" in \
+            x86_64) ARCH_DL="x86_64" ;; \
+            aarch64) ARCH_DL="aarch64" ;; \
+            arm64) ARCH_DL="aarch64" ;; \
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
+        esac; \
+        \
+        echo "Downloading wasmvm static library for arch=$ARCH_DL version=$WASMVM_VERS"; \
+        wget -O /usr/lib/libwasmvm_muslc.${ARCH_DL}.a \
+          https://github.com/CosmWasm/wasmvm/releases/download/${WASMVM_VERS}/libwasmvm_muslc.${ARCH_DL}.a; \
+        \
+        ln -sf /usr/lib/libwasmvm_muslc.${ARCH_DL}.a /usr/lib/libwasmvm_muslc.a; \
+    fi;
 
-# Copy over code
+# Copy all source
 COPY . /code
 
-# force it to use static lib (from above) not standard libgo_cosmwasm.so file
-# then log output of file /code/bin/pchaind
-# then ensure static linking
+# Build pchaind as fully static muslc binary
 RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build \
   && file /code/build/pchaind \
   && echo "Ensuring binary is statically linked ..." \
@@ -39,11 +52,16 @@ FROM alpine:3.21
 
 COPY --from=build-env /code/build/pchaind /usr/bin/pchaind
 
-RUN apk add --no-cache ca-certificates curl make bash jq sed
+RUN apk add --no-cache \
+    ca-certificates \
+    curl \
+    make \
+    bash \
+    jq \
+    sed
 
 WORKDIR /opt
 
-# rest server, tendermint p2p, tendermint rpc
 EXPOSE 1317 26656 26657 8545 8546
 
 CMD ["/usr/bin/pchaind", "version"]

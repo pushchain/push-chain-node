@@ -109,5 +109,6 @@ func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
 // EventID returns the unique event ID for this process.
 // Format: "process-{process_id}"
 func (e *TSSProcessEvent) EventID() string {
-	return fmt.Sprintf("%s%d", EventPrefix(), e.ProcessID)
+	const EventPrefix = "process-"
+	return fmt.Sprintf("%s%d", EventPrefix, e.ProcessID)
 }

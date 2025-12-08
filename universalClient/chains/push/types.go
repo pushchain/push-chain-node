@@ -41,9 +41,3 @@ type TSSProcessEvent struct {
 	BlockHeight  uint64   // Block height when the event occurred
 	TxHash       string   // Transaction hash containing this event
 }
-
-// EventPrefix returns the event ID prefix for TSSEvent records.
-// Format: "process-{process_id}"
-func EventPrefix() string {
-	return "process-"
-}

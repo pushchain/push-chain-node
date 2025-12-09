@@ -2,14 +2,12 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
@@ -163,18 +161,10 @@ func (k Keeper) attachOutboundsToUtx(
 			utx.OutboundTx = append(utx.OutboundTx, outbound)
 
 			// ABI-encode (utx_id, outbound_id)
-			stringType, _ := abi.NewType("string", "", nil)
-			args := abi.Arguments{
-				{Type: stringType},
-				{Type: stringType},
-			}
-
-			encoded, err := args.Pack(utxId, outbound.Id)
+			txIDHex, err := types.EncodeOutboundTxIDHex(utxId, outbound.Id)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to encode outbound txID: %w", err)
 			}
-
-			txIDHex := hex.EncodeToString(encoded)
 
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
 				UniversalTxId:    utxId,

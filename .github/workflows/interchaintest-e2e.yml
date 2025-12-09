@@ -47,6 +47,14 @@ jobs:
           path: ${{ steps.go-cache-paths.outputs.go-build }}
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
       - name: Download Go Dependencies
         run: |
           go mod download

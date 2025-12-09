@@ -137,6 +137,7 @@ func init() {
 		// Utilities
 		fmt.Fprintln(w, c.SubHeader("Utilities"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator doctor", "Run diagnostic checks"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator peers", "Show connected peer information"))
 		fmt.Fprintln(w)
 	})
 
@@ -233,7 +234,7 @@ func init() {
 				GenesisDomain:        cfg.GenesisDomain,
 				BinPath:              findPchaind(),
 				SnapshotRPCPrimary:   initSnapshotRPC,
-				SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+				SnapshotRPCSecondary: "https://donut.rpc.push.org",
 				Progress:             progressCallback,
 			}); err != nil {
 				ui.PrintError(ui.ErrorMessage{
@@ -313,7 +314,7 @@ func init() {
 					GenesisDomain:        cfg.GenesisDomain,
 					BinPath:              findPchaind(),
 					SnapshotRPCPrimary:   cfg.SnapshotRPC,
-					SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+					SnapshotRPCSecondary: "https://donut.rpc.push.org",
 					Progress:             progressCallback,
 				}); err != nil {
 					ui.PrintError(ui.ErrorMessage{

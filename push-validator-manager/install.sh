@@ -414,10 +414,10 @@ SELF_DIR="$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" >/dev/null 2>&1 && pwd -P || 
 
 # Defaults (overridable via env)
 MONIKER="${MONIKER:-push-validator}"
-GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
+GENESIS_DOMAIN="${GENESIS_DOMAIN:-donut.rpc.push.org}"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 CHAIN_ID="${CHAIN_ID:-push_42101-1}"
-SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
+SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://donut.rpc.push.org}"
 RESET_DATA="${RESET_DATA:-yes}"
 AUTO_START="${AUTO_START:-yes}"
 PNM_REF="${PNM_REF:-push-validator-manager}"
@@ -461,8 +461,8 @@ while [[ $# -gt 0 ]]; do
       echo "Node Configuration:"
       echo "  --moniker NAME       Set validator moniker (default: push-validator)"
       echo "  --chain-id ID        Set chain ID (default: push_42101-1)"
-      echo "  --genesis DOMAIN     Genesis domain (default: rpc-testnet-donut-node1.push.org)"
-      echo "  --snapshot-rpc URL   Snapshot RPC URL (default: https://rpc-testnet-donut-node2.push.org)"
+      echo "  --genesis DOMAIN     Genesis domain (default: donut.rpc.push.org)"
+      echo "  --snapshot-rpc URL   Snapshot RPC URL (default: https://donut.rpc.push.org)"
       echo "  --keyring BACKEND    Keyring backend (default: test)"
       echo
       echo "Build Options:"

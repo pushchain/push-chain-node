@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -14,12 +15,21 @@ import (
 func init() {
 	peersCmd := &cobra.Command{
 		Use:   "peers",
-		Short: "List connected peers (from local RPC)",
+		Short: "List connected peers (from local or remote RPC)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := loadCfg()
-			base := cfg.RPCLocal
-			if base == "" {
-				base = "http://127.0.0.1:26657"
+
+			// Determine RPC endpoint based on genesis domain flag
+			var base string
+			if cfg.GenesisDomain != "" {
+				// Use remote RPC when --genesis-domain is provided
+				base = "https://" + strings.TrimSuffix(cfg.GenesisDomain, "/")
+			} else {
+				// Use local RPC by default
+				base = cfg.RPCLocal
+				if base == "" {
+					base = "http://127.0.0.1:26657"
+				}
 			}
 			cli := node.New(base)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

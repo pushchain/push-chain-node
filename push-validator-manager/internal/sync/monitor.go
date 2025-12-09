@@ -37,7 +37,7 @@ type pt struct {
 	t time.Time
 }
 
-const defaultStuckTimeout = 2 * time.Minute
+const defaultStuckTimeout = 30 * time.Minute
 
 var ErrSyncStuck = errors.New("sync stuck: no progress detected")
 
@@ -147,10 +147,10 @@ func Run(ctx context.Context, opts Options) error {
 				case strings.Contains(low, "applied snapshot chunk") || strings.Contains(low, "restoring"):
 					currentStep = 3
 				case strings.Contains(low, "snapshot accepted") ||
-					 strings.Contains(low, "snapshot restored") ||
-					 strings.Contains(low, "restored snapshot") ||
-					 strings.Contains(low, "switching to blocksync") ||
-					 strings.Contains(low, "switching to block sync"):
+					strings.Contains(low, "snapshot restored") ||
+					strings.Contains(low, "restored snapshot") ||
+					strings.Contains(low, "switching to blocksync") ||
+					strings.Contains(low, "switching to block sync"):
 					currentStep = 4
 					sawAccepted = true
 				}

@@ -23,25 +23,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 WORKDIR /code
 
-# Copy dkls23-rs and garbling first (needed for go.mod replace directive and Cargo build)
+# Copy dkls23-rs and garbling first (needed for go.mod replace directive)
 COPY dkls23-rs ./dkls23-rs
 COPY garbling ./garbling
-
-# Patch Cargo.toml to use local garbling path instead of git
-RUN echo "=== Patching Cargo.toml files ===" && \
-    # Find and patch all Cargo.toml files that reference hd-migration
-    find ./dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do \
-        echo "Patching: $file" && \
-        # Show the line before patching
-        grep -n "hd-migration" "$file" || echo "hd-migration not found" && \
-        # Replace git dependency with local path (flexible pattern matching)
-        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
-        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
-        # Show the line after patching
-        echo "After patching:" && \
-        grep -n "hd-migration" "$file" || echo "hd-migration not found after patching"; \
-    done && \
-    echo "=== Patch complete ==="
 
 # Download go modules + wasmvm static library
 ADD go.mod go.sum ./
@@ -73,6 +57,22 @@ COPY . /code
 
 # Create symlink for dkls23-rs at expected location (../dkls23-rs relative to /code)
 RUN ln -sf /code/dkls23-rs /dkls23-rs
+
+# Patch Cargo.toml to use local garbling path instead of git (AFTER copying all source)
+RUN echo "=== Patching Cargo.toml files ===" && \
+    # Find and patch all Cargo.toml files that reference hd-migration
+    find /code/dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do \
+        echo "Patching: $file" && \
+        # Show the line before patching
+        grep -n "hd-migration" "$file" || echo "hd-migration not found" && \
+        # Replace git dependency with local path (flexible pattern matching)
+        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
+        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
+        # Show the line after patching
+        echo "After patching:" && \
+        grep -n "hd-migration" "$file" || echo "hd-migration not found after patching"; \
+    done && \
+    echo "=== Patch complete ==="
 
 # Build pchaind as fully static muslc binary
 RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build \

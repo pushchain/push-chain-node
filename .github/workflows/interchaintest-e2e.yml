@@ -57,8 +57,16 @@ jobs:
 
       - name: Download Go Dependencies
         run: |
+          # Use ../dkls23-rs (original path) for workflow step
           go mod download
           cd interchaintest && go mod download
+
+      - name: Copy dkls23-rs into build context
+        run: |
+          # Copy dkls23-rs into the repository so it's available in Docker build context
+          cp -r ../dkls23-rs ./dkls23-rs
+          # Update go.mod replace directive to use ./dkls23-rs for Docker build
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

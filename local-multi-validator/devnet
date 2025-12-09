@@ -241,6 +241,17 @@ cmd_status() {
 # BUILD COMMANDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Check if authenticated to GCR
+check_gcr_auth() {
+    local registry="${1:-gcr.io}"
+
+    # Try to get auth token - this will fail if not authenticated
+    if ! docker login "$registry" --username=oauth2accesstoken --password="$(gcloud auth print-access-token 2>/dev/null)" >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
 # Silently try to pull images from remote cache (returns 0 if all images pulled)
 try_pull_from_cache() {
     # Skip if explicitly disabled
@@ -294,6 +305,13 @@ auto_push_to_cache() {
         return
     fi
 
+    # Check GCP authentication before attempting push
+    if ! check_gcr_auth "$(echo "$GCR_REGISTRY" | cut -d'/' -f1)"; then
+        print_warning "Skipping cache push: Not authenticated to GCR"
+        print_status "To enable cache push, run: gcloud auth configure-docker $(echo "$GCR_REGISTRY" | cut -d'/' -f1)"
+        return
+    fi
+
     print_status "Uploading images to cache ($GCR_REGISTRY) in background..."
 
     # Run push in background so it doesn't block startup
@@ -319,7 +337,7 @@ cmd_base() {
 
     if has_buildx; then
         print_status "Using BuildX for optimized build..."
-        docker buildx build $no_cache -f Dockerfile.base -t local-multi-validator-base:latest ../..
+        docker buildx build $no_cache --load -f Dockerfile.base -t local-multi-validator-base:latest ../..
     else
         docker build $no_cache -f Dockerfile.base -t local-multi-validator-base:latest ../..
     fi
@@ -362,6 +380,12 @@ cmd_up() {
             --skip-cache) skip_cache="true";;
         esac
     done
+
+    # Check if base image exists, build if missing
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        print_status "Base image not found. Building base image (this may take 5-10 minutes on first run)..."
+        cmd_base
+    fi
 
     # Force rebuild if --build flag is set
     if [ -n "$build_flag" ]; then
@@ -406,6 +430,13 @@ cmd_down() {
     require_docker
     print_status "Stopping Push Chain Local Network..."
     docker compose down "$@"
+    print_success "All validators stopped"
+}
+
+cmd_stop() {
+    require_docker
+    print_status "Stopping all validators (keeping containers)..."
+    docker compose stop
     print_success "All validators stopped"
 }
 
@@ -592,26 +623,31 @@ cmd_setup_authz() {
 cmd_verify_authz() {
     print_header "Verifying AuthZ"
 
-    local container_key_name="container-hotkey"
-
-    echo -ne "${YELLOW}Hot key exists:${NC} "
-    if docker exec universal-validator-1 puniversald keys show "$container_key_name" --keyring-backend test --home /root/.puniversal >/dev/null 2>&1; then
-        echo -e "${GREEN}Found${NC}"
-
-        local hotkey_addr=$(docker exec universal-validator-1 puniversald keys show "$container_key_name" --address --keyring-backend test --home /root/.puniversal 2>/dev/null)
-        local operator_addr=$(docker exec core-validator-1 cat /tmp/push-accounts/validators.json 2>/dev/null | jq -r '.[0].address' 2>/dev/null)
-
-        echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
-        echo -e "  ${CYAN}Operator: $operator_addr${NC}"
-
-        # Check grants
+    for i in 1 2 3; do
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
-        echo -e "${BOLD}AuthZ grants:${NC}"
-        docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.type' 2>/dev/null || echo "  No grants found"
-    else
-        echo -e "${RED}Not found${NC}"
-        echo -e "  ${YELLOW}Run './devnet setup-authz' first${NC}"
-    fi
+        echo -e "${BOLD}Validator $i:${NC}"
+
+        local hotkey_name="hotkey-$i"
+
+        echo -ne "${YELLOW}Hot key exists:${NC} "
+        if docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --keyring-backend test --home /root/.puniversal >/dev/null 2>&1; then
+            echo -e "${GREEN}Found${NC}"
+
+            local hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --address --keyring-backend test --home /root/.puniversal 2>/dev/null)
+            local operator_addr=$(docker exec "core-validator-$i" pchaind keys show "genesis-acc-$i" -a --keyring-backend test 2>/dev/null)
+
+            echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
+            echo -e "  ${CYAN}Operator: $operator_addr${NC}"
+
+            # Check grants
+            echo -e "${YELLOW}AuthZ grants:${NC}"
+            docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.type' 2>/dev/null || echo "  No grants found"
+        else
+            echo -e "${RED}Not found${NC}"
+            echo -e "  ${YELLOW}Run './devnet setup-authz' first fix this${NC}"
+        fi
+        echo
+    done
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -777,14 +813,14 @@ cmd_clean() {
     if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
         require_docker
 
-        print_status "Stopping all containers..."
-        docker compose down -v
+        # Stop and remove all containers with volumes
+        cmd_down -v
 
         print_status "Cleaning account files..."
         rm -rf /tmp/push-accounts
 
         print_success "Clean reset complete"
-        print_status "Start validators: ./devnet up"
+        print_status "Start validators: ./devnet start"
     fi
 }
 
@@ -797,35 +833,56 @@ cmd_push_cache() {
     echo -e "Registry: ${CYAN}$GCR_REGISTRY${NC}"
     echo
 
-    # Check if logged in to GCR
-    if ! docker images "$GCR_REGISTRY/push-base:$CACHE_TAG" >/dev/null 2>&1; then
-        print_warning "Note: You may need to run 'gcloud auth configure-docker' first"
+    # Check GCP authentication
+    local registry_host="$(echo "$GCR_REGISTRY" | cut -d'/' -f1)"
+    if ! check_gcr_auth "$registry_host"; then
+        print_error "Not authenticated to GCR: $registry_host"
+        echo
+        print_status "To authenticate, run:"
+        echo "  gcloud auth configure-docker $registry_host"
+        echo
+        exit 1
+    fi
+
+    # Check images exist locally before pushing
+    local missing_images=()
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        missing_images+=("local-multi-validator-base:latest")
+    fi
+    if ! docker images | grep -q "push-core.*latest"; then
+        missing_images+=("push-core:latest")
+    fi
+    if ! docker images | grep -q "push-universal.*latest"; then
+        missing_images+=("push-universal:latest")
+    fi
+
+    if [ ${#missing_images[@]} -gt 0 ]; then
+        print_error "Missing local images:"
+        for img in "${missing_images[@]}"; do
+            echo "  - $img"
+        done
+        echo
+        print_status "Build images first: ./devnet start --build"
+        exit 1
     fi
 
     # Tag and push base image
-    if docker images local-multi-validator-base:latest --format "{{.Repository}}" | grep -q "local-multi-validator-base"; then
-        print_status "Pushing base image..."
-        docker tag local-multi-validator-base:latest "$GCR_REGISTRY/push-base:$CACHE_TAG"
-        docker push "$GCR_REGISTRY/push-base:$CACHE_TAG"
-        print_success "Base image pushed"
-    else
-        print_warning "Base image not found locally. Run './devnet base' first"
-    fi
+    print_status "Pushing base image..."
+    docker tag local-multi-validator-base:latest "$GCR_REGISTRY/push-base:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-base:$CACHE_TAG"
+    print_success "Base image pushed"
 
-    # Tag and push runtime images
-    if docker images push-core:latest --format "{{.Repository}}" | grep -q "push-core"; then
-        print_status "Pushing core runtime image..."
-        docker tag push-core:latest "$GCR_REGISTRY/push-core:$CACHE_TAG"
-        docker push "$GCR_REGISTRY/push-core:$CACHE_TAG"
-        print_success "Core image pushed"
-    fi
+    # Tag and push core runtime image
+    print_status "Pushing core runtime image..."
+    docker tag push-core:latest "$GCR_REGISTRY/push-core:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-core:$CACHE_TAG"
+    print_success "Core image pushed"
 
-    if docker images push-universal:latest --format "{{.Repository}}" | grep -q "push-universal"; then
-        print_status "Pushing universal runtime image..."
-        docker tag push-universal:latest "$GCR_REGISTRY/push-universal:$CACHE_TAG"
-        docker push "$GCR_REGISTRY/push-universal:$CACHE_TAG"
-        print_success "Universal image pushed"
-    fi
+    # Tag and push universal runtime image
+    print_status "Pushing universal runtime image..."
+    docker tag push-universal:latest "$GCR_REGISTRY/push-universal:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-universal:$CACHE_TAG"
+    print_success "Universal image pushed"
 
     echo
     print_success "Cache push complete!"
@@ -910,10 +967,11 @@ cmd_help() {
     echo -e "${BOLD}Usage:${NC} ./devnet <command> [options]"
     echo
     echo -e "${BOLD}${CYAN}PRIMARY COMMANDS${NC}"
-    printf "  ${BOLD}%-20s${NC}%s\n" "up" "Start validators (auto-pulls from cache if available)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "start" "Start validators (auto-pulls from cache if available)"
     printf "  ${BOLD}%-20s${NC}%s\n" "  --build" "  Force rebuild images before starting"
     printf "  ${BOLD}%-20s${NC}%s\n" "  --skip-cache" "  Skip remote cache, build locally"
-    printf "  ${BOLD}%-20s${NC}%s\n" "down" "Stop all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "down" "Stop and remove all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "stop" "Stop validators (keep containers for quick restart)"
     printf "  ${BOLD}%-20s${NC}%s\n" "restart" "Restart all validators"
     printf "  ${BOLD}%-20s${NC}%s\n" "status" "Show network status"
     printf "  ${BOLD}%-20s${NC}%s\n" "logs [service]" "View logs (all or specific container)"
@@ -944,7 +1002,7 @@ cmd_help() {
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BOLD}QUICK START${NC}"
-    echo -e "  ./devnet ${BOLD}up${NC}          # Auto-pulls from cache, builds if needed, auto-pushes"
+    echo -e "  ./devnet ${BOLD}start${NC}       # Auto-pulls from cache, builds if needed, auto-pushes"
     echo -e ""
     echo -e "${BOLD}CACHE BEHAVIOR${NC}"
     echo -e "  • Cache miss → builds locally → auto-pushes to cache"
@@ -965,8 +1023,9 @@ cmd_help() {
 # ═══════════════════════════════════════════════════════════════════════════════
 case "${1:-help}" in
     # Primary commands
-    up)             shift; cmd_up "$@" ;;
+    start|up)       shift; cmd_up "$@" ;;  # 'start' primary, 'up' alias
     down)           shift; cmd_down "$@" ;;
+    stop)           cmd_stop ;;
     restart)        cmd_restart ;;
     status)         cmd_status ;;
     logs)           shift; cmd_logs "$@" ;;

@@ -10,17 +10,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigValidation(t *testing.T) {
-	// Load default config for validation
-	defaultCfg, _ := LoadDefaultConfig()
+// Test constants for TSS config (required fields)
+const (
+	testTSSPrivateKeyHex = "0101010101010101010101010101010101010101010101010101010101010101"
+	testTSSPassword      = "testpassword"
+)
 
-	// Test default settings - provide required TSS fields since default config doesn't have them
+func TestConfigValidation(t *testing.T) {
+	// Test default settings
 	cfg := &Config{
 		LogLevel:            1,
 		LogFormat:           "console",
-		TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-		TSSPassword:         "test-password",
+		TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+		TSSPassword:         testTSSPassword,
 	}
+
+	// Load default config for validation
+	defaultCfg, _ := LoadDefaultConfig()
 
 	// This should set defaults and validate
 	err := validateConfig(cfg, &defaultCfg)
@@ -55,8 +61,8 @@ func TestValidConfigScenarios(t *testing.T) {
 				InitialFetchTimeoutSeconds:   20,
 				PushChainGRPCURLs:            []string{"localhost:9090"},
 				QueryServerPort:              8080,
-				TSSP2PPrivateKeyHex:          "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-				TSSPassword:                  "test-password",
+				TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
+				TSSPassword:                  testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 2, cfg.LogLevel)
@@ -68,8 +74,8 @@ func TestValidConfigScenarios(t *testing.T) {
 			config: Config{
 				LogLevel:            1,
 				LogFormat:           "console",
-				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-				TSSPassword:         "test-password",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.LogLevel)
@@ -81,8 +87,8 @@ func TestValidConfigScenarios(t *testing.T) {
 			config: Config{
 				LogLevel:            2,
 				LogFormat:           "json",
-				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-				TSSPassword:         "test-password",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				// These should match the default config values
@@ -101,8 +107,8 @@ func TestValidConfigScenarios(t *testing.T) {
 				LogLevel:            2,
 				LogFormat:           "json",
 				PushChainGRPCURLs:   []string{},
-				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-				TSSPassword:         "test-password",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
@@ -114,8 +120,8 @@ func TestValidConfigScenarios(t *testing.T) {
 				LogLevel:            2,
 				LogFormat:           "json",
 				QueryServerPort:     0,
-				TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-				TSSPassword:         "test-password",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 8080, cfg.QueryServerPort)
@@ -145,41 +151,51 @@ func TestInvalidConfigValidation(t *testing.T) {
 		{
 			name: "invalid log format",
 			config: Config{
-				LogLevel:  1,
-				LogFormat: "invalid",
+				LogLevel:            1,
+				LogFormat:           "invalid",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			errMsg: "log format must be 'json' or 'console'",
 		},
 		{
 			name: "invalid keyring backend",
 			config: Config{
-				LogLevel:       1,
-				LogFormat:      "console",
-				KeyringBackend: "invalid",
+				LogLevel:            1,
+				LogFormat:           "console",
+				KeyringBackend:      "invalid",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			errMsg: "keyring backend must be 'file' or 'test'",
 		},
 		{
 			name: "Invalid log level (too high)",
 			config: Config{
-				LogLevel:  6,
-				LogFormat: "json",
+				LogLevel:            6,
+				LogFormat:           "json",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			errMsg: "log level must be between 0 and 5",
 		},
 		{
 			name: "Invalid log level (negative)",
 			config: Config{
-				LogLevel:  -1,
-				LogFormat: "json",
+				LogLevel:            -1,
+				LogFormat:           "json",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			errMsg: "log level must be between 0 and 5",
 		},
 		{
 			name: "Invalid log format xml",
 			config: Config{
-				LogLevel:  2,
-				LogFormat: "xml",
+				LogLevel:            2,
+				LogFormat:           "xml",
+				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+				TSSPassword:         testTSSPassword,
 			},
 			errMsg: "log format must be 'json' or 'console'",
 		},
@@ -213,8 +229,8 @@ func TestSaveAndLoad(t *testing.T) {
 			InitialFetchTimeoutSeconds:   60,
 			PushChainGRPCURLs:            []string{"localhost:9090", "localhost:9091"},
 			QueryServerPort:              8888,
-			TSSP2PPrivateKeyHex:          "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-			TSSPassword:                  "test-password",
+			TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
+			TSSPassword:                  testTSSPassword,
 		}
 
 		// Save config
@@ -281,8 +297,8 @@ func TestSaveAndLoad(t *testing.T) {
 		cfg := &Config{
 			LogLevel:            2,
 			LogFormat:           "json",
-			TSSP2PPrivateKeyHex: "30B0D9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9F9",
-			TSSPassword:         "test-password",
+			TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+			TSSPassword:         testTSSPassword,
 		}
 
 		err := Save(cfg, newDir)

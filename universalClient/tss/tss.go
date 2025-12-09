@@ -23,6 +23,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -48,6 +49,9 @@ type Config struct {
 	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
 	SessionExpiryCheckInterval time.Duration // How often to check for expired sessions (default: 30s)
 	SessionExpiryBlockDelay    uint64        // How many blocks to delay retry after expiry (default: 10)
+
+	// Voting configuration
+	VoteHandler *vote.Handler // Optional - nil if voting disabled
 }
 
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
@@ -104,6 +108,9 @@ type Node struct {
 	sessionExpiryTime          time.Duration
 	sessionExpiryCheckInterval time.Duration
 	sessionExpiryBlockDelay    uint64
+
+	// Voting configuration
+	voteHandler *vote.Handler // Optional - nil if voting disabled
 
 	// Internal state
 	mu           sync.RWMutex
@@ -222,6 +229,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		sessionExpiryTime:          sessionExpiryTime,
 		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
 		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
+		voteHandler:                cfg.VoteHandler,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
 	}
@@ -297,9 +305,10 @@ func (n *Node) Start(ctx context.Context) error {
 			func(ctx context.Context, peerID string, data []byte) error {
 				return n.Send(ctx, peerID, data)
 			},
-			n.validatorAddress,
+			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
 			n.logger,
+			n.voteHandler,
 		)
 		n.sessionManager = sessionMgr
 	}

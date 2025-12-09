@@ -1,0 +1,1065 @@
+#!/usr/bin/env bash
+# devnet - Push Chain Local Network Manager
+# Unified CLI for managing local multi-validator setup
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# Resolve script directory
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REMOTE REGISTRY CONFIGURATION (for cache sharing)
+# Override with: GCR_REGISTRY=your-project ./devnet push-cache
+# ═══════════════════════════════════════════════════════════════════════════════
+GCR_REGISTRY="${GCR_REGISTRY:-gcr.io/push-chain-testnet}"
+CACHE_TAG="${CACHE_TAG:-latest}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COLORS
+# ═══════════════════════════════════════════════════════════════════════════════
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BLUE='\033[1;94m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
+DIM='\033[2m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PORT CONFIGURATION (bash 3.2 compatible - no associative arrays)
+# ═══════════════════════════════════════════════════════════════════════════════
+get_rpc_port() { case "$1" in 1) echo 26657;; 2) echo 26658;; 3) echo 26659;; esac; }
+get_grpc_port() { case "$1" in 1) echo 9090;; 2) echo 9093;; 3) echo 9095;; esac; }
+get_rest_port() { case "$1" in 1) echo 1317;; 2) echo 1318;; 3) echo 1319;; esac; }
+get_evm_port() { case "$1" in 1) echo 8545;; 2) echo 8547;; 3) echo 8549;; esac; }
+get_api_port() { case "$1" in 1) echo 8080;; 2) echo 8081;; 3) echo 8082;; esac; }
+get_tss_port() { case "$1" in 1) echo 39000;; 2) echo 39001;; 3) echo 39002;; esac; }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRINT HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+print_status() { echo -e "${CYAN}$1${NC}"; }
+print_header() { echo -e "${BLUE}$1${NC}"; }
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error() { echo -e "${RED}$1${NC}"; }
+print_warning() { echo -e "${YELLOW}$1${NC}"; }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOCKER HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+require_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        print_error "Docker not found. Please install Docker first."
+        exit 1
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker first."
+        exit 1
+    fi
+}
+
+has_buildx() {
+    docker buildx version >/dev/null 2>&1
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Pad text to fixed width (for alignment with ANSI codes)
+# Usage: pad_text "text" width
+pad_text() {
+    local text="$1"
+    local width="$2"
+    printf "%-${width}s" "$text"
+}
+
+# Returns: "state|text" (pipe-separated for parsing)
+get_container_health() {
+    local name="$1"
+    local state=$(docker inspect --format='{{.State.Health.Status}}' "$name" 2>/dev/null || echo "stopped")
+    case "$state" in
+        healthy)   echo "healthy|[ok] healthy";;
+        unhealthy) echo "unhealthy|[!!] unhealthy";;
+        starting)  echo "starting|[..] starting";;
+        *)         echo "stopped|[--] stopped";;
+    esac
+}
+
+get_block_height() {
+    local port="$1"
+    local height
+    height=$(curl -sf "http://localhost:$port/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // "-"' 2>/dev/null || echo "-")
+    echo "$height"
+}
+
+# Returns: "yes|[ok]" or "no|[no]" (pipe-separated for parsing)
+check_registered() {
+    local i="$1"
+    # Get the core validator address for this universal validator
+    local core_valoper=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" --bech val -a --keyring-backend test 2>/dev/null || echo "")
+
+    if [ -z "$core_valoper" ]; then
+        echo "no|[no]"
+        return
+    fi
+
+    # Check if this validator is registered in uvalidator module
+    local registered=$(docker exec core-validator-1 pchaind query uvalidator all-universal-validators --node tcp://localhost:26657 --output json 2>/dev/null | jq -r --arg addr "$core_valoper" '.universal_validator[]? | select(.identify_info.core_validator_address == $addr) | .lifecycle_info.current_status' 2>/dev/null || echo "")
+
+    if [ -n "$registered" ]; then
+        echo "yes|[ok]"
+    else
+        echo "no|[no]"
+    fi
+}
+
+# Returns: "yes|[ok] N" or "no|[no]" (pipe-separated for parsing)
+check_grants() {
+    local i="$1"
+    local hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "hotkey-$i" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
+    # Grants are from genesis-acc-$i (not validator-$i) as set up in genesis
+    local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "genesis-acc-$i" -a --keyring-backend test 2>/dev/null || echo "")
+
+    if [ -n "$hotkey_addr" ] && [ -n "$granter_addr" ]; then
+        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
+        if [ "$count" = "0" ] || [ -z "$count" ]; then
+            echo "no|[no]"
+        else
+            echo "yes|[ok] ${count}"
+        fi
+    else
+        echo "no|[no]"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS DISPLAY
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_status() {
+    echo
+    echo -e "┌──────────────────────────────────────────────────────────────────────┐"
+    echo -e "│                    ${BOLD}Push Chain Local Network${NC}                          │"
+    echo -e "└──────────────────────────────────────────────────────────────────────┘"
+    echo
+
+    # Core Validators section (core-validator-1 = 16 chars)
+    echo -e "${CYAN}Core Validators${NC}"
+    printf "${BOLD}%-18s %-13s %-8s %-10s %-10s %-10s${NC}\n" "NAME" "STATUS" "BLOCK" "RPC" "gRPC" "EVM"
+    echo
+
+    for i in 1 2 3; do
+        local name="core-validator-$i"
+        local status_raw=$(get_container_health "$name")
+        local status_state="${status_raw%%|*}"
+        local status_text="${status_raw#*|}"
+        local rpc_port=$(get_rpc_port $i)
+        local grpc_port=$(get_grpc_port $i)
+        local evm_port=$(get_evm_port $i)
+        local block=$(get_block_height "$rpc_port")
+
+        # Pad text first, then apply color (width must match header: 13)
+        local status_padded=$(pad_text "$status_text" 13)
+        local status_colored
+        case "$status_state" in
+            healthy)   status_colored="${GREEN}${status_padded}${NC}";;
+            starting)  status_colored="${YELLOW}${status_padded}${NC}";;
+            *)         status_colored="${RED}${status_padded}${NC}";;
+        esac
+
+        printf "%-18s %b %-8s %-10s %-10s %-10s\n" \
+            "$name" "$status_colored" "$block" ":$rpc_port" ":$grpc_port" ":$evm_port"
+    done
+
+    echo
+
+    # Universal Validators section (universal-validator-1 = 21 chars)
+    echo -e "${CYAN}Universal Validators${NC}"
+    printf "${BOLD}%-23s %-13s %-13s %-10s %-8s %-8s${NC}\n" "NAME" "STATUS" "REGISTERED" "GRANTS" "API" "TSS"
+    echo
+
+    for i in 1 2 3; do
+        local name="universal-validator-$i"
+
+        # Parse status (state|text)
+        local status_raw=$(get_container_health "$name")
+        local status_state="${status_raw%%|*}"
+        local status_text="${status_raw#*|}"
+
+        # Parse registered (yes/no|text)
+        local reg_raw=$(check_registered "$i")
+        local reg_state="${reg_raw%%|*}"
+        local reg_text="${reg_raw#*|}"
+
+        # Parse grants (yes/no|text)
+        local grants_raw=$(check_grants "$i")
+        local grants_state="${grants_raw%%|*}"
+        local grants_text="${grants_raw#*|}"
+
+        local api_port=$(get_api_port $i)
+        local tss_port=$(get_tss_port $i)
+
+        # Pad text BEFORE adding colors (widths must match header exactly)
+        local status_padded=$(pad_text "$status_text" 13)
+        local reg_padded=$(pad_text "$reg_text" 13)
+        local grants_padded=$(pad_text "$grants_text" 10)
+
+        # Apply colors after padding
+        local status_colored reg_colored grants_colored
+
+        case "$status_state" in
+            healthy)   status_colored="${GREEN}${status_padded}${NC}";;
+            starting)  status_colored="${YELLOW}${status_padded}${NC}";;
+            *)         status_colored="${RED}${status_padded}${NC}";;
+        esac
+
+        if [ "$reg_state" = "yes" ]; then
+            reg_colored="${GREEN}${reg_padded}${NC}"
+        else
+            reg_colored="${RED}${reg_padded}${NC}"
+        fi
+
+        if [ "$grants_state" = "yes" ]; then
+            grants_colored="${GREEN}${grants_padded}${NC}"
+        else
+            grants_colored="${RED}${grants_padded}${NC}"
+        fi
+
+        printf "%-23s %b %b %b %-8s %-8s\n" \
+            "$name" "$status_colored" "$reg_colored" "$grants_colored" ":$api_port" ":$tss_port"
+    done
+    echo
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BUILD COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Check if authenticated to GCR
+check_gcr_auth() {
+    local registry="${1:-gcr.io}"
+
+    # Try to get auth token - this will fail if not authenticated
+    if ! docker login "$registry" --username=oauth2accesstoken --password="$(gcloud auth print-access-token 2>/dev/null)" >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+# Silently try to pull images from remote cache (returns 0 if all images pulled)
+try_pull_from_cache() {
+    # Skip if explicitly disabled
+    if [ "${USE_CACHE:-true}" = "false" ]; then
+        return 1
+    fi
+
+    local pulled=0
+    local needed=0
+
+    # Check what images we need
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        needed=$((needed + 1))
+        if docker pull "$GCR_REGISTRY/push-base:$CACHE_TAG" 2>/dev/null; then
+            docker tag "$GCR_REGISTRY/push-base:$CACHE_TAG" local-multi-validator-base:latest 2>/dev/null
+            pulled=$((pulled + 1))
+        fi
+    fi
+
+    if ! docker images | grep -q "push-core.*latest"; then
+        needed=$((needed + 1))
+        if docker pull "$GCR_REGISTRY/push-core:$CACHE_TAG" 2>/dev/null; then
+            docker tag "$GCR_REGISTRY/push-core:$CACHE_TAG" push-core:latest 2>/dev/null
+            pulled=$((pulled + 1))
+        fi
+    fi
+
+    if ! docker images | grep -q "push-universal.*latest"; then
+        needed=$((needed + 1))
+        if docker pull "$GCR_REGISTRY/push-universal:$CACHE_TAG" 2>/dev/null; then
+            docker tag "$GCR_REGISTRY/push-universal:$CACHE_TAG" push-universal:latest 2>/dev/null
+            pulled=$((pulled + 1))
+        fi
+    fi
+
+    # Return success if we pulled all needed images
+    if [ $pulled -gt 0 ] && [ $pulled -ge $needed ]; then
+        print_success "Pulled $pulled image(s) from cache ($GCR_REGISTRY)"
+        return 0
+    elif [ $pulled -gt 0 ]; then
+        print_status "Pulled $pulled of $needed images from cache"
+        return 1  # Still need to build some images
+    fi
+    return 1
+}
+
+# Auto-push images to cache after building (runs in background)
+auto_push_to_cache() {
+    # Skip if explicitly disabled
+    if [ "${USE_CACHE:-true}" = "false" ]; then
+        return
+    fi
+
+    # Check GCP authentication before attempting push
+    if ! check_gcr_auth "$(echo "$GCR_REGISTRY" | cut -d'/' -f1)"; then
+        print_warning "Skipping cache push: Not authenticated to GCR"
+        print_status "To enable cache push, run: gcloud auth configure-docker $(echo "$GCR_REGISTRY" | cut -d'/' -f1)"
+        return
+    fi
+
+    print_status "Uploading images to cache ($GCR_REGISTRY) in background..."
+
+    # Run push in background so it doesn't block startup
+    (
+        # Tag and push all images
+        docker tag local-multi-validator-base:latest "$GCR_REGISTRY/push-base:$CACHE_TAG" 2>/dev/null && \
+        docker push "$GCR_REGISTRY/push-base:$CACHE_TAG" 2>/dev/null && \
+        docker tag push-core:latest "$GCR_REGISTRY/push-core:$CACHE_TAG" 2>/dev/null && \
+        docker push "$GCR_REGISTRY/push-core:$CACHE_TAG" 2>/dev/null && \
+        docker tag push-universal:latest "$GCR_REGISTRY/push-universal:$CACHE_TAG" 2>/dev/null && \
+        docker push "$GCR_REGISTRY/push-universal:$CACHE_TAG" 2>/dev/null
+    ) &
+}
+
+cmd_base() {
+    require_docker
+    print_status "Building base image (this may take 5-10 minutes on first run)..."
+
+    local no_cache=""
+    if [ "${1:-}" = "--no-cache" ]; then
+        no_cache="--no-cache"
+    fi
+
+    if has_buildx; then
+        print_status "Using BuildX for optimized build..."
+        docker buildx build $no_cache --load -f Dockerfile.base -t local-multi-validator-base:latest ../..
+    else
+        docker build $no_cache -f Dockerfile.base -t local-multi-validator-base:latest ../..
+    fi
+
+    print_success "Base image built successfully!"
+}
+
+build_images() {
+    local no_cache="${1:-}"
+
+    # Check if base image exists
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        print_warning "Base image not found. Building base image first..."
+        cmd_base $no_cache
+    fi
+
+    print_status "Building runtime images with Dockerfile.unified..."
+
+    # Build both images using Dockerfile.unified (shares Go cache - 70% faster)
+    docker build $no_cache --pull=false --target core-runtime -t push-core:latest -f Dockerfile.unified ../..
+    docker build $no_cache --pull=false --target universal-runtime -t push-universal:latest -f Dockerfile.unified ../..
+
+    print_success "Runtime images built successfully!"
+}
+
+cmd_up() {
+    require_docker
+    print_status "Starting Push Chain Local Network..."
+
+    local build_flag=""
+    local no_cache=""
+    local skip_cache=""
+    local built_locally=""
+
+    # Parse arguments
+    for arg in "$@"; do
+        case "$arg" in
+            --build) build_flag="--build";;
+            --no-cache) no_cache="--no-cache"; skip_cache="true";;
+            --skip-cache) skip_cache="true";;
+        esac
+    done
+
+    # Check if base image exists, build if missing
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        print_status "Base image not found. Building base image (this may take 5-10 minutes on first run)..."
+        cmd_base
+    fi
+
+    # Force rebuild if --build flag is set
+    if [ -n "$build_flag" ]; then
+        print_status "Rebuilding images..."
+        build_images "$no_cache"
+        built_locally="true"
+    # Check if images exist, try cache first, then build if needed
+    elif ! docker images | grep -q "push-core.*latest" || ! docker images | grep -q "push-universal.*latest"; then
+        # Try to pull from remote cache first (unless skipped)
+        if [ -z "$skip_cache" ]; then
+            print_status "Checking remote cache for images..."
+            if try_pull_from_cache; then
+                # All images pulled from cache, skip build
+                :
+            else
+                # Cache miss or partial, need to build
+                print_status "Building images locally..."
+                build_images "$no_cache"
+                built_locally="true"
+            fi
+        else
+            print_status "Docker images not found. Building..."
+            build_images "$no_cache"
+            built_locally="true"
+        fi
+    fi
+
+    docker compose up -d
+
+    # Auto-push to cache if we built locally (populate cache for team)
+    if [ -n "$built_locally" ] && [ -z "$skip_cache" ]; then
+        auto_push_to_cache
+    fi
+
+    print_success "All validators starting up..."
+    echo
+    print_status "Use './devnet status' to check progress"
+    print_status "Use './devnet logs' to view logs"
+}
+
+cmd_down() {
+    require_docker
+    print_status "Stopping Push Chain Local Network..."
+    docker compose down "$@"
+    print_success "All validators stopped"
+}
+
+cmd_stop() {
+    require_docker
+    print_status "Stopping all validators (keeping containers)..."
+    docker compose stop
+    print_success "All validators stopped"
+}
+
+cmd_logs() {
+    require_docker
+    local service="${1:-}"
+    if [ -z "$service" ]; then
+        docker compose logs -f
+    else
+        docker compose logs -f "$service"
+    fi
+}
+
+cmd_restart() {
+    require_docker
+    print_status "Restarting all validators..."
+    docker compose restart
+    print_success "All validators restarted"
+}
+
+cmd_rebuild() {
+    local target="${1:-all}"
+    require_docker
+
+    case "$target" in
+        all)
+            print_status "Rebuilding all images..."
+            build_images ""
+            print_success "All images rebuilt"
+            print_status "Use './devnet restart' to apply changes"
+            ;;
+        core)
+            print_status "Rebuilding core validator image..."
+            docker build --pull=false --target core-runtime -t push-core:latest -f Dockerfile.unified ../..
+            print_success "Core image rebuilt"
+            ;;
+        universal)
+            print_status "Rebuilding universal validator image..."
+            docker build --pull=false --target universal-runtime -t push-universal:latest -f Dockerfile.unified ../..
+            print_success "Universal image rebuilt"
+            ;;
+        base)
+            cmd_base --no-cache
+            ;;
+        clean)
+            print_status "Clean rebuilding all images (no cache)..."
+            cmd_base --no-cache
+            build_images "--no-cache"
+            print_success "Clean rebuild complete"
+            ;;
+        *)
+            print_error "Invalid rebuild target: $target"
+            echo "Valid targets: all, core, universal, base, clean"
+            exit 1
+            ;;
+    esac
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TSS COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_tss_keygen() {
+    print_header "TSS Key Generation"
+    print_status "Initiating TSS keygen process..."
+
+    docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
+        --process-type tss-process-keygen \
+        --from genesis-acc-1 \
+        --chain-id localchain_9000-1 \
+        --keyring-backend test \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS keygen initiated!"
+}
+
+cmd_tss_refresh() {
+    print_header "TSS Key Refresh"
+    print_status "Initiating TSS key refresh process..."
+
+    docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
+        --process-type tss-process-refresh \
+        --from genesis-acc-1 \
+        --chain-id localchain_9000-1 \
+        --keyring-backend test \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS refresh initiated!"
+}
+
+cmd_tss_quorum() {
+    print_header "TSS Quorum Change"
+    print_status "Initiating TSS quorum change process..."
+
+    docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
+        --process-type tss-process-quorum-change \
+        --from genesis-acc-1 \
+        --chain-id localchain_9000-1 \
+        --keyring-backend test \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS quorum change initiated!"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTHZ COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_setup_authz() {
+    print_header "Setting up AuthZ"
+
+    # Check if containers are running
+    if ! docker ps --filter "name=core-validator-1" --format "{{.Names}}" | grep -q "core-validator-1"; then
+        print_error "Validators are not running"
+        exit 1
+    fi
+
+    echo -e "${YELLOW}Setting up AuthZ grants for all validators...${NC}"
+
+    for i in 1 2 3; do
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Setting up universal-validator-$i:${NC}"
+
+        # Use the pre-generated hotkey
+        local hotkey_name="hotkey-$i"
+        local hotkey_addr
+        hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --address --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
+
+        if [ -z "$hotkey_addr" ]; then
+            echo -e "  ${RED}Hotkey not found - validator may not be fully initialized${NC}"
+            continue
+        fi
+
+        echo -e "  ${CYAN}Hotkey address: $hotkey_addr${NC}"
+
+        # Get operator address from core validator
+        local operator_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null)
+        echo -e "  ${CYAN}Operator address: $operator_addr${NC}"
+
+        # Fund hot key if needed
+        echo -ne "  ${YELLOW}Checking hotkey balance:${NC} "
+        local hotkey_balance=$(docker exec core-validator-1 pchaind query bank balance "$hotkey_addr" upc --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.balance.amount // "0"' 2>/dev/null || echo "0")
+
+        # Use awk for large number comparison (bash can't handle numbers > 2^63)
+        if echo "$hotkey_balance 10000000000000000" | awk '{exit ($1 < $2) ? 0 : 1}'; then
+            echo -e "${YELLOW}Insufficient funds, funding...${NC}"
+            docker exec core-validator-1 pchaind tx bank send validator-1 "$hotkey_addr" 20000000000000000upc --from validator-1 --keyring-backend test --chain-id localchain_9000-1 --node tcp://localhost:26657 --fees 200000000000000upc --yes >/dev/null 2>&1
+            echo -e "    ${GREEN}Hotkey funded${NC}"
+            sleep 2
+        else
+            echo -e "${GREEN}Sufficient funds${NC}"
+        fi
+
+        # Check existing grants
+        echo -ne "  ${YELLOW}Checking existing grants:${NC} "
+        local existing_count=$(docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
+
+        if [ "$existing_count" -ge 1 ]; then
+            echo -e "${GREEN}$existing_count grant(s) already exist${NC}"
+        else
+            echo -e "${YELLOW}No grants exist, creating...${NC}"
+
+            local expiration_unix=$(date -j -v+1y '+%s' 2>/dev/null || date -d '+1 year' '+%s' 2>/dev/null)
+
+            echo -ne "  ${YELLOW}Creating MsgVoteInbound grant:${NC} "
+            docker exec "core-validator-$i" pchaind tx authz grant "$hotkey_addr" generic \
+                --msg-type /uexecutor.v1.MsgVoteInbound \
+                --from "validator-$i" \
+                --expiration $expiration_unix \
+                --chain-id localchain_9000-1 \
+                --keyring-backend test \
+                --node tcp://localhost:26657 \
+                --fees 200000000000000upc \
+                --yes >/dev/null 2>&1 && echo -e "${GREEN}Created${NC}" || echo -e "${RED}Failed${NC}"
+
+            sleep 2
+        fi
+    done
+
+    print_success "AuthZ setup completed for all validators!"
+}
+
+cmd_verify_authz() {
+    print_header "Verifying AuthZ"
+
+    for i in 1 2 3; do
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Validator $i:${NC}"
+
+        local hotkey_name="hotkey-$i"
+
+        echo -ne "${YELLOW}Hot key exists:${NC} "
+        if docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --keyring-backend test --home /root/.puniversal >/dev/null 2>&1; then
+            echo -e "${GREEN}Found${NC}"
+
+            local hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --address --keyring-backend test --home /root/.puniversal 2>/dev/null)
+            local operator_addr=$(docker exec "core-validator-$i" pchaind keys show "genesis-acc-$i" -a --keyring-backend test 2>/dev/null)
+
+            echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
+            echo -e "  ${CYAN}Operator: $operator_addr${NC}"
+
+            # Check grants
+            echo -e "${YELLOW}AuthZ grants:${NC}"
+            docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.type' 2>/dev/null || echo "  No grants found"
+        else
+            echo -e "${RED}Not found${NC}"
+            echo -e "  ${YELLOW}Run './devnet setup-authz' first fix this${NC}"
+        fi
+        echo
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UNIVERSAL VALIDATOR SETUP
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_setup_uvalidators() {
+    print_header "Setting up Universal Validators"
+
+    if ! docker ps --filter "name=core-validator-1" --format "{{.Names}}" | grep -q "core-validator-1"; then
+        print_error "Validators are not running. Start them first with './devnet up'"
+        exit 1
+    fi
+
+    echo -e "${YELLOW}Registering universal validators and granting AuthZ permissions...${NC}"
+    echo
+
+    for i in 1 2 3; do
+        echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
+        echo -e "${BOLD}Setting up Universal Validator $i${NC}"
+
+        # Get validator addresses
+        echo -ne "  ${YELLOW}Getting validator addresses:${NC} "
+        local VALIDATOR_ADDR=$(docker exec core-validator-$i pchaind keys show validator-$i -a --keyring-backend test 2>/dev/null)
+        local VALOPER_ADDR=$(docker exec core-validator-$i pchaind keys show validator-$i --bech val -a --keyring-backend test 2>/dev/null)
+
+        if [ -z "$VALOPER_ADDR" ]; then
+            echo -e "${RED}Failed to get validator address${NC}"
+            continue
+        fi
+        echo -e "${GREEN}Done${NC}"
+        echo -e "    Account: ${CYAN}$VALIDATOR_ADDR${NC}"
+        echo -e "    Valoper: ${CYAN}$VALOPER_ADDR${NC}"
+
+        # Get network info from universal validator's TSS port
+        echo -ne "  ${YELLOW}Getting network info:${NC} "
+        local rpc_port=$(get_rpc_port $i)
+        local NODE_ID=$(curl -s "http://localhost:${rpc_port}/status" | jq -r '.result.node_info.id' 2>/dev/null)
+
+        if [ -z "$NODE_ID" ] || [ "$NODE_ID" = "null" ]; then
+            echo -e "${RED}Failed to get node ID${NC}"
+            continue
+        fi
+        local MULTI_ADDR="/ip4/core-validator-$i/tcp/26656"
+        echo -e "${GREEN}Done${NC}"
+        echo -e "    Node ID: ${CYAN}$NODE_ID${NC}"
+
+        # Register as universal validator
+        echo -ne "  ${YELLOW}Registering as universal validator:${NC} "
+        local register_result=$(docker exec core-validator-1 pchaind tx uvalidator add-universal-validator \
+            --core-validator-address "$VALOPER_ADDR" \
+            --network "{\"peer_id\": \"$NODE_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}" \
+            --from genesis-acc-1 \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 1000000000000000upc \
+            --yes \
+            --output json 2>&1)
+
+        if echo "$register_result" | grep -q '"txhash"'; then
+            echo -e "${GREEN}Done${NC}"
+        else
+            echo -e "${YELLOW}May already be registered${NC}"
+        fi
+
+        sleep 3
+
+        # Setup hotkey (use pre-generated hotkey-$i from setup-universal.sh)
+        echo -ne "  ${YELLOW}Setting up hotkey:${NC} "
+        local hotkey_name="hotkey-$i"
+        local HOTKEY_ADDR=$(docker exec universal-validator-$i puniversald keys show "$hotkey_name" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
+
+        if [ -z "$HOTKEY_ADDR" ]; then
+            echo -e "${RED}Hotkey not found - validator may not be initialized${NC}"
+            continue
+        else
+            echo -e "${GREEN}Using hotkey-$i${NC}"
+        fi
+        echo -e "    Hotkey: ${CYAN}$HOTKEY_ADDR${NC}"
+
+        # Grant MsgVoteInbound
+        echo -ne "  ${YELLOW}Granting MsgVoteInbound:${NC} "
+        docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
+            --msg-type=/uexecutor.v1.MsgVoteInbound \
+            --from validator-$i \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 200000000000000upc \
+            --yes >/dev/null 2>&1 && echo -e "${GREEN}Done${NC}" || echo -e "${YELLOW}May already exist${NC}"
+
+        sleep 2
+
+        # Grant MsgVoteGasPrice
+        echo -ne "  ${YELLOW}Granting MsgVoteGasPrice:${NC} "
+        docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
+            --msg-type=/uexecutor.v1.MsgVoteGasPrice \
+            --from validator-$i \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 200000000000000upc \
+            --yes >/dev/null 2>&1 && echo -e "${GREEN}Done${NC}" || echo -e "${YELLOW}May already exist${NC}"
+
+        sleep 2
+
+        echo -e "  ${GREEN}Validator $i setup complete${NC}"
+        echo
+    done
+
+    print_success "Universal validators setup complete!"
+    echo
+    echo -e "${BOLD}Verify with:${NC}"
+    echo -e "  docker exec core-validator-1 pchaind query uvalidator list-universal-validators"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGISTRY COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_setup_registry() {
+    print_header "Setting up Registry with Chains and Tokens"
+
+    echo -e "${YELLOW}Copying config files to container...${NC}"
+    docker exec core-validator-1 mkdir -p /opt/config/chains /opt/config/tokens
+    docker cp ../config/testnet-donut/chains/. core-validator-1:/opt/config/chains/
+    docker cp ../config/testnet-donut/tokens/. core-validator-1:/opt/config/tokens/
+
+    echo -e "${BOLD}Adding Ethereum Sepolia chain configuration...${NC}"
+    docker exec core-validator-1 bash -c "pchaind tx uregistry add-chain-config --chain-config \"\$(cat /opt/config/chains/eth_sepolia_chain_config.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1 | grep -E "txhash:|code:|error:" || true
+
+    sleep 2
+
+    echo -e "${BOLD}Adding Ethereum Sepolia USDC token configuration...${NC}"
+    docker exec core-validator-1 bash -c "pchaind tx uregistry add-token-config --token-config \"\$(cat /opt/config/tokens/eth_sepolia_usdc.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1 | grep -E "txhash:|code:|error:" || true
+
+    sleep 2
+
+    echo -e "${BOLD}Adding Solana Devnet chain configuration...${NC}"
+    docker exec core-validator-1 bash -c "pchaind tx uregistry add-chain-config --chain-config \"\$(cat /opt/config/chains/solana_devnet_chain_config.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1 | grep -E "txhash:|code:|error:" || true
+
+    sleep 2
+
+    echo -e "${BOLD}Adding Solana Devnet USDT token configuration...${NC}"
+    docker exec core-validator-1 bash -c "pchaind tx uregistry add-token-config --token-config \"\$(cat /opt/config/tokens/solana_devnet_usdt.json)\" --from genesis-acc-1 --chain-id localchain_9000-1 --gas-prices 100000000000upc --keyring-backend test -y" 2>&1 | grep -E "txhash:|code:|error:" || true
+
+    print_success "Registry setup completed!"
+    echo -e "${CYAN}Use './devnet show-registry' to view all registered chains and tokens${NC}"
+}
+
+cmd_show_registry() {
+    echo "Chains:"
+    docker exec core-validator-1 pchaind q uregistry all-chain-configs --node tcp://core-validator-1:26657
+    echo ""
+    echo "Tokens:"
+    docker exec core-validator-1 pchaind q uregistry all-token-configs --node tcp://core-validator-1:26657
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAINTENANCE COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_clean() {
+    print_warning "This will completely reset the local validator setup"
+    print_warning "  - Stop all containers"
+    print_warning "  - Remove all volumes and data"
+    read -p "Continue? (yes/no): " confirm
+    if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+        require_docker
+
+        # Stop and remove all containers with volumes
+        cmd_down -v
+
+        print_status "Cleaning account files..."
+        rm -rf /tmp/push-accounts
+
+        print_success "Clean reset complete"
+        print_status "Start validators: ./devnet start"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REMOTE CACHE COMMANDS (GCR/Artifact Registry)
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_push_cache() {
+    require_docker
+    print_header "Pushing images to remote registry"
+    echo -e "Registry: ${CYAN}$GCR_REGISTRY${NC}"
+    echo
+
+    # Check GCP authentication
+    local registry_host="$(echo "$GCR_REGISTRY" | cut -d'/' -f1)"
+    if ! check_gcr_auth "$registry_host"; then
+        print_error "Not authenticated to GCR: $registry_host"
+        echo
+        print_status "To authenticate, run:"
+        echo "  gcloud auth configure-docker $registry_host"
+        echo
+        exit 1
+    fi
+
+    # Check images exist locally before pushing
+    local missing_images=()
+    if ! docker images | grep -q "local-multi-validator-base.*latest"; then
+        missing_images+=("local-multi-validator-base:latest")
+    fi
+    if ! docker images | grep -q "push-core.*latest"; then
+        missing_images+=("push-core:latest")
+    fi
+    if ! docker images | grep -q "push-universal.*latest"; then
+        missing_images+=("push-universal:latest")
+    fi
+
+    if [ ${#missing_images[@]} -gt 0 ]; then
+        print_error "Missing local images:"
+        for img in "${missing_images[@]}"; do
+            echo "  - $img"
+        done
+        echo
+        print_status "Build images first: ./devnet start --build"
+        exit 1
+    fi
+
+    # Tag and push base image
+    print_status "Pushing base image..."
+    docker tag local-multi-validator-base:latest "$GCR_REGISTRY/push-base:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-base:$CACHE_TAG"
+    print_success "Base image pushed"
+
+    # Tag and push core runtime image
+    print_status "Pushing core runtime image..."
+    docker tag push-core:latest "$GCR_REGISTRY/push-core:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-core:$CACHE_TAG"
+    print_success "Core image pushed"
+
+    # Tag and push universal runtime image
+    print_status "Pushing universal runtime image..."
+    docker tag push-universal:latest "$GCR_REGISTRY/push-universal:$CACHE_TAG"
+    docker push "$GCR_REGISTRY/push-universal:$CACHE_TAG"
+    print_success "Universal image pushed"
+
+    echo
+    print_success "Cache push complete!"
+    echo -e "Team members can now run: ${CYAN}./devnet pull-cache${NC}"
+}
+
+cmd_pull_cache() {
+    require_docker
+    print_header "Pulling images from remote registry"
+    echo -e "Registry: ${CYAN}$GCR_REGISTRY${NC}"
+    echo
+
+    local pulled=0
+
+    # Pull base image
+    print_status "Pulling base image..."
+    if docker pull "$GCR_REGISTRY/push-base:$CACHE_TAG" 2>/dev/null; then
+        docker tag "$GCR_REGISTRY/push-base:$CACHE_TAG" local-multi-validator-base:latest
+        print_success "Base image pulled and tagged"
+        pulled=$((pulled + 1))
+    else
+        print_warning "Base image not found in registry"
+    fi
+
+    # Pull core runtime
+    print_status "Pulling core runtime image..."
+    if docker pull "$GCR_REGISTRY/push-core:$CACHE_TAG" 2>/dev/null; then
+        docker tag "$GCR_REGISTRY/push-core:$CACHE_TAG" push-core:latest
+        print_success "Core image pulled and tagged"
+        pulled=$((pulled + 1))
+    else
+        print_warning "Core image not found in registry"
+    fi
+
+    # Pull universal runtime
+    print_status "Pulling universal runtime image..."
+    if docker pull "$GCR_REGISTRY/push-universal:$CACHE_TAG" 2>/dev/null; then
+        docker tag "$GCR_REGISTRY/push-universal:$CACHE_TAG" push-universal:latest
+        print_success "Universal image pulled and tagged"
+        pulled=$((pulled + 1))
+    else
+        print_warning "Universal image not found in registry"
+    fi
+
+    echo
+    if [ $pulled -gt 0 ]; then
+        print_success "Pulled $pulled image(s)! You can now run './devnet up' (skips build)"
+    else
+        print_warning "No images found in registry. Run './devnet push-cache' to populate"
+    fi
+}
+
+cmd_refresh_cache() {
+    require_docker
+    print_header "Refreshing remote cache"
+    echo -e "This will rebuild all images and push to registry"
+    echo -e "Registry: ${CYAN}$GCR_REGISTRY${NC}"
+    echo
+
+    # Force rebuild base
+    print_status "Rebuilding base image (no cache)..."
+    cmd_base --no-cache
+
+    # Rebuild runtime images
+    print_status "Rebuilding runtime images..."
+    cmd_rebuild all
+
+    # Push all to registry
+    cmd_push_cache
+
+    print_success "Remote cache refreshed!"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELP
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_help() {
+    echo
+    echo -e "${BOLD}${GREEN}Push Chain Local Network Manager${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    echo -e "${BOLD}Usage:${NC} ./devnet <command> [options]"
+    echo
+    echo -e "${BOLD}${CYAN}PRIMARY COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "start" "Start validators (auto-pulls from cache if available)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "  --build" "  Force rebuild images before starting"
+    printf "  ${BOLD}%-20s${NC}%s\n" "  --skip-cache" "  Skip remote cache, build locally"
+    printf "  ${BOLD}%-20s${NC}%s\n" "down" "Stop and remove all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "stop" "Stop validators (keep containers for quick restart)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "restart" "Restart all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "status" "Show network status"
+    printf "  ${BOLD}%-20s${NC}%s\n" "logs [service]" "View logs (all or specific container)"
+    echo
+    echo -e "${BOLD}${CYAN}BUILD COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "base" "Build/rebuild base image"
+    printf "  ${BOLD}%-20s${NC}%s\n" "rebuild [target]" "Rebuild images (all|core|universal|base|clean)"
+    echo
+    echo -e "${BOLD}${CYAN}TSS COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-keygen" "Initiate TSS key generation"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-refresh" "Initiate TSS key refresh"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-quorum" "Initiate TSS quorum change"
+    echo
+    echo -e "${BOLD}${CYAN}SETUP COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "setup-authz" "Setup hot key and AuthZ grants"
+    printf "  ${BOLD}%-20s${NC}%s\n" "verify-authz" "Verify AuthZ configuration"
+    printf "  ${BOLD}%-20s${NC}%s\n" "setup-uvalidators" "Register universal validators + grants"
+    printf "  ${BOLD}%-20s${NC}%s\n" "setup-registry" "Add chains and tokens to registry"
+    printf "  ${BOLD}%-20s${NC}%s\n" "show-registry" "Display registered chains and tokens"
+    echo
+    echo -e "${BOLD}${CYAN}CACHE COMMANDS${NC} (share builds across team)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "pull-cache" "Pull pre-built images from GCR"
+    printf "  ${BOLD}%-20s${NC}%s\n" "push-cache" "Push local images to GCR"
+    printf "  ${BOLD}%-20s${NC}%s\n" "refresh-cache" "Force rebuild and push to GCR"
+    echo
+    echo -e "${BOLD}${CYAN}MAINTENANCE${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "clean" "Complete reset (removes all data)"
+    echo
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}QUICK START${NC}"
+    echo -e "  ./devnet ${BOLD}start${NC}       # Auto-pulls from cache, builds if needed, auto-pushes"
+    echo -e ""
+    echo -e "${BOLD}CACHE BEHAVIOR${NC}"
+    echo -e "  • Cache miss → builds locally → auto-pushes to cache"
+    echo -e "  • Cache hit  → uses cached images (~17s startup)"
+    echo -e "  • Registry: ${CYAN}$GCR_REGISTRY${NC}"
+    echo
+    echo -e "${BOLD}ENDPOINTS${NC}"
+    echo -e "  Core RPC:     ${YELLOW}localhost:26657${NC}"
+    echo -e "  Core gRPC:    ${YELLOW}localhost:9090${NC}"
+    echo -e "  EVM HTTP:     ${YELLOW}localhost:8545${NC}"
+    echo -e "  Query API:    ${YELLOW}localhost:8080-8082${NC}"
+    echo -e "  TSS P2P:      ${YELLOW}localhost:39000-39002${NC}"
+    echo
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN COMMAND HANDLER
+# ═══════════════════════════════════════════════════════════════════════════════
+case "${1:-help}" in
+    # Primary commands
+    start|up)       shift; cmd_up "$@" ;;  # 'start' primary, 'up' alias
+    down)           shift; cmd_down "$@" ;;
+    stop)           cmd_stop ;;
+    restart)        cmd_restart ;;
+    status)         cmd_status ;;
+    logs)           shift; cmd_logs "$@" ;;
+
+    # Build commands
+    base)           shift; cmd_base "$@" ;;
+    rebuild)        shift; cmd_rebuild "$@" ;;
+
+    # TSS commands
+    tss-keygen)     cmd_tss_keygen ;;
+    tss-refresh)    cmd_tss_refresh ;;
+    tss-quorum)     cmd_tss_quorum ;;
+
+    # Setup commands
+    setup-authz)    cmd_setup_authz ;;
+    verify-authz)   cmd_verify_authz ;;
+    setup-uvalidators) cmd_setup_uvalidators ;;
+    setup-registry) cmd_setup_registry ;;
+    show-registry)  cmd_show_registry ;;
+
+    # Cache commands
+    pull-cache)     cmd_pull_cache ;;
+    push-cache)     cmd_push_cache ;;
+    refresh-cache)  cmd_refresh_cache ;;
+
+    # Maintenance
+    clean)          cmd_clean ;;
+
+    # Help
+    help|--help|-h) cmd_help ;;
+
+    *)
+        print_error "Unknown command: $1"
+        echo "Use './devnet help' for usage information"
+        exit 1
+        ;;
+esac

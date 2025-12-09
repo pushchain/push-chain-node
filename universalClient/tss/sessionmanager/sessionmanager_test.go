@@ -140,6 +140,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		"validator1",
 		3*time.Minute, // sessionExpiryTime
 		zerolog.Nop(),
+		nil,
 	)
 
 	return sm, coord, evtStore, keyshareMgr, testClient, db

@@ -76,6 +76,8 @@ func convertProcessType(chainType string) string {
 		return ProtocolTypeKeygen
 	case ProcessTypeRefresh:
 		return ProtocolTypeKeyrefresh
+	case ProcessTypeQuorumChange:
+		return ProtocolTypeQuorumChange
 	default:
 		return chainType // Return as-is if unknown
 	}
@@ -87,7 +89,8 @@ func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
 	var eventData []byte
 	if len(e.Participants) > 0 {
 		data := map[string]interface{}{
-			"process_id":   e.ProcessID,
+			"process_id": e.ProcessID,
+			// TODO: Maybe while tss process participants can be read from this rather than chain
 			"participants": e.Participants,
 			"tx_hash":      e.TxHash,
 		}
@@ -107,5 +110,6 @@ func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
 // EventID returns the unique event ID for this process.
 // Format: "process-{process_id}"
 func (e *TSSProcessEvent) EventID() string {
-	return fmt.Sprintf("%s%d", EventPrefix(), e.ProcessID)
+	const EventPrefix = "process-"
+	return fmt.Sprintf("%s%d", EventPrefix, e.ProcessID)
 }

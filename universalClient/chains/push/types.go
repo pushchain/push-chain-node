@@ -14,14 +14,16 @@ const (
 	AttrKeyExpiryHeight = "expiry_height"
 
 	// Process type values from the chain
-	ProcessTypeKeygen  = "TSS_PROCESS_KEYGEN"
-	ProcessTypeRefresh = "TSS_PROCESS_REFRESH"
+	ProcessTypeKeygen       = "TSS_PROCESS_KEYGEN"
+	ProcessTypeRefresh      = "TSS_PROCESS_REFRESH"
+	ProcessTypeQuorumChange = "TSS_PROCESS_QUORUM_CHANGE"
 )
 
 // Protocol type values for TSSEvent.ProtocolType field.
 const (
-	ProtocolTypeKeygen     = "keygen"
-	ProtocolTypeKeyrefresh = "keyrefresh"
+	ProtocolTypeKeygen       = "keygen"
+	ProtocolTypeKeyrefresh   = "keyrefresh"
+	ProtocolTypeQuorumChange = "quorumchange"
 )
 
 // Default configuration values.
@@ -38,10 +40,4 @@ type TSSProcessEvent struct {
 	ExpiryHeight uint64   // Block height when this process expires
 	BlockHeight  uint64   // Block height when the event occurred
 	TxHash       string   // Transaction hash containing this event
-}
-
-// EventPrefix returns the event ID prefix for TSSEvent records.
-// Format: "process-{process_id}"
-func EventPrefix() string {
-	return "process-"
 }

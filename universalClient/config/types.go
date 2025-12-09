@@ -17,7 +17,8 @@ type Config struct {
 	LogFormat  string `json:"log_format"`  // "json" or "console"
 	LogSampler bool   `json:"log_sampler"` // if true, samples logs (e.g., 1 in 5)
 
-	// Registry Config
+	// Push Chain configuration
+	PushChainID                  string   `json:"push_chain_id"`                   // Push Chain chain ID (default: localchain_9000-1)
 	PushChainGRPCURLs            []string `json:"push_chain_grpc_urls"`            // Push Chain gRPC endpoints (default: ["localhost:9090"])
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"` // How often to refresh configs in seconds (default: 60)
 	MaxRetries                   int      `json:"max_retries"`                     // Max retry attempts for registry queries (default: 3)

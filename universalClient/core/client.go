@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/api"
 	"github.com/pushchain/push-chain-node/universalClient/cache"
 	"github.com/pushchain/push-chain-node/universalClient/chains"
@@ -18,6 +19,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 	"github.com/rs/zerolog"
 )
 
@@ -150,7 +152,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	}
 
 	// Create unified signer handler with simplified validation result
-	signerHandler, err := NewSignerHandler(ctx, log, validationResult, cfg.PushChainGRPCURLs[0])
+	signerHandler, err := NewSignerHandler(ctx, log, validationResult, cfg.PushChainGRPCURLs[0], cfg.PushChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create signer handler: %w", err)
 	}
@@ -161,8 +163,12 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	{
 		log.Info().Msg("🔑 Initializing TSS node...")
 
-		// Use granter address as validator address (this is the valoper address)
-		validatorAddr := signerHandler.GetGranter()
+		// Get granter address and convert to valoper address
+		granterAddr := signerHandler.GetGranter()
+		valoperAddr, err := convertToValoperAddress(granterAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert granter address to valoper address: %w", err)
+		}
 
 		// Determine TSS home directory
 		tssHomeDir := cfg.TSSHomeDir
@@ -174,9 +180,16 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			tssHomeDir = filepath.Join(homeDir, ".puniversal", "tss")
 		}
 
+		// Create TSS vote handler for on-chain voting after key generation
+		tssVoteHandler := vote.NewHandler(
+			signerHandler.GetTxSigner(),
+			log,
+			signerHandler.GetGranter(),
+		)
+
 		// Create TSS node configuration
 		tssCfg := tss.Config{
-			ValidatorAddress: validatorAddr,
+			ValidatorAddress: valoperAddr,
 			P2PPrivateKeyHex: cfg.TSSP2PPrivateKeyHex,
 			LibP2PListen:     cfg.TSSP2PListen,
 			HomeDir:          tssHomeDir,
@@ -184,6 +197,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			Database:         tssDB,
 			PushCore:         pushCore,
 			Logger:           log,
+			VoteHandler:      tssVoteHandler,
 		}
 
 		tssNode, err := tss.NewNode(ctx, tssCfg)
@@ -193,7 +207,8 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		uc.tssNode = tssNode
 
 		log.Info().
-			Str("validator", validatorAddr).
+			Str("valoper", valoperAddr).
+			Str("granter", granterAddr).
 			Str("p2p_listen", cfg.TSSP2PListen).
 			Str("home_dir", tssHomeDir).
 			Msg("✅ TSS node initialized")
@@ -505,4 +520,31 @@ func (uc *UniversalClient) updateVoteHandlersForAllChains() {
 	uc.log.Info().
 		Int("vote_handlers", len(voteHandlers)).
 		Msg("✅ Successfully created per-chain vote handlers and updated chain registry")
+}
+
+// convertToValoperAddress converts an address to valoper format.
+// It handles both account addresses (push1...) and validator addresses (pushvaloper1...).
+// If the address is already in valoper format, it returns it as-is.
+// If it's an account address, it converts it to valoper format.
+func convertToValoperAddress(addr string) (string, error) {
+	if addr == "" {
+		return "", fmt.Errorf("address is empty")
+	}
+
+	// Try to parse as valoper address first
+	valAddr, err := sdk.ValAddressFromBech32(addr)
+	if err == nil {
+		// Already in valoper format
+		return addr, nil
+	}
+
+	// Try to parse as account address and convert to valoper
+	accAddr, err := sdk.AccAddressFromBech32(addr)
+	if err != nil {
+		return "", fmt.Errorf("address is neither a valid account address nor valoper address: %w", err)
+	}
+
+	// Convert account address to validator address
+	valAddr = sdk.ValAddress(accAddr)
+	return valAddr.String(), nil
 }

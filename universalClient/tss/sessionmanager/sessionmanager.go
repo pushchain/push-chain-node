@@ -16,6 +16,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -37,9 +38,10 @@ type SessionManager struct {
 	coordinator       *coordinator.Coordinator
 	keyshareManager   *keyshare.Manager
 	send              SendFunc
-	partyID           string // Our validator address
+	partyID           string // Our validator address (pushvaloper format)
 	logger            zerolog.Logger
 	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
+	voteHandler       *vote.Handler // Optional - nil if voting disabled
 
 	// Session storage
 	mu       sync.RWMutex
@@ -55,6 +57,7 @@ func NewSessionManager(
 	partyID string,
 	sessionExpiryTime time.Duration,
 	logger zerolog.Logger,
+	voteHandler *vote.Handler, // Optional - nil if voting disabled
 ) *SessionManager {
 	return &SessionManager{
 		eventStore:        eventStore,
@@ -64,6 +67,7 @@ func NewSessionManager(
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
+		voteHandler:       voteHandler,
 		sessions:          make(map[string]*sessionState),
 	}
 }
@@ -419,7 +423,24 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return errors.Errorf("unknown protocol type: %s", state.protocolType)
 	}
 
-	// Update event status to SUCCESS (common for all session types)
+	// Vote on TSS key process (keygen/keyrefresh/quorumchange only)
+	if sm.voteHandler != nil && (state.protocolType == "keygen" || state.protocolType == "keyrefresh" || state.protocolType == "quorumchange") {
+		pubKeyHex := hex.EncodeToString(result.PublicKey)
+
+		voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID)
+		if err != nil {
+			sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("TSS vote failed - marking PENDING")
+
+			if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusPending, err.Error()); err != nil {
+				return errors.Wrapf(err, "failed to update event status to PENDING")
+			}
+			return nil // Event will be retried
+		}
+
+		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
+	}
+
+	// Update event status to SUCCESS (only reached if vote succeeded or not required)
 	if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusSuccess, ""); err != nil {
 		return errors.Wrapf(err, "failed to update event status")
 	}
@@ -469,7 +490,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		// Get current keyID
 		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get current TSS keyId")
+			return nil, errors.Wrap(err, "failed to get current TSS keyId for quorumchange")
 		}
 
 		// Load old keyshare - if not found, we're a new party (oldKeyshare will be nil)

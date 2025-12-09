@@ -72,6 +72,14 @@ RUN echo "=== Patching Cargo.toml files ===" && \
         echo "After patching:" && \
         grep -n "hd-migration" "$file" || echo "hd-migration not found after patching"; \
     done && \
+    echo "=== Adding staticlib to crate-type ===" && \
+    # Add staticlib to crate-type for go-dkls crate (needed to build .a file)
+    if grep -q 'crate-type = \["cdylib", "rlib"\]' /code/dkls23-rs/wrapper/go-dkls/Cargo.toml; then \
+        sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' /code/dkls23-rs/wrapper/go-dkls/Cargo.toml && \
+        echo "Added staticlib to crate-type"; \
+    else \
+        echo "crate-type already includes staticlib or has different format"; \
+    fi && \
     echo "=== Patch complete ==="
 
 # Build pchaind as fully static muslc binary

@@ -75,10 +75,17 @@ RUN echo "=== Patching Cargo.toml files ===" && \
     echo "=== Patch complete ==="
 
 # Build pchaind as fully static muslc binary
-RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build \
-  && file /code/build/pchaind \
-  && echo "Ensuring binary is statically linked ..." \
-  && (file /code/build/pchaind | grep "statically linked")
+RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build-dkls23 && \
+    echo "=== Verifying libgodkls was built ===" && \
+    ls -la /code/dkls23-rs/target/release/libgodkls* 2>/dev/null || (echo "ERROR: libgodkls not found in target/release" && find /code/dkls23-rs/target -name "*godkls*" -type f && exit 1) && \
+    # Copy libgodkls to /lib for easy linking (like Dockerfile.base)
+    cp /code/dkls23-rs/target/release/libgodkls.a /lib/ && \
+    echo "=== Building Go binaries with CGO_LDFLAGS ===" && \
+    CGO_LDFLAGS="-L/lib -L/code/dkls23-rs/target/release" \
+    LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build && \
+    file /code/build/pchaind && \
+    echo "Ensuring binary is statically linked ..." && \
+    (file /code/build/pchaind | grep "statically linked")
 
 # --------------------------------------------------------
 FROM alpine:3.21

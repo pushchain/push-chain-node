@@ -28,10 +28,20 @@ COPY dkls23-rs ./dkls23-rs
 COPY garbling ./garbling
 
 # Patch Cargo.toml to use local garbling path instead of git
-RUN if [ -f ./dkls23-rs/Cargo.toml ]; then \
-        # Replace git dependency with local path (relative path from dkls23-rs to garbling)
-        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|' ./dkls23-rs/Cargo.toml; \
-    fi
+RUN echo "=== Patching Cargo.toml files ===" && \
+    # Find and patch all Cargo.toml files that reference hd-migration
+    find ./dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do \
+        echo "Patching: $file" && \
+        # Show the line before patching
+        grep -n "hd-migration" "$file" || echo "hd-migration not found" && \
+        # Replace git dependency with local path (flexible pattern matching)
+        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
+        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file" && \
+        # Show the line after patching
+        echo "After patching:" && \
+        grep -n "hd-migration" "$file" || echo "hd-migration not found after patching"; \
+    done && \
+    echo "=== Patch complete ==="
 
 # Download go modules + wasmvm static library
 ADD go.mod go.sum ./

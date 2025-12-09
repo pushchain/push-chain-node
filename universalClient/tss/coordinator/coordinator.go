@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -21,25 +20,12 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// accountToValAddr converts an account address (push1...) to a validator address (pushvaloper1...).
-// Both addresses derive from the same underlying bytes but use different bech32 prefixes.
-func accountToValAddr(accAddr string) (string, error) {
-	acc, err := sdk.AccAddressFromBech32(accAddr)
-	if err != nil {
-		return "", errors.Wrap(err, "invalid account address")
-	}
-	// Convert to validator address using the same underlying bytes
-	valAddr := sdk.ValAddress(acc)
-	return valAddr.String(), nil
-}
-
 // Coordinator handles coordinator logic for TSS events.
 type Coordinator struct {
 	eventStore       *eventstore.Store
 	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
 	validatorAddress string
-	ourPeerID        string // Our libp2p peer ID
 	coordinatorRange uint64
 	pollInterval     time.Duration
 	logger           zerolog.Logger
@@ -69,7 +55,6 @@ func NewCoordinator(
 	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
 	validatorAddress string,
-	ourPeerID string, // Our libp2p peer ID
 	coordinatorRange uint64,
 	pollInterval time.Duration,
 	send SendFunc,
@@ -83,7 +68,6 @@ func NewCoordinator(
 		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
 		validatorAddress: validatorAddress,
-		ourPeerID:        ourPeerID,
 		coordinatorRange: coordinatorRange,
 		pollInterval:     pollInterval,
 		logger:           logger,
@@ -177,22 +161,6 @@ func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
 	return c.pushCore.GetLatestBlockNum()
 }
 
-// GetValidatorAddress returns our validator address.
-func (c *Coordinator) GetValidatorAddress() string {
-	return c.validatorAddress
-}
-
-// GetOurPeerID returns our libp2p peer ID.
-func (c *Coordinator) GetOurPeerID() string {
-	return c.ourPeerID
-}
-
-// GetOurPartyID returns our partyID (CoreValidatorAddress) from on-chain registry.
-// This uses the on-chain registered address, not a local conversion.
-func (c *Coordinator) GetOurPartyID(ctx context.Context) (string, error) {
-	return c.GetPartyIDFromPeerID(ctx, c.ourPeerID)
-}
-
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
@@ -207,7 +175,6 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	c.mu.RUnlock()
 
 	if len(allValidators) == 0 {
-		c.logger.Debug().Str("peer_id", peerID).Msg("IsPeerCoordinator: no validators cached")
 		return false, nil
 	}
 
@@ -223,16 +190,11 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	}
 
 	if validatorAddress == "" {
-		c.logger.Debug().
-			Str("peer_id", peerID).
-			Int("validators_count", len(allValidators)).
-			Msg("IsPeerCoordinator: peer not found in validators")
 		return false, nil // Peer not found
 	}
 
 	coordinatorParticipants := getCoordinatorParticipants(allValidators)
 	if len(coordinatorParticipants) == 0 {
-		c.logger.Debug().Str("peer_id", peerID).Msg("IsPeerCoordinator: no coordinator participants")
 		return false, nil
 	}
 
@@ -246,20 +208,7 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	if coordinatorParticipants[idx].IdentifyInfo != nil {
 		coordValidatorAddr = coordinatorParticipants[idx].IdentifyInfo.CoreValidatorAddress
 	}
-
-	isCoord := coordValidatorAddr == validatorAddress
-	c.logger.Info().
-		Str("peer_id", peerID).
-		Str("our_validator_addr", validatorAddress).
-		Str("selected_coord_addr", coordValidatorAddr).
-		Uint64("current_block", currentBlock).
-		Uint64("epoch", epoch).
-		Int("idx", idx).
-		Int("participants_count", len(coordinatorParticipants)).
-		Bool("is_coordinator", isCoord).
-		Msg("IsPeerCoordinator: coordinator check")
-
-	return isCoord, nil
+	return coordValidatorAddr == validatorAddress, nil
 }
 
 // GetCurrentTSSKeyId gets the current TSS key ID from pushCore.
@@ -334,10 +283,8 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
-			c.logger.Info().Msg("pollLoop: ticker fired - BEFORE updateValidators")
 			// Update validators at each polling interval
 			c.updateValidators()
-			c.logger.Info().Msg("pollLoop: about to call processPendingEvents")
 			if err := c.processPendingEvents(ctx); err != nil {
 				c.logger.Error().Err(err).Msg("error processing pending events")
 			}
@@ -367,28 +314,31 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get latest block number")
 	}
 
-	c.logger.Info().
-		Uint64("current_block", currentBlock).
-		Str("our_peer_id", c.ourPeerID).
-		Msg("processPendingEvents: starting check")
-
 	// Use cached validators (updated at polling interval)
 	c.mu.RLock()
 	allValidators := c.allValidators
 	c.mu.RUnlock()
 
 	if len(allValidators) == 0 {
-		c.logger.Debug().Msg("processPendingEvents: no validators, skipping")
 		return nil // No validators, skip
 	}
 
-	// Use our peer ID directly (passed during initialization)
-	if c.ourPeerID == "" {
-		c.logger.Debug().Msg("processPendingEvents: ourPeerID not set, skipping")
-		return nil // Our peer ID not set, skip
+	// Check if we're coordinator for current block range
+	// Get our own peerID from network (we need to find it from validators)
+	var ourPeerID string
+	for _, v := range allValidators {
+		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == c.validatorAddress {
+			if v.NetworkInfo != nil {
+				ourPeerID = v.NetworkInfo.PeerId
+			}
+			break
+		}
+	}
+	if ourPeerID == "" {
+		return nil // Our validator not found, skip
 	}
 
-	isCoord, err := c.IsPeerCoordinator(ctx, c.ourPeerID)
+	isCoord, err := c.IsPeerCoordinator(ctx, ourPeerID)
 	if err != nil {
 		return errors.Wrap(err, "failed to check if we're coordinator")
 	}
@@ -473,18 +423,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
 	case "quorumchange":
-		// Check if there's an existing TSS key - if not, treat as initial keygen
-		_, keyErr := c.pushCore.GetCurrentTSSKeyId()
-		if keyErr != nil {
-			// No existing key - this is the initial keygen (genesis quorum change)
-			c.logger.Info().
-				Str("event_id", event.EventID).
-				Msg("no existing TSS key found, treating quorumchange as initial keygen")
-			setupData, err = c.createKeygenSetup(threshold, partyIDs)
-		} else {
-			// Existing key found - perform normal quorum change
-			setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-		}
+		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
 	case "sign":
 		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:

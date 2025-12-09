@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -286,7 +286,6 @@ func (n *Node) Start(ctx context.Context) error {
 			n.pushCore,
 			n.keyshareManager,
 			n.validatorAddress,
-			net.ID(), // Our libp2p peer ID
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
 			func(ctx context.Context, peerID string, data []byte) error {

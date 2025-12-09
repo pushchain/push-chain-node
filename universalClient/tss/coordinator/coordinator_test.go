@@ -13,15 +13,11 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/x/uvalidator/types"
-
-	// Note: Tests that depend on mockDataProvider have been removed because
-	// the coordinator now uses *pushcore.Client directly (a concrete type).
-	// Only pure function tests are kept.
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // mockPushCoreClient is a mock implementation that can be used in place of *pushcore.Client
@@ -154,7 +150,6 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eve
 		testClient,
 		keyshareMgr,
 		"validator1",
-		"peer1",
 		100, // coordinatorRange
 		100*time.Millisecond,
 		sendFn,
@@ -463,4 +458,27 @@ func TestDeriveKeyIDBytes(t *testing.T) {
 	// Different keyID should produce different hash
 	bytes3 := deriveKeyIDBytes("different-key-id")
 	assert.NotEqual(t, bytes, bytes3)
+}
+
+func TestCoordinator_StartStop(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	ctx := context.Background()
+
+	// Test Start
+	coord.Start(ctx)
+	time.Sleep(50 * time.Millisecond) // Let it run briefly
+
+	coord.mu.RLock()
+	running := coord.running
+	coord.mu.RUnlock()
+	assert.True(t, running, "coordinator should be running")
+
+	// Test Stop
+	coord.Stop()
+	time.Sleep(50 * time.Millisecond)
+
+	coord.mu.RLock()
+	running = coord.running
+	coord.mu.RUnlock()
+	assert.False(t, running, "coordinator should be stopped")
 }

@@ -1,9 +1,5 @@
 package sessionmanager
 
-// Tests in this file have been removed because they depend on mocking
-// the pushcore.Client (via mockDataProvider), which is a concrete type
-// that cannot be mocked.
-// Integration tests should be used instead.
 import (
 	"context"
 	"encoding/json"
@@ -120,7 +116,6 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		testClient,
 		keyshareMgr,
 		"validator1",
-		"peer1",
 		100, // coordinatorRange
 		100*time.Millisecond,
 		sendFn,
@@ -141,8 +136,8 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		coord,
 		keyshareMgr,
-		"validator1",
 		sendFn,
+		"validator1",
 		3*time.Minute, // sessionExpiryTime
 		zerolog.Nop(),
 		nil,

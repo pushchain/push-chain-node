@@ -665,6 +665,8 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 // Quorumchange changes the participant set of an existing key.
 // oldParticipantIndices: indices of Active validators (staying participants)
 // newParticipantIndices: indices of Pending Join validators (new participants)
+// @dev - For Qc to be successfull, oldPartcipants must form the quorum ie > 2/3 of the old participants.
+// @dev - Although tss lib can also take pending leave participants in oldParticipantIndices, we don't use that since it needs to be considered that old participants are gone and will only result in errors.
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
 	// Get current TSS keyId from pushCore
 	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()

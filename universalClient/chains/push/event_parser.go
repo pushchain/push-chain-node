@@ -89,7 +89,8 @@ func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
 	var eventData []byte
 	if len(e.Participants) > 0 {
 		data := map[string]interface{}{
-			"process_id":   e.ProcessID,
+			"process_id": e.ProcessID,
+			// TODO: Maybe while tss process participants can be read from this rather than chain
 			"participants": e.Participants,
 			"tx_hash":      e.TxHash,
 		}

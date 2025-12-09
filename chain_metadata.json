@@ -1,16 +1,9 @@
 {
-  "display": {
-    "name": "pchain",
-    "description": "pchain is an Interchain blockchain.",
-    "links": {
-      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
-      "discord": "https://discord.gg/your-discord",
-      "email": "example@example.com",
-      "github": "https://github.com/pushchain/push-chain-node",
-      "telegram": "https://t.me/example",
-      "twitter": "https://twitter.com/example_account",
-      "website": "https://example.com",
-      "whitepaper": "https://bitcoin.org/bitcoin.pdf"
-    }
-  }
+  "name": "Push Chain",
+  "testnet": "Donut",
+  "chain_id": "42101",
+  "rpc_url": "https://evm.donut.rpc.push.org/",
+  "explorer": "https://donut.push.network",
+  "faucet": "https://faucet.push.org/",
+  "currency_symbol": "PC"
 }

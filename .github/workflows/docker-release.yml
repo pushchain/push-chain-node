@@ -25,14 +25,6 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Install Rust (for dkls23-rs dependency)
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup dkls23-rs
-        uses: ./.github/actions/setup-dkls23
-        with:
-          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

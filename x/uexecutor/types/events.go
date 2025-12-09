@@ -15,6 +15,7 @@ const (
 type OutboundCreatedEvent struct {
 	UniversalTxId    string `json:"utx_id"`
 	OutboundId       string `json:"outbound_id"`
+	TxID             string `json:"tx_id"` // txId: abi.encode(utx_id, outbound_id)
 	DestinationChain string `json:"destination_chain"`
 	Recipient        string `json:"recipient"`
 	Amount           string `json:"amount"`
@@ -29,6 +30,10 @@ type OutboundCreatedEvent struct {
 
 // NewOutboundCreatedEvent creates a Cosmos SDK event for outbound creation.
 func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
+	if e.TxID == "" {
+		return sdk.Event{}, fmt.Errorf("tx_id must not be empty")
+	}
+
 	bz, err := json.Marshal(e)
 	if err != nil {
 		return sdk.Event{}, fmt.Errorf("failed to marshal outbound event: %w", err)
@@ -38,6 +43,7 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 		EventTypeOutboundCreated,
 		sdk.NewAttribute("utx_id", e.UniversalTxId),
 		sdk.NewAttribute("outbound_id", e.OutboundId),
+		sdk.NewAttribute("tx_id", e.TxID),
 		sdk.NewAttribute("destination_chain", e.DestinationChain),
 		sdk.NewAttribute("recipient", e.Recipient),
 		sdk.NewAttribute("amount", e.Amount),

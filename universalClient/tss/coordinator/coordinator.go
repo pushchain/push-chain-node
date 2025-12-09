@@ -323,6 +323,10 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		return nil // No validators, skip
 	}
 
+	c.logger.Debug().
+		Int("total_validators", len(allValidators)).
+		Msg("processPendingEvents: checking coordinator")
+
 	// Check if we're coordinator for current block range
 	// Get our own peerID from network (we need to find it from validators)
 	var ourPeerID string
@@ -335,6 +339,9 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		}
 	}
 	if ourPeerID == "" {
+		c.logger.Debug().
+			Str("validator_address", c.validatorAddress).
+			Msg("processPendingEvents: our validator not found in validators list")
 		return nil // Our validator not found, skip
 	}
 
@@ -343,8 +350,11 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 		return errors.Wrap(err, "failed to check if we're coordinator")
 	}
 	if !isCoord {
+		c.logger.Debug().Msg("processPendingEvents: we are NOT coordinator, skipping")
 		return nil // Not coordinator, do nothing
 	}
+
+	c.logger.Info().Msg("processPendingEvents: we ARE coordinator, processing events")
 
 	// We are coordinator - fetch and process events
 	events, err := c.eventStore.GetPendingEvents(currentBlock, 10)
@@ -735,8 +745,8 @@ func getEligibleForProtocol(protocolType string, allValidators []*types.Universa
 		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
 	case "keyrefresh":
-		// Only Active
-		return getActiveParticipants(allValidators)
+		// Active + Pending Leave
+		return getSignEligible(allValidators)
 	case "sign":
 		// Active + Pending Leave
 		return getSignEligible(allValidators)

@@ -9,7 +9,9 @@ RUN set -eux; apk add --no-cache \
     linux-headers \
     bash \
     binutils-gold \
-    wget
+    wget \
+    rust \
+    cargo
 
 WORKDIR /code
 
@@ -43,6 +45,9 @@ RUN set -eux; \
 
 # Copy all source
 COPY . /code
+
+# Create symlink for dkls23-rs at expected location (../dkls23-rs relative to /code)
+RUN ln -sf /code/dkls23-rs /dkls23-rs
 
 # Build pchaind as fully static muslc binary
 RUN LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true make build \

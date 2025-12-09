@@ -302,10 +302,10 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.coordinator,
 			n.keyshareManager,
-			n.validatorAddress, // partyID for DKLS sessions
 			func(ctx context.Context, peerID string, data []byte) error {
 				return n.Send(ctx, peerID, data)
 			},
+			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
 			n.logger,
 			n.voteHandler,

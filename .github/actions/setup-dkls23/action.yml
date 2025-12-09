@@ -30,3 +30,6 @@ runs:
 
         # Clone dkls23-rs repository
         git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git ../dkls23-rs
+
+        # Clone garbling repository (dkls23-rs dependency)
+        git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/garbling.git ../garbling

@@ -23,8 +23,15 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 WORKDIR /code
 
-# Copy dkls23-rs first (needed for go.mod replace directive)
+# Copy dkls23-rs and garbling first (needed for go.mod replace directive and Cargo build)
 COPY dkls23-rs ./dkls23-rs
+COPY garbling ./garbling
+
+# Patch Cargo.toml to use local garbling path instead of git
+RUN if [ -f ./dkls23-rs/Cargo.toml ]; then \
+        # Replace git dependency with local path (relative path from dkls23-rs to garbling)
+        sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|' ./dkls23-rs/Cargo.toml; \
+    fi
 
 # Download go modules + wasmvm static library
 ADD go.mod go.sum ./

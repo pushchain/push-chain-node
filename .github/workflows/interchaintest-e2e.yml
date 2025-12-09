@@ -61,10 +61,12 @@ jobs:
           go mod download
           cd interchaintest && go mod download
 
-      - name: Copy dkls23-rs into build context
+      - name: Copy dkls23-rs and garbling into build context
         run: |
           # Copy dkls23-rs into the repository so it's available in Docker build context
           cp -r ../dkls23-rs ./dkls23-rs
+          # Copy garbling into the repository so it's available in Docker build context
+          cp -r ../garbling ./garbling
           # Update go.mod replace directive to use ./dkls23-rs for Docker build
           sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 

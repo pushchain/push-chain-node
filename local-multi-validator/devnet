@@ -124,8 +124,8 @@ check_registered() {
 check_grants() {
     local i="$1"
     local hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "hotkey-$i" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
-    # Grants are from genesis-acc-$i (not validator-$i) as set up in genesis
-    local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "genesis-acc-$i" -a --keyring-backend test 2>/dev/null || echo "")
+    # Grants are from validator-$i (correct architecture)
+    local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null || echo "")
 
     if [ -n "$hotkey_addr" ] && [ -n "$granter_addr" ]; then
         local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
@@ -634,14 +634,15 @@ cmd_verify_authz() {
             echo -e "${GREEN}Found${NC}"
 
             local hotkey_addr=$(docker exec "universal-validator-$i" puniversald keys show "$hotkey_name" --address --keyring-backend test --home /root/.puniversal 2>/dev/null)
-            local operator_addr=$(docker exec "core-validator-$i" pchaind keys show "genesis-acc-$i" -a --keyring-backend test 2>/dev/null)
+            # Query grants from validator-$i (the correct granter)
+            local operator_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null)
 
             echo -e "  ${CYAN}Hot key: $hotkey_addr${NC}"
             echo -e "  ${CYAN}Operator: $operator_addr${NC}"
 
             # Check grants
             echo -e "${YELLOW}AuthZ grants:${NC}"
-            docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.type' 2>/dev/null || echo "  No grants found"
+            docker exec core-validator-1 pchaind query authz grants "$operator_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants[] | "  ✓ " + .authorization.value.msg' 2>/dev/null || echo "  ⚠️  No grants found (run: ./devnet clean && ./devnet up)"
         else
             echo -e "${RED}Not found${NC}"
             echo -e "  ${YELLOW}Run './devnet setup-authz' first fix this${NC}"

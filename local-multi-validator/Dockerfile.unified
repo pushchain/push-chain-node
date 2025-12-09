@@ -18,6 +18,10 @@ COPY push-chain/universalClient/ ./universalClient/
 # cmd/ last as it changes most frequently
 COPY push-chain/cmd/ ./cmd/
 
+# Ensure go.sum is up to date with all dependencies
+RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    go mod tidy
+
 # Replace admin addresses for local-multi-validator setup
 RUN sed -i 's/push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a/push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20/g' \
     ./x/uregistry/types/params.go \

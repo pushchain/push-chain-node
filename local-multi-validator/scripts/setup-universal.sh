@@ -176,11 +176,54 @@ else
 fi
 
 # ---------------------------
-# === AUTHZ NOTE ===
+# === WAIT FOR AUTHZ GRANTS ===
 # ---------------------------
 
-echo "🔐 AuthZ permissions are granted from the core validator during genesis setup"
-echo "📝 Universal validator registration is done from core validators after bonding"
+echo "🔐 Waiting for AuthZ grants to be created by core validator..."
+echo "📝 Core validators create AuthZ grants after UV registration completes"
+echo "📋 Required grants: MsgVoteInbound, MsgVoteGasPrice, MsgVoteTssKeyProcess"
+
+# Get the hotkey address
+HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")
+
+# Required number of grants (3 message types)
+REQUIRED_GRANTS=3
+
+# Query core-validator-1 for grants (genesis validator creates ALL grants immediately)
+GRANTS_QUERY_HOST="core-validator-1"
+
+if [ -n "$HOTKEY_ADDR" ]; then
+  echo "🔍 Checking for AuthZ grants for hotkey: $HOTKEY_ADDR"
+  echo "📡 Querying grants from: $GRANTS_QUERY_HOST:1317"
+
+  # Wait for all 3 AuthZ grants (should be fast - genesis validator creates all grants)
+  max_wait=20
+  wait_time=0
+  GRANTS_COUNT=0
+  while [ $wait_time -lt $max_wait ]; do
+    # Query grants from genesis validator
+    GRANTS_COUNT=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
+
+    if [ "$GRANTS_COUNT" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
+      echo "✅ Found all $GRANTS_COUNT/$REQUIRED_GRANTS required AuthZ grants!"
+      break
+    fi
+
+    # Show progress every 5 seconds
+    if [ $((wait_time % 5)) -eq 0 ]; then
+      echo "⏳ Waiting for AuthZ grants... ($GRANTS_COUNT/$REQUIRED_GRANTS) (${wait_time}s / ${max_wait}s)"
+    fi
+    sleep 1
+    wait_time=$((wait_time + 1))
+  done
+
+  if [ "$GRANTS_COUNT" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
+    echo "⚠️  Only found $GRANTS_COUNT/$REQUIRED_GRANTS grants after ${max_wait}s"
+    echo "   The universal validator may fail startup validation if grants are missing."
+  fi
+else
+  echo "⚠️  Could not get hotkey address, skipping AuthZ check"
+fi
 
 # ---------------------------
 # === START UNIVERSAL VALIDATOR ===

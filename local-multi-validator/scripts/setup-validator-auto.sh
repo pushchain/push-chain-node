@@ -280,36 +280,23 @@ VALIDATOR_ADDR=$($BINARY keys show "$VALIDATOR_KEY" -a --keyring-backend "$KEYRI
 echo "Validator address: $VALIDATOR_ADDR"
 
 # ---------------------------
-# === FUND VALIDATOR ===
+# === SKIP FUNDING (ALREADY IN GENESIS) ===
 # ---------------------------
 
-echo "💰 Setting up funding account..."
-echo "$FUNDING_MNEMONIC" | $BINARY keys add "$FUNDING_KEY" --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$HOME_DIR" --recover
+echo "💰 Validator-$VALIDATOR_ID already funded in genesis state"
+echo "   Skipping runtime funding from genesis accounts"
 
-echo "💸 Funding validator from genesis account..."
-$BINARY tx bank send "$FUNDING_KEY" "$VALIDATOR_ADDR" "${FUNDING_AMOUNT}${DENOM}" \
-  --chain-id "$CHAIN_ID" \
-  --keyring-backend "$KEYRING" \
-  --home "$HOME_DIR" \
-  --node="$GENESIS_RPC" \
-  --gas=auto \
-  --gas-adjustment=1.3 \
-  --gas-prices="1000000000${DENOM}" \
-  --yes
-
-echo "⏳ Waiting for funding transaction to be processed..."
-sleep 10
-
-# Verify funding
+# Verify balance (should be from genesis)
+sleep 5
 BALANCE=$($BINARY query bank balances "$VALIDATOR_ADDR" --chain-id "$CHAIN_ID" --home "$HOME_DIR" --node="$GENESIS_RPC" --output json | jq -r ".balances[0].amount // \"0\"")
-echo "💰 Validator balance: $BALANCE $DENOM"
+echo "💰 Validator balance (from genesis): $BALANCE $DENOM"
 
-if [ "$(echo "$BALANCE < $VALIDATOR_STAKE" | bc)" -eq 1 ]; then
-  echo "❌ Insufficient balance for staking. Required: $VALIDATOR_STAKE, Available: $BALANCE"
+if [ "$BALANCE" = "0" ] || [ -z "$BALANCE" ]; then
+  echo "❌ No balance found. Validator should be funded in genesis state."
   exit 1
 fi
 
-echo "✅ Validator funded successfully!"
+echo "✅ Validator has balance from genesis!"
 
 # ---------------------------
 # === CONFIG PATCHING ===
@@ -381,25 +368,46 @@ if [ $sync_attempt -eq $max_sync_attempts ]; then
 fi
 
 # ---------------------------
-# === AUTO-PROMOTE TO VALIDATOR ===
+# === CREATE VALIDATOR (RUNTIME STAKING) ===
 # ---------------------------
 
-echo "🎖️ Auto-promoting to validator..."
+echo "📝 Creating validator-$VALIDATOR_ID with stake..."
 
-# Get tendermint pubkey
-PUBKEY_JSON=$($BINARY tendermint show-validator --home "$HOME_DIR")
+# Wait for chain to produce blocks
+sleep 10
 
-# Create validator JSON
-VALIDATOR_JSON="/tmp/validator.json"
-cat > "$VALIDATOR_JSON" <<EOF
+# Get validator's valoper address
+VALOPER_ADDR=$($BINARY keys show "$VALIDATOR_KEY" --bech val -a --keyring-backend "$KEYRING" --home "$HOME_DIR")
+echo "Validator operator address: $VALOPER_ADDR"
+
+# Check if already bonded
+VALIDATOR_STATUS=$($BINARY query staking validator "$VALOPER_ADDR" \
+  --node="$GENESIS_RPC" \
+  --output json 2>/dev/null | jq -r '.status' || echo "NOT_FOUND")
+
+if [ "$VALIDATOR_STATUS" = "BOND_STATUS_BONDED" ]; then
+  echo "✅ Validator-$VALIDATOR_ID is already bonded!"
+  VALIDATOR_TOKENS=$($BINARY query staking validator "$VALOPER_ADDR" \
+    --node="$GENESIS_RPC" \
+    --output json 2>/dev/null | jq -r '.tokens' || echo "0")
+  echo "   Bonded tokens: $VALIDATOR_TOKENS"
+else
+  echo "📤 Submitting create-validator transaction..."
+
+  # Get the validator pubkey
+  PUBKEY=$($BINARY tendermint show-validator --home "$HOME_DIR")
+
+  # Create validator.json file (required by new CLI syntax)
+  VALIDATOR_JSON="$HOME_DIR/validator.json"
+  cat > "$VALIDATOR_JSON" <<EOF
 {
-  "pubkey": $PUBKEY_JSON,
+  "pubkey": $PUBKEY,
   "amount": "${VALIDATOR_STAKE}${DENOM}",
-  "moniker": "$MONIKER",
+  "moniker": "validator-$VALIDATOR_ID",
   "identity": "",
   "website": "",
   "security": "",
-  "details": "Push Chain Auto Validator $VALIDATOR_ID",
+  "details": "Validator $VALIDATOR_ID",
   "commission-rate": "0.10",
   "commission-max-rate": "0.20",
   "commission-max-change-rate": "0.01",
@@ -407,23 +415,84 @@ cat > "$VALIDATOR_JSON" <<EOF
 }
 EOF
 
-# Submit create-validator transaction
-echo "🚀 Submitting create-validator transaction..."
-$BINARY tx staking create-validator "$VALIDATOR_JSON" \
-  --from "$VALIDATOR_KEY" \
-  --chain-id "$CHAIN_ID" \
-  --keyring-backend "$KEYRING" \
-  --home "$HOME_DIR" \
-  --node="$GENESIS_RPC" \
-  --gas=auto \
-  --gas-adjustment=1.3 \
-  --gas-prices="1000000000${DENOM}" \
-  --yes
+  echo "📋 Validator config:"
+  cat "$VALIDATOR_JSON"
 
-# Clean up
-rm -f "$VALIDATOR_JSON"
+  # Ensure file is flushed to disk
+  sync
 
-echo "✅ Validator $VALIDATOR_ID promoted successfully!"
+  # Stagger validators to avoid race conditions (validator 2 waits 2s, validator 3 waits 4s)
+  STAGGER_DELAY=$((VALIDATOR_ID * 2))
+  echo "⏳ Waiting ${STAGGER_DELAY}s to stagger create-validator..."
+  sleep $STAGGER_DELAY
+
+  # Disable exit-on-error for create-validator (it may fail but we want to see the error)
+  set +e
+
+  # Retry loop for create-validator (handles intermittent failures)
+  MAX_CREATE_RETRIES=3
+  CREATE_RETRY=0
+  CREATED=false
+
+  while [ "$CREATE_RETRY" -lt "$MAX_CREATE_RETRIES" ] && [ "$CREATED" = "false" ]; do
+    CREATE_RETRY=$((CREATE_RETRY + 1))
+    echo "📤 Creating validator (attempt $CREATE_RETRY/$MAX_CREATE_RETRIES)..."
+
+    CREATE_RESULT=$($BINARY tx staking create-validator "$VALIDATOR_JSON" \
+      --from="$VALIDATOR_KEY" \
+      --chain-id="$CHAIN_ID" \
+      --keyring-backend="$KEYRING" \
+      --home="$HOME_DIR" \
+      --node="$GENESIS_RPC" \
+      --gas=auto \
+      --gas-adjustment=1.5 \
+      --gas-prices="1000000000${DENOM}" \
+      --yes \
+      --output json 2>&1)
+
+    # Check if it looks like a successful TX (has txhash and no Usage message)
+    if echo "$CREATE_RESULT" | grep -q '"txhash"' && ! echo "$CREATE_RESULT" | grep -q "Usage:"; then
+      TX_HASH=$(echo "$CREATE_RESULT" | jq -r '.txhash // ""' 2>/dev/null)
+      echo "✅ Create-validator TX submitted: $TX_HASH"
+      CREATED=true
+    else
+      echo "⚠️ Create-validator attempt failed, retrying in 3s..."
+      echo "   Result: $(echo "$CREATE_RESULT" | head -c 200)"
+      sleep 3
+    fi
+  done
+
+  if [ "$CREATED" = "false" ]; then
+    echo "❌ Create-validator failed after $MAX_CREATE_RETRIES attempts"
+  fi
+
+  # Re-enable exit-on-error
+  set -e
+
+  echo "⏳ Waiting for validator to be bonded..."
+  sleep 15
+
+  # Verify bonding
+  VALIDATOR_STATUS=$($BINARY query staking validator "$VALOPER_ADDR" \
+    --node="$GENESIS_RPC" \
+    --output json 2>/dev/null | jq -r '.status' || echo "NOT_FOUND")
+
+  if [ "$VALIDATOR_STATUS" = "BOND_STATUS_BONDED" ]; then
+    echo "✅ Validator-$VALIDATOR_ID is now bonded!"
+    VALIDATOR_TOKENS=$($BINARY query staking validator "$VALOPER_ADDR" \
+      --node="$GENESIS_RPC" \
+      --output json 2>/dev/null | jq -r '.tokens' || echo "0")
+    echo "   Bonded tokens: $VALIDATOR_TOKENS"
+  elif [ "$VALIDATOR_STATUS" = "BOND_STATUS_UNBONDING" ]; then
+    echo "⚠️  Validator-$VALIDATOR_ID is unbonding"
+  elif [ "$VALIDATOR_STATUS" = "BOND_STATUS_UNBONDED" ]; then
+    echo "⚠️  Validator-$VALIDATOR_ID is unbonded"
+  else
+    echo "⚠️  Validator status: $VALIDATOR_STATUS"
+  fi
+fi
+
+echo "✅ Validator setup complete!"
 
 # ---------------------------
 # === REGISTER UNIVERSAL VALIDATOR ===
@@ -528,6 +597,9 @@ else
 fi
 
 echo "🔄 Node will continue running as validator..."
+
+# Note: AuthZ grants are created by genesis validator (setup-genesis-auto.sh)
+# since it has all validator keys and can create all grants immediately.
 
 # Wait for the background process
 wait $NODE_PID

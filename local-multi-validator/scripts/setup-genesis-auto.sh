@@ -64,8 +64,10 @@ GENESIS_ACC3_MNEMONIC=$(jq -r '.[2].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 GENESIS_ACC4_MNEMONIC=$(jq -r '.[3].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 GENESIS_ACC5_MNEMONIC=$(jq -r '.[4].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 
-# Load validator mnemonic for genesis validator
+# Load validator mnemonics for all 3 validators
 VALIDATOR1_MNEMONIC=$(jq -r '.[] | select(.id == 1) | .mnemonic' "$VALIDATORS_FILE")
+VALIDATOR2_MNEMONIC=$(jq -r '.[] | select(.id == 2) | .mnemonic' "$VALIDATORS_FILE")
+VALIDATOR3_MNEMONIC=$(jq -r '.[] | select(.id == 3) | .mnemonic' "$VALIDATORS_FILE")
 
 # ---------------------------
 # === INITIALIZATION ===
@@ -114,13 +116,28 @@ echo "  Account 4: $GENESIS_ADDR4"
 echo "  Account 5: $GENESIS_ADDR5"
 
 # ---------------------------
-# === CREATE VALIDATOR KEYS (Only Genesis Validator) ===
+# === CREATE VALIDATOR KEYS (All 3 Validators) ===
 # ---------------------------
 
-echo "🔐 Creating genesis validator key..."
+echo "🔐 Creating validator keys for all 3 validators..."
+
+# Create validator-1 key
+echo "🔑 Creating validator-1 key..."
 echo $VALIDATOR1_MNEMONIC | BINARY keys add validator-1 --keyring-backend $KEYRING --algo $KEYALGO --recover
 VALIDATOR1_ADDR=$(BINARY keys show validator-1 -a --keyring-backend $KEYRING)
-echo "Genesis validator address: $VALIDATOR1_ADDR"
+echo "  Validator-1 address: $VALIDATOR1_ADDR"
+
+# Create validator-2 key
+echo "🔑 Creating validator-2 key..."
+echo $VALIDATOR2_MNEMONIC | BINARY keys add validator-2 --keyring-backend $KEYRING --algo $KEYALGO --recover
+VALIDATOR2_ADDR=$(BINARY keys show validator-2 -a --keyring-backend $KEYRING)
+echo "  Validator-2 address: $VALIDATOR2_ADDR"
+
+# Create validator-3 key
+echo "🔑 Creating validator-3 key..."
+echo $VALIDATOR3_MNEMONIC | BINARY keys add validator-3 --keyring-backend $KEYRING --algo $KEYALGO --recover
+VALIDATOR3_ADDR=$(BINARY keys show validator-3 -a --keyring-backend $KEYRING)
+echo "  Validator-3 address: $VALIDATOR3_ADDR"
 
 # ---------------------------
 # === FUND GENESIS ACCOUNTS ===
@@ -133,8 +150,15 @@ BINARY genesis add-genesis-account "$GENESIS_ADDR3" "${TWO_BILLION}${DENOM}"
 BINARY genesis add-genesis-account "$GENESIS_ADDR4" "${TWO_BILLION}${DENOM}"
 BINARY genesis add-genesis-account "$GENESIS_ADDR5" "${TWO_BILLION}${DENOM}"
 
-echo "💵 Funding genesis validator in genesis state..."
+echo "💵 Funding all 3 validators in genesis state..."
 BINARY genesis add-genesis-account "$VALIDATOR1_ADDR" "${ONE_MILLION}${DENOM}"
+echo "  Validator-1 funded with ${ONE_MILLION}${DENOM}"
+
+BINARY genesis add-genesis-account "$VALIDATOR2_ADDR" "${ONE_MILLION}${DENOM}"
+echo "  Validator-2 funded with ${ONE_MILLION}${DENOM}"
+
+BINARY genesis add-genesis-account "$VALIDATOR3_ADDR" "${ONE_MILLION}${DENOM}"
+echo "  Validator-3 funded with ${ONE_MILLION}${DENOM}"
 
 # ---------------------------
 # === FUND HOTKEY ACCOUNTS ===
@@ -159,10 +183,12 @@ BINARY genesis add-genesis-account "$HOTKEY3_ADDR" "${HOTKEY_FUNDING}${DENOM}"
 echo "✅ Hotkey accounts funded with ${HOTKEY_FUNDING}${DENOM} each"
 
 # ---------------------------
-# === CREATE GENTX (only for genesis validator) ===
+# === CREATE GENTX (for all 3 validators) ===
 # ---------------------------
 
-echo "📝 Generating gentx for genesis validator..."
+echo "📝 Generating gentx for validator-1 only (others will join later)..."
+
+echo "  Creating gentx for validator-1..."
 BINARY genesis gentx validator-1 "${VALIDATOR_STAKE}${DENOM}" \
   --keyring-backend $KEYRING \
   --chain-id $CHAIN_ID \
@@ -263,64 +289,15 @@ sed -i -e "s/pprof_laddr = \"localhost:6060\"/pprof_laddr = \"localhost:${PROFF_
 sed -i -e "s/timeout_commit = \"5s\"/timeout_commit = \"${BLOCK_TIME}\"/g" $HOME_DIR/config/config.toml
 
 # ---------------------------
-# === SETUP AUTHZ FOR UNIVERSAL VALIDATORS ===
+# === AUTHZ GRANTS (HANDLED AT RUNTIME) ===
 # ---------------------------
 
-echo "🔐 Setting up AuthZ grants for universal validator hotkeys..."
+echo "⚠️  Skipping AuthZ grants in genesis state"
+echo "   AuthZ grants will be created at runtime by each validator"
+echo "   This ensures consistency: validator-X → hotkey-X for all validators"
 
-# Hotkey addresses were already loaded during genesis funding section
-echo "Using hotkey addresses for AuthZ grants:"
-echo "  Hotkey 1: $HOTKEY1_ADDR"
-echo "  Hotkey 2: $HOTKEY2_ADDR"
-echo "  Hotkey 3: $HOTKEY3_ADDR"
-
-# Create AuthZ grants in genesis
-# Each genesis account grants permissions to its corresponding hotkey
-# Grant MsgVoteInbound and MsgVoteOutbound permissions
-
-# Build the authz authorization array
-AUTHZ_GRANTS='[]'
-
-# Helper function to add a grant
-add_authz_grant() {
-  local granter=$1
-  local grantee=$2
-  local msg_type=$3
-  AUTHZ_GRANTS=$(echo "$AUTHZ_GRANTS" | jq --arg granter "$granter" --arg grantee "$grantee" --arg msg "$msg_type" \
-    '. += [{
-      "granter": $granter,
-      "grantee": $grantee,
-      "authorization": {
-        "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
-        "msg": $msg
-      },
-      "expiration": null
-    }]')
-}
-
-# Genesis account 1 grants to Hotkey 1
-add_authz_grant "$GENESIS_ADDR1" "$HOTKEY1_ADDR" "/uexecutor.v1.MsgVoteInbound"
-add_authz_grant "$GENESIS_ADDR1" "$HOTKEY1_ADDR" "/uexecutor.v1.MsgVoteOutbound"
-add_authz_grant "$GENESIS_ADDR1" "$HOTKEY1_ADDR" "/uexecutor.v1.MsgVoteGasPrice"
-add_authz_grant "$GENESIS_ADDR1" "$HOTKEY1_ADDR" "/utss.v1.MsgVoteTssKeyProcess"
-
-# Genesis account 2 grants to Hotkey 2
-add_authz_grant "$GENESIS_ADDR2" "$HOTKEY2_ADDR" "/uexecutor.v1.MsgVoteInbound"
-add_authz_grant "$GENESIS_ADDR2" "$HOTKEY2_ADDR" "/uexecutor.v1.MsgVoteOutbound"
-add_authz_grant "$GENESIS_ADDR2" "$HOTKEY2_ADDR" "/uexecutor.v1.MsgVoteGasPrice"
-add_authz_grant "$GENESIS_ADDR2" "$HOTKEY2_ADDR" "/utss.v1.MsgVoteTssKeyProcess"
-
-# Genesis account 3 grants to Hotkey 3
-add_authz_grant "$GENESIS_ADDR3" "$HOTKEY3_ADDR" "/uexecutor.v1.MsgVoteInbound"
-add_authz_grant "$GENESIS_ADDR3" "$HOTKEY3_ADDR" "/uexecutor.v1.MsgVoteOutbound"
-add_authz_grant "$GENESIS_ADDR3" "$HOTKEY3_ADDR" "/uexecutor.v1.MsgVoteGasPrice"
-add_authz_grant "$GENESIS_ADDR3" "$HOTKEY3_ADDR" "/utss.v1.MsgVoteTssKeyProcess"
-
-# Update genesis with AuthZ grants
-echo "Adding AuthZ grants to genesis..."
-cat $HOME_DIR/config/genesis.json | jq --argjson grants "$AUTHZ_GRANTS" '.app_state["authz"]["authorization"] = $grants' > $HOME_DIR/config/tmp_genesis.json && mv $HOME_DIR/config/tmp_genesis.json $HOME_DIR/config/genesis.json
-
-echo "✅ AuthZ grants added to genesis"
+# Grants are created in setup-validator-auto.sh after each validator joins the network
+# Architecture: validator-1 → hotkey-1, validator-2 → hotkey-2, validator-3 → hotkey-3
 
 # ---------------------------
 # === SHARE GENESIS FILE ===
@@ -415,6 +392,89 @@ if [ $block_attempt -lt $max_block_attempts ]; then
   fi
 else
   echo "⚠️ Chain not producing blocks, skipping UV-1 registration"
+fi
+
+# ---------------------------
+# === SETUP AUTHZ GRANTS FOR ALL 3 UNIVERSAL VALIDATORS ===
+# ---------------------------
+
+echo "🔐 Setting up AuthZ grants for ALL universal validator hotkeys..."
+echo "📋 Genesis validator has all 3 validator keys, creating ALL 9 grants now"
+
+# Get hotkey addresses from shared volume
+HOTKEYS_FILE="/tmp/push-accounts/hotkeys.json"
+if [ -f "$HOTKEYS_FILE" ]; then
+  # Wait briefly for chain to be fully ready
+  echo "⏳ Waiting for chain to be ready for AuthZ grants..."
+  sleep 5
+
+  # Disable exit-on-error for authz commands
+  set +e
+
+  TOTAL_GRANTS_CREATED=0
+
+  # Create grants for ALL 3 validators
+  for VALIDATOR_NUM in 1 2 3; do
+    HOTKEY_INDEX=$((VALIDATOR_NUM - 1))
+    HOTKEY_ADDR=$(jq -r ".[$HOTKEY_INDEX].address" "$HOTKEYS_FILE")
+    VALIDATOR_ADDR=$(pchaind keys show validator-$VALIDATOR_NUM -a --keyring-backend test --home "$HOME_DIR")
+
+    if [ -z "$HOTKEY_ADDR" ] || [ -z "$VALIDATOR_ADDR" ]; then
+      echo "⚠️  Missing addresses for validator-$VALIDATOR_NUM"
+      continue
+    fi
+
+    echo ""
+    echo "📋 Creating grants: validator-$VALIDATOR_NUM → hotkey-$VALIDATOR_NUM"
+    echo "   Granter: $VALIDATOR_ADDR"
+    echo "   Grantee: $HOTKEY_ADDR"
+
+    # Grant all 3 message types for this validator
+    for MSG_TYPE in \
+      "/uexecutor.v1.MsgVoteInbound" \
+      "/uexecutor.v1.MsgVoteGasPrice" \
+      "/utss.v1.MsgVoteTssKeyProcess"
+    do
+      echo "  → $(basename $MSG_TYPE)"
+      GRANT_RESULT=$(pchaind tx authz grant "$HOTKEY_ADDR" generic \
+        --msg-type="$MSG_TYPE" \
+        --from "validator-$VALIDATOR_NUM" \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$HOME_DIR" \
+        --node="tcp://localhost:26657" \
+        --gas=auto \
+        --gas-adjustment=1.5 \
+        --gas-prices="1000000000upc" \
+        --yes \
+        --broadcast-mode sync \
+        --output json 2>&1)
+
+      TX_CODE=$(echo "$GRANT_RESULT" | jq -r '.code // "null"' 2>/dev/null || echo "error")
+      if [ "$TX_CODE" = "0" ] || [ "$TX_CODE" = "null" ]; then
+        echo "    ✓ Grant created"
+        TOTAL_GRANTS_CREATED=$((TOTAL_GRANTS_CREATED + 1))
+      else
+        echo "    ⚠️ Grant may have failed (code: $TX_CODE)"
+      fi
+
+      sleep 1  # Short delay to prevent sequence mismatch
+    done
+  done
+
+  # Re-enable exit-on-error
+  set -e
+
+  echo ""
+  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/9"
+
+  if [ "$TOTAL_GRANTS_CREATED" -ge "9" ]; then
+    echo "✅ All AuthZ grants created successfully for all validators!"
+  else
+    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/9)"
+  fi
+else
+  echo "⚠️  Hotkeys file not found: $HOTKEYS_FILE"
 fi
 
 # Wait for the validator process

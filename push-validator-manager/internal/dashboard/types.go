@@ -64,6 +64,7 @@ type DashboardData struct {
 			Tombstoned  bool   // Whether validator is permanently jailed (double sign)
 			MissedBlocks int64  // Number of missed blocks
 		}
+		SlashingInfoError              string // Error message if slashing info fetch failed
 		ValidatorExistsWithSameMoniker bool   // True if a different validator uses this node's moniker
 		ConflictingMoniker            string // The moniker that conflicts
 	}

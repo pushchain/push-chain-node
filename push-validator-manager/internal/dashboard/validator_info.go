@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -193,18 +194,29 @@ func (c *ValidatorInfo) renderContent(w int) string {
 	}
 
 	// Check if validator has any rewards to withdraw
-	hasCommRewards := c.data.MyValidator.CommissionRewards != "" &&
-		c.data.MyValidator.CommissionRewards != "—" &&
-		c.data.MyValidator.CommissionRewards != "0"
-	hasOutRewards := c.data.MyValidator.OutstandingRewards != "" &&
-		c.data.MyValidator.OutstandingRewards != "—" &&
-		c.data.MyValidator.OutstandingRewards != "0"
+	// Use numeric parsing to properly detect zero values in any format (0, 0.0, 0.00, etc.)
+	hasCommRewards := func() bool {
+		if c.data.MyValidator.CommissionRewards == "" ||
+			c.data.MyValidator.CommissionRewards == "—" {
+			return false
+		}
+		val, err := strconv.ParseFloat(c.data.MyValidator.CommissionRewards, 64)
+		return err == nil && val > 0
+	}()
+	hasOutRewards := func() bool {
+		if c.data.MyValidator.OutstandingRewards == "" ||
+			c.data.MyValidator.OutstandingRewards == "—" {
+			return false
+		}
+		val, err := strconv.ParseFloat(c.data.MyValidator.OutstandingRewards, 64)
+		return err == nil && val > 0
+	}()
 
 	if hasCommRewards || hasOutRewards {
 		leftLines = append(leftLines, "")
 		withdrawStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
 		leftLines = append(leftLines, withdrawStyle.Render("Rewards available!"))
-		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator restake"))
+		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator restake-rewards"))
 		leftLines = append(leftLines, withdrawStyle.Render("Run: push-validator withdraw-rewards"))
 	}
 
@@ -226,10 +238,20 @@ func (c *ValidatorInfo) renderContent(w int) string {
 
 		// Jail Reason
 		jailReason := c.data.MyValidator.SlashingInfo.JailReason
-		if jailReason == "" {
-			jailReason = "Unknown"
+
+		// Check if slashing info fetch failed
+		if c.data.MyValidator.SlashingInfoError != "" {
+			// Display error message
+			errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("208")) // Orange
+			rightLines = append(rightLines, errorStyle.Render("Reason: Unable to fetch"))
+			rightLines = append(rightLines, errorStyle.Render(fmt.Sprintf("Error: %s", c.data.MyValidator.SlashingInfoError)))
+		} else if jailReason == "" {
+			// No jail reason available (shouldn't happen, but handle gracefully)
+			rightLines = append(rightLines, "Reason: Fetching...")
+		} else {
+			// Display jail reason
+			rightLines = append(rightLines, fmt.Sprintf("Reason: %s", jailReason))
 		}
-		rightLines = append(rightLines, fmt.Sprintf("Reason: %s", jailReason))
 
 		// Missed Blocks
 		if c.data.MyValidator.SlashingInfo.MissedBlocks > 0 {
@@ -259,6 +281,12 @@ func (c *ValidatorInfo) renderContent(w int) string {
 				rightLines = append(rightLines, "")
 				unjailStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
 				rightLines = append(rightLines, unjailStyle.Render(fmt.Sprintf("%s Ready to unjail!", c.icons.OK)))
+				rightLines = append(rightLines, unjailStyle.Render("Run: push-validator unjail"))
+			} else {
+				// Jail period hasn't expired yet, but still show suggestion
+				rightLines = append(rightLines, "")
+				unjailStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+				rightLines = append(rightLines, unjailStyle.Render("Unjail available after period expires"))
 				rightLines = append(rightLines, unjailStyle.Render("Run: push-validator unjail"))
 			}
 		}

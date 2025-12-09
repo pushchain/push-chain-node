@@ -36,6 +36,7 @@ type MyValidatorInfo struct {
 	Commission                   string
 	Jailed                       bool
 	SlashingInfo                 SlashingInfo // Jail reason and details
+	SlashingInfoError            string       // Error message if slashing info fetch failed
 	ValidatorExistsWithSameMoniker bool   // True if a different validator uses this node's moniker
 	ConflictingMoniker            string // The moniker that conflicts
 }

@@ -124,7 +124,7 @@ func init() {
 		fmt.Fprintln(w, c.FormatCommand("push-validator increase-stake", "Increase validator stake"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator unjail", "Restore jailed validator to active status"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator withdraw-rewards", "Withdraw validator rewards and commission"))
-		fmt.Fprintln(w, c.FormatCommand("push-validator restake", "Withdraw and restake all rewards"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator restake-rewards", "Withdraw and restake all rewards"))
 		fmt.Fprintln(w)
 
 		// Maintenance
@@ -137,6 +137,7 @@ func init() {
 		// Utilities
 		fmt.Fprintln(w, c.SubHeader("Utilities"))
 		fmt.Fprintln(w, c.FormatCommand("push-validator doctor", "Run diagnostic checks"))
+		fmt.Fprintln(w, c.FormatCommand("push-validator peers", "Show connected peer information"))
 		fmt.Fprintln(w)
 	})
 
@@ -233,7 +234,7 @@ func init() {
 				GenesisDomain:        cfg.GenesisDomain,
 				BinPath:              findPchaind(),
 				SnapshotRPCPrimary:   initSnapshotRPC,
-				SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+				SnapshotRPCSecondary: "https://donut.rpc.push.org",
 				Progress:             progressCallback,
 			}); err != nil {
 				ui.PrintError(ui.ErrorMessage{
@@ -313,7 +314,7 @@ func init() {
 					GenesisDomain:        cfg.GenesisDomain,
 					BinPath:              findPchaind(),
 					SnapshotRPCPrimary:   cfg.SnapshotRPC,
-					SnapshotRPCSecondary: "https://rpc-testnet-donut-node1.push.org",
+					SnapshotRPCSecondary: "https://donut.rpc.push.org",
 					Progress:             progressCallback,
 				}); err != nil {
 					ui.PrintError(ui.ErrorMessage{
@@ -508,17 +509,18 @@ func init() {
 	}
 	rootCmd.AddCommand(increaseStakeCmd)
 
-	// restake command
-	restakeAllCmd := &cobra.Command{
-		Use:   "restake",
-		Short: "Withdraw all rewards and restake them",
-		Long:  "Automatically withdraw all rewards (commission and outstanding) and restake them to increase validator power",
+	// restake-rewards command
+	restakeRewardsCmd := &cobra.Command{
+		Use:     "restake-rewards",
+		Aliases: []string{"restake"},
+		Short:   "Withdraw all rewards and restake them",
+		Long:    "Automatically withdraw all rewards (commission and outstanding) and restake them to increase validator power",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			handleRestakeAll(loadCfg())
+			handleRestakeRewardsAll(loadCfg())
 			return nil
 		},
 	}
-	rootCmd.AddCommand(restakeAllCmd)
+	rootCmd.AddCommand(restakeRewardsCmd)
 
 	// completion and version
 	rootCmd.AddCommand(&cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Short: "Generate shell completion", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {

@@ -414,13 +414,13 @@ SELF_DIR="$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" >/dev/null 2>&1 && pwd -P || 
 
 # Defaults (overridable via env)
 MONIKER="${MONIKER:-push-validator}"
-GENESIS_DOMAIN="${GENESIS_DOMAIN:-rpc-testnet-donut-node1.push.org}"
+GENESIS_DOMAIN="${GENESIS_DOMAIN:-donut.rpc.push.org}"
 KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 CHAIN_ID="${CHAIN_ID:-push_42101-1}"
-SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://rpc-testnet-donut-node2.push.org}"
+SNAPSHOT_RPC="${SNAPSHOT_RPC:-https://donut.rpc.push.org}"
 RESET_DATA="${RESET_DATA:-yes}"
 AUTO_START="${AUTO_START:-yes}"
-PNM_REF="${PNM_REF:-main}"
+PNM_REF="${PNM_REF:-push-validator-manager}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 PREFIX="${PREFIX:-}"
 
@@ -461,8 +461,8 @@ while [[ $# -gt 0 ]]; do
       echo "Node Configuration:"
       echo "  --moniker NAME       Set validator moniker (default: push-validator)"
       echo "  --chain-id ID        Set chain ID (default: push_42101-1)"
-      echo "  --genesis DOMAIN     Genesis domain (default: rpc-testnet-donut-node1.push.org)"
-      echo "  --snapshot-rpc URL   Snapshot RPC URL (default: https://rpc-testnet-donut-node2.push.org)"
+      echo "  --genesis DOMAIN     Genesis domain (default: donut.rpc.push.org)"
+      echo "  --snapshot-rpc URL   Snapshot RPC URL (default: https://donut.rpc.push.org)"
       echo "  --keyring BACKEND    Keyring backend (default: test)"
       echo
       echo "Build Options:"
@@ -793,7 +793,7 @@ if [[ ! -d "$REPO_DIR/push-validator-manager" ]]; then
   if [[ -n "$LOCAL_CANDIDATE" && -d "$LOCAL_CANDIDATE/push-validator-manager" ]]; then
     warn "Try: bash push-validator-manager/install.sh --use-local"
   fi
-  warn "Or specify a branch/tag that contains it: PNM_REF=main bash push-validator-manager/install.sh"
+  warn "Or specify a branch/tag that contains it: PNM_REF=push-validator-manager bash push-validator-manager/install.sh"
   exit 1
 fi
 
@@ -1194,26 +1194,43 @@ if [[ "$INTERACTIVE" == "yes" ]]; then
   echo "  Note: The node will continue running in the background."
   echo
   echo "─────────────────────────────────────────────────────────────"
+
+  # Terminal cleanup function to handle Ctrl+C gracefully
+  cleanup_terminal() {
+    # Reset terminal state to clear any escape sequences
+    printf "\033c" > /dev/tty 2>&1 || true
+    echo
+    echo "  Dashboard skipped. Node is running in background."
+    echo
+  }
+
+  # Setup trap to clean terminal on Ctrl+C (INT signal)
+  trap cleanup_terminal INT
+
   # Read from /dev/tty to work correctly when script is piped (e.g., curl | bash)
   if [[ -e /dev/tty ]]; then
     read -r -p "Press ENTER to continue to the dashboard... " < /dev/tty 2> /dev/tty || {
-      echo
-      echo "  Dashboard skipped. Node is running in background."
-      echo
+      cleanup_terminal
+      trap - INT  # Remove trap before exit
       exit 0
     }
   else
     # Fallback if /dev/tty is not available (shouldn't happen on most systems)
     read -r -p "Press ENTER to continue to the dashboard... " || {
-      echo
-      echo "  Dashboard skipped. Node is running in background."
-      echo
+      cleanup_terminal
+      trap - INT  # Remove trap before exit
       exit 0
     }
   fi
 
+  # Remove trap before launching dashboard (it has its own signal handling)
+  trap - INT
+
   echo
   "$MANAGER_BIN" dashboard < /dev/tty > /dev/tty 2>&1 || true
+
+  # Reset terminal after dashboard exit (in case it crashed or was interrupted)
+  printf "\033c" > /dev/tty 2>&1 || true
 
   # After dashboard exit, show clear status and next steps
   echo

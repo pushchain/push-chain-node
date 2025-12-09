@@ -2,7 +2,6 @@ package main
 
 import (
     "context"
-    "encoding/json"
     "fmt"
     "os/exec"
     "sort"
@@ -12,6 +11,7 @@ import (
     "time"
 
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
+    "github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
     ui "github.com/pushchain/push-chain-node/push-validator-manager/internal/ui"
     "github.com/pushchain/push-chain-node/push-validator-manager/internal/validator"
 )
@@ -41,48 +41,35 @@ func handleValidators(cfg config.Config) error {
 // handleValidatorsWithFormat prints either a pretty table (default)
 // or raw JSON (--output=json at root) of the current validator set.
 func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
-    bin := findPchaind()
-    remote := fmt.Sprintf("tcp://%s:26657", cfg.GenesisDomain)
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
-    cmd := exec.CommandContext(ctx, bin, "query", "staking", "validators", "--node", remote, "-o", "json")
-    output, err := cmd.Output()
-    if err != nil {
-        if ctx.Err() == context.DeadlineExceeded {
-            return fmt.Errorf("validators: timeout connecting to %s", cfg.GenesisDomain)
-        }
-        return fmt.Errorf("validators: %w", err)
-    }
+    // For JSON output, query raw data directly (matches chain's native format)
     if jsonOut {
+        bin := findPchaind()
+        remote := fmt.Sprintf("https://%s", cfg.GenesisDomain)
+        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+        defer cancel()
+        cmd := exec.CommandContext(ctx, bin, "query", "staking", "validators", "--node", remote, "-o", "json")
+        output, err := cmd.Output()
+        if err != nil {
+            if ctx.Err() == context.DeadlineExceeded {
+                return fmt.Errorf("validators: timeout connecting to %s", cfg.GenesisDomain)
+            }
+            return fmt.Errorf("validators: %w", err)
+        }
         // passthrough raw JSON
         fmt.Println(string(output))
         return nil
     }
-    var result struct {
-        Validators []struct {
-            Description struct {
-                Moniker string `json:"moniker"`
-                Details string `json:"details"`
-            } `json:"description"`
-            OperatorAddress string `json:"operator_address"`
-            Status          string `json:"status"`
-            Jailed          bool   `json:"jailed"`
-            Tokens          string `json:"tokens"`
-            Commission      struct {
-                CommissionRates struct {
-                    Rate          string `json:"rate"`
-                    MaxRate       string `json:"max_rate"`
-                    MaxChangeRate string `json:"max_change_rate"`
-                } `json:"commission_rates"`
-            } `json:"commission"`
-        } `json:"validators"`
+
+    // For table output, use cached fetcher (same approach as dashboard)
+    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
+
+    valList, err := validator.GetCachedValidatorsList(ctx, cfg)
+    if err != nil {
+        return fmt.Errorf("validators: %w", err)
     }
-    if err := json.Unmarshal(output, &result); err != nil {
-        // If JSON parse fails, print raw output for diagnostics
-        fmt.Println(string(output))
-        return nil
-    }
-    if len(result.Validators) == 0 {
+
+    if valList.Total == 0 {
         fmt.Println("No validators found or node not synced")
         return nil
     }
@@ -109,27 +96,46 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
         evmAddress     string
         isMyValidator  bool
     }
-    vals := make([]validatorDisplay, len(result.Validators))
+    vals := make([]validatorDisplay, len(valList.Validators))
     var wg sync.WaitGroup
 
-    for i, v := range result.Validators {
-        vals[i] = validatorDisplay{moniker: v.Description.Moniker, operatorAddr: v.OperatorAddress, cosmosAddr: v.OperatorAddress, jailed: v.Jailed, isMyValidator: myValidatorAddr != "" && v.OperatorAddress == myValidatorAddr}
-        if vals[i].moniker == "" { vals[i].moniker = "unknown" }
+    for i, v := range valList.Validators {
+        vals[i] = validatorDisplay{
+            moniker:       v.Moniker,
+            operatorAddr:  v.OperatorAddress,
+            cosmosAddr:    v.OperatorAddress,
+            jailed:        v.Jailed,
+            isMyValidator: myValidatorAddr != "" && v.OperatorAddress == myValidatorAddr,
+        }
+        if vals[i].moniker == "" {
+            vals[i].moniker = "unknown"
+        }
+
+        // Status is already converted (BONDED, UNBONDING, UNBONDED)
         switch v.Status {
-        case "BOND_STATUS_BONDED":
+        case "BONDED":
             vals[i].status, vals[i].statusOrder = "BONDED", 1
-        case "BOND_STATUS_UNBONDING":
+        case "UNBONDING":
             vals[i].status, vals[i].statusOrder = "UNBONDING", 2
-        case "BOND_STATUS_UNBONDED":
+        case "UNBONDED":
             vals[i].status, vals[i].statusOrder = "UNBONDED", 3
         default:
             vals[i].status, vals[i].statusOrder = v.Status, 4
         }
+
+        // Parse tokens to PC
         if v.Tokens != "" && v.Tokens != "0" {
-            if t, err := strconv.ParseFloat(v.Tokens, 64); err == nil { vals[i].tokensPC = t / 1e18 }
+            if t, err := strconv.ParseFloat(v.Tokens, 64); err == nil {
+                vals[i].tokensPC = t / 1e18
+            }
         }
-        if v.Commission.CommissionRates.Rate != "" {
-            if c, err := strconv.ParseFloat(v.Commission.CommissionRates.Rate, 64); err == nil { vals[i].commissionPct = c * 100 }
+
+        // Parse commission percentage (v.Commission is already "XX%" format, extract the number)
+        if v.Commission != "" && v.Commission != "0%" {
+            commStr := strings.TrimSuffix(v.Commission, "%")
+            if c, err := strconv.ParseFloat(commStr, 64); err == nil {
+                vals[i].commissionPct = c
+            }
         }
 
         // Fetch rewards and EVM address in parallel using goroutines
@@ -176,10 +182,10 @@ func handleValidatorsWithFormat(cfg config.Config, jsonOut bool) error {
             moniker,
             truncateAddress(v.cosmosAddr, 24),
             statusStr,
-            fmt.Sprintf("%.1f", v.tokensPC),
+            dashboard.FormatLargeNumber(int64(v.tokensPC)),
             fmt.Sprintf("%.0f%%", v.commissionPct),
-            v.commissionRwd,
-            v.outstandingRwd,
+            dashboard.FormatSmartNumber(v.commissionRwd),
+            dashboard.FormatSmartNumber(v.outstandingRwd),
             truncateAddress(v.evmAddress, 16),
         }
 

@@ -26,6 +26,33 @@ push-validator register-validator
 
 **Done! Your validator is running with automatic recovery enabled! 🎉**
 
+## ⚠️ Temporary: RPC URL Configuration
+
+> **Note:** This is a temporary requirement that will be removed in the next 2-3 weeks.
+
+The validator currently requires external RPC URLs for cross-chain communication. To ensure seamless validator operation without chain halts, please configure the following:
+
+### Setup Instructions
+
+1. Create a `.env` file in your home directory (`~/`, where `~/.pchain` is also located):
+   ```bash
+   touch ~/.env
+   ```
+
+2. Add the following RPC URL configurations to the `.env` file:
+   ```bash
+   # Solana RPC
+   RPC_URL_SOLANA_ETWTRABZAYQ6IMFEYKOURU166VU2XQA1=<your-solana-rpc-url>
+
+   # EVM Chain RPCs
+   RPC_URL_EIP155_11155111=<your-sepolia-rpc-url>      # Ethereum Sepolia
+   RPC_URL_EIP155_421614=<your-arbitrum-sepolia-url>   # Arbitrum Sepolia
+   RPC_URL_EIP155_84532=<your-base-sepolia-url>        # Base Sepolia
+   RPC_URL_EIP155_97=<your-bsc-testnet-url>            # BSC Testnet
+   ```
+
+> **Recommended:** Use reliable paid RPC providers (e.g., Alchemy, Infura, QuickNode) for optimal performance and uptime.
+
 ## 📊 Dashboard
 
 Monitor your validator in real-time with an interactive dashboard:
@@ -61,7 +88,7 @@ push-validator logs                 # View logs
 push-validator increase-stake       # Increase validator stake and voting power
 push-validator unjail               # Restore jailed validator to active status
 push-validator withdraw-rewards     # Withdraw validator rewards and commission
-push-validator restake              # Auto-withdraw and restake all rewards to increase validator power
+push-validator restake-rewards      # Auto-withdraw and restake all rewards to increase validator power
 ```
 
 ### Monitoring

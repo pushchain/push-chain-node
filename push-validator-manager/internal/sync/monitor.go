@@ -37,7 +37,7 @@ type pt struct {
 	t time.Time
 }
 
-const defaultStuckTimeout = 2 * time.Minute
+const defaultStuckTimeout = 30 * time.Minute
 
 var ErrSyncStuck = errors.New("sync stuck: no progress detected")
 
@@ -60,10 +60,6 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	hideCursor(opts.Out, tty)
 	defer showCursor(opts.Out, tty)
-
-	if tty && stdinIsTTY() {
-		go swallowEnter(opts.Out)
-	}
 
 	// Start log tailer if log path provided
 	snapCh := make(chan string, 16)
@@ -151,10 +147,10 @@ func Run(ctx context.Context, opts Options) error {
 				case strings.Contains(low, "applied snapshot chunk") || strings.Contains(low, "restoring"):
 					currentStep = 3
 				case strings.Contains(low, "snapshot accepted") ||
-					 strings.Contains(low, "snapshot restored") ||
-					 strings.Contains(low, "restored snapshot") ||
-					 strings.Contains(low, "switching to blocksync") ||
-					 strings.Contains(low, "switching to block sync"):
+					strings.Contains(low, "snapshot restored") ||
+					strings.Contains(low, "restored snapshot") ||
+					strings.Contains(low, "switching to blocksync") ||
+					strings.Contains(low, "switching to block sync"):
 					currentStep = 4
 					sawAccepted = true
 				}
@@ -933,29 +929,6 @@ func renderProgressWithQuiet(percent float64, cur, remote int64, quiet bool) str
 		return fmt.Sprintf("[%s] %.2f%% | %d/%d", bar, percent, cur, remote)
 	}
 	return renderProgress(percent, cur, remote)
-}
-
-func stdinIsTTY() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
-}
-
-func swallowEnter(out io.Writer) {
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		r, _, err := reader.ReadRune()
-		if err != nil {
-			return
-		}
-		if r == '\n' || r == '\r' {
-			// Move cursor to beginning of current line and clear it
-			// This handles the newline created by Enter without moving up
-			fmt.Fprint(out, "\r\x1b[K")
-		}
-	}
 }
 
 func isTTY() bool {

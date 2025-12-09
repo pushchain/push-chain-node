@@ -11,26 +11,27 @@ import (
 	"time"
 
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/config"
+	"github.com/pushchain/push-chain-node/push-validator-manager/internal/dashboard"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/node"
 	ui "github.com/pushchain/push-chain-node/push-validator-manager/internal/ui"
 	"github.com/pushchain/push-chain-node/push-validator-manager/internal/validator"
 	"golang.org/x/term"
 )
 
-// handleRestakeAll orchestrates the restake-all flow:
+// handleRestakeRewardsAll orchestrates the restake-rewards-all flow:
 // - verify node is synced
 // - verify validator is registered
 // - display current rewards
 // - automatically withdraw all rewards (commission + outstanding)
-// - ask for confirmation to restake with edit/cancel options
+// - ask for confirmation to restake rewards with edit/cancel options
 // - submit delegation transaction
 // - display results
-func handleRestakeAll(cfg config.Config) {
+func handleRestakeRewardsAll(cfg config.Config) {
 	p := ui.NewPrinter(flagOutput)
 
 	if flagOutput != "json" {
 		fmt.Println()
-		p.Header("Push Validator Manager - Restake All Rewards")
+		p.Header("Push Validator Manager - Restake Rewards")
 		fmt.Println()
 	}
 
@@ -72,7 +73,7 @@ func handleRestakeAll(cfg config.Config) {
 			fmt.Println()
 			fmt.Println(p.Colors.Warning("⚠️ Node is still syncing to latest block"))
 			fmt.Println()
-			fmt.Println(p.Colors.Info("Please wait for sync to complete before restaking."))
+			fmt.Println(p.Colors.Info("Please wait for sync to complete before restaking rewards."))
 			fmt.Println(p.Colors.Apply(p.Colors.Theme.Command, "  push-validator sync"))
 			fmt.Println()
 		}
@@ -151,8 +152,8 @@ func handleRestakeAll(cfg config.Config) {
 	if flagOutput != "json" {
 		fmt.Println()
 		p.Section("Current Rewards")
-		p.KeyValueLine("Commission Rewards", commission+" PC", "green")
-		p.KeyValueLine("Outstanding Rewards", outstanding+" PC", "green")
+		p.KeyValueLine("Commission Rewards", dashboard.FormatSmartNumber(commission)+" PC", "green")
+		p.KeyValueLine("Outstanding Rewards", dashboard.FormatSmartNumber(outstanding)+" PC", "green")
 		fmt.Println()
 	}
 
@@ -261,9 +262,9 @@ func handleRestakeAll(cfg config.Config) {
 	// Step 7: Display restaking options
 	if flagOutput != "json" {
 		p.Section("Available for Restaking")
-		p.KeyValueLine("Withdrawn Amount", fmt.Sprintf("%.6f PC", totalRewards), "blue")
-		p.KeyValueLine("Gas Reserve", fmt.Sprintf("%.2f PC", feeReserve), "dim")
-		p.KeyValueLine("Available to Stake", fmt.Sprintf("%.6f PC", maxRestakeable), "blue")
+		p.KeyValueLine("Withdrawn Amount", dashboard.FormatSmartNumber(fmt.Sprintf("%.6f", totalRewards))+" PC", "blue")
+		p.KeyValueLine("Gas Reserve", dashboard.FormatSmartNumber(fmt.Sprintf("%.2f", feeReserve))+" PC", "dim")
+		p.KeyValueLine("Available to Stake", dashboard.FormatSmartNumber(fmt.Sprintf("%.6f", maxRestakeable))+" PC", "blue")
 		fmt.Println()
 	}
 

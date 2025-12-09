@@ -16,12 +16,29 @@ func (k Keeper) InitiateTssKeyProcess(
 ) error {
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	currentHeight := sdkCtx.BlockHeight()
 
 	// Check if a current process exists and is still active (not expired and pending)
 	existing, err := k.CurrentTssProcess.Get(ctx)
 	if err == nil {
-		if sdkCtx.BlockHeight() < existing.ExpiryHeight {
-			return fmt.Errorf("an active TSS process already exists (id: %d)", existing.Id)
+		if currentHeight < existing.ExpiryHeight {
+			// Expire the existing process
+			k.Logger().Info("Validator set changed: force-expiring current TSS process",
+				"old_process_id", existing.Id,
+				"old_expiry", existing.ExpiryHeight,
+				"current_height", currentHeight)
+
+			existing.ExpiryHeight = currentHeight - 1
+
+			// Store as current
+			if err := k.CurrentTssProcess.Set(ctx, existing); err != nil {
+				return fmt.Errorf("failed to set current process: %w", err)
+			}
+
+			// Add to history
+			if err := k.ProcessHistory.Set(ctx, existing.Id, existing); err != nil {
+				return fmt.Errorf("failed to store process history: %w", err)
+			}
 		}
 	}
 

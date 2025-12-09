@@ -28,6 +28,8 @@ export GRPC=${GRPC:-"9090"}
 export GRPC_WEB=${GRPC_WEB:-"9091"}
 export ROSETTA=${ROSETTA:-"8080"}
 export BLOCK_TIME=${BLOCK_TIME:-"1s"}
+export SNAPSHOT_INTERVAL=${SNAPSHOT_INTERVAL:-"100"}
+export SNAPSHOT_KEEP_RECENT=${SNAPSHOT_KEEP_RECENT:-"5"}
 
 # if which binary does not exist, install it
 if [ -z `which $BINARY` ]; then
@@ -171,4 +173,4 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+BINARY start --pruning=nothing --state-sync.snapshot-interval=$SNAPSHOT_INTERVAL --state-sync.snapshot-keep-recent=$SNAPSHOT_KEEP_RECENT --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

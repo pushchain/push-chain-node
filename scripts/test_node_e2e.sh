@@ -30,14 +30,14 @@ export ROSETTA=${ROSETTA:-"8080"}
 export BLOCK_TIME=${BLOCK_TIME:-"1s"}
 
 # if which binary does not exist, install it
-if [ -z `which $BINARY` ]; then
-  make install
+# if [ -z `which $BINARY` ]; then
+#   make install
 
-  if [ -z `which $BINARY` ]; then
-    echo "Ensure $BINARY is installed and in your PATH"
-    exit 1
-  fi
-fi
+#   if [ -z `which $BINARY` ]; then
+#     echo "Ensure $BINARY is installed and in your PATH"
+#     exit 1
+#   fi
+# fi
 
 alias BINARY="$BINARY --home=$HOME_DIR"
 
@@ -53,7 +53,7 @@ set_config
 
 from_scratch () {
   # Fresh install on current branch
-  make install
+  # make install
 
   # remove existing daemon files.
   if [ ${#HOME_DIR} -le 2 ]; then
@@ -171,4 +171,6 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+sed -i -e 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/g' $HOME_DIR/config/app.toml
+
+BINARY start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.address="0.0.0.0:8545" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

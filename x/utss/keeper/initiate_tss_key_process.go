@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // InitiateTssKeyProcess creates a new keygen or reshare process.
@@ -48,22 +49,15 @@ func (k Keeper) InitiateTssKeyProcess(
 		return fmt.Errorf("failed to generate process id: %w", err)
 	}
 
-	// initiate a tss key process only for those validators which are either pending_join or active
-	universalValidators, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
+	participants, err := k.GetTssParticipants(ctx, processType)
 	if err != nil {
-		return fmt.Errorf("failed to fetch eligible validators: %w", err)
-	}
-
-	// Convert []sdk.ValAddress -> []string
-	universalValidatorSetStrs := make([]string, len(universalValidators))
-	for i, v := range universalValidators {
-		universalValidatorSetStrs[i] = v.IdentifyInfo.CoreValidatorAddress
+		return fmt.Errorf("failed to get tss participants: %w", err)
 	}
 
 	// Create a new process
 	process := types.TssKeyProcess{
 		Status:       types.TssKeyProcessStatus_TSS_KEY_PROCESS_PENDING,
-		Participants: universalValidatorSetStrs,
+		Participants: participants,
 		BlockHeight:  sdkCtx.BlockHeight(),
 		ExpiryHeight: sdkCtx.BlockHeight() + int64(types.DefaultTssProcessExpiryAfterBlocks),
 		ProcessType:  processType,
@@ -100,9 +94,45 @@ func (k Keeper) InitiateTssKeyProcess(
 	k.Logger().Info("New TSS process initiated",
 		"id", process.Id,
 		"type", process.ProcessType,
-		"participants", len(universalValidatorSetStrs),
+		"participants", len(process.Participants),
 		"expiry_height", process.ExpiryHeight,
 	)
 
 	return nil
+}
+
+func (k Keeper) GetTssParticipants(ctx context.Context, processType types.TssProcessType) ([]string, error) {
+	switch processType {
+	case types.TssProcessType_TSS_PROCESS_KEYGEN, types.TssProcessType_TSS_PROCESS_QUORUM_CHANGE:
+		// in keygen or qc, participants will be active or pending_join
+		universalValidators, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch eligible validators: %w", err)
+		}
+
+		// Convert []sdk.ValAddress -> []string
+		participants := make([]string, len(universalValidators))
+		for i, v := range universalValidators {
+			participants[i] = v.IdentifyInfo.CoreValidatorAddress
+		}
+		return participants, nil
+	case types.TssProcessType_TSS_PROCESS_REFRESH:
+		// in key refresh, participants will be active or pending_leave
+		universalValidators, err := k.uvalidatorKeeper.GetAllUniversalValidators(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch all universal validators: %w", err)
+		}
+
+		var participants []string
+		for _, v := range universalValidators {
+			status := v.LifecycleInfo.CurrentStatus
+			if status == uvalidatortypes.UVStatus_UV_STATUS_ACTIVE ||
+				status == uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE {
+				participants = append(participants, v.IdentifyInfo.CoreValidatorAddress)
+			}
+		}
+		return participants, nil
+	default:
+		return nil, fmt.Errorf("unsupported TSS process type: %s", processType.String())
+	}
 }

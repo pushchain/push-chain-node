@@ -55,8 +55,10 @@ func finalizeAutoInitiatedTssProcess(t *testing.T, app *app.ChainApp, ctx sdk.Co
 		valAddr, err := sdk.ValAddressFromBech32(coreVal)
 		require.NoError(t, err)
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// This triggers your normal Vote flow and internally finalizes when quorum reached
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId)
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId, process.Id)
 		require.NoError(t, err)
 
 		// Step 4: Check if finalized now
@@ -119,12 +121,12 @@ func TestInitiateTssKeyProcess(t *testing.T) {
 		// move block height beyond expiry
 		ctx = ctx.WithBlockHeight(int64(utsstypes.DefaultTssProcessExpiryAfterBlocks) + 100)
 
-		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_REFRESH)
+		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE)
 		require.NoError(t, err)
 
 		current, err = app.UtssKeeper.CurrentTssProcess.Get(ctx)
 		require.NoError(t, err)
-		require.Equal(t, utsstypes.TssProcessType_TSS_PROCESS_REFRESH, current.ProcessType)
+		require.Equal(t, utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE, current.ProcessType)
 	})
 
 	t.Run("Fails if eligible validators cannot be fetched", func(t *testing.T) {

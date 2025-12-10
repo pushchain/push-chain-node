@@ -17,7 +17,7 @@ func baseValidOutbound() types.OutboundTx {
 		Payload:          "0xabcdef",
 		GasLimit:         "21000",
 		TxType:           types.TxType_FUNDS_AND_PAYLOAD,
-		PcTx: &types.Originating_Pc_TX{
+		PcTx: &types.OriginatingPcTx{
 			TxHash:   "0xpc123",
 			LogIndex: "1",
 		},

@@ -51,7 +51,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			Payload:          event.Payload,
 			GasLimit:         event.GasLimit.String(),
 			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
-			PcTx: &types.Originating_Pc_TX{
+			PcTx: &types.OriginatingPcTx{
 				TxHash:   receipt.Hash,
 				LogIndex: fmt.Sprintf("%d", lg.Index),
 			},

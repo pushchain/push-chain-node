@@ -79,7 +79,7 @@ func (k Keeper) VoteTssKeyProcess(
 	if process.ProcessType == types.TssProcessType_TSS_PROCESS_KEYGEN ||
 		process.ProcessType == types.TssProcessType_TSS_PROCESS_QUORUM_CHANGE {
 
-		universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
+		universalValidatorSet, err := k.uvalidatorKeeper.GetAllUniversalValidators(ctx)
 		if err != nil {
 			return err
 		}

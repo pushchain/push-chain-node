@@ -75,43 +75,48 @@ func (k Keeper) VoteTssKeyProcess(
 		return errors.Wrap(err, "failed to finalise TSS process")
 	}
 
-	universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
-	if err != nil {
-		return err
-	}
+	// Only KEYGEN and QUORUM_CHANGE update validator lifecycle
+	if process.ProcessType == types.TssProcessType_TSS_PROCESS_KEYGEN ||
+		process.ProcessType == types.TssProcessType_TSS_PROCESS_QUORUM_CHANGE {
 
-	for i := range universalValidatorSet {
-		uv := &universalValidatorSet[i]
-		coreValidatorAddress := uv.IdentifyInfo.CoreValidatorAddress
-
-		foundInParticipants := false
-		for _, participant := range tssKey.Participants {
-			if participant == coreValidatorAddress {
-				foundInParticipants = true
-				break
-			}
-		}
-
-		valAddr, err := sdk.ValAddressFromBech32(coreValidatorAddress)
+		universalValidatorSet, err := k.uvalidatorKeeper.GetEligibleVoters(ctx)
 		if err != nil {
 			return err
 		}
 
-		// update pending_join validator to active
-		switch uv.LifecycleInfo.CurrentStatus {
-		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
-			if foundInParticipants {
-				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
-				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
-					k.logger.Error("failed to activate universal validator", "valAddr", coreValidatorAddress, "err", err)
+		for i := range universalValidatorSet {
+			uv := &universalValidatorSet[i]
+			coreValidatorAddress := uv.IdentifyInfo.CoreValidatorAddress
+
+			foundInParticipants := false
+			for _, participant := range tssKey.Participants {
+				if participant == coreValidatorAddress {
+					foundInParticipants = true
+					break
 				}
 			}
-		// update pending_leave validator to inactive
-		case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
-			if !foundInParticipants {
-				uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
-				if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
-					k.logger.Error("failed to inactivate universal validator", "valAddr", coreValidatorAddress, "err", err)
+
+			valAddr, err := sdk.ValAddressFromBech32(coreValidatorAddress)
+			if err != nil {
+				return err
+			}
+
+			// update pending_join validator to active
+			switch uv.LifecycleInfo.CurrentStatus {
+			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
+				if foundInParticipants {
+					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
+						k.logger.Error("failed to activate universal validator", "valAddr", coreValidatorAddress, "err", err)
+					}
+				}
+			// update pending_leave validator to inactive
+			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
+				if !foundInParticipants {
+					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
+						k.logger.Error("failed to inactivate universal validator", "valAddr", coreValidatorAddress, "err", err)
+					}
 				}
 			}
 		}

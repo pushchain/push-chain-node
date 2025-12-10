@@ -15,6 +15,7 @@ func (k Keeper) VoteTssKeyProcess(
 	ctx context.Context,
 	universalValidator sdk.ValAddress,
 	tssPubKey, keyId string,
+	processId uint64,
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -22,8 +23,6 @@ func (k Keeper) VoteTssKeyProcess(
 	if err != nil {
 		return fmt.Errorf("no active TSS process running")
 	}
-
-	processId := process.Id
 
 	if sdkCtx.BlockHeight() >= process.ExpiryHeight {
 		return fmt.Errorf("TSS process %d has expired", process.Id)

@@ -123,7 +123,7 @@ func (k Keeper) GetTssParticipants(ctx context.Context, processType types.TssPro
 			return nil, fmt.Errorf("failed to fetch all universal validators: %w", err)
 		}
 
-		participants := make([]string, len(universalValidators))
+		var participants []string
 		for _, v := range universalValidators {
 			status := v.LifecycleInfo.CurrentStatus
 			if status == uvalidatortypes.UVStatus_UV_STATUS_ACTIVE ||

@@ -75,6 +75,14 @@ enum TxType {
   FUNDS_AND_PAYLOAD = 3; // synthetic + payload exec
   GAS_AND_PAYLOAD = 4; // fee abstraction + payload exec
   PAYLOAD = 5;
+  INBOUND_REVERT = 6;
+}
+
+message RevertInstructions {
+  option (amino.name) = "uexecutor/revert_instructions";
+  option (gogoproto.equal) = true;
+
+  string fund_recipient = 1;       // where funds go in revert/refund
 }
 
 message Inbound {
@@ -92,6 +100,7 @@ message Inbound {
   TxType tx_type = 8; // inbound tx type
   UniversalPayload universal_payload = 9; // payload is the universal payload to be executed
   string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
+  RevertInstructions revert_instructions = 11; // revert config
 }
 
 message PCTx {
@@ -116,7 +125,7 @@ message OutboundObservation {
   string tx_hash = 3;           // external chain tx hash
 }
 
-message Originating_Pc_TX {
+message OriginatingPcTx {
   option (amino.name) = "uexecutor/originating_pc_tx";
   option (gogoproto.equal) = true;
 
@@ -137,10 +146,12 @@ message OutboundTx {
   string payload = 6; // payload to be executed
   string gas_limit = 7; // gas limit to be used for the outbound tx
   TxType tx_type = 8; // outbound tx type
-  Originating_Pc_TX pc_tx = 9; // pc_tx that originated the outbound
+  OriginatingPcTx pc_tx = 9; // pc_tx that originated the outbound
   OutboundObservation observed_tx = 10; // observed tx on destination chain
   string id = 11; // id of outbound tx
   Status outbound_status = 12; // status of outbound tx
+  RevertInstructions revert_instructions = 13;
+  PCTx pc_revert_execution = 14;
 }
 
 message UniversalTx {

@@ -59,9 +59,9 @@ func (h Hooks) handleEligibleValidatorSetChange(ctx sdk.Context) {
 	processType := types.TssProcessType_TSS_PROCESS_QUORUM_CHANGE
 	if !hasExistingKey {
 		processType = types.TssProcessType_TSS_PROCESS_KEYGEN
-		h.k.Logger().Info("TSS Hook: No existing TSS key -> initiating initial KEYGEN", "eligible_count", count)
+		h.k.Logger().Info("TSS Hook: No existing TSS key -> initiating initial KEYGEN")
 	} else {
-		h.k.Logger().Info("TSS Hook: Existing TSS key found -> initiating QUORUM_CHANGE reshare", "eligible_count", count)
+		h.k.Logger().Info("TSS Hook: Existing TSS key found -> initiating QUORUM_CHANGE reshare")
 	}
 
 	// Always attempt to initiate — but NEVER block validator lifecycle
@@ -86,7 +86,6 @@ func (h Hooks) handleEligibleValidatorSetChange(ctx sdk.Context) {
 	} else {
 		h.k.Logger().Info("Successfully initiated TSS process",
 			"process_type", processType.String(),
-			"eligible_count", count,
 		)
 	}
 }

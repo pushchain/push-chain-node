@@ -55,8 +55,10 @@ func finalizeAutoInitiatedTssProcess(t *testing.T, app *app.ChainApp, ctx sdk.Co
 		valAddr, err := sdk.ValAddressFromBech32(coreVal)
 		require.NoError(t, err)
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// This triggers your normal Vote flow and internally finalizes when quorum reached
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId)
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId, process.Id)
 		require.NoError(t, err)
 
 		// Step 4: Check if finalized now

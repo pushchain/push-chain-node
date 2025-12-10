@@ -94,9 +94,9 @@ echo "🏛️ Generating validator accounts..."
 VALIDATORS_FILE="$TMP_DIR/validators.json"
 echo "[]" > "$VALIDATORS_FILE"
 
-for ((i=1; i<=3; i++)); do
+for ((i=1; i<=4; i++)); do
   KEY_NAME="validator-$i"
-  
+
   # Delete existing key if it exists
   if $BINARY keys show "$KEY_NAME" --keyring-backend="$KEYRING" > /dev/null 2>&1; then
     echo "⚠️  Key $KEY_NAME already exists. Deleting..."
@@ -137,7 +137,7 @@ echo "🔑 Generating universal validator hotkeys..."
 HOTKEYS_FILE="$TMP_DIR/hotkeys.json"
 echo "[]" > "$HOTKEYS_FILE"
 
-for ((i=1; i<=3; i++)); do
+for ((i=1; i<=4; i++)); do
   KEY_NAME="hotkey-$i"
 
   # Delete existing key if it exists
@@ -184,8 +184,8 @@ echo "  - Universal validator hotkeys: $HOTKEYS_FILE"
 echo ""
 echo "📋 Summary:"
 echo "  - 5 genesis funding accounts generated"
-echo "  - 3 validator accounts generated"
-echo "  - 3 universal validator hotkeys generated"
+echo "  - 4 validator accounts generated"
+echo "  - 4 universal validator hotkeys generated"
 echo "  - All accounts use known mnemonics stored in JSON files"
 echo ""
 echo "Next steps:"

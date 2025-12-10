@@ -34,12 +34,12 @@ BOLD='\033[1m'
 # ═══════════════════════════════════════════════════════════════════════════════
 # PORT CONFIGURATION (bash 3.2 compatible - no associative arrays)
 # ═══════════════════════════════════════════════════════════════════════════════
-get_rpc_port() { case "$1" in 1) echo 26657;; 2) echo 26658;; 3) echo 26659;; esac; }
-get_grpc_port() { case "$1" in 1) echo 9090;; 2) echo 9093;; 3) echo 9095;; esac; }
-get_rest_port() { case "$1" in 1) echo 1317;; 2) echo 1318;; 3) echo 1319;; esac; }
-get_evm_port() { case "$1" in 1) echo 8545;; 2) echo 8547;; 3) echo 8549;; esac; }
-get_api_port() { case "$1" in 1) echo 8080;; 2) echo 8081;; 3) echo 8082;; esac; }
-get_tss_port() { case "$1" in 1) echo 39000;; 2) echo 39001;; 3) echo 39002;; esac; }
+get_rpc_port() { case "$1" in 1) echo 26657;; 2) echo 26658;; 3) echo 26659;; 4) echo 26660;; esac; }
+get_grpc_port() { case "$1" in 1) echo 9090;; 2) echo 9093;; 3) echo 9095;; 4) echo 9097;; esac; }
+get_rest_port() { case "$1" in 1) echo 1317;; 2) echo 1318;; 3) echo 1319;; 4) echo 1320;; esac; }
+get_evm_port() { case "$1" in 1) echo 8545;; 2) echo 8547;; 3) echo 8549;; 4) echo 8551;; esac; }
+get_api_port() { case "$1" in 1) echo 8080;; 2) echo 8081;; 3) echo 8082;; 4) echo 8083;; esac; }
+get_tss_port() { case "$1" in 1) echo 39000;; 2) echo 39001;; 3) echo 39002;; 4) echo 39003;; esac; }
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PRINT HELPERS
@@ -154,7 +154,7 @@ cmd_status() {
     printf "${BOLD}%-18s %-13s %-8s %-10s %-10s %-10s${NC}\n" "NAME" "STATUS" "BLOCK" "RPC" "gRPC" "EVM"
     echo
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4; do
         local name="core-validator-$i"
         local status_raw=$(get_container_health "$name")
         local status_state="${status_raw%%|*}"
@@ -184,7 +184,7 @@ cmd_status() {
     printf "${BOLD}%-23s %-13s %-13s %-10s %-8s %-8s${NC}\n" "NAME" "STATUS" "REGISTERED" "GRANTS" "API" "TSS"
     echo
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4; do
         local name="universal-validator-$i"
 
         # Parse status (state|text)
@@ -557,7 +557,7 @@ cmd_setup_authz() {
 
     echo -e "${YELLOW}Setting up AuthZ grants for all validators...${NC}"
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4; do
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
         echo -e "${BOLD}Setting up universal-validator-$i:${NC}"
 
@@ -623,7 +623,7 @@ cmd_setup_authz() {
 cmd_verify_authz() {
     print_header "Verifying AuthZ"
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4; do
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
         echo -e "${BOLD}Validator $i:${NC}"
 
@@ -665,7 +665,7 @@ cmd_setup_uvalidators() {
     echo -e "${YELLOW}Registering universal validators and granting AuthZ permissions...${NC}"
     echo
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4; do
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
         echo -e "${BOLD}Setting up Universal Validator $i${NC}"
 
@@ -1014,8 +1014,8 @@ cmd_help() {
     echo -e "  Core RPC:     ${YELLOW}localhost:26657${NC}"
     echo -e "  Core gRPC:    ${YELLOW}localhost:9090${NC}"
     echo -e "  EVM HTTP:     ${YELLOW}localhost:8545${NC}"
-    echo -e "  Query API:    ${YELLOW}localhost:8080-8082${NC}"
-    echo -e "  TSS P2P:      ${YELLOW}localhost:39000-39002${NC}"
+    echo -e "  Query API:    ${YELLOW}localhost:8080-8083${NC}"
+    echo -e "  TSS P2P:      ${YELLOW}localhost:39000-39003${NC}"
     echo
 }
 

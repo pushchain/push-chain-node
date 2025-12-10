@@ -93,6 +93,7 @@ $BINARY init
 # - universal-validator-1 uses core-validator-1:9090
 # - universal-validator-2 uses core-validator-2:9090
 # - universal-validator-3 uses core-validator-3:9090
+# - universal-validator-4 uses core-validator-4:9090
 jq '.push_chain_grpc_urls = ["'$CORE_VALIDATOR_GRPC'"] | .keyring_backend = "test"' \
   "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
   mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
@@ -223,6 +224,52 @@ if [ -n "$HOTKEY_ADDR" ]; then
   fi
 else
   echo "⚠️  Could not get hotkey address, skipping AuthZ check"
+fi
+
+# ---------------------------
+# === WAIT FOR ON-CHAIN REGISTRATION ===
+# ---------------------------
+
+echo "⏳ Waiting for universal validator to be registered on-chain..."
+
+# Expected peer_id for this validator (deterministic from TSS private key)
+# These are pre-computed from the deterministic private keys (01...01, 02...02, etc)
+case $UNIVERSAL_ID in
+  1) EXPECTED_PEER_ID="12D3KooWK99VoVxNE7XzyBwXEzW7xhK7Gpv85r9F3V3fyKSUKPH5" ;;
+  2) EXPECTED_PEER_ID="12D3KooWJWoaqZhDaoEFshF7Rh1bpY9ohihFhzcW6d69Lr2NASuq" ;;
+  3) EXPECTED_PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba" ;;
+  4) EXPECTED_PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw" ;;
+  *) EXPECTED_PEER_ID="" ;;
+esac
+
+if [ -n "$EXPECTED_PEER_ID" ]; then
+  echo "🔍 Looking for peer_id: $EXPECTED_PEER_ID"
+
+  max_reg_wait=60
+  reg_wait=0
+  while [ $reg_wait -lt $max_reg_wait ]; do
+    # Query all universal validators via REST API and look for our peer_id
+    FOUND=$(curl -s "http://core-validator-1:1317/push/uvalidator/v1/all_universal_validators" 2>/dev/null | \
+      jq -r --arg pid "$EXPECTED_PEER_ID" \
+      '.universal_validator[]? | select(.network_info.peer_id == $pid) | .network_info.peer_id' 2>/dev/null || echo "")
+
+    if [ -n "$FOUND" ]; then
+      echo "✅ Universal validator $UNIVERSAL_ID registered on-chain (peer_id: $EXPECTED_PEER_ID)"
+      break
+    fi
+
+    if [ $((reg_wait % 10)) -eq 0 ]; then
+      echo "⏳ Waiting for on-chain registration... (${reg_wait}s / ${max_reg_wait}s)"
+    fi
+    sleep 2
+    reg_wait=$((reg_wait + 2))
+  done
+
+  if [ -z "$FOUND" ]; then
+    echo "⚠️ Validator not found on-chain after ${max_reg_wait}s, continuing anyway..."
+  fi
+else
+  echo "⚠️ Unknown UNIVERSAL_ID, skipping registration check"
 fi
 
 # ---------------------------

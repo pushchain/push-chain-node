@@ -114,8 +114,8 @@ if [ -f "$HOME_DIR/data/priv_validator_state.json" ]; then
     echo "⏳ Waiting for node to be ready..."
     sleep 10
 
-    # Check if UV registration is needed (for validators 2 and 3)
-    if [ "$VALIDATOR_ID" = "2" ] || [ "$VALIDATOR_ID" = "3" ]; then
+    # Check if UV registration is needed (for validators 2, 3, and 4)
+    if [ "$VALIDATOR_ID" = "2" ] || [ "$VALIDATOR_ID" = "3" ] || [ "$VALIDATOR_ID" = "4" ]; then
       echo "🔍 Checking universal validator registration status..."
 
       GENESIS_RPC="http://core-validator-1:26657"
@@ -129,6 +129,10 @@ if [ -f "$HOME_DIR/data/priv_validator_state.json" ]; then
         3)
           PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba"
           TSS_PORT=39002
+          ;;
+        4)
+          PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw"
+          TSS_PORT=39003
           ;;
       esac
 
@@ -518,6 +522,10 @@ if [ -n "$VALOPER_ADDR" ]; then
     3)
       PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba"
       TSS_PORT=39002
+      ;;
+    4)
+      PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw"
+      TSS_PORT=39003
       ;;
     *)
       echo "⚠️ Unknown validator ID for UV registration"

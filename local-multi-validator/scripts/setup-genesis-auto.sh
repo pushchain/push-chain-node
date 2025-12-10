@@ -64,10 +64,11 @@ GENESIS_ACC3_MNEMONIC=$(jq -r '.[2].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 GENESIS_ACC4_MNEMONIC=$(jq -r '.[3].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 GENESIS_ACC5_MNEMONIC=$(jq -r '.[4].mnemonic' "$GENESIS_ACCOUNTS_FILE")
 
-# Load validator mnemonics for all 3 validators
+# Load validator mnemonics for all 4 validators
 VALIDATOR1_MNEMONIC=$(jq -r '.[] | select(.id == 1) | .mnemonic' "$VALIDATORS_FILE")
 VALIDATOR2_MNEMONIC=$(jq -r '.[] | select(.id == 2) | .mnemonic' "$VALIDATORS_FILE")
 VALIDATOR3_MNEMONIC=$(jq -r '.[] | select(.id == 3) | .mnemonic' "$VALIDATORS_FILE")
+VALIDATOR4_MNEMONIC=$(jq -r '.[] | select(.id == 4) | .mnemonic' "$VALIDATORS_FILE")
 
 # ---------------------------
 # === INITIALIZATION ===
@@ -116,10 +117,10 @@ echo "  Account 4: $GENESIS_ADDR4"
 echo "  Account 5: $GENESIS_ADDR5"
 
 # ---------------------------
-# === CREATE VALIDATOR KEYS (All 3 Validators) ===
+# === CREATE VALIDATOR KEYS (All 4 Validators) ===
 # ---------------------------
 
-echo "🔐 Creating validator keys for all 3 validators..."
+echo "🔐 Creating validator keys for all 4 validators..."
 
 # Create validator-1 key
 echo "🔑 Creating validator-1 key..."
@@ -139,6 +140,12 @@ echo $VALIDATOR3_MNEMONIC | BINARY keys add validator-3 --keyring-backend $KEYRI
 VALIDATOR3_ADDR=$(BINARY keys show validator-3 -a --keyring-backend $KEYRING)
 echo "  Validator-3 address: $VALIDATOR3_ADDR"
 
+# Create validator-4 key
+echo "🔑 Creating validator-4 key..."
+echo $VALIDATOR4_MNEMONIC | BINARY keys add validator-4 --keyring-backend $KEYRING --algo $KEYALGO --recover
+VALIDATOR4_ADDR=$(BINARY keys show validator-4 -a --keyring-backend $KEYRING)
+echo "  Validator-4 address: $VALIDATOR4_ADDR"
+
 # ---------------------------
 # === FUND GENESIS ACCOUNTS ===
 # ---------------------------
@@ -150,7 +157,7 @@ BINARY genesis add-genesis-account "$GENESIS_ADDR3" "${TWO_BILLION}${DENOM}"
 BINARY genesis add-genesis-account "$GENESIS_ADDR4" "${TWO_BILLION}${DENOM}"
 BINARY genesis add-genesis-account "$GENESIS_ADDR5" "${TWO_BILLION}${DENOM}"
 
-echo "💵 Funding all 3 validators in genesis state..."
+echo "💵 Funding all 4 validators in genesis state..."
 BINARY genesis add-genesis-account "$VALIDATOR1_ADDR" "${ONE_MILLION}${DENOM}"
 echo "  Validator-1 funded with ${ONE_MILLION}${DENOM}"
 
@@ -159,6 +166,9 @@ echo "  Validator-2 funded with ${ONE_MILLION}${DENOM}"
 
 BINARY genesis add-genesis-account "$VALIDATOR3_ADDR" "${ONE_MILLION}${DENOM}"
 echo "  Validator-3 funded with ${ONE_MILLION}${DENOM}"
+
+BINARY genesis add-genesis-account "$VALIDATOR4_ADDR" "${ONE_MILLION}${DENOM}"
+echo "  Validator-4 funded with ${ONE_MILLION}${DENOM}"
 
 # ---------------------------
 # === FUND HOTKEY ACCOUNTS ===
@@ -170,20 +180,23 @@ echo "💵 Funding hotkey accounts in genesis state..."
 HOTKEY1_ADDR=$(jq -r '.[0].address' "$HOTKEYS_FILE")
 HOTKEY2_ADDR=$(jq -r '.[1].address' "$HOTKEYS_FILE")
 HOTKEY3_ADDR=$(jq -r '.[2].address' "$HOTKEYS_FILE")
+HOTKEY4_ADDR=$(jq -r '.[3].address' "$HOTKEYS_FILE")
 
 echo "Hotkey addresses to fund:"
 echo "  Hotkey 1: $HOTKEY1_ADDR"
 echo "  Hotkey 2: $HOTKEY2_ADDR"
 echo "  Hotkey 3: $HOTKEY3_ADDR"
+echo "  Hotkey 4: $HOTKEY4_ADDR"
 
 BINARY genesis add-genesis-account "$HOTKEY1_ADDR" "${HOTKEY_FUNDING}${DENOM}"
 BINARY genesis add-genesis-account "$HOTKEY2_ADDR" "${HOTKEY_FUNDING}${DENOM}"
 BINARY genesis add-genesis-account "$HOTKEY3_ADDR" "${HOTKEY_FUNDING}${DENOM}"
+BINARY genesis add-genesis-account "$HOTKEY4_ADDR" "${HOTKEY_FUNDING}${DENOM}"
 
 echo "✅ Hotkey accounts funded with ${HOTKEY_FUNDING}${DENOM} each"
 
 # ---------------------------
-# === CREATE GENTX (for all 3 validators) ===
+# === CREATE GENTX (validator-1 only, others join later) ===
 # ---------------------------
 
 echo "📝 Generating gentx for validator-1 only (others will join later)..."
@@ -297,7 +310,7 @@ echo "   AuthZ grants will be created at runtime by each validator"
 echo "   This ensures consistency: validator-X → hotkey-X for all validators"
 
 # Grants are created in setup-validator-auto.sh after each validator joins the network
-# Architecture: validator-1 → hotkey-1, validator-2 → hotkey-2, validator-3 → hotkey-3
+# Architecture: validator-1 → hotkey-1, validator-2 → hotkey-2, validator-3 → hotkey-3, validator-4 → hotkey-4
 
 # ---------------------------
 # === SHARE GENESIS FILE ===
@@ -395,11 +408,11 @@ else
 fi
 
 # ---------------------------
-# === SETUP AUTHZ GRANTS FOR ALL 3 UNIVERSAL VALIDATORS ===
+# === SETUP AUTHZ GRANTS FOR ALL 4 UNIVERSAL VALIDATORS ===
 # ---------------------------
 
 echo "🔐 Setting up AuthZ grants for ALL universal validator hotkeys..."
-echo "📋 Genesis validator has all 3 validator keys, creating ALL 9 grants now"
+echo "📋 Genesis validator has all 4 validator keys, creating ALL 12 grants now"
 
 # Get hotkey addresses from shared volume
 HOTKEYS_FILE="/tmp/push-accounts/hotkeys.json"
@@ -413,8 +426,8 @@ if [ -f "$HOTKEYS_FILE" ]; then
 
   TOTAL_GRANTS_CREATED=0
 
-  # Create grants for ALL 3 validators
-  for VALIDATOR_NUM in 1 2 3; do
+  # Create grants for ALL 4 validators
+  for VALIDATOR_NUM in 1 2 3 4; do
     HOTKEY_INDEX=$((VALIDATOR_NUM - 1))
     HOTKEY_ADDR=$(jq -r ".[$HOTKEY_INDEX].address" "$HOTKEYS_FILE")
     VALIDATOR_ADDR=$(pchaind keys show validator-$VALIDATOR_NUM -a --keyring-backend test --home "$HOME_DIR")
@@ -466,12 +479,12 @@ if [ -f "$HOTKEYS_FILE" ]; then
   set -e
 
   echo ""
-  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/9"
+  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/12"
 
-  if [ "$TOTAL_GRANTS_CREATED" -ge "9" ]; then
+  if [ "$TOTAL_GRANTS_CREATED" -ge "12" ]; then
     echo "✅ All AuthZ grants created successfully for all validators!"
   else
-    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/9)"
+    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/12)"
   fi
 else
   echo "⚠️  Hotkeys file not found: $HOTKEYS_FILE"

@@ -36,7 +36,7 @@ docker compose up --build
 ```
 - Auto-builds base image if missing (~15-20 min first time)
 - Pulls core/universal from cache or builds locally
-- Starts all 6 validators
+- Starts all 8 validators
 
 ### I Changed Core Validator Code
 **Files:** `cmd/pchaind/`, `app/`, `x/` modules
@@ -141,14 +141,14 @@ docker compose up -d      # Start containers directly
 | Core REST | 1317 | REST API |
 | Core gRPC | 9090 | gRPC |
 | EVM HTTP | 8545 | EVM JSON-RPC |
-| Universal API | 8080-8082 | Query API |
-| TSS P2P | 39000-39002 | TSS communication |
+| Universal API | 8080-8083 | Query API |
+| TSS P2P | 39000-39003 | TSS communication |
 
 ## How It Works
 
-The setup runs 6 validators:
-- **3 Core Validators** (`pchaind`) - Consensus and block production
-- **3 Universal Validators** (`puniversald`) - Off-chain compute with TSS signing
+The setup runs 8 validators:
+- **4 Core Validators** (`pchaind`) - Consensus and block production
+- **4 Universal Validators** (`puniversald`) - Off-chain compute with TSS signing
 
 Each universal validator connects to its paired core validator via gRPC.
 

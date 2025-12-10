@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 	"sync"
 	"time"
 
@@ -427,7 +428,11 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 	if sm.voteHandler != nil && (state.protocolType == "keygen" || state.protocolType == "keyrefresh" || state.protocolType == "quorumchange") {
 		pubKeyHex := hex.EncodeToString(result.PublicKey)
 
-		voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID)
+		paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse process id from %s", eventID)
+		}
+		voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
 		if err != nil {
 			sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("TSS vote failed - marking PENDING")
 

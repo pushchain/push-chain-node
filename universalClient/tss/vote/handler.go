@@ -35,7 +35,7 @@ func NewHandler(txSigner TxSigner, log zerolog.Logger, granter string) *Handler 
 
 // VoteTssKeyProcess votes on a completed TSS key process.
 // Returns vote tx hash on success, error on failure.
-func (h *Handler) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID string) (string, error) {
+func (h *Handler) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID string, processId uint64) (string, error) {
 	h.log.Info().
 		Str("tss_pubkey", tssPubKey).
 		Str("key_id", keyID).
@@ -55,6 +55,7 @@ func (h *Handler) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID
 		Signer:    h.granter, // The granter (operator) is the signer
 		TssPubkey: tssPubKey,
 		KeyId:     keyID,
+		ProcessId: processId,
 	}
 
 	h.log.Debug().

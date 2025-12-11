@@ -100,3 +100,23 @@ func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.Msg
 
 	return &types.MsgUpdateUniversalValidatorResponse{}, nil
 }
+
+// UpdateUniversalValidatorStatus implements types.MsgServer.
+func (ms msgServer) UpdateUniversalValidatorStatus(ctx context.Context, msg *types.MsgUpdateUniversalValidatorStatus) (*types.MsgUpdateUniversalValidatorStatusResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.UpdateUniversalValidatorStatus(ctx, msg.CoreValidatorAddress, msg.NewStatus)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateUniversalValidatorStatusResponse{}, nil
+}

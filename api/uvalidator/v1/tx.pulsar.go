@@ -3485,6 +3485,894 @@ func (x *fastReflection_MsgRemoveUniversalValidatorResponse) ProtoMethods() *pro
 	}
 }
 
+var (
+	md_MsgUpdateUniversalValidatorStatus                        protoreflect.MessageDescriptor
+	fd_MsgUpdateUniversalValidatorStatus_signer                 protoreflect.FieldDescriptor
+	fd_MsgUpdateUniversalValidatorStatus_core_validator_address protoreflect.FieldDescriptor
+	fd_MsgUpdateUniversalValidatorStatus_new_status             protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_uvalidator_v1_tx_proto_init()
+	md_MsgUpdateUniversalValidatorStatus = File_uvalidator_v1_tx_proto.Messages().ByName("MsgUpdateUniversalValidatorStatus")
+	fd_MsgUpdateUniversalValidatorStatus_signer = md_MsgUpdateUniversalValidatorStatus.Fields().ByName("signer")
+	fd_MsgUpdateUniversalValidatorStatus_core_validator_address = md_MsgUpdateUniversalValidatorStatus.Fields().ByName("core_validator_address")
+	fd_MsgUpdateUniversalValidatorStatus_new_status = md_MsgUpdateUniversalValidatorStatus.Fields().ByName("new_status")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgUpdateUniversalValidatorStatus)(nil)
+
+type fastReflection_MsgUpdateUniversalValidatorStatus MsgUpdateUniversalValidatorStatus
+
+func (x *MsgUpdateUniversalValidatorStatus) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgUpdateUniversalValidatorStatus)(x)
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) slowProtoReflect() protoreflect.Message {
+	mi := &file_uvalidator_v1_tx_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgUpdateUniversalValidatorStatus_messageType fastReflection_MsgUpdateUniversalValidatorStatus_messageType
+var _ protoreflect.MessageType = fastReflection_MsgUpdateUniversalValidatorStatus_messageType{}
+
+type fastReflection_MsgUpdateUniversalValidatorStatus_messageType struct{}
+
+func (x fastReflection_MsgUpdateUniversalValidatorStatus_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgUpdateUniversalValidatorStatus)(nil)
+}
+func (x fastReflection_MsgUpdateUniversalValidatorStatus_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgUpdateUniversalValidatorStatus)
+}
+func (x fastReflection_MsgUpdateUniversalValidatorStatus_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgUpdateUniversalValidatorStatus
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgUpdateUniversalValidatorStatus
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Type() protoreflect.MessageType {
+	return _fastReflection_MsgUpdateUniversalValidatorStatus_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) New() protoreflect.Message {
+	return new(fastReflection_MsgUpdateUniversalValidatorStatus)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Interface() protoreflect.ProtoMessage {
+	return (*MsgUpdateUniversalValidatorStatus)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Signer != "" {
+		value := protoreflect.ValueOfString(x.Signer)
+		if !f(fd_MsgUpdateUniversalValidatorStatus_signer, value) {
+			return
+		}
+	}
+	if x.CoreValidatorAddress != "" {
+		value := protoreflect.ValueOfString(x.CoreValidatorAddress)
+		if !f(fd_MsgUpdateUniversalValidatorStatus_core_validator_address, value) {
+			return
+		}
+	}
+	if x.NewStatus != 0 {
+		value := protoreflect.ValueOfEnum((protoreflect.EnumNumber)(x.NewStatus))
+		if !f(fd_MsgUpdateUniversalValidatorStatus_new_status, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		return x.Signer != ""
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		return x.CoreValidatorAddress != ""
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		return x.NewStatus != 0
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		x.Signer = ""
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		x.CoreValidatorAddress = ""
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		x.NewStatus = 0
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		value := x.Signer
+		return protoreflect.ValueOfString(value)
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		value := x.CoreValidatorAddress
+		return protoreflect.ValueOfString(value)
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		value := x.NewStatus
+		return protoreflect.ValueOfEnum((protoreflect.EnumNumber)(value))
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		x.Signer = value.Interface().(string)
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		x.CoreValidatorAddress = value.Interface().(string)
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		x.NewStatus = (UVStatus)(value.Enum())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		panic(fmt.Errorf("field signer of message uvalidator.v1.MsgUpdateUniversalValidatorStatus is not mutable"))
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		panic(fmt.Errorf("field core_validator_address of message uvalidator.v1.MsgUpdateUniversalValidatorStatus is not mutable"))
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		panic(fmt.Errorf("field new_status of message uvalidator.v1.MsgUpdateUniversalValidatorStatus is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.signer":
+		return protoreflect.ValueOfString("")
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.core_validator_address":
+		return protoreflect.ValueOfString("")
+	case "uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status":
+		return protoreflect.ValueOfEnum(0)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatus"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatus does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in uvalidator.v1.MsgUpdateUniversalValidatorStatus", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatus) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatus)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Signer)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.CoreValidatorAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.NewStatus != 0 {
+			n += 1 + runtime.Sov(uint64(x.NewStatus))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatus)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.NewStatus != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.NewStatus))
+			i--
+			dAtA[i] = 0x18
+		}
+		if len(x.CoreValidatorAddress) > 0 {
+			i -= len(x.CoreValidatorAddress)
+			copy(dAtA[i:], x.CoreValidatorAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.CoreValidatorAddress)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if len(x.Signer) > 0 {
+			i -= len(x.Signer)
+			copy(dAtA[i:], x.Signer)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Signer)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatus)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateUniversalValidatorStatus: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateUniversalValidatorStatus: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Signer = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field CoreValidatorAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.CoreValidatorAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field NewStatus", wireType)
+				}
+				x.NewStatus = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.NewStatus |= UVStatus(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_MsgUpdateUniversalValidatorStatusResponse protoreflect.MessageDescriptor
+)
+
+func init() {
+	file_uvalidator_v1_tx_proto_init()
+	md_MsgUpdateUniversalValidatorStatusResponse = File_uvalidator_v1_tx_proto.Messages().ByName("MsgUpdateUniversalValidatorStatusResponse")
+}
+
+var _ protoreflect.Message = (*fastReflection_MsgUpdateUniversalValidatorStatusResponse)(nil)
+
+type fastReflection_MsgUpdateUniversalValidatorStatusResponse MsgUpdateUniversalValidatorStatusResponse
+
+func (x *MsgUpdateUniversalValidatorStatusResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_MsgUpdateUniversalValidatorStatusResponse)(x)
+}
+
+func (x *MsgUpdateUniversalValidatorStatusResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_uvalidator_v1_tx_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType
+var _ protoreflect.MessageType = fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType{}
+
+type fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType struct{}
+
+func (x fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_MsgUpdateUniversalValidatorStatusResponse)(nil)
+}
+func (x fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_MsgUpdateUniversalValidatorStatusResponse)
+}
+func (x fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgUpdateUniversalValidatorStatusResponse
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_MsgUpdateUniversalValidatorStatusResponse
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Type() protoreflect.MessageType {
+	return _fastReflection_MsgUpdateUniversalValidatorStatusResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) New() protoreflect.Message {
+	return new(fastReflection_MsgUpdateUniversalValidatorStatusResponse)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Interface() protoreflect.ProtoMessage {
+	return (*MsgUpdateUniversalValidatorStatusResponse)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse"))
+		}
+		panic(fmt.Errorf("message uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_MsgUpdateUniversalValidatorStatusResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatusResponse)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatusResponse)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*MsgUpdateUniversalValidatorStatusResponse)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateUniversalValidatorStatusResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: MsgUpdateUniversalValidatorStatusResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -3800,6 +4688,86 @@ func (*MsgRemoveUniversalValidatorResponse) Descriptor() ([]byte, []int) {
 	return file_uvalidator_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
+type MsgUpdateUniversalValidatorStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// signer is the address authorized to execute this message
+	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	// core_validator_address is the address of the core validator whose status is to be updated.
+	CoreValidatorAddress string `protobuf:"bytes,2,opt,name=core_validator_address,json=coreValidatorAddress,proto3" json:"core_validator_address,omitempty"`
+	// new status of the universal validator
+	NewStatus UVStatus `protobuf:"varint,3,opt,name=new_status,json=newStatus,proto3,enum=uvalidator.v1.UVStatus" json:"new_status,omitempty"`
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) Reset() {
+	*x = MsgUpdateUniversalValidatorStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_uvalidator_v1_tx_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateUniversalValidatorStatus) ProtoMessage() {}
+
+// Deprecated: Use MsgUpdateUniversalValidatorStatus.ProtoReflect.Descriptor instead.
+func (*MsgUpdateUniversalValidatorStatus) Descriptor() ([]byte, []int) {
+	return file_uvalidator_v1_tx_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) GetSigner() string {
+	if x != nil {
+		return x.Signer
+	}
+	return ""
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) GetCoreValidatorAddress() string {
+	if x != nil {
+		return x.CoreValidatorAddress
+	}
+	return ""
+}
+
+func (x *MsgUpdateUniversalValidatorStatus) GetNewStatus() UVStatus {
+	if x != nil {
+		return x.NewStatus
+	}
+	return UVStatus_UV_STATUS_UNSPECIFIED
+}
+
+type MsgUpdateUniversalValidatorStatusResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *MsgUpdateUniversalValidatorStatusResponse) Reset() {
+	*x = MsgUpdateUniversalValidatorStatusResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_uvalidator_v1_tx_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MsgUpdateUniversalValidatorStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateUniversalValidatorStatusResponse) ProtoMessage() {}
+
+// Deprecated: Use MsgUpdateUniversalValidatorStatusResponse.ProtoReflect.Descriptor instead.
+func (*MsgUpdateUniversalValidatorStatusResponse) Descriptor() ([]byte, []int) {
+	return file_uvalidator_v1_tx_proto_rawDescGZIP(), []int{9}
+}
+
 var File_uvalidator_v1_tx_proto protoreflect.FileDescriptor
 
 var file_uvalidator_v1_tx_proto_rawDesc = []byte{
@@ -3877,49 +4845,79 @@ var file_uvalidator_v1_tx_proto_rawDesc = []byte{
 	0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56,
 	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x22, 0x25, 0x0a, 0x23, 0x4d, 0x73, 0x67, 0x52,
 	0x65, 0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61,
-	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32,
-	0xcf, 0x03, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x56, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1e, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x26, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x71, 0x0a, 0x15, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56,
-	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x27, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x55,
-	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
-	0x72, 0x1a, 0x2f, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76,
-	0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x7a, 0x0a, 0x18, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76,
-	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x2a,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0xa4, 0x02, 0x0a, 0x21, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69,
+	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x30, 0x0a, 0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x18, 0xd2, 0xb4, 0x2d, 0x14, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
+	0x73, 0x2e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52,
+	0x06, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x12, 0x57, 0x0a, 0x16, 0x63, 0x6f, 0x72, 0x65, 0x5f,
+	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x42, 0x21, 0xd2, 0xb4, 0x2d, 0x1d, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64,
+	0x72, 0x65, 0x73, 0x73, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x14, 0x63, 0x6f, 0x72, 0x65,
+	0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
+	0x12, 0x36, 0x0a, 0x0a, 0x6e, 0x65, 0x77, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x17, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x55, 0x56, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x09, 0x6e,
+	0x65, 0x77, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x3a, 0x3c, 0x82, 0xe7, 0xb0, 0x2a, 0x06, 0x73,
+	0x69, 0x67, 0x6e, 0x65, 0x72, 0x8a, 0xe7, 0xb0, 0x2a, 0x2c, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
+	0x61, 0x74, 0x6f, 0x72, 0x2f, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e,
+	0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
+	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x2b, 0x0a, 0x29, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64,
+	0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x32, 0xde, 0x04, 0x0a, 0x03, 0x4d, 0x73, 0x67, 0x12, 0x56, 0x0a, 0x0c, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1e, 0x2e, 0x75, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x1a, 0x26, 0x2e, 0x75, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x71, 0x0a, 0x15, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72,
+	0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x27, 0x2e, 0x75,
+	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
+	0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x1a, 0x2f, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x41, 0x64, 0x64, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x7a, 0x0a, 0x18, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x12, 0x2a, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e,
+	0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76,
+	0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x1a, 0x32,
 	0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
 	0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x1a, 0x32, 0x2e, 0x75, 0x76, 0x61,
-	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x7a,
-	0x0a, 0x18, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61,
-	0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x2a, 0x2e, 0x75, 0x76, 0x61,
-	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x52, 0x65,
-	0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x1a, 0x32, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61,
-	0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65,
-	0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80, 0xe7, 0xb0, 0x2a,
-	0x01, 0x42, 0xb6, 0x01, 0x0a, 0x11, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
-	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72, 0x6f, 0x74, 0x6f,
-	0x50, 0x01, 0x5a, 0x43, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70,
-	0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x76, 0x61,
-	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x0d,
-	0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0d,
-	0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x19,
-	0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50,
-	0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0e, 0x55, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x8c, 0x01, 0x0a, 0x1e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55, 0x6e, 0x69,
+	0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x30, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
+	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x55,
+	0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f,
+	0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x1a, 0x38, 0x2e, 0x75, 0x76, 0x61, 0x6c, 0x69, 0x64,
+	0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x55, 0x70, 0x64, 0x61, 0x74,
+	0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61,
+	0x74, 0x6f, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x7a, 0x0a, 0x18, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65,
+	0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x12, 0x2a, 0x2e,
+	0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73,
+	0x67, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c,
+	0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x1a, 0x32, 0x2e, 0x75, 0x76, 0x61, 0x6c,
+	0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67, 0x52, 0x65, 0x6d,
+	0x6f, 0x76, 0x65, 0x55, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x05, 0x80,
+	0xe7, 0xb0, 0x2a, 0x01, 0x42, 0xb6, 0x01, 0x0a, 0x11, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x76, 0x61,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x07, 0x54, 0x78, 0x50, 0x72,
+	0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x43, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68,
+	0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x75, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
+	0xaa, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31,
+	0xca, 0x02, 0x0d, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
+	0xe2, 0x02, 0x19, 0x55, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31,
+	0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0e, 0x55,
+	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3934,36 +4932,42 @@ func file_uvalidator_v1_tx_proto_rawDescGZIP() []byte {
 	return file_uvalidator_v1_tx_proto_rawDescData
 }
 
-var file_uvalidator_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_uvalidator_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_uvalidator_v1_tx_proto_goTypes = []interface{}{
-	(*MsgUpdateParams)(nil),                     // 0: uvalidator.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),             // 1: uvalidator.v1.MsgUpdateParamsResponse
-	(*MsgAddUniversalValidator)(nil),            // 2: uvalidator.v1.MsgAddUniversalValidator
-	(*MsgAddUniversalValidatorResponse)(nil),    // 3: uvalidator.v1.MsgAddUniversalValidatorResponse
-	(*MsgUpdateUniversalValidator)(nil),         // 4: uvalidator.v1.MsgUpdateUniversalValidator
-	(*MsgUpdateUniversalValidatorResponse)(nil), // 5: uvalidator.v1.MsgUpdateUniversalValidatorResponse
-	(*MsgRemoveUniversalValidator)(nil),         // 6: uvalidator.v1.MsgRemoveUniversalValidator
-	(*MsgRemoveUniversalValidatorResponse)(nil), // 7: uvalidator.v1.MsgRemoveUniversalValidatorResponse
-	(*Params)(nil),                              // 8: uvalidator.v1.Params
-	(*NetworkInfo)(nil),                         // 9: uvalidator.v1.NetworkInfo
+	(*MsgUpdateParams)(nil),                           // 0: uvalidator.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),                   // 1: uvalidator.v1.MsgUpdateParamsResponse
+	(*MsgAddUniversalValidator)(nil),                  // 2: uvalidator.v1.MsgAddUniversalValidator
+	(*MsgAddUniversalValidatorResponse)(nil),          // 3: uvalidator.v1.MsgAddUniversalValidatorResponse
+	(*MsgUpdateUniversalValidator)(nil),               // 4: uvalidator.v1.MsgUpdateUniversalValidator
+	(*MsgUpdateUniversalValidatorResponse)(nil),       // 5: uvalidator.v1.MsgUpdateUniversalValidatorResponse
+	(*MsgRemoveUniversalValidator)(nil),               // 6: uvalidator.v1.MsgRemoveUniversalValidator
+	(*MsgRemoveUniversalValidatorResponse)(nil),       // 7: uvalidator.v1.MsgRemoveUniversalValidatorResponse
+	(*MsgUpdateUniversalValidatorStatus)(nil),         // 8: uvalidator.v1.MsgUpdateUniversalValidatorStatus
+	(*MsgUpdateUniversalValidatorStatusResponse)(nil), // 9: uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse
+	(*Params)(nil),      // 10: uvalidator.v1.Params
+	(*NetworkInfo)(nil), // 11: uvalidator.v1.NetworkInfo
+	(UVStatus)(0),       // 12: uvalidator.v1.UVStatus
 }
 var file_uvalidator_v1_tx_proto_depIdxs = []int32{
-	8, // 0: uvalidator.v1.MsgUpdateParams.params:type_name -> uvalidator.v1.Params
-	9, // 1: uvalidator.v1.MsgAddUniversalValidator.network:type_name -> uvalidator.v1.NetworkInfo
-	9, // 2: uvalidator.v1.MsgUpdateUniversalValidator.network:type_name -> uvalidator.v1.NetworkInfo
-	0, // 3: uvalidator.v1.Msg.UpdateParams:input_type -> uvalidator.v1.MsgUpdateParams
-	2, // 4: uvalidator.v1.Msg.AddUniversalValidator:input_type -> uvalidator.v1.MsgAddUniversalValidator
-	4, // 5: uvalidator.v1.Msg.UpdateUniversalValidator:input_type -> uvalidator.v1.MsgUpdateUniversalValidator
-	6, // 6: uvalidator.v1.Msg.RemoveUniversalValidator:input_type -> uvalidator.v1.MsgRemoveUniversalValidator
-	1, // 7: uvalidator.v1.Msg.UpdateParams:output_type -> uvalidator.v1.MsgUpdateParamsResponse
-	3, // 8: uvalidator.v1.Msg.AddUniversalValidator:output_type -> uvalidator.v1.MsgAddUniversalValidatorResponse
-	5, // 9: uvalidator.v1.Msg.UpdateUniversalValidator:output_type -> uvalidator.v1.MsgUpdateUniversalValidatorResponse
-	7, // 10: uvalidator.v1.Msg.RemoveUniversalValidator:output_type -> uvalidator.v1.MsgRemoveUniversalValidatorResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	10, // 0: uvalidator.v1.MsgUpdateParams.params:type_name -> uvalidator.v1.Params
+	11, // 1: uvalidator.v1.MsgAddUniversalValidator.network:type_name -> uvalidator.v1.NetworkInfo
+	11, // 2: uvalidator.v1.MsgUpdateUniversalValidator.network:type_name -> uvalidator.v1.NetworkInfo
+	12, // 3: uvalidator.v1.MsgUpdateUniversalValidatorStatus.new_status:type_name -> uvalidator.v1.UVStatus
+	0,  // 4: uvalidator.v1.Msg.UpdateParams:input_type -> uvalidator.v1.MsgUpdateParams
+	2,  // 5: uvalidator.v1.Msg.AddUniversalValidator:input_type -> uvalidator.v1.MsgAddUniversalValidator
+	4,  // 6: uvalidator.v1.Msg.UpdateUniversalValidator:input_type -> uvalidator.v1.MsgUpdateUniversalValidator
+	8,  // 7: uvalidator.v1.Msg.UpdateUniversalValidatorStatus:input_type -> uvalidator.v1.MsgUpdateUniversalValidatorStatus
+	6,  // 8: uvalidator.v1.Msg.RemoveUniversalValidator:input_type -> uvalidator.v1.MsgRemoveUniversalValidator
+	1,  // 9: uvalidator.v1.Msg.UpdateParams:output_type -> uvalidator.v1.MsgUpdateParamsResponse
+	3,  // 10: uvalidator.v1.Msg.AddUniversalValidator:output_type -> uvalidator.v1.MsgAddUniversalValidatorResponse
+	5,  // 11: uvalidator.v1.Msg.UpdateUniversalValidator:output_type -> uvalidator.v1.MsgUpdateUniversalValidatorResponse
+	9,  // 12: uvalidator.v1.Msg.UpdateUniversalValidatorStatus:output_type -> uvalidator.v1.MsgUpdateUniversalValidatorStatusResponse
+	7,  // 13: uvalidator.v1.Msg.RemoveUniversalValidator:output_type -> uvalidator.v1.MsgRemoveUniversalValidatorResponse
+	9,  // [9:14] is the sub-list for method output_type
+	4,  // [4:9] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_uvalidator_v1_tx_proto_init() }
@@ -4071,6 +5075,30 @@ func file_uvalidator_v1_tx_proto_init() {
 				return nil
 			}
 		}
+		file_uvalidator_v1_tx_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgUpdateUniversalValidatorStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_uvalidator_v1_tx_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MsgUpdateUniversalValidatorStatusResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -4078,7 +5106,7 @@ func file_uvalidator_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_uvalidator_v1_tx_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

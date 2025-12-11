@@ -21,4 +21,5 @@ type SlashingKeeper interface {
 // UtssKeeper defines the expected interface for the utss module.
 type UtssKeeper interface {
 	GetCurrentTssParticipants(ctx context.Context) ([]string, error)
+	HasOngoingTss(ctx context.Context) (bool, error)
 }

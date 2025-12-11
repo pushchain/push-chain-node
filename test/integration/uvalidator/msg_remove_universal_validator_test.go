@@ -74,6 +74,7 @@ func TestRemoveUniversalValidator(t *testing.T) {
 		// add fake current TSS process with this validator as participant
 		process := utsstypes.TssKeyProcess{
 			Participants: []string{valAddr.String()},
+			ExpiryHeight: 500,
 		}
 		require.NoError(t, app.UtssKeeper.CurrentTssProcess.Set(ctx, process))
 

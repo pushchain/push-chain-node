@@ -62,7 +62,7 @@ func TestMsgUpdateUniversalValidatorStatus_ValidateBasic(t *testing.T) {
 				NewStatus:            invalidNewStatus,
 			},
 			wantErr: true,
-			errMsg:  "invalid core validator address",
+			errMsg:  "invalid new status",
 		},
 	}
 

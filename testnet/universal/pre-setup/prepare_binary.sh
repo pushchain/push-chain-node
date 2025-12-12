@@ -24,7 +24,7 @@ BINARY_OUT_DIR_ABS="$(cd "$SCRIPT_DIR/../binary" && pwd)"
 mkdir -p "$BINARY_OUT_DIR_ABS"
 
 ###############################################################################
-# SECTION 2: Verify Required Dependencies
+# SECTION 2: Verify Required Dependencies 
 ###############################################################################
 
 # Check for dkls23-rs (required) and garbling (optional) as sibling directories

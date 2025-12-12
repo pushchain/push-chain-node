@@ -1,6 +1,7 @@
-FROM golang:1.23.7-alpine3.20 AS base
+# syntax=docker/dockerfile:1.4
+FROM golang:1.24-alpine3.21 AS base
 
-# Install system dependencies
+# Install system dependencies (rarely changes - good cache candidate)
 RUN apk add --no-cache \
     ca-certificates \
     build-base \
@@ -11,23 +12,62 @@ RUN apk add --no-cache \
     curl \
     make \
     jq \
-    sed
+    sed \
+    musl-dev
 
 WORKDIR /code
 
-# Copy go.mod and go.sum first for dependency caching
-COPY go.mod go.sum ./
+# Install Rust via rustup (rarely changes)
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
 
-# Download ALL dependencies and WASM library (this layer will be cached)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal && \
+    rustc --version && \
+    cargo --version
+
+# Copy dkls23-rs for building libgodkls
+COPY dkls23-rs /dkls23-rs
+
+# Copy garbling crates (dkls23-rs workspace dependency)
+COPY garbling /garbling
+
+# Build libgodkls static library with aggressive caching
+# Cache mounts: cargo registry, cargo git index, and target directory
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
+    --mount=type=cache,target=/usr/local/cargo/git,id=cargo-git \
+    --mount=type=cache,target=/dkls23-rs/target,id=rust-target \
+    cd /dkls23-rs && \
+    # Add staticlib to crate-type for go-dkls crate
+    if grep -q 'crate-type = \["cdylib", "rlib"\]' wrapper/go-dkls/Cargo.toml; then \
+        sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' wrapper/go-dkls/Cargo.toml; \
+    fi && \
+    cat wrapper/go-dkls/Cargo.toml && \
+    # Build the library with incremental compilation
+    CARGO_INCREMENTAL=1 cargo build --release -p go-dkls 2>&1 && \
+    # List what was built
+    echo "=== Built libraries ===" && \
+    ls -la /dkls23-rs/target/release/libgodkls* 2>/dev/null || echo "No libgodkls found in target/release" && \
+    ls -la /dkls23-rs/target/release/*.a 2>/dev/null || echo "No .a files found" && \
+    # Copy to /lib for easy linking
+    cp /dkls23-rs/target/release/libgodkls.a /lib/ 2>/dev/null || true
+
+# Copy go.mod and go.sum
+COPY push-chain/go.mod push-chain/go.sum ./
+
+# Download wasmvm library for static linking (version-pinned, rarely changes)
 RUN set -eux; \
-    export ARCH=$(uname -m); \
-    WASM_VERSION=$(go list -m all | grep github.com/CosmWasm/wasmvm || true); \
-    if [ ! -z "${WASM_VERSION}" ]; then \
-      WASMVM_REPO=$(echo $WASM_VERSION | awk '{print $1}');\
-      WASMVM_VERS=$(echo $WASM_VERSION | awk '{print $2}');\
-      wget -O /lib/libwasmvm_muslc.a https://${WASMVM_REPO}/releases/download/${WASMVM_VERS}/libwasmvm_muslc.$(uname -m).a;\
-    fi; \
-    go mod download;
+    ARCH=$(uname -m); \
+    echo "Downloading wasmvm for arch: ${ARCH}"; \
+    # Download the library
+    wget -O /lib/libwasmvm_muslc.a \
+        https://github.com/CosmWasm/wasmvm/releases/download/v2.2.4/libwasmvm_muslc.${ARCH}.a; \
+    # Create symlink with arch suffix (some linker configs look for this)
+    ln -sf /lib/libwasmvm_muslc.a /lib/libwasmvm_muslc.${ARCH}.a; \
+    # Verify
+    ls -la /lib/libwasmvm* && \
+    file /lib/libwasmvm_muslc.a
 
-# This base image now contains all dependencies and will be reused
-# No source code is copied here - that happens in the derived images
+# Download Go dependencies with cache mount
+RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    go mod download || true

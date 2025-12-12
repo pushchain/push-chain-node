@@ -16,5 +16,5 @@ var (
 var SupportedMessages = []string{
 	"/uexecutor.v1.MsgVoteInbound",
 	"/uexecutor.v1.MsgVoteGasPrice",
-	// TODO: Add More Messages here as supported by Chain
+	"/utss.v1.MsgVoteTssKeyProcess",
 }

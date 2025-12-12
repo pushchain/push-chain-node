@@ -13,3 +13,6 @@ universalClient/coverage.out
 *.db
 *.db-shm
 *.db-wal
+*.DS_Store
+# TSS data directory
+tss-data/

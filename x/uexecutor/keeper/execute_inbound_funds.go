@@ -20,7 +20,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 	)
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-	universalTxKey := types.GetInboundKey(*utx.InboundTx)
+	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
 			TxHash:      "", // no hash if depositPRC20 failed

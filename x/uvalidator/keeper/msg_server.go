@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/errors"
@@ -48,7 +49,7 @@ func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAdd
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress)
+	err = ms.k.AddUniversalValidator(ctx, msg.CoreValidatorAddress, *msg.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -74,4 +75,48 @@ func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.Msg
 	}
 
 	return &types.MsgRemoveUniversalValidatorResponse{}, nil
+}
+
+// UpdateUniversalValidator implements types.MsgServer.
+func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.MsgUpdateUniversalValidator) (*types.MsgUpdateUniversalValidatorResponse, error) {
+	// Parse signer account
+	signerAcc, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(sdkErrors.ErrInvalidAddress, "invalid signer address: %s", msg.Signer)
+	}
+
+	// Find validator controlled by this account
+	valAddr := sdk.ValAddress(signerAcc)
+
+	validator, err := ms.k.stakingKeeper.GetValidator(ctx, valAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "signer is not a validator operator")
+	}
+
+	err = ms.k.UpdateUniversalValidator(ctx, validator.OperatorAddress, *msg.Network)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateUniversalValidatorResponse{}, nil
+}
+
+// UpdateUniversalValidatorStatus implements types.MsgServer.
+func (ms msgServer) UpdateUniversalValidatorStatus(ctx context.Context, msg *types.MsgUpdateUniversalValidatorStatus) (*types.MsgUpdateUniversalValidatorStatusResponse, error) {
+	// Retrieve the current Params
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	err = ms.k.UpdateUniversalValidatorStatus(ctx, msg.CoreValidatorAddress, msg.NewStatus)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateUniversalValidatorStatusResponse{}, nil
 }

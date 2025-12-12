@@ -1,0 +1,64 @@
+syntax = "proto3";
+package uvalidator.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
+
+// Universal Validator status
+enum UVStatus {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  UV_STATUS_UNSPECIFIED = 0;
+  UV_STATUS_ACTIVE = 1;             // Fully active (votes + signs)
+  UV_STATUS_PENDING_JOIN = 2;       // Waiting for onboarding keygen / vote
+  UV_STATUS_PENDING_LEAVE = 3;      // Marked for removal (still active until TSS reshare)
+  UV_STATUS_INACTIVE = 4;           // No longer part of the validator set
+}
+
+// Identity info for validator (chain-level)
+message IdentityInfo {
+  option (amino.name) = "uvalidator/identity_info";
+  option (gogoproto.equal) = true;
+
+  string core_validator_address = 1; // Core validator address
+}
+
+// Validator network metadata
+message NetworkInfo {
+  option (amino.name) = "uvalidator/network_info";
+  option (gogoproto.equal) = true;
+
+  string peer_id = 1;
+  repeated string multi_addrs = 2;
+}
+
+// Lifecycle event info
+message LifecycleEvent {
+  option (amino.name) = "uvalidator/lifecycle_event";
+  option (gogoproto.equal) = true;
+
+  UVStatus status = 1;              // Validator status at this point in time
+  int64 block_height = 2;           // Block height when this status transition occurred
+}
+
+// Validator lifecycle info
+message LifecycleInfo {
+  option (amino.name) = "uvalidator/lifecyle_info";
+  option (gogoproto.equal) = true;
+
+  UVStatus current_status = 1;            // Current validator state
+  repeated LifecycleEvent history = 2;       // Added to registry
+}
+
+// Core Universal Validator object
+message UniversalValidator {
+  option (amino.name) = "uvalidator/universal_validator";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  IdentityInfo identify_info = 1;      // Identity info of the validator
+  NetworkInfo network_info = 2;           // Metadata for networking
+  LifecycleInfo lifecycle_info = 3;  // Lifecyle info of the validator
+}

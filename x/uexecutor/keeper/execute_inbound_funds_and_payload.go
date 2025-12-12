@@ -14,7 +14,7 @@ import (
 func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.UniversalTx) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-	universalTxKey := types.GetInboundKey(*utx.InboundTx)
+	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
 	// Build universalAccountId
 	universalAccountId := types.UniversalAccountId{

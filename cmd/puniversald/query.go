@@ -263,7 +263,7 @@ func tokenConfigCmd() *cobra.Command {
 				if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
 					return fmt.Errorf("token config not found for chain %s and address %s", chain, address)
 				}
-				return fmt.Errorf(errResp.Error)
+				return fmt.Errorf("%s", errResp.Error)
 			}
 
 			if resp.StatusCode != http.StatusOK {

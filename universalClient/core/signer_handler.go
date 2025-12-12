@@ -39,6 +39,7 @@ func NewSignerHandler(
 	log zerolog.Logger,
 	validationResult *StartupValidationResult,
 	grpcURL string,
+	chainID string,
 ) (*SignerHandler, error) {
 	log.Info().Msg("Creating unified SignerHandler")
 
@@ -57,7 +58,7 @@ func NewSignerHandler(
 	)
 
 	// Create client context for AuthZ TxSigner
-	clientCtx, err := createClientContext(validationResult.Keyring, grpcURL)
+	clientCtx, err := createClientContext(validationResult.Keyring, grpcURL, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client context: %w", err)
 	}
@@ -111,7 +112,7 @@ func (sh *SignerHandler) SignAndBroadcast(
 }
 
 // createClientContext creates a client context for transaction signing
-func createClientContext(kr keyring.Keyring, grpcURL string) (client.Context, error) {
+func createClientContext(kr keyring.Keyring, grpcURL string, chainID string) (client.Context, error) {
 	// Use the shared utility function which handles port defaults and TLS
 	conn, err := pushcore.CreateGRPCConnection(grpcURL)
 	if err != nil {
@@ -145,7 +146,7 @@ func createClientContext(kr keyring.Keyring, grpcURL string) (client.Context, er
 	clientCtx := client.Context{}.
 		WithCodec(cdc).
 		WithInterfaceRegistry(interfaceRegistry).
-		WithChainID("push_42101-1"). // Push Chain testnet chain ID
+		WithChainID(chainID).
 		WithKeyring(kr).
 		WithGRPCClient(conn).
 		WithTxConfig(txConfig).

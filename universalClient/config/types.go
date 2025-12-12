@@ -17,7 +17,8 @@ type Config struct {
 	LogFormat  string `json:"log_format"`  // "json" or "console"
 	LogSampler bool   `json:"log_sampler"` // if true, samples logs (e.g., 1 in 5)
 
-	// Registry Config
+	// Push Chain configuration
+	PushChainID                  string   `json:"push_chain_id"`                   // Push Chain chain ID (default: localchain_9000-1)
 	PushChainGRPCURLs            []string `json:"push_chain_grpc_urls"`            // Push Chain gRPC endpoints (default: ["localhost:9090"])
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"` // How often to refresh configs in seconds (default: 60)
 	MaxRetries                   int      `json:"max_retries"`                     // Max retry attempts for registry queries (default: 3)
@@ -47,6 +48,12 @@ type Config struct {
 
 	// Unified per-chain configuration
 	ChainConfigs map[string]ChainSpecificConfig `json:"chain_configs"` // Map of chain ID to all chain-specific settings
+
+	// TSS Node configuration
+	TSSP2PPrivateKeyHex string `json:"tss_p2p_private_key_hex"` // Ed25519 private key in hex for libp2p identity
+	TSSP2PListen     string `json:"tss_p2p_listen"`      // libp2p listen address (default: /ip4/0.0.0.0/tcp/39000)
+	TSSPassword      string `json:"tss_password"`        // Encryption password for keyshares
+	TSSHomeDir       string `json:"tss_home_dir"`        // Keyshare storage directory (default: ~/.puniversal/tss)
 }
 
 // ChainSpecificConfig holds all chain-specific configuration in one place

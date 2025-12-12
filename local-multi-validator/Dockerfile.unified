@@ -1,0 +1,103 @@
+# syntax=docker/dockerfile:1.4
+# Unified Dockerfile - builds both pchaind and puniversald in one builder
+# Benefits: Shares Go compilation cache between binaries (~70% faster for second build)
+
+FROM local-multi-validator-base:latest AS builder
+
+# Copy ALL source code once (shared between both builds)
+# Order by change frequency: most stable first
+COPY push-chain/Makefile ./
+COPY push-chain/contrib/ ./contrib/
+COPY push-chain/api/ ./api/
+COPY push-chain/precompiles/ ./precompiles/
+COPY push-chain/types/ ./types/
+COPY push-chain/utils/ ./utils/
+COPY push-chain/x/ ./x/
+COPY push-chain/app/ ./app/
+COPY push-chain/universalClient/ ./universalClient/
+# cmd/ last as it changes most frequently
+COPY push-chain/cmd/ ./cmd/
+
+# Ensure go.sum is up to date with all dependencies
+RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    go mod tidy
+
+# Replace admin addresses for local-multi-validator setup
+RUN sed -i 's/push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a/push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20/g' \
+    ./x/uregistry/types/params.go \
+    ./x/utss/types/params.go \
+    ./x/uvalidator/types/params.go
+
+# Build pchaind binary (warms Go cache for puniversald)
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build \
+    --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    CGO_ENABLED=1 \
+    CGO_LDFLAGS="-L/lib -L/dkls23-rs/target/release" \
+    LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
+    -mod=readonly -tags "netgo,muslc" \
+    -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-L/lib -L/dkls23-rs/target/release -Wl,-z,muldefs -static"' \
+    -trimpath -o build/pchaind ./cmd/pchaind \
+    && file /code/build/pchaind \
+    && echo "Ensuring pchaind is statically linked ..." \
+    && (file /code/build/pchaind | grep "statically linked")
+
+# Build puniversald binary (benefits from warm cache - ~70% faster)
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build \
+    --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    CGO_ENABLED=1 \
+    CGO_LDFLAGS="-L/lib -L/dkls23-rs/target/release" \
+    LEDGER_ENABLED=false BUILD_TAGS=muslc LINK_STATICALLY=true go build \
+    -mod=readonly -tags "netgo,muslc" \
+    -ldflags '-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=puniversald -X github.com/cosmos/cosmos-sdk/version.ClientName=puniversald -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -X "github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,muslc" -s -w -linkmode=external -extldflags "-L/lib -L/dkls23-rs/target/release -Wl,-z,muldefs -static"' \
+    -trimpath -o build/puniversald ./cmd/puniversald \
+    && file /code/build/puniversald \
+    && echo "Ensuring puniversald is statically linked ..." \
+    && (file /code/build/puniversald | grep "statically linked")
+
+# --------------------------------------------------------
+# RUNTIME: Core Validator (pchaind)
+# --------------------------------------------------------
+FROM alpine:3.21 AS core-runtime
+
+# Copy ONLY pchaind binary
+COPY --from=builder /code/build/pchaind /usr/bin/pchaind
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates curl make bash jq sed
+
+WORKDIR /opt
+
+# Copy setup scripts
+COPY push-chain/local-multi-validator/scripts/ /opt/scripts/
+
+# Expose ports for core validators
+EXPOSE 1317 26656 26657 26658 26659 8545 8546 8548 8550 9090 9091 9092
+
+CMD ["/usr/bin/pchaind", "version"]
+
+# --------------------------------------------------------
+# RUNTIME: Universal Validator (puniversald)
+# --------------------------------------------------------
+FROM alpine:3.21 AS universal-runtime
+
+# Copy ONLY puniversald binary
+COPY --from=builder /code/build/puniversald /usr/bin/puniversald
+
+# Install runtime dependencies with retry and fallback
+RUN apk update --no-cache || true && \
+    apk add --no-cache ca-certificates curl make bash jq sed || \
+    (echo "Retrying with different mirror..." && \
+     echo "https://dl-cdn.alpinelinux.org/alpine/v3.21/main" > /etc/apk/repositories && \
+     echo "https://dl-cdn.alpinelinux.org/alpine/v3.21/community" >> /etc/apk/repositories && \
+     apk update --no-cache && \
+     apk add --no-cache ca-certificates curl make bash jq sed)
+
+WORKDIR /opt
+
+# Copy setup scripts
+COPY push-chain/local-multi-validator/scripts/ /opt/scripts/
+
+# Expose ports for universal validators
+EXPOSE 8080 8081 8082 39000 39001 39002
+
+CMD ["/usr/bin/puniversald", "version"]

@@ -6931,9 +6931,9 @@ type MsgMigrateUEA struct {
 	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
 	// universal_account_id is the identifier of the owner account
 	UniversalAccountId *UniversalAccountId `protobuf:"bytes,2,opt,name=universal_account_id,json=universalAccountId,proto3" json:"universal_account_id,omitempty"`
-	// payload is the universal payload to be executed
+	// payload is the migration payload to be executed
 	MigrationPayload *MigrationPayload `protobuf:"bytes,3,opt,name=migration_payload,json=migrationPayload,proto3" json:"migration_payload,omitempty"`
-	// verification_data is the bytes passed as verifier data for the given payload.
+	// signature is the bytes passed as verifier data for the given payload.
 	Signature string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 

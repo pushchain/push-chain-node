@@ -13,11 +13,13 @@ var (
 func NewMsgAddUniversalValidator(
 	sender sdk.Address,
 	coreValidatorAddress sdk.Address,
-	universalValidatorAddress sdk.Address,
+	pubKey string,
+	network NetworkInfo,
 ) *MsgAddUniversalValidator {
 	return &MsgAddUniversalValidator{
 		Signer:               sender.String(),
 		CoreValidatorAddress: coreValidatorAddress.String(),
+		Network:              &network,
 	}
 }
 
@@ -50,5 +52,5 @@ func (msg *MsgAddUniversalValidator) ValidateBasic() error {
 		return errors.Wrap(err, "invalid core validator address")
 	}
 
-	return nil
+	return msg.Network.ValidateBasic()
 }

@@ -26,6 +26,7 @@ type OutboundCreatedEvent struct {
 	TxType           string `json:"tx_type"`
 	PcTxHash         string `json:"pc_tx_hash"`
 	LogIndex         string `json:"log_index"`
+	RevertMsg        string `json:"revert_msg"`
 }
 
 // NewOutboundCreatedEvent creates a Cosmos SDK event for outbound creation.
@@ -54,6 +55,7 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 		sdk.NewAttribute("tx_type", e.TxType),
 		sdk.NewAttribute("pc_tx_hash", e.PcTxHash),
 		sdk.NewAttribute("log_index", e.LogIndex),
+		sdk.NewAttribute("revert_msg", e.RevertMsg),
 		sdk.NewAttribute("data", string(bz)), // full JSON payload for indexers
 	)
 

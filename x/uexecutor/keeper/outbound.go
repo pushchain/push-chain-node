@@ -3,7 +3,10 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math/big"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -41,12 +44,7 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 	}
 
 	obs := outbound.ObservedTx
-	if obs == nil {
-		return nil
-	}
-
-	// If outbound succeeded -> nothing to do
-	if obs.Success {
+	if obs == nil || obs.Success {
 		return nil
 	}
 
@@ -56,8 +54,45 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 		return nil
 	}
 
-	// Parse amount and mint as per revert Instruction
-	// TODO
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// Decide refund recipient safely
+	recipient := outbound.Sender
+	if outbound.RevertInstructions != nil &&
+		outbound.RevertInstructions.FundRecipient != "" {
+		recipient = outbound.RevertInstructions.FundRecipient
+	}
+
+	// Mint tokens back
+	amount := new(big.Int)
+	amount, ok := amount.SetString(outbound.Amount, 10)
+	if !ok {
+		return fmt.Errorf("invalid amount: %s", outbound.Amount)
+	}
+	receipt, err := k.CallPRC20Deposit(sdkCtx, common.HexToAddress(outbound.AssetAddr), common.HexToAddress(recipient), amount)
+
+	// Update outbound status
+	outbound.OutboundStatus = types.Status_REVERTED
+
+	pcTx := types.PCTx{
+		TxHash:      "", // no hash if depositPRC20 failed
+		Sender:      outbound.Sender,
+		GasUsed:     0,
+		BlockHeight: uint64(sdkCtx.BlockHeight()),
+	}
+
+	if err != nil {
+		pcTx.Status = "FAILED"
+		pcTx.ErrorMsg = err.Error()
+	} else {
+		pcTx.TxHash = receipt.Hash
+		pcTx.GasUsed = receipt.GasUsed
+		pcTx.Status = "SUCCESS"
+		pcTx.ErrorMsg = ""
+	}
+
+	outbound.PcRevertExecution = &pcTx
+
 	// Store Reverted tx in Outbound
-	return nil
+	return k.UpdateOutbound(ctx, utxId, outbound)
 }

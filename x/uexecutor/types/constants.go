@@ -43,5 +43,5 @@ const (
 )
 
 var UniversalTxWithdrawEventSig = crypto.Keccak256Hash([]byte(
-	"UniversalTxWithdraw(address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,(address,bytes))",
+	"UniversalTxWithdraw(address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8)",
 )).Hex()

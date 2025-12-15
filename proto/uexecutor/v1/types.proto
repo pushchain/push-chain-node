@@ -66,6 +66,7 @@ enum Status {
   UNSPECIFIED = 0;
   PENDING = 1;
   OBSERVED = 2;
+  REVERTED = 3;
 }
 
 enum TxType {
@@ -123,6 +124,7 @@ message OutboundObservation {
   bool success = 1;             // whether execution succeeded
   uint64 block_height = 2;      // block height on external chain
   string tx_hash = 3;           // external chain tx hash
+  string error_msg = 4;
 }
 
 message OriginatingPcTx {

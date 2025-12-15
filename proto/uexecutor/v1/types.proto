@@ -69,13 +69,13 @@ enum Status {
 }
 
 enum TxType {
-  UNSPECIFIED_TX = 0;
-  GAS = 1; // fee abstraction
-  FUNDS = 2; // synthetic
-  FUNDS_AND_PAYLOAD = 3; // synthetic + payload exec
-  GAS_AND_PAYLOAD = 4; // fee abstraction + payload exec
-  PAYLOAD = 5;
-  INBOUND_REVERT = 6;
+  UNSPECIFIED_TX    = 0;
+  GAS               = 1;
+  GAS_AND_PAYLOAD   = 2;
+  FUNDS             = 3;
+  FUNDS_AND_PAYLOAD = 4;
+  PAYLOAD           = 5;
+  INBOUND_REVERT    = 6;
 }
 
 message RevertInstructions {

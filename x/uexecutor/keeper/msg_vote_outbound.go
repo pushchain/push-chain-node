@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -45,8 +46,8 @@ func (k Keeper) VoteOutbound(
 	}
 
 	// Prevent double-finalization
-	if outbound.OutboundStatus == types.Status_OBSERVED {
-		return nil
+	if outbound.OutboundStatus != types.Status_PENDING {
+		return fmt.Errorf("outbound with key %s is already finalized", outboundId)
 	}
 
 	// Use temp context to prevent partial writes
@@ -80,10 +81,8 @@ func (k Keeper) VoteOutbound(
 		return err
 	}
 
-	// Step 6: Finalize outbound (refund if failed)
-	if err := k.FinalizeOutbound(ctx, utxId, outbound); err != nil {
-		return err
-	}
+	// Step 6: Finalize outbound (refund if failed) - Don't return error
+	_ = k.FinalizeOutbound(ctx, utxId, outbound)
 
 	return nil
 }

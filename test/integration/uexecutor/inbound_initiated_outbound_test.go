@@ -105,6 +105,13 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 		// SaveGrant takes (ctx, grantee, granter, authz.Authorization, *time.Time)
 		err = app.AuthzKeeper.SaveGrant(ctx, uniValAddr, coreValAddr, auth, &exp)
 		require.NoError(t, err)
+
+		// Define grant for MsgVoteOutbound
+		outboundAuth := authz.NewGenericAuthorization(
+			sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}),
+		)
+		err = app.AuthzKeeper.SaveGrant(ctx, uniValAddr, coreValAddr, outboundAuth, &exp)
+		require.NoError(t, err)
 	}
 
 	validUA := &uexecutortypes.UniversalAccountId{
@@ -119,12 +126,12 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 	require.NoError(t, err)
 
 	// signature
-	validVerificationData := "0xad94645ee4375e1280ea95848da186e36118abf4aa0e95294e45dc9a141db30e4ed15990f75c7b02908091fc626e05c4921fb8bc5ea8fa1a62ecd001d7ce61871c"
+	validVerificationData := "0x928958fffec8ca9ea8505ed154615be009ecf0818586aed9cd9d6c8b92fcf0e304bdf26b3cdb3317adfc2251bae109ddcf3e4a93deeec137d5ff662ec7ff3c221b"
 
 	validUP := &uexecutortypes.UniversalPayload{
 		To:                   utils.GetDefaultAddresses().UniversalGatewayPCAddr.Hex(),
 		Value:                "0",
-		Data:                 "0x718a35b000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000000000000000000000000000000000141234567890abcdef1234567890abcdef12345678000000000000000000000000",
+		Data:                 "0x718a35b000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000e0600000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000000000000000000000000000000000141234567890abcdef1234567890abcdef12345678000000000000000000000000",
 		GasLimit:             "21000000",
 		MaxFeePerGas:         "1000000000",
 		MaxPriorityFeePerGas: "200000000",
@@ -189,6 +196,7 @@ func TestInboundInitiatedOutbound(t *testing.T) {
 		// checks
 		require.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", out.Recipient)
 		require.Equal(t, "1000000", out.Amount)
+		require.Equal(t, "0x0000000000000000000000000000000000000e06", out.AssetAddr)
 		require.Equal(t, uexecutortypes.TxType_FUNDS, out.TxType)
 		require.Equal(t, uexecutortypes.Status_PENDING, out.OutboundStatus)
 	})

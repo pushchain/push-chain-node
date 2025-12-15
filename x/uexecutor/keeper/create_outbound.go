@@ -50,10 +50,13 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			Sender:           event.Sender,
 			Payload:          event.Payload,
 			GasLimit:         event.GasLimit.String(),
-			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+			TxType:           event.TxType,
 			PcTx: &types.OriginatingPcTx{
 				TxHash:   receipt.Hash,
 				LogIndex: fmt.Sprintf("%d", lg.Index),
+			},
+			RevertInstructions: &types.RevertInstructions{
+				FundRecipient: event.RevertRecipient,
 			},
 			OutboundStatus: types.Status_PENDING,
 			Id:             types.GetOutboundId(utxId, receipt.Hash, lg.Index),
@@ -111,7 +114,7 @@ func (k Keeper) AttachOutboundsToExistingUniversalTx(
 		return err
 	}
 
-	return k.attachOutboundsToUtx(ctx, utx.Id, outbounds)
+	return k.attachOutboundsToUtx(ctx, utx.Id, outbounds, "")
 }
 
 // CreateUniversalTxFromReceiptIfOutbound
@@ -141,19 +144,19 @@ func (k Keeper) CreateUniversalTxFromReceiptIfOutbound(
 		return err
 	}
 
-	return k.attachOutboundsToUtx(ctx, utx.Id, outbounds)
+	return k.attachOutboundsToUtx(ctx, utx.Id, outbounds, "")
 }
 
 func (k Keeper) attachOutboundsToUtx(
 	ctx sdk.Context,
 	utxId string,
 	outbounds []*types.OutboundTx,
+	revertMsg string, // revert msg if the outbound is for a inbound revert
 ) error {
 
 	if len(outbounds) == 0 {
 		return nil
 	}
-
 	return k.UpdateUniversalTx(ctx, utxId, func(utx *types.UniversalTx) error {
 
 		for _, outbound := range outbounds {
@@ -164,6 +167,14 @@ func (k Keeper) attachOutboundsToUtx(
 			txIDHex, err := types.EncodeOutboundTxIDHex(utxId, outbound.Id)
 			if err != nil {
 				return fmt.Errorf("failed to encode outbound txID: %w", err)
+			}
+
+			var pcTxHash string
+			var logIndex string
+
+			if outbound.PcTx != nil {
+				pcTxHash = outbound.PcTx.TxHash
+				logIndex = outbound.PcTx.LogIndex
 			}
 
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
@@ -178,8 +189,9 @@ func (k Keeper) attachOutboundsToUtx(
 				Payload:          outbound.Payload,
 				GasLimit:         outbound.GasLimit,
 				TxType:           outbound.TxType.String(),
-				PcTxHash:         outbound.PcTx.TxHash,
-				LogIndex:         outbound.PcTx.LogIndex,
+				PcTxHash:         pcTxHash,
+				LogIndex:         logIndex,
+				RevertMsg:        revertMsg,
 			})
 			if err == nil {
 				ctx.EventManager().EmitEvent(evt)

@@ -21,7 +21,8 @@ func baseValidOutbound() types.OutboundTx {
 			TxHash:   "0xpc123",
 			LogIndex: "1",
 		},
-		Id: "0",
+		Id:             "0",
+		OutboundStatus: types.Status_PENDING,
 	}
 }
 

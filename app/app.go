@@ -166,6 +166,9 @@ import (
 	uregistry "github.com/pushchain/push-chain-node/x/uregistry"
 	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utss "github.com/pushchain/push-chain-node/x/utss"
+	utsskeeper "github.com/pushchain/push-chain-node/x/utss/keeper"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
@@ -318,6 +321,7 @@ type ChainApp struct {
 	UtxverifierKeeper utxverifierkeeper.Keeper
 	UregistryKeeper   uregistrykeeper.Keeper
 	UvalidatorKeeper  uvalidatorkeeper.Keeper
+	UtssKeeper        utsskeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -432,6 +436,7 @@ func NewChainApp(
 		utxverifiertypes.StoreKey,
 		uregistrytypes.StoreKey,
 		uvalidatortypes.StoreKey,
+		utsstypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -747,6 +752,22 @@ func NewChainApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.StakingKeeper,
 		app.SlashingKeeper,
+		&app.UtssKeeper,
+	)
+
+	// Create the utss keeper
+	app.UtssKeeper = utsskeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[utsstypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.UvalidatorKeeper,
+	)
+
+	app.UvalidatorKeeper.SetHooks(
+		uvalidatorkeeper.NewMultiUValidatorHooks(
+			app.UtssKeeper.Hooks(),
+		),
 	)
 
 	// NOTE: we are adding all available EVM extensions.
@@ -1017,7 +1038,8 @@ func NewChainApp(
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
+		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1067,6 +1089,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1090,6 +1113,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1140,6 +1164,7 @@ func NewChainApp(
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
+		utsstypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1240,15 +1265,20 @@ func NewChainApp(
 
 	// At startup, after all modules have been registered, check that all proto
 	// annotations are correct.
+	// Note: This fails at runtime when dependency proto files (e.g., libp2p) have imports that can't be resolved, even though the proto files are properly embedded. - https://github.com/CosmWasm/wasmd/issues/1785
+	// This is a validation check only and doesn't affect functionality.
 	protoFiles, err := proto.MergedRegistry()
 	if err != nil {
-		panic(err)
-	}
-	err = msgservice.ValidateProtoAnnotations(protoFiles)
-	if err != nil {
-		// Once we switch to using protoreflect-based antehandlers, we might
-		// want to panic here instead of logging a warning.
-		_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		// Log warning instead of panicking to allow binaries that use dependencies
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to merge proto registry: %v\n", err)
+		_, _ = fmt.Fprintln(os.Stderr, "Continuing without proto validation...")
+	} else {
+		err = msgservice.ValidateProtoAnnotations(protoFiles)
+		if err != nil {
+			// Once we switch to using protoreflect-based antehandlers, we might
+			// want to panic here instead of logging a warning.
+			_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		}
 	}
 
 	if loadLatest {
@@ -1580,6 +1610,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
+	paramsKeeper.Subspace(utsstypes.ModuleName)
 
 	return paramsKeeper
 }

@@ -14,8 +14,8 @@ func TestMsgRemoveUniversalValidator_ValidateBasic(t *testing.T) {
 	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
 	cfg.SetBech32PrefixForValidator(app.Bech32PrefixValAddr, app.Bech32PrefixValPub)
 
-	validAdmin := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"        // valid bech32 account address
-	validUniversalVal := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20" // now treated as universal validator address
+	validAdmin := "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"          // valid bech32 account address
+	validCoreVal := "pushvaloper1gjaw568e35hjc8udhat0xnsxxmkm2snrjnakhg" // now treated as universal validator address
 
 	tests := []struct {
 		name    string
@@ -27,7 +27,7 @@ func TestMsgRemoveUniversalValidator_ValidateBasic(t *testing.T) {
 			name: "valid message",
 			msg: types.MsgRemoveUniversalValidator{
 				Signer:               validAdmin,
-				CoreValidatorAddress: validUniversalVal,
+				CoreValidatorAddress: validCoreVal,
 			},
 			wantErr: false,
 		},
@@ -35,19 +35,19 @@ func TestMsgRemoveUniversalValidator_ValidateBasic(t *testing.T) {
 			name: "invalid signer address",
 			msg: types.MsgRemoveUniversalValidator{
 				Signer:               "bad_signer",
-				CoreValidatorAddress: validUniversalVal,
+				CoreValidatorAddress: validCoreVal,
 			},
 			wantErr: true,
 			errMsg:  "invalid signer address",
 		},
 		{
-			name: "invalid universal validator address",
+			name: "invalid core validator address (format)",
 			msg: types.MsgRemoveUniversalValidator{
 				Signer:               validAdmin,
-				CoreValidatorAddress: "not_a_valid_addr",
+				CoreValidatorAddress: "not_a_valoper",
 			},
 			wantErr: true,
-			errMsg:  "invalid universal validator address",
+			errMsg:  "invalid core validator address",
 		},
 	}
 

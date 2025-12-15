@@ -6,25 +6,28 @@ volumes:
   validator1-data:
   validator2-data:
   validator3-data:
+  validator4-data:
   universal1-data:
   universal2-data:
   universal3-data:
+  universal4-data:
   push-accounts:
 
 services:
   # Base image builder
   base:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.base
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.base
     image: local-multi-validator-base:latest
     profiles: [base]
 
   # Account Generator (runs first to create mnemonics)
   account-generator:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.core
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: core-runtime
     image: push-core:latest
     container_name: account-generator
     networks:
@@ -37,8 +40,9 @@ services:
   # Core Validator 1 (Genesis Validator)
   core-validator-1:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.core
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: core-runtime
     image: push-core:latest
     container_name: core-validator-1
     networks:
@@ -78,8 +82,9 @@ services:
   # Core Validator 2
   core-validator-2:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.core
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: core-runtime
     image: push-core:latest
     container_name: core-validator-2
     networks:
@@ -120,8 +125,9 @@ services:
   # Core Validator 3
   core-validator-3:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.core
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: core-runtime
     image: push-core:latest
     container_name: core-validator-3
     networks:
@@ -159,25 +165,72 @@ services:
       timeout: 10s
       retries: 120
 
+  # Core Validator 4
+  core-validator-4:
+    build:
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: core-runtime
+    image: push-core:latest
+    container_name: core-validator-4
+    networks:
+      - push-network
+    ports:
+      - "26660:26657"  # RPC
+      - "1320:1317"    # REST
+      - "9097:9090"    # GRPC
+      - "9098:9091"    # GRPC Web
+      - "26686:26656"  # P2P
+      - "8551:8545"    # EVM HTTP
+      - "8552:8546"    # EVM WebSocket
+    volumes:
+      - validator4-data:/root/.pchain
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
+    environment:
+      - VALIDATOR_ID=4
+      - VALIDATOR_TYPE=regular
+      - CHAIN_ID=localchain_9000-1
+      - MONIKER=validator-4
+      - RPC_PORT=26657
+      - GRPC_PORT=9090
+      - P2P_PORT=26656
+      - REST_PORT=1317
+      - GENESIS_PEER=core-validator-1:26656
+    command: ["/opt/scripts/setup-validator-auto.sh"]
+    depends_on:
+      core-validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
   # Universal Validator 1 (connects to Core Validator 1)
   universal-validator-1:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.universal
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: universal-runtime
     image: push-universal:latest
     container_name: universal-validator-1
     networks:
       - push-network
     ports:
       - "8080:8080"    # Query API
+      - "39000:39000"  # TSS P2P
     volumes:
       - universal1-data:/root/.puniversal
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
     environment:
       - UNIVERSAL_ID=1
       - CORE_VALIDATOR_GRPC=core-validator-1:9090
       - QUERY_PORT=8080
+      - TSS_ENABLED=true
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-1:
@@ -191,22 +244,26 @@ services:
   # Universal Validator 2 (connects to Core Validator 2)
   universal-validator-2:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.universal
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: universal-runtime
     image: push-universal:latest
     container_name: universal-validator-2
     networks:
       - push-network
     ports:
       - "8081:8080"    # Query API
+      - "39001:39001"  # TSS P2P
     volumes:
       - universal2-data:/root/.puniversal
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
     environment:
       - UNIVERSAL_ID=2
       - CORE_VALIDATOR_GRPC=core-validator-2:9090
       - QUERY_PORT=8080
+      - TSS_ENABLED=true
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-2:
@@ -220,25 +277,62 @@ services:
   # Universal Validator 3 (connects to Core Validator 3)
   universal-validator-3:
     build:
-      context: ..
-      dockerfile: local-multi-validator/Dockerfile.universal
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: universal-runtime
     image: push-universal:latest
     container_name: universal-validator-3
     networks:
       - push-network
     ports:
       - "8082:8080"    # Query API
+      - "39002:39002"  # TSS P2P
     volumes:
       - universal3-data:/root/.puniversal
       - ./scripts:/opt/scripts
       - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
     environment:
       - UNIVERSAL_ID=3
       - CORE_VALIDATOR_GRPC=core-validator-3:9090
       - QUERY_PORT=8080
+      - TSS_ENABLED=true
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 10s
+      retries: 120
+
+  # Universal Validator 4 (connects to Core Validator 4)
+  universal-validator-4:
+    build:
+      context: ../..
+      dockerfile: push-chain/local-multi-validator/Dockerfile.unified
+      target: universal-runtime
+    image: push-universal:latest
+    container_name: universal-validator-4
+    networks:
+      - push-network
+    ports:
+      - "8083:8080"    # Query API
+      - "39003:39003"  # TSS P2P
+    volumes:
+      - universal4-data:/root/.puniversal
+      - ./scripts:/opt/scripts
+      - ./configs:/opt/configs
+      - push-accounts:/tmp/push-accounts
+    environment:
+      - UNIVERSAL_ID=4
+      - CORE_VALIDATOR_GRPC=core-validator-4:9090
+      - QUERY_PORT=8080
+      - TSS_ENABLED=true
+    command: ["/opt/scripts/setup-universal.sh"]
+    depends_on:
+      core-validator-4:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

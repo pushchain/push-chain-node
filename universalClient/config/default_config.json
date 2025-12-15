@@ -2,9 +2,13 @@
   "log_level": 1,
   "log_format": "console",
   "log_sampler": false,
+  "push_chain_id": "localchain_9000-1",
   "push_chain_grpc_urls": [
     "localhost:9090"
   ],
+  "tss_p2p_private_key_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+  "tss_password": "defaultpassword",
+  "tss_p2p_listen": "/ip4/0.0.0.0/tcp/39000",
   "config_refresh_interval_seconds": 60,
   "max_retries": 3,
   "retry_backoff_seconds": 1,

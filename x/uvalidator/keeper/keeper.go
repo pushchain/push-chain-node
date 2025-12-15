@@ -19,11 +19,13 @@ import (
 type Keeper struct {
 	cdc codec.BinaryCodec
 
-	logger log.Logger
+	logger        log.Logger
+	schemaBuilder *collections.SchemaBuilder
 
 	// state management
-	Params                collections.Item[types.Params]
-	UniversalValidatorSet collections.KeySet[sdk.ValAddress] // Set of all registered Universal Validator addresses
+	Params collections.Item[types.Params]
+	// TODO: write the migration from sdk.ValAddress to current structure
+	UniversalValidatorSet collections.Map[sdk.ValAddress, types.UniversalValidator] // Set of all registered Universal Validator addresses
 
 	// Ballots management
 	Ballots            collections.Map[string, types.Ballot] // stores the actual ballot object, keyed by ballot ID
@@ -33,8 +35,10 @@ type Keeper struct {
 
 	stakingKeeper  types.StakingKeeper
 	slashingKeeper types.SlashingKeeper
+	utssKeeper     types.UtssKeeper
 
 	authority string
+	hooks     types.UValidatorHooks
 }
 
 // NewKeeper creates a new Keeper instance
@@ -45,6 +49,7 @@ func NewKeeper(
 	authority string,
 	stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
+	utssKeeper types.UtssKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -55,16 +60,18 @@ func NewKeeper(
 	}
 
 	k := Keeper{
-		cdc:    cdc,
-		logger: logger,
+		cdc:           cdc,
+		logger:        logger,
+		schemaBuilder: sb,
 
 		Params: collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
-		UniversalValidatorSet: collections.NewKeySet(
+		UniversalValidatorSet: collections.NewMap(
 			sb,
 			types.CoreValidatorSetKey,
 			types.CoreValidatorSetName,
 			sdk.ValAddressKey,
+			codec.CollValue[types.UniversalValidator](cdc),
 		),
 
 		// Ballot collections
@@ -88,6 +95,7 @@ func NewKeeper(
 		authority:      authority,
 		stakingKeeper:  stakingKeeper,
 		slashingKeeper: slashingKeeper,
+		utssKeeper:     utssKeeper,
 	}
 
 	return k
@@ -119,10 +127,6 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	}
 }
 
-func (k Keeper) AddUniversalValidatorToSet(ctx context.Context, uvAddr sdk.ValAddress) error {
-	return k.UniversalValidatorSet.Set(ctx, uvAddr)
-}
-
 func (k Keeper) HasUniversalValidatorInSet(ctx context.Context, uvAddr sdk.ValAddress) (bool, error) {
 	return k.UniversalValidatorSet.Has(ctx, uvAddr)
 }
@@ -136,17 +140,14 @@ func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	return sdkCtx.BlockHeight(), nil
 }
 
-// Returns the universal validator set
-func (k Keeper) GetUniversalValidatorSet(ctx context.Context) ([]sdk.ValAddress, error) {
-	var validators []sdk.ValAddress
-
-	err := k.UniversalValidatorSet.Walk(ctx, nil, func(key sdk.ValAddress) (stop bool, err error) {
-		validators = append(validators, key)
-		return false, nil
-	})
-	if err != nil {
-		return nil, err
+func (k *Keeper) SetHooks(h types.UValidatorHooks) *Keeper {
+	if k.hooks != nil {
+		panic("cannot set uvalidator hooks twice")
 	}
+	k.hooks = h
+	return k
+}
 
-	return validators, nil
+func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
+	return k.schemaBuilder
 }

@@ -59,7 +59,7 @@ func TestExecutePayload(t *testing.T) {
 			MaxFeePerGas:         "1000000000",
 			MaxPriorityFeePerGas: "200000000",
 			Nonce:                "1",
-			Deadline:             "9999999999",
+			Deadline:             "0",
 			VType:                uexecutortypes.VerificationType(0),
 		}
 
@@ -85,7 +85,7 @@ func TestExecutePayload(t *testing.T) {
 			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
-			VerificationData:   "0x075bcd15",
+			VerificationData:   "0x91987784d56359fa91c3e3e0332f4f0cffedf9c081eb12874a63b41d5b5e5c660dc827947c2ae26e658d0551ad4b2d2aa073d62691429a0ae239d2cc58055bf11c",
 		}
 
 		_, err = ms.ExecutePayload(ctx, msg)

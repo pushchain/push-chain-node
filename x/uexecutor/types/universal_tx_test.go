@@ -31,14 +31,15 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 		},
 		OutboundTx: []*types.OutboundTx{
 			{
-				DestinationChain: "eip155:11155111",
-				Recipient:        "0x000000000000000000000000000000000000beef",
-				Sender:           "0x000000000000000000000000000000000000dead",
-				Amount:           "1000",
-				AssetAddr:        "0x000000000000000000000000000000000000cafe",
-				Payload:          "0xabcdef",
-				GasLimit:         "21000",
-				TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+				DestinationChain:  "eip155:11155111",
+				Recipient:         "0x000000000000000000000000000000000000beef",
+				Sender:            "0x000000000000000000000000000000000000dead",
+				Amount:            "1000",
+				ExternalAssetAddr: "0x000000000000000000000000000000000000cafe",
+				Prc20AssetAddr:    "0x000000000000000000000000000000000000bafe",
+				Payload:           "0xabcdef",
+				GasLimit:          "21000",
+				TxType:            types.TxType_FUNDS_AND_PAYLOAD,
 				PcTx: &types.OriginatingPcTx{
 					TxHash:   "0xpc123",
 					LogIndex: "1",

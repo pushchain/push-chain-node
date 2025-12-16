@@ -9,14 +9,15 @@ import (
 
 func baseValidOutbound() types.OutboundTx {
 	return types.OutboundTx{
-		DestinationChain: "eip155:11155111",
-		Recipient:        "0x000000000000000000000000000000000000beef",
-		Sender:           "0x000000000000000000000000000000000000dead",
-		Amount:           "1000",
-		AssetAddr:        "0x000000000000000000000000000000000000cafe",
-		Payload:          "0xabcdef",
-		GasLimit:         "21000",
-		TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+		DestinationChain:  "eip155:11155111",
+		Recipient:         "0x000000000000000000000000000000000000beef",
+		Sender:            "0x000000000000000000000000000000000000dead",
+		Amount:            "1000",
+		ExternalAssetAddr: "0x000000000000000000000000000000000000cafe",
+		Prc20AssetAddr:    "0x000000000000000000000000000000000000bafe",
+		Payload:           "0xabcdef",
+		GasLimit:          "21000",
+		TxType:            types.TxType_FUNDS_AND_PAYLOAD,
 		PcTx: &types.OriginatingPcTx{
 			TxHash:   "0xpc123",
 			LogIndex: "1",
@@ -49,7 +50,7 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 				ob := baseValidOutbound()
 				ob.TxType = types.TxType_PAYLOAD
 				ob.Amount = ""
-				ob.AssetAddr = ""
+				ob.ExternalAssetAddr = ""
 				return ob
 			}(),
 			expectError: false,
@@ -121,7 +122,7 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 			outbound: func() types.OutboundTx {
 				ob := baseValidOutbound()
 				ob.TxType = types.TxType_FUNDS
-				ob.AssetAddr = ""
+				ob.ExternalAssetAddr = ""
 				return ob
 			}(),
 			expectError: true,

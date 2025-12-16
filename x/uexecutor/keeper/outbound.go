@@ -69,7 +69,7 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 	if !ok {
 		return fmt.Errorf("invalid amount: %s", outbound.Amount)
 	}
-	receipt, err := k.CallPRC20Deposit(sdkCtx, common.HexToAddress(outbound.AssetAddr), common.HexToAddress(recipient), amount)
+	receipt, err := k.CallPRC20Deposit(sdkCtx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
 
 	// Update outbound status
 	outbound.OutboundStatus = types.Status_REVERTED

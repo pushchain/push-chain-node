@@ -13,6 +13,7 @@ import (
 )
 
 func (k Keeper) BuildOutboundsFromReceipt(
+	ctx context.Context,
 	utxId string,
 	receipt *evmtypes.MsgEthereumTxResponse,
 ) ([]*types.OutboundTx, error) {
@@ -42,15 +43,26 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			return nil, fmt.Errorf("failed to decode UniversalTxWithdraw: %w", err)
 		}
 
+		// Get the external asset addr
+		tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
+			ctx,
+			event.ChainId,
+			event.Token, // PRC20 address
+		)
+		if err != nil {
+			return nil, err
+		}
+
 		outbound := &types.OutboundTx{
-			DestinationChain: event.ChainId,
-			Recipient:        event.Target,
-			Amount:           event.Amount.String(),
-			AssetAddr:        event.Token,
-			Sender:           event.Sender,
-			Payload:          event.Payload,
-			GasLimit:         event.GasLimit.String(),
-			TxType:           event.TxType,
+			DestinationChain:  event.ChainId,
+			Recipient:         event.Target,
+			Amount:            event.Amount.String(),
+			ExternalAssetAddr: tokenCfg.Address,
+			Prc20AssetAddr:    event.Token,
+			Sender:            event.Sender,
+			Payload:           event.Payload,
+			GasLimit:          event.GasLimit.String(),
+			TxType:            event.TxType,
 			PcTx: &types.OriginatingPcTx{
 				TxHash:   receipt.Hash,
 				LogIndex: fmt.Sprintf("%d", lg.Index),
@@ -109,7 +121,7 @@ func (k Keeper) AttachOutboundsToExistingUniversalTx(
 	receipt *evmtypes.MsgEthereumTxResponse,
 	utx types.UniversalTx,
 ) error {
-	outbounds, err := k.BuildOutboundsFromReceipt(utx.Id, receipt)
+	outbounds, err := k.BuildOutboundsFromReceipt(ctx, utx.Id, receipt)
 	if err != nil {
 		return err
 	}
@@ -130,7 +142,7 @@ func (k Keeper) CreateUniversalTxFromReceiptIfOutbound(
 		return errors.Wrap(err, "failed to create UniversalTx key")
 	}
 
-	outbounds, err := k.BuildOutboundsFromReceipt(universalTxKey, receipt)
+	outbounds, err := k.BuildOutboundsFromReceipt(ctx, universalTxKey, receipt)
 	if err != nil {
 		return err
 	}
@@ -184,7 +196,7 @@ func (k Keeper) attachOutboundsToUtx(
 				DestinationChain: outbound.DestinationChain,
 				Recipient:        outbound.Recipient,
 				Amount:           outbound.Amount,
-				AssetAddr:        outbound.AssetAddr,
+				AssetAddr:        outbound.ExternalAssetAddr,
 				Sender:           outbound.Sender,
 				Payload:          outbound.Payload,
 				GasLimit:         outbound.GasLimit,

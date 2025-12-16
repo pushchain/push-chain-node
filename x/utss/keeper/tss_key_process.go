@@ -54,8 +54,26 @@ func (k Keeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error)
 		}
 		return nil, err
 	}
-	if sdkCtx.BlockHeight() < currentProcess.ExpiryHeight {
+	if sdkCtx.BlockHeight() >= currentProcess.ExpiryHeight {
 		return []string{}, nil
 	}
 	return currentProcess.Participants, nil
+}
+
+// HasOngoingTss returns true if a TSS process exists and is not expired
+func (k Keeper) HasOngoingTss(ctx context.Context) (bool, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	currentProcess, err := k.CurrentTssProcess.Get(ctx)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	if sdkCtx.BlockHeight() >= currentProcess.ExpiryHeight {
+		return false, nil
+	}
+
+	return true, nil
 }

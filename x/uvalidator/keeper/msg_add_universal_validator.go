@@ -16,7 +16,7 @@ import (
 // It ensures the core validator exists, is bonded, and handles lifecycle reactivation.
 func (k Keeper) AddUniversalValidator(
 	ctx context.Context,
-	coreValidatorAddr, pubkey string,
+	coreValidatorAddr string,
 	networkInfo types.NetworkInfo,
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -62,7 +62,6 @@ func (k Keeper) AddUniversalValidator(
 				Status:      types.UVStatus_UV_STATUS_PENDING_JOIN,
 				BlockHeight: sdkCtx.BlockHeight(),
 			})
-			existingVal.IdentifyInfo.Pubkey = pubkey
 			existingVal.NetworkInfo = &networkInfo
 
 			if err := k.UniversalValidatorSet.Set(ctx, valAddr, existingVal); err != nil {
@@ -89,7 +88,6 @@ func (k Keeper) AddUniversalValidator(
 	uv := types.UniversalValidator{
 		IdentifyInfo: &types.IdentityInfo{
 			CoreValidatorAddress: coreValidatorAddr,
-			Pubkey:               pubkey,
 		},
 		LifecycleInfo: &types.LifecycleInfo{
 			CurrentStatus: initialStatus,

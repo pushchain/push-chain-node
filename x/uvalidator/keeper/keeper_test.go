@@ -154,3 +154,7 @@ type mockUtssKeeper struct{}
 func (m mockUtssKeeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error) {
 	return []string{"val1", "val2"}, nil
 }
+
+func (mc mockUtssKeeper) HasOngoingTss(ctx context.Context) (bool, error) {
+	return true, nil
+}

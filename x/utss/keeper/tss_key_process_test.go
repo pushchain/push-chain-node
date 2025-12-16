@@ -93,17 +93,17 @@ func TestGetCurrentTssParticipants(t *testing.T) {
 	err := f.k.CurrentTssProcess.Set(ctx, proc)
 	require.NoError(t, err)
 
-	// Case 1: blockHeight < ExpiryHeight → return empty
+	// Case 1: blockHeight < ExpiryHeight → return participants
 	f.ctx = f.ctx.WithBlockHeight(3)
 	participants, err := f.k.GetCurrentTssParticipants(f.ctx)
 	require.NoError(t, err)
-	require.Empty(t, participants)
+	require.Equal(t, []string{"alice", "bob"}, participants)
 
-	// Case 2: blockHeight > ExpiryHeight → return participants
+	// Case 2: blockHeight > ExpiryHeight → return empty
 	f.ctx = f.ctx.WithBlockHeight(10)
 	participants, err = f.k.GetCurrentTssParticipants(f.ctx)
 	require.NoError(t, err)
-	require.Equal(t, []string{"alice", "bob"}, participants)
+	require.Empty(t, participants)
 }
 
 func TestGetCurrentTssParticipants_NotFound(t *testing.T) {

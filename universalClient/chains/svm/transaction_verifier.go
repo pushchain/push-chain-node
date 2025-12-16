@@ -106,11 +106,13 @@ func (tv *TransactionVerifier) VerifyTransactionExistence(
 	var txResult *rpc.GetTransactionResult
 	err = tv.parentClient.executeWithFailover(ctx, "get_transaction", func(client *rpc.Client) error {
 		var innerErr error
+		maxVersion := uint64(0) // Support V0 transactions
 		txResult, innerErr = client.GetTransaction(
 			ctx,
 			sig,
 			&rpc.GetTransactionOpts{
-				Encoding: solana.EncodingBase64,
+				Encoding:                       solana.EncodingBase64,
+				MaxSupportedTransactionVersion: &maxVersion,
 			},
 		)
 		return innerErr

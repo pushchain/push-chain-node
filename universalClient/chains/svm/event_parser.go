@@ -6,12 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
@@ -24,14 +22,12 @@ import (
 // Constants for event parsing
 var (
 	UniversalTxDiscriminator = strings.ToLower("6C9AD829B5EA1D7C")
-	AddFundsDiscriminator    = "7f1f6cffbb134644"
 )
 
 // EventParser handles parsing of SVM gateway events
 type EventParser struct {
 	gatewayAddr solana.PublicKey
 	config      *uregistrytypes.ChainConfig
-	eventTopics []string
 	logger      zerolog.Logger
 }
 
@@ -57,84 +53,34 @@ func NewEventParser(
 	config *uregistrytypes.ChainConfig,
 	logger zerolog.Logger,
 ) *EventParser {
-	// Build event topics from config methods
-	// Map: EventIdentifier (discriminator string) -> ConfirmationType
-	eventTopics := make([]string, 0, len(config.GatewayMethods))
-	logger.Info().
-		Int("gateway_methods_count", len(config.GatewayMethods)).
-		Str("gateway_address", config.GatewayAddress).
-		Msg("building event topics")
-
-	for _, method := range config.GatewayMethods {
-		if method.EventIdentifier != "" {
-			eventTopics = append(eventTopics, strings.ToLower(method.EventIdentifier))
-			logger.Info().
-				Str("event_identifier", method.EventIdentifier).
-				Msg("registered event topic from config")
-		} else {
-			logger.Warn().
-				Str("event_identifier", "").
-				Msg("no event identifier provided in config for method")
-		}
-	}
-
-	// Debug log the complete cache
-	logger.Debug().
-		Interface("event_topics_cache", eventTopics).
-		Int("total_events", len(eventTopics)).
-		Msg("event topics cache built")
-
 	return &EventParser{
 		gatewayAddr: gatewayAddr,
 		config:      config,
-		eventTopics: eventTopics,
 		logger:      logger.With().Str("component", "svm_event_parser").Logger(),
 	}
 }
 
-// ParseGatewayEvent parses a transaction into a GatewayEvent
-func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature string, slot uint64) *common.GatewayEvent {
-	if tx == nil || tx.Meta == nil {
+// ParseGatewayEvent parses a single log into a GatewayEvent
+// Only processes UniversalTxDiscriminator events
+func (ep *EventParser) ParseGatewayEvent(log string, signature string, slot uint64, logIndex uint) *common.GatewayEvent {
+	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
 	}
 
-	// Find matching method by event discriminator
-	var eventID string
-	var found bool
-
-	// Look for events in transaction logs
-	for _, log := range tx.Meta.LogMessages {
-		if !strings.HasPrefix(log, "Program data: ") {
-			continue
-		}
-
-		eventData := strings.TrimPrefix(log, "Program data: ")
-		decoded, err := base64.StdEncoding.DecodeString(eventData)
-		if err != nil {
-			continue
-		}
-
-		if len(decoded) < 8 {
-			continue
-		}
-
-		discriminator := hex.EncodeToString(decoded[:8])
-
-		// Skip add_funds events
-		if discriminator == AddFundsDiscriminator {
-			continue
-		}
-
-		// Find matching method by event discriminator using direct lookup
-		if slices.Contains(ep.eventTopics, discriminator) {
-			eventID = discriminator
-			found = true
-			break
-		}
+	eventData := strings.TrimPrefix(log, "Program data: ")
+	decoded, err := base64.StdEncoding.DecodeString(eventData)
+	if err != nil {
+		return nil
 	}
 
-	// Return nil if no matching event topic found
-	if !found {
+	if len(decoded) < 8 {
+		return nil
+	}
+
+	discriminator := hex.EncodeToString(decoded[:8])
+
+	// Only process UniversalTxDiscriminator events
+	if discriminator != UniversalTxDiscriminator {
 		return nil
 	}
 
@@ -142,71 +88,42 @@ func (ep *EventParser) ParseGatewayEvent(tx *rpc.GetTransactionResult, signature
 		ChainID:     ep.config.Chain,
 		TxHash:      signature,
 		BlockNumber: slot,
-		EventID:     eventID,
+		EventID:     discriminator,
 	}
 
-	// Parse event data based on method
-	ep.parseUniversalTxEvent(event, tx.Meta.LogMessages)
+	// Parse event data from this log
+	ep.parseUniversalTxEvent(event, decoded, logIndex)
 
 	return event
 }
 
-// parseEventData extracts specific data from the event based on method type.
+// parseUniversalTxEvent extracts specific data from a single log event
 // For TxWithFunds events, it JSON-marshals the decoded fields into event.Payload.
-func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, logs []string) {
-	// Look for TxWithFunds event in Program data logs
-	for i, log := range logs {
-		if !strings.HasPrefix(log, "Program data: ") {
-			continue
-		}
+func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, decoded []byte, logIndex uint) {
+	// Parse the TxWithFunds event
+	payload, err := ep.decodeUniversalTxEvent(decoded)
+	if err != nil {
+		ep.logger.Warn().
+			Err(err).
+			Uint("log_index", logIndex).
+			Msg("failed to decode TxWithFunds event")
+		return
+	}
 
-		eventData := strings.TrimPrefix(log, "Program data: ")
-		decoded, err := base64.StdEncoding.DecodeString(eventData)
-		if err != nil {
-			ep.logger.Warn().
-				Err(err).
-				Int("log_index", i).
-				Msg("failed to decode Program data")
-			continue
-		}
+	// Set source chain and log index
+	payload.SourceChain = event.ChainID
+	payload.LogIndex = logIndex
 
-		if len(decoded) < 8 {
-			continue
-		}
+	// Marshal and store into event.Payload
+	if b, err := json.Marshal(payload); err == nil {
+		event.Payload = b
+	}
 
-		discriminator := hex.EncodeToString(decoded[:8])
-		if discriminator != UniversalTxDiscriminator {
-			continue
-		}
-
-		// Parse the TxWithFunds event
-		payload, err := ep.decodeUniversalTxEvent(decoded)
-		if err != nil {
-			ep.logger.Warn().
-				Err(err).
-				Int("log_index", i).
-				Msg("failed to decode TxWithFunds event")
-			continue
-		}
-
-		// Set source chain and log index
-		payload.SourceChain = event.ChainID
-		payload.LogIndex = uint(i)
-
-		// Marshal and store into event.Payload
-		if b, err := json.Marshal(payload); err == nil {
-			event.Payload = b
-		}
-
-		// if TxType is 0 or 1, use FAST else use STANDARD
-		if payload.TxType == 0 || payload.TxType == 1 {
-			event.ConfirmationType = "FAST"
-		} else {
-			event.ConfirmationType = "STANDARD"
-		}
-
-		// Only process the first valid event
-		break
+	// if TxType is 0 or 1, use FAST else use STANDARD
+	if payload.TxType == 0 || payload.TxType == 1 {
+		event.ConfirmationType = "FAST"
+	} else {
+		event.ConfirmationType = "STANDARD"
 	}
 }
 
@@ -467,9 +384,4 @@ func decodeUniversalPayloadBorsh(bz []byte) (*uetypes.UniversalPayload, error) {
 	}
 
 	return up, nil
-}
-
-// GetEventTopics returns the configured event topics
-func (ep *EventParser) GetEventTopics() []string {
-	return ep.eventTopics
 }

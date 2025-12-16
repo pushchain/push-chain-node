@@ -27,6 +27,9 @@ service Msg {
   // ExecutePayload defines a message for executing a universal payload
   rpc ExecutePayload(MsgExecutePayload) returns (MsgExecutePayloadResponse);
 
+  // MigrateUEA defines a message for migrating UEA 
+  rpc MigrateUEA(MsgMigrateUEA) returns (MsgMigrateUEAResponse);
+
   // VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
   rpc VoteInbound(MsgVoteInbound) returns (MsgVoteInboundResponse);
 
@@ -119,6 +122,27 @@ message MsgExecutePayload {
 
 // MsgExecutePayloadResponse defines the response for MsgExecutePayload.
 message MsgExecutePayloadResponse {}
+
+// MsgMigrateUEA defines a message for migarting Universal Executor Account (UEA)
+message MsgMigrateUEA {
+  option (amino.name) = "uexecutor/MsgMigrateUEA";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address initiating the tx (used for tx signing)
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // universal_account_id is the identifier of the owner account
+  UniversalAccountId universal_account_id = 2;
+
+  // payload is the migration payload to be executed
+  MigrationPayload migration_payload = 3;
+
+  // signature is the bytes passed as verifier data for the given payload.
+  string signature = 4;
+}
+
+// MsgMigrateUEAResponse defines the response for MsgMigrateUEA.
+message MsgMigrateUEAResponse {}
 
 // MsgVoteInbound allows a universal validator to vote on an inbound transfer.
 message MsgVoteInbound {

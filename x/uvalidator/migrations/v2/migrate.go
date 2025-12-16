@@ -36,10 +36,10 @@ func MigrateUniversalValidatorSet(ctx sdk.Context, k *keeper.Keeper, cdc codec.B
 		newVal := types.UniversalValidator{
 			IdentifyInfo: &types.IdentityInfo{
 				CoreValidatorAddress: valAddr.String(),
-				Pubkey:               "pubkey-temp",
 			},
 			NetworkInfo: &types.NetworkInfo{
-				Ip: "1.1.1.1",
+				PeerId:     "12D3KooWFNC8BxiPoHyTJtiN1u1ctw3nSexuJHUBv4mMMmqEtQgg",
+				MultiAddrs: []string{"/ip4/127.0.0.1/tcp/39001/p2p/12D3KooWFNC8BxiPoHyTJtiN1u1ctw3nSexuJHUBv4mMMmqEtQgg"},
 			},
 			LifecycleInfo: &types.LifecycleInfo{
 				CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN,

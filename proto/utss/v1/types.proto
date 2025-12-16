@@ -26,6 +26,7 @@ enum TssKeyProcessStatus {
 enum TssProcessType {
   TSS_PROCESS_KEYGEN  = 0;
   TSS_PROCESS_REFRESH = 1;
+  TSS_PROCESS_QUORUM_CHANGE = 2;
 }
 
 // TSS key process information

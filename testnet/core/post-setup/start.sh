@@ -29,5 +29,5 @@ if [ ! -f "$BINARY" ]; then
 fi
 
 echo "🚀 Starting node from: $NODE_HOME"
-"$BINARY" start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID" --home="$NODE_HOME" > "$LOG_FILE" 2>&1 &
+"$BINARY" start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC"  --json-rpc.address="0.0.0.0:8545" --json-rpc.ws-address="0.0.0.0:8546"  --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID" --home="$NODE_HOME" > "$LOG_FILE" 2>&1 &
 echo "✅ Node started. Logging to: $LOG_FILE"

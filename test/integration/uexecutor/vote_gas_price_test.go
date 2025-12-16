@@ -37,10 +37,9 @@ func setupVoteGasPriceTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Contex
 	// --- Register validators as universal validators ---
 	universalVals := make([]string, len(validators))
 	for i, val := range validators {
-		pubkey := fmt.Sprintf("pubkey-%d", i)
-		network := uvalidatortypes.NetworkInfo{Ip: fmt.Sprintf("192.168.0.%d", i+1)}
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
 
-		require.NoError(t, app.UvalidatorKeeper.AddUniversalValidator(ctx, val.OperatorAddress, pubkey, network))
+		require.NoError(t, app.UvalidatorKeeper.AddUniversalValidator(ctx, val.OperatorAddress, network))
 		universalVals[i] = sdk.AccAddress([]byte(fmt.Sprintf("universal-validator-%d", i))).String()
 	}
 

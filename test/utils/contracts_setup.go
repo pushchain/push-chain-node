@@ -208,11 +208,11 @@ func registerEVMChainAndUEA(
 	packed, err := chainArgs.Pack("eip155", "11155111")
 	require.NoError(t, err)
 
-	ChainHash := crypto.Keccak256Hash(packed)
+	ChainHashEVM := crypto.Keccak256Hash(packed)
 
-	t.Logf("Computed chainHash: %s", ChainHash.Hex())
+	t.Logf("Computed chainHash (EVM): %s", ChainHashEVM.Hex())
 
-	// Register new chain
+	// Register new EVM chain
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
@@ -220,7 +220,7 @@ func registerEVMChainAndUEA(
 		factoryAddr,
 		true,
 		"registerNewChain",
-		ChainHash,
+		ChainHashEVM,
 		EVMHash,
 	)
 	require.NoError(t, err)
@@ -234,7 +234,15 @@ func registerEVMChainAndUEA(
 		UEA_EVM_BYTECODE,
 	)
 
-	// Register UEA
+	DeployContract(
+		t,
+		chainApp,
+		ctx,
+		opts.Addresses.NewEVMImplAddr,
+		UEA_EVM_BYTECODE,
+	)
+
+	// Register UEA : EVM
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
@@ -242,28 +250,50 @@ func registerEVMChainAndUEA(
 		factoryAddr,
 		true,
 		"registerUEA",
-		ChainHash,
+		ChainHashEVM,
 		EVMHash,
 		EVMImplAddress,
 	)
 	require.NoError(t, err)
 
-	// Get UEA address
-	ueaAddrResult, err := chainApp.EVMKeeper.CallEVM(
+	// Get UEA (EVM) address
+	ueaAddrResultEVM, err := chainApp.EVMKeeper.CallEVM(
 		ctx,
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
 		"getUEA",
-		ChainHash,
+		ChainHashEVM,
 	)
 	require.NoError(t, err)
 
-	UEAAddress := common.BytesToAddress(ueaAddrResult.Ret)
+	UEAAddress := common.BytesToAddress(ueaAddrResultEVM.Ret)
 	t.Logf("UEA registered at: %s", UEAAddress.Hex())
 
 	return nil
+}
+
+func DeployMigrationContract(
+	t *testing.T,
+	app *app.ChainApp,
+	ctx sdk.Context,
+) (common.Address, common.Address) {
+	Addresses := GetDefaultAddresses()
+	bytecode, err := hexutil.Decode("0x" + UEA_MIGRATION_BYTECODE)
+	require.NoError(t, err)
+
+	codeHash := crypto.Keccak256Hash(bytecode)
+
+	evmAcc := app.EVMKeeper.GetAccountOrEmpty(ctx, Addresses.MigratedUEAAddr)
+	evmAcc.CodeHash = codeHash.Bytes()
+	app.EVMKeeper.SetAccount(ctx, Addresses.MigratedUEAAddr, evmAcc)
+	app.EVMKeeper.SetCode(ctx, codeHash.Bytes(), bytecode)
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(0)), common.LeftPadBytes(Addresses.MigratedUEAAddr.Bytes(), 32))
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(1)), common.LeftPadBytes(Addresses.NewEVMImplAddr.Bytes(), 32))
+	app.EVMKeeper.SetState(ctx, Addresses.MigratedUEAAddr, common.BigToHash(big.NewInt(2)), common.LeftPadBytes(Addresses.NewSVMImplAddr.Bytes(), 32))
+	return Addresses.MigratedUEAAddr, Addresses.NewEVMImplAddr
+
 }
 
 func DeployContract(

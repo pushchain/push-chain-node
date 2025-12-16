@@ -26,8 +26,8 @@ func setupTssKeyProcessTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 	for i, val := range validators {
 		coreValAddr := val.OperatorAddress
 		pubkey := "pubkey-tss-" + coreValAddr
-		network := uvalidatortypes.NetworkInfo{Ip: "192.168.1." + string(rune(i+1))}
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, network)
 		require.NoError(t, err)
 
 		// Finalize the auto-initiated TSS process BEFORE next validator is added
@@ -55,8 +55,10 @@ func finalizeAutoInitiatedTssProcess(t *testing.T, app *app.ChainApp, ctx sdk.Co
 		valAddr, err := sdk.ValAddressFromBech32(coreVal)
 		require.NoError(t, err)
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// This triggers your normal Vote flow and internally finalizes when quorum reached
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId)
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubKey, keyId, process.Id)
 		require.NoError(t, err)
 
 		// Step 4: Check if finalized now
@@ -83,15 +85,29 @@ func TestInitiateTssKeyProcess(t *testing.T) {
 		require.NotEmpty(t, current.Participants)
 	})
 
-	t.Run("Fails when active process already exists", func(t *testing.T) {
+	t.Run("Does NOT fail when active process exists — instead force-expires old one", func(t *testing.T) {
 		app, ctx, _ := setupTssKeyProcessTest(t, 3)
 
+		// First initiation — succeeds
 		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
 		require.NoError(t, err)
 
-		// simulate that process still active (same block height)
-		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_REFRESH)
-		require.ErrorContains(t, err, "active TSS process already exists")
+		oldProcess, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+		oldID := oldProcess.Id
+
+		// Second initiation in same block — should SUCCEED and supersede the old one
+		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE)
+		require.NoError(t, err)
+
+		expiredProcess, err := app.UtssKeeper.ProcessHistory.Get(ctx, oldID)
+		require.NoError(t, err)
+
+		newCurrentProcess, err := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+		require.NoError(t, err)
+
+		// New process has replaced the old one
+		require.NotEqual(t, oldID, newCurrentProcess.Id)
+		require.Equal(t, ctx.BlockHeight()-1, expiredProcess.ExpiryHeight) // old one was force-expired
 	})
 
 	t.Run("Allows new process after expiry height", func(t *testing.T) {
@@ -105,12 +121,12 @@ func TestInitiateTssKeyProcess(t *testing.T) {
 		// move block height beyond expiry
 		ctx = ctx.WithBlockHeight(int64(utsstypes.DefaultTssProcessExpiryAfterBlocks) + 100)
 
-		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_REFRESH)
+		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE)
 		require.NoError(t, err)
 
 		current, err = app.UtssKeeper.CurrentTssProcess.Get(ctx)
 		require.NoError(t, err)
-		require.Equal(t, utsstypes.TssProcessType_TSS_PROCESS_REFRESH, current.ProcessType)
+		require.Equal(t, utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE, current.ProcessType)
 	})
 
 	t.Run("Fails if eligible validators cannot be fetched", func(t *testing.T) {
@@ -133,11 +149,25 @@ func TestInitiateTssKeyProcess(t *testing.T) {
 		events := ctx.EventManager().Events()
 		require.NotEmpty(t, events)
 
-		last := events[len(events)-1]
-		require.Equal(t, utsstypes.EventTypeTssProcessInitiated, last.Type)
+		// Find the initiation event
+		var initEvent sdk.Event
+		for _, ev := range events {
+			if ev.Type == utsstypes.EventTypeTssProcessInitiated {
+				initEvent = ev
+				break
+			}
+		}
+		require.NotZero(t, initEvent, "TssProcessInitiated event should be emitted")
 
-		pid := last.Attributes[0].Value
-		require.Equal(t, strconv.Itoa(universalValsNum), pid)
+		// Check attributes
+		attrMap := make(map[string]string)
+		for _, attr := range initEvent.Attributes {
+			attrMap[string(attr.Key)] = string(attr.Value)
+		}
 
+		require.Equal(t, "TSS_PROCESS_KEYGEN", attrMap["process_type"])
+		require.Contains(t, attrMap["participants"], "\"") // it's a JSON array string
+		require.NotEmpty(t, attrMap["process_id"])
+		require.NotEmpty(t, attrMap["expiry_height"])
 	})
 }

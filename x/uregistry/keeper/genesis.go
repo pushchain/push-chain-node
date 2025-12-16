@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -94,7 +95,15 @@ func deployProxyAdminContract(ctx context.Context, evmKeeper types.EVMKeeper, pr
 }
 
 func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper) {
-	for name, contract := range types.SYSTEM_CONTRACTS {
+	// Sort contract names for deterministic iteration order across all validators
+	names := make([]string, 0, len(types.SYSTEM_CONTRACTS))
+	for name := range types.SYSTEM_CONTRACTS {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		contract := types.SYSTEM_CONTRACTS[name]
 		bytecodes, ok := types.BYTECODE[name]
 		if !ok {
 			panic(fmt.Sprintf("no bytecode found for contract %s", name))

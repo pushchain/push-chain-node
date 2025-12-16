@@ -47,10 +47,28 @@ jobs:
           path: ${{ steps.go-cache-paths.outputs.go-build }}
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
       - name: Download Go Dependencies
         run: |
+          # Use ../dkls23-rs (original path) for workflow step
           go mod download
           cd interchaintest && go mod download
+
+      - name: Copy dkls23-rs and garbling into build context
+        run: |
+          # Copy dkls23-rs into the repository so it's available in Docker build context
+          cp -r ../dkls23-rs ./dkls23-rs
+          # Copy garbling into the repository so it's available in Docker build context
+          cp -r ../garbling ./garbling
+          # Update go.mod replace directive to use ./dkls23-rs for Docker build
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -75,9 +93,9 @@ jobs:
       matrix:
         # names of `make` commands to run tests
         test:
-          - "ictest-basic"
-          - "ictest-wasm"
-          - "ictest-tokenfactory"
+          - 'ictest-basic'
+          - 'ictest-wasm'
+          - 'ictest-tokenfactory'
       fail-fast: false
 
     steps:

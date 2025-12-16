@@ -22,10 +22,9 @@ func setupUpdateUniversalValidatorTest(t *testing.T, numVals int) (*app.ChainApp
 	// add one universal validator to update later
 	for i, val := range validators {
 		coreValAddr := val.OperatorAddress
-		pubkey := fmt.Sprintf("pubkey-%d", i)
-		network := uvalidatortypes.NetworkInfo{Ip: fmt.Sprintf("192.168.1.%d", i+1)}
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, network)
 		require.NoError(t, err)
 
 		universalVals[i] = coreValAddr
@@ -39,10 +38,11 @@ func TestUpdateUniversalValidator(t *testing.T) {
 		app, ctx, vals := setupUpdateUniversalValidatorTest(t, 1)
 		coreVal := vals[0]
 
-		newPubkey := "updated-pubkey"
-		newNetwork := uvalidatortypes.NetworkInfo{Ip: "10.0.0.1"}
+		// newPubkey := "updated-pubkey"
+		// newNetwork := uvalidatortypes.NetworkInfo{Ip: "10.0.0.1"}
+		newNetwork := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("updated-peerId"), MultiAddrs: []string{"updated-multi_addrs"}}
 
-		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, newPubkey, newNetwork)
+		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, newNetwork)
 		require.NoError(t, err)
 
 		valAddr, err := sdk.ValAddressFromBech32(coreVal)
@@ -51,18 +51,16 @@ func TestUpdateUniversalValidator(t *testing.T) {
 		updatedVal, err := app.UvalidatorKeeper.UniversalValidatorSet.Get(ctx, valAddr)
 		require.NoError(t, err)
 
-		require.Equal(t, newPubkey, updatedVal.IdentifyInfo.Pubkey)
-		require.Equal(t, newNetwork.Ip, updatedVal.NetworkInfo.Ip)
+		require.Equal(t, newNetwork, *updatedVal.NetworkInfo)
 	})
 
 	t.Run("fails when validator does not exist", func(t *testing.T) {
 		app, ctx, _ := setupUpdateUniversalValidatorTest(t, 1)
 
 		coreVal := "pushvaloper1invalidaddress00000000000000000000000"
-		pubkey := "somekey"
-		network := uvalidatortypes.NetworkInfo{Ip: "10.0.0.2"}
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp peerId"), MultiAddrs: []string{"temp multi_addrs"}}
 
-		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, pubkey, network)
+		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, network)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid core validator address")
 	})
@@ -71,10 +69,9 @@ func TestUpdateUniversalValidator(t *testing.T) {
 		app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, 1)
 		coreVal := validators[0].OperatorAddress
 
-		pubkey := "random"
-		network := uvalidatortypes.NetworkInfo{Ip: "10.0.0.4"}
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp peerId"), MultiAddrs: []string{"temp multi_addrs"}}
 
-		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, pubkey, network)
+		err := app.UvalidatorKeeper.UpdateUniversalValidator(ctx, coreVal, network)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not exist")
 	})

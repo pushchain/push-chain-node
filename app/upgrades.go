@@ -13,6 +13,8 @@ import (
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
+	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
+	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 )
 
 // Upgrades list of chain upgrades
@@ -23,6 +25,8 @@ var Upgrades = []upgrades.Upgrade{
 	gasoracle.NewUpgrade(),
 	pcmintcap.NewUpgrade(),
 	tsscore.NewUpgrade(),
+	tsscorefix.NewUpgrade(),
+	tsscoreevmparamsfix.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -40,6 +44,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		IBCKeeper:             app.IBCKeeper,
 		Codec:                 app.appCodec,
 		GetStoreKey:           app.GetKey,
+		EVMKeeper:             app.EVMKeeper,
 
 		// Module keepers
 		UExecutorKeeper:   &app.UexecutorKeeper,

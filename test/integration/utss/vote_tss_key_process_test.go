@@ -27,7 +27,9 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		pub := "pub-k1"
 		key := "key-k2"
 
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key)
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key, process.Id)
 		require.NoError(t, err)
 
 		// should not finalize yet
@@ -48,10 +50,12 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		pub := "pub-final"
 		key := "key-final"
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// vote from all 3 → quorum = 2 reached → finalized
 		for _, v := range validators {
 			valAddr, _ := sdk.ValAddressFromBech32(v)
-			err := app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key)
+			err := app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key, process.Id)
 			require.NoError(t, err)
 		}
 
@@ -69,8 +73,9 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		app.UtssKeeper.CurrentTssProcess.Remove(ctx)
 
 		valAddr, _ := sdk.ValAddressFromBech32(validators[0])
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
 
-		err := app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pk", "key")
+		err := app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pk", "key", process.Id)
 		require.ErrorContains(t, err, "no active TSS process")
 	})
 
@@ -84,18 +89,22 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
 		require.NoError(t, err)
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// finalize once
 		for _, v := range validators {
 			valAddr, _ := sdk.ValAddressFromBech32(v)
-			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key)
+			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key, process.Id)
 		}
 
 		err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
 		require.NoError(t, err)
 
+		process, _ = app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// vote again with SAME keyId
 		valAddr, _ := sdk.ValAddressFromBech32(validators[0])
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key)
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key, process.Id)
 		require.ErrorContains(t, err, "already exists")
 	})
 
@@ -112,7 +121,7 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		ctx = ctx.WithBlockHeight(process.ExpiryHeight + 10)
 
 		valAddr, _ := sdk.ValAddressFromBech32(validators[0])
-		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pub", "key")
+		err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pub", "key", process.Id)
 		require.ErrorContains(t, err, "expired")
 	})
 
@@ -126,9 +135,11 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		pub := "eventPub"
 		key := "eventKey"
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		for _, v := range validators {
 			valAddr, _ := sdk.ValAddressFromBech32(v)
-			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key)
+			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pub, key, process.Id)
 		}
 
 		events := ctx.EventManager().Events()
@@ -162,10 +173,12 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		pubkey := "ls_pub"
 		keyId := "ls_key"
 
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+
 		// vote from all validators → finalizes
 		for _, v := range validators {
 			valAddr, _ := sdk.ValAddressFromBech32(v)
-			err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubkey, keyId)
+			err = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubkey, keyId, process.Id)
 			require.NoError(t, err)
 		}
 
@@ -175,6 +188,55 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		require.Equal(t,
 			uvalidatortypes.UVStatus_UV_STATUS_ACTIVE,
 			uv.LifecycleInfo.CurrentStatus,
+		)
+	})
+
+	t.Run("PENDING_LEAVE validator becomes INACTIVE after quorum change", func(t *testing.T) {
+		app, ctx, validators := setupTssKeyProcessTest(t, 4) // Need 4 so we can remove one
+
+		// Set validator[3] to PENDING_LEAVE
+		leavingValStr := validators[3]
+		leavingValAddr, _ := sdk.ValAddressFromBech32(leavingValStr)
+
+		err := app.UvalidatorKeeper.RemoveUniversalValidator(ctx, leavingValStr)
+		require.NoError(t, err)
+
+		// Confirm it's now PENDING_LEAVE
+		uv, found, err := app.UvalidatorKeeper.GetUniversalValidator(ctx, leavingValAddr)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE, uv.LifecycleInfo.CurrentStatus)
+
+		process, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+		require.Contains(t, process.Participants, validators[0])
+		require.Contains(t, process.Participants, validators[1])
+		require.Contains(t, process.Participants, validators[2])
+		require.NotContains(t, process.Participants, leavingValStr)
+
+		pubkey := "qc_pub"
+		keyId := "qc_key"
+
+		// Only vote from the 3 active ones (not the leaving one)
+		for _, v := range validators[:3] {
+			valAddr, _ := sdk.ValAddressFromBech32(v)
+			err := app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, pubkey, keyId, process.Id)
+			require.NoError(t, err)
+		}
+
+		// Final key should be created
+		finalKey, err := app.UtssKeeper.CurrentTssKey.Get(ctx)
+		require.NoError(t, err)
+		require.Equal(t, keyId, finalKey.KeyId)
+		require.NotContains(t, finalKey.Participants, leavingValStr)
+
+		// Step 5: PENDING_LEAVE validator must now be INACTIVE
+		uv, found, err = app.UvalidatorKeeper.GetUniversalValidator(ctx, leavingValAddr)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t,
+			uvalidatortypes.UVStatus_UV_STATUS_INACTIVE,
+			uv.LifecycleInfo.CurrentStatus,
+			"PENDING_LEAVE validator must become INACTIVE after quorum change",
 		)
 	})
 }

@@ -143,17 +143,18 @@ message OutboundTx {
   string destination_chain = 1;    // chain where this outbound is sent
   string recipient         = 2;    // recipient on destination chain
   string amount            = 3;    // token amount
-  string asset_addr        = 4;    // token contract if applicable
-  string sender = 5; // sender of the outbound tx
-  string payload = 6; // payload to be executed
-  string gas_limit = 7; // gas limit to be used for the outbound tx
-  TxType tx_type = 8; // outbound tx type
-  OriginatingPcTx pc_tx = 9; // pc_tx that originated the outbound
-  OutboundObservation observed_tx = 10; // observed tx on destination chain
-  string id = 11; // id of outbound tx
-  Status outbound_status = 12; // status of outbound tx
-  RevertInstructions revert_instructions = 13;
-  PCTx pc_revert_execution = 14;
+  string external_asset_addr = 4; // asset addr destination chain
+  string prc20_asset_addr    = 5; // prc20 contract addr
+  string sender = 6; // sender of the outbound tx
+  string payload = 7; // payload to be executed
+  string gas_limit = 8; // gas limit to be used for the outbound tx
+  TxType tx_type = 9; // outbound tx type
+  OriginatingPcTx pc_tx = 10; // pc_tx that originated the outbound
+  OutboundObservation observed_tx = 11; // observed tx on destination chain
+  string id = 12; // id of outbound tx
+  Status outbound_status = 13; // status of outbound tx
+  RevertInstructions revert_instructions = 14;
+  PCTx pc_revert_execution = 15;
 }
 
 message UniversalTx {

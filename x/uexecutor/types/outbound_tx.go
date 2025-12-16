@@ -69,9 +69,15 @@ func (p OutboundTx) ValidateBasic() error {
 		}
 	}
 
-	// asset_addr required when amount is involved
-	if (p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD) && strings.TrimSpace(p.AssetAddr) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidAddress, "asset_addr cannot be empty for funds tx")
+	// external_asset_addr required when amount is involved
+	if (p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD) && strings.TrimSpace(p.ExternalAssetAddr) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidAddress, "external_asset_addr cannot be empty for funds tx")
+	}
+
+	if strings.TrimSpace(p.Prc20AssetAddr) != "" {
+		if !utils.IsValidAddress(p.Prc20AssetAddr, utils.HEX) {
+			return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid prc20 address: %s", p.Sender)
+		}
 	}
 
 	// gas_limit (uint)

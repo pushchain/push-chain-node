@@ -65,6 +65,21 @@ func (mr *MockUregistryKeeperMockRecorder) GetTokenConfig(ctx, chain, address in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTokenConfig", reflect.TypeOf((*MockUregistryKeeper)(nil).GetTokenConfig), ctx, chain, address)
 }
 
+// GetTokenConfigByPRC20 mocks base method.
+func (m *MockUregistryKeeper) GetTokenConfigByPRC20(ctx context.Context, chain, prc20Addr string) (uregistrytypes.TokenConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTokenConfigByPRC20", ctx, chain, prc20Addr)
+	ret0, _ := ret[0].(uregistrytypes.TokenConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTokenConfigByPRC20 indicates an expected call of GetTokenConfigByPRC20.
+func (mr *MockUregistryKeeperMockRecorder) GetTokenConfigByPRC20(ctx, chain, prc20Addr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTokenConfigByPRC20", reflect.TypeOf((*MockUregistryKeeper)(nil).GetTokenConfigByPRC20), ctx, chain, prc20Addr)
+}
+
 // IsChainInboundEnabled mocks base method.
 func (m *MockUregistryKeeper) IsChainInboundEnabled(ctx context.Context, chain string) (bool, error) {
 	m.ctrl.T.Helper()

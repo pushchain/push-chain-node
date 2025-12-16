@@ -49,10 +49,11 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	tokenConfigTest := uregistrytypes.TokenConfig{
 		Chain:        "eip155:11155111",
-		Address:      prc20Address.String(),
+		Address:      usdcAddress.String(),
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -114,7 +115,7 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 		Sender:           testAddress,
 		Recipient:        testAddress,
 		Amount:           "1000000",
-		AssetAddr:        prc20Address.String(),
+		AssetAddr:        usdcAddress.String(),
 		LogIndex:         "1",
 		TxType:           uexecutortypes.TxType_FUNDS,
 		UniversalPayload: nil,
@@ -398,7 +399,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 				foundRevert = true
 				require.Equal(t, inbound.SourceChain, ob.DestinationChain)
 				require.Equal(t, inbound.Amount, ob.Amount)
-				require.Equal(t, inbound.AssetAddr, ob.AssetAddr)
+				require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
 			}
 		}
 

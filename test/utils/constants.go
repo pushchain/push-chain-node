@@ -13,6 +13,7 @@ type Addresses struct {
 	EVMImplAddr            common.Address
 	HandlerAddr            common.Address
 	PRC20USDCAddr          common.Address
+	ExternalUSDCAddr       common.Address
 	UniversalGatewayPCAddr common.Address
 
 	// Account addresses (hex format)
@@ -33,6 +34,7 @@ func GetDefaultAddresses() Addresses {
 		EVMImplAddr:            common.HexToAddress("0x0000000000000000000000000000000000000e01"),
 		HandlerAddr:            common.HexToAddress("0x00000000000000000000000000000000000000C0"),
 		PRC20USDCAddr:          common.HexToAddress("0x0000000000000000000000000000000000000e06"),
+		ExternalUSDCAddr:       common.HexToAddress("0x0000000000000000000000000000000000000e07"),
 		UniversalGatewayPCAddr: common.HexToAddress("0x00000000000000000000000000000000000000B0"),
 		DefaultTestAddr:        "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		CosmosTestAddr:         "cosmos18pjnzwr9xdnx2vnpv5mxywfnv56xxef5cludl5",

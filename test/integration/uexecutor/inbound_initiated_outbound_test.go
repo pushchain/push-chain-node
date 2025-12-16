@@ -50,10 +50,11 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	tokenConfigTest := uregistrytypes.TokenConfig{
 		Chain:        "eip155:11155111",
-		Address:      prc20Address.String(),
+		Address:      usdcAddress.String(),
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -146,7 +147,7 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 		Sender:           testAddress,
 		Recipient:        "",
 		Amount:           "1000000",
-		AssetAddr:        prc20Address.String(),
+		AssetAddr:        usdcAddress.String(),
 		LogIndex:         "1",
 		TxType:           uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
 		UniversalPayload: validUP,
@@ -196,7 +197,8 @@ func TestInboundInitiatedOutbound(t *testing.T) {
 		// checks
 		require.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", out.Recipient)
 		require.Equal(t, "1000000", out.Amount)
-		require.Equal(t, "0x0000000000000000000000000000000000000e06", out.AssetAddr)
+		require.Equal(t, "0x0000000000000000000000000000000000000e07", out.ExternalAssetAddr)
+		require.Equal(t, "0x0000000000000000000000000000000000000e06", out.Prc20AssetAddr)
 		require.Equal(t, uexecutortypes.TxType_FUNDS, out.TxType)
 		require.Equal(t, uexecutortypes.Status_PENDING, out.OutboundStatus)
 	})

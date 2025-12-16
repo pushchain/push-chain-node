@@ -115,7 +115,9 @@ docker run --rm \
     ###########################################################################
     # Step 1: Copy required directories into container
     ###########################################################################
-    echo "📦 Copying directories..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 1: Copying directories..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     cd /code
     # Remove any existing directories/symlinks to avoid conflicts
     rm -rf dkls23-rs garbling
@@ -124,10 +126,14 @@ docker run --rm \
     [ -d /garbling-src ] && cp -r /garbling-src garbling || true
     # Create symlink so ../dkls23-rs resolves correctly (required by go.mod replace directive)
     ln -sf /code/dkls23-rs /dkls23-rs
+    echo "✅ Step 1 complete: Directories copied"
     
     ###########################################################################
     # Step 2: Download CosmWasm wasmvm static library
     ###########################################################################
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 2: Downloading CosmWasm wasmvm static library..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     cd /code
     # Get wasmvm version from go.mod
     WASM_VER=$(go list -m all | grep github.com/CosmWasm/wasmvm | awk "{print \$2}")
@@ -139,17 +145,23 @@ docker run --rm \
       https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.${ARCH}.a
     # Create symlink for easier linking
     ln -sf /usr/lib/libwasmvm_muslc.${ARCH}.a /usr/lib/libwasmvm_muslc.a
+    echo "✅ Step 2 complete: wasmvm library downloaded"
     
     ###########################################################################
     # Step 3: Update Go dependencies
     ###########################################################################
-    echo "📦 Running go mod tidy..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 3: Updating Go dependencies (go mod tidy)..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     go mod tidy
+    echo "✅ Step 3 complete: Go dependencies updated"
     
     ###########################################################################
     # Step 4: Build pchaind binary (core testnet only needs pchaind, not puniversald)
     ###########################################################################
-    echo "⚙️  Building pchaind..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 4: Building pchaind binary..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     # Set build environment variables
     export CGO_ENABLED=1 BUILD_TAGS=muslc LINK_STATICALLY=true LEDGER_ENABLED=false
     # Build dkls23-rs library first (if not already built)
@@ -161,6 +173,7 @@ docker run --rm \
       -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=- -X github.com/cosmos/cosmos-sdk/version.Commit= -s -w -linkmode=external -extldflags \"-Wl,-z,muldefs -static\"" \
       -trimpath \
       -o build/pchaind ./cmd/pchaind
+    echo "✅ Step 4 complete: pchaind binary built"
   '
 
 ###############################################################################

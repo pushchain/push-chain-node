@@ -132,12 +132,12 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 				}
 				return inbound.Sender
 			}(),
-			Amount:         inbound.Amount,
-			AssetAddr:      inbound.AssetAddr,
-			Sender:         inbound.Sender,
-			TxType:         types.TxType_INBOUND_REVERT,
-			OutboundStatus: types.Status_PENDING,
-			Id:             types.GetOutboundRevertId(),
+			Amount:            inbound.Amount,
+			ExternalAssetAddr: inbound.AssetAddr,
+			Sender:            inbound.Sender,
+			TxType:            types.TxType_INBOUND_REVERT,
+			OutboundStatus:    types.Status_PENDING,
+			Id:                types.GetOutboundRevertId(),
 		}
 
 		_ = k.attachOutboundsToUtx(

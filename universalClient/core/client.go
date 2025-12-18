@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -182,7 +181,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			ValidatorAddress: valoperAddr,
 			P2PPrivateKeyHex: cfg.TSSP2PPrivateKeyHex,
 			LibP2PListen:     cfg.TSSP2PListen,
-			HomeDir:          filepath.Join(constant.DefaultNodeHome, "tss"),
+			HomeDir:          constant.DefaultNodeHome,
 			Password:         cfg.TSSPassword,
 			Database:         tssDB,
 			PushCore:         pushCore,

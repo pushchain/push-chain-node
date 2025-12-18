@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.14-test] - 2025-12-18
+
+## What's Changed
+
+### 📦 Other Changes
+- Merge branch 'feature/cosmovisor' of github.com:pushchain/push-chain-node into feature/cosmovisor
+- Update .goreleaser.yaml
+- Update CHANGELOG.md for v0.0.13-test
+
+### 👥 Contributors
+- @GitHub Action
+- @Mohammed S
+
+---
+
 ## [v0.0.13-test] - 2025-12-18
 
 ## What's Changed

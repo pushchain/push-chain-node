@@ -1,9 +1,11 @@
 #!/bin/bash
-# Run this script to quickly install, setup, and run the current version of the network without docker.
+# Run this script to quickly install, setup, and run the current version of the network with Cosmovisor.
+# Cosmovisor enables automatic binary upgrades during chain operation.
 #
 # Examples:
 # CHAIN_ID="localchain_9000-1" HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
+
 shopt -s expand_aliases
 set -eu
 
@@ -28,6 +30,15 @@ export GRPC=${GRPC:-"9090"}
 export GRPC_WEB=${GRPC_WEB:-"9091"}
 export ROSETTA=${ROSETTA:-"8080"}
 export BLOCK_TIME=${BLOCK_TIME:-"1s"}
+
+# Cosmovisor environment
+export DAEMON_NAME=$BINARY
+export DAEMON_HOME=$HOME_DIR
+export DAEMON_RESTART_AFTER_UPGRADE=true
+export DAEMON_ALLOW_DOWNLOAD_BINARIES=${DAEMON_ALLOW_DOWNLOAD_BINARIES:-true}
+export DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=${DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM:-true}
+export UNSAFE_SKIP_BACKUP=true
+export DAEMON_RESTART_DELAY=5s
 
 # if which binary does not exist, install it
 if [ -z `which $BINARY` ]; then
@@ -146,7 +157,10 @@ if [ "$CLEAN" != "false" ]; then
   from_scratch
 fi
 
-echo "Starting node..."
+# Setup Cosmovisor directory (after from_scratch wipes HOME_DIR)
+mkdir -p "$HOME_DIR/cosmovisor/genesis/bin"
+mkdir -p "$HOME_DIR/cosmovisor/upgrades"
+cp "$(which $BINARY)" "$HOME_DIR/cosmovisor/genesis/bin/"
 
 # Opens the RPC endpoint to outside connections
 sed -i -e 's/laddr = "tcp:\/\/127.0.0.1:26657"/c\laddr = "tcp:\/\/0.0.0.0:'$RPC'"/g' $HOME_DIR/config/config.toml
@@ -171,4 +185,5 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+# Start node with Cosmovisor (enables automatic upgrades)
+cosmovisor run start --pruning=nothing --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

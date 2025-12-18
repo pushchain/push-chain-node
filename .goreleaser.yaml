@@ -13,11 +13,9 @@ builds:
     goos:
       - linux
       - darwin
-      # - windows
     goarch:
       - amd64
-      # - arm64
-      # - "386"
+      - arm64
     goarm:
       - "6"
     gomips:
@@ -26,13 +24,9 @@ builds:
       - v1
     targets:
       - linux_amd64_v1
-      # - darwin_amd64_v1
-      # - linux_arm64
-      # - linux_386
-      # - darwin_arm64
-      # - windows_amd64_v1
-      # - windows_arm64
-      # - windows_386
+      - linux_arm64
+      - darwin_amd64_v1
+      - darwin_arm64
     dir: .
     main: ./cmd/pchaind
     binary: pchaind

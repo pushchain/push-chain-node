@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -14,6 +13,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	txpolicy "github.com/pushchain/push-chain-node/app/txpolicy"
 )
 
 type AccountInitDecorator struct {
@@ -29,7 +29,7 @@ func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.Handle
 }
 
 func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	if !uexecutortypes.IsGaslessTx(tx) {
+	if !txpolicy.IsGaslessTx(tx) {
 		// Skip account initialization for non-gasless transactions
 		return next(ctx, tx, simulate)
 	}

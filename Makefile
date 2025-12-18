@@ -391,3 +391,126 @@ help:
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help
+
+###############################################################################
+###                                     e2e...                              ###
+###############################################################################
+
+# ------------------------
+# Docker commands (from before)
+# ------------------------
+docker-build:
+	docker build -t push-chain-node -f Dockerfile.e2e .
+
+docker-up:
+	docker compose -f docker-compose.yml up --build -d
+
+docker-down:
+	docker compose -f docker-compose.yml down
+
+docker-logs:
+	docker compose -f docker-compose.yml logs -f
+
+docker-reset:
+	docker system prune -a --volumes -f
+
+
+# ------------------------
+# Docker Setup flow
+# ------------------------
+
+ANVIL_URL=http://anvil:9545
+PUSH_EVM_URL=http://push-chain-node:8545
+CHAIN_RPC=http://push-chain-node:26657
+CHAIN_ID=localchain_9000-1
+
+# Path where contracts will be cloned
+CONTRACTS_DIR := contracts-tmp
+INTEROP_REPO := https://github.com/pushchain/push-chain-interop-contracts.git/
+CORE_REPO := https://github.com/pushchain/push-chain-core-contracts.git
+SDK_REPO := https://github.com/pushchain/push-chain-sdk.git
+E2E_DIR := e2e
+
+e2e: docker-up wait-for-services fund-acc1 deploy-interop deploy-core e2e-solana-interop-deployment e2e-solana-chain-config e2e-run-test
+
+# Wait for services to start up
+wait-for-services:
+	@echo "Waiting for Anvil and Push-Chain-Node to start..."
+	@for i in {1..30}; do \
+		if docker exec push-chain-node curl -s --fail http://push-chain-node:26657/status; then \
+			echo "Push-Chain Node is ready"; \
+			break; \
+		fi; \
+		echo "Waiting for Push-Chain Node..."; \
+		sleep 2; \
+	done
+	docker logs push-chain-node
+
+# Fund acc1 on push-chain
+fund-acc1:
+	@echo "waiting for Push-chain-node to setup"
+	sleep 10
+	@echo "Funding acc1 on push-chain..."
+	docker exec push-chain-node pchaind tx bank send push1j0v5urpud7kwsk9zgz2tc0v9d95ct6t5qxv38h \
+		push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
+		1000000000000000000upc \
+		--gas-prices 100000000000upc \
+		--node http://push-chain-node:26657 \
+		-y
+
+
+# Deploy the interop contract and capture address
+deploy-interop:
+		echo "Adding Sepolia config to push-chain" && \
+		docker exec push-chain-node pchaind tx uregistry add-chain-config \
+			--chain-config "$$(cat e2e/eth_sepolia_e2e_chain_config.json)" \
+			--from acc1 \
+			--gas-prices 100000000000upc -y
+
+# Deploy push-core-contracts using forge script
+deploy-core:
+	@echo "Deploying Push Core Contracts..."
+	@rm -rf $(CONTRACTS_DIR) && mkdir $(CONTRACTS_DIR)
+	cd $(CONTRACTS_DIR) && git clone $(CORE_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && git submodule update --init --recursive
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge install && forge build
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployFactory.s.sol \
+		--broadcast \
+		--rpc-url http://localhost:8545 \
+		--private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 \
+		--slow
+
+	cd $(CONTRACTS_DIR)/push-chain-core-contracts && forge script scripts/deployMock.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0x0dfb3d814afd8d0bf7a6010e8dd2b6ac835cabe4da9e2c1e80c6a14df3994dd4 --slow
+
+e2e-solana-chain-config:
+	echo "Adding Solana config to push-chain"
+	docker exec push-chain-node pchaind tx uregistry add-chain-config --chain-config "$$(cat e2e/solana_localchain_chain_config.json)" --from acc1 --gas-prices 100000000000upc -y
+	
+e2e-solana-interop-deployment:
+	@echo "Funding local solana account"
+	solana airdrop 10 DKWx5ZiKpmdzu7s11JR93cw69PEJZkHAZpg6BNoHjVmK --url http://127.0.0.1:8899
+	@echo "Setting Solana CLI to local validator..."
+	cd $(E2E_DIR) && rm -rf push-chain-interop-contracts
+	solana config set --url http://127.0.0.1:8899
+	@echo "Deploying svm_gateway contract on solana-test-validator"
+	cp $(E2E_DIR)/.env.sample $(E2E_DIR)/.env 
+	cd $(E2E_DIR) && git clone $(INTEROP_REPO)
+	cp $(E2E_DIR)/deploy.sh $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/deploy.sh
+	cd $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway && ./deploy.sh localnet
+	
+	@echo "Initializing account and funding vault..."
+	cd $(E2E_DIR)/solana-setup && npm install
+	  
+	@cd $(E2E_DIR)/solana-setup && VAULT=$$(npx ts-node --compiler-options '{"module":"commonjs"}' ./index.ts | grep 'vaultbalance' | awk '{print $$2}'); \
+	echo "Vault PDA is $$VAULT"; \
+	solana airdrop 10 $$VAULT --url http://127.0.0.1:8899
+	
+
+e2e-run-test:
+	@echo "Cloning e2e repository..."
+	@rm -rf $(CONTRACTS_DIR)/push-chain-sdk
+	cd $(CONTRACTS_DIR) && git clone $(SDK_REPO)
+	cd $(CONTRACTS_DIR)/push-chain-sdk && git checkout push-node-e2e-test && yarn install
+	cp $(E2E_DIR)/push-chain-interop-contracts/contracts/svm-gateway/target/idl/pushsolanalocker.json $(CONTRACTS_DIR)/push-chain-sdk/packages/core/src/lib/constants/abi/feeLocker.json
+	cp $(E2E_DIR)/.env $(CONTRACTS_DIR)/push-chain-sdk/packages/core/.env
+	cd $(CONTRACTS_DIR)/push-chain-sdk && npx jest core/__e2e__/pushchain.spec.ts --runInBand --detectOpenHandles

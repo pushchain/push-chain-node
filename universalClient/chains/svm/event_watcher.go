@@ -154,26 +154,32 @@ func (ew *EventWatcher) WatchEvents(
 						continue
 					}
 
-					// Parse gateway event from transaction using event parser
-					event := ew.eventParser.ParseGatewayEvent(tx, sig.Signature.String(), sig.Slot)
-					if event != nil {
-						// Track transaction for confirmations
-						if err := ew.tracker.TrackTransaction(
-							event.TxHash,
-							event.BlockNumber,
-							event.EventID,
-							event.ConfirmationType,
-							event.Payload,
-						); err != nil {
-							ew.logger.Error().Err(err).
-								Str("tx_hash", event.TxHash).
-								Msg("failed to track transaction")
-						}
+					// Process each log in the transaction
+					// Each log can be a valid event or not
+					if tx != nil && tx.Meta != nil && len(tx.Meta.LogMessages) > 0 {
+						for logIndex, log := range tx.Meta.LogMessages {
+							// Parse gateway event from individual log
+							event := ew.eventParser.ParseGatewayEvent(log, sig.Signature.String(), sig.Slot, uint(logIndex))
+							if event != nil {
+								// Track transaction for confirmations
+								if err := ew.tracker.TrackTransaction(
+									event.TxHash,
+									event.BlockNumber,
+									event.EventID,
+									event.ConfirmationType,
+									event.Payload,
+								); err != nil {
+									ew.logger.Error().Err(err).
+										Str("tx_hash", event.TxHash).
+										Msg("failed to track transaction")
+								}
 
-						select {
-						case eventChan <- event:
-						case <-ctx.Done():
-							return
+								select {
+								case eventChan <- event:
+								case <-ctx.Done():
+									return
+								}
+							}
 						}
 					}
 				}

@@ -61,7 +61,7 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		cfg.InitialFetchTimeoutSeconds = defaultCfg.InitialFetchTimeoutSeconds
 	}
 
-	// Validate registry config
+	// Set defaults for registry config from default config
 	if len(cfg.PushChainGRPCURLs) == 0 && defaultCfg != nil {
 		cfg.PushChainGRPCURLs = defaultCfg.PushChainGRPCURLs
 	}
@@ -88,7 +88,6 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 	} else if defaultCfg != nil {
 		cfg.KeyringBackend = defaultCfg.KeyringBackend
 	}
-
 
 	// Set defaults for event monitoring from default config
 	if cfg.EventPollingIntervalSeconds == 0 && defaultCfg != nil {
@@ -135,6 +134,31 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		cfg.RPCPoolConfig.LoadBalancingStrategy != "round-robin" &&
 		cfg.RPCPoolConfig.LoadBalancingStrategy != "weighted" {
 		return fmt.Errorf("load balancing strategy must be 'round-robin' or 'weighted'")
+	}
+
+	// Set TSS defaults
+	if cfg.TSSP2PListen == "" {
+		cfg.TSSP2PListen = "/ip4/0.0.0.0/tcp/39000"
+	}
+
+	// Validate TSS config (TSS is always enabled)
+	// Skip TSS validation when defaultCfg is nil (validating default config itself)
+	if defaultCfg != nil {
+		// Set TSS defaults from default config if available
+		if cfg.TSSP2PPrivateKeyHex == "" && defaultCfg.TSSP2PPrivateKeyHex != "" {
+			cfg.TSSP2PPrivateKeyHex = defaultCfg.TSSP2PPrivateKeyHex
+		}
+		if cfg.TSSPassword == "" && defaultCfg.TSSPassword != "" {
+			cfg.TSSPassword = defaultCfg.TSSPassword
+		}
+
+		// Validate required TSS fields
+		if cfg.TSSP2PPrivateKeyHex == "" {
+			return fmt.Errorf("tss_p2p_private_key_hex is required for TSS")
+		}
+		if cfg.TSSPassword == "" {
+			return fmt.Errorf("tss_password is required for TSS")
+		}
 	}
 
 	return nil

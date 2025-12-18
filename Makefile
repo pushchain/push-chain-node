@@ -88,7 +88,7 @@ include contrib/devtools/Makefile
 
 all: install lint test
 
-build: go.sum
+build: go.sum build-dkls23
 ifeq ($(OS),Windows_NT)
 	$(error wasmd server not supported. Use "make build-windows-client" for client)
 	exit 1
@@ -111,12 +111,32 @@ else
 	go build -mod=readonly $(BUILD_FLAGS) -o build/contract_tests ./cmd/contract_tests
 endif
 
-install: go.sum
+install: go.sum build-dkls23
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/pchaind
 	go install -mod=readonly $(BUILD_FLAGS) ./cmd/puniversald
 
 ########################################
 ### Tools & dependencies
+
+# Build dkls23-rs dependency
+# Always builds the dkls23-rs library to ensure it's up to date
+# Note: The dkls23-rs repository must be cloned at ../dkls23-rs before running this target
+.PHONY: build-dkls23
+build-dkls23:
+	@echo "--> Building dkls23-rs dependency..."
+	@if [ ! -d "../dkls23-rs" ]; then \
+		echo "  ⚠️  Warning: ../dkls23-rs not found."; \
+		echo "  Please clone the dkls23-rs repository:"; \
+		echo "    git clone https://github.com/pushchain/dkls23-rs.git ../dkls23-rs"; \
+		echo "  Then ensure Rust/Cargo is installed and run 'make build-dkls23' again."; \
+		exit 1; \
+	fi
+	@echo "  Building dkls23-rs library..."
+	@cd ../dkls23-rs/wrapper/go-wrappers && make build || { \
+		echo "  Error: Failed to build dkls23-rs. Ensure Rust/Cargo is installed."; \
+		exit 1; \
+	}
+	@echo "  ✓ dkls23-rs library built"
 
 go-mod-cache: go.sum
 	@echo "--> Download go modules to local cache"
@@ -124,7 +144,8 @@ go-mod-cache: go.sum
 
 go.sum: go.mod
 	@echo "--> Ensure dependencies have not been modified"
-	@go mod verify
+	@go mod tidy
+	@go mod verify || echo "Warning: go mod verify failed (this may be expected for local replace modules like go-wrapper)"
 
 draw-deps:
 	@# requires brew install graphviz or apt-get install graphviz
@@ -143,17 +164,17 @@ distclean: clean
 test: test-unit
 test-all: test-race test-cover test-system
 
-test-unit:
-	@VERSION=$(VERSION) go test -mod=readonly -tags='ledger test_ledger_mock' ./...
+test-unit: build-dkls23
+	@VERSION=$(VERSION) LD_LIBRARY_PATH=$$(pwd)/../dkls23-rs/wrapper/go-wrappers:$$(pwd)/../dkls23-rs/target/release:$$LD_LIBRARY_PATH go test -mod=readonly -tags="ledger test_ledger_mock" ./...
 
-test-race:
-	@VERSION=$(VERSION) go test -mod=readonly -race -tags='ledger test_ledger_mock' ./...
+test-race: build-dkls23
+	@VERSION=$(VERSION) LD_LIBRARY_PATH=$$(pwd)/../dkls23-rs/wrapper/go-wrappers:$$(pwd)/../dkls23-rs/target/release:$$LD_LIBRARY_PATH go test -mod=readonly -race -tags='ledger test_ledger_mock' ./...
 
-test-cover:
-	@go test -mod=readonly -timeout 30m -race -coverprofile=coverage.txt -covermode=atomic -tags='ledger test_ledger_mock' ./...
+test-cover: build-dkls23
+	@LD_LIBRARY_PATH=$$(pwd)/../dkls23-rs/wrapper/go-wrappers:$$(pwd)/../dkls23-rs/target/release:$$LD_LIBRARY_PATH go test -mod=readonly -timeout 30m -race -coverprofile=coverage.txt -covermode=atomic -tags='ledger test_ledger_mock' ./...
 
-benchmark:
-	@go test -mod=readonly -bench=. ./...
+benchmark: build-dkls23
+	@LD_LIBRARY_PATH=$$(pwd)/../dkls23-rs/wrapper/go-wrappers:$$(pwd)/../dkls23-rs/target/release:$$LD_LIBRARY_PATH go test -mod=readonly -bench=. ./...
 
 test-sim-import-export: runsim
 	@echo "Running application import/export simulation. This may take several minutes..."

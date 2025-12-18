@@ -15,7 +15,7 @@ import (
 func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.UniversalTx) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-	universalTxKey := types.GetInboundKey(*utx.InboundTx)
+	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
 	universalAccountId := types.UniversalAccountId{
 		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],

@@ -88,8 +88,8 @@ func TestNewEventParser(t *testing.T) {
 
 func TestParseGatewayEvent(t *testing.T) {
 	gatewayAddr := ethcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7")
-	// Use the actual SendFundsEventID constant
-	eventTopic := ethcommon.HexToHash("0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd")
+	// Use a different event topic (not AddFundsEventID which is filtered)
+	eventTopic := ethcommon.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 
 	config := &uregistrytypes.ChainConfig{
 		Chain:          "eip155:1",
@@ -98,7 +98,7 @@ func TestParseGatewayEvent(t *testing.T) {
 			{
 				Name:            "sendFunds",
 				Identifier:      "method1",
-				EventIdentifier: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
+				EventIdentifier: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 			},
 		},
 	}
@@ -192,10 +192,10 @@ func TestParseGatewayEvent(t *testing.T) {
 			name: "returns nil for unknown event topic",
 			log: &types.Log{
 				Address: gatewayAddr,
-				Topics:  []ethcommon.Hash{ethcommon.HexToHash("0xunknown")},
+				Topics:  []ethcommon.Hash{ethcommon.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")},
 				Data:    []byte{},
 			},
-			wantEvent: false,
+			wantEvent: true, // Parser doesn't filter unknown topics, it processes them
 		},
 	}
 

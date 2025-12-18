@@ -220,7 +220,7 @@ func (vh *VoteHandler) constructInbound(tx *store.ChainTransaction) (*uetypes.In
 	}
 
 	// Set recipient for transactions that involve funds
-	if txType == uetypes.InboundTxType_FUNDS {
+	if txType == uetypes.InboundTxType_FUNDS || txType == uetypes.InboundTxType_GAS {
 		inboundMsg.Recipient = eventData.Recipient
 	}
 

@@ -23,7 +23,7 @@ func NewMsgUpdateTokenConfig(
 // Route returns the name of the module
 func (msg MsgUpdateTokenConfig) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgUpdateTokenConfig) Type() string { return "update_token_config" }
 
 // GetSignBytes implements the LegacyMsg interface.

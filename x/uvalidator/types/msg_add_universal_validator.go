@@ -13,18 +13,20 @@ var (
 func NewMsgAddUniversalValidator(
 	sender sdk.Address,
 	coreValidatorAddress sdk.Address,
-	universalValidatorAddress sdk.Address,
+	pubKey string,
+	network NetworkInfo,
 ) *MsgAddUniversalValidator {
 	return &MsgAddUniversalValidator{
 		Signer:               sender.String(),
 		CoreValidatorAddress: coreValidatorAddress.String(),
+		Network:              &network,
 	}
 }
 
 // Route returns the name of the module
 func (msg MsgAddUniversalValidator) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgAddUniversalValidator) Type() string { return "add_universal_validator" }
 
 // GetSignBytes implements the LegacyMsg interface.
@@ -50,5 +52,5 @@ func (msg *MsgAddUniversalValidator) ValidateBasic() error {
 		return errors.Wrap(err, "invalid core validator address")
 	}
 
-	return nil
+	return msg.Network.ValidateBasic()
 }

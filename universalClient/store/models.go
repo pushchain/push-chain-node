@@ -17,7 +17,8 @@ type ChainState struct {
 // Since each chain has its own database, ChainID is not needed.
 type ChainTransaction struct {
 	gorm.Model
-	TxHash           string `gorm:"uniqueIndex"`
+	TxHash           string `gorm:"uniqueIndex:idx_tx_hash_log_index"`
+	LogIndex         uint   `gorm:"uniqueIndex:idx_tx_hash_log_index"`
 	BlockNumber      uint64
 	EventIdentifier  string
 	Status           string `gorm:"index"` // "confirmation_pending", "awaiting_vote", "confirmed", "failed", "reorged"
@@ -36,4 +37,30 @@ type GasVoteTransaction struct {
 	VoteTxHash string `gorm:"index"`    // On-chain vote transaction hash
 	Status     string `gorm:"default:'success'"`
 	ErrorMsg   string `gorm:"type:text"` // Error message if vote failed
+}
+
+// TSSEvent tracks TSS protocol events (KeyGen, KeyRefresh, Sign) from Push Chain.
+type TSSEvent struct {
+	gorm.Model
+	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event
+	BlockNumber  uint64 `gorm:"index;not null"`       // Block number when event was detected
+	ProtocolType string // "keygen", "keyrefresh", or "sign"
+	Status       string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "SUCCESS"
+	ExpiryHeight uint64 `gorm:"index;not null"` // Block height when event expires
+	EventData    []byte // Raw event data from chain
+	VoteTxHash   string // Transaction hash of the vote on pchain
+	ErrorMsg     string `gorm:"type:text"` // Error message if status is FAILED
+}
+
+// ExternalChainSignature tracks signatures that need to be broadcasted to external chains.
+// Created when a Sign protocol completes successfully.
+// TODO: Finalize Structure
+type ChainTSSTransaction struct {
+	gorm.Model
+	TSSEventID      uint   `gorm:"index;not null"` // Reference to TSSEvent
+	Status          string `gorm:"index;not null"` // "PENDING" or "SUCCESS" (after broadcast)
+	Signature       []byte `gorm:"not null"`       // ECDSA signature (65 bytes: R(32) + S(32) + RecoveryID(1))
+	MessageHash     []byte `gorm:"not null"`       // Message hash that was signed
+	BroadcastTxHash string `gorm:"index"`          // Transaction hash after successful broadcast
+	ErrorMsg        string `gorm:"type:text"`      // Error message if broadcast failed
 }

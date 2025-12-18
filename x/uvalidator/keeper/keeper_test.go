@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -87,10 +88,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.stakingKeeper, slashingKeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.stakingKeeper, slashingKeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
 
 	return f
 }
@@ -146,4 +147,14 @@ func registerBaseSDKModules(
 		f.stakingKeeper, f.accountkeeper, f.bankkeeper,
 		authtypes.FeeCollectorName, f.govModAddr,
 	)
+}
+
+type mockUtssKeeper struct{}
+
+func (m mockUtssKeeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error) {
+	return []string{"val1", "val2"}, nil
+}
+
+func (mc mockUtssKeeper) HasOngoingTss(ctx context.Context) (bool, error) {
+	return true, nil
 }

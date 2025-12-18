@@ -23,7 +23,7 @@ func NewMsgRemoveUniversalValidator(
 // Route returns the name of the module
 func (msg MsgRemoveUniversalValidator) Route() string { return ModuleName }
 
-// Type returns the the action
+// Type returns the action
 func (msg MsgRemoveUniversalValidator) Type() string { return "remove_universal_validator" }
 
 // GetSignBytes implements the LegacyMsg interface.
@@ -44,8 +44,9 @@ func (msg *MsgRemoveUniversalValidator) ValidateBasic() error {
 	}
 
 	// Validate universal validator address (must be a normal account address)
-	if _, err := sdk.AccAddressFromBech32(msg.CoreValidatorAddress); err != nil {
-		return errors.Wrap(err, "invalid universal validator address")
+	_, err := sdk.ValAddressFromBech32(msg.CoreValidatorAddress)
+	if err != nil {
+		return errors.Wrap(err, "invalid core validator address")
 	}
 
 	return nil

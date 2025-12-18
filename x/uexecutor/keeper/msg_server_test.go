@@ -49,7 +49,6 @@ func TestParams(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := f.msgServer.UpdateParams(f.ctx, tc.request)
 
@@ -456,4 +455,80 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 		require.ErrorContains(t, err, "invalid verificationData format")
 	})
 
+}
+
+func TestMsgServer_MigrateUEA(t *testing.T) {
+	f := SetupTest(t)
+
+	validSigner := f.addrs[0]
+	validUA := &types.UniversalAccountId{
+		ChainNamespace: "eip155",
+		ChainId:        "11155111",
+		Owner:          "0x000000000000000000000000000000000000dead",
+	}
+	validMP := &types.MigrationPayload{
+		Migration: "0x1234567890abcdef1234567890abcdef12345670",
+		Nonce:     "1",
+		Deadline:  "some-deadline",
+	}
+
+	t.Run("fail; invalid signer address", func(t *testing.T) {
+		msg := &types.MsgMigrateUEA{
+			Signer:             "invalid_address",
+			UniversalAccountId: validUA,
+			MigrationPayload:   validMP,
+			Signature:          "0x",
+		}
+
+		_, err := f.msgServer.MigrateUEA(f.ctx, msg)
+		require.ErrorContains(t, err, "failed to parse signer address")
+	})
+
+	t.Run("Fail : ChainConfig for Universal Accout not set", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgMigrateUEA{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			MigrationPayload:   validMP,
+			Signature:          "0x",
+		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(uregistrytypes.ChainConfig{}, errors.New("failed to get chain config for chain eip155:11155111"))
+
+		_, err := f.msgServer.MigrateUEA(f.ctx, msg)
+		require.ErrorContains(t, err, "failed to get chain config")
+	})
+
+	t.Run("Fail: CallFactoryToComputeUEAAddress", func(t *testing.T) {
+		// You can inject failure in f.app or f.k.utvKeeper if mockable
+		msg := &types.MsgMigrateUEA{
+			Signer:             validSigner.String(),
+			UniversalAccountId: validUA,
+			MigrationPayload:   validMP,
+			Signature:          "0x",
+		}
+
+		chainConfigTest := uregistrytypes.ChainConfig{
+			Chain:          "eip155:11155111",
+			VmType:         uregistrytypes.VmType_EVM, // replace with appropriate VM_TYPE enum value
+			PublicRpcUrl:   "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+			GatewayAddress: "0x1234567890abcdef1234567890abcdef12345678",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     3,
+				StandardInbound: 10,
+			},
+			GatewayMethods: []*uregistrytypes.GatewayMethods{},
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
+		}
+
+		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
+
+		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed")).AnyTimes()
+
+		_, err := f.msgServer.MigrateUEA(f.ctx, msg)
+		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
+	})
 }

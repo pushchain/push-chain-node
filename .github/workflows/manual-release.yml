@@ -37,6 +37,25 @@ jobs:
           go-version: '1.22.3'
           cache: true
 
+      - name: Install Rust (for dkls23-rs dependency)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
+      - name: Copy dkls23-rs and garbling into build context
+        run: |
+          cp -r ../dkls23-rs ./dkls23-rs
+          cp -r ../garbling ./garbling
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
+
+      - name: Build dkls23-rs Rust library
+        run: |
+          cd dkls23-rs
+          cargo build --release
+
       - name: Clean dist directory
         run: rm -rf dist
 
@@ -184,6 +203,8 @@ jobs:
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CGO_ENABLED: "1"
+          CGO_LDFLAGS: "-L${{ github.workspace }}/dkls23-rs/target/release"
 
       - name: Update Release Notes
         uses: softprops/action-gh-release@v1

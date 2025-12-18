@@ -10,22 +10,20 @@ release:
 # Windows, 386 (32bit), and ARM are not Wasm compatible.
 builds:
   - id: pchain
-    # NOTE: Darwin/macOS builds are handled separately by release-mac-signed.yml
-    # because CGO cross-compilation from Linux is not supported.
+    # NOTE: This project requires CGO (go-ethereum, dkls23-rs), so cross-compilation is not supported.
+    # - linux_amd64: Built here on ubuntu-latest runner
+    # - linux_arm64: Requires ARM runner (not included yet)
+    # - darwin/*: Built by release-mac-signed.yml on macos-latest runner
     goos:
       - linux
     goarch:
       - amd64
-      - arm64
-    goarm:
-      - "6"
-    gomips:
-      - hardfloat
     goamd64:
       - v1
     targets:
       - linux_amd64_v1
-      - linux_arm64
+    env:
+      - CGO_ENABLED=1
     dir: .
     main: ./cmd/pchaind
     binary: pchaind

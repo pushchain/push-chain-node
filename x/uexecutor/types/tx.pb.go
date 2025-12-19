@@ -130,218 +130,6 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
-// MsgDeployUEA is the message used to deploy a new smart account.
-type MsgDeployUEA struct {
-	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// universal_account_id is the identifier of the owner account
-	UniversalAccountId *UniversalAccountId `protobuf:"bytes,2,opt,name=universal_account_id,json=universalAccountId,proto3" json:"universal_account_id,omitempty"`
-	// tx_hash is the hash of the transaction in which user locked the tokens
-	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
-}
-
-func (m *MsgDeployUEA) Reset()         { *m = MsgDeployUEA{} }
-func (m *MsgDeployUEA) String() string { return proto.CompactTextString(m) }
-func (*MsgDeployUEA) ProtoMessage()    {}
-func (*MsgDeployUEA) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{2}
-}
-func (m *MsgDeployUEA) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgDeployUEA) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgDeployUEA.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgDeployUEA) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgDeployUEA.Merge(m, src)
-}
-func (m *MsgDeployUEA) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgDeployUEA) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgDeployUEA.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgDeployUEA proto.InternalMessageInfo
-
-func (m *MsgDeployUEA) GetSigner() string {
-	if m != nil {
-		return m.Signer
-	}
-	return ""
-}
-
-func (m *MsgDeployUEA) GetUniversalAccountId() *UniversalAccountId {
-	if m != nil {
-		return m.UniversalAccountId
-	}
-	return nil
-}
-
-func (m *MsgDeployUEA) GetTxHash() string {
-	if m != nil {
-		return m.TxHash
-	}
-	return ""
-}
-
-// MsgDeployUEAResponse defines the response for MsgDeployUEA.
-type MsgDeployUEAResponse struct {
-	// uea is the address of the newly deployed smart account
-	UEA []byte `protobuf:"bytes,1,opt,name=UEA,proto3" json:"UEA,omitempty"`
-}
-
-func (m *MsgDeployUEAResponse) Reset()         { *m = MsgDeployUEAResponse{} }
-func (m *MsgDeployUEAResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgDeployUEAResponse) ProtoMessage()    {}
-func (*MsgDeployUEAResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{3}
-}
-func (m *MsgDeployUEAResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgDeployUEAResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgDeployUEAResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgDeployUEAResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgDeployUEAResponse.Merge(m, src)
-}
-func (m *MsgDeployUEAResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgDeployUEAResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgDeployUEAResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgDeployUEAResponse proto.InternalMessageInfo
-
-func (m *MsgDeployUEAResponse) GetUEA() []byte {
-	if m != nil {
-		return m.UEA
-	}
-	return nil
-}
-
-// MsgMintPC represents a message to mint PC tokens to a smart account,
-// based on the amount locked by the user in the gateway contract.
-type MsgMintPC struct {
-	// signer is the Cosmos address initiating the tx (used for tx signing)
-	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
-	// universal_account_id is the identifier of the owner account
-	UniversalAccountId *UniversalAccountId `protobuf:"bytes,2,opt,name=universal_account_id,json=universalAccountId,proto3" json:"universal_account_id,omitempty"`
-	// tx_hash is the hash of the transaction in which user locked the tokens
-	TxHash string `protobuf:"bytes,3,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
-}
-
-func (m *MsgMintPC) Reset()         { *m = MsgMintPC{} }
-func (m *MsgMintPC) String() string { return proto.CompactTextString(m) }
-func (*MsgMintPC) ProtoMessage()    {}
-func (*MsgMintPC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{4}
-}
-func (m *MsgMintPC) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgMintPC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgMintPC.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgMintPC) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgMintPC.Merge(m, src)
-}
-func (m *MsgMintPC) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgMintPC) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgMintPC.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgMintPC proto.InternalMessageInfo
-
-func (m *MsgMintPC) GetSigner() string {
-	if m != nil {
-		return m.Signer
-	}
-	return ""
-}
-
-func (m *MsgMintPC) GetUniversalAccountId() *UniversalAccountId {
-	if m != nil {
-		return m.UniversalAccountId
-	}
-	return nil
-}
-
-func (m *MsgMintPC) GetTxHash() string {
-	if m != nil {
-		return m.TxHash
-	}
-	return ""
-}
-
-// MsgMintPCResponse defines the response for MsgMintPC.
-type MsgMintPCResponse struct {
-}
-
-func (m *MsgMintPCResponse) Reset()         { *m = MsgMintPCResponse{} }
-func (m *MsgMintPCResponse) String() string { return proto.CompactTextString(m) }
-func (*MsgMintPCResponse) ProtoMessage()    {}
-func (*MsgMintPCResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{5}
-}
-func (m *MsgMintPCResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MsgMintPCResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MsgMintPCResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MsgMintPCResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MsgMintPCResponse.Merge(m, src)
-}
-func (m *MsgMintPCResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *MsgMintPCResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_MsgMintPCResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MsgMintPCResponse proto.InternalMessageInfo
-
 // MsgExecutePayload defines a message for executing a universal payload
 type MsgExecutePayload struct {
 	// signer is the Cosmos address initiating the tx (used for tx signing)
@@ -358,7 +146,7 @@ func (m *MsgExecutePayload) Reset()         { *m = MsgExecutePayload{} }
 func (m *MsgExecutePayload) String() string { return proto.CompactTextString(m) }
 func (*MsgExecutePayload) ProtoMessage()    {}
 func (*MsgExecutePayload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{6}
+	return fileDescriptor_88d6216044506365, []int{2}
 }
 func (m *MsgExecutePayload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -423,7 +211,7 @@ func (m *MsgExecutePayloadResponse) Reset()         { *m = MsgExecutePayloadResp
 func (m *MsgExecutePayloadResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgExecutePayloadResponse) ProtoMessage()    {}
 func (*MsgExecutePayloadResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{7}
+	return fileDescriptor_88d6216044506365, []int{3}
 }
 func (m *MsgExecutePayloadResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -468,7 +256,7 @@ func (m *MsgMigrateUEA) Reset()         { *m = MsgMigrateUEA{} }
 func (m *MsgMigrateUEA) String() string { return proto.CompactTextString(m) }
 func (*MsgMigrateUEA) ProtoMessage()    {}
 func (*MsgMigrateUEA) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{8}
+	return fileDescriptor_88d6216044506365, []int{4}
 }
 func (m *MsgMigrateUEA) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -533,7 +321,7 @@ func (m *MsgMigrateUEAResponse) Reset()         { *m = MsgMigrateUEAResponse{} }
 func (m *MsgMigrateUEAResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgMigrateUEAResponse) ProtoMessage()    {}
 func (*MsgMigrateUEAResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{9}
+	return fileDescriptor_88d6216044506365, []int{5}
 }
 func (m *MsgMigrateUEAResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -573,7 +361,7 @@ func (m *MsgVoteInbound) Reset()         { *m = MsgVoteInbound{} }
 func (m *MsgVoteInbound) String() string { return proto.CompactTextString(m) }
 func (*MsgVoteInbound) ProtoMessage()    {}
 func (*MsgVoteInbound) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{10}
+	return fileDescriptor_88d6216044506365, []int{6}
 }
 func (m *MsgVoteInbound) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -624,7 +412,7 @@ func (m *MsgVoteInboundResponse) Reset()         { *m = MsgVoteInboundResponse{}
 func (m *MsgVoteInboundResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgVoteInboundResponse) ProtoMessage()    {}
 func (*MsgVoteInboundResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{11}
+	return fileDescriptor_88d6216044506365, []int{7}
 }
 func (m *MsgVoteInboundResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -665,7 +453,7 @@ func (m *MsgVoteGasPrice) Reset()         { *m = MsgVoteGasPrice{} }
 func (m *MsgVoteGasPrice) String() string { return proto.CompactTextString(m) }
 func (*MsgVoteGasPrice) ProtoMessage()    {}
 func (*MsgVoteGasPrice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{12}
+	return fileDescriptor_88d6216044506365, []int{8}
 }
 func (m *MsgVoteGasPrice) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -730,7 +518,7 @@ func (m *MsgVoteGasPriceResponse) Reset()         { *m = MsgVoteGasPriceResponse
 func (m *MsgVoteGasPriceResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgVoteGasPriceResponse) ProtoMessage()    {}
 func (*MsgVoteGasPriceResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d6216044506365, []int{13}
+	return fileDescriptor_88d6216044506365, []int{9}
 }
 func (m *MsgVoteGasPriceResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -762,10 +550,6 @@ var xxx_messageInfo_MsgVoteGasPriceResponse proto.InternalMessageInfo
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "uexecutor.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "uexecutor.v1.MsgUpdateParamsResponse")
-	proto.RegisterType((*MsgDeployUEA)(nil), "uexecutor.v1.MsgDeployUEA")
-	proto.RegisterType((*MsgDeployUEAResponse)(nil), "uexecutor.v1.MsgDeployUEAResponse")
-	proto.RegisterType((*MsgMintPC)(nil), "uexecutor.v1.MsgMintPC")
-	proto.RegisterType((*MsgMintPCResponse)(nil), "uexecutor.v1.MsgMintPCResponse")
 	proto.RegisterType((*MsgExecutePayload)(nil), "uexecutor.v1.MsgExecutePayload")
 	proto.RegisterType((*MsgExecutePayloadResponse)(nil), "uexecutor.v1.MsgExecutePayloadResponse")
 	proto.RegisterType((*MsgMigrateUEA)(nil), "uexecutor.v1.MsgMigrateUEA")
@@ -779,63 +563,55 @@ func init() {
 func init() { proto.RegisterFile("uexecutor/v1/tx.proto", fileDescriptor_88d6216044506365) }
 
 var fileDescriptor_88d6216044506365 = []byte{
-	// 884 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0xbf, 0x6f, 0xdb, 0x46,
-	0x14, 0x36, 0x6d, 0x45, 0x81, 0x9e, 0xd5, 0xc4, 0x62, 0xe4, 0x48, 0xa2, 0x13, 0xc5, 0x61, 0xda,
-	0xc6, 0x55, 0x6a, 0xb1, 0x51, 0x81, 0x0c, 0xda, 0xa4, 0xc4, 0x68, 0x0d, 0x43, 0x81, 0xca, 0x46,
-	0x1d, 0xb2, 0x08, 0x27, 0xf2, 0x4a, 0x11, 0x15, 0x79, 0x04, 0xef, 0x28, 0x48, 0x5b, 0xd1, 0xb1,
-	0x53, 0xa7, 0xfe, 0x0f, 0x45, 0x17, 0x0f, 0xfd, 0x03, 0x3a, 0x7a, 0x6b, 0xd0, 0xa2, 0x40, 0xa7,
-	0xa2, 0xb0, 0x07, 0xff, 0x1b, 0x05, 0x8f, 0x3f, 0x44, 0x52, 0xb2, 0x02, 0x78, 0xf2, 0x22, 0xdc,
-	0x7d, 0xdf, 0x7b, 0x4f, 0xef, 0xfb, 0xee, 0x17, 0x61, 0xd7, 0xc3, 0x33, 0xac, 0x79, 0x8c, 0xb8,
-	0xca, 0xf4, 0xb9, 0xc2, 0x66, 0x4d, 0xc7, 0x25, 0x8c, 0x88, 0xc5, 0x18, 0x6e, 0x4e, 0x9f, 0x4b,
-	0x25, 0x64, 0x99, 0x36, 0x51, 0xf8, 0x6f, 0x10, 0x20, 0x55, 0x34, 0x42, 0x2d, 0x42, 0x15, 0x8b,
-	0x1a, 0x7e, 0xa2, 0x45, 0x8d, 0x90, 0xa8, 0xa6, 0x0b, 0xce, 0x1d, 0x4c, 0x43, 0xa6, 0x6c, 0x10,
-	0x83, 0xf0, 0xa1, 0xe2, 0x8f, 0x42, 0xb4, 0x16, 0x14, 0x1a, 0x06, 0x44, 0x30, 0x09, 0x28, 0xf9,
-	0x57, 0x01, 0xee, 0xf6, 0xa8, 0x31, 0x70, 0x74, 0xc4, 0x70, 0x1f, 0xb9, 0xc8, 0xa2, 0xe2, 0x0b,
-	0x28, 0x20, 0x8f, 0x8d, 0x89, 0x6b, 0xb2, 0x79, 0x55, 0xd8, 0x17, 0x0e, 0x0a, 0xdd, 0xea, 0x9f,
-	0xbf, 0x1d, 0x96, 0xc3, 0xc4, 0x8e, 0xae, 0xbb, 0x98, 0xd2, 0xaf, 0x99, 0x6b, 0xda, 0x86, 0xba,
-	0x08, 0x15, 0x5b, 0x90, 0x77, 0x78, 0x85, 0xea, 0xe6, 0xbe, 0x70, 0xb0, 0xdd, 0x2a, 0x37, 0x93,
-	0x0a, 0x9b, 0x41, 0xf5, 0x6e, 0xee, 0xec, 0xdf, 0x47, 0x1b, 0x6a, 0x18, 0xd9, 0xfe, 0xf4, 0x87,
-	0xcb, 0xd3, 0xc6, 0xa2, 0xc6, 0x8f, 0x97, 0xa7, 0x8d, 0xda, 0x42, 0x5d, 0xa6, 0x33, 0xb9, 0x06,
-	0x95, 0x0c, 0xa4, 0x62, 0xea, 0x10, 0x9b, 0x62, 0xf9, 0x6f, 0x01, 0x8a, 0x3d, 0x6a, 0xbc, 0xc2,
-	0xce, 0x84, 0xcc, 0x07, 0x47, 0x1d, 0xf1, 0x33, 0xc8, 0x53, 0xd3, 0xb0, 0xb1, 0xfb, 0x5e, 0x09,
-	0x61, 0x9c, 0xa8, 0x42, 0xd9, 0xb3, 0xcd, 0x29, 0x76, 0x29, 0x9a, 0x0c, 0x91, 0xa6, 0x11, 0xcf,
-	0x66, 0x43, 0x53, 0x0f, 0xd5, 0xec, 0xa7, 0xd5, 0x0c, 0xa2, 0xc8, 0x4e, 0x10, 0x78, 0xac, 0xab,
-	0xa2, 0xb7, 0x84, 0x89, 0x15, 0xb8, 0xcd, 0x66, 0xc3, 0x31, 0xa2, 0xe3, 0xea, 0x96, 0xdf, 0x86,
-	0x9a, 0x67, 0xb3, 0x2f, 0x11, 0x1d, 0xb7, 0x3f, 0xf6, 0x85, 0x87, 0xff, 0xec, 0xab, 0xbe, 0x9f,
-	0x52, 0x1d, 0xcb, 0x90, 0x0f, 0xa0, 0x9c, 0x9c, 0x47, 0x7a, 0xc5, 0x1d, 0xd8, 0x1a, 0x1c, 0x75,
-	0xb8, 0xb6, 0xa2, 0xea, 0x0f, 0xe5, 0x3f, 0x04, 0x28, 0xf4, 0xa8, 0xd1, 0x33, 0x6d, 0xd6, 0x7f,
-	0x79, 0xd3, 0xe5, 0x3f, 0xc9, 0xc8, 0xbf, 0x97, 0x92, 0x1f, 0x68, 0x90, 0xef, 0x41, 0x29, 0x9e,
-	0xc4, 0x0b, 0xfd, 0xfb, 0x26, 0x47, 0x8f, 0x78, 0x38, 0xee, 0xa3, 0xf9, 0x84, 0x20, 0xfd, 0x86,
-	0xc8, 0x3d, 0x81, 0xd2, 0xa2, 0xa6, 0x13, 0xb4, 0xc6, 0x85, 0x6f, 0xb7, 0xea, 0x57, 0x14, 0x0c,
-	0x05, 0xa8, 0x3b, 0x5e, 0x06, 0x11, 0x9f, 0x41, 0x69, 0x8a, 0x5d, 0xf3, 0x5b, 0x53, 0x43, 0xcc,
-	0x24, 0xf6, 0x50, 0x47, 0x0c, 0x55, 0x73, 0xdc, 0xc5, 0x9d, 0x24, 0xf1, 0x0a, 0x31, 0xd4, 0x7e,
-	0x96, 0xf1, 0x73, 0x2f, 0xe5, 0x67, 0xda, 0x2c, 0x79, 0x0f, 0x6a, 0x4b, 0x60, 0xec, 0xef, 0x2f,
-	0x9b, 0xf0, 0x01, 0x77, 0xdd, 0x70, 0x11, 0xc3, 0x37, 0xe7, 0x24, 0x9d, 0x40, 0xc9, 0xe2, 0x3d,
-	0xf9, 0x5e, 0xac, 0xf5, 0xb6, 0x17, 0x85, 0xc5, 0xde, 0x5a, 0x19, 0x44, 0x7c, 0x00, 0x05, 0xbf,
-	0x55, 0xc4, 0x3c, 0x17, 0x87, 0x9e, 0x2e, 0x80, 0xf6, 0xd3, 0x8c, 0x99, 0x95, 0xcc, 0xe6, 0x8c,
-	0x9c, 0x91, 0x2b, 0xb0, 0x9b, 0x02, 0x62, 0x13, 0x7f, 0x16, 0xe0, 0x4e, 0x8f, 0x1a, 0xdf, 0x10,
-	0x86, 0x8f, 0xed, 0x11, 0xf1, 0xec, 0xeb, 0xec, 0x50, 0x05, 0x6e, 0x9b, 0x41, 0x72, 0x68, 0xdc,
-	0x6e, 0x5a, 0x67, 0x58, 0x59, 0x8d, 0xa2, 0xda, 0x8f, 0x33, 0x7d, 0x97, 0x3c, 0xac, 0xa4, 0xbb,
-	0x90, 0xab, 0x70, 0x3f, 0x8d, 0xc4, 0x2d, 0xff, 0x15, 0xbc, 0x04, 0x3e, 0xf5, 0x05, 0xa2, 0x7d,
-	0xd7, 0xd4, 0xf0, 0x35, 0x7a, 0x6e, 0x40, 0x89, 0x8c, 0x28, 0x76, 0xa7, 0x58, 0x1f, 0x6a, 0x63,
-	0x64, 0xda, 0xd1, 0xb2, 0x17, 0xd4, 0xbb, 0x11, 0xf1, 0xd2, 0xc7, 0x8f, 0x75, 0xb1, 0x0c, 0xb7,
-	0x1c, 0xff, 0x6f, 0xf8, 0x2a, 0xe6, 0xd4, 0x60, 0x22, 0x3e, 0x86, 0xe2, 0x68, 0x42, 0xb4, 0xef,
-	0x86, 0xb6, 0x67, 0x8d, 0xb0, 0xcb, 0x57, 0x27, 0xa7, 0x6e, 0x73, 0xec, 0x35, 0x87, 0xda, 0x9f,
-	0x64, 0x74, 0xa6, 0x5f, 0x8c, 0xa4, 0x82, 0xf0, 0xc5, 0x48, 0x42, 0x91, 0xe0, 0xd6, 0x59, 0x0e,
-	0xb6, 0x7a, 0xd4, 0x10, 0xdf, 0x40, 0x31, 0xf5, 0xfc, 0x3d, 0xcc, 0xec, 0xa6, 0xf4, 0x83, 0x23,
-	0x7d, 0xb4, 0x96, 0x8e, 0xef, 0xe7, 0x13, 0x28, 0x2c, 0xde, 0x22, 0x69, 0x29, 0x27, 0xe6, 0x24,
-	0xf9, 0x6a, 0x2e, 0x2e, 0xd6, 0x85, 0x7c, 0x78, 0xad, 0x57, 0x96, 0xa2, 0x03, 0x42, 0x7a, 0x74,
-	0x05, 0x11, 0xd7, 0x78, 0x0b, 0x77, 0x32, 0x77, 0xe6, 0x72, 0x4a, 0x3a, 0x40, 0x7a, 0xfa, 0x9e,
-	0x80, 0xb8, 0xf6, 0x6b, 0x80, 0xc4, 0x7d, 0xb1, 0xb7, 0xa2, 0x95, 0x88, 0x94, 0x9e, 0xac, 0x21,
-	0xe3, 0x7a, 0x5f, 0xc1, 0x76, 0xf2, 0xe8, 0x3c, 0x58, 0xca, 0x49, 0xb0, 0xd2, 0x87, 0xeb, 0xd8,
-	0xb8, 0xe4, 0x1b, 0x28, 0xa6, 0xb6, 0xf6, 0xc3, 0x95, 0x59, 0x11, 0xbd, 0x62, 0x95, 0x57, 0xed,
-	0x21, 0xe9, 0xd6, 0xf7, 0x97, 0xa7, 0x0d, 0xa1, 0xdb, 0x3f, 0x3b, 0xaf, 0x0b, 0xef, 0xce, 0xeb,
-	0xc2, 0x7f, 0xe7, 0x75, 0xe1, 0xa7, 0x8b, 0xfa, 0xc6, 0xbb, 0x8b, 0xfa, 0xc6, 0x3f, 0x17, 0xf5,
-	0x8d, 0xb7, 0x2f, 0x0c, 0x93, 0x8d, 0xbd, 0x51, 0x53, 0x23, 0x96, 0xe2, 0x78, 0x74, 0xcc, 0xcf,
-	0x04, 0x1f, 0x1d, 0xf2, 0xe1, 0xa1, 0x4d, 0x74, 0xac, 0xcc, 0x94, 0xc5, 0x0e, 0xe6, 0x9f, 0x73,
-	0xa3, 0x3c, 0xff, 0x3c, 0xfb, 0xfc, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9e, 0xcf, 0x87, 0x73,
-	0x3c, 0x0a, 0x00, 0x00,
+	// 760 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xbf, 0x4f, 0xdb, 0x4e,
+	0x1c, 0x8d, 0x21, 0xf0, 0x55, 0x8e, 0x7c, 0x81, 0x58, 0xa1, 0xf9, 0x01, 0x04, 0x48, 0x5b, 0x41,
+	0x43, 0x89, 0x0b, 0x95, 0x18, 0xb2, 0x41, 0x8b, 0x2a, 0x54, 0x05, 0xa5, 0x2e, 0x74, 0x60, 0x89,
+	0x2e, 0xf6, 0xd5, 0xb1, 0x8a, 0x7d, 0xd6, 0xdd, 0x39, 0x82, 0xad, 0xea, 0xd8, 0xa9, 0x53, 0xff,
+	0x87, 0xaa, 0x0b, 0x43, 0xa5, 0xae, 0x1d, 0x19, 0x51, 0xbb, 0x74, 0xaa, 0x2a, 0x18, 0xf8, 0x37,
+	0x2a, 0x9f, 0x7f, 0xe5, 0x1c, 0x1a, 0x24, 0xa6, 0x2e, 0xd1, 0xf9, 0xbd, 0xcf, 0xe7, 0xe5, 0xf3,
+	0xde, 0x9d, 0xcf, 0x60, 0xc6, 0x45, 0xc7, 0x48, 0x73, 0x19, 0x26, 0x4a, 0x6f, 0x5d, 0x61, 0xc7,
+	0x75, 0x87, 0x60, 0x86, 0xe5, 0x6c, 0x04, 0xd7, 0x7b, 0xeb, 0xe5, 0x1c, 0xb4, 0x4c, 0x1b, 0x2b,
+	0xfc, 0xd7, 0x2f, 0x28, 0x17, 0x34, 0x4c, 0x2d, 0x4c, 0x15, 0x8b, 0x1a, 0x5e, 0xa3, 0x45, 0x8d,
+	0x80, 0x28, 0x8a, 0x82, 0x27, 0x0e, 0xa2, 0x01, 0x93, 0x37, 0xb0, 0x81, 0xf9, 0x52, 0xf1, 0x56,
+	0x01, 0x5a, 0xf2, 0x85, 0xda, 0x3e, 0xe1, 0x3f, 0xf8, 0x54, 0xf5, 0xb3, 0x04, 0xa6, 0x9a, 0xd4,
+	0x38, 0x70, 0x74, 0xc8, 0x50, 0x0b, 0x12, 0x68, 0x51, 0x79, 0x13, 0x64, 0xa0, 0xcb, 0xba, 0x98,
+	0x98, 0xec, 0xa4, 0x28, 0x2d, 0x4a, 0x2b, 0x99, 0xed, 0xe2, 0xf7, 0x2f, 0x6b, 0xf9, 0xa0, 0x71,
+	0x4b, 0xd7, 0x09, 0xa2, 0xf4, 0x25, 0x23, 0xa6, 0x6d, 0xa8, 0x71, 0xa9, 0xbc, 0x01, 0xc6, 0x1d,
+	0xae, 0x50, 0x1c, 0x59, 0x94, 0x56, 0x26, 0x36, 0xf2, 0xf5, 0x7e, 0x87, 0x75, 0x5f, 0x7d, 0x3b,
+	0x7d, 0xf6, 0x6b, 0x21, 0xa5, 0x06, 0x95, 0x8d, 0x87, 0xef, 0xae, 0x4e, 0x6b, 0xb1, 0xc6, 0xfb,
+	0xab, 0xd3, 0x5a, 0x29, 0x76, 0x97, 0x98, 0xac, 0x5a, 0x02, 0x85, 0x04, 0xa4, 0x22, 0xea, 0x60,
+	0x9b, 0xa2, 0xea, 0xb7, 0x11, 0x90, 0x6b, 0x52, 0x63, 0x87, 0xb7, 0xa2, 0x16, 0x3c, 0x39, 0xc2,
+	0x50, 0x97, 0x1f, 0x81, 0x71, 0x6a, 0x1a, 0x36, 0x22, 0x37, 0xfa, 0x08, 0xea, 0x64, 0x15, 0xe4,
+	0x5d, 0xdb, 0xec, 0x21, 0x42, 0xe1, 0x51, 0x1b, 0x6a, 0x1a, 0x76, 0x6d, 0xd6, 0x36, 0xf5, 0xc0,
+	0xd2, 0xa2, 0x68, 0xe9, 0x20, 0xac, 0xdc, 0xf2, 0x0b, 0x77, 0x75, 0x55, 0x76, 0x07, 0x30, 0xf9,
+	0x39, 0xc8, 0xc5, 0x9a, 0x8e, 0x3f, 0x5a, 0x71, 0x94, 0x0b, 0x56, 0xfe, 0x22, 0x18, 0x18, 0x50,
+	0xa7, 0xdd, 0x04, 0x22, 0xaf, 0x82, 0x5c, 0x0f, 0x11, 0xf3, 0xb5, 0xa9, 0x41, 0x66, 0x62, 0xbb,
+	0xad, 0x43, 0x06, 0x8b, 0x69, 0xcf, 0x9d, 0x3a, 0xdd, 0x4f, 0x3c, 0x85, 0x0c, 0x36, 0x56, 0xbd,
+	0x78, 0x03, 0x6b, 0x5e, 0xb6, 0xb3, 0x42, 0xb6, 0x62, 0x58, 0xd5, 0x59, 0x50, 0x1a, 0x00, 0xa3,
+	0x7c, 0x3f, 0x8d, 0x80, 0xff, 0x9b, 0xd4, 0x68, 0x9a, 0x06, 0x81, 0x0c, 0x1d, 0xec, 0x6c, 0xfd,
+	0x3b, 0xd9, 0x5a, 0x7c, 0x26, 0x2f, 0x8b, 0xa1, 0xd9, 0x36, 0xc3, 0xb2, 0x28, 0x5b, 0x2b, 0x81,
+	0xc8, 0x73, 0x20, 0xe3, 0x8d, 0x0a, 0x99, 0x4b, 0x50, 0x90, 0x69, 0x0c, 0x34, 0x96, 0x13, 0x61,
+	0x16, 0x84, 0x30, 0xe3, 0x64, 0xaa, 0x05, 0x30, 0x23, 0x00, 0x51, 0x88, 0x1f, 0x25, 0x30, 0xd9,
+	0xa4, 0xc6, 0x2b, 0xcc, 0xd0, 0xae, 0xdd, 0xc1, 0xae, 0x7d, 0x9b, 0x13, 0xaa, 0x80, 0xff, 0x4c,
+	0xbf, 0x39, 0x08, 0x6e, 0x46, 0xf4, 0x19, 0x28, 0xab, 0x61, 0x55, 0x63, 0x29, 0x31, 0x77, 0xce,
+	0x45, 0x8a, 0x38, 0x45, 0xb5, 0x08, 0xee, 0x88, 0x48, 0x34, 0xf2, 0x0f, 0xff, 0x82, 0xf0, 0xa8,
+	0x67, 0x90, 0xb6, 0x88, 0xa9, 0xa1, 0x5b, 0xcc, 0x5c, 0x03, 0x39, 0xdc, 0xa1, 0x88, 0xf4, 0x90,
+	0xde, 0xd6, 0xba, 0xd0, 0xb4, 0xc3, 0x6d, 0xcf, 0xa8, 0x53, 0x21, 0xf1, 0xc4, 0xc3, 0x77, 0x75,
+	0x39, 0x0f, 0xc6, 0x1c, 0xef, 0x6f, 0xf8, 0x2e, 0xa6, 0x55, 0xff, 0x41, 0x5e, 0x02, 0xd9, 0xce,
+	0x11, 0xd6, 0xde, 0xb4, 0x6d, 0xd7, 0xea, 0x20, 0xc2, 0x77, 0x27, 0xad, 0x4e, 0x70, 0x6c, 0x8f,
+	0x43, 0x8d, 0x07, 0x09, 0x9f, 0xe2, 0x45, 0xd2, 0xef, 0x20, 0xb8, 0x48, 0xfa, 0xa1, 0xd0, 0xf0,
+	0xc6, 0xd7, 0x51, 0x30, 0xda, 0xa4, 0x86, 0xbc, 0x0f, 0xb2, 0xc2, 0xad, 0x38, 0x9f, 0x38, 0x4d,
+	0xe2, 0x3d, 0x54, 0xbe, 0x3f, 0x94, 0x0e, 0xd5, 0xe5, 0x43, 0x30, 0x99, 0xb8, 0xa2, 0x16, 0x06,
+	0x1a, 0xc5, 0x82, 0xf2, 0xf2, 0x0d, 0x05, 0x91, 0xf6, 0x1e, 0x00, 0x7d, 0xaf, 0xe7, 0xec, 0x40,
+	0x5b, 0x4c, 0x96, 0xef, 0x0e, 0x21, 0x23, 0xbd, 0x17, 0x60, 0xa2, 0xff, 0xa4, 0xce, 0x0d, 0xf4,
+	0xf4, 0xb1, 0xe5, 0x7b, 0xc3, 0xd8, 0x48, 0x72, 0x1f, 0x64, 0x85, 0x93, 0x34, 0x7f, 0x6d, 0x57,
+	0x48, 0x5f, 0x13, 0xea, 0x75, 0x5b, 0x56, 0x1e, 0x7b, 0x7b, 0x75, 0x5a, 0x93, 0xb6, 0x5b, 0x67,
+	0x17, 0x15, 0xe9, 0xfc, 0xa2, 0x22, 0xfd, 0xbe, 0xa8, 0x48, 0x1f, 0x2e, 0x2b, 0xa9, 0xf3, 0xcb,
+	0x4a, 0xea, 0xe7, 0x65, 0x25, 0x75, 0xb8, 0x69, 0x98, 0xac, 0xeb, 0x76, 0xea, 0x1a, 0xb6, 0x14,
+	0xc7, 0xa5, 0x5d, 0x7e, 0x04, 0xf9, 0x6a, 0x8d, 0x2f, 0xd7, 0x6c, 0xac, 0x23, 0xe5, 0x58, 0x89,
+	0x0f, 0x0c, 0xff, 0xa8, 0x76, 0xc6, 0xf9, 0x47, 0xf2, 0xf1, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff,
+	0xda, 0x49, 0x1e, 0xf4, 0xc2, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -854,10 +630,6 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// DeployUEA defines a message to deploy a new smart account.
-	DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error)
-	// MintPC defines a message to mint PC tokens to a smart account,
-	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// MigrateUEA defines a message for migrating UEA
@@ -879,24 +651,6 @@ func NewMsgClient(cc grpc1.ClientConn) MsgClient {
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/UpdateParams", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error) {
-	out := new(MsgDeployUEAResponse)
-	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/DeployUEA", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error) {
-	out := new(MsgMintPCResponse)
-	err := c.cc.Invoke(ctx, "/uexecutor.v1.Msg/MintPC", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -945,10 +699,6 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// DeployUEA defines a message to deploy a new smart account.
-	DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error)
-	// MintPC defines a message to mint PC tokens to a smart account,
-	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// MigrateUEA defines a message for migrating UEA
@@ -965,12 +715,6 @@ type UnimplementedMsgServer struct {
 
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
-}
-func (*UnimplementedMsgServer) DeployUEA(ctx context.Context, req *MsgDeployUEA) (*MsgDeployUEAResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeployUEA not implemented")
-}
-func (*UnimplementedMsgServer) MintPC(ctx context.Context, req *MsgMintPC) (*MsgMintPCResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MintPC not implemented")
 }
 func (*UnimplementedMsgServer) ExecutePayload(ctx context.Context, req *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
@@ -1003,42 +747,6 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).UpdateParams(ctx, req.(*MsgUpdateParams))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_DeployUEA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgDeployUEA)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).DeployUEA(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/uexecutor.v1.Msg/DeployUEA",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).DeployUEA(ctx, req.(*MsgDeployUEA))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_MintPC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgMintPC)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).MintPC(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/uexecutor.v1.Msg/MintPC",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).MintPC(ctx, req.(*MsgMintPC))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1124,14 +832,6 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_UpdateParams_Handler,
 		},
 		{
-			MethodName: "DeployUEA",
-			Handler:    _Msg_DeployUEA_Handler,
-		},
-		{
-			MethodName: "MintPC",
-			Handler:    _Msg_MintPC_Handler,
-		},
-		{
 			MethodName: "ExecutePayload",
 			Handler:    _Msg_ExecutePayload_Handler,
 		},
@@ -1208,157 +908,6 @@ func (m *MsgUpdateParamsResponse) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *MsgUpdateParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgDeployUEA) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgDeployUEA) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgDeployUEA) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.TxHash) > 0 {
-		i -= len(m.TxHash)
-		copy(dAtA[i:], m.TxHash)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.TxHash)))
-		i--
-		dAtA[i] = 0x1a
-	}
-	if m.UniversalAccountId != nil {
-		{
-			size, err := m.UniversalAccountId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTx(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.Signer) > 0 {
-		i -= len(m.Signer)
-		copy(dAtA[i:], m.Signer)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgDeployUEAResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgDeployUEAResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgDeployUEAResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.UEA) > 0 {
-		i -= len(m.UEA)
-		copy(dAtA[i:], m.UEA)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.UEA)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgMintPC) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgMintPC) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgMintPC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.TxHash) > 0 {
-		i -= len(m.TxHash)
-		copy(dAtA[i:], m.TxHash)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.TxHash)))
-		i--
-		dAtA[i] = 0x1a
-	}
-	if m.UniversalAccountId != nil {
-		{
-			size, err := m.UniversalAccountId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTx(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.Signer) > 0 {
-		i -= len(m.Signer)
-		copy(dAtA[i:], m.Signer)
-		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *MsgMintPCResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *MsgMintPCResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *MsgMintPCResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1704,70 +1253,6 @@ func (m *MsgUpdateParamsResponse) Size() (n int) {
 	return n
 }
 
-func (m *MsgDeployUEA) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Signer)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	if m.UniversalAccountId != nil {
-		l = m.UniversalAccountId.Size()
-		n += 1 + l + sovTx(uint64(l))
-	}
-	l = len(m.TxHash)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	return n
-}
-
-func (m *MsgDeployUEAResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.UEA)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	return n
-}
-
-func (m *MsgMintPC) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Signer)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	if m.UniversalAccountId != nil {
-		l = m.UniversalAccountId.Size()
-		n += 1 + l + sovTx(uint64(l))
-	}
-	l = len(m.TxHash)
-	if l > 0 {
-		n += 1 + l + sovTx(uint64(l))
-	}
-	return n
-}
-
-func (m *MsgMintPCResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	return n
-}
-
 func (m *MsgExecutePayload) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2042,440 +1527,6 @@ func (m *MsgUpdateParamsResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgUpdateParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgDeployUEA) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgDeployUEA: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgDeployUEA: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Signer = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UniversalAccountId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.UniversalAccountId == nil {
-				m.UniversalAccountId = &UniversalAccountId{}
-			}
-			if err := m.UniversalAccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TxHash = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgDeployUEAResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgDeployUEAResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgDeployUEAResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UEA", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.UEA = append(m.UEA[:0], dAtA[iNdEx:postIndex]...)
-			if m.UEA == nil {
-				m.UEA = []byte{}
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgMintPC) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgMintPC: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgMintPC: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Signer = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UniversalAccountId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.UniversalAccountId == nil {
-				m.UniversalAccountId = &UniversalAccountId{}
-			}
-			if err := m.UniversalAccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TxHash", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTx
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTx
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTx
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TxHash = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTx(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTx
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *MsgMintPCResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTx
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: MsgMintPCResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MsgMintPCResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

@@ -87,6 +87,8 @@ func GetOutboundId(
 }
 
 // Outbound Id for a inbound revert tx
-func GetOutboundRevertId() string {
-	return "0"
+func GetOutboundRevertId(inboundTxHash string) string {
+	data := fmt.Sprintf("%s:REVERT", inboundTxHash)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
 }

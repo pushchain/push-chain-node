@@ -78,10 +78,9 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 			fmt.Sprintf("universal-validator-%d", i),
 		)).String()
 
-		pubkey := fmt.Sprintf("pubkey-%d", i)
-		network := uvalidatortypes.NetworkInfo{Ip: fmt.Sprintf("192.168.0.%d", i+1)}
+		network := uvalidatortypes.NetworkInfo{PeerId: fmt.Sprintf("temp%d", i+1), MultiAddrs: []string{"temp"}}
 
-		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, pubkey, network)
+		err := app.UvalidatorKeeper.AddUniversalValidator(ctx, coreValAddr, network)
 		require.NoError(t, err)
 
 		universalVals[i] = universalValAddr

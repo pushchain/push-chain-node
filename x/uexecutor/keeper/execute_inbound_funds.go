@@ -64,7 +64,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 			Sender:            inbound.Sender,
 			TxType:            types.TxType_INBOUND_REVERT,
 			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(),
+			Id:                types.GetOutboundRevertId(inbound.TxHash),
 		}
 		_ = k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error())
 	}

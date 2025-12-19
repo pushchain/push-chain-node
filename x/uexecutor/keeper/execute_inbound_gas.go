@@ -137,7 +137,7 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 			Sender:            inbound.Sender,
 			TxType:            types.TxType_INBOUND_REVERT,
 			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(),
+			Id:                types.GetOutboundRevertId(inbound.TxHash),
 		}
 
 		_ = k.attachOutboundsToUtx(

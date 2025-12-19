@@ -98,7 +98,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				Sender:            utx.InboundTx.Sender,
 				TxType:            types.TxType_INBOUND_REVERT,
 				OutboundStatus:    types.Status_PENDING,
-				Id:                types.GetOutboundRevertId(),
+				Id:                types.GetOutboundRevertId(utx.InboundTx.TxHash),
 			}
 
 			_ = k.attachOutboundsToUtx(

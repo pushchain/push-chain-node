@@ -159,7 +159,7 @@ message MsgVoteInboundResponse {}
 
 // MsgVoteOutbound allows a universal validator to vote on an outbound tx observation.
 message MsgVoteOutbound {
-  option (amino.name) = "ue/MsgVoteOutbound";
+  option (amino.name) = "uexecutor/MsgVoteOutbound";
   option (cosmos.msg.v1.signer) = "signer";
 
   // signer is the Cosmos address initiating the tx (used for tx signing)

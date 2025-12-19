@@ -24,11 +24,30 @@ BINARY_OUT_DIR_ABS="$(cd "$SCRIPT_DIR/../binary" && pwd)"
 mkdir -p "$BINARY_OUT_DIR_ABS"
 
 ###############################################################################
-# SECTION 2: Verify Required Dependencies 
+# SECTION 2: Patch Chain ID
+###############################################################################
+
+# Update chain ID in app/app.go from localchain to push_42101-1
+APP_FILE="$ROOT_DIR_ABS/app/app.go"
+OLD_CHAIN_ID="localchain_9000-1"
+NEW_CHAIN_ID="push_42101-1"
+
+if grep -q "$OLD_CHAIN_ID" "$APP_FILE"; then
+  echo "🔁 Patching chain ID in app/app.go: $OLD_CHAIN_ID → $NEW_CHAIN_ID"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
+  else
+    sed -i "s/\"$OLD_CHAIN_ID\"/\"$NEW_CHAIN_ID\"/" "$APP_FILE"
+  fi
+else
+  echo "✅ Chain ID already set to $NEW_CHAIN_ID in app/app.go"
+fi
+
+###############################################################################
+# SECTION 3: Verify Required Dependencies
 ###############################################################################
 
 # Check for dkls23-rs (required) and garbling (optional) as sibling directories
-# Note: puniversald requires dkls23-rs, unlike pchaind
 DKLS23_PARENT="$(dirname "$ROOT_DIR_ABS")"
 DKLS23_PATH="$DKLS23_PARENT/dkls23-rs"
 GARBLING_PATH="$DKLS23_PARENT/garbling"
@@ -44,17 +63,17 @@ if [ ! -d "$GARBLING_PATH" ]; then
 fi
 
 ###############################################################################
-# SECTION 3: Build Cached Docker Base Image
+# SECTION 4: Build Cached Docker Base Image
 ###############################################################################
 
 # Base image with all build dependencies pre-installed
 # This image is cached and reused, making subsequent builds much faster
-# Contains: Go 1.23.8, Rust, build-essential, and other build tools
 BASE_IMAGE="push-chain-builder-base:latest"
 
 echo "🐳 Building Linux binary via Docker..."
 
 # Build base image only if it doesn't exist or is wrong architecture
+# Contains: Go 1.23.8, Rust, build-essential, and other build tools
 if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1 || \
    [ "$(docker image inspect "$BASE_IMAGE" --format '{{.Architecture}}')" != "amd64" ]; then
   echo "📦 Building base image with dependencies for linux/amd64 (this will be cached)..."
@@ -79,7 +98,7 @@ fi
 echo "✅ Base image ready"
 
 ###############################################################################
-# SECTION 4: Build Binary in Docker Container
+# SECTION 5: Build Binary in Docker Container
 ###############################################################################
 
 # Run build inside Docker container with mounted volumes
@@ -96,7 +115,9 @@ docker run --rm \
     ###########################################################################
     # Step 1: Copy required directories into container
     ###########################################################################
-    echo "📦 Copying directories..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 1: Copying directories..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     cd /code
     # Remove any existing directories/symlinks to avoid conflicts
     rm -rf dkls23-rs garbling
@@ -105,10 +126,14 @@ docker run --rm \
     [ -d /garbling-src ] && cp -r /garbling-src garbling || true
     # Create symlink so ../dkls23-rs resolves correctly (required by go.mod replace directive)
     ln -sf /code/dkls23-rs /dkls23-rs
+    echo "✅ Step 1 complete: Directories copied"
     
     ###########################################################################
     # Step 2: Download CosmWasm wasmvm static library
     ###########################################################################
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 2: Downloading CosmWasm wasmvm static library..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     cd /code
     # Get wasmvm version from go.mod
     WASM_VER=$(go list -m all | grep github.com/CosmWasm/wasmvm | awk "{print \$2}")
@@ -120,15 +145,19 @@ docker run --rm \
       https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.${ARCH}.a
     # Create symlink for easier linking
     ln -sf /usr/lib/libwasmvm_muslc.${ARCH}.a /usr/lib/libwasmvm_muslc.a
+    echo "✅ Step 2 complete: wasmvm library downloaded"
     
     ###########################################################################
     # Step 3: Update Go dependencies
     ###########################################################################
-    echo "📦 Running go mod tidy..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔄 Step 3: Updating Go dependencies (go mod tidy)..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     go mod tidy
+    echo "✅ Step 3 complete: Go dependencies updated"
     
     ###########################################################################
-    # Step 4: Build puniversald binary
+    # Step 4: Build pchaind binary (core testnet only needs pchaind, not puniversald)
     ###########################################################################
     echo "⚙️  Building puniversald..."
     # Set build environment variables

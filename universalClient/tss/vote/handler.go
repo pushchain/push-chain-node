@@ -69,7 +69,7 @@ func (h *Handler) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID
 
 	// Configure gas and fees - using same values as other vote handlers
 	gasLimit := uint64(500000000)
-	feeAmount, err := sdk.ParseCoinsNormalized("500000000000000upc")
+	feeAmount, err := sdk.ParseCoinsNormalized("1000000000000000000upc")
 	if err != nil {
 		return "", fmt.Errorf("failed to parse fee amount: %w", err)
 	}

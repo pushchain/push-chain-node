@@ -7,6 +7,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
+	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
@@ -15,6 +16,7 @@ import (
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
+	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 )
 
 // Upgrades list of chain upgrades
@@ -27,6 +29,8 @@ var Upgrades = []upgrades.Upgrade{
 	tsscore.NewUpgrade(),
 	tsscorefix.NewUpgrade(),
 	tsscoreevmparamsfix.NewUpgrade(),
+	evmrpcfix.NewUpgrade(),
+	tssvotegasless.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

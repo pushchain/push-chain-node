@@ -3,8 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,6 +12,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/chains/push"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/pushchain/push-chain-node/universalClient/cron"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
@@ -170,16 +169,6 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			return nil, fmt.Errorf("failed to convert granter address to valoper address: %w", err)
 		}
 
-		// Determine TSS home directory
-		tssHomeDir := cfg.TSSHomeDir
-		if tssHomeDir == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get user home directory: %w", err)
-			}
-			tssHomeDir = filepath.Join(homeDir, ".puniversal", "tss")
-		}
-
 		// Create TSS vote handler for on-chain voting after key generation
 		tssVoteHandler := vote.NewHandler(
 			signerHandler.GetTxSigner(),
@@ -192,7 +181,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			ValidatorAddress: valoperAddr,
 			P2PPrivateKeyHex: cfg.TSSP2PPrivateKeyHex,
 			LibP2PListen:     cfg.TSSP2PListen,
-			HomeDir:          tssHomeDir,
+			HomeDir:          constant.DefaultNodeHome,
 			Password:         cfg.TSSPassword,
 			Database:         tssDB,
 			PushCore:         pushCore,
@@ -210,7 +199,6 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			Str("valoper", valoperAddr).
 			Str("granter", granterAddr).
 			Str("p2p_listen", cfg.TSSP2PListen).
-			Str("home_dir", tssHomeDir).
 			Msg("✅ TSS node initialized")
 	}
 

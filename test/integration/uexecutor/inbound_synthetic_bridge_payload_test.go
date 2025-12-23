@@ -44,10 +44,11 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	tokenConfigTest := uregistrytypes.TokenConfig{
 		Chain:        "eip155:11155111",
-		Address:      prc20Address.String(),
+		Address:      usdcAddress.String(),
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -132,9 +133,9 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 		Sender:           testAddress,
 		Recipient:        "",
 		Amount:           "1000000",
-		AssetAddr:        prc20Address.String(),
+		AssetAddr:        usdcAddress.String(),
 		LogIndex:         "1",
-		TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD,
+		TxType:           uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
 		UniversalPayload: validUP,
 		VerificationData: validVerificationData,
 	}
@@ -143,7 +144,8 @@ func setupInboundBridgePayloadTest(t *testing.T, numVals int) (*app.ChainApp, sd
 }
 
 func TestInboundSyntheticBridgePayload(t *testing.T) {
-	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
+	// prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
+	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	t.Run("less than quorum votes keeps inbound pending", func(t *testing.T) {
 		app, ctx, vals, inbound, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
@@ -198,9 +200,9 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 			Sender:           utils.GetDefaultAddresses().TargetAddr2,
 			Recipient:        "",
 			Amount:           "1000000",
-			AssetAddr:        prc20Address.String(),
+			AssetAddr:        usdcAddress.String(),
 			LogIndex:         "1",
-			TxType:           uexecutortypes.InboundTxType_FUNDS_AND_PAYLOAD,
+			TxType:           uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
 			UniversalPayload: validUP,
 			VerificationData: "",
 		}

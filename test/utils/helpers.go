@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/app"
+	"github.com/stretchr/testify/require"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 
@@ -34,6 +36,45 @@ func ExecVoteInbound(
 	)
 
 	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
+	return err
+}
+
+func ExecVoteOutbound(
+	t *testing.T,
+	ctx sdk.Context,
+	app *app.ChainApp,
+	universalAddr string, // universal validator (grantee)
+	coreValAddr string, // core validator (signer)
+	utxId string, // universal tx id
+	outbound *uexecutortypes.OutboundTx,
+	success bool,
+	errorMsg string,
+) error {
+	t.Helper()
+
+	// Encode the real outbound tx_id (this is what validators vote on)
+	txIDHex, err := uexecutortypes.EncodeOutboundTxIDHex(utxId, outbound.Id)
+	require.NoError(t, err)
+
+	observed := &uexecutortypes.OutboundObservation{
+		Success:     success,
+		ErrorMsg:    errorMsg,
+		TxHash:      fmt.Sprintf("0xobserved-%s", outbound.Id),
+		BlockHeight: 1,
+	}
+
+	msg := &uexecutortypes.MsgVoteOutbound{
+		Signer:     coreValAddr,
+		TxId:       txIDHex,
+		ObservedTx: observed,
+	}
+
+	execMsg := authz.NewMsgExec(
+		sdk.MustAccAddressFromBech32(universalAddr),
+		[]sdk.Msg{msg},
+	)
+
+	_, err = app.AuthzKeeper.Exec(ctx, &execMsg)
 	return err
 }
 

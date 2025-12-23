@@ -80,9 +80,9 @@ if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1 || \
   docker build --platform linux/amd64 -q -t "$BASE_IMAGE" - <<EOF
 FROM golang:1.23.8
 # Install system dependencies (build tools, curl, etc.)
-RUN apt update -qq && apt install -y -qq curl wget git build-essential pkg-config jq unzip >/dev/null 2>&1 && \
-    # Install Rust (required for building dkls23-rs)
-    export RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:\$PATH && \
+RUN apt update -qq && apt install -y -qq curl wget git build-essential pkg-config jq unzip >/dev/null 2>&1
+# Install Rust (required for building dkls23-rs)
+RUN export RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:\$PATH && \
     curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal >/dev/null 2>&1
 # Set Rust environment variables
 ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:\$PATH

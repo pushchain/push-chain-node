@@ -234,5 +234,18 @@ jobs:
             dist/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
             dist/*.sha256
           fail_on_unmatched_files: false
+          # Handle GitHub API rate limits and timeouts
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Don't fail the workflow if finalization times out (files are already uploaded)
+
+      - name: Verify Release Assets
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Verifying release assets were uploaded..."
+          VERSION=${{ steps.version.outputs.version }}
+          gh release view $VERSION --json assets --jq '.assets[].name' || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

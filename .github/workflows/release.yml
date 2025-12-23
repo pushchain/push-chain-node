@@ -95,7 +95,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           version: v1.26.2
-          args: release --clean --skip=validate
+          args: release --clean --skip=validate --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CGO_ENABLED: "1"
@@ -131,8 +131,11 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          # Strip 'v' prefix to match GoReleaser naming convention
+          VERSION_NO_V="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION (stripped: $VERSION_NO_V)"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -245,11 +248,14 @@ jobs:
 
           cd dist
 
+          # Use version without 'v' prefix to match GoReleaser naming convention
+          VERSION_NO_V="${VERSION#v}"
+
           # Create archives
-          tar -czvf ${PROJECT_NAME}_${VERSION}_darwin_amd64.tar.gz ${BINARY_NAME}-darwin-amd64
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz ${BINARY_NAME}-darwin-amd64
           zip -j ${BINARY_NAME}-darwin-amd64-notarize.zip ${BINARY_NAME}-darwin-amd64
 
-          tar -czvf ${PROJECT_NAME}_${VERSION}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64
           zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64
 
           cd ..
@@ -266,9 +272,10 @@ jobs:
       - name: Create Checksums
         run: |
           VERSION=${{ steps.version.outputs.version }}
+          VERSION_NO_V="${VERSION#v}"
           cd dist
-          shasum -a 256 ${PROJECT_NAME}_${VERSION}_darwin_amd64.tar.gz > ${PROJECT_NAME}_${VERSION}_darwin_amd64.tar.gz.sha256
-          shasum -a 256 ${PROJECT_NAME}_${VERSION}_darwin_arm64.tar.gz > ${PROJECT_NAME}_${VERSION}_darwin_arm64.tar.gz.sha256
+          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz.sha256
+          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz.sha256
           ls -la
 
       - name: Upload macOS artifacts
@@ -301,7 +308,10 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          # Strip 'v' prefix for file naming (matches GoReleaser convention)
+          VERSION_NO_V="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
 
       - name: Download Linux artifacts
         uses: actions/download-artifact@v4
@@ -372,13 +382,13 @@ jobs:
 
             ```bash
             # Linux
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version }}_linux_amd64.tar.gz
-            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version }}_linux_amd64.tar.gz
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
+            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
             chmod +x pchaind && sudo mv pchaind /usr/local/bin/
 
             # macOS (Apple Silicon)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
-            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
+            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
             chmod +x pchaind-darwin-arm64 && sudo mv pchaind-darwin-arm64 /usr/local/bin/pchaind
             ```
           draft: false

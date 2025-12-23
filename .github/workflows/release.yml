@@ -231,6 +231,9 @@ jobs:
           # Copy libwasmvm.dylib to dist for bundling
           cp libwasmvm.dylib dist/
 
+          # Fix rpath to look in same directory as binary (before signing!)
+          install_name_tool -change @rpath/libwasmvm.dylib @loader_path/libwasmvm.dylib dist/${BINARY_NAME}-darwin-arm64
+
           ls -la dist/
 
           # Verify dependencies

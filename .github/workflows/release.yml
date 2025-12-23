@@ -198,6 +198,18 @@ jobs:
           echo "Available signing identities:"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
+      - name: Download libwasmvm
+        run: |
+          # Get wasmvm version from go.mod
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Wasmvm version: $WASM_VER"
+
+          # Download dylib for bundling with release
+          curl -L -o libwasmvm.dylib \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm.dylib"
+
+          ls -la libwasmvm.dylib
+
       - name: Build Mac Binary (ARM64 only - native build)
         run: |
           # Note: GitHub macos-latest is ARM64, can't cross-compile for AMD64 with CGO
@@ -216,20 +228,26 @@ jobs:
             -o dist/${BINARY_NAME}-darwin-arm64 \
             ./cmd/pchaind
 
+          # Copy libwasmvm.dylib to dist for bundling
+          cp libwasmvm.dylib dist/
+
           ls -la dist/
 
           # Verify dependencies
           echo "Checking dependencies..."
           otool -L dist/${BINARY_NAME}-darwin-arm64 || true
 
-      - name: Sign Binary
+      - name: Sign Binaries
         env:
           APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
         run: |
+          # Sign both the binary and the dylib
           codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/${BINARY_NAME}-darwin-arm64
+          codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/libwasmvm.dylib
 
-          echo "Verifying signature..."
+          echo "Verifying signatures..."
           codesign -dv --verbose=2 dist/${BINARY_NAME}-darwin-arm64
+          codesign -dv --verbose=2 dist/libwasmvm.dylib
 
       - name: Notarize Binary
         env:
@@ -249,9 +267,9 @@ jobs:
           # Use version without 'v' prefix to match GoReleaser naming convention
           VERSION_NO_V="${VERSION#v}"
 
-          # Create archive
-          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64
-          zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64
+          # Create archive (includes libwasmvm.dylib)
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
+          zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
 
           cd ..
 
@@ -379,6 +397,7 @@ jobs:
             # macOS (Apple Silicon)
             wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
             tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
+            sudo mv libwasmvm.dylib /usr/local/lib/
             chmod +x pchaind-darwin-arm64 && sudo mv pchaind-darwin-arm64 /usr/local/bin/pchaind
             ```
           draft: false

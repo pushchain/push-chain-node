@@ -67,6 +67,12 @@ chmod +x "$BINARY_FILE"
 BINARY_FILE="${BINARY_FILE#./}"
 BINARY_PATH="$TEMP_DIR/$BINARY_FILE"
 
+# Check for libwasmvm.dylib (macOS)
+if [ -f "$TEMP_DIR/libwasmvm.dylib" ]; then
+  echo "Found libwasmvm.dylib - setting DYLD_LIBRARY_PATH"
+  export DYLD_LIBRARY_PATH="$TEMP_DIR:$DYLD_LIBRARY_PATH"
+fi
+
 # Verify binary works
 echo ""
 echo "=== Testing Binary ==="
@@ -78,10 +84,17 @@ echo "Binary downloaded to: $BINARY_PATH"
 echo ""
 echo "Options:"
 echo "  1. Install to PATH:"
+if [ -f "$TEMP_DIR/libwasmvm.dylib" ]; then
+echo "     sudo cp $TEMP_DIR/libwasmvm.dylib /usr/local/lib/"
+fi
 echo "     sudo cp $BINARY_PATH $INSTALL_DIR/$BINARY_NAME"
 echo ""
 echo "  2. Run testnet with this binary:"
+if [ -f "$TEMP_DIR/libwasmvm.dylib" ]; then
+echo "     DYLD_LIBRARY_PATH=$TEMP_DIR BINARY=$BINARY_PATH CLEAN=true sh scripts/test_node.sh"
+else
 echo "     BINARY=$BINARY_PATH CLEAN=true sh scripts/test_node.sh"
+fi
 echo ""
 echo "  3. Quick test (run testnet now):"
 echo "     Press Enter to start testnet, or Ctrl+C to exit"

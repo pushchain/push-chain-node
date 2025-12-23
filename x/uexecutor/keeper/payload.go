@@ -120,3 +120,40 @@ func AbiArgumentsForPayload() abi.Arguments {
 		{Type: mustType("uint8")},   // vType
 	}
 }
+
+func (k Keeper) StoreVerifiedPayloadHashForExecutePayload(
+	ctx sdk.Context,
+	abiPayload types.AbiUniversalPayload,
+	ueaAddr common.Address,
+	ueModuleAccAddress common.Address,
+	sender string,
+	sourceChain string,
+	txHash string,
+) error {
+	// Compute payload hash
+	payloadHash, err := k.GetPayloadHashEVM(ctx, ueModuleAccAddress, ueaAddr, abiPayload)
+	if err != nil {
+		return fmt.Errorf("failed to compute payload hash: %w", err)
+	}
+
+	// Construct VerifiedTxMetadata
+	verified := utxverifiertypes.VerifiedTxMetadata{
+		Minted: false,
+		PayloadHashes: []string{
+			payloadHash.Hex(), // store as string
+		},
+		UsdValue: &utxverifiertypes.USDValue{
+			Amount:   "0",
+			Decimals: 0,
+		},
+		Sender: sender,
+	}
+
+	// Store in utxverifierKeeper
+	err = k.utxverifierKeeper.StoreVerifiedInboundTx(ctx, sourceChain, txHash, verified)
+	if err != nil {
+		return fmt.Errorf("failed to store verified tx: %w", err)
+	}
+
+	return nil
+}

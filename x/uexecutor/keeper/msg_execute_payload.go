@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -16,6 +17,8 @@ import (
 // updateParams is for updating params collections of the module
 func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, universalAccountId *types.UniversalAccountId, universalPayload *types.UniversalPayload, verificationData string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
@@ -47,6 +50,18 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, evmFrom, factoryAddress, universalAccountId)
 	if err != nil {
 		return err
+	}
+	abiUniversalPayload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return err
+	}
+
+	// Compute txHash for storing
+	txHash := crypto.Keccak256Hash(append(payload.Data, []byte(verificationData)...)).Hex()
+
+	payloadHashErr := k.StoreVerifiedPayloadHashForExecutePayload(sdkCtx, abiUniversalPayload, ueaAddr, ueModuleAddr, evmFrom.Hex(), caip2Identifier, txHash)
+	if payloadHashErr != nil {
+		return payloadHashErr
 	}
 
 	if !isDeployed {

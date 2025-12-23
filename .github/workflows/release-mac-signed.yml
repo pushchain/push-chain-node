@@ -51,6 +51,18 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
+      - name: Copy dkls23-rs and garbling into build context
+        run: |
+          cp -r ../dkls23-rs ./dkls23-rs
+          cp -r ../garbling ./garbling
+          # Update go.mod to use local path
+          sed -i '' 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
+
       - name: Build dkls23-rs dependency
         run: |
           echo "Building dkls23-rs Rust library..."

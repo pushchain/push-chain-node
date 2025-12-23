@@ -19,11 +19,12 @@ const (
 	ProcessTypeQuorumChange = "TSS_PROCESS_QUORUM_CHANGE"
 )
 
-// Protocol type values for TSSEvent.ProtocolType field.
+// Protocol type values for PCEvent.Type field.
 const (
-	ProtocolTypeKeygen       = "keygen"
-	ProtocolTypeKeyrefresh   = "keyrefresh"
-	ProtocolTypeQuorumChange = "quorumchange"
+	ProtocolTypeKeygen       = "KEYGEN"
+	ProtocolTypeKeyrefresh   = "KEYREFRESH"
+	ProtocolTypeQuorumChange = "QUORUM_CHANGE"
+	ProtocolTypeSign         = "SIGN"
 )
 
 // Default configuration values.

@@ -13,10 +13,10 @@ type SendFunc func(ctx context.Context, peerID string, data []byte) error
 type ProtocolType string
 
 const (
-	ProtocolKeygen       ProtocolType = "keygen"
-	ProtocolKeyrefresh   ProtocolType = "keyrefresh"
-	ProtocolQuorumChange ProtocolType = "quorumchange"
-	ProtocolSign         ProtocolType = "sign"
+	ProtocolKeygen       ProtocolType = "KEYGEN"
+	ProtocolKeyrefresh   ProtocolType = "KEYREFRESH"
+	ProtocolQuorumChange ProtocolType = "QUORUM_CHANGE"
+	ProtocolSign         ProtocolType = "SIGN"
 )
 
 // Message represents a simple message with type, eventId, payload, and participants.

@@ -1,66 +1,71 @@
 // Package store contains GORM-backed SQLite models used by the Universal Validator.
+//
+// Database Structure (database file: chain_data.db):
+//
+//	chains/
+//	├── push/
+//	│   └── chain_data.db
+//	│       ├── chain_states
+//	│       └── events
+//	└── {external_chain_caip_format}/
+//	    └── chain_data.db
+//	        ├── chain_states
+//	        ├── chain_transactions
+//	        └── gas_vote_transactions
 package store
 
 import (
 	"gorm.io/gorm"
 )
 
-// ChainState tracks the state for the chain this database belongs to.
-// Since each chain has its own database, there's only one row per database.
+// ChainState tracks synchronization state for a chain.
+// One record per database (each chain has its own DB).
 type ChainState struct {
 	gorm.Model
-	LastBlock uint64
-	// Can add more chain-specific state fields as needed (e.g., LastSync, Metadata)
+	LastBlock uint64 // Last processed block height
 }
 
-// ChainTransaction tracks transactions for the chain this database belongs to.
-// Since each chain has its own database, ChainID is not needed.
+// ChainTransaction tracks inbound transaction events from external chains
+// (Ethereum, Solana, etc.) that need processing and voting on Push chain.
+//
+// TODO: Rename to ECEvent (External Chain Event) and update table name to "events"
 type ChainTransaction struct {
 	gorm.Model
-	TxHash           string `gorm:"uniqueIndex:idx_tx_hash_log_index"`
-	LogIndex         uint   `gorm:"uniqueIndex:idx_tx_hash_log_index"`
-	BlockNumber      uint64
-	EventIdentifier  string
+	TxHash           string `gorm:"uniqueIndex:idx_tx_hash_log_index"` // Transaction hash from external chain
+	LogIndex         uint   `gorm:"uniqueIndex:idx_tx_hash_log_index"` // Log index within transaction
+	BlockNumber      uint64 // Block number (or slot for Solana) on external chain
+	EventIdentifier  string // Event type identifier
 	Status           string `gorm:"index"` // "confirmation_pending", "awaiting_vote", "confirmed", "failed", "reorged"
-	Confirmations    uint64
-	ConfirmationType string // "STANDARD" or "FAST" - which confirmation type this tx requires
-	Data             []byte // Store raw event data
-	VoteTxHash       string // Transaction hash of the vote on pchain
+	Confirmations    uint64 // Number of block confirmations received
+	ConfirmationType string // "STANDARD" or "FAST"
+	Data             []byte // Raw JSON-encoded event data
+	VoteTxHash       string // Vote transaction hash on Push chain (empty until voted)
 }
 
-// GasVoteTransaction tracks gas price votes for the chain this database belongs to.
-// Since each chain has its own database, ChainID is not needed.
-// Uses GORM's built-in CreatedAt/UpdatedAt for timestamp tracking.
+// GasVoteTransaction tracks gas price votes sent to Push chain for an external chain.
 type GasVoteTransaction struct {
 	gorm.Model
-	GasPrice   uint64 `gorm:"not null"` // Gas price voted for (in wei)
-	VoteTxHash string `gorm:"index"`    // On-chain vote transaction hash
-	Status     string `gorm:"default:'success'"`
-	ErrorMsg   string `gorm:"type:text"` // Error message if vote failed
+	GasPrice   uint64 `gorm:"not null"`          // Gas price voted for (wei for EVM chains, lamports for Solana chains)
+	VoteTxHash string `gorm:"index"`             // Vote transaction hash on Push chain
+	Status     string `gorm:"default:'success'"` // "success" or "failed"
+	ErrorMsg   string `gorm:"type:text"`         // Error message if vote failed
 }
 
-// TSSEvent tracks TSS protocol events (KeyGen, KeyRefresh, Sign) from Push Chain.
-type TSSEvent struct {
+// PCEvent tracks Push Chain events (TSS protocol events: KeyGen, KeyRefresh, QuorumChange, Sign).
+// Table name: "events" (PC_EVENTS)
+type PCEvent struct {
 	gorm.Model
-	EventID      string `gorm:"uniqueIndex;not null"` // Unique identifier for the event
-	BlockNumber  uint64 `gorm:"index;not null"`       // Block number when event was detected
-	ProtocolType string // "keygen", "keyrefresh", or "sign"
-	Status       string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "SUCCESS"
-	ExpiryHeight uint64 `gorm:"index;not null"` // Block height when event expires
-	EventData    []byte // Raw event data from chain
-	VoteTxHash   string // Transaction hash of the vote on pchain
-	ErrorMsg     string `gorm:"type:text"` // Error message if status is FAILED
+	EventID           string `gorm:"uniqueIndex;not null"` // Unique event identifier (typically process ID)
+	BlockHeight       uint64 `gorm:"index;not null"`       // Block height on Push chain where event was detected
+	ExpiryBlockHeight uint64 `gorm:"index;not null"`       // Block height when event expires
+	Type              string // "KEYGEN", "KEYREFRESH", "QUORUM_CHANGE", or "SIGN"
+	Status            string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "BROADCASTED", "COMPLETED", "REVERTED"
+	EventData         []byte // Raw JSON-encoded event data from chain
+	TxHash            string // Transaction hash on Push chain (empty until voted)
+	ErrorMsg          string `gorm:"type:text"` // Error message if processing failed
 }
 
-// ExternalChainSignature tracks signatures that need to be broadcasted to external chains.
-// Created when a Sign protocol completes successfully.
-// TODO: Finalize Structure
-type ChainTSSTransaction struct {
-	gorm.Model
-	TSSEventID      uint   `gorm:"index;not null"` // Reference to TSSEvent
-	Status          string `gorm:"index;not null"` // "PENDING" or "SUCCESS" (after broadcast)
-	Signature       []byte `gorm:"not null"`       // ECDSA signature (65 bytes: R(32) + S(32) + RecoveryID(1))
-	MessageHash     []byte `gorm:"not null"`       // Message hash that was signed
-	BroadcastTxHash string `gorm:"index"`          // Transaction hash after successful broadcast
-	ErrorMsg        string `gorm:"type:text"`      // Error message if broadcast failed
+// TableName specifies the table name for PCEvent.
+func (PCEvent) TableName() string {
+	return "events"
 }

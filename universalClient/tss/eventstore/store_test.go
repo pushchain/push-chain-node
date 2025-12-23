@@ -19,7 +19,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
+	if err := db.AutoMigrate(&store.PCEvent{}); err != nil {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
@@ -34,18 +34,18 @@ func setupTestStore(t *testing.T) *Store {
 }
 
 // createTestEvent creates a test TSS event in the database.
-func createTestEvent(t *testing.T, s *Store, eventID string, blockNumber uint64, status string, expiryHeight uint64) {
+func createTestEvent(t *testing.T, s *Store, eventID string, blockHeight uint64, status string, expiryHeight uint64) {
 	eventData, _ := json.Marshal(map[string]interface{}{
 		"key_id": "test-key-1",
 	})
 
-	event := store.TSSEvent{
-		EventID:      eventID,
-		BlockNumber:  blockNumber,
-		ProtocolType: "keygen",
-		Status:       status,
-		ExpiryHeight: expiryHeight,
-		EventData:    eventData,
+	event := store.PCEvent{
+		EventID:           eventID,
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: expiryHeight,
+		Type:              "KEYGEN",
+		Status:            status,
+		EventData:         eventData,
 	}
 
 	if err := s.db.Create(&event).Error; err != nil {
@@ -220,8 +220,8 @@ func TestGetEvent(t *testing.T) {
 		if event.EventID != "event-1" {
 			t.Errorf("GetEvent() event ID = %s, want event-1", event.EventID)
 		}
-		if event.BlockNumber != 100 {
-			t.Errorf("GetEvent() block number = %d, want 100", event.BlockNumber)
+		if event.BlockHeight != 100 {
+			t.Errorf("GetEvent() block height = %d, want 100", event.BlockHeight)
 		}
 		if event.Status != StatusPending {
 			t.Errorf("GetEvent() status = %s, want %s", event.Status, StatusPending)

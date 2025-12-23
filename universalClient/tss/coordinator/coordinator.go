@@ -371,13 +371,13 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 	for _, event := range events {
 		c.logger.Info().
 			Str("event_id", event.EventID).
-			Str("protocol_type", event.ProtocolType).
-			Uint64("block_number", event.BlockNumber).
+			Str("type", event.Type).
+			Uint64("block_height", event.BlockHeight).
 			Msg("processing event as coordinator")
 		// Get participants based on protocol type (using cached allValidators)
-		participants := getParticipantsForProtocol(event.ProtocolType, allValidators)
+		participants := getParticipantsForProtocol(event.Type, allValidators)
 		if participants == nil {
-			c.logger.Debug().Str("event_id", event.EventID).Str("protocol_type", event.ProtocolType).Msg("unknown protocol type")
+			c.logger.Debug().Str("event_id", event.EventID).Str("type", event.Type).Msg("unknown protocol type")
 			continue
 		}
 		if len(participants) == 0 {
@@ -398,7 +398,7 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 // processEventAsCoordinator processes a TSS event as the coordinator.
 // Creates setup message based on event type and sends to all participants.
-func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.TSSEvent, participants []*types.UniversalValidator) error {
+func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.PCEvent, participants []*types.UniversalValidator) error {
 	// Sort participants by party ID for consistency
 	sortedParticipants := make([]*types.UniversalValidator, len(participants))
 	copy(sortedParticipants, participants)
@@ -428,16 +428,16 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	// Create setup message based on event type
 	var setupData []byte
 	var err error
-	switch event.ProtocolType {
-	case "keygen", "keyrefresh":
+	switch event.Type {
+	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
-	case "quorumchange":
+	case string(ProtocolQuorumChange):
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-	case "sign":
+	case string(ProtocolSign):
 		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
-		err = errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+		err = errors.Errorf("unknown protocol type: %s", event.Type)
 	}
 
 	if err != nil {
@@ -741,13 +741,13 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 // For sign: returns all (Active + Pending Leave) validators.
 func getEligibleForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	switch protocolType {
-	case "keygen", "quorumchange":
+	case string(ProtocolKeygen), string(ProtocolQuorumChange):
 		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
-	case "keyrefresh":
+	case string(ProtocolKeyrefresh):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
-	case "sign":
+	case string(ProtocolSign):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
 	default:
@@ -761,7 +761,7 @@ func getEligibleForProtocol(protocolType string, allValidators []*types.Universa
 // For other protocols: returns all eligible participants (same as getEligibleForProtocol).
 func getParticipantsForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// For sign, we need random subset; for others, same as eligible
-	if protocolType == "sign" {
+	if protocolType == string(ProtocolSign) {
 		return getSignParticipants(allValidators)
 	}
 	// For other protocols, return all eligible (same logic)

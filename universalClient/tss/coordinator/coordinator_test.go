@@ -101,7 +101,7 @@ func (m *mockPushCoreClient) setGetBlockNumError(err error) {
 func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eventstore.Store) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.TSSEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.PCEvent{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 
@@ -238,7 +238,7 @@ func TestGetEligibleUV(t *testing.T) {
 	require.True(t, hasValidators, "validators should be set in setup")
 
 	t.Run("keygen protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("keygen")
+		eligible := coord.GetEligibleUV("KEYGEN")
 		// Should return Active + Pending Join: validator1, validator2, validator3
 		require.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
@@ -253,7 +253,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("keyrefresh protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("keyrefresh")
+		eligible := coord.GetEligibleUV("KEYREFRESH")
 		// Should return only Active: validator1, validator2 (not validator3 which is PendingJoin)
 		assert.Len(t, eligible, 2)
 		addresses := make(map[string]bool)
@@ -268,7 +268,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("quorumchange protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("quorumchange")
+		eligible := coord.GetEligibleUV("QUORUM_CHANGE")
 		// Should return Active + Pending Join: validator1, validator2, validator3
 		require.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
@@ -283,7 +283,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("sign protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("sign")
+		eligible := coord.GetEligibleUV("SIGN")
 		// Should return random subset of Active + Pending Leave
 		// validator1 and validator2 are Active, validator3 is PendingJoin (not eligible)
 		// So should return validator1 and validator2 (or subset if >2/3 threshold applies)
@@ -301,7 +301,7 @@ func TestGetEligibleUV(t *testing.T) {
 		coord.allValidators = nil
 		coord.mu.Unlock()
 
-		eligible := coord.GetEligibleUV("keygen")
+		eligible := coord.GetEligibleUV("KEYGEN")
 		assert.Nil(t, eligible)
 	})
 }

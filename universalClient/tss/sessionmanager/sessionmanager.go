@@ -144,7 +144,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	sm.mu.Lock()
 	sm.sessions[msg.EventID] = &sessionState{
 		session:      session,
-		protocolType: event.ProtocolType,
+		protocolType: event.Type,
 		coordinator:  senderPeerID,
 		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
 		participants: msg.Participants,
@@ -158,7 +158,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 
 	sm.logger.Info().
 		Str("event_id", msg.EventID).
-		Str("protocol", event.ProtocolType).
+		Str("protocol", event.Type).
 		Msg("created session from setup message")
 
 	// 8. Send ACK to coordinator
@@ -368,7 +368,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 
 	// Handle based on protocol type
 	switch state.protocolType {
-	case "keygen":
+	case string(coordinator.ProtocolKeygen):
 		// Save keyshare using SHA256 hash of eventID
 		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -382,7 +382,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved keyshare from keygen")
 
-	case "keyrefresh":
+	case string(coordinator.ProtocolKeyrefresh):
 		// Save new keyshare using SHA256 hash of eventID
 		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
 			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
@@ -396,7 +396,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
 			Msg("saved new keyshare from keyrefresh")
 
-	case "quorumchange":
+	case string(coordinator.ProtocolQuorumChange):
 		// Quorumchange produces a new keyshare
 		// Save new keyshare using SHA256 hash of eventID
 		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
@@ -412,7 +412,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Int("participant_count", len(result.Participants)).
 			Msg("saved new keyshare from quorumchange with updated participants")
 
-	case "sign":
+	case string(coordinator.ProtocolSign):
 		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
 			Str("event_id", eventID).
@@ -425,7 +425,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 	}
 
 	// Vote on TSS key process (keygen/keyrefresh/quorumchange only)
-	if sm.voteHandler != nil && (state.protocolType == "keygen" || state.protocolType == "keyrefresh" || state.protocolType == "quorumchange") {
+	if sm.voteHandler != nil && (state.protocolType == string(coordinator.ProtocolKeygen) || state.protocolType == string(coordinator.ProtocolKeyrefresh) || state.protocolType == string(coordinator.ProtocolQuorumChange)) {
 		pubKeyHex := hex.EncodeToString(result.PublicKey)
 
 		paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
@@ -456,11 +456,11 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 }
 
 // createSession creates a new DKLS session based on event type.
-func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEvent, msg *coordinator.Message) (dkls.Session, error) {
+func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEvent, msg *coordinator.Message) (dkls.Session, error) {
 	threshold := coordinator.CalculateThreshold(len(msg.Participants))
 
-	switch event.ProtocolType {
-	case "keygen":
+	switch event.Type {
+	case string(coordinator.ProtocolKeygen):
 		return dkls.NewKeygenSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
@@ -469,7 +469,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 			threshold,
 		)
 
-	case "keyrefresh":
+	case string(coordinator.ProtocolKeyrefresh):
 		// Get current keyID
 		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
@@ -491,7 +491,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 			oldKeyshare,
 		)
 
-	case "quorumchange":
+	case string(coordinator.ProtocolQuorumChange):
 		// Get current keyID
 		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
@@ -525,7 +525,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 			oldKeyshare,
 		)
 
-	case "sign":
+	case string(coordinator.ProtocolSign):
 		// Get current keyID
 		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
 		if err != nil {
@@ -555,16 +555,16 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.TSSEve
 		)
 
 	default:
-		return nil, errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+		return nil, errors.Errorf("unknown protocol type: %s", event.Type)
 	}
 }
 
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.TSSEvent) error {
+func (sm *SessionManager) validateParticipants(participants []string, event *store.PCEvent) error {
 	// Get eligible validators for this protocol
-	eligible := sm.coordinator.GetEligibleUV(string(event.ProtocolType))
+	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
 	if len(eligible) == 0 {
 		return errors.New("no eligible validators for protocol")
 	}
@@ -584,26 +584,26 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 	participantSet := make(map[string]bool)
 	for _, partyID := range participants {
 		if !eligibleSet[partyID] {
-			return errors.Errorf("participant %s is not eligible for protocol %s", partyID, event.ProtocolType)
+			return errors.Errorf("participant %s is not eligible for protocol %s", partyID, event.Type)
 		}
 		participantSet[partyID] = true
 	}
 
 	// Protocol-specific validation
-	switch event.ProtocolType {
-	case "keygen", "keyrefresh", "quorumchange":
+	switch event.Type {
+	case string(coordinator.ProtocolKeygen), string(coordinator.ProtocolKeyrefresh), string(coordinator.ProtocolQuorumChange):
 		// For keygen, keyrefresh, and quorumchange: participants must match exactly with eligible participants
 		if len(participants) != len(eligibleList) {
-			return errors.Errorf("participants count %d does not match eligible count %d for %s", len(participants), len(eligibleList), event.ProtocolType)
+			return errors.Errorf("participants count %d does not match eligible count %d for %s", len(participants), len(eligibleList), event.Type)
 		}
 		// Check all eligible are in participants
 		for _, eligibleID := range eligibleList {
 			if !participantSet[eligibleID] {
-				return errors.Errorf("eligible participant %s is missing from participants list for %s", eligibleID, event.ProtocolType)
+				return errors.Errorf("eligible participant %s is missing from participants list for %s", eligibleID, event.Type)
 			}
 		}
 
-	case "sign":
+	case string(coordinator.ProtocolSign):
 		// For sign: participants must be exactly equal to threshold (no more, no less)
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) != threshold {
@@ -612,7 +612,7 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 		// All participants must be from eligible set (already validated above)
 
 	default:
-		return errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+		return errors.Errorf("unknown protocol type: %s", event.Type)
 	}
 
 	return nil
@@ -698,9 +698,9 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			// Clean up session
 			sm.cleanSession(eventID, state)
 
-			// Update event: mark as pending and set new block number (current + delay)
-			newBlockNumber := currentBlock + blockDelay
-			if err := sm.eventStore.UpdateStatusAndBlockNumber(eventID, eventstore.StatusPending, newBlockNumber); err != nil {
+			// Update event: mark as pending and set new block height (current + delay)
+			newBlockHeight := currentBlock + blockDelay
+			if err := sm.eventStore.UpdateStatusAndBlockHeight(eventID, eventstore.StatusPending, newBlockHeight); err != nil {
 				sm.logger.Warn().
 					Err(err).
 					Str("event_id", eventID).
@@ -708,7 +708,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			} else {
 				sm.logger.Info().
 					Str("event_id", eventID).
-					Uint64("new_block_number", newBlockNumber).
+					Uint64("new_block_height", newBlockHeight).
 					Msg("expired session removed, event marked as pending for retry")
 			}
 		}

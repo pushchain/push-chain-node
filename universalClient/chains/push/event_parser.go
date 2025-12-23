@@ -83,8 +83,8 @@ func convertProcessType(chainType string) string {
 	}
 }
 
-// ToTSSEventRecord converts the parsed event to a TSSEvent database record.
-func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
+// ToTSSEventRecord converts the parsed event to a PCEvent database record.
+func (e *TSSProcessEvent) ToTSSEventRecord() *store.PCEvent {
 	// Serialize participants as event data
 	var eventData []byte
 	if len(e.Participants) > 0 {
@@ -97,13 +97,13 @@ func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
 		eventData, _ = json.Marshal(data)
 	}
 
-	return &store.TSSEvent{
-		EventID:      e.EventID(),
-		BlockNumber:  e.BlockHeight,
-		ProtocolType: e.ProcessType,
-		Status:       eventstore.StatusPending,
-		ExpiryHeight: e.ExpiryHeight,
-		EventData:    eventData,
+	return &store.PCEvent{
+		EventID:           e.EventID(),
+		BlockHeight:       e.BlockHeight,
+		ExpiryBlockHeight: e.ExpiryHeight,
+		Type:              e.ProcessType,
+		Status:            eventstore.StatusPending,
+		EventData:         eventData,
 	}
 }
 

@@ -70,7 +70,7 @@ func (m *mockSession) Close() {
 func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordinator, *eventstore.Store, *keyshare.Manager, *pushcore.Client, *gorm.DB) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.TSSEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.PCEvent{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	keyshareMgr, err := keyshare.NewManager(t.TempDir(), "test-password")
@@ -173,11 +173,11 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a test event by inserting it directly into the database
-	event := store.TSSEvent{
-		EventID:      "event1",
-		ProtocolType: "keygen",
-		Status:       eventstore.StatusPending,
-		BlockNumber:  100,
+	event := store.PCEvent{
+		EventID:     "event1",
+		BlockHeight: 100,
+		Type:        "KEYGEN",
+		Status:      eventstore.StatusPending,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 
@@ -248,7 +248,7 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 		sm.mu.Lock()
 		sm.sessions["event1"] = &sessionState{
 			session:      mockSess,
-			protocolType: "keygen",
+			protocolType: "KEYGEN",
 			coordinator:  "coordinator1",
 			expiryTime:   time.Now().Add(5 * time.Minute),
 			participants: []string{"validator2", "validator3"},
@@ -274,11 +274,11 @@ func TestSessionManager_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a keygen event by inserting it directly into the database
-	event := store.TSSEvent{
-		EventID:      "keygen-event",
-		ProtocolType: "keygen",
-		Status:       eventstore.StatusPending,
-		BlockNumber:  100,
+	event := store.PCEvent{
+		EventID:     "keygen-event",
+		BlockHeight: 100,
+		Type:        "KEYGEN",
+		Status:      eventstore.StatusPending,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 

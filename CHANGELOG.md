@@ -2,6 +2,2979 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.15-test] - 2025-12-19
+
+## What's Changed
+
+### 📦 Other Changes
+- Merge branch 'feature/cosmovisor' of github.com:pushchain/push-chain-node into feature/cosmovisor
+- Update manual-release.yml
+- Update CHANGELOG.md for v0.0.14-test
+
+### 👥 Contributors
+- @GitHub Action
+- @Mohammed S
+
+---
+
+## [v0.0.14-test] - 2025-12-18
+
+## What's Changed
+
+### 📦 Other Changes
+- Merge branch 'feature/cosmovisor' of github.com:pushchain/push-chain-node into feature/cosmovisor
+- Update .goreleaser.yaml
+- Update CHANGELOG.md for v0.0.13-test
+
+### 👥 Contributors
+- @GitHub Action
+- @Mohammed S
+
+---
+
+## [v0.0.13-test] - 2025-12-18
+
+## What's Changed
+
+### 📦 Other Changes
+- Merge branch 'feature/cosmovisor' of github.com:pushchain/push-chain-node into feature/cosmovisor
+- Update CHANGELOG.md for v0.0.12-test
+- Merge branch 'feature/cosmovisor' of github.com:pushchain/push-chain-node into feature/cosmovisor
+- Update .goreleaser.yaml
+
+### 👥 Contributors
+- @GitHub Action
+- @Mohammed S
+
+---
+
+## [v0.0.12-test] - 2025-12-18
+
+## What's Changed
+
+### 🚀 Features
+- add dummy-test-github upgrade for cosmovisor testing
+- added msg server impl for UpdateUniversalValidatorStatus
+- added msg server impl for UpdateUniversalValidatorStatus
+- added a keeper fn in utss to return if there is ongoing tss process
+- added types of MsgUpdateUniversalValidatorStatus
+- added proto changes for new MSG for updating validator status
+- modified removeUniversalValidator msg proto
+- updated voting tss process logic for not changing uv status in case of tss key refresh process
+- updated initiate tss key process logic for key refresh process
+- modified vote tss msg implementation to use processId
+- modified MsgVoteTssKeyProcess proto to take processId
+- modified the tss event initiation logic to emit keygen if no finalised tss key exist
+- added changes to expire current tss process if current process is pending
+- added the tss process quorum_change in the proto
+- updated uv update msg implementation
+- updated proto file to remove core_val address from update uv msg
+- made the migrateUEA msg gasless
+- created the upgrade handler for new tss-core upgrade
+- created migration script for migrating universal validator set
+- added query server implementation
+- added queries in proto for utss module
+- added integration test for vote tss key process
+- added integration test for initiate tss key and removed process id from voting
+- mitigated tss ballot unique key
+- mitigated ballot unique key by hashing whole inbound
+- imported utssKeeper in uvalidatorKeeper
+- update UVs status when tss vote finalises
+- added changes for minting 50T tokens temporarily
+- added upgrade handler for pc-mint-cap upgrade
+- capping the pc mint amount to 10pc temporarily
+- modified the integration-test directory
+- added messages for initiating tss process and voting in proto
+- added tssKey messages in proto
+- added utss module
+- added msg server impl for msg_update_universal_validator
+- added a new msg for updating a validator's metadata
+- modified the universal validator storage from a set of string to a map
+- added generated protobuf
+- added generated protobuf
+- modified universal validator proto message to make it more scalable
+- added generated protobuf
+- update msg_add_universal_validator proto for new structure
+- added universal_validator new structure in proto
+- updated observedChainId modification changes in uexecutor module
+- modified gas_price proto to change chain_id param name to observed_chain_id
+- Show sync completion status in push-validator start output
+- Show initialization progress logs in push-validator start
+- made the gas price vote method gasless
+- added integration tests of msgVoteGasPrice
+- added execVoteGasPrice in helpers for integration-tests
+- added generated protobuf
+- added impl of query server for gas price
+- added implementation of setGasPrice in msg server
+- added evm fn call to setGasPrice fn cal
+- added GasPrices in key storage collection
+- added MsgVoteGasPrice in types
+- added generated protobuf
+- added query gas price in query server proto
+- added msg_vote_gas_price in msg server proto
+- added gas_price in proto
+- added pc_tx for deployment of uea in universal_tx in gas, gas_and_payload inbound
+- added upgrade handler for eth-hash-fix
+- updated evm low level calls as per new method signature
+- added a keeper collection for manual nonce for module account
+- updated pushchain/evm version
+- updated chain configs
+- added MsgRemoveTokenConfig msg implementation
+- added MsgRemoveTokenConfig msg in types
+- added a msg for removing token config in uregistry
+- added upgrade handler for fee-abs upgrade
+- added migration of verifiedInboundTx in utxverifier module
+- updated inbound gas + payload tx to store payload hash for single click precompile
+- updated inbound funds + payload tx to store payload hash for single click precompile
+- updated mock utvKeeper
+- created fn for creating payload hash and storing in verified inbound tx
+- added a fn to call uea for domainSeparator
+- updated uea abi to add domainSeparator fn
+- updated verified tx metadata to store multiple txs
+- updated inbound gas + payload tx execution as non-atomic
+- updated inbound gas tx execution as non-atomic
+- updated inbound funds + payload tx execution as non-atomic
+- updated inbound synthetic tx execution as non-atomic
+- added evm low level call to deposit auto swap
+- added supported token configs
+- updated solana config
+- added generated protobuf
+- updated token configs
+- uv deployment fixes
+- updated token configs
+- updated admin
+- updated configs
+- updated proxyAdmin and impl addresses of core and other reserved addresses
+- added deploying core and reserved contracts in initGenesis of uregistry module
+- added generated protobuf
+- removed system_config from proto
+- go implementation
+- added inbound upgrade and did local upgrade simulation
+- created upgrade handler for inbound upgrade
+- bumped consensus version of uexecutor and added migration fn
+- added schemaBuilder and old keys of chainConfigs
+- add extensive debug logging to diagnose installer startup issue
+- added token configs of usdc and weth sepolia
+- added system config msg type and validations
+- added system config query server impl
+- added system config query in query server proto
+- updated nomenclature changes in inboundTxType
+- added msgExec with inbound helper
+- added support for authz gasless messages
+- removed query messages of universal validator <> core val mapping
+- updated universal validator add, remove and update messages proto
+- extended integration-tests setup for multiple validators
+- added extra fn parameters in abi
+- replaced prc20 call to handler contract call for deposit prc20 token
+- added SytemConfig collection in uregistry module
+- added SystemConfig msg type
+- made the MsgVoteInbound gasless
+- added proto changes in inbound tx for verification data
+- added proto changes in inbound tx
+- add manual binary release workflow with auto-changelog
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- local multi validator setup
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- start scaffolding uvalidator module
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- MsgVoteInbound initial implementation
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- sql improvements and DB cleanup cron job.
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- local multi validator setup
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- event listening changes on universal validator
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- updated default admin of uexecutor module
+- updated utxhashverifier precompile addr from 0x901 to 0xCB
+- renamed ocv precompile to utxhashverifier
+- renamed usv precompile to usigverifier
+- modified utv module name to utxverifier module
+- renamed ue module to uexecutor module
+- updated module name from rollchains to pushchain/push-chain-node
+- updated factory implementation bytecode
+- start scaffolding uvalidator module
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- added upgrade handler for gas estimation upgrade
+- added gasLimit override feature in derived tx
+- added generated mocks for evm keeper
+- added upgrade handler for gas override feature
+- added gas units in the gasless tx logs for showing derived tx in explorer
+- updated verifiedTxs utv storage format
+- added verifiedTxMetadata and usdValue in utv proto
+- added upgrade handler for evm-derived-tx upgrade
+- made verification svm working for solana txHash in bytes hex
+- updated protobuf for msgExecutePayload from signature to payloadVerifier
+- added a derived evm tx for mint pc msg
+- imported account keeper in ue module
+- modified evm calls to derived evm calls
+- switched evm from strangelove/os to pushchain/evm fork
+
+### 🐛 Bug Fixes
+- add cosmovisor and github action changes.
+- getTransactionReceipt RPC
+- uv binary script
+- binary prep
+- fixed test cases of uvalidator
+- fixed the test case of utss for current tss process
+- fixed the state change of validators after voting is finalised in tss key process for pending_leave->inactive
+- voting for tss
+- 4th node in the setup
+- fixed remove universal validator
+- godkls file issues
+- godkls file issues
+- patch garbling
+- patch garbling
+- garbling cloning
+- dockerfile
+- dkls setup
+- keyfresh participants
+- core valoper mapping
+- tss.go
+- fixes after review call
+- fix
+- event parsing - minor tweaks
+- merge conflicts
+- universal client start script
+- docker
+- interchain e2e gh
+- interchain e2e gh
+- lib location for make test
+- default config tc
+- ut
+- ut
+- read me updates
+- local multi validator setup
+- local-multi-validator changes.
+- added voting changes
+- docker relase
+- cargo using ci pat
+- action uses ci token for fetching dep
+- makefile
+- not skipping tss tests
+- verification issues
+- review comments
+- event listening changes
+- make test
+- unit tests - skip dkls lib tc
+- use uv type from core
+- use eventId as unique identifier
+- temp demo
+- sign participants selection
+- make file
+- event parsing with multiple universal logs
+- support v0 in tx verification
+- architecture doc
+- reset events on crash
+- gh
+- gh
+- gh
+- gh-action
+- workdlow
+- dep path
+- signature verification
+- logs
+- update start script to fix WebSocket newHeads subscriptions
+- minor bugs
+- demo
+- replace participant with UV struct
+- fixed the expiryAfterBlocks in tss voting
+- fixed the removal of UV endpoint
+- fixed duplicate tx issue in setGasPrice method call
+- attach recipient for Gas
+- mark txHash + logIndex as unique
+- revert admin of uregistry module
+- unit test cases
+- review comments
+- gas_vote_handler changes
+- skip circuit module AutoCLI to resolve startup panic
+- adding verification data
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- UX issues
+- folder name simplification and command simplification
+- deleted older version of push-validator-manager
+- svm parsing
+- logs viewer, pagination to validators
+- dashboard changes
+- attach txHash when verification data is empty
+- dashboard implementation
+- eta fixes
+- fixed migration upgrade handler
+- fixed domain separator issue
+- log fixes
+- advanced setup
+- added read me file
+- testing bug fixes
+- use /dev/tty for interactive detection in remote installer
+- enable interactive logs for remote installer by checking stderr TTY
+- add footer message when stopping logs in non-interactive mode
+- bug fixes
+- admin fixes
+- install.sh fixes
+- add more fixes
+- more fixes
+- more fixes related to help
+- log viewer fixes
+- polish pnm
+- attach universal payload & verification data
+- mark default fast as 0
+- fixed solana verification
+- universal Tx Event
+- change gateway
+- fixed rpc verification of recipient
+- addressing review comments
+- parseSendTxWithGasEvent functionality
+- review comments feedback changes
+- fix integration tests
+- fixed sol prc20 config
+- optimizations
+- DB Models optimizations
+- fn
+- universal payload parsing
+- reading sendTxWithFunds
+- event parsing + tx hash
+- svm sendFunds
+- get rid of unnecessary files
+- svm testing
+- add vote hash and vote time db
+- test cases fixes
+- svm parsing fixes
+- test cases fix
+- bytes parsing for sig
+- event parsing
+- bug fixes sequence error and initial cache issue
+- removed addFunds fn selector check in rpc verification
+- sequence issue fix + cache load on startup
+- bug fixes
+- revert localchain change
+- UI fixes
+- test cases fix
+- validator UX changes
+- cleanup and cmd fixes
+- more fixes
+- clean UX
+- more cleanup
+- initialize LOCAL_HEIGHT with actual node height to show correct sync %
+- cleanup background process when WebSocket monitor falls back
+- make monitor_sync exit when node is synced in state sync mode
+- remove subshells from monitor_sync_auto to fix exit issue
+- remove 'Fetching network height' message display
+- ensure monitor exits all loops when sync completes
+- prevent premature exit when checking catching_up before state sync starts
+- initialize SYNC_COMPLETE variable to prevent unbound error
+- use catching_up API field to detect sync completion
+- make monitor-state-sync exit after sync completes
+- prevent SYNC_COMPLETE from being reset after state sync
+- remove fallback monitoring and restore detect_state_sync_phase function
+- fixed tests of renaming handler to universal core
+- show actual state sync progress instead of phase-divided progress
+- improve state sync progress calculation
+- state sync progress calculation and remove debug logs
+- add --overwrite flag to pchaind init to handle existing genesis.json
+- redirect pchaind init output to stderr to maintain pipe connection
+- state sync progress bar
+- sepolia gateway listening
+- more fixes
+- prevent installer hanging during node start with state sync
+- installer fixes
+- minor sed fixes
+- few code fixes
+- variable fix
+- read me fixes
+- add state sync functionality
+- authz without fee
+- cron
+- remove unnecessary server fn
+- fixed authz gasless issue
+- message unit tc
+- tc
+- inbound msg type changes
+- sendFunds
+- not needed
+- change authz to use constants
+- fixed isDeployed error
+- fixed depositPrc20Token evm call params
+- vote unit test
+- test script automatically adds hotkey with req permission
+- mark confirm_pending tx as confirmed
+- review comments
+- more review comments
+- review comments
+- review comments
+- debug fixes
+- timing issue for creating vote handler
+- bug fixes
+- review comments and testing
+- compile errors after merge
+- fixed integration tests with real scenario
+- fixed msg_execute_payload tests
+- fixes after back merge
+- log fixes
+- added daemon launcher
+- start pchaind in background fix
+- pchaind fix
+- progress bar issues
+- more fixes
+- progress bar fixes
+- status check
+- progress bar logic
+- remove brew logs
+- wscat auto install
+- logging fixes
+- reset data
+- flicker issue
+- flicker issue
+- more logs cleanup
+- reduce logs clutter
+- updated push-validator-manger from push-node-manager
+- fixed hardcoded bytes
+- resolve GitHub Actions workflow warnings
+- update .goreleaser.yaml repository configuration
+- test cases error
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- fixed ballot keeper methods test cases
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- merge conflicts
+- remove unused code
+- bug fix
+- unused code removed
+- more improvements
+- bug fixes
+- bug fixes
+- test cases fixes
+- test cases fixes
+- fixed test cases
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- more cleanup work
+- fixed ballot keeper methods test cases
+- hot key and authz implementation
+- improved confirmations logic
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- load .env on start up
+- nginx script
+- test cases fixed
+- 1. removed GatewayEvent unused table 2. Add a cmd to set block number for a chain
+- expose ports on nginx
+- virtual python env
+- ubuntu error fix for netcat
+- nginx tests
+- revert max_gas for block on testnet
+- precompies
+- renamed utv to utxverifier at some places
+- fixed issue of computing uea address instead of gettig from factory
+- update evm params, fix block params
+- nginx setup
+- scripts
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- fixed broken link in readme
+- remove identical mintPc test
+- fixed MsgExecutePayload tests
+- switched evm keeper with mock evm keeper
+- readme
+- readme
+- enable make install in testnet script
+- ignore build
+- added the old upgradeHandlers in app.go
+- remove comments
+- fix one click upgrade handler
+- fixed issue of verification
+- fixed solana tx precompile
+- fixed solana normalized tx hash
+- sdk context & standardized code
+- code after merge
+- updated go version in dockerFile
+- flattened args & bytes instead of string
+- added an empty txLog for maintaining the logIndex
+- fixed evm tx types in ante
+
+### ♻️ Refactoring
+- no need of tss subdir
+- tss should use the default node home dir
+- updated mock keeper of utss
+- extra check in tss logic hook
+- added edge case handling if tss event gen
+- updated the tss hooks to emit quorum_change tss process in case of validator add/remove
+- modified the tss process validateBasic fn
+- added generated protobuf
+- added generated protobuf
+- added generated protobuf
+- updated migration of UVs to add new changes
+- modified add, update uv messages to remove pubkey
+- removed pubKey from add and update validator endpoints
+- updated identityInfo to remove pubkey
+- added validation in networkInfo validateBasic
+- added generated protobuf
+- updated validator proto files for new NetworkInfo changes
+- omit unnecessary reassignment
+- fixed the error messages in msg_migrate_uea
+- rename migration_payload test files
+- registered migrations for uvalidator module
+- added schemaBuilder in uvalidator module
+- modified the tss voting ballot to use tss process participants as eligible voters
+- updated the tss process initiation event to emit participants list
+- reduced the default tss process expiry block to 500
+- updated admin address of utss to actual prod admin
+- added generated protobuf
+- added generated protobuf
+- added tss_process_type rename in module
+- added generated protobuf
+- modified tss key process type from reshare to refresh
+- updated remove universal validator endpoint to reject removal of pending join UV
+- added a helper fn for getParticipants in utss module
+- added hooks implementation for initiating tss process
+- added msg_vote_key_process impl
+- added msg_vote_key_process impl
+- added generated protobuf
+- modified ballot proto to support tss
+- added event for tss key process initiation
+- added initiate key tss msg impl
+- added generated protobuf
+- updated proto for tss_key_process
+- added generated protobuf
+- added generated protobuf
+- added types of tss_key
+- added params msg impl
+- added keys of keeper storage
+- added types of tss_key
+- added types of tss_process
+- added msg_update_params types tests
+- added types of msg_update_params
+- imported uvalidator module in utss module
+- added msg for tss process initiation and voting
+- added uvalidator hook impl in utss
+- added generated protobuf
+- added tests for msg_update_universal_validator validateBasic
+- added types for msg_update_universal_validator
+- added generated protobuf
+- merge main branch
+- invoke hooks in remove_uv msg endpoint
+- invoke hooks in add_uv msg endpoint
+- added hooks in the uvalidator module
+- modified add uv endpoint to activate an inactive validator again
+- fixed uexecutor integration tests as per new uv structure
+- added generated protobuf
+- added query server impl for single universal validator
+- added generated protobuf
+- added a new query for single universal validator
+- modified the voting ballot inbound to only allow active, pending_join UVs to vote
+- modified the msg_remove_universal_validator as per uv structure change
+- modified the msg_add_universal_validator as per uv structure change
+- added keeper methods for new map storage of UV
+- fixed universal validator validate basic
+- updated universal_validator network info nomenclature
+- updated universal_validator validateBasic fn
+- added identity_info message types
+- added lifecyle_info message types
+- added lifecyle_event message types
+- updated msg_add_universal_validator msg
+- added network_info message types
+- added universal_validator message types
+- added generated protobuf in module types
+- added generated protobuf
+- added generated protobuf
+- added upgrade handler for gas oracle upgrade
+- added migration for uregistry consensus
+- added validation of new chain config
+- added generated protobuf
+- modified chainConfig proto
+- added fetch gas interval in the chainConfig
+- modified deploy uea method response
+- updated evm derived call fn with manual nonce support
+- added upgrade handler for solana verification fix
+- added generated protobuf
+- added generated protobuf
+- updated eth sepolia chain config with sendTxWithGas fn and event identifier
+- removed uexecutor module old migration code
+- added storeVerifiedInboundTx method in expected_keepers
+- updated tx precompile for multiple payloads
+- updated old rpc tx verification to store multiple payload hashes
+- updated inbound fn names as per status name
+- updated confirmations in config
+- updated eventIdentifier for sendFunds
+- updated proto for grpc query
+- modified inbound key to use only sourceChain, txHash and logIndex
+- whitelisted stETH.eth and USDC.eth
+- updated chain configs
+- added deploying contracts in initGenesis
+- removed system config methods
+- added evm keeper in uregistry module
+- renamed handler to universal_core in keeper methods
+- renamed handler to universal_core in proto system config
+- updated chain config
+- updated chain config
+- updated chain config
+- updated inbound bridge payload tx integration test as per authz changes
+- updated inbound bridge tx integration test as per authz changes
+- modified deployV2 return params
+- updated inbound msg validation
+- updated uexecutor messages and helpers
+- added generated types
+- updated kv store acc. to authz changes
+- updated msg and query servers for authz changes
+- updated validator operation helpers
+- modified remove validator msg acc. to new authz changes
+- modified add validator msg acc. to new authz changes
+- removed updated validator msg implementation
+- added generated protobuf
+- added setup of handler contract and prc20 contract
+- added handler and prc20 bytecodes for contract setup
+- added systemConfig in uregistry mock
+- implemented msgUpdateSystemConfig
+- added generated protobuf
+- added msgUpdateSystemConfig to update system configs access controlled by admin
+- optimized execute_payload to error out at start if payload is incorrect
+- added temporary impl for fee abs + payload exec tx type
+- added temporary impl for fee abs tx type
+- added impl for synthetic funds transfer + payload tx type
+- added impl for synthetic funds transfer tx type
+- added a temporary executePayloadV2 with receipt return
+- updated executeInbound acc. to diff tx type
+- added depositPRC20 helper fn of handler
+- updated msg_execute_payload to error out if uea is not deployed
+- updated universal_tx tests
+- updated universal_tx acc. to pc_tx array proto format
+- added a temporary deployUeaV2 without verification
+- added generated protobuf
+- updated changes acc. to new payload in inbound tx
+- added generated protobuf
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- more cleanup
+- bug fixing and cleanup
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- added integration tests in uexecutor module directory and modified keeper and types imports
+- removed integration tests from ue module directory
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- updated a comment
+- removed old migration of utxverifier module
+- removed all previous upgrade handlers
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added state migration in utv module for verifiedInboundTx collection
+- updated ocv precompile acc to new modularised verification methods
+- updated utv types
+- modularised svm verification methods
+- modularised evm verification methods
+- added svm helpers for verification
+- added evm helpers for verification
+- updated payload hash verification
+- updated funds verification
+- updated gateway interaction verification
+- updated query server of utv module
+- added protobuf
+- updated msgExecutePayload param from payload_verifier to verification_data
+- storing the bytes txHash in storage
+- updated ue module methods acc. to new msgExecutePayload proto changes
+- added protobuf generated
+
+### 📦 Other Changes
+- Update CHANGELOG.md for v0.0.11-test
+- Update CHANGELOG.md for v0.0.10-test
+- fixes
+- Update .goreleaser.yaml
+- Merge pull request #125 from pushchain/fix-tss
+- increase: gas Limit
+- Merge pull request #122 from pushchain/fix/tss-upgrade
+- Merge pull request #118 from pushchain/fix/tss-upgrade
+- extra-eip format fix
+- Merge pull request #99 from pushchain/feat/tss-keygen-keyrefresh
+- Merge pull request #117 from pushchain/fix/tss-upgrade
+- tss-core-fix upgradeHandler added
+- temp commit
+- evm dependency upgrade for tss-core upgrade
+- Merge branch 'feat/tss-keygen-keyrefresh' of https://github.com/push-protocol/push-chain into feat/tss-keygen-keyrefresh
+- tests: added integration test cases for new msg UpdateUniversalValidatorStatus
+- tests: added validation tests for update validator status msg
+- tests: added an integration test for the state change fix
+- Merge branch 'feat/tss-keygen-keyrefresh' of github.com:pushchain/push-chain-node into feat/tss-keygen-keyrefresh
+- tests: updated integration test case of initiate tss key process
+
+### 👥 Contributors
+- @Aman Gupta
+- @Arya Lanjewar
+- @Gauarv Chaudhary
+- @GitHub Action
+- @Mohammed S
+- @Nilesh Gupta
+- @Zartaj0
+- @aman035
+- @huyejia
+- @pranshurastogi
+- @rifeplight
+- @strykerin
+
+---
+
+## [v0.0.11-test] - 2025-12-18
+
+## What's Changed
+
+### 🚀 Features
+- add dummy-test-github upgrade for cosmovisor testing
+- added msg server impl for UpdateUniversalValidatorStatus
+- added msg server impl for UpdateUniversalValidatorStatus
+- added a keeper fn in utss to return if there is ongoing tss process
+- added types of MsgUpdateUniversalValidatorStatus
+- added proto changes for new MSG for updating validator status
+- modified removeUniversalValidator msg proto
+- updated voting tss process logic for not changing uv status in case of tss key refresh process
+- updated initiate tss key process logic for key refresh process
+- modified vote tss msg implementation to use processId
+- modified MsgVoteTssKeyProcess proto to take processId
+- modified the tss event initiation logic to emit keygen if no finalised tss key exist
+- added changes to expire current tss process if current process is pending
+- added the tss process quorum_change in the proto
+- updated uv update msg implementation
+- updated proto file to remove core_val address from update uv msg
+- made the migrateUEA msg gasless
+- created the upgrade handler for new tss-core upgrade
+- created migration script for migrating universal validator set
+- added query server implementation
+- added queries in proto for utss module
+- added integration test for vote tss key process
+- added integration test for initiate tss key and removed process id from voting
+- mitigated tss ballot unique key
+- mitigated ballot unique key by hashing whole inbound
+- imported utssKeeper in uvalidatorKeeper
+- update UVs status when tss vote finalises
+- added changes for minting 50T tokens temporarily
+- added upgrade handler for pc-mint-cap upgrade
+- capping the pc mint amount to 10pc temporarily
+- modified the integration-test directory
+- added messages for initiating tss process and voting in proto
+- added tssKey messages in proto
+- added utss module
+- added msg server impl for msg_update_universal_validator
+- added a new msg for updating a validator's metadata
+- modified the universal validator storage from a set of string to a map
+- added generated protobuf
+- added generated protobuf
+- modified universal validator proto message to make it more scalable
+- added generated protobuf
+- update msg_add_universal_validator proto for new structure
+- added universal_validator new structure in proto
+- updated observedChainId modification changes in uexecutor module
+- modified gas_price proto to change chain_id param name to observed_chain_id
+- Show sync completion status in push-validator start output
+- Show initialization progress logs in push-validator start
+- made the gas price vote method gasless
+- added integration tests of msgVoteGasPrice
+- added execVoteGasPrice in helpers for integration-tests
+- added generated protobuf
+- added impl of query server for gas price
+- added implementation of setGasPrice in msg server
+- added evm fn call to setGasPrice fn cal
+- added GasPrices in key storage collection
+- added MsgVoteGasPrice in types
+- added generated protobuf
+- added query gas price in query server proto
+- added msg_vote_gas_price in msg server proto
+- added gas_price in proto
+- added pc_tx for deployment of uea in universal_tx in gas, gas_and_payload inbound
+- added upgrade handler for eth-hash-fix
+- updated evm low level calls as per new method signature
+- added a keeper collection for manual nonce for module account
+- updated pushchain/evm version
+- updated chain configs
+- added MsgRemoveTokenConfig msg implementation
+- added MsgRemoveTokenConfig msg in types
+- added a msg for removing token config in uregistry
+- added upgrade handler for fee-abs upgrade
+- added migration of verifiedInboundTx in utxverifier module
+- updated inbound gas + payload tx to store payload hash for single click precompile
+- updated inbound funds + payload tx to store payload hash for single click precompile
+- updated mock utvKeeper
+- created fn for creating payload hash and storing in verified inbound tx
+- added a fn to call uea for domainSeparator
+- updated uea abi to add domainSeparator fn
+- updated verified tx metadata to store multiple txs
+- updated inbound gas + payload tx execution as non-atomic
+- updated inbound gas tx execution as non-atomic
+- updated inbound funds + payload tx execution as non-atomic
+- updated inbound synthetic tx execution as non-atomic
+- added evm low level call to deposit auto swap
+- added supported token configs
+- updated solana config
+- added generated protobuf
+- updated token configs
+- uv deployment fixes
+- updated token configs
+- updated admin
+- updated configs
+- updated proxyAdmin and impl addresses of core and other reserved addresses
+- added deploying core and reserved contracts in initGenesis of uregistry module
+- added generated protobuf
+- removed system_config from proto
+- go implementation
+- added inbound upgrade and did local upgrade simulation
+- created upgrade handler for inbound upgrade
+- bumped consensus version of uexecutor and added migration fn
+- added schemaBuilder and old keys of chainConfigs
+- add extensive debug logging to diagnose installer startup issue
+- added token configs of usdc and weth sepolia
+- added system config msg type and validations
+- added system config query server impl
+- added system config query in query server proto
+- updated nomenclature changes in inboundTxType
+- added msgExec with inbound helper
+- added support for authz gasless messages
+- removed query messages of universal validator <> core val mapping
+- updated universal validator add, remove and update messages proto
+- extended integration-tests setup for multiple validators
+- added extra fn parameters in abi
+- replaced prc20 call to handler contract call for deposit prc20 token
+- added SytemConfig collection in uregistry module
+- added SystemConfig msg type
+- made the MsgVoteInbound gasless
+- added proto changes in inbound tx for verification data
+- added proto changes in inbound tx
+- add manual binary release workflow with auto-changelog
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- local multi validator setup
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- start scaffolding uvalidator module
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- MsgVoteInbound initial implementation
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- sql improvements and DB cleanup cron job.
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- local multi validator setup
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- event listening changes on universal validator
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- updated default admin of uexecutor module
+- updated utxhashverifier precompile addr from 0x901 to 0xCB
+- renamed ocv precompile to utxhashverifier
+- renamed usv precompile to usigverifier
+- modified utv module name to utxverifier module
+- renamed ue module to uexecutor module
+- updated module name from rollchains to pushchain/push-chain-node
+- updated factory implementation bytecode
+- start scaffolding uvalidator module
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- added upgrade handler for gas estimation upgrade
+- added gasLimit override feature in derived tx
+- added generated mocks for evm keeper
+- added upgrade handler for gas override feature
+- added gas units in the gasless tx logs for showing derived tx in explorer
+- updated verifiedTxs utv storage format
+- added verifiedTxMetadata and usdValue in utv proto
+- added upgrade handler for evm-derived-tx upgrade
+- made verification svm working for solana txHash in bytes hex
+- updated protobuf for msgExecutePayload from signature to payloadVerifier
+- added a derived evm tx for mint pc msg
+- imported account keeper in ue module
+- modified evm calls to derived evm calls
+- switched evm from strangelove/os to pushchain/evm fork
+
+### 🐛 Bug Fixes
+- add cosmovisor and github action changes.
+- getTransactionReceipt RPC
+- uv binary script
+- binary prep
+- fixed test cases of uvalidator
+- fixed the test case of utss for current tss process
+- fixed the state change of validators after voting is finalised in tss key process for pending_leave->inactive
+- voting for tss
+- 4th node in the setup
+- fixed remove universal validator
+- godkls file issues
+- godkls file issues
+- patch garbling
+- patch garbling
+- garbling cloning
+- dockerfile
+- dkls setup
+- keyfresh participants
+- core valoper mapping
+- tss.go
+- fixes after review call
+- fix
+- event parsing - minor tweaks
+- merge conflicts
+- universal client start script
+- docker
+- interchain e2e gh
+- interchain e2e gh
+- lib location for make test
+- default config tc
+- ut
+- ut
+- read me updates
+- local multi validator setup
+- local-multi-validator changes.
+- added voting changes
+- docker relase
+- cargo using ci pat
+- action uses ci token for fetching dep
+- makefile
+- not skipping tss tests
+- verification issues
+- review comments
+- event listening changes
+- make test
+- unit tests - skip dkls lib tc
+- use uv type from core
+- use eventId as unique identifier
+- temp demo
+- sign participants selection
+- make file
+- event parsing with multiple universal logs
+- support v0 in tx verification
+- architecture doc
+- reset events on crash
+- gh
+- gh
+- gh
+- gh-action
+- workdlow
+- dep path
+- signature verification
+- logs
+- update start script to fix WebSocket newHeads subscriptions
+- minor bugs
+- demo
+- replace participant with UV struct
+- fixed the expiryAfterBlocks in tss voting
+- fixed the removal of UV endpoint
+- fixed duplicate tx issue in setGasPrice method call
+- attach recipient for Gas
+- mark txHash + logIndex as unique
+- revert admin of uregistry module
+- unit test cases
+- review comments
+- gas_vote_handler changes
+- skip circuit module AutoCLI to resolve startup panic
+- adding verification data
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- UX issues
+- folder name simplification and command simplification
+- deleted older version of push-validator-manager
+- svm parsing
+- logs viewer, pagination to validators
+- dashboard changes
+- attach txHash when verification data is empty
+- dashboard implementation
+- eta fixes
+- fixed migration upgrade handler
+- fixed domain separator issue
+- log fixes
+- advanced setup
+- added read me file
+- testing bug fixes
+- use /dev/tty for interactive detection in remote installer
+- enable interactive logs for remote installer by checking stderr TTY
+- add footer message when stopping logs in non-interactive mode
+- bug fixes
+- admin fixes
+- install.sh fixes
+- add more fixes
+- more fixes
+- more fixes related to help
+- log viewer fixes
+- polish pnm
+- attach universal payload & verification data
+- mark default fast as 0
+- fixed solana verification
+- universal Tx Event
+- change gateway
+- fixed rpc verification of recipient
+- addressing review comments
+- parseSendTxWithGasEvent functionality
+- review comments feedback changes
+- fix integration tests
+- fixed sol prc20 config
+- optimizations
+- DB Models optimizations
+- fn
+- universal payload parsing
+- reading sendTxWithFunds
+- event parsing + tx hash
+- svm sendFunds
+- get rid of unnecessary files
+- svm testing
+- add vote hash and vote time db
+- test cases fixes
+- svm parsing fixes
+- test cases fix
+- bytes parsing for sig
+- event parsing
+- bug fixes sequence error and initial cache issue
+- removed addFunds fn selector check in rpc verification
+- sequence issue fix + cache load on startup
+- bug fixes
+- revert localchain change
+- UI fixes
+- test cases fix
+- validator UX changes
+- cleanup and cmd fixes
+- more fixes
+- clean UX
+- more cleanup
+- initialize LOCAL_HEIGHT with actual node height to show correct sync %
+- cleanup background process when WebSocket monitor falls back
+- make monitor_sync exit when node is synced in state sync mode
+- remove subshells from monitor_sync_auto to fix exit issue
+- remove 'Fetching network height' message display
+- ensure monitor exits all loops when sync completes
+- prevent premature exit when checking catching_up before state sync starts
+- initialize SYNC_COMPLETE variable to prevent unbound error
+- use catching_up API field to detect sync completion
+- make monitor-state-sync exit after sync completes
+- prevent SYNC_COMPLETE from being reset after state sync
+- remove fallback monitoring and restore detect_state_sync_phase function
+- fixed tests of renaming handler to universal core
+- show actual state sync progress instead of phase-divided progress
+- improve state sync progress calculation
+- state sync progress calculation and remove debug logs
+- add --overwrite flag to pchaind init to handle existing genesis.json
+- redirect pchaind init output to stderr to maintain pipe connection
+- state sync progress bar
+- sepolia gateway listening
+- more fixes
+- prevent installer hanging during node start with state sync
+- installer fixes
+- minor sed fixes
+- few code fixes
+- variable fix
+- read me fixes
+- add state sync functionality
+- authz without fee
+- cron
+- remove unnecessary server fn
+- fixed authz gasless issue
+- message unit tc
+- tc
+- inbound msg type changes
+- sendFunds
+- not needed
+- change authz to use constants
+- fixed isDeployed error
+- fixed depositPrc20Token evm call params
+- vote unit test
+- test script automatically adds hotkey with req permission
+- mark confirm_pending tx as confirmed
+- review comments
+- more review comments
+- review comments
+- review comments
+- debug fixes
+- timing issue for creating vote handler
+- bug fixes
+- review comments and testing
+- compile errors after merge
+- fixed integration tests with real scenario
+- fixed msg_execute_payload tests
+- fixes after back merge
+- log fixes
+- added daemon launcher
+- start pchaind in background fix
+- pchaind fix
+- progress bar issues
+- more fixes
+- progress bar fixes
+- status check
+- progress bar logic
+- remove brew logs
+- wscat auto install
+- logging fixes
+- reset data
+- flicker issue
+- flicker issue
+- more logs cleanup
+- reduce logs clutter
+- updated push-validator-manger from push-node-manager
+- fixed hardcoded bytes
+- resolve GitHub Actions workflow warnings
+- update .goreleaser.yaml repository configuration
+- test cases error
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- fixed ballot keeper methods test cases
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- merge conflicts
+- remove unused code
+- bug fix
+- unused code removed
+- more improvements
+- bug fixes
+- bug fixes
+- test cases fixes
+- test cases fixes
+- fixed test cases
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- more cleanup work
+- fixed ballot keeper methods test cases
+- hot key and authz implementation
+- improved confirmations logic
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- load .env on start up
+- nginx script
+- test cases fixed
+- 1. removed GatewayEvent unused table 2. Add a cmd to set block number for a chain
+- expose ports on nginx
+- virtual python env
+- ubuntu error fix for netcat
+- nginx tests
+- revert max_gas for block on testnet
+- precompies
+- renamed utv to utxverifier at some places
+- fixed issue of computing uea address instead of gettig from factory
+- update evm params, fix block params
+- nginx setup
+- scripts
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- fixed broken link in readme
+- remove identical mintPc test
+- fixed MsgExecutePayload tests
+- switched evm keeper with mock evm keeper
+- readme
+- readme
+- enable make install in testnet script
+- ignore build
+- added the old upgradeHandlers in app.go
+- remove comments
+- fix one click upgrade handler
+- fixed issue of verification
+- fixed solana tx precompile
+- fixed solana normalized tx hash
+- sdk context & standardized code
+- code after merge
+- updated go version in dockerFile
+- flattened args & bytes instead of string
+- added an empty txLog for maintaining the logIndex
+- fixed evm tx types in ante
+
+### ♻️ Refactoring
+- no need of tss subdir
+- tss should use the default node home dir
+- updated mock keeper of utss
+- extra check in tss logic hook
+- added edge case handling if tss event gen
+- updated the tss hooks to emit quorum_change tss process in case of validator add/remove
+- modified the tss process validateBasic fn
+- added generated protobuf
+- added generated protobuf
+- added generated protobuf
+- updated migration of UVs to add new changes
+- modified add, update uv messages to remove pubkey
+- removed pubKey from add and update validator endpoints
+- updated identityInfo to remove pubkey
+- added validation in networkInfo validateBasic
+- added generated protobuf
+- updated validator proto files for new NetworkInfo changes
+- omit unnecessary reassignment
+- fixed the error messages in msg_migrate_uea
+- rename migration_payload test files
+- registered migrations for uvalidator module
+- added schemaBuilder in uvalidator module
+- modified the tss voting ballot to use tss process participants as eligible voters
+- updated the tss process initiation event to emit participants list
+- reduced the default tss process expiry block to 500
+- updated admin address of utss to actual prod admin
+- added generated protobuf
+- added generated protobuf
+- added tss_process_type rename in module
+- added generated protobuf
+- modified tss key process type from reshare to refresh
+- updated remove universal validator endpoint to reject removal of pending join UV
+- added a helper fn for getParticipants in utss module
+- added hooks implementation for initiating tss process
+- added msg_vote_key_process impl
+- added msg_vote_key_process impl
+- added generated protobuf
+- modified ballot proto to support tss
+- added event for tss key process initiation
+- added initiate key tss msg impl
+- added generated protobuf
+- updated proto for tss_key_process
+- added generated protobuf
+- added generated protobuf
+- added types of tss_key
+- added params msg impl
+- added keys of keeper storage
+- added types of tss_key
+- added types of tss_process
+- added msg_update_params types tests
+- added types of msg_update_params
+- imported uvalidator module in utss module
+- added msg for tss process initiation and voting
+- added uvalidator hook impl in utss
+- added generated protobuf
+- added tests for msg_update_universal_validator validateBasic
+- added types for msg_update_universal_validator
+- added generated protobuf
+- merge main branch
+- invoke hooks in remove_uv msg endpoint
+- invoke hooks in add_uv msg endpoint
+- added hooks in the uvalidator module
+- modified add uv endpoint to activate an inactive validator again
+- fixed uexecutor integration tests as per new uv structure
+- added generated protobuf
+- added query server impl for single universal validator
+- added generated protobuf
+- added a new query for single universal validator
+- modified the voting ballot inbound to only allow active, pending_join UVs to vote
+- modified the msg_remove_universal_validator as per uv structure change
+- modified the msg_add_universal_validator as per uv structure change
+- added keeper methods for new map storage of UV
+- fixed universal validator validate basic
+- updated universal_validator network info nomenclature
+- updated universal_validator validateBasic fn
+- added identity_info message types
+- added lifecyle_info message types
+- added lifecyle_event message types
+- updated msg_add_universal_validator msg
+- added network_info message types
+- added universal_validator message types
+- added generated protobuf in module types
+- added generated protobuf
+- added generated protobuf
+- added upgrade handler for gas oracle upgrade
+- added migration for uregistry consensus
+- added validation of new chain config
+- added generated protobuf
+- modified chainConfig proto
+- added fetch gas interval in the chainConfig
+- modified deploy uea method response
+- updated evm derived call fn with manual nonce support
+- added upgrade handler for solana verification fix
+- added generated protobuf
+- added generated protobuf
+- updated eth sepolia chain config with sendTxWithGas fn and event identifier
+- removed uexecutor module old migration code
+- added storeVerifiedInboundTx method in expected_keepers
+- updated tx precompile for multiple payloads
+- updated old rpc tx verification to store multiple payload hashes
+- updated inbound fn names as per status name
+- updated confirmations in config
+- updated eventIdentifier for sendFunds
+- updated proto for grpc query
+- modified inbound key to use only sourceChain, txHash and logIndex
+- whitelisted stETH.eth and USDC.eth
+- updated chain configs
+- added deploying contracts in initGenesis
+- removed system config methods
+- added evm keeper in uregistry module
+- renamed handler to universal_core in keeper methods
+- renamed handler to universal_core in proto system config
+- updated chain config
+- updated chain config
+- updated chain config
+- updated inbound bridge payload tx integration test as per authz changes
+- updated inbound bridge tx integration test as per authz changes
+- modified deployV2 return params
+- updated inbound msg validation
+- updated uexecutor messages and helpers
+- added generated types
+- updated kv store acc. to authz changes
+- updated msg and query servers for authz changes
+- updated validator operation helpers
+- modified remove validator msg acc. to new authz changes
+- modified add validator msg acc. to new authz changes
+- removed updated validator msg implementation
+- added generated protobuf
+- added setup of handler contract and prc20 contract
+- added handler and prc20 bytecodes for contract setup
+- added systemConfig in uregistry mock
+- implemented msgUpdateSystemConfig
+- added generated protobuf
+- added msgUpdateSystemConfig to update system configs access controlled by admin
+- optimized execute_payload to error out at start if payload is incorrect
+- added temporary impl for fee abs + payload exec tx type
+- added temporary impl for fee abs tx type
+- added impl for synthetic funds transfer + payload tx type
+- added impl for synthetic funds transfer tx type
+- added a temporary executePayloadV2 with receipt return
+- updated executeInbound acc. to diff tx type
+- added depositPRC20 helper fn of handler
+- updated msg_execute_payload to error out if uea is not deployed
+- updated universal_tx tests
+- updated universal_tx acc. to pc_tx array proto format
+- added a temporary deployUeaV2 without verification
+- added generated protobuf
+- updated changes acc. to new payload in inbound tx
+- added generated protobuf
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- more cleanup
+- bug fixing and cleanup
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- added integration tests in uexecutor module directory and modified keeper and types imports
+- removed integration tests from ue module directory
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- updated a comment
+- removed old migration of utxverifier module
+- removed all previous upgrade handlers
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added state migration in utv module for verifiedInboundTx collection
+- updated ocv precompile acc to new modularised verification methods
+- updated utv types
+- modularised svm verification methods
+- modularised evm verification methods
+- added svm helpers for verification
+- added evm helpers for verification
+- updated payload hash verification
+- updated funds verification
+- updated gateway interaction verification
+- updated query server of utv module
+- added protobuf
+- updated msgExecutePayload param from payload_verifier to verification_data
+- storing the bytes txHash in storage
+- updated ue module methods acc. to new msgExecutePayload proto changes
+- added protobuf generated
+
+### 📦 Other Changes
+- Update CHANGELOG.md for v0.0.10-test
+- fixes
+- Update .goreleaser.yaml
+- Merge pull request #125 from pushchain/fix-tss
+- increase: gas Limit
+- Merge pull request #122 from pushchain/fix/tss-upgrade
+- Merge pull request #118 from pushchain/fix/tss-upgrade
+- extra-eip format fix
+- Merge pull request #99 from pushchain/feat/tss-keygen-keyrefresh
+- Merge pull request #117 from pushchain/fix/tss-upgrade
+- tss-core-fix upgradeHandler added
+- temp commit
+- evm dependency upgrade for tss-core upgrade
+- Merge branch 'feat/tss-keygen-keyrefresh' of https://github.com/push-protocol/push-chain into feat/tss-keygen-keyrefresh
+- tests: added integration test cases for new msg UpdateUniversalValidatorStatus
+- tests: added validation tests for update validator status msg
+- tests: added an integration test for the state change fix
+- Merge branch 'feat/tss-keygen-keyrefresh' of github.com:pushchain/push-chain-node into feat/tss-keygen-keyrefresh
+- tests: updated integration test case of initiate tss key process
+- tests: updated integration tests for tss key process voting
+
+### 👥 Contributors
+- @Aman Gupta
+- @Arya Lanjewar
+- @Gauarv Chaudhary
+- @GitHub Action
+- @Mohammed S
+- @Nilesh Gupta
+- @Zartaj0
+- @aman035
+- @huyejia
+- @pranshurastogi
+- @rifeplight
+- @strykerin
+
+---
+
+## [v0.0.10-test] - 2025-12-18
+
+## What's Changed
+
+### 🚀 Features
+- added msg server impl for UpdateUniversalValidatorStatus
+- added msg server impl for UpdateUniversalValidatorStatus
+- added a keeper fn in utss to return if there is ongoing tss process
+- added types of MsgUpdateUniversalValidatorStatus
+- added proto changes for new MSG for updating validator status
+- modified removeUniversalValidator msg proto
+- updated voting tss process logic for not changing uv status in case of tss key refresh process
+- updated initiate tss key process logic for key refresh process
+- modified vote tss msg implementation to use processId
+- modified MsgVoteTssKeyProcess proto to take processId
+- modified the tss event initiation logic to emit keygen if no finalised tss key exist
+- added changes to expire current tss process if current process is pending
+- added the tss process quorum_change in the proto
+- updated uv update msg implementation
+- updated proto file to remove core_val address from update uv msg
+- made the migrateUEA msg gasless
+- created the upgrade handler for new tss-core upgrade
+- created migration script for migrating universal validator set
+- added query server implementation
+- added queries in proto for utss module
+- added integration test for vote tss key process
+- added integration test for initiate tss key and removed process id from voting
+- mitigated tss ballot unique key
+- mitigated ballot unique key by hashing whole inbound
+- imported utssKeeper in uvalidatorKeeper
+- update UVs status when tss vote finalises
+- added changes for minting 50T tokens temporarily
+- added upgrade handler for pc-mint-cap upgrade
+- capping the pc mint amount to 10pc temporarily
+- modified the integration-test directory
+- added messages for initiating tss process and voting in proto
+- added tssKey messages in proto
+- added utss module
+- added msg server impl for msg_update_universal_validator
+- added a new msg for updating a validator's metadata
+- modified the universal validator storage from a set of string to a map
+- added generated protobuf
+- added generated protobuf
+- modified universal validator proto message to make it more scalable
+- added generated protobuf
+- update msg_add_universal_validator proto for new structure
+- added universal_validator new structure in proto
+- updated observedChainId modification changes in uexecutor module
+- modified gas_price proto to change chain_id param name to observed_chain_id
+- Show sync completion status in push-validator start output
+- Show initialization progress logs in push-validator start
+- made the gas price vote method gasless
+- added integration tests of msgVoteGasPrice
+- added execVoteGasPrice in helpers for integration-tests
+- added generated protobuf
+- added impl of query server for gas price
+- added implementation of setGasPrice in msg server
+- added evm fn call to setGasPrice fn cal
+- added GasPrices in key storage collection
+- added MsgVoteGasPrice in types
+- added generated protobuf
+- added query gas price in query server proto
+- added msg_vote_gas_price in msg server proto
+- added gas_price in proto
+- added pc_tx for deployment of uea in universal_tx in gas, gas_and_payload inbound
+- added upgrade handler for eth-hash-fix
+- updated evm low level calls as per new method signature
+- added a keeper collection for manual nonce for module account
+- updated pushchain/evm version
+- updated chain configs
+- added MsgRemoveTokenConfig msg implementation
+- added MsgRemoveTokenConfig msg in types
+- added a msg for removing token config in uregistry
+- added upgrade handler for fee-abs upgrade
+- added migration of verifiedInboundTx in utxverifier module
+- updated inbound gas + payload tx to store payload hash for single click precompile
+- updated inbound funds + payload tx to store payload hash for single click precompile
+- updated mock utvKeeper
+- created fn for creating payload hash and storing in verified inbound tx
+- added a fn to call uea for domainSeparator
+- updated uea abi to add domainSeparator fn
+- updated verified tx metadata to store multiple txs
+- updated inbound gas + payload tx execution as non-atomic
+- updated inbound gas tx execution as non-atomic
+- updated inbound funds + payload tx execution as non-atomic
+- updated inbound synthetic tx execution as non-atomic
+- added evm low level call to deposit auto swap
+- added supported token configs
+- updated solana config
+- added generated protobuf
+- updated token configs
+- uv deployment fixes
+- updated token configs
+- updated admin
+- updated configs
+- updated proxyAdmin and impl addresses of core and other reserved addresses
+- added deploying core and reserved contracts in initGenesis of uregistry module
+- added generated protobuf
+- removed system_config from proto
+- go implementation
+- added inbound upgrade and did local upgrade simulation
+- created upgrade handler for inbound upgrade
+- bumped consensus version of uexecutor and added migration fn
+- added schemaBuilder and old keys of chainConfigs
+- add extensive debug logging to diagnose installer startup issue
+- added token configs of usdc and weth sepolia
+- added system config msg type and validations
+- added system config query server impl
+- added system config query in query server proto
+- updated nomenclature changes in inboundTxType
+- added msgExec with inbound helper
+- added support for authz gasless messages
+- removed query messages of universal validator <> core val mapping
+- updated universal validator add, remove and update messages proto
+- extended integration-tests setup for multiple validators
+- added extra fn parameters in abi
+- replaced prc20 call to handler contract call for deposit prc20 token
+- added SytemConfig collection in uregistry module
+- added SystemConfig msg type
+- made the MsgVoteInbound gasless
+- added proto changes in inbound tx for verification data
+- added proto changes in inbound tx
+- add manual binary release workflow with auto-changelog
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- local multi validator setup
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- start scaffolding uvalidator module
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- MsgVoteInbound initial implementation
+- updated the sample chain config of testnet-donut
+- updated confirmation_type in the chain config gateway_methods
+- implemented AllPendingInbounds grpc query
+- implemented GetUniversalTx grpc query
+- implemented all universalTx grpc query
+- added queries in the query.proto of ue module
+- added validations in universal_tx msg type
+- added validations in outbound_tx msg type
+- sql improvements and DB cleanup cron job.
+- added query server impl of AllFinalizedBallots, AllFinalizedBallotIDs
+- added query server impl of AllExpiredBallots, AllExpiredBallotIDs
+- added query server impl of AllActiveBallots, AllActiveBallotIDs
+- added query server impl of Ballot, AllBallots
+- added pagination in ballot grpc queries proto
+- added queries for ballots in proto
+- added ballot methods test cases
+- renamed yes/no votes to success/failure in proto and module impl
+- added execution inbound method changes
+- added keeper method for ExecuteInboundSynthetic
+- added updateUniversalTx keeper method
+- added executeInbound method to execute acc. to inbound tx type
+- added voteInboundSynthetic msg keeper method to process before execution
+- added pc_tx and outbound_tx msg in the types
+- add universalTx in keeper collection
+- added vote on inbound synthetic ballot keeper method
+- added keeper helper methods for inbound synthetic
+- added inboundSynthetics in keeper collection
+- added inbound_synthetic in types
+- added universal_tx type in proto
+- local multi validator setup
+- imported uvalidatorKeeper in uexecutor module
+- imported slashingKeeper in uvalidator module
+- added MsgVoteInboundSynthetic msg in proto
+- added isFinalizing and other helper methods in ballot
+- event listening changes on universal validator
+- added ballot execution methods in keeper/ballot.go
+- added ballot type methods
+- added ballot collection keys
+- added ballot collections in the keeper
+- added generated protobuf
+- added ballot.proto types for voting implementation
+- updated default admin of uexecutor module
+- updated utxhashverifier precompile addr from 0x901 to 0xCB
+- renamed ocv precompile to utxhashverifier
+- renamed usv precompile to usigverifier
+- modified utv module name to utxverifier module
+- renamed ue module to uexecutor module
+- updated module name from rollchains to pushchain/push-chain-node
+- updated factory implementation bytecode
+- start scaffolding uvalidator module
+- addressed review comments
+- implement gRPC registry client with caching, chain management, and query API
+- integrating uregistry methods with ue, utv modules
+- renamed registry module to uregistry
+- added query server msg implementations for token config queries
+- added token config msg implementations in msg_server
+- added msg_update_token_config keeper method
+- added msg_add_token_config keeper method
+- added tokenConfigs collection in registry module storage
+- added query msgs in query.proto
+- added token config messages in tx.proto
+- scaffold registry module
+- added upgrade handler for gas estimation upgrade
+- added gasLimit override feature in derived tx
+- added generated mocks for evm keeper
+- added upgrade handler for gas override feature
+- added gas units in the gasless tx logs for showing derived tx in explorer
+- updated verifiedTxs utv storage format
+- added verifiedTxMetadata and usdValue in utv proto
+- added upgrade handler for evm-derived-tx upgrade
+- made verification svm working for solana txHash in bytes hex
+- updated protobuf for msgExecutePayload from signature to payloadVerifier
+- added a derived evm tx for mint pc msg
+- imported account keeper in ue module
+- modified evm calls to derived evm calls
+- switched evm from strangelove/os to pushchain/evm fork
+
+### 🐛 Bug Fixes
+- add cosmovisor and github action changes.
+- getTransactionReceipt RPC
+- uv binary script
+- binary prep
+- fixed test cases of uvalidator
+- fixed the test case of utss for current tss process
+- fixed the state change of validators after voting is finalised in tss key process for pending_leave->inactive
+- voting for tss
+- 4th node in the setup
+- fixed remove universal validator
+- godkls file issues
+- godkls file issues
+- patch garbling
+- patch garbling
+- garbling cloning
+- dockerfile
+- dkls setup
+- keyfresh participants
+- core valoper mapping
+- tss.go
+- fixes after review call
+- fix
+- event parsing - minor tweaks
+- merge conflicts
+- universal client start script
+- docker
+- interchain e2e gh
+- interchain e2e gh
+- lib location for make test
+- default config tc
+- ut
+- ut
+- read me updates
+- local multi validator setup
+- local-multi-validator changes.
+- added voting changes
+- docker relase
+- cargo using ci pat
+- action uses ci token for fetching dep
+- makefile
+- not skipping tss tests
+- verification issues
+- review comments
+- event listening changes
+- make test
+- unit tests - skip dkls lib tc
+- use uv type from core
+- use eventId as unique identifier
+- temp demo
+- sign participants selection
+- make file
+- event parsing with multiple universal logs
+- support v0 in tx verification
+- architecture doc
+- reset events on crash
+- gh
+- gh
+- gh
+- gh-action
+- workdlow
+- dep path
+- signature verification
+- logs
+- update start script to fix WebSocket newHeads subscriptions
+- minor bugs
+- demo
+- replace participant with UV struct
+- fixed the expiryAfterBlocks in tss voting
+- fixed the removal of UV endpoint
+- fixed duplicate tx issue in setGasPrice method call
+- attach recipient for Gas
+- mark txHash + logIndex as unique
+- revert admin of uregistry module
+- unit test cases
+- review comments
+- gas_vote_handler changes
+- skip circuit module AutoCLI to resolve startup panic
+- adding verification data
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- Resolve memory issue in push-validator status command
+- UX issues
+- folder name simplification and command simplification
+- deleted older version of push-validator-manager
+- svm parsing
+- logs viewer, pagination to validators
+- dashboard changes
+- attach txHash when verification data is empty
+- dashboard implementation
+- eta fixes
+- fixed migration upgrade handler
+- fixed domain separator issue
+- log fixes
+- advanced setup
+- added read me file
+- testing bug fixes
+- use /dev/tty for interactive detection in remote installer
+- enable interactive logs for remote installer by checking stderr TTY
+- add footer message when stopping logs in non-interactive mode
+- bug fixes
+- admin fixes
+- install.sh fixes
+- add more fixes
+- more fixes
+- more fixes related to help
+- log viewer fixes
+- polish pnm
+- attach universal payload & verification data
+- mark default fast as 0
+- fixed solana verification
+- universal Tx Event
+- change gateway
+- fixed rpc verification of recipient
+- addressing review comments
+- parseSendTxWithGasEvent functionality
+- review comments feedback changes
+- fix integration tests
+- fixed sol prc20 config
+- optimizations
+- DB Models optimizations
+- fn
+- universal payload parsing
+- reading sendTxWithFunds
+- event parsing + tx hash
+- svm sendFunds
+- get rid of unnecessary files
+- svm testing
+- add vote hash and vote time db
+- test cases fixes
+- svm parsing fixes
+- test cases fix
+- bytes parsing for sig
+- event parsing
+- bug fixes sequence error and initial cache issue
+- removed addFunds fn selector check in rpc verification
+- sequence issue fix + cache load on startup
+- bug fixes
+- revert localchain change
+- UI fixes
+- test cases fix
+- validator UX changes
+- cleanup and cmd fixes
+- more fixes
+- clean UX
+- more cleanup
+- initialize LOCAL_HEIGHT with actual node height to show correct sync %
+- cleanup background process when WebSocket monitor falls back
+- make monitor_sync exit when node is synced in state sync mode
+- remove subshells from monitor_sync_auto to fix exit issue
+- remove 'Fetching network height' message display
+- ensure monitor exits all loops when sync completes
+- prevent premature exit when checking catching_up before state sync starts
+- initialize SYNC_COMPLETE variable to prevent unbound error
+- use catching_up API field to detect sync completion
+- make monitor-state-sync exit after sync completes
+- prevent SYNC_COMPLETE from being reset after state sync
+- remove fallback monitoring and restore detect_state_sync_phase function
+- fixed tests of renaming handler to universal core
+- show actual state sync progress instead of phase-divided progress
+- improve state sync progress calculation
+- state sync progress calculation and remove debug logs
+- add --overwrite flag to pchaind init to handle existing genesis.json
+- redirect pchaind init output to stderr to maintain pipe connection
+- state sync progress bar
+- sepolia gateway listening
+- more fixes
+- prevent installer hanging during node start with state sync
+- installer fixes
+- minor sed fixes
+- few code fixes
+- variable fix
+- read me fixes
+- add state sync functionality
+- authz without fee
+- cron
+- remove unnecessary server fn
+- fixed authz gasless issue
+- message unit tc
+- tc
+- inbound msg type changes
+- sendFunds
+- not needed
+- change authz to use constants
+- fixed isDeployed error
+- fixed depositPrc20Token evm call params
+- vote unit test
+- test script automatically adds hotkey with req permission
+- mark confirm_pending tx as confirmed
+- review comments
+- more review comments
+- review comments
+- review comments
+- debug fixes
+- timing issue for creating vote handler
+- bug fixes
+- review comments and testing
+- compile errors after merge
+- fixed integration tests with real scenario
+- fixed msg_execute_payload tests
+- fixes after back merge
+- log fixes
+- added daemon launcher
+- start pchaind in background fix
+- pchaind fix
+- progress bar issues
+- more fixes
+- progress bar fixes
+- status check
+- progress bar logic
+- remove brew logs
+- wscat auto install
+- logging fixes
+- reset data
+- flicker issue
+- flicker issue
+- more logs cleanup
+- reduce logs clutter
+- updated push-validator-manger from push-node-manager
+- fixed hardcoded bytes
+- resolve GitHub Actions workflow warnings
+- update .goreleaser.yaml repository configuration
+- test cases error
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- fixed ballot keeper methods test cases
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- merge conflicts
+- remove unused code
+- bug fix
+- unused code removed
+- more improvements
+- bug fixes
+- bug fixes
+- test cases fixes
+- test cases fixes
+- fixed test cases
+- fixed enabled new config in tests
+- fixed broken test cases of uregistry module
+- more cleanup work
+- fixed ballot keeper methods test cases
+- hot key and authz implementation
+- improved confirmations logic
+- fixed chain enabled changes
+- added calculate_uptime and faster health checks
+- more fixes
+- docker optimizations
+- updated log config
+- remove few docs which are not required
+- load .env on start up
+- nginx script
+- test cases fixed
+- 1. removed GatewayEvent unused table 2. Add a cmd to set block number for a chain
+- expose ports on nginx
+- virtual python env
+- ubuntu error fix for netcat
+- nginx tests
+- revert max_gas for block on testnet
+- precompies
+- renamed utv to utxverifier at some places
+- fixed issue of computing uea address instead of gettig from factory
+- update evm params, fix block params
+- nginx setup
+- scripts
+- removed zap logging
+- addressed review comments
+- removed unnecessary options on pchaind binary
+- logger
+- fixed msg amino names in registry proto
+- fixed failing unit tests
+- fixed broken link in readme
+- remove identical mintPc test
+- fixed MsgExecutePayload tests
+- switched evm keeper with mock evm keeper
+- readme
+- readme
+- enable make install in testnet script
+- ignore build
+- added the old upgradeHandlers in app.go
+- remove comments
+- fix one click upgrade handler
+- fixed issue of verification
+- fixed solana tx precompile
+- fixed solana normalized tx hash
+- sdk context & standardized code
+- code after merge
+- updated go version in dockerFile
+- flattened args & bytes instead of string
+- added an empty txLog for maintaining the logIndex
+- fixed evm tx types in ante
+
+### ♻️ Refactoring
+- no need of tss subdir
+- tss should use the default node home dir
+- updated mock keeper of utss
+- extra check in tss logic hook
+- added edge case handling if tss event gen
+- updated the tss hooks to emit quorum_change tss process in case of validator add/remove
+- modified the tss process validateBasic fn
+- added generated protobuf
+- added generated protobuf
+- added generated protobuf
+- updated migration of UVs to add new changes
+- modified add, update uv messages to remove pubkey
+- removed pubKey from add and update validator endpoints
+- updated identityInfo to remove pubkey
+- added validation in networkInfo validateBasic
+- added generated protobuf
+- updated validator proto files for new NetworkInfo changes
+- omit unnecessary reassignment
+- fixed the error messages in msg_migrate_uea
+- rename migration_payload test files
+- registered migrations for uvalidator module
+- added schemaBuilder in uvalidator module
+- modified the tss voting ballot to use tss process participants as eligible voters
+- updated the tss process initiation event to emit participants list
+- reduced the default tss process expiry block to 500
+- updated admin address of utss to actual prod admin
+- added generated protobuf
+- added generated protobuf
+- added tss_process_type rename in module
+- added generated protobuf
+- modified tss key process type from reshare to refresh
+- updated remove universal validator endpoint to reject removal of pending join UV
+- added a helper fn for getParticipants in utss module
+- added hooks implementation for initiating tss process
+- added msg_vote_key_process impl
+- added msg_vote_key_process impl
+- added generated protobuf
+- modified ballot proto to support tss
+- added event for tss key process initiation
+- added initiate key tss msg impl
+- added generated protobuf
+- updated proto for tss_key_process
+- added generated protobuf
+- added generated protobuf
+- added types of tss_key
+- added params msg impl
+- added keys of keeper storage
+- added types of tss_key
+- added types of tss_process
+- added msg_update_params types tests
+- added types of msg_update_params
+- imported uvalidator module in utss module
+- added msg for tss process initiation and voting
+- added uvalidator hook impl in utss
+- added generated protobuf
+- added tests for msg_update_universal_validator validateBasic
+- added types for msg_update_universal_validator
+- added generated protobuf
+- merge main branch
+- invoke hooks in remove_uv msg endpoint
+- invoke hooks in add_uv msg endpoint
+- added hooks in the uvalidator module
+- modified add uv endpoint to activate an inactive validator again
+- fixed uexecutor integration tests as per new uv structure
+- added generated protobuf
+- added query server impl for single universal validator
+- added generated protobuf
+- added a new query for single universal validator
+- modified the voting ballot inbound to only allow active, pending_join UVs to vote
+- modified the msg_remove_universal_validator as per uv structure change
+- modified the msg_add_universal_validator as per uv structure change
+- added keeper methods for new map storage of UV
+- fixed universal validator validate basic
+- updated universal_validator network info nomenclature
+- updated universal_validator validateBasic fn
+- added identity_info message types
+- added lifecyle_info message types
+- added lifecyle_event message types
+- updated msg_add_universal_validator msg
+- added network_info message types
+- added universal_validator message types
+- added generated protobuf in module types
+- added generated protobuf
+- added generated protobuf
+- added upgrade handler for gas oracle upgrade
+- added migration for uregistry consensus
+- added validation of new chain config
+- added generated protobuf
+- modified chainConfig proto
+- added fetch gas interval in the chainConfig
+- modified deploy uea method response
+- updated evm derived call fn with manual nonce support
+- added upgrade handler for solana verification fix
+- added generated protobuf
+- added generated protobuf
+- updated eth sepolia chain config with sendTxWithGas fn and event identifier
+- removed uexecutor module old migration code
+- added storeVerifiedInboundTx method in expected_keepers
+- updated tx precompile for multiple payloads
+- updated old rpc tx verification to store multiple payload hashes
+- updated inbound fn names as per status name
+- updated confirmations in config
+- updated eventIdentifier for sendFunds
+- updated proto for grpc query
+- modified inbound key to use only sourceChain, txHash and logIndex
+- whitelisted stETH.eth and USDC.eth
+- updated chain configs
+- added deploying contracts in initGenesis
+- removed system config methods
+- added evm keeper in uregistry module
+- renamed handler to universal_core in keeper methods
+- renamed handler to universal_core in proto system config
+- updated chain config
+- updated chain config
+- updated chain config
+- updated inbound bridge payload tx integration test as per authz changes
+- updated inbound bridge tx integration test as per authz changes
+- modified deployV2 return params
+- updated inbound msg validation
+- updated uexecutor messages and helpers
+- added generated types
+- updated kv store acc. to authz changes
+- updated msg and query servers for authz changes
+- updated validator operation helpers
+- modified remove validator msg acc. to new authz changes
+- modified add validator msg acc. to new authz changes
+- removed updated validator msg implementation
+- added generated protobuf
+- added setup of handler contract and prc20 contract
+- added handler and prc20 bytecodes for contract setup
+- added systemConfig in uregistry mock
+- implemented msgUpdateSystemConfig
+- added generated protobuf
+- added msgUpdateSystemConfig to update system configs access controlled by admin
+- optimized execute_payload to error out at start if payload is incorrect
+- added temporary impl for fee abs + payload exec tx type
+- added temporary impl for fee abs tx type
+- added impl for synthetic funds transfer + payload tx type
+- added impl for synthetic funds transfer tx type
+- added a temporary executePayloadV2 with receipt return
+- updated executeInbound acc. to diff tx type
+- added depositPRC20 helper fn of handler
+- updated msg_execute_payload to error out if uea is not deployed
+- updated universal_tx tests
+- updated universal_tx acc. to pc_tx array proto format
+- added a temporary deployUeaV2 without verification
+- added generated protobuf
+- updated changes acc. to new payload in inbound tx
+- added generated protobuf
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added two TODO comments to be addressed later
+- added new confirmation_type validation and updated test cases
+- added generated protobuf
+- removed todo in chainEnabled validation
+- changed the quorum of votes to >2/3 in vote inbound ballot
+- updated mock uregistry keeper
+- added generated protobuf
+- removed extra validations from msg_vote_inbound
+- renamed ballot queries
+- added generated protobuf
+- more cleanup
+- bug fixing and cleanup
+- added generated protobuf
+- expire already expired ballots at the time of ballot creation
+- added a check in voteOnBallot to add votes only in pending ballots
+- removed executeBallot method, its not required
+- added keeper method for get universal tx and added GetTokenConfig in expectedKeepers
+- added CallEVMToDepositPRC20 keeper method
+- added ABI of PRC20 contract
+- renamed inbound_synthetic to inbound and added a tx_type in inbound
+- added keeper methods for universalTx collection
+- added chain enabled methods in expected_keepers
+- updated ue UniversalTx proto
+- added keeper method to get the universal validator set
+- added keeper methods for checking if chain is enabled/disabled on inbound and outbound
+- updated registry proto to add enabled param for inbound as well as outbound for chains
+- updated inbound_synthetic collection to only keep pending ones
+- updated inbound_synthetic collection storage and proto def
+- added validator validation checks in msg_vote_inbound_synthetic
+- updated proto impl of msg_vote_inbound_synthetic
+- added logIndex in inbound tx
+- added generated protobuf
+- updated msg_vote_inbound_synthetic proto and generated protobuf
+- added method to check if the universal validator is tombstoned
+- added method to check if the universal validator is bonded
+- added method to get mapped core validator of a universal validator
+- added dummy msg server impl of vote inbound synthetic
+- added generated brotobuf
+- added voteOnBallot methods
+- updated createBallot
+- added integration tests in uexecutor module directory and modified keeper and types imports
+- removed integration tests from ue module directory
+- modified existing ballot add methods to remove reason
+- updated ballot proto to remove reasons
+- updated ballot.proto type and added protobuf
+- updated ballot protobuf
+- added ballot protobuf in types
+- updated a comment
+- removed old migration of utxverifier module
+- removed all previous upgrade handlers
+- added msg_server methods for all messages
+- added msg_remove_universal_validator keeper method impl
+- added msg_remove_universal_validator validation tests
+- added msg_remove_universal_validator msg in types
+- added msg_update_universal_validator keeper method impl
+- added msg_update_universal_validator validation tests
+- added msg_update_universal_validator msg in types
+- added msg_update_params keeper method impl
+- added msg_update_params validation tests
+- added msg_update_params msg in types
+- added msg_add_universal_validator keeper method impl
+- added msg_add_universal_validator validation tests
+- added msg_add_universal_validator msg in types
+- added query server query implementations
+- added stakingKeeper in uvalidator keeper
+- added keeper tests
+- added genesis state and genesis test
+- added codec.go
+- added coreToUniversal map and uvalidator set collections in the keeper
+- added autocli and module.go
+- added types and query .pb generated files
+- added generated protobuf
+- added message server proto files for observer operations
+- added types proto files
+- added query server proto files
+- added module proto files
+- modified params of ue to dummy one
+- renamed slow_inbound to standard_inbound
+- updated vm_type and token_type enum
+- added sample token configs
+- added validation tests of msg_update_token_config
+- added validation tests of msg_add_token_config
+- added sdk Msg implementation of update_token_config msg
+- added sdk Msg implementation of add_token_config msg
+- added tests for token_config validations
+- generated protobuf
+- added msg_update_chain_config and its validation tests in types
+- added msg_add_chain_config and its validation tests in types
+- added native_representation validation tests
+- updated testnet sample configs
+- added chain_config validation tests
+- added block_confirmation validation tests
+- updated cli commands in autocli
+- added all msg implementations in queryServer
+- added all msg implementations in msgServer
+- added msg_update_params in registry module
+- added msg_update_chain_config in registry module
+- added msg_add_chain_config in registry module
+- added params collections in keeper
+- updated params msg in types
+- added tokenConfig msg in types
+- added nativeRepresentation msg in types
+- added gatewayMethod msg in types
+- added chainConfig msg in types
+- added blockConfirmation msg in types
+- fixed protobuf of block_confirmation
+- added registry module in app.go
+- added generated code for registry module
+- added generated protobuf
+- added msg server methods and query server methods
+- added chainConfig types and tokenConfig types in registry module proto
+- added state migration in utv module for verifiedInboundTx collection
+- updated ocv precompile acc to new modularised verification methods
+- updated utv types
+- modularised svm verification methods
+- modularised evm verification methods
+- added svm helpers for verification
+- added evm helpers for verification
+- updated payload hash verification
+- updated funds verification
+- updated gateway interaction verification
+- updated query server of utv module
+- added protobuf
+- updated msgExecutePayload param from payload_verifier to verification_data
+- storing the bytes txHash in storage
+- updated ue module methods acc. to new msgExecutePayload proto changes
+- added protobuf generated
+
+### 📦 Other Changes
+- fixes
+- Update .goreleaser.yaml
+- Merge pull request #125 from pushchain/fix-tss
+- increase: gas Limit
+- Merge pull request #122 from pushchain/fix/tss-upgrade
+- Merge pull request #118 from pushchain/fix/tss-upgrade
+- extra-eip format fix
+- Merge pull request #99 from pushchain/feat/tss-keygen-keyrefresh
+- Merge pull request #117 from pushchain/fix/tss-upgrade
+- tss-core-fix upgradeHandler added
+- temp commit
+- evm dependency upgrade for tss-core upgrade
+- Merge branch 'feat/tss-keygen-keyrefresh' of https://github.com/push-protocol/push-chain into feat/tss-keygen-keyrefresh
+- tests: added integration test cases for new msg UpdateUniversalValidatorStatus
+- tests: added validation tests for update validator status msg
+- tests: added an integration test for the state change fix
+- Merge branch 'feat/tss-keygen-keyrefresh' of github.com:pushchain/push-chain-node into feat/tss-keygen-keyrefresh
+- tests: updated integration test case of initiate tss key process
+- tests: updated integration tests for tss key process voting
+- Merge branch 'feat/tss-keygen-keyrefresh' of github.com:pushchain/push-chain-node into feat/tss-keygen-keyrefresh
+
+### 👥 Contributors
+- @Aman Gupta
+- @Arya Lanjewar
+- @Gauarv Chaudhary
+- @GitHub Action
+- @Mohammed S
+- @Nilesh Gupta
+- @Zartaj0
+- @aman035
+- @huyejia
+- @pranshurastogi
+- @rifeplight
+- @strykerin
+
+---
+
 ## [v0.0.2] - 2025-09-02
 
 ## What's Changed

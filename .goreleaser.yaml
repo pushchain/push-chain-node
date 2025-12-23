@@ -10,29 +10,20 @@ release:
 # Windows, 386 (32bit), and ARM are not Wasm compatible.
 builds:
   - id: pchain
+    # NOTE: This project requires CGO (go-ethereum, dkls23-rs), so cross-compilation is not supported.
+    # - linux_amd64: Built here on ubuntu-latest runner
+    # - linux_arm64: Requires ARM runner (not included yet)
+    # - darwin/*: Built by release-mac-signed.yml on macos-latest runner
     goos:
       - linux
-      - darwin
-      # - windows
     goarch:
       - amd64
-      # - arm64
-      # - "386"
-    goarm:
-      - "6"
-    gomips:
-      - hardfloat
     goamd64:
       - v1
     targets:
       - linux_amd64_v1
-      # - darwin_amd64_v1
-      # - linux_arm64
-      # - linux_386
-      # - darwin_arm64
-      # - windows_amd64_v1
-      # - windows_arm64
-      # - windows_386
+    env:
+      - CGO_ENABLED=1
     dir: .
     main: ./cmd/pchaind
     binary: pchaind
@@ -46,12 +37,7 @@ archives:
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
     format: tar.gz
     files:
-      - src: license*
-      - src: LICENSE*
-      - src: readme*
-      - src: README*
-      - src: changelog*
-      - src: CHANGELOG*
+      - none*
 snapshot:
   name_template: '{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}'
 checksum:

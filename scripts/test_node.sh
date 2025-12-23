@@ -1,9 +1,11 @@
 #!/bin/bash
-# Run this script to quickly install, setup, and run the current version of the network without docker.
+# Run this script to quickly install, setup, and run the current version of the network with Cosmovisor.
+# Cosmovisor enables automatic binary upgrades during chain operation.
 #
 # Examples:
 # CHAIN_ID="localchain_9000-1" HOME_DIR="~/.pchain" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 # CHAIN_ID="localchain_9000-2" HOME_DIR="~/.pchain" CLEAN=true RPC=36657 REST=2317 PROFF=6061 P2P=36656 GRPC=8090 GRPC_WEB=8091 ROSETTA=8081 BLOCK_TIME="500ms" sh scripts/test_node.sh
+
 shopt -s expand_aliases
 set -eu
 
@@ -29,11 +31,20 @@ export GRPC_WEB=${GRPC_WEB:-"9091"}
 export ROSETTA=${ROSETTA:-"8080"}
 export BLOCK_TIME=${BLOCK_TIME:-"1s"}
 
-# if which binary does not exist, install it
-if [ -z `which $BINARY` ]; then
+# Cosmovisor environment
+export DAEMON_NAME=$(basename "$BINARY")
+export DAEMON_HOME=$HOME_DIR
+export DAEMON_RESTART_AFTER_UPGRADE=true
+export DAEMON_ALLOW_DOWNLOAD_BINARIES=${DAEMON_ALLOW_DOWNLOAD_BINARIES:-true}
+export DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=${DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM:-true}
+export UNSAFE_SKIP_BACKUP=true
+export DAEMON_RESTART_DELAY=5s
+
+# Check if BINARY exists (either as command or file path)
+if [ ! -x "$BINARY" ] && ! command -v "$BINARY" > /dev/null 2>&1; then
   make install
 
-  if [ -z `which $BINARY` ]; then
+  if ! command -v "$BINARY" > /dev/null 2>&1; then
     echo "Ensure $BINARY is installed and in your PATH"
     exit 1
   fi
@@ -41,7 +52,11 @@ fi
 
 alias BINARY="$BINARY --home=$HOME_DIR"
 
-command -v $BINARY > /dev/null 2>&1 || { echo >&2 "$BINARY command not found. Ensure this is setup / properly installed in your GOPATH (make install)."; exit 1; }
+# Verify binary is accessible
+if [ ! -x "$BINARY" ] && ! command -v "$BINARY" > /dev/null 2>&1; then
+  echo >&2 "$BINARY command not found. Ensure this is setup / properly installed in your GOPATH (make install)."
+  exit 1
+fi
 command -v jq > /dev/null 2>&1 || { echo >&2 "jq not installed. More info: https://stedolan.github.io/jq/download/"; exit 1; }
 
 set_config() {
@@ -52,8 +67,10 @@ set_config
 
 
 from_scratch () {
-  # Fresh install on current branch
-  make install
+  # Fresh install on current branch (skip if using external binary)
+  if [ ! -x "$BINARY" ]; then
+    make install
+  fi
 
   # remove existing daemon files.
   if [ ${#HOME_DIR} -le 2 ]; then
@@ -146,7 +163,21 @@ if [ "$CLEAN" != "false" ]; then
   from_scratch
 fi
 
-echo "Starting node..."
+# Setup Cosmovisor directory (after from_scratch wipes HOME_DIR)
+mkdir -p "$HOME_DIR/cosmovisor/genesis/bin"
+mkdir -p "$HOME_DIR/cosmovisor/upgrades"
+
+# Copy binary to cosmovisor (handle both PATH commands and file paths)
+if [ -x "$BINARY" ]; then
+  cp "$BINARY" "$HOME_DIR/cosmovisor/genesis/bin/$DAEMON_NAME"
+  # Also copy libwasmvm.dylib if it exists alongside the binary (macOS)
+  BINARY_DIR=$(dirname "$BINARY")
+  if [ -f "$BINARY_DIR/libwasmvm.dylib" ]; then
+    cp "$BINARY_DIR/libwasmvm.dylib" "$HOME_DIR/cosmovisor/genesis/bin/"
+  fi
+else
+  cp "$(which $BINARY)" "$HOME_DIR/cosmovisor/genesis/bin/"
+fi
 
 # Opens the RPC endpoint to outside connections
 sed -i -e 's/laddr = "tcp:\/\/127.0.0.1:26657"/c\laddr = "tcp:\/\/0.0.0.0:'$RPC'"/g' $HOME_DIR/config/config.toml
@@ -171,4 +202,5 @@ sed -i -e 's/address = ":8080"/address = "0.0.0.0:'$ROSETTA'"/g' $HOME_DIR/confi
 # Faster blocks
 sed -i -e 's/timeout_commit = "5s"/timeout_commit = "'$BLOCK_TIME'"/g' $HOME_DIR/config/config.toml
 
-BINARY start --pruning=nothing  --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"
+# Start node with Cosmovisor (enables automatic upgrades)
+cosmovisor run start --pruning=nothing --minimum-gas-prices=1000000000$DENOM --rpc.laddr="tcp://0.0.0.0:$RPC" --json-rpc.api=eth,txpool,personal,net,debug,web3 --chain-id="$CHAIN_ID"

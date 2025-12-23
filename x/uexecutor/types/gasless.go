@@ -1,12 +1,10 @@
-package txpolicy
+package types
 
 import (
 	"slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 // IsGaslessTx checks if a transaction contains only allowed gasless message types
@@ -15,13 +13,12 @@ func IsGaslessTx(tx sdk.Tx) bool {
 	var (
 		// GaslessMsgTypes defines the message types that are allowed in gasless transactions
 		GaslessMsgTypes = []string{
-			sdk.MsgTypeURL(&uexecutortypes.MsgMigrateUEA{}),
-			sdk.MsgTypeURL(&uexecutortypes.MsgExecutePayload{}),
-			sdk.MsgTypeURL(&uexecutortypes.MsgDeployUEA{}),
-			sdk.MsgTypeURL(&uexecutortypes.MsgMintPC{}),
-			sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}),
-			sdk.MsgTypeURL(&uexecutortypes.MsgVoteGasPrice{}),
-			sdk.MsgTypeURL(&utsstypes.MsgVoteTssKeyProcess{}),
+			sdk.MsgTypeURL(&MsgMigrateUEA{}),
+			sdk.MsgTypeURL(&MsgExecutePayload{}),
+			sdk.MsgTypeURL(&MsgDeployUEA{}),
+			sdk.MsgTypeURL(&MsgMintPC{}),
+			sdk.MsgTypeURL(&MsgVoteInbound{}),
+			sdk.MsgTypeURL(&MsgVoteGasPrice{}),
 		}
 	)
 

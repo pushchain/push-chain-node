@@ -6,6 +6,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	dummytest "github.com/pushchain/push-chain-node/app/upgrades/dummy-test"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -16,7 +17,6 @@ import (
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
-	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 )
 
 // Upgrades list of chain upgrades
@@ -30,7 +30,7 @@ var Upgrades = []upgrades.Upgrade{
 	tsscorefix.NewUpgrade(),
 	tsscoreevmparamsfix.NewUpgrade(),
 	evmrpcfix.NewUpgrade(),
-	tssvotegasless.NewUpgrade(),
+	dummytest.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

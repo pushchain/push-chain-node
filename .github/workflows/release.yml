@@ -1,0 +1,426 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+      compare_from:
+        description: 'Compare from tag (optional, auto-detects if empty)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  BINARY_NAME: pchaind
+  PROJECT_NAME: push-chain
+
+jobs:
+  # ===========================================
+  # Linux Build (ubuntu)
+  # ===========================================
+  build-linux:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.3'
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
+      - name: Copy dkls23-rs and garbling into build context
+        run: |
+          cp -r ../dkls23-rs ./dkls23-rs
+          cp -r ../garbling ./garbling
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
+
+      - name: Build dkls23-rs Rust library
+        run: |
+          cd dkls23-rs
+          cargo build --release
+
+      - name: Create and push version tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          VERSION=${{ steps.version.outputs.version }}
+          if git tag --list | grep -q "^${VERSION}$"; then
+            echo "Tag $VERSION already exists, deleting it first"
+            git tag -d $VERSION || true
+            git push --delete origin $VERSION || true
+          fi
+
+          git tag -a $VERSION -m "Release $VERSION"
+          git push origin $VERSION
+
+      - name: Build with GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: v1.26.2
+          args: release --clean --skip=validate --skip=publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CGO_ENABLED: "1"
+          CGO_LDFLAGS: "-L${{ github.workspace }}/dkls23-rs/target/release"
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: |
+            dist/*.tar.gz
+            dist/*.txt
+          retention-days: 1
+
+  # ===========================================
+  # macOS Build (Intel + Apple Silicon)
+  # ===========================================
+  build-macos:
+    runs-on: macos-latest
+    needs: build-linux  # Wait for version tag to be created
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip 'v' prefix to match GoReleaser naming convention
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION (stripped: $VERSION_NO_V)"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.3'
+          cache: true
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Setup dkls23-rs
+        uses: ./.github/actions/setup-dkls23
+        with:
+          ci_token: ${{ secrets.CI_DKLS_GARBLING }}
+
+      - name: Copy dkls23-rs and garbling into build context
+        run: |
+          rsync -a --exclude='ci/template' ../dkls23-rs/ ./dkls23-rs/
+          rsync -a ../garbling/ ./garbling/
+          sed -i '' 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
+
+      - name: Build dkls23-rs dependency
+        run: |
+          cd dkls23-rs
+          cargo build --release
+
+      - name: Import Code Signing Certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERTIFICATE_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Download libwasmvm
+        run: |
+          # Get wasmvm version from go.mod
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Wasmvm version: $WASM_VER"
+
+          # Download dylib for bundling with release
+          curl -L -o libwasmvm.dylib \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm.dylib"
+
+          ls -la libwasmvm.dylib
+
+      - name: Build Mac Binary (ARM64 only - native build)
+        run: |
+          # Note: GitHub macos-latest is ARM64, can't cross-compile for AMD64 with CGO
+          # We only build ARM64 (Apple Silicon) which covers most modern Macs
+
+          mkdir -p dist
+          VERSION=${{ steps.version.outputs.version }}
+
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+
+          echo "Building for Apple Silicon (arm64)..."
+          GOOS=darwin GOARCH=arm64 go build \
+            -tags "netgo,ledger" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
+            -o dist/${BINARY_NAME}-darwin-arm64 \
+            ./cmd/pchaind
+
+          # Copy libwasmvm.dylib to dist for bundling
+          cp libwasmvm.dylib dist/
+
+          # Fix rpath to look in same directory as binary (before signing!)
+          install_name_tool -change @rpath/libwasmvm.dylib @loader_path/libwasmvm.dylib dist/${BINARY_NAME}-darwin-arm64
+
+          ls -la dist/
+
+          # Verify dependencies
+          echo "Checking dependencies..."
+          otool -L dist/${BINARY_NAME}-darwin-arm64 || true
+
+      - name: Sign Binaries
+        env:
+          APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
+        run: |
+          # Sign both the binary and the dylib
+          codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/${BINARY_NAME}-darwin-arm64
+          codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/libwasmvm.dylib
+
+          echo "Verifying signatures..."
+          codesign -dv --verbose=2 dist/${BINARY_NAME}-darwin-arm64
+          codesign -dv --verbose=2 dist/libwasmvm.dylib
+
+      - name: Notarize Binary
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          xcrun notarytool store-credentials "notary-profile" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD"
+
+          cd dist
+
+          # Use version without 'v' prefix to match GoReleaser naming convention
+          VERSION_NO_V="${VERSION#v}"
+
+          # Create archive (includes libwasmvm.dylib)
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
+          zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
+
+          cd ..
+
+          # Notarize
+          xcrun notarytool submit dist/${BINARY_NAME}-darwin-arm64-notarize.zip \
+            --keychain-profile "notary-profile" --wait
+
+          rm -f dist/*-notarize.zip
+
+      - name: Create Checksums
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          VERSION_NO_V="${VERSION#v}"
+          cd dist
+          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz.sha256
+          ls -la
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          retention-days: 1
+
+  # ===========================================
+  # Create Unified Release
+  # ===========================================
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-macos]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip 'v' prefix for file naming (matches GoReleaser convention)
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-binaries
+          path: dist/linux
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-binaries
+          path: dist/macos
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+
+          # Copy all artifacts to release folder
+          cp dist/linux/*.tar.gz release/ 2>/dev/null || true
+          cp dist/linux/*.txt release/ 2>/dev/null || true
+          cp dist/macos/*.tar.gz release/ 2>/dev/null || true
+          cp dist/macos/*.sha256 release/ 2>/dev/null || true
+
+          echo "Release assets:"
+          ls -la release/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Use provided compare_from or auto-detect previous tag
+          COMPARE_FROM="${{ github.event.inputs.compare_from }}"
+          if [ -z "$COMPARE_FROM" ]; then
+            COMPARE_FROM=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "$VERSION" | head -1)
+          fi
+          if [ -z "$COMPARE_FROM" ]; then
+            COMPARE_FROM=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          echo "Generating changelog from $COMPARE_FROM to $VERSION"
+
+          {
+            echo "## What's Changed"
+            echo ""
+            git log ${COMPARE_FROM}..HEAD --pretty=format:"- %s" | head -30
+          } > changelog.md
+
+          cat changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## 📦 Binaries
+
+            | Platform | Architecture | File |
+            |----------|--------------|------|
+            | Linux | AMD64 (x86_64) | `${{ env.PROJECT_NAME }}_*_linux_amd64.tar.gz` |
+            | macOS | Apple Silicon (arm64) | `${{ env.PROJECT_NAME }}_*_darwin_arm64.tar.gz` |
+
+            ## ✅ Verification
+
+            macOS binaries are code-signed and notarized by Apple.
+            Verify checksums using the `.sha256` files.
+
+            ## 📥 Installation
+
+            ```bash
+            # Linux
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
+            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
+            chmod +x pchaind && sudo mv pchaind /usr/local/bin/
+
+            # macOS (Apple Silicon)
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
+            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
+            sudo mv libwasmvm.dylib /usr/local/lib/
+            chmod +x pchaind-darwin-arm64 && sudo mv pchaind-darwin-arm64 /usr/local/bin/pchaind
+            ```
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          files: release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Verify Release
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "Verifying release assets..."
+          gh release view $VERSION --json assets --jq '.assets[].name' || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

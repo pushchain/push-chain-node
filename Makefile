@@ -365,7 +365,10 @@ sh-testnet-universal: mod-tidy
 	@echo "Starting universal validator..."
 	CLEAN=true sh scripts/test_universal.sh
 
-.PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet
+test-release-binary:
+	@sh scripts/test_release_binary.sh $(VERSION)
+
+.PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet test-release-binary
 
 ###############################################################################
 ###                                     help                                ###
@@ -386,6 +389,7 @@ help:
 	@echo "  testnet             : Local devnet with IBC"
 	@echo "  sh-testnet          : Shell local devnet (core blockchain)"
 	@echo "  sh-testnet-universal: Shell local devnet (universal validator)"
+	@echo "  test-release-binary : Test released binary from GitHub (VERSION=v1.0.0)"
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"

@@ -198,29 +198,57 @@ jobs:
           echo "Available signing identities:"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
+      - name: Download wasmvm static libraries
+        run: |
+          # Get wasmvm version from go.mod
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Wasmvm version: $WASM_VER"
+
+          mkdir -p /tmp/wasmvm
+
+          # Download static libraries for macOS
+          echo "Downloading wasmvm static libraries..."
+          curl -L -o /tmp/wasmvm/libwasmvm.dylib \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm.dylib"
+          curl -L -o /tmp/wasmvm/libwasmvmstatic_darwin_amd64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvmstatic_darwin.amd64.a"
+          curl -L -o /tmp/wasmvm/libwasmvmstatic_darwin_arm64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvmstatic_darwin.aarch64.a"
+
+          ls -la /tmp/wasmvm/
+
       - name: Build Mac Binaries
         run: |
           mkdir -p dist
           VERSION=${{ steps.version.outputs.version }}
 
           export CGO_ENABLED=1
-          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
 
           echo "Building for Intel Mac (amd64)..."
+          # Copy arch-specific static lib
+          cp /tmp/wasmvm/libwasmvmstatic_darwin_amd64.a /tmp/wasmvm/libwasmvmstatic_darwin.a
+          CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -L/tmp/wasmvm" \
           GOOS=darwin GOARCH=amd64 go build \
-            -tags "netgo,ledger" \
+            -tags "netgo,ledger,static_wasm" \
             -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
             -o dist/${BINARY_NAME}-darwin-amd64 \
             ./cmd/pchaind
 
           echo "Building for Apple Silicon (arm64)..."
+          # Copy arch-specific static lib
+          cp /tmp/wasmvm/libwasmvmstatic_darwin_arm64.a /tmp/wasmvm/libwasmvmstatic_darwin.a
+          CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -L/tmp/wasmvm" \
           GOOS=darwin GOARCH=arm64 go build \
-            -tags "netgo,ledger" \
+            -tags "netgo,ledger,static_wasm" \
             -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
             -o dist/${BINARY_NAME}-darwin-arm64 \
             ./cmd/pchaind
 
           ls -la dist/
+
+          # Verify no dynamic wasmvm dependency
+          echo "Checking dependencies..."
+          otool -L dist/${BINARY_NAME}-darwin-arm64 || true
 
       - name: Sign Binaries
         env:

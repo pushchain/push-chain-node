@@ -58,8 +58,9 @@ jobs:
 
       - name: Copy dkls23-rs and garbling into build context
         run: |
-          cp -r ../dkls23-rs ./dkls23-rs
-          cp -r ../garbling ./garbling
+          # Use rsync to handle symlinks properly, exclude ci/template which has broken symlinks
+          rsync -a --exclude='ci/template' ../dkls23-rs/ ./dkls23-rs/
+          rsync -a ../garbling/ ./garbling/
           # Update go.mod to use local path
           sed -i '' 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 

@@ -198,70 +198,40 @@ jobs:
           echo "Available signing identities:"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
-      - name: Download wasmvm static libraries
+      - name: Build Mac Binary (ARM64 only - native build)
         run: |
-          # Get wasmvm version from go.mod
-          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
-          echo "Wasmvm version: $WASM_VER"
+          # Note: GitHub macos-latest is ARM64, can't cross-compile for AMD64 with CGO
+          # We only build ARM64 (Apple Silicon) which covers most modern Macs
 
-          mkdir -p /tmp/wasmvm
-
-          # Download static libraries for macOS
-          echo "Downloading wasmvm static libraries..."
-          curl -L -o /tmp/wasmvm/libwasmvm.dylib \
-            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm.dylib"
-          curl -L -o /tmp/wasmvm/libwasmvmstatic_darwin_amd64.a \
-            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvmstatic_darwin.amd64.a"
-          curl -L -o /tmp/wasmvm/libwasmvmstatic_darwin_arm64.a \
-            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvmstatic_darwin.aarch64.a"
-
-          ls -la /tmp/wasmvm/
-
-      - name: Build Mac Binaries
-        run: |
           mkdir -p dist
           VERSION=${{ steps.version.outputs.version }}
 
           export CGO_ENABLED=1
-
-          echo "Building for Intel Mac (amd64)..."
-          # Copy arch-specific static lib
-          cp /tmp/wasmvm/libwasmvmstatic_darwin_amd64.a /tmp/wasmvm/libwasmvmstatic_darwin.a
-          CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -L/tmp/wasmvm" \
-          GOOS=darwin GOARCH=amd64 go build \
-            -tags "netgo,ledger,static_wasm" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
-            -o dist/${BINARY_NAME}-darwin-amd64 \
-            ./cmd/pchaind
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
 
           echo "Building for Apple Silicon (arm64)..."
-          # Copy arch-specific static lib
-          cp /tmp/wasmvm/libwasmvmstatic_darwin_arm64.a /tmp/wasmvm/libwasmvmstatic_darwin.a
-          CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -L/tmp/wasmvm" \
           GOOS=darwin GOARCH=arm64 go build \
-            -tags "netgo,ledger,static_wasm" \
+            -tags "netgo,ledger" \
             -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
             -o dist/${BINARY_NAME}-darwin-arm64 \
             ./cmd/pchaind
 
           ls -la dist/
 
-          # Verify no dynamic wasmvm dependency
+          # Verify dependencies
           echo "Checking dependencies..."
           otool -L dist/${BINARY_NAME}-darwin-arm64 || true
 
-      - name: Sign Binaries
+      - name: Sign Binary
         env:
           APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
         run: |
-          codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/${BINARY_NAME}-darwin-amd64
           codesign --force --options runtime --timestamp --sign "$APPLE_IDENTITY" dist/${BINARY_NAME}-darwin-arm64
 
-          echo "Verifying signatures..."
-          codesign -dv --verbose=2 dist/${BINARY_NAME}-darwin-amd64
+          echo "Verifying signature..."
           codesign -dv --verbose=2 dist/${BINARY_NAME}-darwin-arm64
 
-      - name: Notarize Binaries
+      - name: Notarize Binary
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -279,19 +249,13 @@ jobs:
           # Use version without 'v' prefix to match GoReleaser naming convention
           VERSION_NO_V="${VERSION#v}"
 
-          # Create archives
-          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz ${BINARY_NAME}-darwin-amd64
-          zip -j ${BINARY_NAME}-darwin-amd64-notarize.zip ${BINARY_NAME}-darwin-amd64
-
+          # Create archive
           tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64
           zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64
 
           cd ..
 
           # Notarize
-          xcrun notarytool submit dist/${BINARY_NAME}-darwin-amd64-notarize.zip \
-            --keychain-profile "notary-profile" --wait
-
           xcrun notarytool submit dist/${BINARY_NAME}-darwin-arm64-notarize.zip \
             --keychain-profile "notary-profile" --wait
 
@@ -302,7 +266,6 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           VERSION_NO_V="${VERSION#v}"
           cd dist
-          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_darwin_amd64.tar.gz.sha256
           shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz.sha256
           ls -la
 
@@ -398,7 +361,6 @@ jobs:
             | Platform | Architecture | File |
             |----------|--------------|------|
             | Linux | AMD64 (x86_64) | `${{ env.PROJECT_NAME }}_*_linux_amd64.tar.gz` |
-            | macOS | Intel (x86_64) | `${{ env.PROJECT_NAME }}_*_darwin_amd64.tar.gz` |
             | macOS | Apple Silicon (arm64) | `${{ env.PROJECT_NAME }}_*_darwin_arm64.tar.gz` |
 
             ## ✅ Verification

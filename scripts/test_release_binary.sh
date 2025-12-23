@@ -51,7 +51,7 @@ cd "$TEMP_DIR"
 tar -xzf "$ASSET_NAME"
 
 # Find the binary (could be pchaind or pchaind-darwin-arm64 etc)
-BINARY_FILE=$(find . -type f -perm +111 | grep -E "pchaind" | head -1)
+BINARY_FILE=$(find . -type f \( -perm -u+x -o -name "$BINARY_NAME*" \) 2>/dev/null | grep -E "pchaind" | head -1)
 if [ -z "$BINARY_FILE" ]; then
   BINARY_FILE=$(find . -name "$BINARY_NAME*" -type f | head -1)
 fi
@@ -63,6 +63,8 @@ if [ -z "$BINARY_FILE" ]; then
 fi
 
 chmod +x "$BINARY_FILE"
+# Remove ./ prefix if present and construct full path
+BINARY_FILE="${BINARY_FILE#./}"
 BINARY_PATH="$TEMP_DIR/$BINARY_FILE"
 
 # Verify binary works
@@ -91,6 +93,9 @@ export BINARY="$BINARY_PATH"
 export CLEAN=true
 export CHAIN_ID="localchain_9000-1"
 export BLOCK_TIME="1000ms"
+
+# Return to repo root (script was run from there)
+cd - > /dev/null
 
 echo "Starting testnet with released binary..."
 sh scripts/test_node.sh

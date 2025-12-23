@@ -12,6 +12,7 @@ import (
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
+	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
@@ -31,6 +32,7 @@ var Upgrades = []upgrades.Upgrade{
 	tsscoreevmparamsfix.NewUpgrade(),
 	evmrpcfix.NewUpgrade(),
 	tssvotegasless.NewUpgrade(),
+	removefeeabsv1.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

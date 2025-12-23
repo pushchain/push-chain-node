@@ -20,8 +20,6 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Msg_UpdateParams_FullMethodName   = "/uexecutor.v1.Msg/UpdateParams"
-	Msg_DeployUEA_FullMethodName      = "/uexecutor.v1.Msg/DeployUEA"
-	Msg_MintPC_FullMethodName         = "/uexecutor.v1.Msg/MintPC"
 	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
 	Msg_MigrateUEA_FullMethodName     = "/uexecutor.v1.Msg/MigrateUEA"
 	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
@@ -36,10 +34,6 @@ type MsgClient interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// DeployUEA defines a message to deploy a new smart account.
-	DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error)
-	// MintPC defines a message to mint PC tokens to a smart account,
-	MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
 	// MigrateUEA defines a message for migrating UEA
@@ -61,24 +55,6 @@ func NewMsgClient(cc grpc.ClientConnInterface) MsgClient {
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, Msg_UpdateParams_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) DeployUEA(ctx context.Context, in *MsgDeployUEA, opts ...grpc.CallOption) (*MsgDeployUEAResponse, error) {
-	out := new(MsgDeployUEAResponse)
-	err := c.cc.Invoke(ctx, Msg_DeployUEA_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) MintPC(ctx context.Context, in *MsgMintPC, opts ...grpc.CallOption) (*MsgMintPCResponse, error) {
-	out := new(MsgMintPCResponse)
-	err := c.cc.Invoke(ctx, Msg_MintPC_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,10 +105,6 @@ type MsgServer interface {
 	//
 	// Since: cosmos-sdk 0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// DeployUEA defines a message to deploy a new smart account.
-	DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error)
-	// MintPC defines a message to mint PC tokens to a smart account,
-	MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
 	// MigrateUEA defines a message for migrating UEA
@@ -150,12 +122,6 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
-}
-func (UnimplementedMsgServer) DeployUEA(context.Context, *MsgDeployUEA) (*MsgDeployUEAResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeployUEA not implemented")
-}
-func (UnimplementedMsgServer) MintPC(context.Context, *MsgMintPC) (*MsgMintPCResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MintPC not implemented")
 }
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
@@ -196,42 +162,6 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).UpdateParams(ctx, req.(*MsgUpdateParams))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_DeployUEA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgDeployUEA)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).DeployUEA(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_DeployUEA_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).DeployUEA(ctx, req.(*MsgDeployUEA))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_MintPC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgMintPC)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).MintPC(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_MintPC_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).MintPC(ctx, req.(*MsgMintPC))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -318,14 +248,6 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
-		},
-		{
-			MethodName: "DeployUEA",
-			Handler:    _Msg_DeployUEA_Handler,
-		},
-		{
-			MethodName: "MintPC",
-			Handler:    _Msg_MintPC_Handler,
 		},
 		{
 			MethodName: "ExecutePayload",

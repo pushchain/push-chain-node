@@ -90,8 +90,6 @@ type AccountKeeper interface {
 
 // UtxverifierKeeper defines the expected interface for the UtxverifierKeeper moduledule.
 type UtxverifierKeeper interface {
-	VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chain string) error
-	VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chain string) (big.Int, uint32, error)
 	StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata utxverifiertypes.VerifiedTxMetadata) error
 }
 

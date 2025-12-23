@@ -3,14 +3,13 @@
 package keeper
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/pushchain/push-chain-node/utils/rpc"
-	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
+	// "github.com/pushchain/push-chain-node/utils/rpc"
+	// evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
@@ -123,39 +122,39 @@ func ParseEVMFundsAddedEventLogs(
 }
 
 // Checks if a given evm tx hash has enough confirmations
-func CheckEVMBlockConfirmations(
-	ctx context.Context,
-	txHash string,
-	rpcCfg rpc.RpcCallConfig,
-	requiredConfirmations uint64,
-) error {
-	// Fetch transaction receipt
-	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
-	if err != nil {
-		return fmt.Errorf("fetch receipt failed: %w", err)
-	}
+// func CheckEVMBlockConfirmations(
+// 	ctx context.Context,
+// 	txHash string,
+// 	rpcCfg rpc.RpcCallConfig,
+// 	requiredConfirmations uint64,
+// ) error {
+// 	// Fetch transaction receipt
+// 	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
+// 	if err != nil {
+// 		return fmt.Errorf("fetch receipt failed: %w", err)
+// 	}
 
-	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
-	if !ok {
-		return fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
-	}
+// 	txBlockNum, ok := new(big.Int).SetString(receipt.BlockNumber[2:], 16) // remove "0x"
+// 	if !ok {
+// 		return fmt.Errorf("invalid block number in receipt: %s", receipt.BlockNumber)
+// 	}
 
-	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcCfg, "latest", false)
-	if err != nil {
-		return fmt.Errorf("failed to fetch latest block: %w", err)
-	}
+// 	latestBlock, err := evmrpc.EVMGetBlockByNumber(ctx, rpcCfg, "latest", false)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to fetch latest block: %w", err)
+// 	}
 
-	latestBlockNum, ok := new(big.Int).SetString(latestBlock.Number[2:], 16)
-	if !ok {
-		return fmt.Errorf("invalid latest block number: %s", latestBlock.Number)
-	}
+// 	latestBlockNum, ok := new(big.Int).SetString(latestBlock.Number[2:], 16)
+// 	if !ok {
+// 		return fmt.Errorf("invalid latest block number: %s", latestBlock.Number)
+// 	}
 
-	confirmations := new(big.Int).Sub(latestBlockNum, txBlockNum)
-	required := big.NewInt(int64(requiredConfirmations))
+// 	confirmations := new(big.Int).Sub(latestBlockNum, txBlockNum)
+// 	required := big.NewInt(int64(requiredConfirmations))
 
-	if confirmations.Cmp(required) < 0 {
-		return fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), requiredConfirmations)
-	}
+// 	if confirmations.Cmp(required) < 0 {
+// 		return fmt.Errorf("insufficient confirmations: got %s, need %d", confirmations.String(), requiredConfirmations)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

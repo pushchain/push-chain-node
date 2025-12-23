@@ -4,18 +4,16 @@ package keeper
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/decred/base58"
-	"github.com/pushchain/push-chain-node/utils/rpc"
-	svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
-	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	// "github.com/pushchain/push-chain-node/utils/rpc"
+	// svmrpc "github.com/pushchain/push-chain-node/utils/rpc/svm"
+
 	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 )
 
@@ -46,80 +44,80 @@ func compareSVMAddresses(addr1, addr2 string) bool {
 	return bytes1 != nil && bytes2 != nil && bytes.Equal(bytes1, bytes2)
 }
 
-func IsValidSVMAddFundsInstruction(
-	instructions []svmrpc.Instruction,
-	accountKeys []string,
-	chainConfig uregistrytypes.ChainConfig,
-) error {
-	for _, inst := range instructions {
-		if inst.ProgramIDIndex < 0 || inst.ProgramIDIndex >= len(accountKeys) {
-			return fmt.Errorf("invalid program ID index: %d", inst.ProgramIDIndex)
-		}
-		programID := accountKeys[inst.ProgramIDIndex]
-		if !compareSVMAddresses(programID, chainConfig.GatewayAddress) {
-			continue
-		}
+// func IsValidSVMAddFundsInstruction(
+// 	instructions []svmrpc.Instruction,
+// 	accountKeys []string,
+// 	chainConfig uregistrytypes.ChainConfig,
+// ) error {
+// 	for _, inst := range instructions {
+// 		if inst.ProgramIDIndex < 0 || inst.ProgramIDIndex >= len(accountKeys) {
+// 			return fmt.Errorf("invalid program ID index: %d", inst.ProgramIDIndex)
+// 		}
+// 		programID := accountKeys[inst.ProgramIDIndex]
+// 		if !compareSVMAddresses(programID, chainConfig.GatewayAddress) {
+// 			continue
+// 		}
 
-		if len(inst.Accounts) == 0 {
-			return fmt.Errorf("gateway instruction missing accounts")
-		}
-		if inst.Data == "" {
-			return fmt.Errorf("gateway instruction missing data")
-		}
+// 		if len(inst.Accounts) == 0 {
+// 			return fmt.Errorf("gateway instruction missing accounts")
+// 		}
+// 		if inst.Data == "" {
+// 			return fmt.Errorf("gateway instruction missing data")
+// 		}
 
-		dataBytes := base58.Decode(inst.Data)
-		if dataBytes == nil || len(dataBytes) < 8 {
-			return fmt.Errorf("invalid instruction data format")
-		}
-		actual := dataBytes[:8]
+// 		dataBytes := base58.Decode(inst.Data)
+// 		if dataBytes == nil || len(dataBytes) < 8 {
+// 			return fmt.Errorf("invalid instruction data format")
+// 		}
+// 		actual := dataBytes[:8]
 
-		var expected []byte
-		for _, method := range chainConfig.GatewayMethods {
-			if method.Name == uregistrytypes.GATEWAY_METHOD.SVM.AddFunds {
-				var err error
-				expected, err = hex.DecodeString(method.Identifier)
-				if err != nil {
-					return fmt.Errorf("invalid expected discriminator: %w", err)
-				}
-				break
-			}
-		}
-		if expected == nil {
-			return fmt.Errorf("add_funds method not found in config")
-		}
-		if !bytes.Equal(actual, expected) {
-			return fmt.Errorf("discriminator mismatch: expected %x, got %x", expected, actual)
-		}
-		return nil // ✅ Valid instruction found
-	}
-	return fmt.Errorf("no instruction found calling gateway address %s", chainConfig.GatewayAddress)
-}
+// 		var expected []byte
+// 		for _, method := range chainConfig.GatewayMethods {
+// 			if method.Name == uregistrytypes.GATEWAY_METHOD.SVM.AddFunds {
+// 				var err error
+// 				expected, err = hex.DecodeString(method.Identifier)
+// 				if err != nil {
+// 					return fmt.Errorf("invalid expected discriminator: %w", err)
+// 				}
+// 				break
+// 			}
+// 		}
+// 		if expected == nil {
+// 			return fmt.Errorf("add_funds method not found in config")
+// 		}
+// 		if !bytes.Equal(actual, expected) {
+// 			return fmt.Errorf("discriminator mismatch: expected %x, got %x", expected, actual)
+// 		}
+// 		return nil // ✅ Valid instruction found
+// 	}
+// 	return fmt.Errorf("no instruction found calling gateway address %s", chainConfig.GatewayAddress)
+// }
 
-// Checks if a given svm tx hash has enough confirmations
-func CheckSVMBlockConfirmations(
-	ctx context.Context,
-	txHashBase58 string,
-	rpcCfg rpc.RpcCallConfig,
-	requiredConfirmations uint64,
-) error {
-	// Fetch transaction receipt
-	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHashBase58)
-	if err != nil {
-		return fmt.Errorf("fetch tx failed: %w", err)
-	}
+// // Checks if a given svm tx hash has enough confirmations
+// func CheckSVMBlockConfirmations(
+// 	ctx context.Context,
+// 	txHashBase58 string,
+// 	rpcCfg rpc.RpcCallConfig,
+// 	requiredConfirmations uint64,
+// ) error {
+// 	// Fetch transaction receipt
+// 	tx, err := svmrpc.SVMGetTransactionBySig(ctx, rpcCfg, txHashBase58)
+// 	if err != nil {
+// 		return fmt.Errorf("fetch tx failed: %w", err)
+// 	}
 
-	currentSlot, err := svmrpc.SVMGetCurrentSlot(ctx, rpcCfg)
-	if err != nil {
-		return fmt.Errorf("fetch current slot failed: %w", err)
-	}
+// 	currentSlot, err := svmrpc.SVMGetCurrentSlot(ctx, rpcCfg)
+// 	if err != nil {
+// 		return fmt.Errorf("fetch current slot failed: %w", err)
+// 	}
 
-	confirmations := currentSlot - tx.Slot
-	if confirmations < uint64(requiredConfirmations) {
-		return fmt.Errorf("insufficient confirmations: got %d, need %d", confirmations, requiredConfirmations)
-	}
+// 	confirmations := currentSlot - tx.Slot
+// 	if confirmations < uint64(requiredConfirmations) {
+// 		return fmt.Errorf("insufficient confirmations: got %d, need %d", confirmations, requiredConfirmations)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // ParseSVMFundsAddedLog parses Solana log messages to extract the FundsAddedEvent
 // @param logMessages Program logs from the transaction

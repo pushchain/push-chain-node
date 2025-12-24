@@ -181,10 +181,13 @@ jobs:
             -o dist/${BINARY_NAME} \
             ./cmd/pchaind
 
-          # Create archive matching GoReleaser naming convention
+          # Create archive with bin/ structure for Cosmovisor compatibility
           cd dist
-          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz ${BINARY_NAME}
+          mkdir -p bin
+          mv ${BINARY_NAME} bin/
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz bin/
           shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz.sha256
+          rm -rf bin
           ls -la
 
       - name: Upload Linux ARM64 artifacts
@@ -356,8 +359,16 @@ jobs:
           # Use version without 'v' prefix to match GoReleaser naming convention
           VERSION_NO_V="${VERSION#v}"
 
-          # Create archive (includes libwasmvm.dylib)
-          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
+          # Create archive with bin/ directory structure for Cosmovisor compatibility
+          # Cosmovisor extracts binary to upgrades/<name>/bin/ but leaves other files in parent
+          # By including both in bin/, they'll end up in the same directory
+          mkdir -p bin
+          cp ${BINARY_NAME}-darwin-arm64 bin/${BINARY_NAME}
+          cp libwasmvm.dylib bin/
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_darwin_arm64.tar.gz bin/
+          rm -rf bin
+
+          # For notarization, use flat structure (zip handles differently)
           zip -j ${BINARY_NAME}-darwin-arm64-notarize.zip ${BINARY_NAME}-darwin-arm64 libwasmvm.dylib
 
           cd ..
@@ -486,21 +497,6 @@ jobs:
 
             macOS binaries are code-signed and notarized by Apple.
             Verify checksums using the `.sha256` files.
-
-            ## 📥 Installation
-
-            ```bash
-            # Linux
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
-            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_linux_amd64.tar.gz
-            chmod +x pchaind && sudo mv pchaind /usr/local/bin/
-
-            # macOS (Apple Silicon)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
-            tar -xzf ${{ env.PROJECT_NAME }}_${{ steps.version.outputs.version_no_v }}_darwin_arm64.tar.gz
-            sudo mv libwasmvm.dylib /usr/local/lib/
-            chmod +x pchaind-darwin-arm64 && sudo mv pchaind-darwin-arm64 /usr/local/bin/pchaind
-            ```
           draft: false
           prerelease: ${{ github.event.inputs.prerelease || false }}
           files: release/*

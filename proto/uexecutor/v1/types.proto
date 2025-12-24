@@ -38,6 +38,8 @@ message UniversalPayload {
   VerificationType v_type = 9; // Type of verification to use before execution
 }
 
+// pchaind tx uexecutor execute-payload --universal-payload '{"to":"0x527F3692F5C53CfA83F7689885995606F93b6164","value":"0","data":"0x2ba2ed980000000000000000000000000000000000000000000000000000000000000312","gas_limit":"21000000","max_fee_per_gas":"1000000000","max_priority_fee_per_gas":"200000000","nonce":"1","deadline":"9999999999","v_type":1}' --universal-account-id '{"chain_namespace":"eip155","chain_id":"11155111","owner":"0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4"}' --verification-data "0x7c3566d1a92d670a72a196e800e60090f1c145cc7b8d5fe37cef506e85c5aed1" --from acc2 --gas 100000000000 -y
+
 // MigrationPayload mirrors the Solidity struct 
 message MigrationPayload {
   option (amino.name) = "uexecutor/migration_payload";

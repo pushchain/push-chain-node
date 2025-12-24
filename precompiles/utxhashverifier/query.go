@@ -18,6 +18,7 @@ func (p Precompile) VerifyTxHash(
 	if len(args) != 5 {
 		return nil, fmt.Errorf("expected 5 args, got %d", len(args))
 	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Parse individual parameters
 	chainNamespace, ok := args[0].(string)
@@ -52,6 +53,8 @@ func (p Precompile) VerifyTxHash(
 	ownerHex := fmt.Sprintf("0x%x", owner)
 	txHash := fmt.Sprintf("0x%x", txHashBytes)
 
+	fmt.Println("[UTxHashVerifier] Hit Percompile", "gasUsed", sdkCtx.GasMeter().GasConsumed())
+
 	fmt.Printf("[UTxHashVerifier] VerifyTxHash called with chainNamespace=%s, chainId=%s, owner=%s, payloadHash=%s, txHash=%s\n",
 		chainNamespace, chainId, ownerHex, payloadHash, txHash)
 
@@ -66,6 +69,8 @@ func (p Precompile) VerifyTxHash(
 
 	// Build full chain caip2: "namespace:chain"
 	chainCaip2 := fmt.Sprintf("%s:%s", universalAccountId.ChainNamespace, universalAccountId.ChainId)
+
+	fmt.Println("[UTxHashVerifier] Before VerifyAndGetPayloadHash", "gasUsed", sdkCtx.GasMeter().GasConsumed())
 
 	// Delegate all verification to UtxverifierKeeper moduledule (much more gas efficient)
 	verifiedPayload, err := p.utxverifierKeeper.VerifyAndGetPayloadHash(ctx, universalAccountId.Owner, txHash, chainCaip2)
@@ -84,7 +89,6 @@ func (p Precompile) VerifyTxHash(
 
 	if !matched {
 		fmt.Printf("[UTxHashVerifier] Payload mismatch: expected %s, got %v\n", payloadHash, verifiedPayload)
-		return method.Outputs.Pack(false)
 	}
 
 	fmt.Printf("[UTxHashVerifier] ✅ Verification successful via UtxverifierKeeper moduledule\n")

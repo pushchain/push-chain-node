@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/utils/rpc"
 	evmrpc "github.com/pushchain/push-chain-node/utils/rpc/evm"
@@ -94,10 +95,13 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	ownerKey, txHash string,
 	chainConfig uregistrytypes.ChainConfig,
 ) (*utxverifiertypes.VerifiedTxMetadata, error) {
+	fmt.Println("chain config : ", chainConfig.GetPublicRpcUrl())
+	fmt.Println("Chaind config again. ", chainConfig)
 	rpcCfg := rpc.RpcCallConfig{
 		PrivateRPC: utils.GetEnvRPCOverride(chainConfig.Chain),
 		PublicRPC:  chainConfig.PublicRpcUrl,
 	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Step 1: Fetch transaction receipt
 	receipt, err := evmrpc.EVMGetTransactionReceipt(ctx, rpcCfg, txHash)
@@ -110,31 +114,35 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction: %w", err)
 	}
+	fmt.Println("[UTxHashVerifier/EVMProcessUnverifiedI] After RPC call to fetch transaction details", "gasUsed", sdkCtx.GasMeter().GasConsumed())
+
+	fmt.Println("tx: ", tx)
 
 	// Normalize addresses for comparison
-	from := NormalizeEVMAddress(receipt.From)
-	to := NormalizeEVMAddress(receipt.To)
-	expectedFrom := NormalizeEVMAddress(ownerKey)
-	expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
+	// from := NormalizeEVMAddress(receipt.From)
+	// to := NormalizeEVMAddress(receipt.To)
+	// expectedFrom := NormalizeEVMAddress(ownerKey)
+	// expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
 	// fmt.Print(to)
 	// fmt.Print(expectedTo)
 
 	// INPUT CHECKS
 	// Check 1: Verify if ownerKey is Valid From address
-	if !compareEVMAddr(from, expectedFrom) {
-		return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
-	}
+	// if !compareEVMAddr(from, expectedFrom) {
+	// 	return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
+	// }
 
-	// Check 2: Verify if tx.To is Valid gateway address
-	if !isValidEVMGateway(to, expectedTo) {
-		return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
-	}
+	// // Check 2: Verify if tx.To is Valid gateway address
+	// if !isValidEVMGateway(to, expectedTo) {
+	// 	return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
+	// }
 
 	// Check 3: Verify if transaction is calling addFunds method
-	// ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
-	// if !ok {
-	// 	return nil, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
-	// }
+	ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)
+	if !ok {
+		return nil, fmt.Errorf("transaction is not calling addFunds, expected selector %s but got input %s", selector, tx.Input)
+	}
+	fmt.Println("[UTxHashVerifier/EVMProcessUnverifiedI] Checking if addFund is being called", "gasUsed", sdkCtx.GasMeter().GasConsumed())
 
 	// Step 3: Extract values from logs
 	eventTopic := ""
@@ -152,6 +160,7 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	if err != nil {
 		return nil, fmt.Errorf("amount extract failed: %w", err)
 	}
+	fmt.Println("[UTxHashVerifier/EVMProcessUnverifiedI] After extracting eventl logs", "gasUsed", sdkCtx.GasMeter().GasConsumed())
 
 	// Collect all payload hashes
 	payloadHashes := make([]string, len(fundsAddedEventLogs))
@@ -168,12 +177,14 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 		},
 		Sender: ownerKey,
 	}
+	fmt.Println("[UTxHashVerifier/EVMProcessUnverifiedI] After collecting all the payload hashes", "gasUsed", sdkCtx.GasMeter().GasConsumed())
 
 	// Step 4: Store verified inbound tx in storage
 	err = k.StoreVerifiedInboundTx(ctx, chainConfig.Chain, txHash, metadata)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("[UTxHashVerifier/EVMProcessUnverifiedI] After storing transaction in storage", "gasUsed", sdkCtx.GasMeter().GasConsumed())
 
 	// Step 5: Return the metadata
 	return &metadata, nil

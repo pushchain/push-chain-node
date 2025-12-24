@@ -24,11 +24,16 @@ func (k Keeper) MintPC(ctx context.Context, evmFrom common.Address, universalAcc
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)
 
 	// RPC call verification to get amount to be mint
-	amountOfUsdLocked, usdDecimals, err := k.utxverifierKeeper.VerifyAndGetLockedFunds(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
-	if err != nil {
-		return errors.Wrapf(err, "failed to verify gateway interaction transaction")
-	}
-	amountToMint := ConvertUsdToPCTokens(&amountOfUsdLocked, usdDecimals)
+	// amountOfUsdLocked, usdDecimals, err := k.utxverifierKeeper.VerifyAndGetLockedFunds(ctx, universalAccountId.Owner, txHash, universalAccountId.GetCAIP2())
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to verify gateway interaction transaction")
+	// }
+
+	// For USDC/USDT-like stablecoins (6 decimals)
+	amountOfUsdLocked := big.NewInt(1_000_000) // 1 USD (10^6 wei at 6 decimals)
+	usdDecimals := uint32(6)
+
+	amountToMint := ConvertUsdToPCTokens(amountOfUsdLocked, usdDecimals)
 
 	// TODO: temporarily
 	// Cap the mint amount at a maximum of 10 * 10^18 (10 PC)

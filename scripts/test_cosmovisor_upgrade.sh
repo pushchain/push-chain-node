@@ -30,7 +30,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Configuration
 GENESIS_VERSION="v0.0.19-test"
-UPGRADE_VERSION="v0.0.21-test"
+UPGRADE_VERSION="v0.0.22-test"
 CHAIN_ID="cosmovisor-test-1"
 DAEMON_NAME="pchaind"
 DAEMON_HOME="$HOME/.pchain-cosmovisor-test"

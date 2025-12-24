@@ -36,6 +36,8 @@ archives:
   - id: default
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
     format: tar.gz
+    # Wrap in bin/ directory for Cosmovisor compatibility
+    wrap_in_directory: bin
     files:
       - none*
 snapshot:

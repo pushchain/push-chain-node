@@ -203,21 +203,6 @@ pchaind tx gov vote <proposal-id> yes \
   --yes
 ```
 
-### Step 5: Monitor the Upgrade
-
-Once the proposal passes and the chain reaches the upgrade height:
-
-1. Cosmovisor detects the upgrade
-2. Downloads the new binary (if `DAEMON_ALLOW_DOWNLOAD_BINARIES=true`)
-3. Stops the current binary
-4. Switches to the new binary
-5. Restarts the chain
-
-Watch the logs:
-```bash
-journalctl -u pchaind -f
-```
-
 ---
 
 ## Manual Upgrade (Without Governance)

@@ -358,14 +358,17 @@ setup-testnet-keys:
 testnet: setup-testnet
 	spawn local-ic start testnet
 
-sh-testnet: mod-tidy
+sh-testnet: mod-tidy setup-cosmovisor
 	CHAIN_ID="localchain_9000-1" BLOCK_TIME="1000ms" CLEAN=true sh scripts/test_node.sh
 
 sh-testnet-universal: mod-tidy
 	@echo "Starting universal validator..."
 	CLEAN=true sh scripts/test_universal.sh
 
-.PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet
+test-release-binary:
+	@sh scripts/test_release_binary.sh
+
+.PHONY: setup-testnet set-testnet-configs testnet testnet-basic sh-testnet test-release-binary
 
 ###############################################################################
 ###                                     help                                ###
@@ -386,8 +389,64 @@ help:
 	@echo "  testnet             : Local devnet with IBC"
 	@echo "  sh-testnet          : Shell local devnet (core blockchain)"
 	@echo "  sh-testnet-universal: Shell local devnet (universal validator)"
+	@echo "  test-release-binary : Test released binary from GitHub (VERSION=v1.0.0)"
 	@echo "  ictest-basic        : Basic end-to-end test"
 	@echo "  ictest-ibc          : IBC end-to-end test"
 	@echo "  generate-webapp     : Create a new webapp template"
 
 .PHONY: help
+
+###############################################################################
+###                              Cosmovisor                                 ###
+###############################################################################
+
+COSMOVISOR_VERSION := v1.6.0
+DAEMON_HOME := $(HOME)/.pchain
+DAEMON_NAME := pchaind
+
+# Install Cosmovisor
+install-cosmovisor:
+	@echo "Installing Cosmovisor $(COSMOVISOR_VERSION)..."
+	go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@$(COSMOVISOR_VERSION)
+	@echo "Cosmovisor installed: $$(which cosmovisor)"
+
+# Setup Cosmovisor directory structure with genesis binary
+setup-cosmovisor: build
+	@echo "Setting up Cosmovisor directory structure..."
+	@mkdir -p $(DAEMON_HOME)/cosmovisor/genesis/bin
+	@mkdir -p $(DAEMON_HOME)/cosmovisor/upgrades
+	@cp build/$(DAEMON_NAME) $(DAEMON_HOME)/cosmovisor/genesis/bin/
+	@echo "Generating cosmovisor.env..."
+	@echo "DAEMON_NAME=$(DAEMON_NAME)" > $(DAEMON_HOME)/cosmovisor.env
+	@echo "DAEMON_HOME=$(DAEMON_HOME)" >> $(DAEMON_HOME)/cosmovisor.env
+	@echo "DAEMON_RESTART_AFTER_UPGRADE=true" >> $(DAEMON_HOME)/cosmovisor.env
+	@echo "DAEMON_ALLOW_DOWNLOAD_BINARIES=false" >> $(DAEMON_HOME)/cosmovisor.env
+	@echo "UNSAFE_SKIP_BACKUP=true" >> $(DAEMON_HOME)/cosmovisor.env
+	@echo "Cosmovisor setup complete:"
+	@echo "  Genesis binary: $(DAEMON_HOME)/cosmovisor/genesis/bin/$(DAEMON_NAME)"
+	@echo "  Upgrades dir:   $(DAEMON_HOME)/cosmovisor/upgrades/"
+	@echo "  Environment:    $(DAEMON_HOME)/cosmovisor.env"
+
+# Prepare upgrade binary for a specific upgrade
+# Usage: make prepare-upgrade UPGRADE_NAME=test-upgrade-v1
+prepare-upgrade: build
+ifndef UPGRADE_NAME
+	$(error UPGRADE_NAME is required. Usage: make prepare-upgrade UPGRADE_NAME=<name>)
+endif
+	@echo "Preparing upgrade binary for: $(UPGRADE_NAME)"
+	@mkdir -p $(DAEMON_HOME)/cosmovisor/upgrades/$(UPGRADE_NAME)/bin
+	@cp build/$(DAEMON_NAME) $(DAEMON_HOME)/cosmovisor/upgrades/$(UPGRADE_NAME)/bin/
+	@echo "Upgrade binary placed at: $(DAEMON_HOME)/cosmovisor/upgrades/$(UPGRADE_NAME)/bin/$(DAEMON_NAME)"
+
+# Generate upgrade info JSON with checksums for GitHub releases
+# Usage: make upgrade-info VERSION=v1.1.0 RELEASE_URL=https://github.com/pushchain/push-chain/releases/download/v1.1.0
+upgrade-info:
+ifndef VERSION
+	$(error VERSION is required. Usage: make upgrade-info VERSION=<version> RELEASE_URL=<url>)
+endif
+ifndef RELEASE_URL
+	$(error RELEASE_URL is required. Usage: make upgrade-info VERSION=<version> RELEASE_URL=<url>)
+endif
+	@./scripts/cosmovisor-upgrade-info.sh $(VERSION) $(RELEASE_URL)
+
+.PHONY: install-cosmovisor setup-cosmovisor prepare-upgrade upgrade-info

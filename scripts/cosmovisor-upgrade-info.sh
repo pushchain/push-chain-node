@@ -20,6 +20,9 @@ VERSION=${1:-""}
 RELEASE_URL=${2:-""}
 PROJECT_NAME=${PROJECT_NAME:-"push-chain"}
 
+# Strip 'v' prefix for archive filename (GoReleaser doesn't include it)
+VERSION_NO_V=${VERSION#v}
+
 if [ -z "$VERSION" ] || [ -z "$RELEASE_URL" ]; then
     echo "Usage: $0 <version> <github-release-base-url>"
     echo ""
@@ -33,10 +36,10 @@ fi
 
 # Platforms to generate checksums for (matching GoReleaser targets)
 # Format: "cosmovisor_platform:goreleaser_suffix"
+# Note: darwin/amd64 not supported (no GitHub-hosted macOS Intel runners)
 PLATFORMS=(
     "linux/amd64:linux_amd64"
     "linux/arm64:linux_arm64"
-    "darwin/amd64:darwin_amd64"
     "darwin/arm64:darwin_arm64"
 )
 
@@ -57,8 +60,8 @@ for PLATFORM_MAPPING in "${PLATFORMS[@]}"; do
     COSMO_PLATFORM=$(echo $PLATFORM_MAPPING | cut -d':' -f1)
     GORELEASER_SUFFIX=$(echo $PLATFORM_MAPPING | cut -d':' -f2)
 
-    # GoReleaser archive filename: push-chain_v1.0.0_linux_amd64.tar.gz
-    ARCHIVE_FILE="${PROJECT_NAME}_${VERSION}_${GORELEASER_SUFFIX}.tar.gz"
+    # GoReleaser archive filename: push-chain_1.0.0_linux_amd64.tar.gz (no 'v' prefix)
+    ARCHIVE_FILE="${PROJECT_NAME}_${VERSION_NO_V}_${GORELEASER_SUFFIX}.tar.gz"
     ARCHIVE_URL="${RELEASE_URL}/${ARCHIVE_FILE}"
 
     echo "Checking $ARCHIVE_FILE..." >&2

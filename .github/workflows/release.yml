@@ -165,15 +165,27 @@ jobs:
           cd dkls23-rs
           cargo build --release
 
-      - name: Build with GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: v1.26.2
-          args: release --clean --skip=validate --skip=publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CGO_ENABLED: "1"
-          CGO_LDFLAGS: "-L${{ github.workspace }}/dkls23-rs/target/release"
+      - name: Build Linux ARM64 Binary
+        run: |
+          mkdir -p dist
+          VERSION=${{ steps.version.outputs.version }}
+          VERSION_NO_V=${{ steps.version.outputs.version_no_v }}
+
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+
+          echo "Building for Linux ARM64..."
+          GOOS=linux GOARCH=arm64 go build \
+            -tags "netgo,ledger" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
+            -o dist/${BINARY_NAME} \
+            ./cmd/pchaind
+
+          # Create archive matching GoReleaser naming convention
+          cd dist
+          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz ${BINARY_NAME}
+          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz.sha256
+          ls -la
 
       - name: Upload Linux ARM64 artifacts
         uses: actions/upload-artifact@v4
@@ -181,7 +193,7 @@ jobs:
           name: linux-arm64-binaries
           path: |
             dist/*.tar.gz
-            dist/*.txt
+            dist/*.sha256
           retention-days: 1
 
   # ===========================================

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
+    ports:
+      - "9545:9545"
+    networks:
+      - pushnet
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--port", "9545", "--chain-id", "11155111", "--fork-url", "https://ethereum-sepolia-rpc.publicnode.com", "--block-time", "1"]
+
+  push-chain-node:
+    build:
+      context: .              
+      dockerfile: Dockerfile.e2e 
+    container_name: push-chain-node
+    environment:
+      - CHAIN_ID=localchain_9000-1
+      - BLOCK_TIME=1000ms
+      - CLEAN=true
+    command: bash scripts/test_node_e2e.sh   
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "26657:26657"   # Tendermint RPC
+      - "1317:1317"     # Cosmos REST API
+      - "8545:8545"     # Cosmos REST API
+    networks:
+      - pushnet
+    depends_on:
+      - anvil
+    volumes:
+      - ./scripts:/app/scripts   
+
+networks:
+  pushnet:
+    driver: bridge

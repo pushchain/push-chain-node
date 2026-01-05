@@ -17,7 +17,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
-	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 	"github.com/rs/zerolog"
 )
@@ -45,8 +44,8 @@ type UniversalClient struct {
 	chainCacheJob    *cron.ChainCacheJob
 	chainRegistryJob *cron.ChainRegistryJob
 
-	// Push TSS event listener
-	pushTSSListener *push.PushTSSEventListener
+	// Push event listener
+	pushListener *push.Listener
 
 	// TSS Node (optional, enabled via config)
 	tssNode *tss.Node
@@ -124,13 +123,15 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 	// Register as observer for chain addition events
 	chainRegistry.SetObserver(uc)
 
-	// Create TSS event listener for Push chain events
-	tssDB, err := dbManager.GetChainDB("universal-validator")
+	// Create Push chain event listener
+	pushDB, err := dbManager.GetChainDB("push")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get TSS database: %w", err)
+		return nil, fmt.Errorf("failed to get Push database: %w", err)
 	}
-	tssEventStore := eventstore.NewStore(tssDB.Client(), log)
-	uc.pushTSSListener = push.NewPushTSSEventListener(pushCore, tssEventStore, log)
+	uc.pushListener, err = push.NewListener(pushCore, pushDB.Client(), log, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Push listener: %w", err)
+	}
 
 	// Perform mandatory startup validation
 	log.Info().Msg("🔐 Validating hotkey and AuthZ permissions...")
@@ -183,7 +184,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 			LibP2PListen:     cfg.TSSP2PListen,
 			HomeDir:          constant.DefaultNodeHome,
 			Password:         cfg.TSSPassword,
-			Database:         tssDB,
+			Database:         pushDB,
 			PushCore:         pushCore,
 			Logger:           log,
 			VoteHandler:      tssVoteHandler,
@@ -250,12 +251,12 @@ func (uc *UniversalClient) Start() error {
 		}
 	}
 
-	// Start the Push TSS event listener
-	if uc.pushTSSListener != nil {
-		if err := uc.pushTSSListener.Start(uc.ctx); err != nil {
-			uc.log.Error().Err(err).Msg("failed to start Push TSS listener")
+	// Start the Push event listener
+	if uc.pushListener != nil {
+		if err := uc.pushListener.Start(uc.ctx); err != nil {
+			uc.log.Error().Err(err).Msg("failed to start Push listener")
 		} else {
-			uc.log.Info().Msg("✅ Push TSS event listener started")
+			uc.log.Info().Msg("✅ Push event listener started")
 		}
 	}
 
@@ -303,9 +304,13 @@ func (uc *UniversalClient) Start() error {
 		uc.gasPriceFetcher.Stop()
 	}
 
-	// Stop Push TSS event listener
-	if uc.pushTSSListener != nil {
-		uc.pushTSSListener.Stop()
+	// Stop Push event listener
+	if uc.pushListener != nil {
+		if err := uc.pushListener.Stop(); err != nil {
+			uc.log.Error().Err(err).Msg("error stopping Push listener")
+		} else {
+			uc.log.Info().Msg("✅ Push listener stopped")
+		}
 	}
 
 	// Stop TSS node

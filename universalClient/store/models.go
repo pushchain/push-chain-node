@@ -55,13 +55,13 @@ type GasVoteTransaction struct {
 // Table name: "events" (PC_EVENTS)
 type PCEvent struct {
 	gorm.Model
-	EventID           string `gorm:"uniqueIndex;not null"` // Unique event identifier (typically process ID)
-	BlockHeight       uint64 `gorm:"index;not null"`       // Block height on Push chain where event was detected
+	EventID           string `gorm:"uniqueIndex;not null"` // Unique event identifier
+	BlockHeight       uint64 `gorm:"index;not null"`       // Block height where event was detected
 	ExpiryBlockHeight uint64 `gorm:"index;not null"`       // Block height when event expires
 	Type              string // "KEYGEN", "KEYREFRESH", "QUORUM_CHANGE", or "SIGN"
 	Status            string `gorm:"index;not null"` // "PENDING", "IN_PROGRESS", "BROADCASTED", "COMPLETED", "REVERTED"
 	EventData         []byte // Raw JSON-encoded event data from chain
-	TxHash            string // Transaction hash on Push chain (empty until voted)
+	TxHash            string // Transaction hash ( Voting Tx for "KEYGEN", "KEYREFRESH", "QUORUM_CHANGE", External Chain Broadcast Tx for "SIGN")
 	ErrorMsg          string `gorm:"type:text"` // Error message if processing failed
 }
 

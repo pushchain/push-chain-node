@@ -233,10 +233,7 @@ jobs:
           cache: true
 
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Setup dkls23-rs
         uses: ./.github/actions/setup-dkls23

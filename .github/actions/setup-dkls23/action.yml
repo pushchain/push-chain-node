@@ -31,5 +31,5 @@ runs:
         # Clone dkls23-rs repository (using fork until upstream is fixed)
         git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/mohammeds1992/dkls23-rs.git ../dkls23-rs
 
-        # Clone garbling repository (dkls23-rs dependency)
-        git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/silence-laboratories/garbling.git ../garbling
+        # Clone garbling repository (using fork until upstream is fixed)
+        git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/mohammeds1992/garbling.git ../garbling

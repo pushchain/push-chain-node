@@ -42,6 +42,6 @@ const (
 	DefaultExpiryAfterBlocks = 10000
 )
 
-var UniversalTxWithdrawEventSig = crypto.Keccak256Hash([]byte(
-	"UniversalTxWithdraw(address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8)",
+var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(
+	"UniversalTxOutbound(bytes32,address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8)",
 )).Hex()

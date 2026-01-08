@@ -34,11 +34,11 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			continue
 		}
 
-		if strings.ToLower(lg.Topics[0]) != strings.ToLower(types.UniversalTxWithdrawEventSig) {
+		if strings.ToLower(lg.Topics[0]) != strings.ToLower(types.UniversalTxOutboundEventSig) {
 			continue
 		}
 
-		event, err := types.DecodeUniversalTxWithdrawFromLog(lg)
+		event, err := types.DecodeUniversalTxOutboundFromLog(lg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode UniversalTxWithdraw: %w", err)
 		}
@@ -71,7 +71,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 				FundRecipient: event.RevertRecipient,
 			},
 			OutboundStatus: types.Status_PENDING,
-			Id:             types.GetOutboundId(utxId, receipt.Hash, lg.Index),
+			Id:             event.TxID,
 		}
 
 		outbounds = append(outbounds, outbound)

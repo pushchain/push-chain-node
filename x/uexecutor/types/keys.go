@@ -77,15 +77,6 @@ func GetOutboundBallotKey(
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func GetOutboundId(
-	utxId, pcTxHash string,
-	logIndex uint64,
-) string {
-	data := fmt.Sprintf("%s:%s:%d", utxId, pcTxHash, logIndex)
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:])
-}
-
 // Outbound Id for a inbound revert tx
 func GetOutboundRevertId(inboundTxHash string) string {
 	data := fmt.Sprintf("%s:REVERT", inboundTxHash)

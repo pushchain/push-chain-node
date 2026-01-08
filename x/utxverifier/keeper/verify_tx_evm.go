@@ -119,23 +119,23 @@ func (k Keeper) EVMProcessUnverifiedInboundTx(
 	fmt.Println("tx: ", tx)
 
 	// Normalize addresses for comparison
-	// from := NormalizeEVMAddress(receipt.From)
-	// to := NormalizeEVMAddress(receipt.To)
-	// expectedFrom := NormalizeEVMAddress(ownerKey)
-	// expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
-	// fmt.Print(to)
-	// fmt.Print(expectedTo)
+	from := NormalizeEVMAddress(receipt.From)
+	to := NormalizeEVMAddress(receipt.To)
+	expectedFrom := NormalizeEVMAddress(ownerKey)
+	expectedTo := NormalizeEVMAddress(chainConfig.GatewayAddress)
+	fmt.Print(to)
+	fmt.Print(expectedTo)
 
 	// INPUT CHECKS
 	// Check 1: Verify if ownerKey is Valid From address
-	// if !compareEVMAddr(from, expectedFrom) {
-	// 	return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
-	// }
+	if !compareEVMAddr(from, expectedFrom) {
+		return nil, fmt.Errorf("transaction sender %s does not match ownerKey %s", tx.From, expectedFrom)
+	}
 
 	// // Check 2: Verify if tx.To is Valid gateway address
-	// if !isValidEVMGateway(to, expectedTo) {
-	// 	return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
-	// }
+	if !isValidEVMGateway(to, expectedTo) {
+		return nil, fmt.Errorf("transaction recipient %s is not gateway address %s", tx.To, expectedTo)
+	}
 
 	// Check 3: Verify if transaction is calling addFunds method
 	ok, selector := isEVMTxCallingAddFunds(tx.Input, chainConfig)

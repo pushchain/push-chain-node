@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type UniversalTxWithdrawEvent struct {
+type UniversalTxOutboundEvent struct {
+	TxID            string   // 0x... bytes32
 	Sender          string   // 0x... address
 	ChainId         string   // destination chain (CAIP-2 string)
 	Token           string   // 0x... ERC20 or zero address for native
@@ -25,20 +26,21 @@ type UniversalTxWithdrawEvent struct {
 	TxType          TxType   // ← single source of truth from proto
 }
 
-func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalTxWithdrawEvent, error) {
-	if len(log.Topics) == 0 || log.Topics[0] != UniversalTxWithdrawEventSig {
-		return nil, fmt.Errorf("not a UniversalTxWithdraw event")
+func DecodeUniversalTxOutboundFromLog(log *evmtypes.Log) (*UniversalTxOutboundEvent, error) {
+	if len(log.Topics) == 0 || log.Topics[0] != UniversalTxOutboundEventSig {
+		return nil, fmt.Errorf("not a UniversalTxOutbound event")
 	}
-	if len(log.Topics) < 3 {
+	if len(log.Topics) < 4 {
 		return nil, fmt.Errorf("insufficient topics")
 	}
 
-	event := &UniversalTxWithdrawEvent{
-		Sender: common.HexToAddress(log.Topics[1]).Hex(),
-		Token:  common.HexToAddress(log.Topics[2]).Hex(),
+	event := &UniversalTxOutboundEvent{
+		TxID:   log.Topics[1],
+		Sender: common.HexToAddress(log.Topics[2]).Hex(),
+		Token:  common.HexToAddress(log.Topics[3]).Hex(),
 	}
 
-	// Define types exactly once
+	// ABI types
 	stringType, _ := abi.NewType("string", "", nil)
 	bytesType, _ := abi.NewType("bytes", "", nil)
 	uint256Type, _ := abi.NewType("uint256", "", nil)
@@ -55,13 +57,12 @@ func DecodeUniversalTxWithdrawFromLog(log *evmtypes.Log) (*UniversalTxWithdrawEv
 		{Type: bytesType},   // payload
 		{Type: uint256Type}, // protocolFee
 		{Type: addressType}, // revertRecipient
-		{Type: uint8Type},   // txType ← now included!
+		{Type: uint8Type},   // txType
 	}
 
 	values, err := arguments.Unpack(log.Data)
 	if err != nil {
-		fmt.Println(err)
-		return nil, fmt.Errorf("failed to unpack UniversalTxWithdraw: %w", err)
+		return nil, fmt.Errorf("failed to unpack UniversalTxOutbound: %w", err)
 	}
 
 	if len(values) != 10 {

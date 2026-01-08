@@ -8,12 +8,14 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-// Event type constants as emitted by the Push chain.
+// Event type constants
 const (
-	EventTypeTSSProcessInitiated = "tss_process_initiated"
-	EventTypeOutboundCreated     = "outbound_created"
+	EventTypeTSSProcessInitiated = utsstypes.EventTypeTssProcessInitiated
+	EventTypeOutboundCreated     = uexecutortypes.EventTypeOutboundCreated
 )
 
 // TSS event attribute keys.
@@ -76,24 +78,6 @@ var (
 	ErrInvalidExpiryHeight = errors.New("invalid expiry_height format")
 	ErrInvalidParticipants = errors.New("invalid participants format")
 )
-
-// OutboundEventData represents the structured data for an outbound event.
-type OutboundEventData struct {
-	UniversalTxID    string `json:"utx_id"`
-	OutboundID       string `json:"outbound_id"`
-	TxID             string `json:"tx_id"`
-	DestinationChain string `json:"destination_chain"`
-	Recipient        string `json:"recipient"`
-	Amount           string `json:"amount"`
-	AssetAddr        string `json:"asset_addr"`
-	Sender           string `json:"sender"`
-	Payload          string `json:"payload"`
-	GasLimit         string `json:"gas_limit"`
-	TxType           string `json:"tx_type"`
-	PcTxHash         string `json:"pc_tx_hash"`
-	LogIndex         string `json:"log_index"`
-	RevertMsg        string `json:"revert_msg"`
-}
 
 // ParseEvent parses a Push chain event from an ABCI event.
 // Returns nil if the event type is not recognized.
@@ -195,9 +179,9 @@ func parseOutboundEvent(event abci.Event) (*store.PCEvent, error) {
 	}
 
 	// Build structured event data
-	outboundData := OutboundEventData{
-		UniversalTxID:    attrs[AttrKeyUniversalTxID],
-		OutboundID:       attrs[AttrKeyOutboundID],
+	outboundData := uexecutortypes.OutboundCreatedEvent{
+		UniversalTxId:    attrs[AttrKeyUniversalTxID],
+		OutboundId:       attrs[AttrKeyOutboundID],
 		TxID:             txID,
 		DestinationChain: attrs[AttrKeyDestinationChain],
 		Recipient:        attrs[AttrKeyRecipient],

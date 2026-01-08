@@ -7,6 +7,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 func TestParseEvent_TSSEvent(t *testing.T) {
@@ -272,13 +274,13 @@ func TestParseEvent_OutboundEventData(t *testing.T) {
 	require.NotNil(t, result)
 
 	// Unmarshal event data and verify all fields
-	var data OutboundEventData
+	var data uexecutortypes.OutboundCreatedEvent
 	err = json.Unmarshal(result.EventData, &data)
 	require.NoError(t, err)
 
 	assert.Equal(t, "0x123abc", data.TxID)
-	assert.Equal(t, "utx-001", data.UniversalTxID)
-	assert.Equal(t, "out-001", data.OutboundID)
+	assert.Equal(t, "utx-001", data.UniversalTxId)
+	assert.Equal(t, "out-001", data.OutboundId)
 	assert.Equal(t, "ethereum", data.DestinationChain)
 	assert.Equal(t, "0xrecipient", data.Recipient)
 	assert.Equal(t, "1000000", data.Amount)
@@ -388,4 +390,3 @@ func TestOutboundExpiryOffset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, blockHeight+OutboundExpiryOffset, result.ExpiryBlockHeight)
 }
-

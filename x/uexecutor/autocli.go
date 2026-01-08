@@ -26,14 +26,6 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Skip:      false, // set to true if authority gated (to hide from cli)
 				},
 				{
-					RpcMethod: "DeployUEA",
-					Use:       "deploy-uea --universal-account [universal-account] --tx-hash [tx-hash]",
-				},
-				{
-					RpcMethod: "MintPC",
-					Use:       "mint-pc --universal-account [universal-account] --tx-hash [tx-hash]",
-				},
-				{
 					RpcMethod: "ExecutePayload",
 					Use:       "execute-payload --universal-account [universal-account] --universal-payload [universal-payload]",
 				},

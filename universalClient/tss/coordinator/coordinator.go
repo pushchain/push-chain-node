@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -641,34 +643,51 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 		participantIDs = append(participantIDs, []byte(partyID)...)
 	}
 
-	// Extract message string from eventData and hash it
-	var message string
-	// Try to parse as JSON first (in case eventData is JSON with "message" field)
-	var eventDataJSON map[string]interface{}
-	if err := json.Unmarshal(eventData, &eventDataJSON); err == nil {
-		// Successfully parsed as JSON, try to get "message" field
-		if msg, ok := eventDataJSON["message"].(string); ok {
-			message = msg
-		} else {
-			return nil, errors.New("event data JSON does not contain 'message' string field")
-		}
-	} else {
-		// Not JSON, treat eventData as the message string directly
-		message = string(eventData)
+	// Build the message hash to sign from outbound event data
+	messageHash, err := buildSignMessageHash(eventData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build sign message hash")
 	}
 
-	if message == "" {
-		return nil, errors.New("message is empty")
-	}
-
-	// Hash the message to get messageHash (SHA256)
-	messageHash := sha256.Sum256([]byte(message))
-
-	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, messageHash[:], participantIDs)
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, messageHash, participantIDs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create sign setup")
 	}
 	return setupData, nil
+}
+
+// buildSignMessageHash creates a deterministic message hash from outbound event data.
+// The hash includes all critical fields that must be validated on the destination chain.
+// Format: sha256(txId|destinationChain|recipient|amount|assetAddr|sender|payload|gasLimit)
+func buildSignMessageHash(eventData []byte) ([]byte, error) {
+	if len(eventData) == 0 {
+		return nil, errors.New("event data is empty")
+	}
+
+	var data uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(eventData, &data); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal outbound event data")
+	}
+
+	if data.TxID == "" {
+		return nil, errors.New("outbound event missing tx_id")
+	}
+
+	// Create canonical message string and hash it
+	message := fmt.Sprintf(
+		"%s|%s|%s|%s|%s|%s|%s|%s",
+		data.TxID,
+		data.DestinationChain,
+		data.Recipient,
+		data.Amount,
+		data.AssetAddr,
+		data.Sender,
+		data.Payload,
+		data.GasLimit,
+	)
+
+	hash := sha256.Sum256([]byte(message))
+	return hash[:], nil
 }
 
 // createQcSetup creates a quorumchange setup message.

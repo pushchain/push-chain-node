@@ -482,3 +482,80 @@ func TestCoordinator_StartStop(t *testing.T) {
 	coord.mu.RUnlock()
 	assert.False(t, running, "coordinator should be stopped")
 }
+
+func TestBuildSignMessageHash(t *testing.T) {
+	t.Run("valid outbound event data", func(t *testing.T) {
+		eventData := []byte(`{
+			"tx_id": "0x123abc",
+			"destination_chain": "ethereum",
+			"recipient": "0xrecipient",
+			"amount": "1000000",
+			"asset_addr": "0xtoken",
+			"sender": "0xsender",
+			"payload": "0x",
+			"gas_limit": "21000"
+		}`)
+
+		hash, err := buildSignMessageHash(eventData)
+		require.NoError(t, err)
+		assert.Len(t, hash, 32) // SHA256 produces 32 bytes
+	})
+
+	t.Run("deterministic hash", func(t *testing.T) {
+		eventData := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
+
+		hash1, err := buildSignMessageHash(eventData)
+		require.NoError(t, err)
+
+		hash2, err := buildSignMessageHash(eventData)
+		require.NoError(t, err)
+
+		assert.Equal(t, hash1, hash2)
+	})
+
+	t.Run("different tx_id produces different hash", func(t *testing.T) {
+		eventData1 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
+		eventData2 := []byte(`{"tx_id": "0x456", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
+
+		hash1, err := buildSignMessageHash(eventData1)
+		require.NoError(t, err)
+
+		hash2, err := buildSignMessageHash(eventData2)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, hash1, hash2)
+	})
+
+	t.Run("different amount produces different hash", func(t *testing.T) {
+		eventData1 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
+		eventData2 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "200", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
+
+		hash1, err := buildSignMessageHash(eventData1)
+		require.NoError(t, err)
+
+		hash2, err := buildSignMessageHash(eventData2)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, hash1, hash2)
+	})
+
+	t.Run("missing tx_id", func(t *testing.T) {
+		eventData := []byte(`{"destination_chain": "ethereum"}`)
+
+		_, err := buildSignMessageHash(eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx_id")
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		_, err := buildSignMessageHash([]byte("not json"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal")
+	})
+
+	t.Run("empty event data", func(t *testing.T) {
+		_, err := buildSignMessageHash([]byte{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty")
+	})
+}

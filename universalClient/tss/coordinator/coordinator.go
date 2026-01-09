@@ -2,7 +2,6 @@ package coordinator
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"sort"
 	"sync"
@@ -13,10 +12,12 @@ import (
 
 	session "go-wrapper/go-dkls/sessions"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -25,6 +26,7 @@ type Coordinator struct {
 	eventStore       *eventstore.Store
 	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
+	txBuilderFactory common.OutboundTxBuilderFactory
 	validatorAddress string
 	coordinatorRange uint64
 	pollInterval     time.Duration
@@ -54,6 +56,7 @@ func NewCoordinator(
 	eventStore *eventstore.Store,
 	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
+	txBuilderFactory common.OutboundTxBuilderFactory,
 	validatorAddress string,
 	coordinatorRange uint64,
 	pollInterval time.Duration,
@@ -67,6 +70,7 @@ func NewCoordinator(
 		eventStore:       eventStore,
 		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
+		txBuilderFactory: txBuilderFactory,
 		validatorAddress: validatorAddress,
 		coordinatorRange: coordinatorRange,
 		pollInterval:     pollInterval,
@@ -371,13 +375,13 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 	for _, event := range events {
 		c.logger.Info().
 			Str("event_id", event.EventID).
-			Str("protocol_type", event.ProtocolType).
-			Uint64("block_number", event.BlockNumber).
+			Str("type", event.Type).
+			Uint64("block_height", event.BlockHeight).
 			Msg("processing event as coordinator")
 		// Get participants based on protocol type (using cached allValidators)
-		participants := getParticipantsForProtocol(event.ProtocolType, allValidators)
+		participants := getParticipantsForProtocol(event.Type, allValidators)
 		if participants == nil {
-			c.logger.Debug().Str("event_id", event.EventID).Str("protocol_type", event.ProtocolType).Msg("unknown protocol type")
+			c.logger.Debug().Str("event_id", event.EventID).Str("type", event.Type).Msg("unknown protocol type")
 			continue
 		}
 		if len(participants) == 0 {
@@ -398,7 +402,7 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 // processEventAsCoordinator processes a TSS event as the coordinator.
 // Creates setup message based on event type and sends to all participants.
-func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.TSSEvent, participants []*types.UniversalValidator) error {
+func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.PCEvent, participants []*types.UniversalValidator) error {
 	// Sort participants by party ID for consistency
 	sortedParticipants := make([]*types.UniversalValidator, len(participants))
 	copy(sortedParticipants, participants)
@@ -427,17 +431,18 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create setup message based on event type
 	var setupData []byte
+	var signMetadata *SignMetadata
 	var err error
-	switch event.ProtocolType {
-	case "keygen", "keyrefresh":
+	switch event.Type {
+	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
-	case "quorumchange":
+	case string(ProtocolQuorumChange):
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-	case "sign":
-		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
+	case string(ProtocolSign):
+		setupData, signMetadata, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
-		err = errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+		err = errors.Errorf("unknown protocol type: %s", event.Type)
 	}
 
 	if err != nil {
@@ -450,6 +455,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 		EventID:      event.EventID,
 		Payload:      setupData,
 		Participants: partyIDs,
+		SignMetadata: signMetadata, // nil for non-sign events
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {
@@ -613,19 +619,20 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 	return setupData, nil
 }
 
-// createSignSetup creates a sign setup message.
-// Requires loading the keyshare to extract keyID and messageHash from event data.
-func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, error) {
+// createSignSetup creates a sign setup message and returns the sign metadata.
+// Uses the OutboundTxBuilder to build the actual transaction for the destination chain.
+// Returns the setup data, sign metadata (for participant verification), and error.
+func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *SignMetadata, error) {
 	// Get current TSS keyId from pushCore
 	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current TSS keyId")
+		return nil, nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
 
 	// Load keyshare to ensure it exists (validation)
 	keyshareBytes, err := c.keyshareManager.Get(keyIDStr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
+		return nil, nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
 	}
 	_ = keyshareBytes // Keyshare is loaded for validation, keyID is derived from string
 
@@ -641,34 +648,68 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 		participantIDs = append(participantIDs, []byte(partyID)...)
 	}
 
-	// Extract message string from eventData and hash it
-	var message string
-	// Try to parse as JSON first (in case eventData is JSON with "message" field)
-	var eventDataJSON map[string]interface{}
-	if err := json.Unmarshal(eventData, &eventDataJSON); err == nil {
-		// Successfully parsed as JSON, try to get "message" field
-		if msg, ok := eventDataJSON["message"].(string); ok {
-			message = msg
-		} else {
-			return nil, errors.New("event data JSON does not contain 'message' string field")
-		}
-	} else {
-		// Not JSON, treat eventData as the message string directly
-		message = string(eventData)
-	}
-
-	if message == "" {
-		return nil, errors.New("message is empty")
-	}
-
-	// Hash the message to get messageHash (SHA256)
-	messageHash := sha256.Sum256([]byte(message))
-
-	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, messageHash[:], participantIDs)
+	// Build the transaction and get signing parameters
+	txResult, err := c.buildSignTransaction(ctx, eventData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create sign setup")
+		return nil, nil, errors.Wrap(err, "failed to build sign transaction")
 	}
-	return setupData, nil
+
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, txResult.SigningHash, participantIDs)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create sign setup")
+	}
+
+	// Create sign metadata with gas price and signing hash for participant verification
+	signMetadata := &SignMetadata{
+		GasPrice:    txResult.GasPrice,
+		SigningHash: txResult.SigningHash,
+	}
+
+	return setupData, signMetadata, nil
+}
+
+// buildSignTransaction builds the outbound transaction using the appropriate OutboundTxBuilder.
+func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte) (*common.OutboundTxResult, error) {
+	if len(eventData) == 0 {
+		return nil, errors.New("event data is empty")
+	}
+
+	var data uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(eventData, &data); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal outbound event data")
+	}
+
+	if data.TxID == "" {
+		return nil, errors.New("outbound event missing tx_id")
+	}
+
+	if data.DestinationChain == "" {
+		return nil, errors.New("outbound event missing destination_chain")
+	}
+
+	if c.txBuilderFactory == nil {
+		return nil, errors.New("tx builder factory not configured")
+	}
+
+	// Get gas price from pushcore oracle
+	gasPrice, err := c.pushCore.GetGasPrice(ctx, data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get gas price for chain %s", data.DestinationChain)
+	}
+
+	// Get the builder for the destination chain
+	builder, err := c.txBuilderFactory.CreateBuilder(data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create tx builder for chain %s", data.DestinationChain)
+	}
+
+	// Build the transaction with the gas price from oracle
+	txResult, err := builder.BuildTransaction(ctx, &data, gasPrice)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build transaction")
+	}
+
+	return txResult, nil
 }
 
 // createQcSetup creates a quorumchange setup message.
@@ -741,13 +782,13 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 // For sign: returns all (Active + Pending Leave) validators.
 func getEligibleForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	switch protocolType {
-	case "keygen", "quorumchange":
+	case string(ProtocolKeygen), string(ProtocolQuorumChange):
 		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
-	case "keyrefresh":
+	case string(ProtocolKeyrefresh):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
-	case "sign":
+	case string(ProtocolSign):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
 	default:
@@ -761,7 +802,7 @@ func getEligibleForProtocol(protocolType string, allValidators []*types.Universa
 // For other protocols: returns all eligible participants (same as getEligibleForProtocol).
 func getParticipantsForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// For sign, we need random subset; for others, same as eligible
-	if protocolType == "sign" {
+	if protocolType == string(ProtocolSign) {
 		return getSignParticipants(allValidators)
 	}
 	// For other protocols, return all eligible (same logic)

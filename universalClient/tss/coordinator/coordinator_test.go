@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -101,7 +103,7 @@ func (m *mockPushCoreClient) setGetBlockNumError(err error) {
 func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eventstore.Store) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.TSSEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.PCEvent{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 
@@ -149,6 +151,7 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eve
 		evtStore,
 		testClient,
 		keyshareMgr,
+		nil, // txBuilderFactory - nil for most tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -238,7 +241,7 @@ func TestGetEligibleUV(t *testing.T) {
 	require.True(t, hasValidators, "validators should be set in setup")
 
 	t.Run("keygen protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("keygen")
+		eligible := coord.GetEligibleUV("KEYGEN")
 		// Should return Active + Pending Join: validator1, validator2, validator3
 		require.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
@@ -253,7 +256,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("keyrefresh protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("keyrefresh")
+		eligible := coord.GetEligibleUV("KEYREFRESH")
 		// Should return only Active: validator1, validator2 (not validator3 which is PendingJoin)
 		assert.Len(t, eligible, 2)
 		addresses := make(map[string]bool)
@@ -268,7 +271,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("quorumchange protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("quorumchange")
+		eligible := coord.GetEligibleUV("QUORUM_CHANGE")
 		// Should return Active + Pending Join: validator1, validator2, validator3
 		require.Len(t, eligible, 3)
 		addresses := make(map[string]bool)
@@ -283,7 +286,7 @@ func TestGetEligibleUV(t *testing.T) {
 	})
 
 	t.Run("sign protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("sign")
+		eligible := coord.GetEligibleUV("SIGN")
 		// Should return random subset of Active + Pending Leave
 		// validator1 and validator2 are Active, validator3 is PendingJoin (not eligible)
 		// So should return validator1 and validator2 (or subset if >2/3 threshold applies)
@@ -301,7 +304,7 @@ func TestGetEligibleUV(t *testing.T) {
 		coord.allValidators = nil
 		coord.mu.Unlock()
 
-		eligible := coord.GetEligibleUV("keygen")
+		eligible := coord.GetEligibleUV("KEYGEN")
 		assert.Nil(t, eligible)
 	})
 }
@@ -481,4 +484,137 @@ func TestCoordinator_StartStop(t *testing.T) {
 	running = coord.running
 	coord.mu.RUnlock()
 	assert.False(t, running, "coordinator should be stopped")
+}
+
+func TestGetSigningHash(t *testing.T) {
+	ctx := context.Background()
+
+	// Note: "valid outbound event data" test requires integration with pushcore.GetGasPrice
+	// which cannot be easily mocked. The validation tests below cover error paths.
+
+	t.Run("gas price fetch fails with minimal pushCore", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+
+		mockFactory := &mockTxBuilderFactory{
+			builders: map[string]*mockTxBuilder{
+				"ethereum": {signingHash: []byte("mock-signing-hash-32-bytes-long!")},
+			},
+		}
+		coord.txBuilderFactory = mockFactory
+
+		eventData := []byte(`{
+			"tx_id": "0x123abc",
+			"destination_chain": "ethereum",
+			"recipient": "0xrecipient",
+			"amount": "1000000",
+			"asset_addr": "0xtoken",
+			"sender": "0xsender",
+			"payload": "0x",
+			"gas_limit": "21000"
+		}`)
+
+		// With minimal pushCore, gas price fetch will fail
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get gas price")
+	})
+
+	t.Run("missing tx_id", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
+		eventData := []byte(`{"destination_chain": "ethereum"}`)
+
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx_id")
+	})
+
+	t.Run("missing destination_chain", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
+		eventData := []byte(`{"tx_id": "0x123"}`)
+
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "destination_chain")
+	})
+
+	t.Run("nil factory", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// Factory is nil by default in test setup
+
+		eventData := []byte(`{"tx_id": "0x123", "destination_chain": "ethereum"}`)
+
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "factory not configured")
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
+		_, err := coord.buildSignTransaction(ctx, []byte("not json"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal")
+	})
+
+	t.Run("empty event data", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+
+		_, err := coord.buildSignTransaction(ctx, []byte{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty")
+	})
+}
+
+// mockTxBuilder implements common.OutboundTxBuilder for testing
+type mockTxBuilder struct {
+	signingHash []byte
+	err         error
+}
+
+func (m *mockTxBuilder) BuildTransaction(ctx context.Context, data *common.OutboundTxData, gasPrice *big.Int) (*common.OutboundTxResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &common.OutboundTxResult{
+		SigningHash: m.signingHash,
+		Nonce:       1,
+		GasPrice:    gasPrice,
+		GasLimit:    21000,
+		ChainID:     "ethereum",
+		RawTx:       []byte("raw-tx-data"),
+	}, nil
+}
+
+func (m *mockTxBuilder) AssembleSignedTransaction(unsignedTx []byte, signature []byte, recoveryID byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockTxBuilder) BroadcastTransaction(ctx context.Context, signedTx []byte) (string, error) {
+	return "", nil
+}
+
+func (m *mockTxBuilder) GetChainID() string {
+	return "mock-chain"
+}
+
+// mockTxBuilderFactory implements common.OutboundTxBuilderFactory for testing
+type mockTxBuilderFactory struct {
+	builders map[string]*mockTxBuilder
+}
+
+func (m *mockTxBuilderFactory) CreateBuilder(chainID string) (common.OutboundTxBuilder, error) {
+	if builder, ok := m.builders[chainID]; ok {
+		return builder, nil
+	}
+	return nil, errors.New("unsupported chain: " + chainID)
+}
+
+func (m *mockTxBuilderFactory) SupportsChain(chainID string) bool {
+	_, ok := m.builders[chainID]
+	return ok
 }

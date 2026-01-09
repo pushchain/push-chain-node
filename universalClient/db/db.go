@@ -35,8 +35,7 @@ var (
 		&store.ChainState{},
 		&store.ChainTransaction{},
 		&store.GasVoteTransaction{},
-		&store.TSSEvent{},
-		&store.ChainTSSTransaction{},
+		&store.PCEvent{},
 		// Add additional models here as needed.
 	}
 )

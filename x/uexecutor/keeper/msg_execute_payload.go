@@ -59,10 +59,24 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 		return err
 	}
 
+	// Step 4
+	pcTx := types.PCTx{
+		Sender:      evmFrom.Hex(),
+		TxHash:      receipt.Hash,
+		GasUsed:     receipt.GasUsed,
+		BlockHeight: uint64(sdkCtx.BlockHeight()),
+		Status:      "SUCCESS",
+	}
+
+	// Step 5: create outbound + UTX only if needed
+	if err := k.CreateUniversalTxFromReceiptIfOutbound(sdkCtx, receipt, pcTx); err != nil {
+		return err
+	}
+
 	gasUnitsUsed := receipt.GasUsed
 	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
 
-	// Step 4: Handle fee calculation and deduction
+	// Step 6: Handle fee calculation and deduction
 	ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
 
 	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)

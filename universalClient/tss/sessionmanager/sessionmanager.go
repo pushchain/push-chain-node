@@ -1,10 +1,12 @@
 package sessionmanager
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -12,12 +14,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -38,6 +43,8 @@ type SessionManager struct {
 	eventStore        *eventstore.Store
 	coordinator       *coordinator.Coordinator
 	keyshareManager   *keyshare.Manager
+	pushCore          *pushcore.Client                // For validating gas prices
+	txBuilderFactory  common.OutboundTxBuilderFactory // For building tx to verify hash
 	send              SendFunc
 	partyID           string // Our validator address (pushvaloper format)
 	logger            zerolog.Logger
@@ -54,6 +61,8 @@ func NewSessionManager(
 	eventStore *eventstore.Store,
 	coord *coordinator.Coordinator,
 	keyshareManager *keyshare.Manager,
+	pushCore *pushcore.Client,
+	txBuilderFactory common.OutboundTxBuilderFactory,
 	send SendFunc,
 	partyID string,
 	sessionExpiryTime time.Duration,
@@ -64,6 +73,8 @@ func NewSessionManager(
 		eventStore:        eventStore,
 		coordinator:       coord,
 		keyshareManager:   keyshareManager,
+		pushCore:          pushCore,
+		txBuilderFactory:  txBuilderFactory,
 		send:              send,
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
@@ -133,6 +144,13 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return nil
 	}
 	sm.mu.Unlock()
+
+	// 4.5. For SIGN events, verify the signing hash independently
+	if event.Type == string(coordinator.ProtocolSign) {
+		if err := sm.verifySignMetadata(ctx, event, msg.SignMetadata); err != nil {
+			return errors.Wrap(err, "sign metadata verification failed")
+		}
+	}
 
 	// 5. Create session based on protocol type
 	session, err := sm.createSession(ctx, event, msg)
@@ -713,4 +731,104 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			}
 		}
 	}
+}
+
+// GasPriceTolerancePercent defines the acceptable deviation from oracle gas price (e.g., 10 = 10%)
+const GasPriceTolerancePercent = 10
+
+// verifySignMetadata validates the coordinator's signing request by:
+// 1. Verifying the gas price is within acceptable range of on-chain oracle
+// 2. Building the transaction independently using the same gas price
+// 3. Comparing the resulting hash with coordinator's hash - must match exactly
+func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.PCEvent, meta *coordinator.SignMetadata) error {
+	if meta == nil {
+		return errors.New("sign metadata is required for SIGN events")
+	}
+
+	if meta.GasPrice == nil {
+		return errors.New("gas price is missing in metadata")
+	}
+
+	if len(meta.SigningHash) == 0 {
+		return errors.New("signing hash is missing in metadata")
+	}
+
+	// Parse the event data to get outbound transaction details
+	var outboundData uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(event.EventData, &outboundData); err != nil {
+		return errors.Wrap(err, "failed to parse outbound event data")
+	}
+
+	// 1. Validate gas price is reasonable (within tolerance of oracle price)
+	if err := sm.validateGasPrice(ctx, outboundData.DestinationChain, meta.GasPrice); err != nil {
+		return errors.Wrap(err, "gas price validation failed")
+	}
+
+	// 2. Build the transaction independently using the same gas price
+	if sm.txBuilderFactory == nil {
+		sm.logger.Warn().Msg("txBuilderFactory not configured, skipping hash verification")
+		return nil
+	}
+
+	builder, err := sm.txBuilderFactory.CreateBuilder(outboundData.DestinationChain)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create tx builder for chain %s", outboundData.DestinationChain)
+	}
+
+	// Build transaction with the coordinator's gas price
+	txResult, err := builder.BuildTransaction(ctx, &outboundData, meta.GasPrice)
+	if err != nil {
+		return errors.Wrap(err, "failed to build transaction for verification")
+	}
+
+	// 3. Compare hashes - must match exactly
+	if !bytes.Equal(txResult.SigningHash, meta.SigningHash) {
+		sm.logger.Error().
+			Str("our_hash", hex.EncodeToString(txResult.SigningHash)).
+			Str("coordinator_hash", hex.EncodeToString(meta.SigningHash)).
+			Str("event_id", event.EventID).
+			Msg("signing hash mismatch - rejecting signing request")
+		return errors.New("signing hash mismatch: our computed hash does not match coordinator's hash")
+	}
+
+	sm.logger.Debug().
+		Str("event_id", event.EventID).
+		Str("gas_price", meta.GasPrice.String()).
+		Str("signing_hash", hex.EncodeToString(meta.SigningHash)).
+		Msg("sign metadata verified - hash matches")
+
+	return nil
+}
+
+// validateGasPrice checks that the provided gas price is within acceptable bounds of the oracle price.
+func (sm *SessionManager) validateGasPrice(ctx context.Context, chainID string, gasPrice *big.Int) error {
+	if sm.pushCore == nil {
+		sm.logger.Warn().Msg("pushCore not configured, skipping gas price validation")
+		return nil
+	}
+
+	if gasPrice == nil {
+		return errors.New("gas price is nil")
+	}
+
+	// Get the current oracle gas price
+	oraclePrice, err := sm.pushCore.GetGasPrice(ctx, chainID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get oracle gas price")
+	}
+
+	// Check if gas price is within tolerance
+	// Allow coordinator's price to be within ±GasPriceTolerancePercent of oracle price
+	tolerance := new(big.Int).Div(oraclePrice, big.NewInt(100/GasPriceTolerancePercent))
+	minPrice := new(big.Int).Sub(oraclePrice, tolerance)
+	maxPrice := new(big.Int).Add(oraclePrice, tolerance)
+
+	if gasPrice.Cmp(minPrice) < 0 {
+		return errors.Errorf("gas price %s is too low (min: %s, oracle: %s)", gasPrice.String(), minPrice.String(), oraclePrice.String())
+	}
+	if gasPrice.Cmp(maxPrice) > 0 {
+		return errors.Errorf("gas price %s is too high (max: %s, oracle: %s)", gasPrice.String(), maxPrice.String(), oraclePrice.String())
+	}
+
+	return nil
 }

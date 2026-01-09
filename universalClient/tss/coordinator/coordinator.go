@@ -2,9 +2,7 @@ package coordinator
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -14,6 +12,7 @@ import (
 
 	session "go-wrapper/go-dkls/sessions"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -27,6 +26,7 @@ type Coordinator struct {
 	eventStore       *eventstore.Store
 	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
+	txBuilderFactory common.OutboundTxBuilderFactory
 	validatorAddress string
 	coordinatorRange uint64
 	pollInterval     time.Duration
@@ -56,6 +56,7 @@ func NewCoordinator(
 	eventStore *eventstore.Store,
 	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
+	txBuilderFactory common.OutboundTxBuilderFactory,
 	validatorAddress string,
 	coordinatorRange uint64,
 	pollInterval time.Duration,
@@ -69,6 +70,7 @@ func NewCoordinator(
 		eventStore:       eventStore,
 		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
+		txBuilderFactory: txBuilderFactory,
 		validatorAddress: validatorAddress,
 		coordinatorRange: coordinatorRange,
 		pollInterval:     pollInterval,
@@ -429,6 +431,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create setup message based on event type
 	var setupData []byte
+	var signMetadata *SignMetadata
 	var err error
 	switch event.Type {
 	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
@@ -437,7 +440,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	case string(ProtocolQuorumChange):
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
 	case string(ProtocolSign):
-		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
+		setupData, signMetadata, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
 		err = errors.Errorf("unknown protocol type: %s", event.Type)
 	}
@@ -452,6 +455,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 		EventID:      event.EventID,
 		Payload:      setupData,
 		Participants: partyIDs,
+		SignMetadata: signMetadata, // nil for non-sign events
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {
@@ -615,19 +619,20 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 	return setupData, nil
 }
 
-// createSignSetup creates a sign setup message.
-// Requires loading the keyshare to extract keyID and messageHash from event data.
-func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, error) {
+// createSignSetup creates a sign setup message and returns the sign metadata.
+// Uses the OutboundTxBuilder to build the actual transaction for the destination chain.
+// Returns the setup data, sign metadata (for participant verification), and error.
+func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *SignMetadata, error) {
 	// Get current TSS keyId from pushCore
 	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current TSS keyId")
+		return nil, nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
 
 	// Load keyshare to ensure it exists (validation)
 	keyshareBytes, err := c.keyshareManager.Get(keyIDStr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
+		return nil, nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
 	}
 	_ = keyshareBytes // Keyshare is loaded for validation, keyID is derived from string
 
@@ -643,23 +648,28 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 		participantIDs = append(participantIDs, []byte(partyID)...)
 	}
 
-	// Build the message hash to sign from outbound event data
-	messageHash, err := buildSignMessageHash(eventData)
+	// Build the transaction and get signing parameters
+	txResult, err := c.buildSignTransaction(ctx, eventData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to build sign message hash")
+		return nil, nil, errors.Wrap(err, "failed to build sign transaction")
 	}
 
-	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, messageHash, participantIDs)
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, txResult.SigningHash, participantIDs)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create sign setup")
+		return nil, nil, errors.Wrap(err, "failed to create sign setup")
 	}
-	return setupData, nil
+
+	// Create sign metadata with gas price and signing hash for participant verification
+	signMetadata := &SignMetadata{
+		GasPrice:    txResult.GasPrice,
+		SigningHash: txResult.SigningHash,
+	}
+
+	return setupData, signMetadata, nil
 }
 
-// buildSignMessageHash creates a deterministic message hash from outbound event data.
-// The hash includes all critical fields that must be validated on the destination chain.
-// Format: sha256(txId|destinationChain|recipient|amount|assetAddr|sender|payload|gasLimit)
-func buildSignMessageHash(eventData []byte) ([]byte, error) {
+// buildSignTransaction builds the outbound transaction using the appropriate OutboundTxBuilder.
+func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte) (*common.OutboundTxResult, error) {
 	if len(eventData) == 0 {
 		return nil, errors.New("event data is empty")
 	}
@@ -673,21 +683,33 @@ func buildSignMessageHash(eventData []byte) ([]byte, error) {
 		return nil, errors.New("outbound event missing tx_id")
 	}
 
-	// Create canonical message string and hash it
-	message := fmt.Sprintf(
-		"%s|%s|%s|%s|%s|%s|%s|%s",
-		data.TxID,
-		data.DestinationChain,
-		data.Recipient,
-		data.Amount,
-		data.AssetAddr,
-		data.Sender,
-		data.Payload,
-		data.GasLimit,
-	)
+	if data.DestinationChain == "" {
+		return nil, errors.New("outbound event missing destination_chain")
+	}
 
-	hash := sha256.Sum256([]byte(message))
-	return hash[:], nil
+	if c.txBuilderFactory == nil {
+		return nil, errors.New("tx builder factory not configured")
+	}
+
+	// Get gas price from pushcore oracle
+	gasPrice, err := c.pushCore.GetGasPrice(ctx, data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get gas price for chain %s", data.DestinationChain)
+	}
+
+	// Get the builder for the destination chain
+	builder, err := c.txBuilderFactory.CreateBuilder(data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create tx builder for chain %s", data.DestinationChain)
+	}
+
+	// Build the transaction with the gas price from oracle
+	txResult, err := builder.BuildTransaction(ctx, &data, gasPrice)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build transaction")
+	}
+
+	return txResult, nil
 }
 
 // createQcSetup creates a quorumchange setup message.

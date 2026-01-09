@@ -115,6 +115,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		testClient,
 		keyshareMgr,
+		nil, // txBuilderFactory - nil for tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -136,6 +137,8 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		coord,
 		keyshareMgr,
+		nil, // pushCore - nil for testing
+		nil, // txBuilderFactory - nil for testing
 		sendFn,
 		"validator1",
 		3*time.Minute, // sessionExpiryTime

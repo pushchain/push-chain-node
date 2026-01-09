@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -149,6 +151,7 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eve
 		evtStore,
 		testClient,
 		keyshareMgr,
+		nil, // txBuilderFactory - nil for most tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -483,8 +486,22 @@ func TestCoordinator_StartStop(t *testing.T) {
 	assert.False(t, running, "coordinator should be stopped")
 }
 
-func TestBuildSignMessageHash(t *testing.T) {
-	t.Run("valid outbound event data", func(t *testing.T) {
+func TestGetSigningHash(t *testing.T) {
+	ctx := context.Background()
+
+	// Note: "valid outbound event data" test requires integration with pushcore.GetGasPrice
+	// which cannot be easily mocked. The validation tests below cover error paths.
+
+	t.Run("gas price fetch fails with minimal pushCore", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+
+		mockFactory := &mockTxBuilderFactory{
+			builders: map[string]*mockTxBuilder{
+				"ethereum": {signingHash: []byte("mock-signing-hash-32-bytes-long!")},
+			},
+		}
+		coord.txBuilderFactory = mockFactory
+
 		eventData := []byte(`{
 			"tx_id": "0x123abc",
 			"destination_chain": "ethereum",
@@ -496,66 +513,108 @@ func TestBuildSignMessageHash(t *testing.T) {
 			"gas_limit": "21000"
 		}`)
 
-		hash, err := buildSignMessageHash(eventData)
-		require.NoError(t, err)
-		assert.Len(t, hash, 32) // SHA256 produces 32 bytes
-	})
-
-	t.Run("deterministic hash", func(t *testing.T) {
-		eventData := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
-
-		hash1, err := buildSignMessageHash(eventData)
-		require.NoError(t, err)
-
-		hash2, err := buildSignMessageHash(eventData)
-		require.NoError(t, err)
-
-		assert.Equal(t, hash1, hash2)
-	})
-
-	t.Run("different tx_id produces different hash", func(t *testing.T) {
-		eventData1 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
-		eventData2 := []byte(`{"tx_id": "0x456", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
-
-		hash1, err := buildSignMessageHash(eventData1)
-		require.NoError(t, err)
-
-		hash2, err := buildSignMessageHash(eventData2)
-		require.NoError(t, err)
-
-		assert.NotEqual(t, hash1, hash2)
-	})
-
-	t.Run("different amount produces different hash", func(t *testing.T) {
-		eventData1 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "100", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
-		eventData2 := []byte(`{"tx_id": "0x123", "destination_chain": "eth", "recipient": "0x1", "amount": "200", "asset_addr": "0x2", "sender": "0x3", "payload": "", "gas_limit": "21000"}`)
-
-		hash1, err := buildSignMessageHash(eventData1)
-		require.NoError(t, err)
-
-		hash2, err := buildSignMessageHash(eventData2)
-		require.NoError(t, err)
-
-		assert.NotEqual(t, hash1, hash2)
+		// With minimal pushCore, gas price fetch will fail
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get gas price")
 	})
 
 	t.Run("missing tx_id", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
 		eventData := []byte(`{"destination_chain": "ethereum"}`)
 
-		_, err := buildSignMessageHash(eventData)
+		_, err := coord.buildSignTransaction(ctx, eventData)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "tx_id")
 	})
 
+	t.Run("missing destination_chain", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
+		eventData := []byte(`{"tx_id": "0x123"}`)
+
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "destination_chain")
+	})
+
+	t.Run("nil factory", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// Factory is nil by default in test setup
+
+		eventData := []byte(`{"tx_id": "0x123", "destination_chain": "ethereum"}`)
+
+		_, err := coord.buildSignTransaction(ctx, eventData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "factory not configured")
+	})
+
 	t.Run("invalid json", func(t *testing.T) {
-		_, err := buildSignMessageHash([]byte("not json"))
+		coord, _, _ := setupTestCoordinator(t)
+		coord.txBuilderFactory = &mockTxBuilderFactory{}
+
+		_, err := coord.buildSignTransaction(ctx, []byte("not json"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unmarshal")
 	})
 
 	t.Run("empty event data", func(t *testing.T) {
-		_, err := buildSignMessageHash([]byte{})
+		coord, _, _ := setupTestCoordinator(t)
+
+		_, err := coord.buildSignTransaction(ctx, []byte{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty")
 	})
+}
+
+// mockTxBuilder implements common.OutboundTxBuilder for testing
+type mockTxBuilder struct {
+	signingHash []byte
+	err         error
+}
+
+func (m *mockTxBuilder) BuildTransaction(ctx context.Context, data *common.OutboundTxData, gasPrice *big.Int) (*common.OutboundTxResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &common.OutboundTxResult{
+		SigningHash: m.signingHash,
+		Nonce:       1,
+		GasPrice:    gasPrice,
+		GasLimit:    21000,
+		ChainID:     "ethereum",
+		RawTx:       []byte("raw-tx-data"),
+	}, nil
+}
+
+func (m *mockTxBuilder) AssembleSignedTransaction(unsignedTx []byte, signature []byte, recoveryID byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockTxBuilder) BroadcastTransaction(ctx context.Context, signedTx []byte) (string, error) {
+	return "", nil
+}
+
+func (m *mockTxBuilder) GetChainID() string {
+	return "mock-chain"
+}
+
+// mockTxBuilderFactory implements common.OutboundTxBuilderFactory for testing
+type mockTxBuilderFactory struct {
+	builders map[string]*mockTxBuilder
+}
+
+func (m *mockTxBuilderFactory) CreateBuilder(chainID string) (common.OutboundTxBuilder, error) {
+	if builder, ok := m.builders[chainID]; ok {
+		return builder, nil
+	}
+	return nil, errors.New("unsupported chain: " + chainID)
+}
+
+func (m *mockTxBuilderFactory) SupportsChain(chainID string) bool {
+	_, ok := m.builders[chainID]
+	return ok
 }

@@ -42,10 +42,12 @@ func NewOutboundTxBuilder(
 }
 
 // BuildTransaction creates an unsigned Solana transaction from outbound data.
-func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincommon.OutboundTxData) (*chaincommon.OutboundTxResult, error) {
+// gasPrice is accepted for interface compatibility but not used for Solana (uses compute units instead).
+func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincommon.OutboundTxData, gasPrice *big.Int) (*chaincommon.OutboundTxResult, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound data is nil")
 	}
+	// Note: gasPrice is not used for Solana transactions (they use compute units)
 
 	b.logger.Debug().
 		Str("tx_id", data.TxID).
@@ -94,16 +96,8 @@ func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincom
 		RawTx:       rawTx,
 		SigningHash: signingHash,
 		ChainID:     b.caipChainID,
+		Blockhash:   recentBlockhash[:],
 	}, nil
-}
-
-// GetSigningHash returns just the hash that needs to be signed.
-func (b *OutboundTxBuilder) GetSigningHash(ctx context.Context, data *chaincommon.OutboundTxData) ([]byte, error) {
-	result, err := b.BuildTransaction(ctx, data)
-	if err != nil {
-		return nil, err
-	}
-	return result.SigningHash, nil
 }
 
 // AssembleSignedTransaction combines the unsigned transaction with the TSS signature.
@@ -220,8 +214,8 @@ func (b *OutboundTxBuilder) buildGatewayInstruction(data *chaincommon.OutboundTx
 
 	// Build account metas
 	accounts := []*solana.AccountMeta{
-		{PublicKey: b.tssPublicKey, IsSigner: true, IsWritable: true},   // Payer/Signer
-		{PublicKey: recipient, IsSigner: false, IsWritable: true},       // Recipient
+		{PublicKey: b.tssPublicKey, IsSigner: true, IsWritable: true},     // Payer/Signer
+		{PublicKey: recipient, IsSigner: false, IsWritable: true},         // Recipient
 		{PublicKey: b.gatewayProgram, IsSigner: false, IsWritable: false}, // Gateway program
 	}
 
@@ -297,4 +291,3 @@ func buildExecuteOutboundInstructionData(txID string, amount *big.Int, payload [
 
 	return data
 }
-

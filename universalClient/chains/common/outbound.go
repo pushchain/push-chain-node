@@ -21,7 +21,7 @@ type OutboundTxResult struct {
 	// For Solana: the message hash
 	SigningHash []byte `json:"signing_hash"`
 
-	// Nonce is the transaction nonce (EVM) or recent blockhash (Solana)
+	// Nonce is the transaction nonce (EVM only)
 	Nonce uint64 `json:"nonce,omitempty"`
 
 	// GasPrice is the gas price used (EVM only)
@@ -32,18 +32,19 @@ type OutboundTxResult struct {
 
 	// ChainID is the destination chain ID
 	ChainID string `json:"chain_id"`
+
+	// Blockhash is the recent blockhash used (Solana only)
+	Blockhash []byte `json:"blockhash,omitempty"`
 }
 
 // OutboundTxBuilder defines the interface for building outbound transactions.
 // Each chain type (EVM, SVM) implements this interface.
 type OutboundTxBuilder interface {
 	// BuildTransaction creates an unsigned transaction from outbound data.
+	// gasPrice: the gas price from on-chain oracle (passed by coordinator)
+	// Fetches nonce from destination chain.
 	// Returns the transaction result containing the raw tx and signing hash.
-	BuildTransaction(ctx context.Context, data *OutboundTxData) (*OutboundTxResult, error)
-
-	// GetSigningHash returns just the hash that needs to be signed.
-	// This is used when you only need the hash without building the full tx.
-	GetSigningHash(ctx context.Context, data *OutboundTxData) ([]byte, error)
+	BuildTransaction(ctx context.Context, data *OutboundTxData, gasPrice *big.Int) (*OutboundTxResult, error)
 
 	// AssembleSignedTransaction combines the unsigned transaction with the TSS signature.
 	// Returns the fully signed transaction ready for broadcast.

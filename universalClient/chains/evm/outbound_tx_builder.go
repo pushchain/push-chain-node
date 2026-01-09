@@ -46,15 +46,20 @@ func NewOutboundTxBuilder(
 }
 
 // BuildTransaction creates an unsigned EVM transaction from outbound data.
-func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincommon.OutboundTxData) (*chaincommon.OutboundTxResult, error) {
+// gasPrice is provided by the caller (from pushcore oracle).
+func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincommon.OutboundTxData, gasPrice *big.Int) (*chaincommon.OutboundTxResult, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound data is nil")
+	}
+	if gasPrice == nil {
+		return nil, fmt.Errorf("gas price is nil")
 	}
 
 	b.logger.Debug().
 		Str("tx_id", data.TxID).
 		Str("recipient", data.Recipient).
 		Str("amount", data.Amount).
+		Str("gas_price", gasPrice.String()).
 		Msg("building EVM outbound transaction")
 
 	// Parse amount
@@ -74,12 +79,6 @@ func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincom
 	nonce, err := b.getNonce(ctx, tssAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nonce: %w", err)
-	}
-
-	// Get gas price
-	gasPrice, err := b.getGasPrice(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get gas price: %w", err)
 	}
 
 	// Build transaction data (call to gateway contract)
@@ -118,15 +117,6 @@ func (b *OutboundTxBuilder) BuildTransaction(ctx context.Context, data *chaincom
 		GasLimit:    gasLimit.Uint64(),
 		ChainID:     b.caipChainID,
 	}, nil
-}
-
-// GetSigningHash returns just the hash that needs to be signed.
-func (b *OutboundTxBuilder) GetSigningHash(ctx context.Context, data *chaincommon.OutboundTxData) ([]byte, error) {
-	result, err := b.BuildTransaction(ctx, data)
-	if err != nil {
-		return nil, err
-	}
-	return result.SigningHash, nil
 }
 
 // AssembleSignedTransaction combines the unsigned transaction with the TSS signature.
@@ -216,17 +206,6 @@ func (b *OutboundTxBuilder) getNonce(ctx context.Context, addr common.Address) (
 		return innerErr
 	})
 	return nonce, err
-}
-
-// getGasPrice gets the current gas price.
-func (b *OutboundTxBuilder) getGasPrice(ctx context.Context) (*big.Int, error) {
-	var gasPrice *big.Int
-	err := b.client.executeWithFailover(ctx, "get_gas_price", func(client *ethclient.Client) error {
-		var innerErr error
-		gasPrice, innerErr = client.SuggestGasPrice(ctx)
-		return innerErr
-	})
-	return gasPrice, err
 }
 
 // buildGatewayCallData builds the call data for the gateway contract.

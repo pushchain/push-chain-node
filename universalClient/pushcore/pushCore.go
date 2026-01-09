@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -16,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/pushchain/push-chain-node/universalClient/constant"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -28,14 +30,15 @@ import (
 // Client is a minimal fan-out client over multiple gRPC endpoints.
 // Each call tries endpoints in round-robin order and returns the first success.
 type Client struct {
-	logger             zerolog.Logger
-	eps                []uregistrytypes.QueryClient
-	uvalidatorClients  []uvalidatortypes.QueryClient
-	utssClients        []utsstypes.QueryClient
-	cmtClients         []cmtservice.ServiceClient
-	txClients          []tx.ServiceClient // for querying transactions by events
-	conns              []*grpc.ClientConn // owned connections for Close()
-	rr                 uint32             // round-robin counter
+	logger            zerolog.Logger
+	eps               []uregistrytypes.QueryClient
+	uvalidatorClients []uvalidatortypes.QueryClient
+	utssClients       []utsstypes.QueryClient
+	uexecutorClients  []uexecutortypes.QueryClient // for gas price queries
+	cmtClients        []cmtservice.ServiceClient
+	txClients         []tx.ServiceClient // for querying transactions by events
+	conns             []*grpc.ClientConn // owned connections for Close()
+	rr                uint32             // round-robin counter
 }
 
 // New dials the provided gRPC URLs (best-effort) and builds a Client.
@@ -61,6 +64,7 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 		c.eps = append(c.eps, uregistrytypes.NewQueryClient(conn))
 		c.uvalidatorClients = append(c.uvalidatorClients, uvalidatortypes.NewQueryClient(conn))
 		c.utssClients = append(c.utssClients, utsstypes.NewQueryClient(conn))
+		c.uexecutorClients = append(c.uexecutorClients, uexecutortypes.NewQueryClient(conn))
 		c.cmtClients = append(c.cmtClients, cmtservice.NewServiceClient(conn))
 		c.txClients = append(c.txClients, tx.NewServiceClient(conn))
 	}
@@ -86,6 +90,7 @@ func (c *Client) Close() error {
 	c.eps = nil
 	c.uvalidatorClients = nil
 	c.utssClients = nil
+	c.uexecutorClients = nil
 	c.cmtClients = nil
 	c.txClients = nil
 	return firstErr
@@ -435,9 +440,9 @@ func (c *Client) GetCurrentTSSKeyId() (string, error) {
 
 // TxResult represents a transaction result with its events.
 type TxResult struct {
-	TxHash      string
-	Height      int64
-	TxResponse  *tx.GetTxResponse
+	TxHash     string
+	Height     int64
+	TxResponse *tx.GetTxResponse
 }
 
 // GetTxsByEvents queries transactions matching the given event query.
@@ -539,4 +544,55 @@ func (c *Client) GetBlockByHeight(height int64) (*cmtservice.GetBlockByHeightRes
 	}
 
 	return nil, fmt.Errorf("pushcore: GetBlockByHeight failed on all %d endpoints: %w", len(c.cmtClients), lastErr)
+}
+
+// GetGasPrice returns the median gas price for a specific chain from the on-chain oracle.
+// The gas price is voted on by universal validators and stored on-chain.
+// chainID should be in CAIP-2 format (e.g., "eip155:84532" for Base Sepolia).
+// Returns the median price in the chain's native unit (Wei for EVM chains, lamports for Solana).
+func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, error) {
+	if len(c.uexecutorClients) == 0 {
+		return nil, errors.New("pushcore: no endpoints configured")
+	}
+
+	if chainID == "" {
+		return nil, errors.New("pushcore: chainID is required")
+	}
+
+	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.uexecutorClients)
+
+	var lastErr error
+	for i := 0; i < len(c.uexecutorClients); i++ {
+		idx := (start + i) % len(c.uexecutorClients)
+		client := c.uexecutorClients[idx]
+
+		resp, err := client.GasPrice(ctx, &uexecutortypes.QueryGasPriceRequest{
+			ChainId: chainID,
+		})
+		if err == nil && resp.GasPrice != nil {
+			// Get the median price using MedianIndex
+			if len(resp.GasPrice.Prices) == 0 {
+				return nil, fmt.Errorf("pushcore: no gas prices available for chain %s", chainID)
+			}
+
+			medianIdx := resp.GasPrice.MedianIndex
+			if medianIdx >= uint64(len(resp.GasPrice.Prices)) {
+				// Fallback to first price if median index is out of bounds
+				medianIdx = 0
+			}
+
+			medianPrice := resp.GasPrice.Prices[medianIdx]
+			return new(big.Int).SetUint64(medianPrice), nil
+		}
+
+		lastErr = err
+		c.logger.Debug().
+			Int("attempt", i+1).
+			Int("endpoint_index", idx).
+			Str("chain_id", chainID).
+			Err(err).
+			Msg("GetGasPrice failed; trying next endpoint")
+	}
+
+	return nil, fmt.Errorf("pushcore: GetGasPrice failed on all %d endpoints for chain %s: %w", len(c.uexecutorClients), chainID, lastErr)
 }

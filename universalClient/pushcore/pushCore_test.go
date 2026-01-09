@@ -2,8 +2,10 @@ package pushcore
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -175,7 +177,7 @@ func TestNew_ErrorHandling(t *testing.T) {
 	t.Run("partial connection success", func(t *testing.T) {
 		// Mix of potentially valid and definitely invalid URLs
 		urls := []string{
-			"localhost:9090", // Might work
+			"localhost:9090",                       // Might work
 			"invalid-host-that-doesnt-exist:99999", // Will fail
 		}
 
@@ -477,4 +479,258 @@ func TestExtractHostnameFromURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_GetGasPrice(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, price)
+	})
+
+	t.Run("empty chainID", func(t *testing.T) {
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{nil}, // Has endpoint but chainID is empty
+		}
+
+		price, err := client.GetGasPrice(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "chainID is required")
+		assert.Nil(t, price)
+	})
+}
+
+func TestClient_GetGasPrice_WithMock(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("successful gas price retrieval", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+				GasPrice: &uexecutortypes.GasPrice{
+					ObservedChainId: "eip155:84532",
+					Signers:         []string{"validator1", "validator2", "validator3"},
+					Prices:          []uint64{1000000000, 2000000000, 3000000000}, // 1, 2, 3 gwei
+					BlockNums:       []uint64{100, 101, 102},
+					MedianIndex:     1, // Median is 2 gwei (index 1)
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.NoError(t, err)
+		require.NotNil(t, price)
+
+		// Expected median price is 2000000000 (2 gwei)
+		expectedPrice := big.NewInt(2000000000)
+		assert.Equal(t, expectedPrice, price)
+	})
+
+	t.Run("single validator price", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+				GasPrice: &uexecutortypes.GasPrice{
+					ObservedChainId: "eip155:1",
+					Signers:         []string{"validator1"},
+					Prices:          []uint64{5000000000}, // 5 gwei
+					BlockNums:       []uint64{100},
+					MedianIndex:     0,
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:1")
+		require.NoError(t, err)
+		require.NotNil(t, price)
+		assert.Equal(t, big.NewInt(5000000000), price)
+	})
+
+	t.Run("empty prices array", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+				GasPrice: &uexecutortypes.GasPrice{
+					ObservedChainId: "eip155:84532",
+					Signers:         []string{},
+					Prices:          []uint64{}, // Empty
+					BlockNums:       []uint64{},
+					MedianIndex:     0,
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no gas prices available")
+		assert.Nil(t, price)
+	})
+
+	t.Run("median index out of bounds fallback", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+				GasPrice: &uexecutortypes.GasPrice{
+					ObservedChainId: "eip155:84532",
+					Signers:         []string{"validator1"},
+					Prices:          []uint64{1500000000},
+					BlockNums:       []uint64{100},
+					MedianIndex:     99, // Out of bounds
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.NoError(t, err)
+		require.NotNil(t, price)
+		// Should fallback to first price
+		assert.Equal(t, big.NewInt(1500000000), price)
+	})
+
+	t.Run("chain not found error", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			err: assert.AnError,
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "unknown-chain")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "GetGasPrice failed")
+		assert.Nil(t, price)
+	})
+
+	t.Run("round robin failover", func(t *testing.T) {
+		// First client fails, second succeeds
+		failingClient := &mockUExecutorQueryClient{
+			err: assert.AnError,
+		}
+		successClient := &mockUExecutorQueryClient{
+			gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+				GasPrice: &uexecutortypes.GasPrice{
+					ObservedChainId: "eip155:84532",
+					Prices:          []uint64{1000000000},
+					MedianIndex:     0,
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{failingClient, successClient},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.NoError(t, err)
+		require.NotNil(t, price)
+		assert.Equal(t, big.NewInt(1000000000), price)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			uexecutorClients: []uexecutortypes.QueryClient{
+				&mockUExecutorQueryClient{err: assert.AnError},
+				&mockUExecutorQueryClient{err: assert.AnError},
+			},
+		}
+
+		price, err := client.GetGasPrice(ctx, "eip155:84532")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed on all 2 endpoints")
+		assert.Nil(t, price)
+	})
+
+	t.Run("various chain IDs", func(t *testing.T) {
+		chainIDs := []string{
+			"eip155:1",       // Ethereum Mainnet
+			"eip155:84532",   // Base Sepolia
+			"eip155:137",     // Polygon
+			"solana:mainnet", // Solana Mainnet
+		}
+
+		for _, chainID := range chainIDs {
+			mockClient := &mockUExecutorQueryClient{
+				gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+					GasPrice: &uexecutortypes.GasPrice{
+						ObservedChainId: chainID,
+						Prices:          []uint64{1000000000},
+						MedianIndex:     0,
+					},
+				},
+			}
+
+			client := &Client{
+				logger:           logger,
+				uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+			}
+
+			price, err := client.GetGasPrice(ctx, chainID)
+			require.NoError(t, err, "Failed for chainID: %s", chainID)
+			require.NotNil(t, price)
+		}
+	})
+}
+
+// mockUExecutorQueryClient implements uexecutortypes.QueryClient for testing
+type mockUExecutorQueryClient struct {
+	gasPriceResp *uexecutortypes.QueryGasPriceResponse
+	err          error
+}
+
+func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.gasPriceResp, nil
+}
+
+func (m *mockUExecutorQueryClient) Params(ctx context.Context, req *uexecutortypes.QueryParamsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryParamsResponse, error) {
+	return nil, nil
+}
+
+func (m *mockUExecutorQueryClient) AllPendingInbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingInboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingInboundsResponse, error) {
+	return nil, nil
+}
+
+func (m *mockUExecutorQueryClient) GetUniversalTx(ctx context.Context, req *uexecutortypes.QueryGetUniversalTxRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGetUniversalTxResponse, error) {
+	return nil, nil
+}
+
+func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexecutortypes.QueryAllUniversalTxRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllUniversalTxResponse, error) {
+	return nil, nil
+}
+
+func (m *mockUExecutorQueryClient) AllGasPrices(ctx context.Context, req *uexecutortypes.QueryAllGasPricesRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllGasPricesResponse, error) {
+	return nil, nil
 }

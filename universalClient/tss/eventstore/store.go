@@ -8,11 +8,22 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
+// Event statuses for TSS operations
 const (
-	StatusPending    = "PENDING"
+	// StatusPending - Event is waiting to be processed (TSS signing not started)
+	StatusPending = "PENDING"
+
+	// StatusInProgress - TSS signing is in progress
 	StatusInProgress = "IN_PROGRESS"
-	StatusSuccess    = "SUCCESS"
-	StatusExpired    = "EXPIRED"
+
+	// StatusBroadcasted - Transaction sent to external chain (for sign events)
+	StatusBroadcasted = "BROADCASTED"
+
+	// StatusCompleted - Successfully completed (key events: vote sent, sign events: confirmed)
+	StatusCompleted = "COMPLETED"
+
+	// StatusReverted - Event reverted
+	StatusReverted = "REVERTED"
 )
 
 // Store provides database access for TSS events.
@@ -30,7 +41,7 @@ func NewStore(db *gorm.DB, logger zerolog.Logger) *Store {
 }
 
 // GetPendingEvents returns all pending events that are ready to be processed.
-// Events are ready if they are at least `minBlockConfirmation` blocks behind the current block.
+// Events are ready if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
 func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.PCEvent, error) {
 	var events []store.PCEvent
 
@@ -40,26 +51,28 @@ func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint6
 		minBlock = 0
 	}
 
-	if err := s.db.Where("status = ? AND block_height <= ?", StatusPending, minBlock).
+	// Get pending events that are not expired
+	if err := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
+		StatusPending, minBlock, currentBlock).
 		Order("block_height ASC, created_at ASC").
 		Find(&events).Error; err != nil {
 		return nil, errors.Wrap(err, "failed to query pending events")
 	}
 
-	// Filter out expired events
-	var validEvents []store.PCEvent
-	for _, event := range events {
-		if event.ExpiryBlockHeight > 0 && currentBlock > event.ExpiryBlockHeight {
-			// Mark as expired
-			if err := s.UpdateStatus(event.EventID, StatusExpired, ""); err != nil {
-				s.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event as expired")
-			}
-			continue
-		}
-		validEvents = append(validEvents, event)
+	return events, nil
+}
+
+// GetExpiredPendingEvents returns pending events that have expired (expiry_block_height <= currentBlock).
+func (s *Store) GetExpiredPendingEvents(currentBlock uint64) ([]store.PCEvent, error) {
+	var events []store.PCEvent
+
+	if err := s.db.Where("status = ? AND expiry_block_height <= ?", StatusPending, currentBlock).
+		Order("block_height ASC, created_at ASC").
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query expired pending events")
 	}
 
-	return validEvents, nil
+	return events, nil
 }
 
 // GetEvent retrieves an event by ID.
@@ -120,15 +133,15 @@ func (s *Store) GetEventsByStatus(status string, limit int) ([]store.PCEvent, er
 	return events, nil
 }
 
-// ClearExpiredAndSuccessfulEvents deletes both expired and successful events.
-func (s *Store) ClearExpiredAndSuccessfulEvents() (int64, error) {
-	result := s.db.Where("status IN ?", []string{StatusExpired, StatusSuccess}).Delete(&store.PCEvent{})
+// ClearTerminalEvents deletes completed and reverted events.
+func (s *Store) ClearTerminalEvents() (int64, error) {
+	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted}).Delete(&store.PCEvent{})
 	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to clear expired and successful events")
+		return 0, errors.Wrap(result.Error, "failed to clear expired and completed events")
 	}
 	s.logger.Info().
 		Int64("deleted_count", result.RowsAffected).
-		Msg("cleared expired and successful events")
+		Msg("cleared expired and completed events")
 	return result.RowsAffected, nil
 }
 
@@ -160,5 +173,19 @@ func (s *Store) CreateEvent(event *store.PCEvent) error {
 		Str("type", event.Type).
 		Uint64("block_height", event.BlockHeight).
 		Msg("stored new TSS event")
+	return nil
+}
+
+// UpdateTxHash updates the TxHash field for an event (used after broadcasting).
+func (s *Store) UpdateTxHash(eventID, txHash string) error {
+	result := s.db.Model(&store.PCEvent{}).
+		Where("event_id = ?", eventID).
+		Update("tx_hash", txHash)
+	if result.Error != nil {
+		return errors.Wrapf(result.Error, "failed to update tx_hash for event %s", eventID)
+	}
+	if result.RowsAffected == 0 {
+		return errors.Errorf("event %s not found", eventID)
+	}
 	return nil
 }

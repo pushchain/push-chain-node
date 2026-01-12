@@ -156,6 +156,19 @@ func (b *OutboundTxBuilder) BroadcastTransaction(ctx context.Context, signedTx [
 	return txHash, nil
 }
 
+// GetTxHash extracts the transaction hash from a signed transaction.
+// For Solana, the txHash is the signature of the transaction.
+func (b *OutboundTxBuilder) GetTxHash(signedTx []byte) (string, error) {
+	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(signedTx))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode signed transaction: %w", err)
+	}
+	if len(tx.Signatures) == 0 {
+		return "", fmt.Errorf("transaction has no signatures")
+	}
+	return tx.Signatures[0].String(), nil
+}
+
 // GetChainID returns the chain identifier.
 func (b *OutboundTxBuilder) GetChainID() string {
 	return b.caipChainID

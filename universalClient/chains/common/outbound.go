@@ -54,6 +54,10 @@ type OutboundTxBuilder interface {
 	// Returns the transaction hash.
 	BroadcastTransaction(ctx context.Context, signedTx []byte) (string, error)
 
+	// GetTxHash extracts the transaction hash from a signed transaction.
+	// This can be calculated before broadcasting, so we can always store it.
+	GetTxHash(signedTx []byte) (string, error)
+
 	// GetChainID returns the chain identifier this builder is configured for.
 	GetChainID() string
 }

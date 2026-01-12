@@ -184,6 +184,15 @@ func (b *OutboundTxBuilder) BroadcastTransaction(ctx context.Context, signedTx [
 	return txHash, nil
 }
 
+// GetTxHash extracts the transaction hash from a signed transaction.
+func (b *OutboundTxBuilder) GetTxHash(signedTx []byte) (string, error) {
+	var tx types.Transaction
+	if err := rlp.DecodeBytes(signedTx, &tx); err != nil {
+		return "", fmt.Errorf("failed to decode signed transaction: %w", err)
+	}
+	return tx.Hash().Hex(), nil
+}
+
 // GetChainID returns the chain identifier.
 func (b *OutboundTxBuilder) GetChainID() string {
 	return b.caipChainID

@@ -28,6 +28,9 @@ import (
 // SendFunc is a function type for sending messages to participants.
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
+// retryBlockDelay is the number of blocks to delay before retrying a failed event
+const retryBlockDelay = 10
+
 // sessionState holds all state for a single session.
 type sessionState struct {
 	session      dkls.Session
@@ -431,41 +434,57 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 			Msg("saved new keyshare from quorumchange with updated participants")
 
 	case string(coordinator.ProtocolSign):
-		// TODO: Save signature to database for outbound Tx Processing
 		sm.logger.Info().
 			Str("event_id", eventID).
 			Str("signature", hex.EncodeToString(result.Signature)).
 			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Msg("signature generated and verified from sign session")
+			Msg("signature generated from sign session")
+
+		// Get event data for broadcasting
+		event, err := sm.eventStore.GetEvent(eventID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get event %s for broadcasting", eventID)
+		}
+
+		// All nodes broadcast for redundancy - duplicates are handled gracefully
+		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature); err != nil {
+			// handleSigningComplete only returns errors for critical failures (e.g., GetTxHash, UpdateTxHash, UpdateStatus)
+			// Broadcast errors are logged but don't cause function to return error
+			sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
+			return errors.Wrapf(err, "failed to complete signing process for event %s", eventID)
+		}
 
 	default:
 		return errors.Errorf("unknown protocol type: %s", state.protocolType)
 	}
 
-	// Vote on TSS key process (keygen/keyrefresh/quorumchange only)
-	if sm.voteHandler != nil && (state.protocolType == string(coordinator.ProtocolKeygen) || state.protocolType == string(coordinator.ProtocolKeyrefresh) || state.protocolType == string(coordinator.ProtocolQuorumChange)) {
-		pubKeyHex := hex.EncodeToString(result.PublicKey)
+	// Vote and mark completed for key events (keygen/keyrefresh/quorumchange)
+	// SIGN events are handled separately in handleSigningComplete
+	if state.protocolType != string(coordinator.ProtocolSign) {
+		if sm.voteHandler != nil {
+			pubKeyHex := hex.EncodeToString(result.PublicKey)
 
-		paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse process id from %s", eventID)
-		}
-		voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
-		if err != nil {
-			sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("TSS vote failed - marking PENDING")
-
-			if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusPending, err.Error()); err != nil {
-				return errors.Wrapf(err, "failed to update event status to PENDING")
+			paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse process id from %s", eventID)
 			}
-			return nil // Event will be retried
+			voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
+			if err != nil {
+				// Vote failed after TSS signing - do NOT retry, let it expire naturally
+				// This prevents double signing since TSS signing is already complete
+				sm.logger.Error().
+					Err(err).
+					Str("event_id", eventID).
+					Msg("TSS vote failed after signing - event will expire naturally (no retry to prevent double signing)")
+				// Leave event in IN_PROGRESS status - it will expire and be handled by maintenance handler
+				return errors.Wrapf(err, "failed to vote for key process after TSS signing")
+			}
+			sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
 		}
 
-		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
-	}
-
-	// Update event status to SUCCESS (only reached if vote succeeded or not required)
-	if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusSuccess, ""); err != nil {
-		return errors.Wrapf(err, "failed to update event status")
+		if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusCompleted, ""); err != nil {
+			return errors.Wrapf(err, "failed to update event status")
+		}
 	}
 
 	sm.logger.Info().Str("event_id", eventID).Msg("session finished successfully")
@@ -828,6 +847,98 @@ func (sm *SessionManager) validateGasPrice(ctx context.Context, chainID string, 
 	}
 	if gasPrice.Cmp(maxPrice) > 0 {
 		return errors.Errorf("gas price %s is too high (max: %s, oracle: %s)", gasPrice.String(), maxPrice.String(), oraclePrice.String())
+	}
+
+	return nil
+}
+
+// handleSigningComplete assembles and broadcasts the signed transaction.
+// All nodes call this for redundancy - duplicate broadcasts are handled gracefully by the chain.
+func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID string, eventData []byte, signature []byte) error {
+	// Parse event data to get outbound details
+	var outboundData uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(eventData, &outboundData); err != nil {
+		return errors.Wrap(err, "failed to parse outbound event data")
+	}
+
+	if sm.txBuilderFactory == nil {
+		return errors.New("tx builder factory not configured")
+	}
+
+	// Get builder for destination chain
+	builder, err := sm.txBuilderFactory.CreateBuilder(outboundData.DestinationChain)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create tx builder for chain %s", outboundData.DestinationChain)
+	}
+
+	// Get gas price from oracle (same as was used during signing)
+	gasPrice, err := sm.pushCore.GetGasPrice(ctx, outboundData.DestinationChain)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get gas price for chain %s", outboundData.DestinationChain)
+	}
+
+	// Build the transaction (same deterministic result as coordinator)
+	txResult, err := builder.BuildTransaction(ctx, &outboundData, gasPrice)
+	if err != nil {
+		return errors.Wrap(err, "failed to build transaction")
+	}
+
+	sm.logger.Info().
+		Str("event_id", eventID).
+		Str("destination_chain", outboundData.DestinationChain).
+		Int("signature_len", len(signature)).
+		Msg("assembling and broadcasting signed transaction")
+
+	// Extract recovery ID from signature (if present, last byte)
+	var recoveryID byte = 0
+	sigBytes := signature
+	if len(signature) == 65 {
+		recoveryID = signature[64]
+		sigBytes = signature[:64]
+	}
+
+	// Assemble signed transaction
+	signedTx, err := builder.AssembleSignedTransaction(txResult.RawTx, sigBytes, recoveryID)
+	if err != nil {
+		return errors.Wrap(err, "failed to assemble signed transaction")
+	}
+
+	// Calculate txHash from signed transaction (can be done before broadcasting)
+	txHash, err := builder.GetTxHash(signedTx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get tx hash from signed transaction")
+	}
+
+	// Format tx hash in CAIP format: {chainId}:{txHash}
+	caipTxHash := outboundData.DestinationChain + ":" + txHash
+
+	// Always store the txHash (calculated from signed tx, independent of broadcast)
+	if err := sm.eventStore.UpdateTxHash(eventID, caipTxHash); err != nil {
+		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update tx hash")
+	}
+
+	// Broadcast to destination chain (errors are logged but don't prevent marking as BROADCASTED)
+	_, broadcastErr := builder.BroadcastTransaction(ctx, signedTx)
+	if broadcastErr != nil {
+		sm.logger.Warn().
+			Err(broadcastErr).
+			Str("event_id", eventID).
+			Str("tx_hash", txHash).
+			Str("caip_tx_hash", caipTxHash).
+			Msg("broadcast failed - txHash stored, will expire automatically if not confirmed")
+	} else {
+		sm.logger.Info().
+			Str("event_id", eventID).
+			Str("tx_hash", txHash).
+			Str("caip_tx_hash", caipTxHash).
+			Str("destination_chain", outboundData.DestinationChain).
+			Msg("transaction broadcasted successfully")
+	}
+
+	// Mark as BROADCASTED since we have the txHash (will expire automatically if not confirmed)
+	if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusBroadcasted, ""); err != nil {
+		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update event status to BROADCASTED")
+		return errors.Wrap(err, "failed to update event status to BROADCASTED")
 	}
 
 	return nil

@@ -24,6 +24,9 @@ const (
 
 	// StatusReverted - Event reverted
 	StatusReverted = "REVERTED"
+
+	// StatusExpired - Event expired (for key events)
+	StatusExpired = "EXPIRED"
 )
 
 // Store provides database access for TSS events.
@@ -62,14 +65,15 @@ func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint6
 	return events, nil
 }
 
-// GetExpiredPendingEvents returns pending events that have expired (expiry_block_height <= currentBlock).
-func (s *Store) GetExpiredPendingEvents(currentBlock uint64) ([]store.PCEvent, error) {
+// GetExpiredEvents returns all expired events (PENDING, IN_PROGRESS, or BROADCASTED) that have expired.
+func (s *Store) GetExpiredEvents(currentBlock uint64) ([]store.PCEvent, error) {
 	var events []store.PCEvent
 
-	if err := s.db.Where("status = ? AND expiry_block_height <= ?", StatusPending, currentBlock).
+	if err := s.db.Where("status IN ? AND expiry_block_height <= ?",
+		[]string{StatusPending, StatusInProgress, StatusBroadcasted}, currentBlock).
 		Order("block_height ASC, created_at ASC").
 		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query expired pending events")
+		return nil, errors.Wrap(err, "failed to query expired events")
 	}
 
 	return events, nil
@@ -120,28 +124,15 @@ func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight u
 	return nil
 }
 
-// GetEventsByStatus returns all events with the given status.
-func (s *Store) GetEventsByStatus(status string, limit int) ([]store.PCEvent, error) {
-	var events []store.PCEvent
-	query := s.db.Where("status = ?", status).Order("created_at DESC")
-	if limit > 0 {
-		query = query.Limit(limit)
-	}
-	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrapf(err, "failed to query events with status %s", status)
-	}
-	return events, nil
-}
-
-// ClearTerminalEvents deletes completed and reverted events.
+// ClearTerminalEvents deletes completed, reverted, and expired events.
 func (s *Store) ClearTerminalEvents() (int64, error) {
-	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted}).Delete(&store.PCEvent{})
+	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted, StatusExpired}).Delete(&store.PCEvent{})
 	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to clear expired and completed events")
+		return 0, errors.Wrap(result.Error, "failed to clear terminal events")
 	}
 	s.logger.Info().
 		Int64("deleted_count", result.RowsAffected).
-		Msg("cleared expired and completed events")
+		Msg("cleared terminal events")
 	return result.RowsAffected, nil
 }
 

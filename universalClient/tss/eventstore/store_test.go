@@ -308,73 +308,6 @@ func TestUpdateStatus(t *testing.T) {
 	})
 }
 
-func TestGetEventsByStatus(t *testing.T) {
-	t.Run("get events by status", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-		createTestEvent(t, s, "success-1", 102, StatusCompleted, 200)
-		createTestEvent(t, s, "reverted-1", 103, StatusReverted, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-		// Should be ordered by created_at DESC
-		if events[0].EventID != "pending-2" {
-			t.Errorf("GetEventsByStatus() first event ID = %s, want pending-2", events[0].EventID)
-		}
-		if events[1].EventID != "pending-1" {
-			t.Errorf("GetEventsByStatus() second event ID = %s, want pending-1", events[1].EventID)
-		}
-	})
-
-	t.Run("get events with limit", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-		createTestEvent(t, s, "pending-3", 102, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 2)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-	})
-
-	t.Run("no events with status", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusCompleted, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 0 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 0", len(events))
-		}
-	})
-
-	t.Run("limit zero returns all", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-	})
-}
-
 func TestClearTerminalEvents(t *testing.T) {
 	t.Run("clear both expired and successful events", func(t *testing.T) {
 		s := setupTestStore(t)
@@ -391,24 +324,24 @@ func TestClearTerminalEvents(t *testing.T) {
 			t.Errorf("ClearTerminalEvents() deleted %d events, want 2", deleted)
 		}
 
-		// Verify both types are gone
-		success, _ := s.GetEventsByStatus(StatusCompleted, 0)
-		if len(success) != 0 {
-			t.Errorf("GetEventsByStatus(StatusCompleted) returned %d events, want 0", len(success))
+		// Verify both types are gone by trying to get them
+		successEvent, err := s.GetEvent("success-1")
+		if err == nil && successEvent != nil {
+			t.Errorf("ClearTerminalEvents() did not delete completed event")
 		}
-		expired, _ := s.GetEventsByStatus(StatusReverted, 0)
-		if len(expired) != 0 {
-			t.Errorf("GetEventsByStatus(StatusReverted) returned %d events, want 0", len(expired))
+		revertedEvent, err := s.GetEvent("reverted-1")
+		if err == nil && revertedEvent != nil {
+			t.Errorf("ClearTerminalEvents() did not delete reverted event")
 		}
 
 		// Verify other events still exist
-		pending, _ := s.GetEventsByStatus(StatusPending, 0)
-		if len(pending) != 1 {
-			t.Errorf("GetEventsByStatus(StatusPending) returned %d events, want 1", len(pending))
+		pendingEvent, err := s.GetEvent("pending-1")
+		if err != nil || pendingEvent == nil {
+			t.Errorf("ClearTerminalEvents() incorrectly deleted pending event")
 		}
-		inProgress, _ := s.GetEventsByStatus(StatusInProgress, 0)
-		if len(inProgress) != 1 {
-			t.Errorf("GetEventsByStatus(StatusInProgress) returned %d events, want 1", len(inProgress))
+		inProgressEvent, err := s.GetEvent("in-progress-1")
+		if err != nil || inProgressEvent == nil {
+			t.Errorf("ClearTerminalEvents() incorrectly deleted in-progress event")
 		}
 	})
 }

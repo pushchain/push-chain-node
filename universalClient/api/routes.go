@@ -9,8 +9,5 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	// Health check endpoint
 	mux.HandleFunc("/health", s.handleHealth)
 
-	// API v1 endpoints
-	mux.HandleFunc("/api/v1/chain-configs", s.handleChainData)
-
 	return mux
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -238,7 +239,7 @@ func TestSaveAndLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify file exists
-		configPath := filepath.Join(tempDir, configSubdir, configFileName)
+		configPath := filepath.Join(tempDir, constant.ConfigSubdir, constant.ConfigFileName)
 		_, err = os.Stat(configPath)
 		assert.NoError(t, err)
 
@@ -278,12 +279,12 @@ func TestSaveAndLoad(t *testing.T) {
 
 	t.Run("Load invalid JSON", func(t *testing.T) {
 		// Create config directory
-		configDir := filepath.Join(tempDir, "invalid", configSubdir)
+		configDir := filepath.Join(tempDir, "invalid", constant.ConfigSubdir)
 		err := os.MkdirAll(configDir, 0o750)
 		require.NoError(t, err)
 
 		// Write invalid JSON
-		configPath := filepath.Join(configDir, configFileName)
+		configPath := filepath.Join(configDir, constant.ConfigFileName)
 		err = os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
 		require.NoError(t, err)
 
@@ -305,7 +306,7 @@ func TestSaveAndLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify directory was created
-		configDir := filepath.Join(newDir, configSubdir)
+		configDir := filepath.Join(newDir, constant.ConfigSubdir)
 		_, err = os.Stat(configDir)
 		assert.NoError(t, err)
 	})

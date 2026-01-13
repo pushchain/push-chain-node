@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-const (
-	configSubdir   = "config"
-	configFileName = "pushuv_config.json"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 //go:embed default_config.json
@@ -172,12 +169,12 @@ func Save(cfg *Config, basePath string) error {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
-	configDir := filepath.Join(basePath, configSubdir)
+	configDir := filepath.Join(basePath, constant.ConfigSubdir)
 	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	configFile := filepath.Join(configDir, configFileName)
+	configFile := filepath.Join(configDir, constant.ConfigFileName)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -191,7 +188,7 @@ func Save(cfg *Config, basePath string) error {
 
 // Load reads and returns the config from <BasePath>/config/pushuv_config.json.
 func Load(basePath string) (Config, error) {
-	configFile := filepath.Join(basePath, configSubdir, configFileName)
+	configFile := filepath.Join(basePath, constant.ConfigSubdir, constant.ConfigFileName)
 	data, err := os.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to read config file: %w", err)

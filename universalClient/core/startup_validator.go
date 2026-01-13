@@ -141,7 +141,7 @@ func (sv *StartupValidator) validateGrants(grants []GrantInfo, granteeAddr strin
 		}
 
 		// Check if this is a required message
-		for _, requiredMsg := range constant.SupportedMessages {
+		for _, requiredMsg := range constant.RequiredMsgGrants {
 			if grant.MessageType == requiredMsg {
 				authorizedMessages[grant.MessageType] = grant.Granter
 				if granter == "" {
@@ -154,7 +154,7 @@ func (sv *StartupValidator) validateGrants(grants []GrantInfo, granteeAddr strin
 
 	// Check if all required messages are authorized
 	var missingMessages []string
-	for _, requiredMsg := range constant.SupportedMessages {
+	for _, requiredMsg := range constant.RequiredMsgGrants {
 		if _, ok := authorizedMessages[requiredMsg]; !ok {
 			missingMessages = append(missingMessages, requiredMsg)
 		}

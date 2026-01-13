@@ -432,7 +432,7 @@ func (ts *TxSigner) broadcastTransaction(_ context.Context, txBytes []byte) (*sd
 
 // checks if a message type is allowed for AuthZ execution
 func isAllowedMsgType(msgType string) bool {
-	return slices.Contains(constant.SupportedMessages, msgType)
+	return slices.Contains(constant.RequiredMsgGrants, msgType)
 }
 
 // parseSequenceMismatch attempts to parse expected and got sequence numbers from a raw log

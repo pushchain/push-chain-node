@@ -140,7 +140,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 		ctx,
 		log,
 		cfg,
-		cfg.PushChainGRPCURLs[0],
+		pushCore,
 	)
 
 	validationResult, err := startupValidator.ValidateStartupRequirements()
@@ -209,7 +209,7 @@ func NewUniversalClient(ctx context.Context, log zerolog.Logger, dbManager *db.C
 
 	// Create query server
 	log.Info().Int("port", cfg.QueryServerPort).Msg("Creating query server")
-	uc.queryServer = api.NewServer(uc, log, cfg.QueryServerPort)
+	uc.queryServer = api.NewServer(log, cfg.QueryServerPort)
 
 	return uc, nil
 }

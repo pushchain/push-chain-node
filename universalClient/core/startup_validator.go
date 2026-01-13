@@ -3,8 +3,10 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/pushchain/push-chain-node/universalClient/config"
@@ -24,12 +26,19 @@ type StartupValidationResult struct {
 	Messages []string // List of authorized message types
 }
 
+// GrantInfo represents information about a single AuthZ grant.
+type GrantInfo struct {
+	Granter     string     // Address of the granter
+	MessageType string     // Authorized message type
+	Expiration  *time.Time // Grant expiration time (nil if no expiration)
+}
+
 // StartupValidator validates startup requirements
 type StartupValidator struct {
-	log     zerolog.Logger
-	config  *config.Config
-	grpcURL string
-	cdc     *codec.ProtoCodec // Cached codec
+	log      zerolog.Logger
+	config   *config.Config
+	pushCore *pushcore.Client
+	cdc      *codec.ProtoCodec // Cached codec
 }
 
 // NewStartupValidator creates a new startup validator
@@ -37,7 +46,7 @@ func NewStartupValidator(
 	ctx context.Context,
 	log zerolog.Logger,
 	config *config.Config,
-	grpcURL string,
+	pushCore *pushcore.Client,
 ) *StartupValidator {
 	// Create codec once and cache it
 	interfaceRegistry := keys.CreateInterfaceRegistryWithEVMSupport()
@@ -45,10 +54,10 @@ func NewStartupValidator(
 	uetypes.RegisterInterfaces(interfaceRegistry)
 
 	return &StartupValidator{
-		log:     log.With().Str("component", "startup_validator").Logger(),
-		config:  config,
-		grpcURL: grpcURL,
-		cdc:     codec.NewProtoCodec(interfaceRegistry),
+		log:      log.With().Str("component", "startup_validator").Logger(),
+		config:   config,
+		pushCore: pushCore,
+		cdc:      codec.NewProtoCodec(interfaceRegistry),
 	}
 }
 
@@ -84,8 +93,21 @@ func (sv *StartupValidator) ValidateStartupRequirements() (*StartupValidationRes
 		Str("key_address", keyAddr.String()).
 		Msg("Using hotkey from keyring")
 
-	// Validate AuthZ permissions using the pushcore package
-	granter, authorizedMsgs, err := pushcore.QueryGrantsWithRetry(sv.grpcURL, keyAddr.String(), sv.cdc, sv.log)
+	// Query AuthZ grants using pushcore (returns raw response)
+	grantResp, err := sv.pushCore.GetGranteeGrants(keyAddr.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query AuthZ grants: %w", err)
+	}
+
+	// Extract grant information from the raw response
+	grants := extractGrantInfo(grantResp, sv.cdc)
+
+	if len(grants) == 0 {
+		return nil, fmt.Errorf("no AuthZ grants found. Please grant permissions:\npuniversald tx authz grant %s generic --msg-type=/uexecutor.v1.MsgVoteInbound --from <granter>", keyAddr.String())
+	}
+
+	// Validate that all required message types are authorized
+	granter, authorizedMsgs, err := sv.validateGrants(grants, keyAddr.String())
 	if err != nil {
 		return nil, fmt.Errorf("AuthZ validation failed: %w", err)
 	}
@@ -104,3 +126,91 @@ func (sv *StartupValidator) ValidateStartupRequirements() (*StartupValidationRes
 	}, nil
 }
 
+// validateGrants validates that all required message types are present in the grants.
+// It filters out expired grants and checks that all required messages are authorized.
+func (sv *StartupValidator) validateGrants(grants []GrantInfo, granteeAddr string) (string, []string, error) {
+	now := time.Now()
+	authorizedMessages := make(map[string]string) // msgType -> granter
+	var granter string
+
+	// Process grants and filter out expired ones
+	for _, grant := range grants {
+		// Skip expired grants
+		if grant.Expiration != nil && grant.Expiration.Before(now) {
+			continue
+		}
+
+		// Check if this is a required message
+		for _, requiredMsg := range constant.SupportedMessages {
+			if grant.MessageType == requiredMsg {
+				authorizedMessages[grant.MessageType] = grant.Granter
+				if granter == "" {
+					granter = grant.Granter
+				}
+				break
+			}
+		}
+	}
+
+	// Check if all required messages are authorized
+	var missingMessages []string
+	for _, requiredMsg := range constant.SupportedMessages {
+		if _, ok := authorizedMessages[requiredMsg]; !ok {
+			missingMessages = append(missingMessages, requiredMsg)
+		}
+	}
+
+	if len(missingMessages) > 0 {
+		return "", nil, fmt.Errorf("missing AuthZ grants for: %v\nGrant permissions using:\npuniversald tx authz grant %s generic --msg-type=<message_type> --from <granter>", missingMessages, granteeAddr)
+	}
+
+	// Return authorized messages
+	authorizedList := make([]string, 0, len(authorizedMessages))
+	for msgType := range authorizedMessages {
+		authorizedList = append(authorizedList, msgType)
+	}
+
+	return granter, authorizedList, nil
+}
+
+// extractGrantInfo extracts grant information from the AuthZ grant response.
+// It only processes GenericAuthorization grants and returns their message types.
+func extractGrantInfo(grantResp *authz.QueryGranteeGrantsResponse, cdc *codec.ProtoCodec) []GrantInfo {
+	var grants []GrantInfo
+
+	for _, grant := range grantResp.Grants {
+		if grant.Authorization == nil {
+			continue
+		}
+
+		// Only process GenericAuthorization
+		if grant.Authorization.TypeUrl != "/cosmos.authz.v1beta1.GenericAuthorization" {
+			continue
+		}
+
+		msgType, err := extractMessageType(grant.Authorization, cdc)
+		if err != nil {
+			continue // Skip if we can't extract the message type
+		}
+
+		// grant.Expiration is already *time.Time, so we can use it directly
+		expiration := grant.Expiration
+
+		grants = append(grants, GrantInfo{
+			Granter:     grant.Granter,
+			MessageType: msgType,
+			Expiration:  expiration,
+		})
+	}
+
+	return grants
+}
+
+// extractMessageType extracts the message type from a GenericAuthorization protobuf Any.
+func extractMessageType(authzAny *codectypes.Any, cdc *codec.ProtoCodec) (string, error) {
+	var genericAuth authz.GenericAuthorization
+	if err := cdc.Unmarshal(authzAny.Value, &genericAuth); err != nil {
+		return "", err
+	}
+	return genericAuth.Msg, nil
+}

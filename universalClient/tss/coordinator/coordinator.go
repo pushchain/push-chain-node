@@ -162,15 +162,15 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 
 // GetLatestBlockNum gets the latest block number from pushCore.
 func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
-	return c.pushCore.GetLatestBlockNum()
+	return c.pushCore.GetLatestBlock()
 }
 
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
-	currentBlock, err := c.pushCore.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlock()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get latest block number")
+		return false, errors.Wrap(err, "failed to get latest block")
 	}
 
 	// Use cached validators
@@ -215,9 +215,16 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	return coordValidatorAddr == validatorAddress, nil
 }
 
-// GetCurrentTSSKeyId gets the current TSS key ID from pushCore.
-func (c *Coordinator) GetCurrentTSSKeyId() (string, error) {
-	return c.pushCore.GetCurrentTSSKeyId()
+// GetCurrentTSSKey gets the current TSS key ID and public key from pushCore.
+func (c *Coordinator) GetCurrentTSSKey() (string, string, error) {
+	key, err := c.pushCore.GetCurrentKey()
+	if err != nil {
+		return "", "", err
+	}
+	if key == nil {
+		return "", "", nil // No key exists
+	}
+	return key.KeyId, key.TssPubkey, nil
 }
 
 // GetEligibleUV returns eligible validators for the given protocol type.
@@ -298,7 +305,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 
 // updateValidators fetches and caches all validators.
 func (c *Coordinator) updateValidators() {
-	allValidators, err := c.pushCore.GetUniversalValidators()
+	allValidators, err := c.pushCore.GetAllUniversalValidators()
 	if err != nil {
 		c.logger.Warn().Err(err).Msg("failed to update validators cache")
 		return
@@ -313,9 +320,9 @@ func (c *Coordinator) updateValidators() {
 
 // processPendingEvents checks if this node is coordinator, and only then reads DB and processes events.
 func (c *Coordinator) processPendingEvents(ctx context.Context) error {
-	currentBlock, err := c.pushCore.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlock()
 	if err != nil {
-		return errors.Wrap(err, "failed to get latest block number")
+		return errors.Wrap(err, "failed to get latest block")
 	}
 
 	// Use cached validators (updated at polling interval)
@@ -624,10 +631,14 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 // Returns the setup data, sign metadata (for participant verification), and error.
 func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *SignMetadata, error) {
 	// Get current TSS keyId from pushCore
-	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
+	key, err := c.pushCore.GetCurrentKey()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
+	if key == nil {
+		return nil, nil, errors.New("no TSS key exists")
+	}
+	keyIDStr := key.KeyId
 
 	// Load keyshare to ensure it exists (validation)
 	keyshareBytes, err := c.keyshareManager.Get(keyIDStr)
@@ -720,10 +731,14 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 // @dev - Although tss lib can also take pending leave participants in oldParticipantIndices, we don't use that since it needs to be considered that old participants are gone and will only result in errors.
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
 	// Get current TSS keyId from pushCore
-	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
+	key, err := c.pushCore.GetCurrentKey()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
+	if key == nil {
+		return nil, errors.New("no TSS key exists")
+	}
+	keyIDStr := key.KeyId
 
 	// Load old keyshare to get the key we're changing
 	oldKeyshareBytes, err := c.keyshareManager.Get(keyIDStr)

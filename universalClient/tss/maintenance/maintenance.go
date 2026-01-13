@@ -170,7 +170,7 @@ func (h *Handler) clearTerminalEvents(ctx context.Context) {
 
 // handleExpiredEvents finds and processes expired events.
 func (h *Handler) handleExpiredEvents(ctx context.Context) error {
-	currentBlock, err := h.pushCore.GetLatestBlockNum()
+	currentBlock, err := h.pushCore.GetLatestBlock()
 	if err != nil {
 		return errors.Wrap(err, "failed to get current block")
 	}

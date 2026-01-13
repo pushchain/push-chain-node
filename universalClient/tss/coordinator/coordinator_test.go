@@ -19,6 +19,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -29,6 +30,7 @@ type mockPushCoreClient struct {
 	latestBlock      uint64
 	validators       []*types.UniversalValidator
 	currentTSSKeyId  string
+	currentTSSPubkey string
 	getBlockNumErr   error
 	getValidatorsErr error
 	getKeyIdErr      error
@@ -36,22 +38,24 @@ type mockPushCoreClient struct {
 
 func newMockPushCoreClient() *mockPushCoreClient {
 	return &mockPushCoreClient{
-		latestBlock:     100,
-		currentTSSKeyId: "test-key-id",
-		validators:      []*types.UniversalValidator{},
+		latestBlock:      100,
+		currentTSSKeyId:  "test-key-id",
+		currentTSSPubkey: "test-pubkey",
+		validators:       []*types.UniversalValidator{},
 	}
 }
 
-func (m *mockPushCoreClient) GetLatestBlockNum() (uint64, error) {
+func (m *mockPushCoreClient) GetLatestBlock() (uint64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getBlockNumErr != nil {
 		return 0, m.getBlockNumErr
 	}
+	// Create a mock block response
 	return m.latestBlock, nil
 }
 
-func (m *mockPushCoreClient) GetUniversalValidators() ([]*types.UniversalValidator, error) {
+func (m *mockPushCoreClient) GetAllUniversalValidators() ([]*types.UniversalValidator, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getValidatorsErr != nil {
@@ -60,13 +64,30 @@ func (m *mockPushCoreClient) GetUniversalValidators() ([]*types.UniversalValidat
 	return m.validators, nil
 }
 
-func (m *mockPushCoreClient) GetCurrentTSSKeyId() (string, error) {
+func (m *mockPushCoreClient) GetCurrentKey() (*utsstypes.TssKey, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getKeyIdErr != nil {
-		return "", m.getKeyIdErr
+		return nil, m.getKeyIdErr
 	}
-	return m.currentTSSKeyId, nil
+	if m.currentTSSKeyId == "" {
+		return nil, nil // No key exists
+	}
+	return &utsstypes.TssKey{
+		KeyId:     m.currentTSSKeyId,
+		TssPubkey: m.currentTSSPubkey,
+	}, nil
+}
+
+func (m *mockPushCoreClient) GetCurrentTSSKey() (string, string, error) {
+	key, err := m.GetCurrentKey()
+	if err != nil {
+		return "", "", err
+	}
+	if key == nil {
+		return "", "", errors.New("no TSS key found")
+	}
+	return key.KeyId, key.TssPubkey, nil
 }
 
 func (m *mockPushCoreClient) Close() error {

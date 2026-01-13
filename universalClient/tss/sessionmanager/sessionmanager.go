@@ -508,7 +508,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolKeyrefresh):
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -530,7 +530,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolQuorumChange):
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId for quorumchange")
 		}
@@ -564,7 +564,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolSign):
 		// Get current keyID
-		keyID, err := sm.coordinator.GetCurrentTSSKeyId()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}

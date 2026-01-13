@@ -22,7 +22,7 @@ type mockPushClient struct {
 	err         error
 }
 
-func (m *mockPushClient) GetLatestBlockNum() (uint64, error) {
+func (m *mockPushClient) GetLatestBlock() (uint64, error) {
 	return m.latestBlock, m.err
 }
 
@@ -244,4 +244,3 @@ func TestConfig_ApplyDefaults(t *testing.T) {
 		assert.Equal(t, uint64(50), cfg.QueryLimit)
 	})
 }
-

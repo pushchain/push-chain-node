@@ -76,7 +76,7 @@ func (c *Config) applyDefaults() {
 // PushClient defines the interface for interacting with the Push chain.
 // This allows for easier testing and dependency injection.
 type PushClient interface {
-	GetLatestBlockNum() (uint64, error)
+	GetLatestBlock() (uint64, error)
 	GetTxsByEvents(query string, minHeight, maxHeight uint64, limit uint64) ([]*pushcore.TxResult, error)
 }
 

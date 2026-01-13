@@ -113,7 +113,7 @@ func (w *EventWatcher) watchLoop() {
 // pollForEvents queries the chain for new events and stores them.
 // Processes blocks in configurable chunks to avoid overwhelming the chain.
 func (w *EventWatcher) pollForEvents() error {
-	latestBlock, err := w.pushClient.GetLatestBlockNum()
+		latestBlock, err := w.pushClient.GetLatestBlock()
 	if err != nil {
 		return fmt.Errorf("failed to get latest block: %w", err)
 	}

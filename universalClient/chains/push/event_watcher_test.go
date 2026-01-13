@@ -28,14 +28,14 @@ func newTestDBForWatcher(t *testing.T) *gorm.DB {
 }
 
 type mockPushClientForWatcher struct {
-	latestBlock  uint64
-	txResults    map[string][]*pushcore.TxResult // query -> results
-	getBlockErr  error
-	getTxsErr    error
-	queriesMade  []string
+	latestBlock uint64
+	txResults   map[string][]*pushcore.TxResult // query -> results
+	getBlockErr error
+	getTxsErr   error
+	queriesMade []string
 }
 
-func (m *mockPushClientForWatcher) GetLatestBlockNum() (uint64, error) {
+func (m *mockPushClientForWatcher) GetLatestBlock() (uint64, error) {
 	return m.latestBlock, m.getBlockErr
 }
 
@@ -347,4 +347,3 @@ func TestEventQueries(t *testing.T) {
 	assert.Equal(t, "tss_process_initiated.process_id>=0", TSSEventQuery)
 	assert.Equal(t, "outbound_created.tx_id EXISTS", OutboundEventQuery)
 }
-

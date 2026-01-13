@@ -26,18 +26,18 @@ func ParseMessageFromArgs(msgType string, msgArgs []string) (sdk.Msg, error) {
 			return nil, fmt.Errorf("invalid tx type (must be number 0-4): %w", err)
 		}
 
-		var txType uetypes.InboundTxType
+		var txType uetypes.TxType
 		switch txTypeInt {
 		case 0:
-			txType = uetypes.InboundTxType_UNSPECIFIED_TX
+			txType = uetypes.TxType_UNSPECIFIED_TX
 		case 1:
-			txType = uetypes.InboundTxType_GAS
+			txType = uetypes.TxType_GAS
 		case 2:
-			txType = uetypes.InboundTxType_FUNDS
+			txType = uetypes.TxType_FUNDS
 		case 3:
-			txType = uetypes.InboundTxType_FUNDS_AND_PAYLOAD
+			txType = uetypes.TxType_FUNDS_AND_PAYLOAD
 		case 4:
-			txType = uetypes.InboundTxType_GAS_AND_PAYLOAD
+			txType = uetypes.TxType_GAS_AND_PAYLOAD
 		default:
 			return nil, fmt.Errorf("invalid tx type: %d (must be 0-4)", txTypeInt)
 		}

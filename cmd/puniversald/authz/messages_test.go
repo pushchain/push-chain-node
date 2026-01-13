@@ -56,7 +56,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 				assert.Equal(t, "1000", voteMsg.Inbound.Amount)
 				assert.Equal(t, "0xasset", voteMsg.Inbound.AssetAddr)
 				assert.Equal(t, "1", voteMsg.Inbound.LogIndex)
-				assert.Equal(t, uetypes.InboundTxType_GAS, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.TxType_GAS, voteMsg.Inbound.TxType)
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 			validate: func(t *testing.T, msg interface{}) {
 				voteMsg, ok := msg.(*uetypes.MsgVoteInbound)
 				require.True(t, ok)
-				assert.Equal(t, uetypes.InboundTxType_FUNDS, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.TxType_FUNDS, voteMsg.Inbound.TxType)
 			},
 		},
 		{
@@ -98,7 +98,7 @@ func TestParseMsgVoteInbound(t *testing.T) {
 			validate: func(t *testing.T, msg interface{}) {
 				voteMsg, ok := msg.(*uetypes.MsgVoteInbound)
 				require.True(t, ok)
-				assert.Equal(t, uetypes.InboundTxType_UNSPECIFIED_TX, voteMsg.Inbound.TxType)
+				assert.Equal(t, uetypes.TxType_UNSPECIFIED_TX, voteMsg.Inbound.TxType)
 			},
 		},
 		{

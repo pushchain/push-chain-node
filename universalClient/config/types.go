@@ -31,7 +31,8 @@ type Config struct {
 	QueryServerPort int `json:"query_server_port"` // Port for HTTP query server (default: 8080)
 
 	// Keyring configuration
-	KeyringBackend KeyringBackend `json:"keyring_backend"` // Keyring backend type (file/test)
+	KeyringBackend  KeyringBackend `json:"keyring_backend"`  // Keyring backend type (file/test)
+	KeyringPassword string         `json:"keyring_password"` // Password for file backend keyring encryption
 
 	// Event monitoring configuration
 	EventPollingIntervalSeconds int `json:"event_polling_interval_seconds"` // How often to poll for new events in seconds (default: 5)
@@ -51,30 +52,30 @@ type Config struct {
 
 	// TSS Node configuration
 	TSSP2PPrivateKeyHex string `json:"tss_p2p_private_key_hex"` // Ed25519 private key in hex for libp2p identity
-	TSSP2PListen     string `json:"tss_p2p_listen"`      // libp2p listen address (default: /ip4/0.0.0.0/tcp/39000)
-	TSSPassword      string `json:"tss_password"`        // Encryption password for keyshares
-	TSSHomeDir       string `json:"tss_home_dir"`        // Keyshare storage directory (default: ~/.puniversal/tss)
+	TSSP2PListen        string `json:"tss_p2p_listen"`          // libp2p listen address (default: /ip4/0.0.0.0/tcp/39000)
+	TSSPassword         string `json:"tss_password"`            // Encryption password for keyshares
+	TSSHomeDir          string `json:"tss_home_dir"`            // Keyshare storage directory (default: ~/.puniversal/tss)
 }
 
 // ChainSpecificConfig holds all chain-specific configuration in one place
 type ChainSpecificConfig struct {
-    // RPC Configuration
-    RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
+	// RPC Configuration
+	RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
 
 	// Transaction Cleanup Configuration
 	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
 	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (optional, uses global default if not set)
 
-    // Event Monitoring Configuration
-    EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
+	// Event Monitoring Configuration
+	EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
 
-    // Event Start Cursor
-    // If set to a non-negative value, gateway event watchers start from this
-    // block/slot for this chain. If set to -1 or not present, start from the
-    // latest block/slot (or from DB resume point when available).
-    EventStartFrom *int64 `json:"event_start_from,omitempty"`
+	// Event Start Cursor
+	// If set to a non-negative value, gateway event watchers start from this
+	// block/slot for this chain. If set to -1 or not present, start from the
+	// latest block/slot (or from DB resume point when available).
+	EventStartFrom *int64 `json:"event_start_from,omitempty"`
 
-    // Future chain-specific settings can be added here
+	// Future chain-specific settings can be added here
 }
 
 // RPCPoolConfig holds configuration for RPC endpoint pooling

@@ -15,6 +15,7 @@ import (
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -398,6 +399,36 @@ func (c *Client) GetGranteeGrants(granteeAddr string) (*authz.QueryGranteeGrants
 	)
 }
 
+// GetAccount retrieves account information for a given address.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - address: Bech32 address of the account
+//
+// Returns:
+//   - *authtypes.QueryAccountResponse: Account response
+//   - error: Error if all endpoints fail
+func (c *Client) GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+	// Create auth clients from existing connections
+	authClients := make([]authtypes.QueryClient, len(c.conns))
+	for i, conn := range c.conns {
+		authClients[i] = authtypes.NewQueryClient(conn)
+	}
+
+	return retryWithRoundRobin(
+		len(authClients),
+		&c.rr,
+		func(idx int) (*authtypes.QueryAccountResponse, error) {
+			return authClients[idx].Account(ctx, &authtypes.QueryAccountRequest{
+				Address: address,
+			})
+		},
+		"GetAccount",
+		c.logger,
+	)
+}
+
 // CreateGRPCConnection creates a gRPC connection with appropriate transport security.
 // It automatically detects whether to use TLS based on the URL scheme.
 //
@@ -457,6 +488,31 @@ func CreateGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+// BroadcastTx broadcasts a signed transaction to the chain.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - txBytes: Signed transaction bytes
+//
+// Returns:
+//   - *tx.BroadcastTxResponse: Broadcast response containing tx hash and result
+//   - error: Error if all endpoints fail
+func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte) (*tx.BroadcastTxResponse, error) {
+	return retryWithRoundRobin(
+		len(c.txClients),
+		&c.rr,
+		func(idx int) (*tx.BroadcastTxResponse, error) {
+			return c.txClients[idx].BroadcastTx(ctx, &tx.BroadcastTxRequest{
+				TxBytes: txBytes,
+				Mode:    tx.BroadcastMode_BROADCAST_MODE_SYNC,
+			})
+		},
+		"BroadcastTx",
+		c.logger,
+	)
 }
 
 // ExtractHostnameFromURL extracts the hostname from a URL string.

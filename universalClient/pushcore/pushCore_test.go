@@ -8,6 +8,7 @@ import (
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -595,6 +596,35 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 	})
 }
 
+func TestClient_GetAccount(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			conns:  []*grpc.ClientConn{},
+		}
+
+		account, err := client.GetAccount(ctx, "cosmos1abc123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, account)
+	})
+
+	t.Run("empty address", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			conns:  []*grpc.ClientConn{},
+		}
+
+		account, err := client.GetAccount(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, account)
+	})
+}
+
 func TestCreateGRPCConnection(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -889,4 +919,17 @@ func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexe
 
 func (m *mockUExecutorQueryClient) AllGasPrices(ctx context.Context, req *uexecutortypes.QueryAllGasPricesRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllGasPricesResponse, error) {
 	return nil, nil
+}
+
+type mockAuthQueryClient struct {
+	authtypes.QueryClient
+	accountResp *authtypes.QueryAccountResponse
+	err         error
+}
+
+func (m *mockAuthQueryClient) Account(ctx context.Context, req *authtypes.QueryAccountRequest, opts ...grpc.CallOption) (*authtypes.QueryAccountResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.accountResp, nil
 }

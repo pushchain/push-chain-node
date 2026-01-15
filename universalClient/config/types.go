@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // KeyringBackend represents the type of keyring backend to use
 type KeyringBackend string
 
@@ -17,35 +19,22 @@ type Config struct {
 	LogFormat  string `json:"log_format"`  // "json" or "console"
 	LogSampler bool   `json:"log_sampler"` // if true, samples logs (e.g., 1 in 5)
 
+	// Node Config
+	NodeHome string `json:"node_home"` // Node home directory (default: ~/.puniversal)
+
 	// Push Chain configuration
 	PushChainID                  string   `json:"push_chain_id"`                   // Push Chain chain ID (default: localchain_9000-1)
 	PushChainGRPCURLs            []string `json:"push_chain_grpc_urls"`            // Push Chain gRPC endpoints (default: ["localhost:9090"])
+	PushValoperAddress           string   `json:"push_valoper_address"`            // Push Chain validator operator address (pushvaloper1...)
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"` // How often to refresh configs in seconds (default: 60)
 	MaxRetries                   int      `json:"max_retries"`                     // Max retry attempts for registry queries (default: 3)
-	RetryBackoffSeconds          int      `json:"retry_backoff_seconds"`           // Initial retry backoff duration in seconds (default: 1)
 
-	// Startup configuration
-	InitialFetchRetries        int `json:"initial_fetch_retries"`         // Number of retries for initial config fetch (default: 5)
-	InitialFetchTimeoutSeconds int `json:"initial_fetch_timeout_seconds"` // Timeout per initial fetch attempt in seconds (default: 30)
-
+	// Query Server Config
 	QueryServerPort int `json:"query_server_port"` // Port for HTTP query server (default: 8080)
 
 	// Keyring configuration
 	KeyringBackend  KeyringBackend `json:"keyring_backend"`  // Keyring backend type (file/test)
 	KeyringPassword string         `json:"keyring_password"` // Password for file backend keyring encryption
-
-	// Event monitoring configuration
-	EventPollingIntervalSeconds int `json:"event_polling_interval_seconds"` // How often to poll for new events in seconds (default: 5)
-
-	// Database configuration
-	DatabaseBaseDir string `json:"database_base_dir"` // Base directory for chain databases (default: ~/.puniversal/databases)
-
-	// Transaction cleanup configuration (global defaults)
-	TransactionCleanupIntervalSeconds int `json:"transaction_cleanup_interval_seconds"` // Global default: How often to run cleanup in seconds (default: 3600)
-	TransactionRetentionPeriodSeconds int `json:"transaction_retention_period_seconds"` // Global default: How long to keep confirmed transactions in seconds (default: 86400)
-
-	// RPC Pool configuration
-	RPCPoolConfig RPCPoolConfig `json:"rpc_pool_config"` // RPC pool configuration
 
 	// Unified per-chain configuration
 	ChainConfigs map[string]ChainSpecificConfig `json:"chain_configs"` // Map of chain ID to all chain-specific settings
@@ -63,11 +52,11 @@ type ChainSpecificConfig struct {
 	RPCURLs []string `json:"rpc_urls,omitempty"` // RPC endpoints for this chain
 
 	// Transaction Cleanup Configuration
-	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (optional, uses global default if not set)
-	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (optional, uses global default if not set)
+	CleanupIntervalSeconds *int `json:"cleanup_interval_seconds,omitempty"` // How often to run cleanup for this chain (required)
+	RetentionPeriodSeconds *int `json:"retention_period_seconds,omitempty"` // How long to keep confirmed transactions for this chain (required)
 
 	// Event Monitoring Configuration
-	EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (optional, uses global default if not set)
+	EventPollingIntervalSeconds *int `json:"event_polling_interval_seconds,omitempty"` // How often to poll for new events for this chain (required)
 
 	// Event Start Cursor
 	// If set to a non-negative value, gateway event watchers start from this
@@ -75,40 +64,32 @@ type ChainSpecificConfig struct {
 	// latest block/slot (or from DB resume point when available).
 	EventStartFrom *int64 `json:"event_start_from,omitempty"`
 
+	// Gas Oracle Configuration
+	GasPriceIntervalSeconds *int `json:"gas_price_interval_seconds,omitempty"` // How often to fetch and vote on gas price (default: 30 seconds)
+
 	// Future chain-specific settings can be added here
 }
 
-// RPCPoolConfig holds configuration for RPC endpoint pooling
-type RPCPoolConfig struct {
-	HealthCheckIntervalSeconds int    `json:"health_check_interval_seconds"` // How often to check endpoint health in seconds (default: 30)
-	UnhealthyThreshold         int    `json:"unhealthy_threshold"`           // Consecutive failures before marking unhealthy (default: 3)
-	RecoveryIntervalSeconds    int    `json:"recovery_interval_seconds"`     // How long to wait before retesting excluded endpoint in seconds (default: 300)
-	MinHealthyEndpoints        int    `json:"min_healthy_endpoints"`         // Minimum healthy endpoints required (default: 1)
-	RequestTimeoutSeconds      int    `json:"request_timeout_seconds"`       // Timeout for individual RPC requests in seconds (default: 10)
-	LoadBalancingStrategy      string `json:"load_balancing_strategy"`       // "round-robin" or "weighted" (default: "round-robin")
-}
-
 // GetChainCleanupSettings returns cleanup settings for a specific chain
-// Falls back to global defaults if no chain-specific settings exist
-func (c *Config) GetChainCleanupSettings(chainID string) (cleanupInterval, retentionPeriod int) {
-	// Start with global defaults
-	cleanupInterval = c.TransactionCleanupIntervalSeconds
-	retentionPeriod = c.TransactionRetentionPeriodSeconds
-
-	// Check for chain-specific overrides in unified config
-	if c.ChainConfigs != nil {
-		if config, ok := c.ChainConfigs[chainID]; ok {
-			// Override with chain-specific values if provided
-			if config.CleanupIntervalSeconds != nil {
-				cleanupInterval = *config.CleanupIntervalSeconds
-			}
-			if config.RetentionPeriodSeconds != nil {
-				retentionPeriod = *config.RetentionPeriodSeconds
-			}
-		}
+// Returns chain-specific settings (required per chain)
+func (c *Config) GetChainCleanupSettings(chainID string) (cleanupInterval, retentionPeriod int, err error) {
+	if c.ChainConfigs == nil {
+		return 0, 0, fmt.Errorf("no chain configs found")
 	}
 
-	return cleanupInterval, retentionPeriod
+	config, ok := c.ChainConfigs[chainID]
+	if !ok {
+		return 0, 0, fmt.Errorf("no config found for chain %s", chainID)
+	}
+
+	if config.CleanupIntervalSeconds == nil {
+		return 0, 0, fmt.Errorf("cleanup_interval_seconds is required for chain %s", chainID)
+	}
+	if config.RetentionPeriodSeconds == nil {
+		return 0, 0, fmt.Errorf("retention_period_seconds is required for chain %s", chainID)
+	}
+
+	return *config.CleanupIntervalSeconds, *config.RetentionPeriodSeconds, nil
 }
 
 // GetChainConfig returns the complete configuration for a specific chain

@@ -187,15 +187,18 @@ func (c *Client) GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.Chai
 // GetLatestBlock retrieves the latest block from Push Chain.
 // It tries each endpoint in round-robin order until one succeeds.
 //
+// Parameters:
+//   - ctx: Context for the request
+//
 // Returns:
 //   - uint64: Latest block height
 //   - error: Error if all endpoints fail
-func (c *Client) GetLatestBlock() (uint64, error) {
+func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
 	return retryWithRoundRobin(
 		len(c.cmtClients),
 		&c.rr,
 		func(idx int) (uint64, error) {
-			resp, err := c.cmtClients[idx].GetLatestBlock(context.Background(), &cmtservice.GetLatestBlockRequest{})
+			resp, err := c.cmtClients[idx].GetLatestBlock(ctx, &cmtservice.GetLatestBlockRequest{})
 			if err != nil {
 				return 0, err
 			}
@@ -212,15 +215,18 @@ func (c *Client) GetLatestBlock() (uint64, error) {
 // GetAllUniversalValidators retrieves all universal validators from Push Chain.
 // It tries each endpoint in round-robin order until one succeeds.
 //
+// Parameters:
+//   - ctx: Context for the request
+//
 // Returns:
 //   - []*uvalidatortypes.UniversalValidator: List of universal validators
 //   - error: Error if all endpoints fail
-func (c *Client) GetAllUniversalValidators() ([]*uvalidatortypes.UniversalValidator, error) {
+func (c *Client) GetAllUniversalValidators(ctx context.Context) ([]*uvalidatortypes.UniversalValidator, error) {
 	return retryWithRoundRobin(
 		len(c.uvalidatorClients),
 		&c.rr,
 		func(idx int) ([]*uvalidatortypes.UniversalValidator, error) {
-			resp, err := c.uvalidatorClients[idx].AllUniversalValidators(context.Background(), &uvalidatortypes.QueryUniversalValidatorsSetRequest{})
+			resp, err := c.uvalidatorClients[idx].AllUniversalValidators(ctx, &uvalidatortypes.QueryUniversalValidatorsSetRequest{})
 			if err != nil {
 				return nil, err
 			}
@@ -234,15 +240,18 @@ func (c *Client) GetAllUniversalValidators() ([]*uvalidatortypes.UniversalValida
 // GetCurrentKey retrieves the current TSS key from Push Chain.
 // It tries each endpoint in round-robin order until one succeeds.
 //
+// Parameters:
+//   - ctx: Context for the request
+//
 // Returns:
 //   - *utsstypes.TssKey: TSS key
 //   - error: Error if all endpoints fail or no key exists
-func (c *Client) GetCurrentKey() (*utsstypes.TssKey, error) {
+func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	return retryWithRoundRobin(
 		len(c.utssClients),
 		&c.rr,
 		func(idx int) (*utsstypes.TssKey, error) {
-			resp, err := c.utssClients[idx].CurrentKey(context.Background(), &utsstypes.QueryCurrentKeyRequest{})
+			resp, err := c.utssClients[idx].CurrentKey(ctx, &utsstypes.QueryCurrentKeyRequest{})
 			if err != nil {
 				return nil, err
 			}
@@ -260,6 +269,7 @@ func (c *Client) GetCurrentKey() (*utsstypes.TssKey, error) {
 // The query should follow Cosmos SDK event query format, e.g., "tss_process_initiated.process_id EXISTS".
 //
 // Parameters:
+//   - ctx: Context for the request
 //   - eventQuery: Cosmos SDK event query string
 //   - minHeight: Minimum block height to search (0 means no minimum)
 //   - maxHeight: Maximum block height to search (0 means no maximum)
@@ -268,7 +278,7 @@ func (c *Client) GetCurrentKey() (*utsstypes.TssKey, error) {
 // Returns:
 //   - []*TxResult: List of matching transaction results
 //   - error: Error if all endpoints fail
-func (c *Client) GetTxsByEvents(eventQuery string, minHeight, maxHeight uint64, limit uint64) ([]*TxResult, error) {
+func (c *Client) GetTxsByEvents(ctx context.Context, eventQuery string, minHeight, maxHeight uint64, limit uint64) ([]*TxResult, error) {
 	// Build the query events (same for all attempts)
 	events := []string{eventQuery}
 	if minHeight > 0 {
@@ -299,7 +309,7 @@ func (c *Client) GetTxsByEvents(eventQuery string, minHeight, maxHeight uint64, 
 				OrderBy: tx.OrderBy_ORDER_BY_ASC,
 			}
 
-			resp, err := c.txClients[idx].GetTxsEvent(context.Background(), req)
+			resp, err := c.txClients[idx].GetTxsEvent(ctx, req)
 			if err != nil {
 				return nil, err
 			}
@@ -374,12 +384,13 @@ func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, err
 // This function only queries and returns raw grant data; it does not perform validation or processing.
 //
 // Parameters:
+//   - ctx: Context for the request
 //   - granteeAddr: Address of the grantee to query grants for
 //
 // Returns:
 //   - *authz.QueryGranteeGrantsResponse: Raw grant response from the chain
 //   - error: Error if all endpoints fail
-func (c *Client) GetGranteeGrants(granteeAddr string) (*authz.QueryGranteeGrantsResponse, error) {
+func (c *Client) GetGranteeGrants(ctx context.Context, granteeAddr string) (*authz.QueryGranteeGrantsResponse, error) {
 	// Create authz clients from existing connections
 	authzClients := make([]authz.QueryClient, len(c.conns))
 	for i, conn := range c.conns {
@@ -390,7 +401,7 @@ func (c *Client) GetGranteeGrants(granteeAddr string) (*authz.QueryGranteeGrants
 		len(authzClients),
 		&c.rr,
 		func(idx int) (*authz.QueryGranteeGrantsResponse, error) {
-			return authzClients[idx].GranteeGrants(context.Background(), &authz.QueryGranteeGrantsRequest{
+			return authzClients[idx].GranteeGrants(ctx, &authz.QueryGranteeGrantsRequest{
 				Grantee: granteeAddr,
 			})
 		},

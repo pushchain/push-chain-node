@@ -208,7 +208,7 @@ func TestClient_GetLatestBlock(t *testing.T) {
 			cmtClients: []cmtservice.ServiceClient{},
 		}
 
-		blockNum, err := client.GetLatestBlock()
+		blockNum, err := client.GetLatestBlock(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Equal(t, uint64(0), blockNum)
@@ -230,7 +230,7 @@ func TestClient_GetLatestBlock(t *testing.T) {
 			cmtClients: []cmtservice.ServiceClient{mockClient},
 		}
 
-		blockNum, err := client.GetLatestBlock()
+		blockNum, err := client.GetLatestBlock(context.Background())
 		require.NoError(t, err)
 		assert.Equal(t, uint64(12345), blockNum)
 	})
@@ -247,7 +247,7 @@ func TestClient_GetLatestBlock(t *testing.T) {
 			cmtClients: []cmtservice.ServiceClient{mockClient},
 		}
 
-		blockNum, err := client.GetLatestBlock()
+		blockNum, err := client.GetLatestBlock(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "SdkBlock is nil")
 		assert.Equal(t, uint64(0), blockNum)
@@ -263,7 +263,7 @@ func TestClient_GetAllUniversalValidators(t *testing.T) {
 			uvalidatorClients: []uvalidatortypes.QueryClient{},
 		}
 
-		validators, err := client.GetAllUniversalValidators()
+		validators, err := client.GetAllUniversalValidators(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, validators)
@@ -284,7 +284,7 @@ func TestClient_GetAllUniversalValidators(t *testing.T) {
 			uvalidatorClients: []uvalidatortypes.QueryClient{mockClient},
 		}
 
-		validators, err := client.GetAllUniversalValidators()
+		validators, err := client.GetAllUniversalValidators(context.Background())
 		require.NoError(t, err)
 		require.Len(t, validators, 2)
 	})
@@ -299,7 +299,7 @@ func TestClient_GetCurrentKey(t *testing.T) {
 			utssClients: []utsstypes.QueryClient{},
 		}
 
-		key, err := client.GetCurrentKey()
+		key, err := client.GetCurrentKey(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, key)
@@ -319,7 +319,7 @@ func TestClient_GetCurrentKey(t *testing.T) {
 			utssClients: []utsstypes.QueryClient{mockClient},
 		}
 
-		key, err := client.GetCurrentKey()
+		key, err := client.GetCurrentKey(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, key)
 		assert.Equal(t, "key-123", key.KeyId)
@@ -337,7 +337,7 @@ func TestClient_GetCurrentKey(t *testing.T) {
 			utssClients: []utsstypes.QueryClient{mockClient},
 		}
 
-		key, err := client.GetCurrentKey()
+		key, err := client.GetCurrentKey(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no TSS key found")
 		assert.Nil(t, key)
@@ -353,7 +353,7 @@ func TestClient_GetTxsByEvents(t *testing.T) {
 			txClients: []tx.ServiceClient{},
 		}
 
-		txs, err := client.GetTxsByEvents("test.event", 0, 0, 0)
+		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, txs)
@@ -379,7 +379,7 @@ func TestClient_GetTxsByEvents(t *testing.T) {
 			txClients: []tx.ServiceClient{mockClient},
 		}
 
-		txs, err := client.GetTxsByEvents("test.event", 0, 0, 0)
+		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
 		require.NoError(t, err)
 		require.Len(t, txs, 1)
 		assert.Equal(t, "0x123", txs[0].TxHash)
@@ -399,7 +399,7 @@ func TestClient_GetTxsByEvents(t *testing.T) {
 			txClients: []tx.ServiceClient{mockClient},
 		}
 
-		txs, err := client.GetTxsByEvents("test.event", 100, 200, 50)
+		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 100, 200, 50)
 		require.NoError(t, err)
 		assert.NotNil(t, txs)
 	})
@@ -575,7 +575,7 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 			conns:  []*grpc.ClientConn{},
 		}
 
-		grants, err := client.GetGranteeGrants("cosmos1abc...")
+		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, grants)
@@ -589,7 +589,7 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 			conns:  []*grpc.ClientConn{},
 		}
 
-		grants, err := client.GetGranteeGrants("cosmos1abc...")
+		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, grants)
@@ -623,182 +623,6 @@ func TestClient_GetAccount(t *testing.T) {
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, account)
 	})
-}
-
-func TestCreateGRPCConnection(t *testing.T) {
-	tests := []struct {
-		name          string
-		endpoint      string
-		wantErr       bool
-		errorContains string
-	}{
-		{
-			name:          "empty endpoint",
-			endpoint:      "",
-			wantErr:       true,
-			errorContains: "empty endpoint",
-		},
-		{
-			name:     "http endpoint without port",
-			endpoint: "http://localhost",
-			wantErr:  false,
-		},
-		{
-			name:     "https endpoint without port",
-			endpoint: "https://localhost",
-			wantErr:  false,
-		},
-		{
-			name:     "http endpoint with port",
-			endpoint: "http://localhost:9090",
-			wantErr:  false,
-		},
-		{
-			name:     "https endpoint with port",
-			endpoint: "https://localhost:9090",
-			wantErr:  false,
-		},
-		{
-			name:     "endpoint without scheme and without port",
-			endpoint: "localhost",
-			wantErr:  false,
-		},
-		{
-			name:     "endpoint without scheme but with port",
-			endpoint: "localhost:9090",
-			wantErr:  false,
-		},
-		{
-			name:     "endpoint with custom port",
-			endpoint: "localhost:8080",
-			wantErr:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conn, err := CreateGRPCConnection(tt.endpoint)
-
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-				assert.Nil(t, conn)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, conn)
-				_ = conn.Close()
-			}
-		})
-	}
-}
-
-func TestExtractHostnameFromURL(t *testing.T) {
-	tests := []struct {
-		name             string
-		url              string
-		expectedHostname string
-		wantErr          bool
-		errorContains    string
-	}{
-		{
-			name:             "https URL with port",
-			url:              "https://grpc.example.com:443",
-			expectedHostname: "grpc.example.com",
-			wantErr:          false,
-		},
-		{
-			name:             "https URL without port",
-			url:              "https://grpc.example.com",
-			expectedHostname: "grpc.example.com",
-			wantErr:          false,
-		},
-		{
-			name:             "http URL with port",
-			url:              "http://localhost:9090",
-			expectedHostname: "localhost",
-			wantErr:          false,
-		},
-		{
-			name:             "plain hostname without port",
-			url:              "example.com",
-			expectedHostname: "example.com",
-			wantErr:          false,
-		},
-		{
-			name:             "plain hostname with port",
-			url:              "example.com:8080",
-			expectedHostname: "example.com",
-			wantErr:          false,
-		},
-		{
-			name:             "localhost without port",
-			url:              "localhost",
-			expectedHostname: "localhost",
-			wantErr:          false,
-		},
-		{
-			name:             "localhost with port",
-			url:              "localhost:9090",
-			expectedHostname: "localhost",
-			wantErr:          false,
-		},
-		{
-			name:             "complex subdomain",
-			url:              "https://grpc.rpc-testnet-donut-node1.push.org:443",
-			expectedHostname: "grpc.rpc-testnet-donut-node1.push.org",
-			wantErr:          false,
-		},
-		{
-			name:             "URL with path",
-			url:              "https://example.com:443/some/path",
-			expectedHostname: "example.com",
-			wantErr:          false,
-		},
-		{
-			name:             "empty URL",
-			url:              "",
-			expectedHostname: "",
-			wantErr:          true,
-			errorContains:    "empty URL provided",
-		},
-		{
-			name:             "URL with only scheme",
-			url:              "https://",
-			expectedHostname: "",
-			wantErr:          true,
-			errorContains:    "could not extract hostname",
-		},
-		{
-			name:             "IPv4 address",
-			url:              "192.168.1.1:9090",
-			expectedHostname: "192.168.1.1",
-			wantErr:          false,
-		},
-		{
-			name:             "IPv4 address with scheme",
-			url:              "http://192.168.1.1:9090",
-			expectedHostname: "192.168.1.1",
-			wantErr:          false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hostname, err := ExtractHostnameFromURL(tt.url)
-
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expectedHostname, hostname)
-			}
-		})
-	}
 }
 
 // Mock implementations

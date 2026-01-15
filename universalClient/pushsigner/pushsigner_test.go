@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, cfg, mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "PushSigner validation failed")
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) {
 
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, cfg, mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "keyring_password is required for file backend")
@@ -93,7 +93,7 @@ func TestNew(t *testing.T) {
 		mockCore := createMockPushCoreClient()
 
 		// This will fail because GetGranteeGrants will fail (no real gRPC connection)
-		signer, err := New(logger, cfg, mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, tempDir, mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		// Error will be from GetGranteeGrants failing

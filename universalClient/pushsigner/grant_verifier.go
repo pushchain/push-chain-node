@@ -1,6 +1,7 @@
 package pushsigner
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"slices"
@@ -20,14 +21,14 @@ import (
 )
 
 // GrantInfo represents information about a single AuthZ grant.
-type GrantInfo struct {
+type grantInfo struct {
 	Granter     string
 	MessageType string
 	Expiration  *time.Time
 }
 
 // ValidationResult contains the validated hotkey information.
-type ValidationResult struct {
+type validationResult struct {
 	Keyring  keyring.Keyring
 	KeyName  string
 	KeyAddr  string
@@ -36,7 +37,7 @@ type ValidationResult struct {
 }
 
 // ValidateKeysAndGrants validates hotkey and AuthZ grants against the specified granter.
-func ValidateKeysAndGrants(cfg *config.Config, pushCore *pushcore.Client, granter string) (*ValidationResult, error) {
+func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword string, nodeHome string, pushCore *pushcore.Client, granter string) (*validationResult, error) {
 	interfaceRegistry := keysv2.CreateInterfaceRegistryWithEVMSupport()
 	authz.RegisterInterfaces(interfaceRegistry)
 	uetypes.RegisterInterfaces(interfaceRegistry)
@@ -44,16 +45,16 @@ func ValidateKeysAndGrants(cfg *config.Config, pushCore *pushcore.Client, grante
 
 	// Prepare password reader for file backend
 	var reader io.Reader = nil
-	if cfg.KeyringBackend == config.KeyringBackendFile {
-		if cfg.KeyringPassword == "" {
+	if keyringBackend == config.KeyringBackendFile {
+		if keyringPassword == "" {
 			return nil, fmt.Errorf("keyring_password is required for file backend")
 		}
 		// Keyring expects password twice, each followed by newline
-		passwordInput := fmt.Sprintf("%s\n%s\n", cfg.KeyringPassword, cfg.KeyringPassword)
+		passwordInput := fmt.Sprintf("%s\n%s\n", keyringPassword, keyringPassword)
 		reader = strings.NewReader(passwordInput)
 	}
 
-	kr, err := keysv2.CreateKeyringFromConfig(constant.DefaultNodeHome, reader, cfg.KeyringBackend)
+	kr, err := keysv2.CreateKeyringFromConfig(nodeHome, reader, keyringBackend)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create keyring: %w", err)
 	}
@@ -73,7 +74,7 @@ func ValidateKeysAndGrants(cfg *config.Config, pushCore *pushcore.Client, grante
 	}
 	keyAddrStr := keyAddr.String()
 
-	grantResp, err := pushCore.GetGranteeGrants(keyAddrStr)
+	grantResp, err := pushCore.GetGranteeGrants(context.Background(), keyAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query grants: %w", err)
 	}
@@ -84,12 +85,12 @@ func ValidateKeysAndGrants(cfg *config.Config, pushCore *pushcore.Client, grante
 	}
 
 	// Verify grants against the specified granter
-	authorizedMsgs, err := VerifyGrants(grants, granter)
+	authorizedMsgs, err := verifyGrants(grants, granter)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ValidationResult{
+	return &validationResult{
 		Keyring:  kr,
 		KeyName:  keyInfo.Name,
 		KeyAddr:  keyAddrStr,
@@ -99,7 +100,7 @@ func ValidateKeysAndGrants(cfg *config.Config, pushCore *pushcore.Client, grante
 }
 
 // VerifyGrants verifies that all required messages are authorized by the specified granter.
-func VerifyGrants(grants []GrantInfo, granter string) ([]string, error) {
+func verifyGrants(grants []grantInfo, granter string) ([]string, error) {
 	now := time.Now()
 	authorized := make(map[string]bool)
 
@@ -141,8 +142,8 @@ func VerifyGrants(grants []GrantInfo, granter string) ([]string, error) {
 }
 
 // extractGrantInfo extracts grant info from response.
-func extractGrantInfo(resp *authz.QueryGranteeGrantsResponse, cdc *codec.ProtoCodec) []GrantInfo {
-	var grants []GrantInfo
+func extractGrantInfo(resp *authz.QueryGranteeGrantsResponse, cdc *codec.ProtoCodec) []grantInfo {
+	var grants []grantInfo
 	for _, grant := range resp.Grants {
 		if grant.Authorization == nil || grant.Authorization.TypeUrl != "/cosmos.authz.v1beta1.GenericAuthorization" {
 			continue
@@ -151,7 +152,7 @@ func extractGrantInfo(resp *authz.QueryGranteeGrantsResponse, cdc *codec.ProtoCo
 		if err != nil {
 			continue
 		}
-		grants = append(grants, GrantInfo{
+		grants = append(grants, grantInfo{
 			Granter:     grant.Granter,
 			MessageType: msgType,
 			Expiration:  grant.Expiration,

@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/api"
 	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/pushchain/push-chain-node/universalClient/db"
@@ -95,9 +94,6 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 			return nil, fmt.Errorf("failed to create Push database: %w", err)
 		}
 
-		// Create TxBuilderFactory that uses chains manager
-		txBuilderFactory := newChainsTxBuilderFactory(chainsManager)
-
 		tssCfg := tss.Config{
 			ValidatorAddress: cfg.PushValoperAddress,
 			P2PPrivateKeyHex: cfg.TSSP2PPrivateKeyHex,
@@ -107,7 +103,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 			Database:         pushDB,
 			PushCore:         pushCore,
 			Logger:           log,
-			TxBuilderFactory: txBuilderFactory,
+			Chains:           chainsManager,
 			PushSigner:       pushSigner,
 		}
 
@@ -206,30 +202,4 @@ func (uc *UniversalClient) Start() error {
 	}
 
 	return nil
-}
-
-// chainsTxBuilderFactory implements OutboundTxBuilderFactory using the chains manager
-type chainsTxBuilderFactory struct {
-	chains *chains.Chains
-}
-
-// newChainsTxBuilderFactory creates a new factory that uses the chains manager
-func newChainsTxBuilderFactory(chainsManager *chains.Chains) common.OutboundTxBuilderFactory {
-	return &chainsTxBuilderFactory{
-		chains: chainsManager,
-	}
-}
-
-// CreateBuilder creates an OutboundTxBuilder for the specified chain
-// TODO: Implement actual builder creation using chain clients
-func (f *chainsTxBuilderFactory) CreateBuilder(chainID string) (common.OutboundTxBuilder, error) {
-	// For now, return an error - this needs to be implemented
-	// The factory should get the chain client from chains manager and create a builder
-	return nil, fmt.Errorf("outbound tx builder creation not yet implemented for chain %s", chainID)
-}
-
-// SupportsChain returns true if this factory can create a builder for the chain
-func (f *chainsTxBuilderFactory) SupportsChain(chainID string) bool {
-	// TODO: Check if chain is available in chains manager
-	return false
 }

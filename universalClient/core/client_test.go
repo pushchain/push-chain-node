@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,73 +81,5 @@ func TestUniversalClientStruct(t *testing.T) {
 	})
 }
 
-func TestChainsTxBuilderFactory(t *testing.T) {
-	t.Run("CreateBuilder returns not implemented error", func(t *testing.T) {
-		factory := newChainsTxBuilderFactory(nil)
-
-		builder, err := factory.CreateBuilder("eip155:1")
-		require.Error(t, err)
-		assert.Nil(t, builder)
-		assert.Contains(t, err.Error(), "not yet implemented")
-		assert.Contains(t, err.Error(), "eip155:1")
-	})
-
-	t.Run("CreateBuilder with different chain IDs", func(t *testing.T) {
-		factory := newChainsTxBuilderFactory(nil)
-
-		testCases := []string{
-			"eip155:1",
-			"eip155:97",
-			"eip155:137",
-			"solana:mainnet",
-		}
-
-		for _, chainID := range testCases {
-			builder, err := factory.CreateBuilder(chainID)
-			require.Error(t, err, "expected error for chain %s", chainID)
-			assert.Nil(t, builder)
-			assert.Contains(t, err.Error(), chainID)
-		}
-	})
-
-	t.Run("SupportsChain returns false", func(t *testing.T) {
-		factory := newChainsTxBuilderFactory(nil)
-
-		testCases := []string{
-			"eip155:1",
-			"eip155:97",
-			"solana:mainnet",
-			"unknown-chain",
-		}
-
-		for _, chainID := range testCases {
-			supported := factory.SupportsChain(chainID)
-			assert.False(t, supported, "expected SupportsChain to return false for %s", chainID)
-		}
-	})
-
-	t.Run("factory with chains manager", func(t *testing.T) {
-		// Create a factory with a non-nil chains manager
-		// Even with a chains manager, the implementation returns not implemented
-		chainsManager := &chains.Chains{}
-		factory := newChainsTxBuilderFactory(chainsManager)
-
-		builder, err := factory.CreateBuilder("eip155:1")
-		require.Error(t, err)
-		assert.Nil(t, builder)
-		assert.Contains(t, err.Error(), "not yet implemented")
-	})
-}
-
-func TestNewChainsTxBuilderFactory(t *testing.T) {
-	t.Run("creates factory with nil chains", func(t *testing.T) {
-		factory := newChainsTxBuilderFactory(nil)
-		assert.NotNil(t, factory)
-	})
-
-	t.Run("creates factory with chains manager", func(t *testing.T) {
-		chainsManager := &chains.Chains{}
-		factory := newChainsTxBuilderFactory(chainsManager)
-		assert.NotNil(t, factory)
-	})
-}
+// Note: Factory tests removed as OutboundTxBuilderFactory has been replaced
+// with direct chain client access via Chains.GetClient() and ChainClient.GetTxBuilder()

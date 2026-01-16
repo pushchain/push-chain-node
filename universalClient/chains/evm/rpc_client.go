@@ -185,6 +185,38 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 	return receipt, err
 }
 
+// GetNonceAt returns the nonce of an account at a specific block number (nil = latest)
+func (rc *RPCClient) GetNonceAt(ctx context.Context, address ethcommon.Address, blockNumber *big.Int) (uint64, error) {
+	var nonce uint64
+	err := rc.executeWithFailover(ctx, "get_transaction_count", func(client *ethclient.Client) error {
+		var innerErr error
+		nonce, innerErr = client.PendingNonceAt(ctx, address)
+		if innerErr != nil {
+			return innerErr
+		}
+		return nil
+	})
+	return nonce, err
+}
+
+// CallContract calls a contract method and returns the result
+func (rc *RPCClient) CallContract(ctx context.Context, contractAddr ethcommon.Address, data []byte, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := rc.executeWithFailover(ctx, "call_contract", func(client *ethclient.Client) error {
+		msg := ethereum.CallMsg{
+			To:   &contractAddr,
+			Data: data,
+		}
+		var innerErr error
+		result, innerErr = client.CallContract(ctx, msg, blockNumber)
+		if innerErr != nil {
+			return innerErr
+		}
+		return nil
+	})
+	return result, err
+}
+
 // BroadcastTransaction broadcasts a signed transaction and returns the transaction hash
 func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *types.Transaction) (string, error) {
 	var txHash string

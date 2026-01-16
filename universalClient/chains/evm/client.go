@@ -34,6 +34,7 @@ type Client struct {
 	eventProcessor *common.EventProcessor
 	eventConfirmer *EventConfirmer
 	gasOracle      *GasOracle
+	txBuilder      *TxBuilder
 
 	// Dependencies
 	pushSigner *pushsigner.Signer
@@ -171,6 +172,14 @@ func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
 	return c.registryConfig
 }
 
+// GetTxBuilder returns the OutboundTxBuilder for this chain
+func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+	if c.txBuilder == nil {
+		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
+	}
+	return c.txBuilder, nil
+}
+
 // initializeComponents creates all components that require the RPC client
 func (c *Client) initializeComponents() error {
 	// Create event listener if gateway is configured
@@ -225,6 +234,27 @@ func (c *Client) initializeComponents() error {
 			config.gasPriceInterval,
 			c.logger,
 		)
+	}
+
+	// Create txBuilder if gateway is configured
+	if c.registryConfig != nil && c.registryConfig.GatewayAddress != "" {
+		// Parse chain ID to integer
+		chainIDInt, err := parseEVMChainID(c.chainIDStr)
+		if err != nil {
+			return fmt.Errorf("failed to parse chain ID for txBuilder: %w", err)
+		}
+
+		txBuilder, err := NewTxBuilder(
+			c.rpcClient,
+			c.chainIDStr,
+			chainIDInt,
+			c.registryConfig.GatewayAddress,
+			c.logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create txBuilder: %w", err)
+		}
+		c.txBuilder = txBuilder
 	}
 
 	return nil

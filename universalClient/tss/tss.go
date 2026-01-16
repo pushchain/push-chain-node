@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
@@ -46,8 +46,8 @@ type Config struct {
 	DialTimeout       time.Duration
 	IOTimeout         time.Duration
 
-	// Outbound transaction builder factory (required for sign operations)
-	TxBuilderFactory common.OutboundTxBuilderFactory
+	// Chains manager (required for sign operations to get txBuilders)
+	Chains *chains.Chains
 
 	// Session expiry checker configuration
 	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
@@ -96,7 +96,7 @@ type Node struct {
 	keyshareManager  *keyshare.Manager
 	database         *db.DB
 	pushCore         *pushcore.Client
-	txBuilderFactory common.OutboundTxBuilderFactory
+	chains           *chains.Chains
 	logger           zerolog.Logger
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
@@ -225,7 +225,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		keyshareManager:            mgr,
 		database:                   database,
 		pushCore:                   cfg.PushCore,
-		txBuilderFactory:           cfg.TxBuilderFactory,
+		chains:                     cfg.Chains,
 		logger:                     logger,
 		eventStore:                 evtStore,
 		sessionManager:             nil, // Will be initialized in Start()
@@ -291,7 +291,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.pushCore,
 			n.keyshareManager,
-			n.txBuilderFactory, // OutboundTxBuilderFactory for building transactions
+			n.chains, // Chains manager for getting txBuilders
 			n.validatorAddress,
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
@@ -309,8 +309,8 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.coordinator,
 			n.keyshareManager,
-			n.pushCore,         // For gas price verification
-			n.txBuilderFactory, // For building tx to verify signing hash
+			n.pushCore, // For gas price verification
+			n.chains,   // Chains manager for getting txBuilders
 			func(ctx context.Context, peerID string, data []byte) error {
 				return n.Send(ctx, peerID, data)
 			},

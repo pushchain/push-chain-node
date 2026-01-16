@@ -2,16 +2,19 @@ package coordinator
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	session "go-wrapper/go-dkls/sessions"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -26,7 +29,7 @@ type Coordinator struct {
 	eventStore       *eventstore.Store
 	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
-	txBuilderFactory common.OutboundTxBuilderFactory
+	chains           *chains.Chains
 	validatorAddress string
 	coordinatorRange uint64
 	pollInterval     time.Duration
@@ -56,7 +59,7 @@ func NewCoordinator(
 	eventStore *eventstore.Store,
 	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
-	txBuilderFactory common.OutboundTxBuilderFactory,
+	chains *chains.Chains,
 	validatorAddress string,
 	coordinatorRange uint64,
 	pollInterval time.Duration,
@@ -70,7 +73,7 @@ func NewCoordinator(
 		eventStore:       eventStore,
 		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
-		txBuilderFactory: txBuilderFactory,
+		chains:           chains,
 		validatorAddress: validatorAddress,
 		coordinatorRange: coordinatorRange,
 		pollInterval:     pollInterval,
@@ -225,6 +228,36 @@ func (c *Coordinator) GetCurrentTSSKey(ctx context.Context) (string, string, err
 		return "", "", nil // No key exists
 	}
 	return key.KeyId, key.TssPubkey, nil
+}
+
+// getTSSAddress gets the TSS ECDSA address from the current TSS public key
+// The TSS address is always the same ECDSA address derived from the TSS public key
+func (c *Coordinator) getTSSAddress(ctx context.Context) (string, error) {
+	key, err := c.pushCore.GetCurrentKey(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get current TSS key")
+	}
+	if key == nil || key.TssPubkey == "" {
+		return "", errors.New("no TSS key found")
+	}
+
+	// Derive ECDSA address from public key
+	// TSS public key is hex-encoded, uncompressed format (0x04 prefix + 64 bytes)
+	pubkeyBytes, err := hex.DecodeString(key.TssPubkey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode TSS public key")
+	}
+
+	// Skip 0x04 prefix (first byte) and hash the rest
+	if len(pubkeyBytes) < 65 {
+		return "", errors.New("invalid TSS public key length")
+	}
+	pubkeyBytes = pubkeyBytes[1:] // Remove 0x04 prefix
+
+	// Hash with keccak256 and take last 20 bytes
+	addressBytes := crypto.Keccak256(pubkeyBytes)[12:]
+
+	return "0x" + hex.EncodeToString(addressBytes), nil
 }
 
 // GetEligibleUV returns eligible validators for the given protocol type.
@@ -438,7 +471,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create setup message based on event type
 	var setupData []byte
-	var signMetadata *SignMetadata
+	var unsignedTxReq *common.UnSignedOutboundTxReq
 	var err error
 	switch event.Type {
 	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
@@ -447,7 +480,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	case string(ProtocolQuorumChange):
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
 	case string(ProtocolSign):
-		setupData, signMetadata, err = c.createSignSetup(ctx, event.EventData, partyIDs)
+		setupData, unsignedTxReq, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
 		err = errors.Errorf("unknown protocol type: %s", event.Type)
 	}
@@ -458,11 +491,11 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create and send setup message to all participants
 	setupMsg := Message{
-		Type:         "setup",
-		EventID:      event.EventID,
-		Payload:      setupData,
-		Participants: partyIDs,
-		SignMetadata: signMetadata, // nil for non-sign events
+		Type:                  "setup",
+		EventID:               event.EventID,
+		Payload:               setupData,
+		Participants:          partyIDs,
+		UnSignedOutboundTxReq: unsignedTxReq, // nil for non-sign events
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {
@@ -626,10 +659,10 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 	return setupData, nil
 }
 
-// createSignSetup creates a sign setup message and returns the sign metadata.
+// createSignSetup creates a sign setup message and returns the unsigned transaction request.
 // Uses the OutboundTxBuilder to build the actual transaction for the destination chain.
-// Returns the setup data, sign metadata (for participant verification), and error.
-func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *SignMetadata, error) {
+// Returns the setup data, unsigned transaction request (for participant verification), and error.
+func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *common.UnSignedOutboundTxReq, error) {
 	// Get current TSS keyId from pushCore
 	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
@@ -660,27 +693,21 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 	}
 
 	// Build the transaction and get signing parameters
-	txResult, err := c.buildSignTransaction(ctx, eventData)
+	signingReq, err := c.buildSignTransaction(ctx, eventData)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to build sign transaction")
 	}
 
-	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, txResult.SigningHash, participantIDs)
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, signingReq.SigningHash, participantIDs)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to create sign setup")
 	}
 
-	// Create sign metadata with gas price and signing hash for participant verification
-	signMetadata := &SignMetadata{
-		GasPrice:    txResult.GasPrice,
-		SigningHash: txResult.SigningHash,
-	}
-
-	return setupData, signMetadata, nil
+	return setupData, signingReq, nil
 }
 
 // buildSignTransaction builds the outbound transaction using the appropriate OutboundTxBuilder.
-func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte) (*common.OutboundTxResult, error) {
+func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte) (*common.UnSignedOutboundTxReq, error) {
 	if len(eventData) == 0 {
 		return nil, errors.New("event data is empty")
 	}
@@ -698,8 +725,8 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 		return nil, errors.New("outbound event missing destination_chain")
 	}
 
-	if c.txBuilderFactory == nil {
-		return nil, errors.New("tx builder factory not configured")
+	if c.chains == nil {
+		return nil, errors.New("chains manager not configured")
 	}
 
 	// Get gas price from pushcore oracle
@@ -708,19 +735,31 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 		return nil, errors.Wrapf(err, "failed to get gas price for chain %s", data.DestinationChain)
 	}
 
-	// Get the builder for the destination chain
-	builder, err := c.txBuilderFactory.CreateBuilder(data.DestinationChain)
+	// Get the client for the destination chain
+	client, err := c.chains.GetClient(data.DestinationChain)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create tx builder for chain %s", data.DestinationChain)
+		return nil, errors.Wrapf(err, "failed to get client for chain %s", data.DestinationChain)
 	}
 
-	// Build the transaction with the gas price from oracle
-	txResult, err := builder.BuildTransaction(ctx, &data, gasPrice)
+	// Get the builder from the client
+	builder, err := client.GetTxBuilder()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to build transaction")
+		return nil, errors.Wrapf(err, "failed to get tx builder for chain %s", data.DestinationChain)
 	}
 
-	return txResult, nil
+	// Get TSS ECDSA address (same for all chains)
+	tssAddress, err := c.getTSSAddress(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get TSS address")
+	}
+
+	// Get the signing request with the gas price from oracle
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &data, gasPrice, tssAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get outbound signing request")
+	}
+
+	return signingReq, nil
 }
 
 // createQcSetup creates a quorumchange setup message.

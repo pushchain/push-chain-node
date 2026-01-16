@@ -15,24 +15,18 @@ import (
 
 	"github.com/near/borsh-go"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
-// Constants for event parsing
-var (
-	UniversalTxDiscriminator = strings.ToLower("6C9AD829B5EA1D7C")
+// Event type constants
+const (
+	EventTypeSendFunds           = "send_funds"
+	EventTypeOutboundObservation = "outboundObservation"
 )
-
-// EventParser handles parsing of SVM gateway events
-type EventParser struct {
-	gatewayAddr solana.PublicKey
-	config      *uregistrytypes.ChainConfig
-	logger      zerolog.Logger
-}
 
 // base58ToHex converts a base58 encoded string to hex format (0x...)
-func (ep *EventParser) base58ToHex(base58Str string) (string, error) {
+func base58ToHex(base58Str string) (string, error) {
 	if base58Str == "" {
 		return "0x", nil
 	}
@@ -47,22 +41,29 @@ func (ep *EventParser) base58ToHex(base58Str string) (string, error) {
 	return "0x" + hex.EncodeToString(decoded), nil
 }
 
-// NewEventParser creates a new event parser
-func NewEventParser(
-	gatewayAddr solana.PublicKey,
-	config *uregistrytypes.ChainConfig,
-	logger zerolog.Logger,
-) *EventParser {
-	return &EventParser{
-		gatewayAddr: gatewayAddr,
-		config:      config,
-		logger:      logger.With().Str("component", "svm_event_parser").Logger(),
+// ParseEvent parses a log into a store.Event based on the event type
+// eventType should be "sendFunds" or "outboundObservation"
+func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
+	switch eventType {
+	case EventTypeSendFunds:
+		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
+	case EventTypeOutboundObservation:
+		// TODO: Parse outboundObservation events - events are still being finalized by other team
+		logger.Debug().
+			Str("signature", signature).
+			Msg("outboundObservation event parsing not yet implemented")
+		return nil
+	default:
+		logger.Debug().
+			Str("event_type", eventType).
+			Str("signature", signature).
+			Msg("unknown event type, skipping")
+		return nil
 	}
 }
 
-// ParseGatewayEvent parses a single log into a GatewayEvent
-// Only processes UniversalTxDiscriminator events
-func (ep *EventParser) ParseGatewayEvent(log string, signature string, slot uint64, logIndex uint) *common.GatewayEvent {
+// parseSendFundsEvent parses a sendFunds event as UniversalTx
+func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
 	}
@@ -77,33 +78,38 @@ func (ep *EventParser) ParseGatewayEvent(log string, signature string, slot uint
 		return nil
 	}
 
-	discriminator := hex.EncodeToString(decoded[:8])
+	// Create EventID in format: signature:LogIndex
+	eventID := fmt.Sprintf("%s:%d", signature, logIndex)
 
-	// Only process UniversalTxDiscriminator events
-	if discriminator != UniversalTxDiscriminator {
-		return nil
-	}
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("signature", signature).
+		Uint("log_index", logIndex).
+		Uint64("slot", slot).
+		Msg("processing sendFunds event")
 
-	event := &common.GatewayEvent{
-		ChainID:     ep.config.Chain,
-		TxHash:      signature,
-		BlockNumber: slot,
-		EventID:     discriminator,
+	// Create store.Event
+	event := &store.Event{
+		EventID:           eventID,
+		BlockHeight:       slot,
+		Type:              "INBOUND", // Gateway events from external chains are INBOUND
+		Status:            "PENDING",
+		ExpiryBlockHeight: 0, // Will be set based on confirmation type if needed
 	}
 
 	// Parse event data from this log
-	ep.parseUniversalTxEvent(event, decoded, logIndex)
+	parseUniversalTxEvent(event, decoded, logIndex, chainID, logger)
 
 	return event
 }
 
 // parseUniversalTxEvent extracts specific data from a single log event
-// For TxWithFunds events, it JSON-marshals the decoded fields into event.Payload.
-func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, decoded []byte, logIndex uint) {
+// For TxWithFunds events, it JSON-marshals the decoded fields into event.EventData.
+func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, chainID string, logger zerolog.Logger) {
 	// Parse the TxWithFunds event
-	payload, err := ep.decodeUniversalTxEvent(decoded)
+	payload, err := decodeUniversalTxEvent(decoded, logger)
 	if err != nil {
-		ep.logger.Warn().
+		logger.Warn().
 			Err(err).
 			Uint("log_index", logIndex).
 			Msg("failed to decode TxWithFunds event")
@@ -111,12 +117,16 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, decoded
 	}
 
 	// Set source chain and log index
-	payload.SourceChain = event.ChainID
+	payload.SourceChain = chainID
 	payload.LogIndex = logIndex
 
-	// Marshal and store into event.Payload
+	// Marshal and store into event.EventData
 	if b, err := json.Marshal(payload); err == nil {
-		event.Payload = b
+		event.EventData = b
+	} else {
+		logger.Warn().
+			Err(err).
+			Msg("failed to marshal universal tx payload")
 	}
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
@@ -128,9 +138,9 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, decoded
 }
 
 // decodeUniversalTxEvent decodes a TxWithFunds event
-func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx, error) {
+func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.UniversalTx, error) {
 	if len(data) < 120 {
-		ep.logger.Warn().
+		logger.Warn().
 			Int("data_len", len(data)).
 			Msg("data might be too short for complete TxWithFunds event")
 	}
@@ -144,9 +154,9 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 	}
 	sender := solana.PublicKey(data[offset : offset+32])
 	// Convert sender to hex format
-	senderHex, err := ep.base58ToHex(sender.String())
+	senderHex, err := base58ToHex(sender.String())
 	if err != nil {
-		ep.logger.Warn().Err(err).Msg("failed to convert sender to hex, using base58")
+		logger.Warn().Err(err).Msg("failed to convert sender to hex, using base58")
 		payload.Sender = sender.String()
 	} else {
 		payload.Sender = senderHex
@@ -180,7 +190,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse data field length (4 bytes)
 	if len(data) < offset+4 {
-		ep.logger.Warn().Msg("not enough data for data field length")
+		logger.Warn().Msg("not enough data for data field length")
 		return payload, nil
 	}
 	dataLen := binary.LittleEndian.Uint32(data[offset : offset+4])
@@ -188,7 +198,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse data field
 	if len(data) < offset+int(dataLen) {
-		ep.logger.Warn().
+		logger.Warn().
 			Uint32("expected_len", dataLen).
 			Int("available", len(data)-offset).
 			Msg("not enough data for data field")
@@ -201,7 +211,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 		// Try to decode as UniversalPayload
 		up, err := decodeUniversalPayload(hexStr)
 		if err != nil {
-			ep.logger.Warn().
+			logger.Warn().
 				Str("hex_str", hexStr).
 				Err(err).
 				Msg("failed to decode universal payload")
@@ -218,7 +228,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse revert recipient (Pubkey)
 	if len(data) < offset+32 {
-		ep.logger.Warn().Msg("not enough data for revert recipient")
+		logger.Warn().Msg("not enough data for revert recipient")
 		return payload, nil
 	}
 	revertRecipient := solana.PublicKey(data[offset : offset+32])
@@ -227,7 +237,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse revert message (Vec<u8>)
 	if len(data) < offset+4 {
-		ep.logger.Warn().Msg("not enough data for revert message length")
+		logger.Warn().Msg("not enough data for revert message length")
 		return payload, nil
 	}
 	revertMsgLen := binary.LittleEndian.Uint32(data[offset : offset+4])
@@ -236,7 +246,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 	remainingForRevert := len(data) - offset
 	revertLenValid := int(revertMsgLen) <= remainingForRevert
 	if !revertLenValid {
-		ep.logger.Warn().
+		logger.Warn().
 			Uint32("revert_msg_len", revertMsgLen).
 			Int("available", remainingForRevert).
 			Msg("revert message length invalid, skipping revert message parsing")
@@ -244,7 +254,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	if revertLenValid && revertMsgLen > 0 {
 		if len(data) < offset+int(revertMsgLen) {
-			ep.logger.Warn().
+			logger.Warn().
 				Uint32("expected_len", revertMsgLen).
 				Int("available", len(data)-offset).
 				Msg("not enough data for revert message")
@@ -257,7 +267,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse tx_type (TxType enum)
 	if len(data) <= offset {
-		ep.logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
+		logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
 		payload.TxType = uint(0)
 		return payload, nil
 	}
@@ -267,7 +277,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	// Parse signature data length (4 bytes)
 	if len(data) < offset+4 {
-		ep.logger.Warn().Msg("not enough data for signature length")
+		logger.Warn().Msg("not enough data for signature length")
 		return payload, nil
 	}
 	sigLen := binary.LittleEndian.Uint32(data[offset : offset+4])
@@ -275,7 +285,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 
 	remainingBytes := len(data) - offset
 	if int(sigLen) > remainingBytes {
-		ep.logger.Warn().
+		logger.Warn().
 			Uint32("expected_len", sigLen).
 			Int("available", remainingBytes).
 			Msg("signature data length exceeds available data, skipping")
@@ -288,7 +298,7 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 		offset += int(sigLen)
 	}
 
-	ep.logger.Debug().
+	logger.Debug().
 		Str("sender", payload.Sender).
 		Str("recipient", payload.Recipient).
 		Str("bridge_amount", payload.Amount).
@@ -304,7 +314,22 @@ func (ep *EventParser) decodeUniversalTxEvent(data []byte) (*common.UniversalTx,
 	return payload, nil
 }
 
-// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+// decodeUniversalPayload takes a hex string and decodes it into UniversalPayload
+// It decodes Rust Anchor/Borsh-serialized UniversalPayload bytes matching this Rust layout:
+//
+// #[derive(AnchorSerialize, AnchorDeserialize)]
+//
+//	pub struct UniversalPayload {
+//	    pub to: [u8; 20],
+//	    pub value: u64,
+//	    pub data: Vec<u8>,
+//	    pub gas_limit: u64,
+//	    pub max_fee_per_gas: u64,
+//	    pub max_priority_fee_per_gas: u64,
+//	    pub nonce: u64,
+//	    pub deadline: i64,
+//	    pub v_type: u8, // enum variant index (no payload)
+//	}
 func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 	// Handle empty string case
 	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
@@ -328,31 +353,6 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 		return nil, nil
 	}
 
-	// Try to decode as ABI-encoded UniversalPayload first
-	up, err := decodeUniversalPayloadBorsh(bz)
-	if err != nil {
-		return nil, err
-	}
-	return up, nil
-}
-
-// decodeUniversalPayloadBorsh decodes Rust Anchor/Borsh-serialized UniversalPayload bytes
-// into your uetypes.UniversalPayload. It matches this Rust layout:
-//
-// #[derive(AnchorSerialize, AnchorDeserialize)]
-//
-//	pub struct UniversalPayload {
-//	    pub to: [u8; 20],
-//	    pub value: u64,
-//	    pub data: Vec<u8>,
-//	    pub gas_limit: u64,
-//	    pub max_fee_per_gas: u64,
-//	    pub max_priority_fee_per_gas: u64,
-//	    pub nonce: u64,
-//	    pub deadline: i64,
-//	    pub v_type: u8, // enum variant index (no payload)
-//	}
-func decodeUniversalPayloadBorsh(bz []byte) (*uetypes.UniversalPayload, error) {
 	// Mirror the exact Rust/Borsh field order & types
 	type universalPayloadBorsh struct {
 		To                   [20]byte

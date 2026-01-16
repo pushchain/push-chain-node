@@ -6,32 +6,48 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/universalClient/rpcpool"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // Client implements the ChainClient interface for Solana chains
 type Client struct {
-	*common.BaseChainClient
+	// Core configuration
 	logger         zerolog.Logger
-	genesisHash    string           // Genesis hash extracted from CAIP-2
-	rpcPool        *rpcpool.Manager // Pool manager for RPC endpoints
-	gatewayHandler *GatewayHandler
-	database       *db.DB
-	appConfig      *config.Config
-	retryManager   *common.RetryManager
-	voteHandler    common.VoteHandler // Optional vote handler
-	stopCh         chan struct{}
+	chainIDStr     string
+	genesisHash    string
+	registryConfig *uregistrytypes.ChainConfig
+	chainConfig    *config.ChainSpecificConfig
+
+	// Infrastructure
+	rpcClient *RPCClient
+	database  *db.DB
+	ctx       context.Context
+	cancel    context.CancelFunc
+
+	// Components
+	eventListener  *EventListener
+	eventProcessor *common.EventProcessor
+	eventConfirmer *EventConfirmer
+	gasOracle      *GasOracle
+
+	// Dependencies
+	pushSigner *pushsigner.Signer
 }
 
 // NewClient creates a new Solana chain client
-func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *config.Config, logger zerolog.Logger) (*Client, error) {
+func NewClient(
+	config *uregistrytypes.ChainConfig,
+	database *db.DB,
+	chainConfig *config.ChainSpecificConfig,
+	pushSigner *pushsigner.Signer,
+	logger zerolog.Logger,
+) (*Client, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
@@ -40,444 +56,269 @@ func NewClient(config *uregistrytypes.ChainConfig, database *db.DB, appConfig *c
 		return nil, fmt.Errorf("invalid VM type for Solana client: %v", config.VmType)
 	}
 
+	chainIDStr := config.Chain
+	log := logger.With().Str("component", "svm_client").Str("chain", chainIDStr).Logger()
+
 	// Parse CAIP-2 chain ID (e.g., "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1")
-	genesisHash, err := parseSolanaChainID(config.Chain)
+	genesisHash, err := parseSolanaChainID(chainIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse chain ID: %w", err)
 	}
 
+	// Validate RPC URLs are configured
+	if chainConfig == nil || len(chainConfig.RPCURLs) == 0 {
+		return nil, fmt.Errorf("no RPC URLs configured for chain %s", chainIDStr)
+	}
+
 	client := &Client{
-		BaseChainClient: common.NewBaseChainClient(config, appConfig),
-		logger: logger.With().
-			Str("component", "svm_client").
-			Str("chain", config.Chain).
-			Logger(),
-		genesisHash:  genesisHash,
-		database:     database,
-		appConfig:    appConfig,
-		retryManager: common.NewRetryManager(nil, logger),
-		stopCh:       make(chan struct{}),
+		logger:         log,
+		chainIDStr:     chainIDStr,
+		genesisHash:    genesisHash,
+		registryConfig: config,
+		chainConfig:    chainConfig,
+		database:       database,
+		pushSigner:     pushSigner,
+	}
+
+	// Initialize components that don't require RPC client
+	if pushSigner != nil {
+		client.eventProcessor = common.NewEventProcessor(
+			pushSigner,
+			database,
+			chainIDStr,
+			log,
+		)
 	}
 
 	return client, nil
 }
 
-// getRPCURLs returns the list of RPC URLs to use for this chain
-func (c *Client) getRPCURLs() []string {
-	// Use the base client's GetRPCURLs method
-	urls := c.BaseChainClient.GetRPCURLs()
-
-	if len(urls) > 0 {
-		c.logger.Info().
-			Str("chain", c.GetConfig().Chain).
-			Int("url_count", len(urls)).
-			Msg("using RPC URLs from local configuration")
-		return urls
-	}
-
-	chainName := ""
-	if c.GetConfig() != nil {
-		chainName = c.GetConfig().Chain
-	}
-	c.logger.Warn().
-		Str("chain", chainName).
-		Msg("no RPC URLs configured for chain in local config")
-	return []string{}
-}
-
-// getRPCClient returns an RPC client from the pool
-func (c *Client) getRPCClient() (*rpc.Client, error) {
-	if c.rpcPool == nil {
-		return nil, fmt.Errorf("RPC pool not initialized")
-	}
-
-	endpoint, err := c.rpcPool.SelectEndpoint()
-	if err != nil {
-		return nil, fmt.Errorf("failed to select endpoint from pool: %w", err)
-	}
-
-	// Use the helper function from pool_adapter.go
-	return GetSolanaClientFromPool(endpoint)
-}
-
-// executeWithFailover executes a function with automatic failover across RPC endpoints
-func (c *Client) executeWithFailover(ctx context.Context, operation string, fn func(*rpc.Client) error) error {
-	if c.rpcPool == nil {
-		return fmt.Errorf("RPC pool not initialized for %s", operation)
-	}
-
-	// Use pool with automatic failover
-	maxAttempts := 3 // Limit attempts to avoid infinite loops
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		endpoint, err := c.rpcPool.SelectEndpoint()
-		if err != nil {
-			return fmt.Errorf("no healthy endpoints available for %s: %w", operation, err)
-		}
-
-		// Use the helper function from pool_adapter.go
-		rpcClient, err := GetSolanaClientFromPool(endpoint)
-		if err != nil {
-			c.logger.Error().
-				Str("operation", operation).
-				Str("url", endpoint.URL).
-				Err(err).
-				Msg("failed to get Solana client from endpoint")
-			continue
-		}
-
-		start := time.Now()
-		err = fn(rpcClient)
-		latency := time.Since(start)
-
-		if err == nil {
-			// Success - update metrics and return
-			c.rpcPool.UpdateEndpointMetrics(endpoint, true, latency, nil)
-			c.logger.Debug().
-				Str("operation", operation).
-				Str("url", endpoint.URL).
-				Dur("latency", latency).
-				Int("attempt", attempt+1).
-				Msg("operation completed successfully")
-			return nil
-		}
-
-		// Failure - update metrics and try next endpoint
-		c.rpcPool.UpdateEndpointMetrics(endpoint, false, latency, err)
-		c.logger.Warn().
-			Str("operation", operation).
-			Str("url", endpoint.URL).
-			Dur("latency", latency).
-			Int("attempt", attempt+1).
-			Err(err).
-			Msg("operation failed, trying next endpoint")
-	}
-
-	return fmt.Errorf("operation %s failed after %d attempts", operation, maxAttempts)
-}
-
 // Start initializes and starts the Solana chain client
 func (c *Client) Start(ctx context.Context) error {
-	// Create a long-lived context for this client
-	// Don't use the passed context directly as it may be short-lived
-	clientCtx := context.Background()
-	c.SetContext(clientCtx)
+	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	// Get RPC URLs for this chain
-	rpcURLs := c.getRPCURLs()
-	if len(rpcURLs) == 0 {
-		return fmt.Errorf("no RPC URLs configured for chain %s", c.GetConfig().Chain)
+	c.logger.Info().Str("chain", c.chainIDStr).Msg("starting Solana chain client")
+
+	// Initialize RPC client first (required for other components)
+	if err := c.createRPCClient(); err != nil {
+		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
-	c.logger.Info().
-		Str("genesis_hash", c.genesisHash).
-		Int("rpc_url_count", len(rpcURLs)).
-		Strs("rpc_urls", rpcURLs).
-		Msg("starting Solana chain client")
-
-	// Connect with retry logic - use clientCtx for long-lived operations
-	err := c.retryManager.ExecuteWithRetry(ctx, "initial_connection", func() error {
-		return c.connect(clientCtx)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to establish initial connection: %w", err)
+	// Initialize components that require RPC client
+	if err := c.initializeComponents(); err != nil {
+		return fmt.Errorf("failed to initialize components: %w", err)
 	}
 
-	// RPCPool handles all connection monitoring now
+	// Start all components
+	if err := c.startComponents(); err != nil {
+		return fmt.Errorf("failed to start components: %w", err)
+	}
 
 	c.logger.Info().Msg("Solana chain client started successfully")
-
-	// Initialize gateway handler if gateway is configured
-	if c.GetConfig() != nil && c.GetConfig().GatewayAddress != "" {
-		// Create gateway handler with parent client reference for pool access
-		handler, err := NewGatewayHandler(
-			c, // Pass the client instance for RPC pool access
-			c.GetConfig(),
-			c.database,
-			c.appConfig,
-			c.logger,
-		)
-		if err != nil {
-			c.logger.Warn().Err(err).Msg("failed to create gateway handler")
-			// Not a fatal error - continue without gateway support
-		} else {
-			c.gatewayHandler = handler
-
-			// Set vote handler if available
-			if c.voteHandler != nil {
-				c.gatewayHandler.SetVoteHandler(c.voteHandler)
-				c.logger.Info().Msg("vote handler set on gateway handler during initialization")
-			}
-			c.logger.Info().
-				Str("gateway_address", c.GetConfig().GatewayAddress).
-				Msg("gateway handler initialized")
-
-			// Start watching for gateway events in background
-			go c.watchGatewayEvents()
-		}
-	}
-
 	return nil
-}
-
-// watchGatewayEvents starts watching for gateway events in the background
-func (c *Client) watchGatewayEvents() {
-	c.logger.Info().
-		Str("gateway_address", c.GetConfig().GatewayAddress).
-		Msg("starting gateway event watcher")
-
-	// Use the client's own context which is long-lived
-	ctx := c.Context()
-	if ctx == nil {
-		c.logger.Error().Msg("client context is nil, cannot start event watcher")
-		return
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			c.logger.Info().Msg("stopping gateway event watcher: context done")
-			return
-		case <-c.stopCh:
-			c.logger.Info().Msg("stopping gateway event watcher: stop signal")
-			return
-		default:
-			// Check if we have available endpoints
-			if c.rpcPool == nil {
-				c.logger.Debug().Msg("waiting for RPC pool to be initialized")
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			if c.rpcPool.GetHealthyEndpointCount() == 0 {
-				c.logger.Debug().Msg("waiting for healthy endpoints")
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			// Check if gateway handler is available
-			if c.gatewayHandler == nil {
-				c.logger.Error().Msg("gateway handler is not initialized")
-				return
-			}
-
-			// Get the starting slot from database
-			startSlot, err := c.gatewayHandler.GetStartSlot(ctx)
-			if err != nil {
-				c.logger.Error().Err(err).Msg("failed to get start slot")
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			// Log the starting point
-			c.logger.Info().
-				Uint64("start_slot", startSlot).
-				Msg("determined starting slot from database")
-
-			// Determine starting slot: per-chain config override, else DB start
-			fromSlot := startSlot
-			if c.appConfig != nil {
-				if chainCfg := c.GetChainSpecificConfig(); chainCfg != nil && chainCfg.EventStartFrom != nil {
-					if *chainCfg.EventStartFrom >= 0 {
-						fromSlot = uint64(*chainCfg.EventStartFrom)
-						c.logger.Info().Uint64("from_slot", fromSlot).Msg("using per-chain configured start slot")
-					} else {
-						// -1 means start from latest slot
-						latest, latestErr := c.gatewayHandler.GetLatestBlock(ctx)
-						if latestErr == nil {
-							fromSlot = latest
-							c.logger.Info().Uint64("from_slot", fromSlot).Msg("using latest slot as start (per-chain config -1)")
-						} else {
-							c.logger.Warn().Err(latestErr).Uint64("fallback_from_slot", fromSlot).Msg("failed to get latest slot; falling back to DB start slot")
-						}
-					}
-				}
-			}
-
-			// Start watching events
-			eventChan, err := c.WatchGatewayEvents(ctx, fromSlot)
-			if err != nil {
-				c.logger.Error().Err(err).Msg("failed to start watching gateway events")
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			c.logger.Info().
-				Uint64("from_slot", fromSlot).
-				Msg("gateway event watcher started")
-
-			// Process events until error or disconnection
-			watchErr := c.processGatewayEvents(ctx, eventChan)
-			if watchErr != nil {
-				c.logger.Error().Err(watchErr).Msg("gateway event processing error")
-				time.Sleep(5 * time.Second)
-			}
-		}
-	}
-}
-
-// processGatewayEvents processes events from the event channel
-func (c *Client) processGatewayEvents(ctx context.Context, eventChan <-chan *common.GatewayEvent) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-c.stopCh:
-			return fmt.Errorf("stop signal received")
-		case event, ok := <-eventChan:
-			if !ok {
-				return fmt.Errorf("event channel closed")
-			}
-			if event != nil {
-				c.logger.Info().
-					Str("tx_hash", event.TxHash).
-					Uint64("slot", event.BlockNumber).
-					Msg("received gateway event")
-
-				// TODO: Process the event - e.g., send to a queue, update state, etc.
-				// For now, we're just logging it
-			}
-		}
-	}
-}
-
-// connect establishes connection to the Solana RPC endpoint(s)
-func (c *Client) connect(ctx context.Context) error {
-	rpcURLs := c.getRPCURLs()
-
-	if len(rpcURLs) == 0 {
-		return fmt.Errorf("no RPC URLs configured")
-	}
-
-	// Always use pool manager for consistency
-	// Note: ctx here should be the long-lived clientCtx passed from Start()
-	return c.initializeRPCPool(ctx, rpcURLs)
-}
-
-// initializeRPCPool creates and initializes the RPC pool manager
-func (c *Client) initializeRPCPool(ctx context.Context, rpcURLs []string) error {
-	c.logger.Info().
-		Int("url_count", len(rpcURLs)).
-		Msg("initializing Solana RPC pool")
-
-	// Create pool manager using the new rpcpool module
-	var poolConfig *config.RPCPoolConfig
-	if c.appConfig != nil {
-		poolConfig = &c.appConfig.RPCPoolConfig
-	}
-	c.rpcPool = rpcpool.NewManager(
-		c.GetConfig().Chain,
-		rpcURLs,
-		poolConfig,
-		CreateSVMClientFactory(),
-		c.logger,
-	)
-
-	if c.rpcPool == nil {
-		return fmt.Errorf("failed to create RPC pool manager")
-	}
-
-	// Set up health checker
-	healthChecker := CreateSVMHealthChecker(c.genesisHash)
-	c.rpcPool.HealthMonitor.SetHealthChecker(healthChecker)
-
-	// Start the pool with the long-lived context
-	// Note: ctx here should be the long-lived clientCtx passed from Start() -> connect()
-	if err := c.rpcPool.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start RPC pool: %w", err)
-	}
-
-	c.logger.Info().
-		Int("healthy_endpoints", c.rpcPool.GetHealthyEndpointCount()).
-		Msg("Solana RPC pool initialized successfully")
-
-	return nil
-}
-
-// SetVoteHandler sets the vote handler for confirmed transactions
-func (c *Client) SetVoteHandler(handler common.VoteHandler) {
-	c.voteHandler = handler
-	if c.gatewayHandler != nil {
-		c.gatewayHandler.SetVoteHandler(handler)
-		c.logger.Info().Msg("vote handler set on Solana client and gateway handler")
-	} else {
-		c.logger.Debug().Msg("vote handler stored, will be set on gateway handler during start")
-	}
 }
 
 // Stop gracefully shuts down the Solana chain client
 func (c *Client) Stop() error {
 	c.logger.Info().Msg("stopping Solana chain client")
 
-	// Signal stop to all components
-	close(c.stopCh)
-
-	// Stop RPC pool
-	if c.rpcPool != nil {
-		c.rpcPool.Stop()
-		c.rpcPool = nil
+	// Cancel context first to signal shutdown
+	if c.cancel != nil {
+		c.cancel()
 	}
 
-	// Cancel context
-	c.Cancel()
+	// Stop components in reverse order of initialization
+	if c.eventListener != nil {
+		if err := c.eventListener.Stop(); err != nil {
+			c.logger.Error().Err(err).Msg("error stopping event listener")
+		}
+	}
+
+	if c.eventConfirmer != nil {
+		c.eventConfirmer.Stop()
+	}
+
+	if c.eventProcessor != nil {
+		if err := c.eventProcessor.Stop(); err != nil {
+			c.logger.Error().Err(err).Msg("error stopping event processor")
+		}
+	}
+
+	if c.gasOracle != nil {
+		c.gasOracle.Stop()
+	}
+
+	// Close RPC client last
+	if c.rpcClient != nil {
+		c.rpcClient.Close()
+	}
 
 	c.logger.Info().Msg("Solana chain client stopped")
 	return nil
 }
 
-// IsHealthy checks if the Solana chain client is operational
+// IsHealthy checks if the Solana chain RPC client is healthy
 func (c *Client) IsHealthy() bool {
-	if c.Context() == nil {
+	if c.rpcClient == nil {
 		return false
 	}
 
-	select {
-	case <-c.Context().Done():
-		return false
-	default:
-		// Check if we have healthy endpoints in the pool
-		if c.rpcPool == nil {
-			return false
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return c.rpcClient.IsHealthy(ctx)
+}
+
+// ChainID returns the chain ID string
+func (c *Client) ChainID() string {
+	return c.chainIDStr
+}
+
+// GetConfig returns the registry chain config
+func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
+	return c.registryConfig
+}
+
+// initializeComponents creates all components that require the RPC client
+func (c *Client) initializeComponents() error {
+	// Create event listener if gateway is configured
+	if c.registryConfig != nil && c.registryConfig.GatewayAddress != "" {
+		// Extract necessary config values
+		eventPollingSeconds := 5 // default
+		if c.chainConfig != nil && c.chainConfig.EventPollingIntervalSeconds != nil && *c.chainConfig.EventPollingIntervalSeconds > 0 {
+			eventPollingSeconds = *c.chainConfig.EventPollingIntervalSeconds
 		}
 
-		healthyCount := c.rpcPool.GetHealthyEndpointCount()
-		minHealthy := 1 // Default minimum
-		if c.appConfig != nil {
-			minHealthy = c.appConfig.RPCPoolConfig.MinHealthyEndpoints
+		var eventStartFrom *int64
+		if c.chainConfig != nil && c.chainConfig.EventStartFrom != nil {
+			eventStartFrom = c.chainConfig.EventStartFrom
 		}
-		return healthyCount >= minHealthy
+
+		eventListener, err := NewEventListener(
+			c.rpcClient,
+			c.registryConfig.GatewayAddress,
+			c.registryConfig.Chain,
+			c.registryConfig.GatewayMethods,
+			c.database,
+			eventPollingSeconds,
+			eventStartFrom,
+			c.logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create event listener: %w", err)
+		}
+		c.eventListener = eventListener
 	}
+
+	// Apply defaults for all configuration values
+	config := c.applyDefaults()
+
+	// Create event confirmer
+	c.eventConfirmer = NewEventConfirmer(
+		c.rpcClient,
+		c.database,
+		c.chainIDStr,
+		config.eventPollingInterval,
+		config.fastConfirmations,
+		config.standardConfirmations,
+		c.logger,
+	)
+
+	// Create gas oracle if pushSigner is available
+	if c.pushSigner != nil {
+		c.gasOracle = NewGasOracle(
+			c.rpcClient,
+			c.pushSigner,
+			c.chainIDStr,
+			config.gasPriceInterval,
+			c.logger,
+		)
+	}
+
+	return nil
 }
 
-// GetGenesisHash returns the genesis hash
-func (c *Client) GetGenesisHash() string {
-	return c.genesisHash
+// startComponents starts all initialized components
+func (c *Client) startComponents() error {
+	if c.eventListener != nil {
+		if err := c.eventListener.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event listener: %w", err)
+		}
+	}
+
+	if c.eventConfirmer != nil {
+		if err := c.eventConfirmer.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event confirmer: %w", err)
+		}
+	}
+
+	if c.eventProcessor != nil {
+		if err := c.eventProcessor.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event processor: %w", err)
+		}
+	}
+
+	if c.gasOracle != nil {
+		if err := c.gasOracle.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start gas oracle: %w", err)
+		}
+	}
+
+	return nil
 }
 
-// GetSlot returns the current slot
-func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
-	var slot uint64
+// createRPCClient creates and initializes the RPC client
+func (c *Client) createRPCClient() error {
+	rpcURLs := c.chainConfig.RPCURLs
+	if len(rpcURLs) == 0 {
+		return fmt.Errorf("no RPC URLs configured")
+	}
 
-	err := c.executeWithFailover(ctx, "get_slot", func(client *rpc.Client) error {
-		var err error
-		slot, err = client.GetSlot(ctx, rpc.CommitmentFinalized)
-		return err
-	})
-
+	// Create RPC client from URLs with genesis hash validation
+	rpcClient, err := NewRPCClient(rpcURLs, c.genesisHash, c.logger)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get slot: %w", err)
+		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
-	return slot, nil
+	c.rpcClient = rpcClient
+	c.logger.Info().Msg("Solana RPC clients initialized successfully")
+	return nil
 }
 
-// GetRPCURL returns the first RPC endpoint URL from config or empty string
-func (c *Client) GetRPCURL() string {
-	urls := c.getRPCURLs()
-	if len(urls) > 0 {
-		return urls[0]
+// componentConfig holds configuration values for components with defaults applied
+type componentConfig struct {
+	eventPollingInterval  int
+	gasPriceInterval      int
+	fastConfirmations     uint64
+	standardConfirmations uint64
+}
+
+// applyDefaults applies default values to all component configuration
+func (c *Client) applyDefaults() componentConfig {
+	config := componentConfig{
+		eventPollingInterval:  5,  // default
+		gasPriceInterval:      30, // default
+		fastConfirmations:     5,  // Solana fast confirmations
+		standardConfirmations: 12, // Solana standard confirmations
 	}
-	return ""
+
+	// Apply event polling interval
+	if c.chainConfig != nil && c.chainConfig.EventPollingIntervalSeconds != nil && *c.chainConfig.EventPollingIntervalSeconds > 0 {
+		config.eventPollingInterval = *c.chainConfig.EventPollingIntervalSeconds
+	}
+
+	// Apply gas price interval
+	if c.chainConfig != nil && c.chainConfig.GasPriceIntervalSeconds != nil && *c.chainConfig.GasPriceIntervalSeconds > 0 {
+		config.gasPriceInterval = *c.chainConfig.GasPriceIntervalSeconds
+	}
+
+	// Apply confirmation requirements
+	if c.registryConfig != nil && c.registryConfig.BlockConfirmation != nil {
+		config.fastConfirmations = uint64(c.registryConfig.BlockConfirmation.FastInbound)
+		config.standardConfirmations = uint64(c.registryConfig.BlockConfirmation.StandardInbound)
+	}
+
+	return config
 }
 
 // parseSolanaChainID extracts the genesis hash from CAIP-2 format
@@ -498,40 +339,4 @@ func parseSolanaChainID(caip2 string) (string, error) {
 	}
 
 	return genesisHash, nil
-}
-
-// Gateway operation implementations
-
-// GetLatestBlock returns the latest slot number
-func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
-	if c.gatewayHandler != nil {
-		return c.gatewayHandler.GetLatestBlock(ctx)
-	}
-
-	// Fallback to direct client call
-	return c.GetSlot(ctx)
-}
-
-// WatchGatewayEvents starts watching for gateway events
-func (c *Client) WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *common.GatewayEvent, error) {
-	if c.gatewayHandler == nil {
-		return nil, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.WatchGatewayEvents(ctx, fromBlock)
-}
-
-// GetTransactionConfirmations returns the number of confirmations for a transaction
-func (c *Client) GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error) {
-	if c.gatewayHandler == nil {
-		return 0, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.GetTransactionConfirmations(ctx, txHash)
-}
-
-// IsConfirmed checks if a transaction has enough confirmations
-func (c *Client) IsConfirmed(ctx context.Context, txHash string) (bool, error) {
-	if c.gatewayHandler == nil {
-		return false, fmt.Errorf("gateway handler not initialized")
-	}
-	return c.gatewayHandler.IsConfirmed(ctx, txHash)
 }

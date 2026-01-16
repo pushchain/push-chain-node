@@ -2,21 +2,12 @@ package common
 
 import (
 	"context"
+	"math/big"
 
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// GatewayEvent represents a cross-chain gateway event
-type GatewayEvent struct {
-	ChainID          string
-	TxHash           string
-	BlockNumber      uint64
-	EventID          string
-	Payload          []byte
-	Confirmations    uint64
-	ConfirmationType string // "STANDARD" or "FAST" - from gateway method config
-}
-
+// UniversalTx Payload
 type UniversalTx struct {
 	SourceChain         string                   `json:"sourceChain"`
 	LogIndex            uint                     `json:"logIndex"`
@@ -31,17 +22,39 @@ type UniversalTx struct {
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 }
 
-// GatewayOperations defines gateway-specific operations for chain clients
-type GatewayOperations interface {
-	// GetLatestBlock returns the latest block/slot number
-	GetLatestBlock(ctx context.Context) (uint64, error)
+// OutboundTxResult contains the result of building an outbound transaction
+type OutboundTxResult struct {
+	SigningHash []byte   // Hash to be signed by TSS
+	Nonce       uint64   // Transaction nonce
+	GasPrice    *big.Int // Gas price used
+	GasLimit    uint64   // Gas limit
+	ChainID     string   // Destination chain ID (CAIP-2 format)
+	RawTx       []byte   // Raw unsigned transaction bytes
+}
 
-	// WatchGatewayEvents starts watching for gateway events from a specific block
-	WatchGatewayEvents(ctx context.Context, fromBlock uint64) (<-chan *GatewayEvent, error)
+// OutboundTxBuilder builds and broadcasts transactions for outbound transfers
+type OutboundTxBuilder interface {
+	// BuildTransaction builds an unsigned transaction from outbound event data
+	BuildTransaction(ctx context.Context, data *uetypes.OutboundCreatedEvent, gasPrice *big.Int) (*OutboundTxResult, error)
 
-	// GetTransactionConfirmations returns the number of confirmations for a transaction
-	GetTransactionConfirmations(ctx context.Context, txHash string) (uint64, error)
+	// AssembleSignedTransaction assembles a signed transaction from raw tx and signature
+	AssembleSignedTransaction(unsignedTx []byte, signature []byte, recoveryID byte) ([]byte, error)
 
-	// IsConfirmed checks if a transaction has enough confirmations
-	IsConfirmed(ctx context.Context, txHash string) (bool, error)
+	// BroadcastTransaction broadcasts a signed transaction and returns the tx hash
+	BroadcastTransaction(ctx context.Context, signedTx []byte) (string, error)
+
+	// GetTxHash calculates the transaction hash from signed transaction bytes
+	GetTxHash(signedTx []byte) (string, error)
+
+	// GetChainID returns the chain ID this builder is for
+	GetChainID() string
+}
+
+// OutboundTxBuilderFactory creates outbound tx builders for different chains
+type OutboundTxBuilderFactory interface {
+	// CreateBuilder creates an OutboundTxBuilder for the specified chain
+	CreateBuilder(chainID string) (OutboundTxBuilder, error)
+
+	// SupportsChain returns true if this factory can create a builder for the chain
+	SupportsChain(chainID string) bool
 }

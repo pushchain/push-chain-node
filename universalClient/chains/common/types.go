@@ -29,8 +29,6 @@ type UnSignedOutboundTxReq struct {
 	Signer      string   // TSS Address | evm - used for nonce calculation | svm - unused
 	Nonce       uint64   // evm - TSS Address nonce | svm - PDA nonce
 	GasPrice    *big.Int // evm - Gas price used | svm - Prioritization fee
-	GasLimit    uint64
-	ChainID     string // Destination chain ID (CAIP-2 format)
 }
 
 // OutboundTxBuilder builds and broadcasts transactions for outbound transfers

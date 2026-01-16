@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/app"
-	"github.com/stretchr/testify/require"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 
@@ -52,10 +51,6 @@ func ExecVoteOutbound(
 ) error {
 	t.Helper()
 
-	// Encode the real outbound tx_id (this is what validators vote on)
-	txIDHex, err := uexecutortypes.EncodeOutboundTxIDHex(utxId, outbound.Id)
-	require.NoError(t, err)
-
 	observed := &uexecutortypes.OutboundObservation{
 		Success:     success,
 		ErrorMsg:    errorMsg,
@@ -65,7 +60,8 @@ func ExecVoteOutbound(
 
 	msg := &uexecutortypes.MsgVoteOutbound{
 		Signer:     coreValAddr,
-		TxId:       txIDHex,
+		TxId:       outbound.Id,
+		UtxId:      utxId,
 		ObservedTx: observed,
 	}
 
@@ -74,7 +70,7 @@ func ExecVoteOutbound(
 		[]sdk.Msg{msg},
 	)
 
-	_, err = app.AuthzKeeper.Exec(ctx, &execMsg)
+	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
 	return err
 }
 

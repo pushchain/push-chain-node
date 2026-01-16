@@ -135,8 +135,3 @@ func (c *Client) IsHealthy() bool {
 func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
 	return nil, fmt.Errorf("txBuilder not supported for Push chain")
 }
-
-// GetDB returns the database instance for this chain
-func (c *Client) GetDB() *db.DB {
-	return c.database
-}

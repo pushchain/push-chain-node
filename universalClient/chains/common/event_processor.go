@@ -143,14 +143,14 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 		return fmt.Errorf("failed to extract outbound observation: %w", err)
 	}
 
-	// Extract txID
-	txID, err := ep.extractTxIDFromEvent(event)
+	// Extract txID and universalTxID from event data
+	txID, utxID, err := ep.extractOutboundIDs(event)
 	if err != nil {
-		return fmt.Errorf("failed to extract txID: %w", err)
+		return fmt.Errorf("failed to extract outbound IDs: %w", err)
 	}
 
 	// Vote on outbound
-	voteTxHash, err := ep.signer.VoteOutbound(ctx, txID, observation)
+	voteTxHash, err := ep.signer.VoteOutbound(ctx, txID, utxID, observation)
 	if err != nil {
 		return fmt.Errorf("failed to vote on outbound: %w", err)
 	}
@@ -179,6 +179,7 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 	ep.logger.Info().
 		Str("event_id", event.EventID).
 		Str("tx_id", txID).
+		Str("utx_id", utxID).
 		Str("vote_tx_hash", voteTxHash).
 		Msg("voted on outbound event")
 
@@ -359,6 +360,33 @@ func (ep *EventProcessor) extractTxIDFromEvent(event *store.Event) (string, erro
 	}
 
 	return txID, nil
+}
+
+// extractOutboundIDs extracts both txID and universalTxID from an outbound Event's event data
+func (ep *EventProcessor) extractOutboundIDs(event *store.Event) (txID string, utxID string, err error) {
+	if event == nil {
+		return "", "", fmt.Errorf("event is nil")
+	}
+
+	if len(event.EventData) == 0 {
+		return "", "", fmt.Errorf("event data is empty")
+	}
+
+	// Parse event data JSON to extract tx_id and universal_tx_id
+	var eventData OutboundEvent
+	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
+		return "", "", fmt.Errorf("failed to unmarshal event data: %w", err)
+	}
+
+	if eventData.TxID == "" {
+		return "", "", fmt.Errorf("tx_id not found in event data")
+	}
+
+	if eventData.UniversalTxID == "" {
+		return "", "", fmt.Errorf("universal_tx_id not found in event data")
+	}
+
+	return eventData.TxID, eventData.UniversalTxID, nil
 }
 
 // extractOutboundObservation extracts an OutboundObservation from event data

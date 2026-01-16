@@ -3,6 +3,7 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -209,8 +210,15 @@ func (h *Handler) processExpiredEvent(ctx context.Context, event *store.Event) e
 
 	case "SIGN":
 		// For sign events, vote for revert on Push chain and mark as REVERTED
-		// For outbound events, txID is the eventID
-		txID := event.EventID
+		// Parse event data to get txID and universalTxId
+		var outboundData uexecutortypes.OutboundCreatedEvent
+		if err := json.Unmarshal(event.EventData, &outboundData); err != nil {
+			h.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to parse outbound event data")
+			return errors.Wrap(err, "failed to parse outbound event data")
+		}
+
+		txID := outboundData.TxID
+		utxID := outboundData.UniversalTxId
 
 		// Determine reason based on current status
 		var reason string
@@ -247,7 +255,7 @@ func (h *Handler) processExpiredEvent(ctx context.Context, event *store.Event) e
 				TxHash:      txHash,
 				ErrorMsg:    reason,
 			}
-			voteTxHash, err := h.pushSigner.VoteOutbound(ctx, txID, observation)
+			voteTxHash, err := h.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
 			if err != nil {
 				h.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to vote for revert")
 				// Still mark as reverted locally

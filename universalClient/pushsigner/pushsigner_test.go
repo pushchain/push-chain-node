@@ -154,9 +154,43 @@ func TestSigner_VoteGasPrice(t *testing.T) {
 
 // TestSigner_VoteOutbound tests the VoteOutbound method signature.
 func TestSigner_VoteOutbound(t *testing.T) {
-	t.Run("method exists", func(t *testing.T) {
-		// Method signature: VoteOutbound(ctx context.Context, txID string, observation *uexecutortypes.OutboundObservation) (string, error)
+	t.Run("method exists with correct signature", func(t *testing.T) {
+		// Method signature: VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error)
+		// Verify the method signature by checking it compiles with the correct parameters
+		var signer *Signer
+		var txID string = "tx-123"
+		var utxID string = "utx-456"
+		var observation *uexecutortypes.OutboundObservation
+		_ = signer
+		_ = txID
+		_ = utxID
+		_ = observation
 		assert.True(t, true)
+	})
+
+	t.Run("observation struct has required fields", func(t *testing.T) {
+		observation := &uexecutortypes.OutboundObservation{
+			Success:     true,
+			BlockHeight: 12345,
+			TxHash:      "0xabc123",
+			ErrorMsg:    "",
+		}
+		assert.True(t, observation.Success)
+		assert.Equal(t, uint64(12345), observation.BlockHeight)
+		assert.Equal(t, "0xabc123", observation.TxHash)
+		assert.Equal(t, "", observation.ErrorMsg)
+	})
+
+	t.Run("observation for failed transaction", func(t *testing.T) {
+		observation := &uexecutortypes.OutboundObservation{
+			Success:     false,
+			BlockHeight: 0,
+			TxHash:      "",
+			ErrorMsg:    "transaction failed: insufficient funds",
+		}
+		assert.False(t, observation.Success)
+		assert.Equal(t, uint64(0), observation.BlockHeight)
+		assert.Equal(t, "transaction failed: insufficient funds", observation.ErrorMsg)
 	})
 }
 

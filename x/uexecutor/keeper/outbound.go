@@ -49,7 +49,7 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 	}
 
 	// Only refund for funds-related tx types
-	if outbound.TxType != types.TxType_FUNDS &&
+	if outbound.TxType != types.TxType_FUNDS && outbound.TxType != types.TxType_GAS_AND_PAYLOAD &&
 		outbound.TxType != types.TxType_FUNDS_AND_PAYLOAD {
 		return nil
 	}

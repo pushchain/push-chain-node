@@ -6,7 +6,6 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -197,12 +196,7 @@ func (ms msgServer) VoteOutbound(ctx context.Context, msg *types.MsgVoteOutbound
 		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
-	utxID, outboundID, err := types.DecodeOutboundTxIDHex(msg.TxId)
-	if err != nil {
-		return nil, errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid tx_id: decode failed")
-	}
-
-	err = ms.k.VoteOutbound(ctx, signerValAddr, utxID, outboundID, *msg.ObservedTx)
+	err = ms.k.VoteOutbound(ctx, signerValAddr, msg.UtxId, msg.TxId, *msg.ObservedTx)
 	if err != nil {
 		return nil, err
 	}

@@ -349,6 +349,19 @@ func (c *Chains) StopAll() {
 	c.chainConfigs = make(map[string]*uregistrytypes.ChainConfig)
 }
 
+// GetClient returns the chain client for the specified chain ID
+func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
+	c.chainsMu.RLock()
+	defer c.chainsMu.RUnlock()
+
+	client, exists := c.chains[chainID]
+	if !exists {
+		return nil, fmt.Errorf("chain client not found for chain %s", chainID)
+	}
+
+	return client, nil
+}
+
 // getChainDB returns a database instance for a specific chain
 func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 	// Create database file directly named after the chain's CAIP-2 format

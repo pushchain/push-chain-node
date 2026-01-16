@@ -113,11 +113,13 @@ func voteOutbound(
 	log zerolog.Logger,
 	granter string,
 	txID string,
+	utxID string,
 	observation *uexecutortypes.OutboundObservation,
 ) (string, error) {
 	msg := &uexecutortypes.MsgVoteOutbound{
 		Signer:     granter,
 		TxId:       txID,
+		UtxId:      utxID,
 		ObservedTx: observation,
 	}
 	memo := fmt.Sprintf("Vote outbound: %s", txID)

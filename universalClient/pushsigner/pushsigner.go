@@ -110,8 +110,8 @@ func (s *Signer) VoteGasPrice(ctx context.Context, chainID string, price uint64,
 }
 
 // VoteOutbound votes on an outbound transaction observation.
-func (s *Signer) VoteOutbound(ctx context.Context, txID string, observation *uexecutortypes.OutboundObservation) (string, error) {
-	return voteOutbound(ctx, s, s.log, s.granter, txID, observation)
+func (s *Signer) VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error) {
+	return voteOutbound(ctx, s, s.log, s.granter, txID, utxID, observation)
 }
 
 // VoteTssKeyProcess votes on a TSS key process.

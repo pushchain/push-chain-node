@@ -129,3 +129,9 @@ func (c *Client) IsHealthy() bool {
 	_, err := c.pushCore.GetLatestBlock(ctx)
 	return err == nil
 }
+
+// GetTxBuilder returns the OutboundTxBuilder for this chain
+// Push chain does not support outbound transactions, so this always returns an error
+func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+	return nil, fmt.Errorf("txBuilder not supported for Push chain")
+}

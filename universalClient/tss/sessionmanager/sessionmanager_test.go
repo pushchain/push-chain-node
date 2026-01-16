@@ -70,7 +70,7 @@ func (m *mockSession) Close() {
 func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordinator, *eventstore.Store, *keyshare.Manager, *pushcore.Client, *gorm.DB) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.PCEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.Event{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	keyshareMgr, err := keyshare.NewManager(t.TempDir(), "test-password")
@@ -176,7 +176,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a test event by inserting it directly into the database
-	event := store.PCEvent{
+	event := store.Event{
 		EventID:     "event1",
 		BlockHeight: 100,
 		Type:        "KEYGEN",
@@ -277,7 +277,7 @@ func TestSessionManager_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a keygen event by inserting it directly into the database
-	event := store.PCEvent{
+	event := store.Event{
 		EventID:     "keygen-event",
 		BlockHeight: 100,
 		Type:        "KEYGEN",

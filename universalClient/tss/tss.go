@@ -18,13 +18,13 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
-	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -55,7 +55,7 @@ type Config struct {
 	SessionExpiryBlockDelay    uint64        // How many blocks to delay retry after expiry (default: 10)
 
 	// Voting configuration
-	VoteHandler *vote.Handler // Optional - nil if voting disabled
+	PushSigner *pushsigner.Signer // Optional - nil if voting disabled
 }
 
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
@@ -115,7 +115,7 @@ type Node struct {
 	sessionExpiryBlockDelay    uint64
 
 	// Voting configuration
-	voteHandler *vote.Handler // Optional - nil if voting disabled
+	pushSigner *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Internal state
 	mu           sync.RWMutex
@@ -235,7 +235,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		sessionExpiryTime:          sessionExpiryTime,
 		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
 		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
-		voteHandler:                cfg.VoteHandler,
+		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
 	}
@@ -317,7 +317,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
 			n.logger,
-			n.voteHandler,
+			n.pushSigner,
 		)
 		n.sessionManager = sessionMgr
 	}

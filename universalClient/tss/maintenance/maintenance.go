@@ -10,18 +10,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
-
-// OutboundVoter handles voting for outbound transaction results.
-type OutboundVoter interface {
-	// VoteOutbound votes on an outbound transaction observation.
-	// isSuccess indicates whether the transaction succeeded.
-	// For success: txHash and blockHeight must be provided (blockHeight > 0).
-	// For revert: reason must be provided; txHash and blockHeight are optional (if txHash is provided, blockHeight must be > 0).
-	VoteOutbound(ctx context.Context, txID string, isSuccess bool, txHash string, blockHeight uint64, reason string) (string, error)
-}
 
 // Config contains configuration for the maintenance handler.
 type Config struct {
@@ -40,19 +33,13 @@ func DefaultConfig() Config {
 	}
 }
 
-// TODO: Handle BROADCASTED events completion via chain event listeners.
-// Instead of polling for transaction confirmations, chain event listeners should:
-// 1. Listen to gateway contract events on each chain
-// 2. When a gateway event is received with enough confirmations for that chain,
-//    mark the corresponding BROADCASTED event as COMPLETED
-// 3. Vote for outbound success/revert based on the gateway event result
-// This will be implemented in the chain-specific event listeners.
+// @dev - Success Voting for outbound events is handled by the chain-specific event processor.
 
 // Handler handles TSS event maintenance tasks including expiry processing and database cleanup.
 type Handler struct {
 	eventStore *eventstore.Store
 	pushCore   *pushcore.Client
-	voter      OutboundVoter
+	pushSigner *pushsigner.Signer // Optional - nil if voting disabled
 	config     Config
 	logger     zerolog.Logger
 
@@ -65,7 +52,7 @@ type Handler struct {
 func NewHandler(
 	eventStore *eventstore.Store,
 	pushCore *pushcore.Client,
-	voter OutboundVoter,
+	pushSigner *pushsigner.Signer, // Optional - nil if voting disabled
 	config Config,
 	logger zerolog.Logger,
 ) *Handler {
@@ -81,7 +68,7 @@ func NewHandler(
 	return &Handler{
 		eventStore: eventStore,
 		pushCore:   pushCore,
-		voter:      voter,
+		pushSigner: pushSigner,
 		config:     config,
 		logger:     logger.With().Str("component", "tss_maintenance").Logger(),
 		stopCh:     make(chan struct{}),
@@ -170,7 +157,7 @@ func (h *Handler) clearTerminalEvents(ctx context.Context) {
 
 // handleExpiredEvents finds and processes expired events.
 func (h *Handler) handleExpiredEvents(ctx context.Context) error {
-	currentBlock, err := h.pushCore.GetLatestBlock()
+	currentBlock, err := h.pushCore.GetLatestBlock(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get current block")
 	}
@@ -201,7 +188,7 @@ func (h *Handler) handleExpiredEvents(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) processExpiredEvent(ctx context.Context, event *store.PCEvent) error {
+func (h *Handler) processExpiredEvent(ctx context.Context, event *store.Event) error {
 	h.logger.Info().
 		Str("event_id", event.EventID).
 		Str("type", event.Type).
@@ -239,11 +226,11 @@ func (h *Handler) processExpiredEvent(ctx context.Context, event *store.PCEvent)
 			// No txHash or blockHeight for in-progress events
 		case eventstore.StatusBroadcasted:
 			reason = "expired after broadcast, no confirmations received"
-			// If broadcasted, we might have a txHash
-			if event.TxHash != "" {
+			// If broadcasted, we might have a BroadcastedTxHash
+			if event.BroadcastedTxHash != "" {
 				// Parse CAIP format to get raw hash (chain expects simple hash, not CAIP)
 				var err error
-				_, txHash, err = parseCaipTxHash(event.TxHash)
+				_, txHash, err = parseCaipTxHash(event.BroadcastedTxHash)
 				if err != nil {
 					h.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to parse txHash, voting without it")
 					txHash = ""
@@ -253,8 +240,14 @@ func (h *Handler) processExpiredEvent(ctx context.Context, event *store.PCEvent)
 			reason = "expired"
 		}
 
-		if h.voter != nil {
-			voteTxHash, err := h.voter.VoteOutbound(ctx, txID, false, txHash, blockHeight, reason)
+		if h.pushSigner != nil {
+			observation := &uexecutortypes.OutboundObservation{
+				Success:     false,
+				BlockHeight: blockHeight,
+				TxHash:      txHash,
+				ErrorMsg:    reason,
+			}
+			voteTxHash, err := h.pushSigner.VoteOutbound(ctx, txID, observation)
 			if err != nil {
 				h.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to vote for revert")
 				// Still mark as reverted locally

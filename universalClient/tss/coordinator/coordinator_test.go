@@ -19,6 +19,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
@@ -64,7 +65,7 @@ func (m *mockPushCoreClient) GetAllUniversalValidators() ([]*types.UniversalVali
 	return m.validators, nil
 }
 
-func (m *mockPushCoreClient) GetCurrentKey() (*utsstypes.TssKey, error) {
+func (m *mockPushCoreClient) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getKeyIdErr != nil {
@@ -79,8 +80,8 @@ func (m *mockPushCoreClient) GetCurrentKey() (*utsstypes.TssKey, error) {
 	}, nil
 }
 
-func (m *mockPushCoreClient) GetCurrentTSSKey() (string, string, error) {
-	key, err := m.GetCurrentKey()
+func (m *mockPushCoreClient) GetCurrentTSSKey(ctx context.Context) (string, string, error) {
+	key, err := m.GetCurrentKey(ctx)
 	if err != nil {
 		return "", "", err
 	}
@@ -124,7 +125,7 @@ func (m *mockPushCoreClient) setGetBlockNumError(err error) {
 func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eventstore.Store) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.PCEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.Event{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 
@@ -518,7 +519,10 @@ func TestGetSigningHash(t *testing.T) {
 
 		mockFactory := &mockTxBuilderFactory{
 			builders: map[string]*mockTxBuilder{
-				"ethereum": {signingHash: []byte("mock-signing-hash-32-bytes-long!")},
+				"ethereum": {
+					signingHash: []byte("mock-signing-hash-32-bytes-long!"),
+					chainID:     "ethereum",
+				},
 			},
 		}
 		coord.txBuilderFactory = mockFactory
@@ -595,9 +599,10 @@ func TestGetSigningHash(t *testing.T) {
 type mockTxBuilder struct {
 	signingHash []byte
 	err         error
+	chainID     string
 }
 
-func (m *mockTxBuilder) BuildTransaction(ctx context.Context, data *common.OutboundTxData, gasPrice *big.Int) (*common.OutboundTxResult, error) {
+func (m *mockTxBuilder) BuildTransaction(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int) (*common.OutboundTxResult, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -606,7 +611,7 @@ func (m *mockTxBuilder) BuildTransaction(ctx context.Context, data *common.Outbo
 		Nonce:       1,
 		GasPrice:    gasPrice,
 		GasLimit:    21000,
-		ChainID:     "ethereum",
+		ChainID:     m.chainID,
 		RawTx:       []byte("raw-tx-data"),
 	}, nil
 }
@@ -619,7 +624,14 @@ func (m *mockTxBuilder) BroadcastTransaction(ctx context.Context, signedTx []byt
 	return "", nil
 }
 
+func (m *mockTxBuilder) GetTxHash(signedTx []byte) (string, error) {
+	return "0xmock-tx-hash", nil
+}
+
 func (m *mockTxBuilder) GetChainID() string {
+	if m.chainID != "" {
+		return m.chainID
+	}
 	return "mock-chain"
 }
 

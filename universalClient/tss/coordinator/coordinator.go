@@ -91,7 +91,7 @@ func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -118,7 +118,7 @@ func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) 
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -145,7 +145,7 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -161,14 +161,14 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 }
 
 // GetLatestBlockNum gets the latest block number from pushCore.
-func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
-	return c.pushCore.GetLatestBlock()
+func (c *Coordinator) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+	return c.pushCore.GetLatestBlock(ctx)
 }
 
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
-	currentBlock, err := c.pushCore.GetLatestBlock()
+	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to get latest block")
 	}
@@ -216,8 +216,8 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 }
 
 // GetCurrentTSSKey gets the current TSS key ID and public key from pushCore.
-func (c *Coordinator) GetCurrentTSSKey() (string, string, error) {
-	key, err := c.pushCore.GetCurrentKey()
+func (c *Coordinator) GetCurrentTSSKey(ctx context.Context) (string, string, error) {
+	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
 		return "", "", err
 	}
@@ -285,7 +285,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 	defer ticker.Stop()
 
 	// Update validators immediately on start
-	c.updateValidators()
+	c.updateValidators(ctx)
 
 	for {
 		select {
@@ -295,7 +295,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// Update validators at each polling interval
-			c.updateValidators()
+			c.updateValidators(ctx)
 			if err := c.processPendingEvents(ctx); err != nil {
 				c.logger.Error().Err(err).Msg("error processing pending events")
 			}
@@ -304,8 +304,8 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 }
 
 // updateValidators fetches and caches all validators.
-func (c *Coordinator) updateValidators() {
-	allValidators, err := c.pushCore.GetAllUniversalValidators()
+func (c *Coordinator) updateValidators(ctx context.Context) {
+	allValidators, err := c.pushCore.GetAllUniversalValidators(ctx)
 	if err != nil {
 		c.logger.Warn().Err(err).Msg("failed to update validators cache")
 		return
@@ -320,7 +320,7 @@ func (c *Coordinator) updateValidators() {
 
 // processPendingEvents checks if this node is coordinator, and only then reads DB and processes events.
 func (c *Coordinator) processPendingEvents(ctx context.Context) error {
-	currentBlock, err := c.pushCore.GetLatestBlock()
+	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest block")
 	}
@@ -409,7 +409,7 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 // processEventAsCoordinator processes a TSS event as the coordinator.
 // Creates setup message based on event type and sends to all participants.
-func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.PCEvent, participants []*types.UniversalValidator) error {
+func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.Event, participants []*types.UniversalValidator) error {
 	// Sort participants by party ID for consistency
 	sortedParticipants := make([]*types.UniversalValidator, len(participants))
 	copy(sortedParticipants, participants)
@@ -631,7 +631,7 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 // Returns the setup data, sign metadata (for participant verification), and error.
 func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *SignMetadata, error) {
 	// Get current TSS keyId from pushCore
-	key, err := c.pushCore.GetCurrentKey()
+	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
@@ -731,7 +731,7 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 // @dev - Although tss lib can also take pending leave participants in oldParticipantIndices, we don't use that since it needs to be considered that old participants are gone and will only result in errors.
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
 	// Get current TSS keyId from pushCore
-	key, err := c.pushCore.GetCurrentKey()
+	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}

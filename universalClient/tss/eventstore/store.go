@@ -45,8 +45,8 @@ func NewStore(db *gorm.DB, logger zerolog.Logger) *Store {
 
 // GetPendingEvents returns all pending events that are ready to be processed.
 // Events are ready if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
-func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.PCEvent, error) {
-	var events []store.PCEvent
+func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.Event, error) {
+	var events []store.Event
 
 	// Only get events that are old enough (at least minBlockConfirmation blocks behind)
 	minBlock := currentBlock - minBlockConfirmation
@@ -66,8 +66,8 @@ func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint6
 }
 
 // GetExpiredEvents returns all expired events (PENDING, IN_PROGRESS, or BROADCASTED) that have expired.
-func (s *Store) GetExpiredEvents(currentBlock uint64) ([]store.PCEvent, error) {
-	var events []store.PCEvent
+func (s *Store) GetExpiredEvents(currentBlock uint64) ([]store.Event, error) {
+	var events []store.Event
 
 	if err := s.db.Where("status IN ? AND expiry_block_height <= ?",
 		[]string{StatusPending, StatusInProgress, StatusBroadcasted}, currentBlock).
@@ -80,8 +80,8 @@ func (s *Store) GetExpiredEvents(currentBlock uint64) ([]store.PCEvent, error) {
 }
 
 // GetEvent retrieves an event by ID.
-func (s *Store) GetEvent(eventID string) (*store.PCEvent, error) {
-	var event store.PCEvent
+func (s *Store) GetEvent(eventID string) (*store.Event, error) {
+	var event store.Event
 	if err := s.db.Where("event_id = ?", eventID).First(&event).Error; err != nil {
 		return nil, err
 	}
@@ -89,14 +89,18 @@ func (s *Store) GetEvent(eventID string) (*store.PCEvent, error) {
 }
 
 // UpdateStatus updates the status of an event.
+// Note: errorMsg is logged but not stored (Event model doesn't have error_msg field).
 func (s *Store) UpdateStatus(eventID, status, errorMsg string) error {
-	update := map[string]any{"status": status}
 	if errorMsg != "" {
-		update["error_msg"] = errorMsg
+		s.logger.Warn().
+			Str("event_id", eventID).
+			Str("status", status).
+			Str("error", errorMsg).
+			Msg("updating event status with error")
 	}
-	result := s.db.Model(&store.PCEvent{}).
+	result := s.db.Model(&store.Event{}).
 		Where("event_id = ?", eventID).
-		Updates(update)
+		Update("status", status)
 	if result.Error != nil {
 		return errors.Wrapf(result.Error, "failed to update event %s", eventID)
 	}
@@ -112,7 +116,7 @@ func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight u
 		"status":       status,
 		"block_height": blockHeight,
 	}
-	result := s.db.Model(&store.PCEvent{}).
+	result := s.db.Model(&store.Event{}).
 		Where("event_id = ?", eventID).
 		Updates(update)
 	if result.Error != nil {
@@ -126,7 +130,7 @@ func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight u
 
 // ClearTerminalEvents deletes completed, reverted, and expired events.
 func (s *Store) ClearTerminalEvents() (int64, error) {
-	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted, StatusExpired}).Delete(&store.PCEvent{})
+	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted, StatusExpired}).Delete(&store.Event{})
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "failed to clear terminal events")
 	}
@@ -140,7 +144,7 @@ func (s *Store) ClearTerminalEvents() (int64, error) {
 // This should be called on node startup to handle cases where the node crashed
 // while events were in progress, causing sessions to be lost from memory.
 func (s *Store) ResetInProgressEventsToPending() (int64, error) {
-	result := s.db.Model(&store.PCEvent{}).
+	result := s.db.Model(&store.Event{}).
 		Where("status = ?", StatusInProgress).
 		Update("status", StatusPending)
 	if result.Error != nil {
@@ -155,7 +159,7 @@ func (s *Store) ResetInProgressEventsToPending() (int64, error) {
 }
 
 // CreateEvent stores a new PCEvent. Returns error if event already exists.
-func (s *Store) CreateEvent(event *store.PCEvent) error {
+func (s *Store) CreateEvent(event *store.Event) error {
 	if err := s.db.Create(event).Error; err != nil {
 		return errors.Wrapf(err, "failed to create event %s", event.EventID)
 	}
@@ -167,13 +171,13 @@ func (s *Store) CreateEvent(event *store.PCEvent) error {
 	return nil
 }
 
-// UpdateTxHash updates the TxHash field for an event (used after broadcasting).
-func (s *Store) UpdateTxHash(eventID, txHash string) error {
-	result := s.db.Model(&store.PCEvent{}).
+// UpdateBroadcastedTxHash updates the BroadcastedTxHash field for an event (used after broadcasting).
+func (s *Store) UpdateBroadcastedTxHash(eventID, txHash string) error {
+	result := s.db.Model(&store.Event{}).
 		Where("event_id = ?", eventID).
-		Update("tx_hash", txHash)
+		Update("broadcasted_tx_hash", txHash)
 	if result.Error != nil {
-		return errors.Wrapf(result.Error, "failed to update tx_hash for event %s", eventID)
+		return errors.Wrapf(result.Error, "failed to update broadcasted_tx_hash for event %s", eventID)
 	}
 	if result.RowsAffected == 0 {
 		return errors.Errorf("event %s not found", eventID)

@@ -16,12 +16,12 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
-	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -51,8 +51,8 @@ type SessionManager struct {
 	send              SendFunc
 	partyID           string // Our validator address (pushvaloper format)
 	logger            zerolog.Logger
-	sessionExpiryTime time.Duration // How long a session can be inactive before expiring
-	voteHandler       *vote.Handler // Optional - nil if voting disabled
+	sessionExpiryTime time.Duration      // How long a session can be inactive before expiring
+	pushSigner        *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Session storage
 	mu       sync.RWMutex
@@ -70,7 +70,7 @@ func NewSessionManager(
 	partyID string,
 	sessionExpiryTime time.Duration,
 	logger zerolog.Logger,
-	voteHandler *vote.Handler, // Optional - nil if voting disabled
+	pushSigner *pushsigner.Signer, // Optional - nil if voting disabled
 ) *SessionManager {
 	return &SessionManager{
 		eventStore:        eventStore,
@@ -82,7 +82,7 @@ func NewSessionManager(
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
 		logger:            logger,
-		voteHandler:       voteHandler,
+		pushSigner:        pushSigner,
 		sessions:          make(map[string]*sessionState),
 	}
 }
@@ -448,7 +448,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 
 		// All nodes broadcast for redundancy - duplicates are handled gracefully
 		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature); err != nil {
-			// handleSigningComplete only returns errors for critical failures (e.g., GetTxHash, UpdateTxHash, UpdateStatus)
+			// handleSigningComplete only returns errors for critical failures (e.g., GetTxHash, UpdateBroadcastedTxHash, UpdateStatus)
 			// Broadcast errors are logged but don't cause function to return error
 			sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
 			return errors.Wrapf(err, "failed to complete signing process for event %s", eventID)
@@ -461,14 +461,14 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 	// Vote and mark completed for key events (keygen/keyrefresh/quorumchange)
 	// SIGN events are handled separately in handleSigningComplete
 	if state.protocolType != string(coordinator.ProtocolSign) {
-		if sm.voteHandler != nil {
+		if sm.pushSigner != nil {
 			pubKeyHex := hex.EncodeToString(result.PublicKey)
 
 			paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
 			if err != nil {
 				return errors.Wrapf(err, "failed to parse process id from %s", eventID)
 			}
-			voteTxHash, err := sm.voteHandler.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
+			voteTxHash, err := sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
 			if err != nil {
 				// Vote failed after TSS signing - do NOT retry, let it expire naturally
 				// This prevents double signing since TSS signing is already complete
@@ -493,7 +493,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 }
 
 // createSession creates a new DKLS session based on event type.
-func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEvent, msg *coordinator.Message) (dkls.Session, error) {
+func (sm *SessionManager) createSession(ctx context.Context, event *store.Event, msg *coordinator.Message) (dkls.Session, error) {
 	threshold := coordinator.CalculateThreshold(len(msg.Participants))
 
 	switch event.Type {
@@ -508,7 +508,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolKeyrefresh):
 		// Get current keyID
-		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -530,7 +530,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolQuorumChange):
 		// Get current keyID
-		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId for quorumchange")
 		}
@@ -564,7 +564,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 
 	case string(coordinator.ProtocolSign):
 		// Get current keyID
-		keyID, _, err := sm.coordinator.GetCurrentTSSKey()
+		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get current TSS keyId")
 		}
@@ -599,7 +599,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.PCEven
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.PCEvent) error {
+func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
 	// Get eligible validators for this protocol
 	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
 	if len(eligible) == 0 {
@@ -723,7 +723,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 
 		if hasSession {
 			// Get current block number from coordinator
-			currentBlock, err := sm.coordinator.GetLatestBlockNum()
+			currentBlock, err := sm.coordinator.GetLatestBlockNum(ctx)
 			if err != nil {
 				sm.logger.Warn().
 					Err(err).
@@ -759,7 +759,7 @@ const GasPriceTolerancePercent = 10
 // 1. Verifying the gas price is within acceptable range of on-chain oracle
 // 2. Building the transaction independently using the same gas price
 // 3. Comparing the resulting hash with coordinator's hash - must match exactly
-func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.PCEvent, meta *coordinator.SignMetadata) error {
+func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.Event, meta *coordinator.SignMetadata) error {
 	if meta == nil {
 		return errors.New("sign metadata is required for SIGN events")
 	}
@@ -913,7 +913,7 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 	caipTxHash := outboundData.DestinationChain + ":" + txHash
 
 	// Always store the txHash (calculated from signed tx, independent of broadcast)
-	if err := sm.eventStore.UpdateTxHash(eventID, caipTxHash); err != nil {
+	if err := sm.eventStore.UpdateBroadcastedTxHash(eventID, caipTxHash); err != nil {
 		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update tx hash")
 	}
 

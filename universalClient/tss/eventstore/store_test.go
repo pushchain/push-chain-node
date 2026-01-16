@@ -19,7 +19,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&store.PCEvent{}); err != nil {
+	if err := db.AutoMigrate(&store.Event{}); err != nil {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
@@ -39,7 +39,7 @@ func createTestEvent(t *testing.T, s *Store, eventID string, blockHeight uint64,
 		"key_id": "test-key-1",
 	})
 
-	event := store.PCEvent{
+	event := store.Event{
 		EventID:           eventID,
 		BlockHeight:       blockHeight,
 		ExpiryBlockHeight: expiryHeight,
@@ -247,9 +247,6 @@ func TestUpdateStatus(t *testing.T) {
 		if event.Status != StatusInProgress {
 			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusInProgress)
 		}
-		if event.ErrorMsg != "" {
-			t.Errorf("UpdateStatus() error message = %s, want empty", event.ErrorMsg)
-		}
 	})
 
 	t.Run("update status with error message", func(t *testing.T) {
@@ -270,9 +267,7 @@ func TestUpdateStatus(t *testing.T) {
 		if event.Status != StatusPending {
 			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusPending)
 		}
-		if event.ErrorMsg != errorMsg {
-			t.Errorf("UpdateStatus() error message = %s, want %s", event.ErrorMsg, errorMsg)
-		}
+		// Note: ErrorMsg field was removed from store.Event model
 	})
 
 	t.Run("update non-existent event", func(t *testing.T) {

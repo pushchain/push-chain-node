@@ -36,6 +36,10 @@ func (m *MockChainClient) IsHealthy() bool {
 	return m.healthy
 }
 
+func (m *MockChainClient) GetTxBuilder() (OutboundTxBuilder, error) {
+	return nil, nil
+}
+
 func TestChainClientInterface(t *testing.T) {
 	t.Run("mock implements ChainClient", func(t *testing.T) {
 		var client ChainClient = &MockChainClient{}

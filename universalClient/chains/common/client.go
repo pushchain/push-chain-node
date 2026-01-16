@@ -14,4 +14,8 @@ type ChainClient interface {
 
 	// IsHealthy checks if the chain client is operational
 	IsHealthy() bool
+
+	// GetTxBuilder returns the OutboundTxBuilder for this chain
+	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
+	GetTxBuilder() (OutboundTxBuilder, error)
 }

@@ -58,12 +58,3 @@ type OutboundTxBuilder interface {
 	// GetChainID returns the chain ID this builder is for
 	GetChainID() string
 }
-
-// OutboundTxBuilderFactory creates outbound tx builders for different chains
-type OutboundTxBuilderFactory interface {
-	// CreateBuilder creates an OutboundTxBuilder for the specified chain
-	CreateBuilder(chainID string) (OutboundTxBuilder, error)
-
-	// SupportsChain returns true if this factory can create a builder for the chain
-	SupportsChain(chainID string) bool
-}

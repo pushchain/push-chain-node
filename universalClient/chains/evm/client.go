@@ -180,6 +180,11 @@ func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
 	return c.txBuilder, nil
 }
 
+// GetDB returns the database instance for this chain
+func (c *Client) GetDB() *db.DB {
+	return c.database
+}
+
 // initializeComponents creates all components that require the RPC client
 func (c *Client) initializeComponents() error {
 	// Create event listener if gateway is configured

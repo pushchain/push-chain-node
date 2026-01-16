@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/pushchain/push-chain-node/universalClient/db"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -21,6 +22,9 @@ type ChainClient interface {
 	// GetTxBuilder returns the OutboundTxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
 	GetTxBuilder() (OutboundTxBuilder, error)
+
+	// GetDB returns the database instance for this chain
+	GetDB() *db.DB
 }
 
 // UnSignedOutboundTxReq contains the request for signing an outbound transaction

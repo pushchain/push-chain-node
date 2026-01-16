@@ -19,7 +19,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&store.TSSEvent{}); err != nil {
+	if err := db.AutoMigrate(&store.Event{}); err != nil {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
@@ -34,18 +34,18 @@ func setupTestStore(t *testing.T) *Store {
 }
 
 // createTestEvent creates a test TSS event in the database.
-func createTestEvent(t *testing.T, s *Store, eventID string, blockNumber uint64, status string, expiryHeight uint64) {
+func createTestEvent(t *testing.T, s *Store, eventID string, blockHeight uint64, status string, expiryHeight uint64) {
 	eventData, _ := json.Marshal(map[string]interface{}{
 		"key_id": "test-key-1",
 	})
 
-	event := store.TSSEvent{
-		EventID:      eventID,
-		BlockNumber:  blockNumber,
-		ProtocolType: "keygen",
-		Status:       status,
-		ExpiryHeight: expiryHeight,
-		EventData:    eventData,
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: expiryHeight,
+		Type:              "KEYGEN",
+		Status:            status,
+		EventData:         eventData,
 	}
 
 	if err := s.db.Create(&event).Error; err != nil {
@@ -119,8 +119,8 @@ func TestGetPendingEvents(t *testing.T) {
 		s := setupTestStore(t)
 		createTestEvent(t, s, "pending-1", 80, StatusPending, 200)
 		createTestEvent(t, s, "in-progress-1", 80, StatusInProgress, 200)
-		createTestEvent(t, s, "success-1", 80, StatusSuccess, 200)
-		createTestEvent(t, s, "expired-1", 80, StatusExpired, 200)
+		createTestEvent(t, s, "success-1", 80, StatusCompleted, 200)
+		createTestEvent(t, s, "reverted-1", 80, StatusReverted, 200)
 
 		events, err := s.GetPendingEvents(100, 10)
 		if err != nil {
@@ -134,30 +134,19 @@ func TestGetPendingEvents(t *testing.T) {
 		}
 	})
 
-	t.Run("filters expired events", func(t *testing.T) {
+	t.Run("excludes expired events", func(t *testing.T) {
 		s := setupTestStore(t)
-		// Create expired event (expiry at 90, current block is 100)
-		createTestEvent(t, s, "expired-1", 80, StatusPending, 90)
-		createTestEvent(t, s, "valid-1", 80, StatusPending, 200)
+		// Create events with different expiry heights
+		createTestEvent(t, s, "expired-1", 80, StatusPending, 90) // expired (expiry 90 < current 100)
+		createTestEvent(t, s, "valid-1", 80, StatusPending, 200)  // not expired (expiry 200 > current 100)
+		createTestEvent(t, s, "valid-2", 80, StatusPending, 101)  // not expired (expiry 101 > current 100)
 
 		events, err := s.GetPendingEvents(100, 10)
 		if err != nil {
 			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
 		}
-		if len(events) != 1 {
-			t.Errorf("GetPendingEvents() returned %d events, want 1", len(events))
-		}
-		if events[0].EventID != "valid-1" {
-			t.Errorf("GetPendingEvents() event ID = %s, want valid-1", events[0].EventID)
-		}
-
-		// Verify expired event was marked as expired
-		expiredEvent, err := s.GetEvent("expired-1")
-		if err != nil {
-			t.Fatalf("GetEvent() error = %v, want nil", err)
-		}
-		if expiredEvent.Status != StatusExpired {
-			t.Errorf("expired event status = %s, want %s", expiredEvent.Status, StatusExpired)
+		if len(events) != 2 {
+			t.Errorf("GetPendingEvents() returned %d events, want 2", len(events))
 		}
 	})
 
@@ -220,8 +209,8 @@ func TestGetEvent(t *testing.T) {
 		if event.EventID != "event-1" {
 			t.Errorf("GetEvent() event ID = %s, want event-1", event.EventID)
 		}
-		if event.BlockNumber != 100 {
-			t.Errorf("GetEvent() block number = %d, want 100", event.BlockNumber)
+		if event.BlockHeight != 100 {
+			t.Errorf("GetEvent() block height = %d, want 100", event.BlockHeight)
 		}
 		if event.Status != StatusPending {
 			t.Errorf("GetEvent() status = %s, want %s", event.Status, StatusPending)
@@ -258,9 +247,6 @@ func TestUpdateStatus(t *testing.T) {
 		if event.Status != StatusInProgress {
 			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusInProgress)
 		}
-		if event.ErrorMsg != "" {
-			t.Errorf("UpdateStatus() error message = %s, want empty", event.ErrorMsg)
-		}
 	})
 
 	t.Run("update status with error message", func(t *testing.T) {
@@ -281,15 +267,13 @@ func TestUpdateStatus(t *testing.T) {
 		if event.Status != StatusPending {
 			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusPending)
 		}
-		if event.ErrorMsg != errorMsg {
-			t.Errorf("UpdateStatus() error message = %s, want %s", event.ErrorMsg, errorMsg)
-		}
+		// Note: ErrorMsg field was removed from store.Event model
 	})
 
 	t.Run("update non-existent event", func(t *testing.T) {
 		s := setupTestStore(t)
 
-		err := s.UpdateStatus("non-existent", StatusSuccess, "")
+		err := s.UpdateStatus("non-existent", StatusCompleted, "")
 		if err == nil {
 			t.Fatal("UpdateStatus() error = nil, want error")
 		}
@@ -309,117 +293,50 @@ func TestUpdateStatus(t *testing.T) {
 		}
 
 		// IN_PROGRESS -> SUCCESS
-		if err := s.UpdateStatus("event-1", StatusSuccess, ""); err != nil {
+		if err := s.UpdateStatus("event-1", StatusCompleted, ""); err != nil {
 			t.Fatalf("UpdateStatus() error = %v", err)
 		}
 		event, _ = s.GetEvent("event-1")
-		if event.Status != StatusSuccess {
-			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusSuccess)
+		if event.Status != StatusCompleted {
+			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusCompleted)
 		}
 	})
 }
 
-func TestGetEventsByStatus(t *testing.T) {
-	t.Run("get events by status", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-		createTestEvent(t, s, "success-1", 102, StatusSuccess, 200)
-		createTestEvent(t, s, "expired-1", 103, StatusExpired, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-		// Should be ordered by created_at DESC
-		if events[0].EventID != "pending-2" {
-			t.Errorf("GetEventsByStatus() first event ID = %s, want pending-2", events[0].EventID)
-		}
-		if events[1].EventID != "pending-1" {
-			t.Errorf("GetEventsByStatus() second event ID = %s, want pending-1", events[1].EventID)
-		}
-	})
-
-	t.Run("get events with limit", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-		createTestEvent(t, s, "pending-3", 102, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 2)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-	})
-
-	t.Run("no events with status", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusSuccess, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 0 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 0", len(events))
-		}
-	})
-
-	t.Run("limit zero returns all", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 100, StatusPending, 200)
-		createTestEvent(t, s, "pending-2", 101, StatusPending, 200)
-
-		events, err := s.GetEventsByStatus(StatusPending, 0)
-		if err != nil {
-			t.Fatalf("GetEventsByStatus() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetEventsByStatus() returned %d events, want 2", len(events))
-		}
-	})
-}
-
-func TestClearExpiredAndSuccessfulEvents(t *testing.T) {
+func TestClearTerminalEvents(t *testing.T) {
 	t.Run("clear both expired and successful events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "success-1", 100, StatusSuccess, 200)
-		createTestEvent(t, s, "expired-1", 101, StatusExpired, 200)
+		createTestEvent(t, s, "success-1", 100, StatusCompleted, 200)
+		createTestEvent(t, s, "reverted-1", 101, StatusReverted, 200)
 		createTestEvent(t, s, "pending-1", 102, StatusPending, 200)
 		createTestEvent(t, s, "in-progress-1", 103, StatusInProgress, 200)
 
-		deleted, err := s.ClearExpiredAndSuccessfulEvents()
+		deleted, err := s.ClearTerminalEvents()
 		if err != nil {
-			t.Fatalf("ClearExpiredAndSuccessfulEvents() error = %v, want nil", err)
+			t.Fatalf("ClearTerminalEvents() error = %v, want nil", err)
 		}
 		if deleted != 2 {
-			t.Errorf("ClearExpiredAndSuccessfulEvents() deleted %d events, want 2", deleted)
+			t.Errorf("ClearTerminalEvents() deleted %d events, want 2", deleted)
 		}
 
-		// Verify both types are gone
-		success, _ := s.GetEventsByStatus(StatusSuccess, 0)
-		if len(success) != 0 {
-			t.Errorf("GetEventsByStatus(StatusSuccess) returned %d events, want 0", len(success))
+		// Verify both types are gone by trying to get them
+		successEvent, err := s.GetEvent("success-1")
+		if err == nil && successEvent != nil {
+			t.Errorf("ClearTerminalEvents() did not delete completed event")
 		}
-		expired, _ := s.GetEventsByStatus(StatusExpired, 0)
-		if len(expired) != 0 {
-			t.Errorf("GetEventsByStatus(StatusExpired) returned %d events, want 0", len(expired))
+		revertedEvent, err := s.GetEvent("reverted-1")
+		if err == nil && revertedEvent != nil {
+			t.Errorf("ClearTerminalEvents() did not delete reverted event")
 		}
 
 		// Verify other events still exist
-		pending, _ := s.GetEventsByStatus(StatusPending, 0)
-		if len(pending) != 1 {
-			t.Errorf("GetEventsByStatus(StatusPending) returned %d events, want 1", len(pending))
+		pendingEvent, err := s.GetEvent("pending-1")
+		if err != nil || pendingEvent == nil {
+			t.Errorf("ClearTerminalEvents() incorrectly deleted pending event")
 		}
-		inProgress, _ := s.GetEventsByStatus(StatusInProgress, 0)
-		if len(inProgress) != 1 {
-			t.Errorf("GetEventsByStatus(StatusInProgress) returned %d events, want 1", len(inProgress))
+		inProgressEvent, err := s.GetEvent("in-progress-1")
+		if err != nil || inProgressEvent == nil {
+			t.Errorf("ClearTerminalEvents() incorrectly deleted in-progress event")
 		}
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,9 +36,6 @@ func TestConfigValidation(t *testing.T) {
 	// Check that defaults were set
 	assert.NotZero(t, cfg.ConfigRefreshIntervalSeconds)
 	assert.NotZero(t, cfg.MaxRetries)
-	assert.NotZero(t, cfg.RetryBackoffSeconds)
-	assert.NotZero(t, cfg.InitialFetchRetries)
-	assert.NotZero(t, cfg.InitialFetchTimeoutSeconds)
 	assert.NotZero(t, cfg.QueryServerPort)
 	assert.Equal(t, KeyringBackendTest, cfg.KeyringBackend) // Defaults to test when empty
 	assert.NotEmpty(t, cfg.PushChainGRPCURLs)
@@ -56,9 +54,6 @@ func TestValidConfigScenarios(t *testing.T) {
 				LogFormat:                    "json",
 				ConfigRefreshIntervalSeconds: 30,
 				MaxRetries:                   5,
-				RetryBackoffSeconds:          2,
-				InitialFetchRetries:          3,
-				InitialFetchTimeoutSeconds:   20,
 				PushChainGRPCURLs:            []string{"localhost:9090"},
 				QueryServerPort:              8080,
 				TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
@@ -92,11 +87,8 @@ func TestValidConfigScenarios(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				// These should match the default config values
-				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds) // Default is 10
+				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds) // Default is 60
 				assert.Equal(t, 3, cfg.MaxRetries)
-				assert.Equal(t, 1, cfg.RetryBackoffSeconds)
-				assert.Equal(t, 5, cfg.InitialFetchRetries)
-				assert.Equal(t, 30, cfg.InitialFetchTimeoutSeconds)
 				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
 				assert.Equal(t, 8080, cfg.QueryServerPort)
 			},
@@ -224,9 +216,6 @@ func TestSaveAndLoad(t *testing.T) {
 			LogFormat:                    "json",
 			ConfigRefreshIntervalSeconds: 20,
 			MaxRetries:                   5,
-			RetryBackoffSeconds:          2,
-			InitialFetchRetries:          10,
-			InitialFetchTimeoutSeconds:   60,
 			PushChainGRPCURLs:            []string{"localhost:9090", "localhost:9091"},
 			QueryServerPort:              8888,
 			TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
@@ -238,7 +227,7 @@ func TestSaveAndLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify file exists
-		configPath := filepath.Join(tempDir, configSubdir, configFileName)
+		configPath := filepath.Join(tempDir, constant.ConfigSubdir, constant.ConfigFileName)
 		_, err = os.Stat(configPath)
 		assert.NoError(t, err)
 
@@ -251,9 +240,6 @@ func TestSaveAndLoad(t *testing.T) {
 		assert.Equal(t, cfg.LogFormat, loadedCfg.LogFormat)
 		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, loadedCfg.ConfigRefreshIntervalSeconds)
 		assert.Equal(t, cfg.MaxRetries, loadedCfg.MaxRetries)
-		assert.Equal(t, cfg.RetryBackoffSeconds, loadedCfg.RetryBackoffSeconds)
-		assert.Equal(t, cfg.InitialFetchRetries, loadedCfg.InitialFetchRetries)
-		assert.Equal(t, cfg.InitialFetchTimeoutSeconds, loadedCfg.InitialFetchTimeoutSeconds)
 		assert.Equal(t, cfg.PushChainGRPCURLs, loadedCfg.PushChainGRPCURLs)
 		assert.Equal(t, cfg.QueryServerPort, loadedCfg.QueryServerPort)
 	})
@@ -278,12 +264,12 @@ func TestSaveAndLoad(t *testing.T) {
 
 	t.Run("Load invalid JSON", func(t *testing.T) {
 		// Create config directory
-		configDir := filepath.Join(tempDir, "invalid", configSubdir)
+		configDir := filepath.Join(tempDir, "invalid", constant.ConfigSubdir)
 		err := os.MkdirAll(configDir, 0o750)
 		require.NoError(t, err)
 
 		// Write invalid JSON
-		configPath := filepath.Join(configDir, configFileName)
+		configPath := filepath.Join(configDir, constant.ConfigFileName)
 		err = os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
 		require.NoError(t, err)
 
@@ -305,7 +291,7 @@ func TestSaveAndLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify directory was created
-		configDir := filepath.Join(newDir, configSubdir)
+		configDir := filepath.Join(newDir, constant.ConfigSubdir)
 		_, err = os.Stat(configDir)
 		assert.NoError(t, err)
 	})
@@ -318,9 +304,6 @@ func TestConfigJSONMarshaling(t *testing.T) {
 			LogFormat:                    "console",
 			ConfigRefreshIntervalSeconds: 15,
 			MaxRetries:                   3,
-			RetryBackoffSeconds:          1,
-			InitialFetchRetries:          5,
-			InitialFetchTimeoutSeconds:   30,
 			PushChainGRPCURLs:            []string{"host1:9090", "host2:9090"},
 			QueryServerPort:              8080,
 		}
@@ -339,9 +322,6 @@ func TestConfigJSONMarshaling(t *testing.T) {
 		assert.Equal(t, cfg.LogFormat, unmarshaledCfg.LogFormat)
 		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, unmarshaledCfg.ConfigRefreshIntervalSeconds)
 		assert.Equal(t, cfg.MaxRetries, unmarshaledCfg.MaxRetries)
-		assert.Equal(t, cfg.RetryBackoffSeconds, unmarshaledCfg.RetryBackoffSeconds)
-		assert.Equal(t, cfg.InitialFetchRetries, unmarshaledCfg.InitialFetchRetries)
-		assert.Equal(t, cfg.InitialFetchTimeoutSeconds, unmarshaledCfg.InitialFetchTimeoutSeconds)
 		assert.Equal(t, cfg.PushChainGRPCURLs, unmarshaledCfg.PushChainGRPCURLs)
 		assert.Equal(t, cfg.QueryServerPort, unmarshaledCfg.QueryServerPort)
 	})

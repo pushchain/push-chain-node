@@ -6,29 +6,15 @@
   "push_chain_grpc_urls": [
     "localhost:9090"
   ],
+  "push_valoper_address": "pushvaloper1vzuw2x3k2ccme70zcgswv8d88kyc07grdpvw3e",
   "tss_p2p_private_key_hex": "0101010101010101010101010101010101010101010101010101010101010101",
   "tss_password": "defaultpassword",
   "tss_p2p_listen": "/ip4/0.0.0.0/tcp/39000",
   "config_refresh_interval_seconds": 60,
   "max_retries": 3,
-  "retry_backoff_seconds": 1,
-  "initial_fetch_retries": 5,
-  "initial_fetch_timeout_seconds": 30,
   "query_server_port": 8080,
   "keyring_backend": "test",
   "key_check_interval": 30,
-  "event_polling_interval_seconds": 5,
-  "database_base_dir": "",
-  "transaction_cleanup_interval_seconds": 3600,
-  "transaction_retention_period_seconds": 86400,
-  "rpc_pool_config": {
-    "health_check_interval_seconds": 30,
-    "unhealthy_threshold": 3,
-    "recovery_interval_seconds": 300,
-    "min_healthy_endpoints": 1,
-    "request_timeout_seconds": 10,
-    "load_balancing_strategy": "round-robin"
-  },
   "chain_configs": {
     "eip155:11155111": {
       "rpc_urls": [
@@ -37,6 +23,7 @@
       ],
       "cleanup_interval_seconds": 1800,
       "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
       "event_start_from": 9084430
     },
@@ -46,6 +33,7 @@
       ],
       "cleanup_interval_seconds": 1800,
       "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
       "event_start_from": 203887665
     },
@@ -55,6 +43,7 @@
       ],
       "cleanup_interval_seconds": 1800,
       "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
       "event_start_from": 32257378
     },
@@ -64,6 +53,7 @@
       ],
       "cleanup_interval_seconds": 1800,
       "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
       "event_start_from": 68905309
     },
@@ -73,8 +63,21 @@
       ],
       "cleanup_interval_seconds": 7200,
       "retention_period_seconds": 172800,
+      "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 30,
       "event_start_from": 403697270
+    },
+    "push_42101-1": {
+      "cleanup_interval_seconds": 1800,
+      "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
+      "event_start_from": 100000
+    },
+    "localchain_9000-1": {
+      "cleanup_interval_seconds": 1800,
+      "retention_period_seconds": 43200,
+      "event_polling_interval_seconds": 5,
+      "event_start_from": 100000
     }
   }
 }

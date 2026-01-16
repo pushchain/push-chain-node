@@ -11,9 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
@@ -46,8 +48,8 @@ type SessionManager struct {
 	eventStore        *eventstore.Store
 	coordinator       *coordinator.Coordinator
 	keyshareManager   *keyshare.Manager
-	pushCore          *pushcore.Client                // For validating gas prices
-	txBuilderFactory  common.OutboundTxBuilderFactory // For building tx to verify hash
+	pushCore          *pushcore.Client // For validating gas prices
+	chains            *chains.Chains   // For getting txBuilders
 	send              SendFunc
 	partyID           string // Our validator address (pushvaloper format)
 	logger            zerolog.Logger
@@ -65,7 +67,7 @@ func NewSessionManager(
 	coord *coordinator.Coordinator,
 	keyshareManager *keyshare.Manager,
 	pushCore *pushcore.Client,
-	txBuilderFactory common.OutboundTxBuilderFactory,
+	chains *chains.Chains,
 	send SendFunc,
 	partyID string,
 	sessionExpiryTime time.Duration,
@@ -77,7 +79,7 @@ func NewSessionManager(
 		coordinator:       coord,
 		keyshareManager:   keyshareManager,
 		pushCore:          pushCore,
-		txBuilderFactory:  txBuilderFactory,
+		chains:            chains,
 		send:              send,
 		partyID:           partyID,
 		sessionExpiryTime: sessionExpiryTime,
@@ -150,8 +152,8 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 
 	// 4.5. For SIGN events, verify the signing hash independently
 	if event.Type == string(coordinator.ProtocolSign) {
-		if err := sm.verifySignMetadata(ctx, event, msg.SignMetadata); err != nil {
-			return errors.Wrap(err, "sign metadata verification failed")
+		if err := sm.verifySigningRequest(ctx, event, msg.UnSignedOutboundTxReq); err != nil {
+			return errors.Wrap(err, "signing request verification failed")
 		}
 	}
 
@@ -448,7 +450,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 
 		// All nodes broadcast for redundancy - duplicates are handled gracefully
 		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature); err != nil {
-			// handleSigningComplete only returns errors for critical failures (e.g., GetTxHash, UpdateBroadcastedTxHash, UpdateStatus)
+			// handleSigningComplete only returns errors for critical failures (e.g., BroadcastTransaction, UpdateBroadcastedTxHash, UpdateStatus)
 			// Broadcast errors are logged but don't cause function to return error
 			sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
 			return errors.Wrapf(err, "failed to complete signing process for event %s", eventID)
@@ -755,21 +757,21 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 // GasPriceTolerancePercent defines the acceptable deviation from oracle gas price (e.g., 10 = 10%)
 const GasPriceTolerancePercent = 10
 
-// verifySignMetadata validates the coordinator's signing request by:
+// verifySigningRequest validates the coordinator's signing request by:
 // 1. Verifying the gas price is within acceptable range of on-chain oracle
 // 2. Building the transaction independently using the same gas price
 // 3. Comparing the resulting hash with coordinator's hash - must match exactly
-func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.Event, meta *coordinator.SignMetadata) error {
-	if meta == nil {
-		return errors.New("sign metadata is required for SIGN events")
+func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store.Event, req *common.UnSignedOutboundTxReq) error {
+	if req == nil {
+		return errors.New("unsigned transaction request is required for SIGN events")
 	}
 
-	if meta.GasPrice == nil {
-		return errors.New("gas price is missing in metadata")
+	if req.GasPrice == nil {
+		return errors.New("gas price is missing in request")
 	}
 
-	if len(meta.SigningHash) == 0 {
-		return errors.New("signing hash is missing in metadata")
+	if len(req.SigningHash) == 0 {
+		return errors.New("signing hash is missing in request")
 	}
 
 	// Parse the event data to get outbound transaction details
@@ -779,32 +781,47 @@ func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.E
 	}
 
 	// 1. Validate gas price is reasonable (within tolerance of oracle price)
-	if err := sm.validateGasPrice(ctx, outboundData.DestinationChain, meta.GasPrice); err != nil {
+	if err := sm.validateGasPrice(ctx, outboundData.DestinationChain, req.GasPrice); err != nil {
 		return errors.Wrap(err, "gas price validation failed")
 	}
 
 	// 2. Build the transaction independently using the same gas price
-	if sm.txBuilderFactory == nil {
-		sm.logger.Warn().Msg("txBuilderFactory not configured, skipping hash verification")
+	if sm.chains == nil {
+		sm.logger.Warn().Msg("chains manager not configured, skipping hash verification")
 		return nil
 	}
 
-	builder, err := sm.txBuilderFactory.CreateBuilder(outboundData.DestinationChain)
+	// Get the client for the destination chain
+	client, err := sm.chains.GetClient(outboundData.DestinationChain)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create tx builder for chain %s", outboundData.DestinationChain)
+		sm.logger.Warn().Err(err).Str("chain", outboundData.DestinationChain).Msg("failed to get client, skipping hash verification")
+		return nil
 	}
 
-	// Build transaction with the coordinator's gas price
-	txResult, err := builder.BuildTransaction(ctx, &outboundData, meta.GasPrice)
+	// Get the builder from the client
+	builder, err := client.GetTxBuilder()
 	if err != nil {
-		return errors.Wrap(err, "failed to build transaction for verification")
+		sm.logger.Warn().Err(err).Str("chain", outboundData.DestinationChain).Msg("failed to get tx builder, skipping hash verification")
+		return nil
+	}
+
+	// Get TSS ECDSA address (same for all chains)
+	tssAddress, err := sm.getTSSAddress(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get TSS address")
+	}
+
+	// Get signing request with the coordinator's gas price
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, req.GasPrice, tssAddress)
+	if err != nil {
+		return errors.Wrap(err, "failed to get signing request for verification")
 	}
 
 	// 3. Compare hashes - must match exactly
-	if !bytes.Equal(txResult.SigningHash, meta.SigningHash) {
+	if !bytes.Equal(signingReq.SigningHash, req.SigningHash) {
 		sm.logger.Error().
-			Str("our_hash", hex.EncodeToString(txResult.SigningHash)).
-			Str("coordinator_hash", hex.EncodeToString(meta.SigningHash)).
+			Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
+			Str("coordinator_hash", hex.EncodeToString(req.SigningHash)).
 			Str("event_id", event.EventID).
 			Msg("signing hash mismatch - rejecting signing request")
 		return errors.New("signing hash mismatch: our computed hash does not match coordinator's hash")
@@ -812,8 +829,9 @@ func (sm *SessionManager) verifySignMetadata(ctx context.Context, event *store.E
 
 	sm.logger.Debug().
 		Str("event_id", event.EventID).
-		Str("gas_price", meta.GasPrice.String()).
-		Str("signing_hash", hex.EncodeToString(meta.SigningHash)).
+		Str("gas_price", req.GasPrice.String()).
+		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
+		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
 
 	return nil
@@ -852,6 +870,36 @@ func (sm *SessionManager) validateGasPrice(ctx context.Context, chainID string, 
 	return nil
 }
 
+// getTSSAddress gets the TSS ECDSA address from the current TSS public key
+// The TSS address is always the same ECDSA address derived from the TSS public key
+func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
+	key, err := sm.pushCore.GetCurrentKey(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get current TSS key")
+	}
+	if key == nil || key.TssPubkey == "" {
+		return "", errors.New("no TSS key found")
+	}
+
+	// Derive ECDSA address from public key
+	// TSS public key is hex-encoded, uncompressed format (0x04 prefix + 64 bytes)
+	pubkeyBytes, err := hex.DecodeString(key.TssPubkey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode TSS public key")
+	}
+
+	// Skip 0x04 prefix (first byte) and hash the rest
+	if len(pubkeyBytes) < 65 {
+		return "", errors.New("invalid TSS public key length")
+	}
+	pubkeyBytes = pubkeyBytes[1:] // Remove 0x04 prefix
+
+	// Hash with keccak256 and take last 20 bytes
+	addressBytes := crypto.Keccak256(pubkeyBytes)[12:]
+
+	return "0x" + hex.EncodeToString(addressBytes), nil
+}
+
 // handleSigningComplete assembles and broadcasts the signed transaction.
 // All nodes call this for redundancy - duplicate broadcasts are handled gracefully by the chain.
 func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID string, eventData []byte, signature []byte) error {
@@ -861,14 +909,20 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 		return errors.Wrap(err, "failed to parse outbound event data")
 	}
 
-	if sm.txBuilderFactory == nil {
-		return errors.New("tx builder factory not configured")
+	if sm.chains == nil {
+		return errors.New("chains manager not configured")
 	}
 
-	// Get builder for destination chain
-	builder, err := sm.txBuilderFactory.CreateBuilder(outboundData.DestinationChain)
+	// Get the client for the destination chain
+	client, err := sm.chains.GetClient(outboundData.DestinationChain)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create tx builder for chain %s", outboundData.DestinationChain)
+		return errors.Wrapf(err, "failed to get client for chain %s", outboundData.DestinationChain)
+	}
+
+	// Get the builder from the client
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		return errors.Wrapf(err, "failed to get tx builder for chain %s", outboundData.DestinationChain)
 	}
 
 	// Get gas price from oracle (same as was used during signing)
@@ -877,10 +931,16 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 		return errors.Wrapf(err, "failed to get gas price for chain %s", outboundData.DestinationChain)
 	}
 
-	// Build the transaction (same deterministic result as coordinator)
-	txResult, err := builder.BuildTransaction(ctx, &outboundData, gasPrice)
+	// Get TSS ECDSA address (same for all chains)
+	tssAddress, err := sm.getTSSAddress(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to build transaction")
+		return errors.Wrap(err, "failed to get TSS address")
+	}
+
+	// Get the signing request (same deterministic result as coordinator)
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, gasPrice, tssAddress)
+	if err != nil {
+		return errors.Wrap(err, "failed to get signing request")
 	}
 
 	sm.logger.Info().
@@ -889,36 +949,25 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 		Int("signature_len", len(signature)).
 		Msg("assembling and broadcasting signed transaction")
 
-	// Extract recovery ID from signature (if present, last byte)
-	var recoveryID byte = 0
+	// Extract signature bytes (remove recovery ID if present)
 	sigBytes := signature
 	if len(signature) == 65 {
-		recoveryID = signature[64]
 		sigBytes = signature[:64]
 	}
 
-	// Assemble signed transaction
-	signedTx, err := builder.AssembleSignedTransaction(txResult.RawTx, sigBytes, recoveryID)
-	if err != nil {
-		return errors.Wrap(err, "failed to assemble signed transaction")
-	}
-
-	// Calculate txHash from signed transaction (can be done before broadcasting)
-	txHash, err := builder.GetTxHash(signedTx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get tx hash from signed transaction")
-	}
+	// Broadcast transaction and get tx hash
+	// Note: BroadcastOutboundSigningRequest returns the hash even if broadcast fails
+	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, sigBytes)
 
 	// Format tx hash in CAIP format: {chainId}:{txHash}
 	caipTxHash := outboundData.DestinationChain + ":" + txHash
 
-	// Always store the txHash (calculated from signed tx, independent of broadcast)
+	// Always store the txHash (from broadcast result, even if broadcast failed)
 	if err := sm.eventStore.UpdateBroadcastedTxHash(eventID, caipTxHash); err != nil {
 		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update tx hash")
 	}
 
-	// Broadcast to destination chain (errors are logged but don't prevent marking as BROADCASTED)
-	_, broadcastErr := builder.BroadcastTransaction(ctx, signedTx)
+	// Log broadcast result (errors are logged but don't prevent marking as BROADCASTED)
 	if broadcastErr != nil {
 		sm.logger.Warn().
 			Err(broadcastErr).

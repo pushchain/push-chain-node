@@ -611,4 +611,3 @@ func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uex
 func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, signature []byte) (string, error) {
 	return "0xmock-tx-hash", nil
 }
-

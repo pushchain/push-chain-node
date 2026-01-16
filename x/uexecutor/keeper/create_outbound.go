@@ -175,12 +175,6 @@ func (k Keeper) attachOutboundsToUtx(
 
 			utx.OutboundTx = append(utx.OutboundTx, outbound)
 
-			// ABI-encode (utx_id, outbound_id)
-			txIDHex, err := types.EncodeOutboundTxIDHex(utxId, outbound.Id)
-			if err != nil {
-				return fmt.Errorf("failed to encode outbound txID: %w", err)
-			}
-
 			var pcTxHash string
 			var logIndex string
 
@@ -191,8 +185,7 @@ func (k Keeper) attachOutboundsToUtx(
 
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
 				UniversalTxId:    utxId,
-				OutboundId:       outbound.Id,
-				TxID:             txIDHex,
+				TxID:             outbound.Id,
 				DestinationChain: outbound.DestinationChain,
 				Recipient:        outbound.Recipient,
 				Amount:           outbound.Amount,

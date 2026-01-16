@@ -14,8 +14,7 @@ const (
 // OutboundCreatedEvent represents an emitted outbound transaction.
 type OutboundCreatedEvent struct {
 	UniversalTxId    string `json:"utx_id"`
-	OutboundId       string `json:"outbound_id"`
-	TxID             string `json:"tx_id"` // txId: abi.encode(utx_id, outbound_id)
+	TxID             string `json:"tx_id"`
 	DestinationChain string `json:"destination_chain"`
 	Recipient        string `json:"recipient"`
 	Amount           string `json:"amount"`
@@ -43,7 +42,6 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 	event := sdk.NewEvent(
 		EventTypeOutboundCreated,
 		sdk.NewAttribute("utx_id", e.UniversalTxId),
-		sdk.NewAttribute("outbound_id", e.OutboundId),
 		sdk.NewAttribute("tx_id", e.TxID),
 		sdk.NewAttribute("destination_chain", e.DestinationChain),
 		sdk.NewAttribute("recipient", e.Recipient),

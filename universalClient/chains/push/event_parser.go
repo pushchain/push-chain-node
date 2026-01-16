@@ -82,8 +82,8 @@ var (
 // ParseEvent parses a Push chain event from an ABCI event.
 // Returns nil if the event type is not recognized.
 // Sets BlockHeight and Status on successfully parsed events.
-func ParseEvent(event abci.Event, blockHeight uint64) (*store.PCEvent, error) {
-	var parsed *store.PCEvent
+func ParseEvent(event abci.Event, blockHeight uint64) (*store.Event, error) {
+	var parsed *store.Event
 	var err error
 
 	switch event.Type {
@@ -117,7 +117,7 @@ func ParseEvent(event abci.Event, blockHeight uint64) (*store.PCEvent, error) {
 }
 
 // parseTSSEvent parses a tss_process_initiated event.
-func parseTSSEvent(event abci.Event) (*store.PCEvent, error) {
+func parseTSSEvent(event abci.Event) (*store.Event, error) {
 	attrs := extractAttributes(event)
 
 	// Parse required fields
@@ -160,7 +160,7 @@ func parseTSSEvent(event abci.Event) (*store.PCEvent, error) {
 		return nil, fmt.Errorf("failed to build event data: %w", err)
 	}
 
-	return &store.PCEvent{
+	return &store.Event{
 		EventID:           fmt.Sprintf("%d", processID),
 		ExpiryBlockHeight: expiryHeight,
 		Type:              protocolType,
@@ -169,7 +169,7 @@ func parseTSSEvent(event abci.Event) (*store.PCEvent, error) {
 }
 
 // parseOutboundEvent parses an outbound_created event.
-func parseOutboundEvent(event abci.Event) (*store.PCEvent, error) {
+func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 	attrs := extractAttributes(event)
 
 	// Parse required field
@@ -201,7 +201,7 @@ func parseOutboundEvent(event abci.Event) (*store.PCEvent, error) {
 		return nil, fmt.Errorf("failed to marshal outbound event data: %w", err)
 	}
 
-	return &store.PCEvent{
+	return &store.Event{
 		EventID:   txID,
 		Type:      ProtocolTypeSign,
 		EventData: eventData,

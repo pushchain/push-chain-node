@@ -5,51 +5,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 )
 
-// mockPushClient implements PushClient for testing.
-type mockPushClient struct {
-	latestBlock uint64
-	txResults   []*pushcore.TxResult
-	err         error
+// newTestPushCoreClient creates a minimal pushcore.Client for testing
+// This creates a client with empty slices, which will fail on actual operations
+// but allows testing the structure
+func newTestPushCoreClient() *pushcore.Client {
+	return &pushcore.Client{
+		// Empty slices - actual operations will fail but structure is valid
+	}
 }
 
-func (m *mockPushClient) GetLatestBlock() (uint64, error) {
-	return m.latestBlock, m.err
-}
-
-func (m *mockPushClient) GetTxsByEvents(query string, minHeight, maxHeight uint64, limit uint64) ([]*pushcore.TxResult, error) {
-	return m.txResults, m.err
-}
-
-func newTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
-	})
+func newTestDB(t *testing.T) *db.DB {
+	testDB, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
 
-	// Use the actual store types for migration
-	err = db.AutoMigrate(&store.ChainState{}, &store.PCEvent{})
-	require.NoError(t, err)
-
-	return db
+	return testDB
 }
 
-func TestNewListener(t *testing.T) {
+func TestNewEventListener(t *testing.T) {
 	logger := zerolog.Nop()
 	db := newTestDB(t)
-	client := &mockPushClient{}
+	client := newTestPushCoreClient()
 
-	t.Run("success with nil config", func(t *testing.T) {
-		listener, err := NewListener(client, db, logger, nil)
+	t.Run("success with nil chainConfig", func(t *testing.T) {
+		listener, err := NewEventListener(client, db, logger, nil)
 		require.NoError(t, err)
 		require.NotNil(t, listener)
 
@@ -59,50 +45,53 @@ func TestNewListener(t *testing.T) {
 		assert.Equal(t, uint64(DefaultQueryLimit), listener.cfg.QueryLimit)
 	})
 
-	t.Run("success with custom config", func(t *testing.T) {
-		cfg := &Config{
-			PollInterval: 10 * time.Second,
-			ChunkSize:    500,
-			QueryLimit:   50,
+	t.Run("success with chainConfig that sets poll interval", func(t *testing.T) {
+		pollInterval := int(10)
+		chainConfig := &config.ChainSpecificConfig{
+			EventPollingIntervalSeconds: &pollInterval,
 		}
-		listener, err := NewListener(client, db, logger, cfg)
+		listener, err := NewEventListener(client, db, logger, chainConfig)
 		require.NoError(t, err)
 		require.NotNil(t, listener)
 
 		assert.Equal(t, 10*time.Second, listener.cfg.PollInterval)
-		assert.Equal(t, uint64(500), listener.cfg.ChunkSize)
-		assert.Equal(t, uint64(50), listener.cfg.QueryLimit)
+		assert.Equal(t, uint64(DefaultChunkSize), listener.cfg.ChunkSize)
+		assert.Equal(t, uint64(DefaultQueryLimit), listener.cfg.QueryLimit)
 	})
 
 	t.Run("nil client error", func(t *testing.T) {
-		listener, err := NewListener(nil, db, logger, nil)
+		listener, err := NewEventListener(nil, db, logger, nil)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrNilClient)
 		assert.Nil(t, listener)
 	})
 
 	t.Run("nil database error", func(t *testing.T) {
-		listener, err := NewListener(client, nil, logger, nil)
+		listener, err := NewEventListener(client, nil, logger, nil)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrNilDatabase)
 		assert.Nil(t, listener)
 	})
 
-	t.Run("invalid poll interval - too short", func(t *testing.T) {
-		cfg := &Config{
-			PollInterval: 100 * time.Millisecond, // Less than minPollInterval
+	t.Run("poll interval of 0 uses default", func(t *testing.T) {
+		// When poll interval is 0, it should use the default (condition is > 0)
+		pollInterval := int(0)
+		chainConfig := &config.ChainSpecificConfig{
+			EventPollingIntervalSeconds: &pollInterval,
 		}
-		listener, err := NewListener(client, db, logger, cfg)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "poll interval")
-		assert.Nil(t, listener)
+		listener, err := NewEventListener(client, db, logger, chainConfig)
+		require.NoError(t, err)
+		require.NotNil(t, listener)
+		// Should use default poll interval
+		assert.Equal(t, DefaultPollInterval, listener.cfg.PollInterval)
 	})
 
 	t.Run("invalid poll interval - too long", func(t *testing.T) {
-		cfg := &Config{
-			PollInterval: 10 * time.Minute, // More than maxPollInterval
+		pollInterval := int(600) // More than maxPollInterval (5 minutes = 300 seconds)
+		chainConfig := &config.ChainSpecificConfig{
+			EventPollingIntervalSeconds: &pollInterval,
 		}
-		listener, err := NewListener(client, db, logger, cfg)
+		listener, err := NewEventListener(client, db, logger, chainConfig)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "poll interval")
 		assert.Nil(t, listener)
@@ -112,9 +101,9 @@ func TestNewListener(t *testing.T) {
 func TestListener_StartStop(t *testing.T) {
 	logger := zerolog.Nop()
 	db := newTestDB(t)
-	client := &mockPushClient{latestBlock: 100}
+	client := newTestPushCoreClient()
 
-	listener, err := NewListener(client, db, logger, nil)
+	listener, err := NewEventListener(client, db, logger, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -148,9 +137,9 @@ func TestListener_StartStop(t *testing.T) {
 func TestListener_IsRunning(t *testing.T) {
 	logger := zerolog.Nop()
 	db := newTestDB(t)
-	client := &mockPushClient{latestBlock: 100}
+	client := newTestPushCoreClient()
 
-	listener, err := NewListener(client, db, logger, nil)
+	listener, err := NewEventListener(client, db, logger, nil)
 	require.NoError(t, err)
 
 	assert.False(t, listener.IsRunning())

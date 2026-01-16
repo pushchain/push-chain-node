@@ -48,11 +48,7 @@ func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventT
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
 	case EventTypeOutboundObservation:
-		// TODO: Parse outboundObservation events - events are still being finalized by other team
-		logger.Debug().
-			Str("signature", signature).
-			Msg("outboundObservation event parsing not yet implemented")
-		return nil
+		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
 	default:
 		logger.Debug().
 			Str("event_type", eventType).
@@ -99,6 +95,86 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 
 	// Parse event data from this log
 	parseUniversalTxEvent(event, decoded, logIndex, chainID, logger)
+
+	return event
+}
+
+// parseOutboundObservationEvent parses an outboundObservation event
+// Event structure (Borsh serialized):
+// - discriminator (8 bytes)
+// - txID (32 bytes - bytes32)
+// - universalTxID (32 bytes - bytes32)
+func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
+	if !strings.HasPrefix(log, "Program data: ") {
+		return nil
+	}
+
+	eventData := strings.TrimPrefix(log, "Program data: ")
+	decoded, err := base64.StdEncoding.DecodeString(eventData)
+	if err != nil {
+		return nil
+	}
+
+	// Need at least: 8 bytes discriminator + 32 bytes txID + 32 bytes universalTxID = 72 bytes
+	if len(decoded) < 72 {
+		logger.Warn().
+			Int("data_len", len(decoded)).
+			Msg("data too short for outboundObservation event; need at least 72 bytes")
+		return nil
+	}
+
+	// Create EventID in format: signature:LogIndex
+	eventID := fmt.Sprintf("%s:%d", signature, logIndex)
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("signature", signature).
+		Uint("log_index", logIndex).
+		Uint64("slot", slot).
+		Msg("processing outboundObservation event")
+
+	// Skip discriminator (8 bytes)
+	offset := 8
+
+	// Extract txID (32 bytes)
+	txID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
+	offset += 32
+
+	// Extract universalTxID (32 bytes)
+	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
+
+	// Create OutboundEvent payload
+	payload := common.OutboundEvent{
+		TxID:          txID,
+		UniversalTxID: universalTxID,
+	}
+
+	// Marshal payload to JSON
+	payloadData, err := json.Marshal(payload)
+	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("signature", signature).
+			Msg("failed to marshal outbound event payload")
+		return nil
+	}
+
+	// Create store.Event
+	event := &store.Event{
+		EventID:           eventID,
+		BlockHeight:       slot,
+		Type:              "OUTBOUND", // Outbound observation events
+		Status:            "PENDING",
+		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
+		ExpiryBlockHeight: 0,          // 0 means no expiry
+		EventData:         payloadData,
+	}
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_id", txID).
+		Str("universal_tx_id", universalTxID).
+		Msg("parsed outboundObservation event")
 
 	return event
 }

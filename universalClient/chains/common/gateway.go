@@ -22,6 +22,15 @@ type UniversalTx struct {
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 }
 
+// OutboundEvent represents an outbound observation event from the gateway contract
+// Event structure:
+// - txID at 1st indexed position (bytes32)
+// - universalTxID at 2nd indexed position (bytes32)
+type OutboundEvent struct {
+	TxID          string `json:"tx_id"`          // bytes32 hex-encoded (0x...)
+	UniversalTxID string `json:"universal_tx_id"` // bytes32 hex-encoded (0x...)
+}
+
 // OutboundTxResult contains the result of building an outbound transaction
 type OutboundTxResult struct {
 	SigningHash []byte   // Hash to be signed by TSS

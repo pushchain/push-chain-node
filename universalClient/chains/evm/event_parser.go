@@ -36,11 +36,7 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
 	case EventTypeOutboundObservation:
-		// TODO: Parse outboundObservation events - events are still being finalized by other team
-		logger.Debug().
-			Str("tx_hash", log.TxHash.Hex()).
-			Msg("outboundObservation event parsing not yet implemented")
-		return nil
+		return parseOutboundObservationEvent(log, chainID, logger)
 	default:
 		logger.Debug().
 			Str("event_type", eventType).
@@ -78,6 +74,71 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 
 	// Parse universal tx event data
 	parseUniversalTxEvent(event, log, chainID, logger)
+
+	return event
+}
+
+// parseOutboundObservationEvent parses an outboundObservation event
+// Event structure:
+// - Topics[0]: event signature hash
+// - Topics[1]: txID (bytes32)
+// - Topics[2]: universalTxID (bytes32)
+func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolog.Logger) *store.Event {
+	if len(log.Topics) < 3 {
+		logger.Warn().
+			Str("tx_hash", log.TxHash.Hex()).
+			Int("topic_count", len(log.Topics)).
+			Msg("not enough indexed fields for outboundObservation event; need at least 3 topics")
+		return nil
+	}
+
+	// Create EventID in format: TxHash:LogIndex
+	eventID := fmt.Sprintf("%s:%d", log.TxHash.Hex(), log.Index)
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_hash", log.TxHash.Hex()).
+		Uint("log_index", log.Index).
+		Msg("processing outboundObservation event")
+
+	// Extract txID from Topics[1] (bytes32)
+	txID := "0x" + hex.EncodeToString(log.Topics[1].Bytes())
+
+	// Extract universalTxID from Topics[2] (bytes32)
+	universalTxID := "0x" + hex.EncodeToString(log.Topics[2].Bytes())
+
+	// Create OutboundEvent payload
+	payload := common.OutboundEvent{
+		TxID:          txID,
+		UniversalTxID: universalTxID,
+	}
+
+	// Marshal payload to JSON
+	eventData, err := json.Marshal(payload)
+	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("tx_hash", log.TxHash.Hex()).
+			Msg("failed to marshal outbound event payload")
+		return nil
+	}
+
+	// Create store.Event
+	event := &store.Event{
+		EventID:           eventID,
+		BlockHeight:       log.BlockNumber,
+		Type:              "OUTBOUND", // Outbound observation events
+		Status:            "PENDING",
+		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
+		ExpiryBlockHeight: 0,          // 0 means no expiry
+		EventData:         eventData,
+	}
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_id", txID).
+		Str("universal_tx_id", universalTxID).
+		Msg("parsed outboundObservation event")
 
 	return event
 }

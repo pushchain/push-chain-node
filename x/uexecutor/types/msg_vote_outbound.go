@@ -15,12 +15,13 @@ var (
 // NewMsgVoteOutbound creates new instance of MsgVoteOutbound
 func NewMsgVoteOutbound(
 	sender sdk.Address,
-	txID string,
+	txID, utxID string,
 	observedTx OutboundObservation,
 ) *MsgVoteOutbound {
 	return &MsgVoteOutbound{
 		Signer:     sender.String(),
 		TxId:       txID,
+		UtxId:      utxID,
 		ObservedTx: &observedTx,
 	}
 }
@@ -54,17 +55,9 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "tx_id cannot be empty")
 	}
 
-	// Decode tx_id into (utxID, outboundID)
-	utxID, outboundID, err := DecodeOutboundTxIDHex(msg.TxId)
-	if err != nil {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid tx_id: decode failed")
-	}
-
-	if strings.TrimSpace(utxID) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "decoded utx_id cannot be empty")
-	}
-	if strings.TrimSpace(outboundID) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "decoded outbound_id cannot be empty")
+	// utx_id must be non-empty
+	if strings.TrimSpace(msg.UtxId) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "utx_id cannot be empty")
 	}
 
 	// observed_tx must NOT be nil

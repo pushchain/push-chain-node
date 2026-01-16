@@ -164,8 +164,9 @@ message MsgVoteOutbound {
 
   // signer is the Cosmos address initiating the tx (used for tx signing)
   string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-  string tx_id = 2; // Tx Id (abi.encode(utxId,outboundId))
-  OutboundObservation observed_tx = 3; // observed tx on destination chain 
+  string tx_id = 2; // txId of outbound tx
+  string utx_id = 3; // UniversalTx Id
+  OutboundObservation observed_tx = 4; // observed tx on destination chain 
 }
 
 // MsgVoteInboundResponse defines the response for MsgExecutePayload.

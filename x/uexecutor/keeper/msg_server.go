@@ -37,38 +37,6 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// DeployUEA handles the deployment of new Smart Account (UEA).
-func (ms msgServer) DeployUEA(ctx context.Context, msg *types.MsgDeployUEA) (*types.MsgDeployUEAResponse, error) {
-	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse signer address")
-	}
-
-	sa, err := ms.k.DeployUEA(ctx, evmFromAddress, msg.UniversalAccountId, msg.TxHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MsgDeployUEAResponse{
-		UEA: sa,
-	}, nil
-}
-
-// MintPC handles token minting to the user's UEA for the tokens locked on source chain.
-func (ms msgServer) MintPC(ctx context.Context, msg *types.MsgMintPC) (*types.MsgMintPCResponse, error) {
-	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse signer address")
-	}
-
-	err = ms.k.MintPC(ctx, evmFromAddress, msg.UniversalAccountId, msg.TxHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MsgMintPCResponse{}, nil
-}
-
 // ExecutePayload handles universal payload execution on the UEA.
 func (ms msgServer) ExecutePayload(ctx context.Context, msg *types.MsgExecutePayload) (*types.MsgExecutePayloadResponse, error) {
 	_, evmFromAddress, err := utils.GetAddressPair(msg.Signer)

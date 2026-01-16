@@ -4,7 +4,11 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	"github.com/pushchain/push-chain-node/types"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -49,8 +53,6 @@ func TestExecutePayload(t *testing.T) {
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
 
-		validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
-
 		validUP := &uexecutortypes.UniversalPayload{
 			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
 			Value:                "0",
@@ -63,22 +65,38 @@ func TestExecutePayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(0),
 		}
 
-		msgDeploy := &uexecutortypes.MsgDeployUEA{
-			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
-
-		_, err := ms.DeployUEA(ctx, msgDeploy)
+		evmFrom := common.HexToAddress("0x1000000000000000000000000000000000000001")
+		// mint to module (or faucet)
+		err := app.BankKeeper.MintCoins(
+			ctx,
+			uexecutortypes.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.BaseDenom, sdkmath.NewInt(2_000_000_000_000_000))),
+		)
 		require.NoError(t, err)
 
-		msgMint := &uexecutortypes.MsgMintPC{
-			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
-			UniversalAccountId: validUA,
-			TxHash:             validTxHash,
-		}
+		// send to evmFrom
+		err = app.BankKeeper.SendCoinsFromModuleToAccount(
+			ctx,
+			uexecutortypes.ModuleName,
+			sdk.AccAddress(evmFrom.Bytes()),
+			sdk.NewCoins(sdk.NewCoin(types.BaseDenom, sdkmath.NewInt(1_000_000_000_000_000))),
+		)
+		require.NoError(t, err)
 
-		_, err = ms.MintPC(ctx, msgMint)
+		_, err = app.UexecutorKeeper.DeployUEAV2(ctx, evmFrom, validUA)
+		require.NoError(t, err)
+
+		factoryAddr := utils.GetDefaultAddresses().FactoryAddr
+		ueaAddr, _, err := app.UexecutorKeeper.CallFactoryToGetUEAAddressForOrigin(ctx, evmFrom, factoryAddr, validUA)
+		require.NoError(t, err)
+
+		// send to UEA
+		err = app.BankKeeper.SendCoinsFromModuleToAccount(
+			ctx,
+			uexecutortypes.ModuleName,
+			sdk.AccAddress(ueaAddr.Bytes()),
+			sdk.NewCoins(sdk.NewCoin(types.BaseDenom, sdkmath.NewInt(1_000_000_000_000_000))),
+		)
 		require.NoError(t, err)
 
 		msg := &uexecutortypes.MsgExecutePayload{
@@ -92,14 +110,13 @@ func TestExecutePayload(t *testing.T) {
 		require.NoError(t, err)
 
 	})
+
 	t.Run("Invalid Universal Payload!", func(t *testing.T) {
 		validUA := &uexecutortypes.UniversalAccountId{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
-
-		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		validUP := &uexecutortypes.UniversalPayload{
 			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",
@@ -129,8 +146,6 @@ func TestExecutePayload(t *testing.T) {
 			ChainId:        "11155111",
 			Owner:          "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		}
-
-		// validTxHash := "0x770f8df204a925dbfc3d73c7d532c832bd5fe78ed813835b365320e65b105ec2"
 
 		validUP := &uexecutortypes.UniversalPayload{
 			To:                   "0x527F3692F5C53CfA83F7689885995606F93b6164",

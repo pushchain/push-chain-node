@@ -6,7 +6,6 @@ package mocks
 
 import (
 	context "context"
-	big "math/big"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -48,34 +47,4 @@ func (m *MockUtxverifierKeeper) StoreVerifiedInboundTx(ctx context.Context, chai
 func (mr *MockUtxverifierKeeperMockRecorder) StoreVerifiedInboundTx(ctx, chain, txHash, verifiedTxMetadata interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreVerifiedInboundTx", reflect.TypeOf((*MockUtxverifierKeeper)(nil).StoreVerifiedInboundTx), ctx, chain, txHash, verifiedTxMetadata)
-}
-
-// VerifyAndGetLockedFunds mocks base method.
-func (m *MockUtxverifierKeeper) VerifyAndGetLockedFunds(ctx context.Context, ownerKey, txHash, chainId string) (big.Int, uint32, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyAndGetLockedFunds", ctx, ownerKey, txHash, chainId)
-	ret0, _ := ret[0].(big.Int)
-	ret1, _ := ret[1].(uint32)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// VerifyAndGetLockedFunds indicates an expected call of VerifyAndGetLockedFunds.
-func (mr *MockUtxverifierKeeperMockRecorder) VerifyAndGetLockedFunds(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyAndGetLockedFunds", reflect.TypeOf((*MockUtxverifierKeeper)(nil).VerifyAndGetLockedFunds), ctx, ownerKey, txHash, chainId)
-}
-
-// VerifyGatewayInteractionTx mocks base method.
-func (m *MockUtxverifierKeeper) VerifyGatewayInteractionTx(ctx context.Context, ownerKey, txHash, chainId string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyGatewayInteractionTx", ctx, ownerKey, txHash, chainId)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// VerifyGatewayInteractionTx indicates an expected call of VerifyGatewayInteractionTx.
-func (mr *MockUtxverifierKeeperMockRecorder) VerifyGatewayInteractionTx(ctx, ownerKey, txHash, chainId interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyGatewayInteractionTx", reflect.TypeOf((*MockUtxverifierKeeper)(nil).VerifyGatewayInteractionTx), ctx, ownerKey, txHash, chainId)
 }

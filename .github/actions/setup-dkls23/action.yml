@@ -14,7 +14,9 @@ runs:
       env:
         CI_DKLS_GARBLING: ${{ inputs.ci_token }}
       run: |
-        # Configure Git URL rewrite to include token for pushchain repos
+        # Configure Git URL rewrite to include token for silence-laboratories repos (for sl-crypto dependency)
+        git config --global url."https://${CI_DKLS_GARBLING}@github.com/silence-laboratories/".insteadOf "https://github.com/silence-laboratories/"
+        # Configure Git URL rewrite for pushchain repos
         git config --global url."https://${CI_DKLS_GARBLING}@github.com/pushchain/".insteadOf "https://github.com/pushchain/"
         git config --global url."https://github.com/".insteadOf "git@github.com:"
 
@@ -28,8 +30,8 @@ runs:
         echo '[net]' >> ~/.cargo/config.toml
         echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
 
-        # Clone dkls23-rs repository
+        # Clone dkls23-rs repository from pushchain fork
         git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/dkls23-rs.git ../dkls23-rs
 
-        # Clone garbling repository (dkls23-rs dependency)
+        # Clone garbling repository from pushchain fork
         git clone --depth 1 https://${CI_DKLS_GARBLING}@github.com/pushchain/garbling.git ../garbling

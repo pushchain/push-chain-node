@@ -9,11 +9,11 @@ import (
 
 // MockChainClient is a mock implementation of ChainClient for testing
 type MockChainClient struct {
-	started   bool
-	stopped   bool
-	healthy   bool
-	startErr  error
-	stopErr   error
+	started  bool
+	stopped  bool
+	healthy  bool
+	startErr error
+	stopErr  error
 }
 
 func (m *MockChainClient) Start(ctx context.Context) error {

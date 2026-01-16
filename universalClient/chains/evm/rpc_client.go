@@ -185,6 +185,20 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 	return receipt, err
 }
 
+// BroadcastTransaction broadcasts a signed transaction and returns the transaction hash
+func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *types.Transaction) (string, error) {
+	var txHash string
+	err := rc.executeWithFailover(ctx, "send_transaction", func(client *ethclient.Client) error {
+		innerErr := client.SendTransaction(ctx, tx)
+		if innerErr != nil {
+			return innerErr
+		}
+		txHash = tx.Hash().Hex()
+		return nil
+	})
+	return txHash, err
+}
+
 // Close closes all RPC connections
 func (rc *RPCClient) Close() {
 	rc.mu.Lock()

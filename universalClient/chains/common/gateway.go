@@ -27,7 +27,7 @@ type UniversalTx struct {
 // - txID at 1st indexed position (bytes32)
 // - universalTxID at 2nd indexed position (bytes32)
 type OutboundEvent struct {
-	TxID          string `json:"tx_id"`          // bytes32 hex-encoded (0x...)
+	TxID          string `json:"tx_id"`           // bytes32 hex-encoded (0x...)
 	UniversalTxID string `json:"universal_tx_id"` // bytes32 hex-encoded (0x...)
 }
 

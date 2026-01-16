@@ -166,6 +166,20 @@ func (rc *RPCClient) GetLatestSlot(ctx context.Context) (uint64, error) {
 	return slot, err
 }
 
+// GetRecentBlockhash gets a recent blockhash for transaction building
+func (rc *RPCClient) GetRecentBlockhash(ctx context.Context) (solana.Hash, error) {
+	var blockhash solana.Hash
+	err := rc.executeWithFailover(ctx, "get_recent_blockhash", func(client *rpc.Client) error {
+		resp, innerErr := client.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		if innerErr != nil {
+			return innerErr
+		}
+		blockhash = resp.Value.Blockhash
+		return nil
+	})
+	return blockhash, err
+}
+
 // GetGasPrice fetches the current gas price (prioritization fee) from Solana
 func (rc *RPCClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	// Use executeWithFailover to handle RPC calls with automatic failover
@@ -266,6 +280,20 @@ func (rc *RPCClient) GetTransaction(ctx context.Context, signature solana.Signat
 		return innerErr
 	})
 	return tx, err
+}
+
+// BroadcastTransaction broadcasts a signed transaction and returns the transaction signature (hash)
+func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *solana.Transaction) (string, error) {
+	if len(tx.Signatures) == 0 {
+		return "", fmt.Errorf("transaction has no signatures")
+	}
+	txHash := tx.Signatures[0].String()
+
+	err := rc.executeWithFailover(ctx, "send_transaction", func(client *rpc.Client) error {
+		_, innerErr := client.SendTransaction(ctx, tx)
+		return innerErr
+	})
+	return txHash, err
 }
 
 // Close closes all RPC connections

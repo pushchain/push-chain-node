@@ -181,7 +181,6 @@ func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 	// Build structured event data
 	outboundData := uexecutortypes.OutboundCreatedEvent{
 		UniversalTxId:    attrs[AttrKeyUniversalTxID],
-		OutboundId:       attrs[AttrKeyOutboundID],
 		TxID:             txID,
 		DestinationChain: attrs[AttrKeyDestinationChain],
 		Recipient:        attrs[AttrKeyRecipient],

@@ -280,7 +280,6 @@ func TestParseEvent_OutboundEventData(t *testing.T) {
 
 	assert.Equal(t, "0x123abc", data.TxID)
 	assert.Equal(t, "utx-001", data.UniversalTxId)
-	assert.Equal(t, "out-001", data.OutboundId)
 	assert.Equal(t, "ethereum", data.DestinationChain)
 	assert.Equal(t, "0xrecipient", data.Recipient)
 	assert.Equal(t, "1000000", data.Amount)

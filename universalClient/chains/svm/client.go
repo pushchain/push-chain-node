@@ -35,9 +35,11 @@ type Client struct {
 	eventProcessor *common.EventProcessor
 	eventConfirmer *EventConfirmer
 	gasOracle      *GasOracle
+	txBuilder      *TxBuilder
 
 	// Dependencies
 	pushSigner *pushsigner.Signer
+	nodeHome   string
 }
 
 // NewClient creates a new Solana chain client
@@ -46,6 +48,7 @@ func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushSigner *pushsigner.Signer,
+	nodeHome string,
 	logger zerolog.Logger,
 ) (*Client, error) {
 	if config == nil {
@@ -78,6 +81,7 @@ func NewClient(
 		chainConfig:    chainConfig,
 		database:       database,
 		pushSigner:     pushSigner,
+		nodeHome:       nodeHome,
 	}
 
 	// Initialize components that don't require RPC client
@@ -179,6 +183,14 @@ func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
 	return c.registryConfig
 }
 
+// GetTxBuilder returns the OutboundTxBuilder for this chain
+func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+	if c.txBuilder == nil {
+		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
+	}
+	return c.txBuilder, nil
+}
+
 // initializeComponents creates all components that require the RPC client
 func (c *Client) initializeComponents() error {
 	// Create event listener if gateway is configured
@@ -233,6 +245,21 @@ func (c *Client) initializeComponents() error {
 			config.gasPriceInterval,
 			c.logger,
 		)
+	}
+
+	// Create txBuilder if gateway is configured
+	if c.registryConfig != nil && c.registryConfig.GatewayAddress != "" {
+		txBuilder, err := NewTxBuilder(
+			c.rpcClient,
+			c.chainIDStr,
+			c.registryConfig.GatewayAddress,
+			c.nodeHome,
+			c.logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create txBuilder: %w", err)
+		}
+		c.txBuilder = txBuilder
 	}
 
 	return nil

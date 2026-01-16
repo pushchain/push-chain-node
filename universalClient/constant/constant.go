@@ -16,6 +16,8 @@ const (
 	ConfigFileName = "pushuv_config.json"
 
 	DatabasesSubdir = "databases"
+
+	RelayerSubdir = "relayer"
 )
 
 var DefaultNodeHome = os.ExpandEnv("$HOME/") + NodeDir

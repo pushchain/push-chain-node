@@ -274,7 +274,7 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 	case uregistrytypes.VmType_EVM:
 		client, err = evm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.logger)
 	case uregistrytypes.VmType_SVM:
-		client, err = svm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.logger)
+		client, err = svm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.NodeHome, c.logger)
 	default:
 		return fmt.Errorf("unsupported VM type: %v", cfg.VmType)
 	}

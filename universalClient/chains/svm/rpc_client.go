@@ -296,6 +296,23 @@ func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *solana.Transa
 	return txHash, err
 }
 
+// GetAccountData fetches account data for a given public key
+func (rc *RPCClient) GetAccountData(ctx context.Context, pubkey solana.PublicKey) ([]byte, error) {
+	var accountData []byte
+	err := rc.executeWithFailover(ctx, "get_account_data", func(client *rpc.Client) error {
+		accountInfo, innerErr := client.GetAccountInfo(ctx, pubkey)
+		if innerErr != nil {
+			return innerErr
+		}
+		if accountInfo.Value == nil {
+			return fmt.Errorf("account not found: %s", pubkey.String())
+		}
+		accountData = accountInfo.Value.Data.GetBinary()
+		return nil
+	})
+	return accountData, err
+}
+
 // Close closes all RPC connections
 func (rc *RPCClient) Close() {
 	rc.mu.Lock()

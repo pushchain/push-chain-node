@@ -36,10 +36,10 @@ func NewConfirmationTracker(
 	standardConf := uint64(12)
 
 	if config != nil {
-		if config.FastInbound > 0 {
+		if config.FastInbound >= 0 {
 			fastConf = uint64(config.FastInbound)
 		}
-		if config.StandardInbound > 0 {
+		if config.StandardInbound >= 0 {
 			standardConf = uint64(config.StandardInbound)
 		}
 	}
@@ -208,7 +208,7 @@ func (ct *ConfirmationTracker) UpdateConfirmations(
 			continue
 		}
 
-		confirmations := currentBlock - tx.BlockNumber
+		confirmations := currentBlock - tx.BlockNumber + 1
 		tx.Confirmations = confirmations
 
 		// Determine required confirmations based on transaction's confirmation type

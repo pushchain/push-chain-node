@@ -66,15 +66,15 @@ func TestNewStore(t *testing.T) {
 	}
 }
 
-func TestGetPendingEvents(t *testing.T) {
+func TestGetConfirmedEvents(t *testing.T) {
 	t.Run("no events", func(t *testing.T) {
 		s := setupTestStore(t)
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 0 {
-			t.Errorf("GetPendingEvents() returned %d events, want 0", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 0", len(events))
 		}
 	})
 
@@ -84,12 +84,12 @@ func TestGetPendingEvents(t *testing.T) {
 		// Event is only 5 blocks old, needs 10 blocks confirmation
 		createTestEvent(t, s, "event-1", 95, StatusPending, 200)
 
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 0 {
-			t.Errorf("GetPendingEvents() returned %d events, want 0 (event too recent)", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 0 (event too recent)", len(events))
 		}
 	})
 
@@ -100,18 +100,18 @@ func TestGetPendingEvents(t *testing.T) {
 		createTestEvent(t, s, "event-1", 80, StatusPending, 200)
 		createTestEvent(t, s, "event-2", 85, StatusPending, 200)
 
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 2 {
-			t.Errorf("GetPendingEvents() returned %d events, want 2", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 2", len(events))
 		}
 		if events[0].EventID != "event-1" {
-			t.Errorf("GetPendingEvents() first event ID = %s, want event-1", events[0].EventID)
+			t.Errorf("GetConfirmedEvents() first event ID = %s, want event-1", events[0].EventID)
 		}
 		if events[1].EventID != "event-2" {
-			t.Errorf("GetPendingEvents() second event ID = %s, want event-2", events[1].EventID)
+			t.Errorf("GetConfirmedEvents() second event ID = %s, want event-2", events[1].EventID)
 		}
 	})
 
@@ -122,15 +122,15 @@ func TestGetPendingEvents(t *testing.T) {
 		createTestEvent(t, s, "success-1", 80, StatusCompleted, 200)
 		createTestEvent(t, s, "reverted-1", 80, StatusReverted, 200)
 
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 1 {
-			t.Errorf("GetPendingEvents() returned %d events, want 1", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 1", len(events))
 		}
 		if events[0].EventID != "pending-1" {
-			t.Errorf("GetPendingEvents() event ID = %s, want pending-1", events[0].EventID)
+			t.Errorf("GetConfirmedEvents() event ID = %s, want pending-1", events[0].EventID)
 		}
 	})
 
@@ -141,12 +141,12 @@ func TestGetPendingEvents(t *testing.T) {
 		createTestEvent(t, s, "valid-1", 80, StatusPending, 200)  // not expired (expiry 200 > current 100)
 		createTestEvent(t, s, "valid-2", 80, StatusPending, 101)  // not expired (expiry 101 > current 100)
 
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 2 {
-			t.Errorf("GetPendingEvents() returned %d events, want 2", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 2", len(events))
 		}
 	})
 
@@ -159,22 +159,22 @@ func TestGetPendingEvents(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		createTestEvent(t, s, "event-3", 75, StatusPending, 200) // Earlier block
 
-		events, err := s.GetPendingEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 3 {
-			t.Fatalf("GetPendingEvents() returned %d events, want 3", len(events))
+			t.Fatalf("GetConfirmedEvents() returned %d events, want 3", len(events))
 		}
 		// Should be ordered: event-3 (block 75), event-1 (block 80), event-2 (block 80)
 		if events[0].EventID != "event-3" {
-			t.Errorf("GetPendingEvents() first event ID = %s, want event-3", events[0].EventID)
+			t.Errorf("GetConfirmedEvents() first event ID = %s, want event-3", events[0].EventID)
 		}
 		if events[1].EventID != "event-1" {
-			t.Errorf("GetPendingEvents() second event ID = %s, want event-1", events[1].EventID)
+			t.Errorf("GetConfirmedEvents() second event ID = %s, want event-1", events[1].EventID)
 		}
 		if events[2].EventID != "event-2" {
-			t.Errorf("GetPendingEvents() third event ID = %s, want event-2", events[2].EventID)
+			t.Errorf("GetConfirmedEvents() third event ID = %s, want event-2", events[2].EventID)
 		}
 	})
 
@@ -183,13 +183,13 @@ func TestGetPendingEvents(t *testing.T) {
 		createTestEvent(t, s, "event-1", 0, StatusPending, 200)
 
 		// Current block is 5, min confirmation is 10
-		events, err := s.GetPendingEvents(5, 10)
+		events, err := s.GetConfirmedEvents(5, 10)
 		if err != nil {
-			t.Fatalf("GetPendingEvents() error = %v, want nil", err)
+			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
 		// Should return events at block 0 or earlier
 		if len(events) != 1 {
-			t.Errorf("GetPendingEvents() returned %d events, want 1", len(events))
+			t.Errorf("GetConfirmedEvents() returned %d events, want 1", len(events))
 		}
 	})
 }

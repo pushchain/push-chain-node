@@ -330,7 +330,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 			// Update validators at each polling interval
 			c.updateValidators(ctx)
 			if err := c.processPendingEvents(ctx); err != nil {
-				c.logger.Error().Err(err).Msg("error processing pending events")
+				c.logger.Error().Err(err).Msg("error processing confirmed events")
 			}
 		}
 	}
@@ -351,7 +351,7 @@ func (c *Coordinator) updateValidators(ctx context.Context) {
 	c.logger.Debug().Int("count", len(allValidators)).Msg("updated validators cache")
 }
 
-// processPendingEvents checks if this node is coordinator, and only then reads DB and processes events.
+// processPendingEvents checks if this node is coordinator, and only then reads DB and processes confirmed events.
 func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
@@ -400,16 +400,16 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 	c.logger.Info().Msg("processPendingEvents: we ARE coordinator, processing events")
 
-	// We are coordinator - fetch and process events
-	events, err := c.eventStore.GetPendingEvents(currentBlock, 10)
+	// We are coordinator - fetch and process confirmed events
+	events, err := c.eventStore.GetConfirmedEvents(currentBlock, 10)
 	if err != nil {
-		return errors.Wrap(err, "failed to get pending events")
+		return errors.Wrap(err, "failed to get confirmed events")
 	}
 
 	c.logger.Info().
 		Int("count", len(events)).
 		Uint64("current_block", currentBlock).
-		Msg("found pending events")
+		Msg("found confirmed events")
 
 	// Process each event: create setup message and send to all participants
 	for _, event := range events {

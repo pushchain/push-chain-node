@@ -43,9 +43,10 @@ func NewStore(db *gorm.DB, logger zerolog.Logger) *Store {
 	}
 }
 
-// GetPendingEvents returns all pending events that are ready to be processed.
-// Events are ready if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
-func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.Event, error) {
+// GetConfirmedEvents returns all confirmed events that are ready to be processed.
+// Events are confirmed if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
+// This method returns events that have been confirmed on-chain (have enough block confirmations).
+func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.Event, error) {
 	var events []store.Event
 
 	// Only get events that are old enough (at least minBlockConfirmation blocks behind)
@@ -54,12 +55,13 @@ func (s *Store) GetPendingEvents(currentBlock uint64, minBlockConfirmation uint6
 		minBlock = 0
 	}
 
-	// Get pending events that are not expired
+	// Get confirmed events (have enough block confirmations) that are not expired
+	// Only get PENDING events that have been confirmed (have enough confirmations)
 	if err := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
 		StatusPending, minBlock, currentBlock).
 		Order("block_height ASC, created_at ASC").
 		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query pending events")
+		return nil, errors.Wrap(err, "failed to query confirmed events")
 	}
 
 	return events, nil

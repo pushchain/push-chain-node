@@ -166,7 +166,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
-		confirmations := latestSlot - txSlot
+		confirmations := latestSlot - txSlot + 1
 
 		if confirmations >= requiredConfirmations {
 			// Update event status to CONFIRMED

@@ -144,7 +144,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
-		confirmations := latestBlock - receipt.BlockNumber.Uint64()
+		confirmations := latestBlock - receipt.BlockNumber.Uint64() + 1
 
 		if confirmations >= requiredConfirmations {
 			// Update event status to CONFIRMED

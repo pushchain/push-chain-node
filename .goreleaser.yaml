@@ -30,8 +30,18 @@ builds:
     builder: go
     gobinary: go
     command: build
+    tags:
+      - netgo
+      - ledger
+      - rocksdb
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -s -w
+      - -X github.com/cosmos/cosmos-sdk/version.Name=pchain
+      - -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind
+      - -X github.com/cosmos/cosmos-sdk/version.Version={{.Version}}
+      - -X github.com/cosmos/cosmos-sdk/version.Commit={{.FullCommit}}
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,rocksdb
+      - -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb
 archives:
   - id: default
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'

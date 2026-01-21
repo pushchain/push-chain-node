@@ -60,6 +60,11 @@ jobs:
           go-version: '1.22.3'
           cache: true
 
+      - name: Install RocksDB
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librocksdb-dev
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -146,6 +151,11 @@ jobs:
           go-version: '1.22.3'
           cache: true
 
+      - name: Install RocksDB
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librocksdb-dev
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -174,10 +184,11 @@ jobs:
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
 
+          COMMIT=$(git rev-parse HEAD)
           echo "Building for Linux ARM64..."
           GOOS=linux GOARCH=arm64 go build \
-            -tags "netgo,ledger" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
+            -tags "netgo,ledger,rocksdb" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,rocksdb -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb" \
             -o dist/${BINARY_NAME} \
             ./cmd/pchaind
 
@@ -234,6 +245,10 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install RocksDB
+        run: |
+          brew install rocksdb
 
       - name: Setup dkls23-rs
         uses: ./.github/actions/setup-dkls23
@@ -307,10 +322,11 @@ jobs:
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
 
+          COMMIT=$(git rev-parse HEAD)
           echo "Building for Apple Silicon (arm64)..."
           GOOS=darwin GOARCH=arm64 go build \
-            -tags "netgo,ledger" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
+            -tags "netgo,ledger,rocksdb" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,rocksdb -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb" \
             -o dist/${BINARY_NAME}-darwin-arm64 \
             ./cmd/pchaind
 

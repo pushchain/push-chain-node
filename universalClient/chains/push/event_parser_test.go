@@ -156,7 +156,8 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			assert.Equal(t, tt.wantType, result.Type)
 			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
 			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, StatusPending, result.Status)
+			assert.Equal(t, "CONFIRMED", result.Status)
+			assert.Equal(t, "INSTANT", result.ConfirmationType)
 		})
 	}
 }
@@ -243,7 +244,8 @@ func TestParseEvent_OutboundEvent(t *testing.T) {
 			assert.Equal(t, ProtocolTypeSign, result.Type)
 			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
 			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, StatusPending, result.Status)
+			assert.Equal(t, "CONFIRMED", result.Status)
+			assert.Equal(t, "INSTANT", result.ConfirmationType)
 		})
 	}
 }

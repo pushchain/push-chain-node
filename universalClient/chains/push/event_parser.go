@@ -60,11 +60,6 @@ const (
 	ProtocolTypeSign         = "SIGN"
 )
 
-// Event status values.
-const (
-	StatusPending = "PENDING"
-)
-
 // OutboundExpiryOffset is the number of blocks after event detection
 // before an outbound event expires.
 const OutboundExpiryOffset = 400
@@ -106,7 +101,8 @@ func ParseEvent(event abci.Event, blockHeight uint64) (*store.Event, error) {
 
 	// Set common fields
 	parsed.BlockHeight = blockHeight
-	parsed.Status = StatusPending
+	parsed.ConfirmationType = "INSTANT" // push chain is a cosmos chain ie instant finality
+	parsed.Status = "CONFIRMED"         // push chain is a cosmos chain ie instant finality
 
 	// Set expiry for outbound events (block seen + 400)
 	if event.Type == EventTypeOutboundCreated {

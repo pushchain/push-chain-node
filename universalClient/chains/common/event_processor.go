@@ -338,30 +338,6 @@ func (ep *EventProcessor) base58ToHex(base58Str string) (string, error) {
 	return "0x" + hex.EncodeToString(decoded), nil
 }
 
-// extractTxIDFromEvent extracts the txID from an Event's event data
-func (ep *EventProcessor) extractTxIDFromEvent(event *store.Event) (string, error) {
-	if event == nil {
-		return "", fmt.Errorf("event is nil")
-	}
-
-	if len(event.EventData) == 0 {
-		return "", fmt.Errorf("event data is empty")
-	}
-
-	// Parse event data JSON to extract tx_id
-	var eventData map[string]interface{}
-	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
-		return "", fmt.Errorf("failed to unmarshal event data: %w", err)
-	}
-
-	txID, ok := eventData["tx_id"].(string)
-	if !ok || txID == "" {
-		return "", fmt.Errorf("tx_id not found or invalid in event data")
-	}
-
-	return txID, nil
-}
-
 // extractOutboundIDs extracts both txID and universalTxID from an outbound Event's event data
 func (ep *EventProcessor) extractOutboundIDs(event *store.Event) (txID string, utxID string, err error) {
 	if event == nil {

@@ -412,7 +412,7 @@ fi
 # ---------------------------
 
 echo "🔐 Setting up AuthZ grants for ALL universal validator hotkeys..."
-echo "📋 Genesis validator has all 4 validator keys, creating ALL 12 grants now"
+echo "📋 Genesis validator has all 4 validator keys, creating ALL 16 grants now"
 
 # Get hotkey addresses from shared volume
 HOTKEYS_FILE="/tmp/push-accounts/hotkeys.json"
@@ -442,10 +442,11 @@ if [ -f "$HOTKEYS_FILE" ]; then
     echo "   Granter: $VALIDATOR_ADDR"
     echo "   Grantee: $HOTKEY_ADDR"
 
-    # Grant all 3 message types for this validator
+    # Grant all 4 message types for this validator
     for MSG_TYPE in \
       "/uexecutor.v1.MsgVoteInbound" \
       "/uexecutor.v1.MsgVoteGasPrice" \
+      "/uexecutor.v1.MsgVoteOutbound" \
       "/utss.v1.MsgVoteTssKeyProcess"
     do
       echo "  → $(basename $MSG_TYPE)"
@@ -479,12 +480,12 @@ if [ -f "$HOTKEYS_FILE" ]; then
   set -e
 
   echo ""
-  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/12"
+  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/16"
 
-  if [ "$TOTAL_GRANTS_CREATED" -ge "12" ]; then
+  if [ "$TOTAL_GRANTS_CREATED" -ge "16" ]; then
     echo "✅ All AuthZ grants created successfully for all validators!"
   else
-    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/12)"
+    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/16)"
   fi
 else
   echo "⚠️  Hotkeys file not found: $HOTKEYS_FILE"

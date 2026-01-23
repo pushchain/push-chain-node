@@ -64,3 +64,14 @@ type OutboundEvent struct {
 	TxID          string `json:"tx_id"`           // bytes32 hex-encoded (0x...)
 	UniversalTxID string `json:"universal_tx_id"` // bytes32 hex-encoded (0x...)
 }
+
+// Event type enum values for event classification.
+// These constants define the types of events that can be processed.
+const (
+	EventTypeKeygen       = "KEYGEN"
+	EventTypeKeyrefresh   = "KEYREFRESH"
+	EventTypeQuorumChange = "QUORUM_CHANGE"
+	EventTypeSign         = "SIGN"
+	EventTypeInbound      = "INBOUND"
+	EventTypeOutbound     = "OUTBOUND"
+)

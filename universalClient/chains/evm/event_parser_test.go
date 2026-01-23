@@ -216,8 +216,8 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 			name: "parses valid outbound observation event",
 			log: &types.Log{
 				Topics: []ethcommon.Hash{
-					eventSignature,    // Topics[0]: event signature
-					txIDBytes,         // Topics[1]: txID (bytes32)
+					eventSignature,     // Topics[0]: event signature
+					txIDBytes,          // Topics[1]: txID (bytes32)
 					universalTxIDBytes, // Topics[2]: universalTxID (bytes32)
 				},
 				Data:        []byte{},

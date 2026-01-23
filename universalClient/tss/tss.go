@@ -276,7 +276,7 @@ func (n *Node) Start(ctx context.Context) error {
 	// Reset all IN_PROGRESS events to PENDING on startup
 	// This handles cases where the node crashed while events were in progress,
 	// causing sessions to be lost from memory but events remaining in IN_PROGRESS state
-	resetCount, err := n.eventStore.ResetInProgressEventsToPending()
+	resetCount, err := n.eventStore.ResetInProgressEventsToConfirmed()
 	if err != nil {
 		n.logger.Warn().Err(err).Msg("failed to reset IN_PROGRESS events to PENDING, continuing anyway")
 	} else if resetCount > 0 {

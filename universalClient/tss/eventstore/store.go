@@ -10,8 +10,7 @@ import (
 
 // Event statuses for TSS operations
 const (
-	// StatusPending - Event is waiting to be processed (TSS signing not started)
-	StatusPending = "PENDING"
+	StatusConfirmed = "CONFIRMED"
 
 	// StatusInProgress - TSS signing is in progress
 	StatusInProgress = "IN_PROGRESS"
@@ -58,24 +57,10 @@ func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uin
 	// Get confirmed events (have enough block confirmations) that are not expired
 	// Only get PENDING events that have been confirmed (have enough confirmations)
 	if err := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
-		StatusPending, minBlock, currentBlock).
+		StatusConfirmed, minBlock, currentBlock).
 		Order("block_height ASC, created_at ASC").
 		Find(&events).Error; err != nil {
 		return nil, errors.Wrap(err, "failed to query confirmed events")
-	}
-
-	return events, nil
-}
-
-// GetExpiredEvents returns all expired events (PENDING, IN_PROGRESS, or BROADCASTED) that have expired.
-func (s *Store) GetExpiredEvents(currentBlock uint64) ([]store.Event, error) {
-	var events []store.Event
-
-	if err := s.db.Where("status IN ? AND expiry_block_height <= ?",
-		[]string{StatusPending, StatusInProgress, StatusBroadcasted}, currentBlock).
-		Order("block_height ASC, created_at ASC").
-		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query expired events")
 	}
 
 	return events, nil
@@ -130,32 +115,20 @@ func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight u
 	return nil
 }
 
-// ClearTerminalEvents deletes completed, reverted, and expired events.
-func (s *Store) ClearTerminalEvents() (int64, error) {
-	result := s.db.Where("status IN ?", []string{StatusCompleted, StatusReverted, StatusExpired}).Delete(&store.Event{})
-	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to clear terminal events")
-	}
-	s.logger.Info().
-		Int64("deleted_count", result.RowsAffected).
-		Msg("cleared terminal events")
-	return result.RowsAffected, nil
-}
-
 // ResetInProgressEventsToPending resets all IN_PROGRESS events to PENDING status.
 // This should be called on node startup to handle cases where the node crashed
 // while events were in progress, causing sessions to be lost from memory.
-func (s *Store) ResetInProgressEventsToPending() (int64, error) {
+func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
 	result := s.db.Model(&store.Event{}).
 		Where("status = ?", StatusInProgress).
-		Update("status", StatusPending)
+		Update("status", StatusConfirmed)
 	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to PENDING")
+		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to CONFIRMED")
 	}
 	if result.RowsAffected > 0 {
 		s.logger.Info().
 			Int64("reset_count", result.RowsAffected).
-			Msg("reset IN_PROGRESS events to PENDING on node startup")
+			Msg("reset IN_PROGRESS events to CONFIRMED on node startup")
 	}
 	return result.RowsAffected, nil
 }

@@ -9,6 +9,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -43,7 +44,7 @@ func createTestEvent(t *testing.T, s *Store, eventID string, blockHeight uint64,
 		EventID:           eventID,
 		BlockHeight:       blockHeight,
 		ExpiryBlockHeight: expiryHeight,
-		Type:              "KEYGEN",
+		Type:              common.EventTypeKeygen,
 		Status:            status,
 		EventData:         eventData,
 	}
@@ -82,7 +83,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		s := setupTestStore(t)
 		// Create event at block 95, current block is 100, min confirmation is 10
 		// Event is only 5 blocks old, needs 10 blocks confirmation
-		createTestEvent(t, s, "event-1", 95, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 95, StatusConfirmed, 200)
 
 		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
@@ -97,8 +98,8 @@ func TestGetConfirmedEvents(t *testing.T) {
 		s := setupTestStore(t)
 		// Create event at block 80, current block is 100, min confirmation is 10
 		// Event is 20 blocks old, should be ready
-		createTestEvent(t, s, "event-1", 80, StatusPending, 200)
-		createTestEvent(t, s, "event-2", 85, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-2", 85, StatusConfirmed, 200)
 
 		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
@@ -117,7 +118,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 
 	t.Run("filters non-pending events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 80, StatusPending, 200)
+		createTestEvent(t, s, "pending-1", 80, StatusConfirmed, 200)
 		createTestEvent(t, s, "in-progress-1", 80, StatusInProgress, 200)
 		createTestEvent(t, s, "success-1", 80, StatusCompleted, 200)
 		createTestEvent(t, s, "reverted-1", 80, StatusReverted, 200)
@@ -137,9 +138,9 @@ func TestGetConfirmedEvents(t *testing.T) {
 	t.Run("excludes expired events", func(t *testing.T) {
 		s := setupTestStore(t)
 		// Create events with different expiry heights
-		createTestEvent(t, s, "expired-1", 80, StatusPending, 90) // expired (expiry 90 < current 100)
-		createTestEvent(t, s, "valid-1", 80, StatusPending, 200)  // not expired (expiry 200 > current 100)
-		createTestEvent(t, s, "valid-2", 80, StatusPending, 101)  // not expired (expiry 101 > current 100)
+		createTestEvent(t, s, "expired-1", 80, StatusConfirmed, 90) // expired (expiry 90 < current 100)
+		createTestEvent(t, s, "valid-1", 80, StatusConfirmed, 200)  // not expired (expiry 200 > current 100)
+		createTestEvent(t, s, "valid-2", 80, StatusConfirmed, 101)  // not expired (expiry 101 > current 100)
 
 		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
@@ -153,11 +154,11 @@ func TestGetConfirmedEvents(t *testing.T) {
 	t.Run("orders by block number and created_at", func(t *testing.T) {
 		s := setupTestStore(t)
 		// Create events with same block number but different creation times
-		createTestEvent(t, s, "event-1", 80, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
 		time.Sleep(10 * time.Millisecond) // Ensure different created_at
-		createTestEvent(t, s, "event-2", 80, StatusPending, 200)
+		createTestEvent(t, s, "event-2", 80, StatusConfirmed, 200)
 		time.Sleep(10 * time.Millisecond)
-		createTestEvent(t, s, "event-3", 75, StatusPending, 200) // Earlier block
+		createTestEvent(t, s, "event-3", 75, StatusConfirmed, 200) // Earlier block
 
 		events, err := s.GetConfirmedEvents(100, 10)
 		if err != nil {
@@ -180,7 +181,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 
 	t.Run("handles current block less than min confirmation", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 0, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 0, StatusConfirmed, 200)
 
 		// Current block is 5, min confirmation is 10
 		events, err := s.GetConfirmedEvents(5, 10)
@@ -197,7 +198,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 func TestGetEvent(t *testing.T) {
 	t.Run("event exists", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
 
 		event, err := s.GetEvent("event-1")
 		if err != nil {
@@ -212,8 +213,8 @@ func TestGetEvent(t *testing.T) {
 		if event.BlockHeight != 100 {
 			t.Errorf("GetEvent() block height = %d, want 100", event.BlockHeight)
 		}
-		if event.Status != StatusPending {
-			t.Errorf("GetEvent() status = %s, want %s", event.Status, StatusPending)
+		if event.Status != StatusConfirmed {
+			t.Errorf("GetEvent() status = %s, want %s", event.Status, StatusConfirmed)
 		}
 	})
 
@@ -233,7 +234,7 @@ func TestGetEvent(t *testing.T) {
 func TestUpdateStatus(t *testing.T) {
 	t.Run("update status without error message", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
 
 		err := s.UpdateStatus("event-1", StatusInProgress, "")
 		if err != nil {
@@ -251,11 +252,11 @@ func TestUpdateStatus(t *testing.T) {
 
 	t.Run("update status with error message", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
 
 		errorMsg := "test error message"
-		// On failure, events are reset to PENDING for retry
-		err := s.UpdateStatus("event-1", StatusPending, errorMsg)
+		// On failure, events are reset to CONFIRMED for retry
+		err := s.UpdateStatus("event-1", StatusConfirmed, errorMsg)
 		if err != nil {
 			t.Fatalf("UpdateStatus() error = %v, want nil", err)
 		}
@@ -264,8 +265,8 @@ func TestUpdateStatus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetEvent() error = %v, want nil", err)
 		}
-		if event.Status != StatusPending {
-			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusPending)
+		if event.Status != StatusConfirmed {
+			t.Errorf("UpdateStatus() status = %s, want %s", event.Status, StatusConfirmed)
 		}
 		// Note: ErrorMsg field was removed from store.Event model
 	})
@@ -281,9 +282,9 @@ func TestUpdateStatus(t *testing.T) {
 
 	t.Run("multiple status updates", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusPending, 200)
+		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
 
-		// PENDING -> IN_PROGRESS
+		// CONFIRMED -> IN_PROGRESS
 		if err := s.UpdateStatus("event-1", StatusInProgress, ""); err != nil {
 			t.Fatalf("UpdateStatus() error = %v", err)
 		}
@@ -302,4 +303,3 @@ func TestUpdateStatus(t *testing.T) {
 		}
 	})
 }
-

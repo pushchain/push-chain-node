@@ -55,7 +55,7 @@ func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uin
 	}
 
 	// Get confirmed events (have enough block confirmations) that are not expired
-	// Only get PENDING events that have been confirmed (have enough confirmations)
+	// Only get CONFIRMED events that have been confirmed (have enough confirmations)
 	if err := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
 		StatusConfirmed, minBlock, currentBlock).
 		Order("block_height ASC, created_at ASC").
@@ -115,7 +115,7 @@ func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight u
 	return nil
 }
 
-// ResetInProgressEventsToPending resets all IN_PROGRESS events to PENDING status.
+// ResetInProgressEventsToConfirmed resets all IN_PROGRESS events to CONFIRMED status.
 // This should be called on node startup to handle cases where the node crashed
 // while events were in progress, causing sessions to be lost from memory.
 func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {

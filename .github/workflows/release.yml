@@ -47,10 +47,25 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          # Strip vcs.revision= prefix if accidentally included
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -83,6 +98,8 @@ jobs:
 
           VERSION=${{ steps.version.outputs.version }}
           COMMIT_REF="${{ github.event.inputs.commit_id }}"
+          # Strip vcs.revision= prefix if accidentally included
+          COMMIT_REF="${COMMIT_REF#vcs.revision=}"
           if [ -z "$COMMIT_REF" ]; then
             COMMIT_REF="HEAD"
           fi
@@ -140,10 +157,24 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -213,10 +244,24 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -411,10 +456,24 @@ jobs:
     needs: [build-linux, build-linux-arm64, build-macos]
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version

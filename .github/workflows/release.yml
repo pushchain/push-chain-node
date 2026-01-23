@@ -63,6 +63,7 @@ jobs:
         run: |
           cp -r ../dkls23-rs ./dkls23-rs
           cp -r ../garbling ./garbling
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
       - name: Create and push version tag
         if: github.event_name == 'workflow_dispatch'
@@ -150,6 +151,7 @@ jobs:
         run: |
           cp -r ../dkls23-rs ./dkls23-rs
           cp -r ../garbling ./garbling
+          sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
       - name: Build static binary via Docker
         run: |

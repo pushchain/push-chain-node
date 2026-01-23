@@ -114,6 +114,13 @@ jobs:
           git tag -a $VERSION $COMMIT_REF -m "Release $VERSION"
           git push origin $VERSION
 
+      - name: Patch build for deterministic output
+        run: |
+          # Pin Go to 1.23.8 (1.23.9 causes non-deterministic state computation)
+          sed -i 's|FROM golang:1.23-alpine3.20|FROM golang:1.23.8-alpine3.20|' Dockerfile
+          # Remove netgo build tag (redundant for static musl builds, causes non-determinism)
+          sed -i 's|build_tags = netgo|build_tags =|' Makefile
+
       - name: Build static binary via Docker
         run: |
           VERSION=${{ steps.version.outputs.version }}
@@ -200,6 +207,13 @@ jobs:
           cp -r ../dkls23-rs ./dkls23-rs
           cp -r ../garbling ./garbling
           sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
+
+      - name: Patch build for deterministic output
+        run: |
+          # Pin Go to 1.23.8 (1.23.9 causes non-deterministic state computation)
+          sed -i 's|FROM golang:1.23-alpine3.20|FROM golang:1.23.8-alpine3.20|' Dockerfile
+          # Remove netgo build tag (redundant for static musl builds, causes non-determinism)
+          sed -i 's|build_tags = netgo|build_tags =|' Makefile
 
       - name: Build static binary via Docker
         run: |

@@ -125,3 +125,30 @@ func (k Keeper) GetUniversalValidator(
 
 	return val, true, nil
 }
+
+// IsActiveUniversalValidator returns true if the given validator address is
+// currently registered as an active universal validator.
+func (k Keeper) IsActiveUniversalValidator(
+	ctx context.Context,
+	validatorOperatorAddr string,
+) (bool, error) {
+	valAddr, err := sdk.ValAddressFromBech32(validatorOperatorAddr)
+	if err != nil {
+		return false, err
+	}
+
+	exists, err := k.UniversalValidatorSet.Has(ctx, valAddr)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	uv, err := k.UniversalValidatorSet.Get(ctx, valAddr)
+	if err != nil {
+		return false, fmt.Errorf("failed to get universal validator: %w", err)
+	}
+
+	return uv.LifecycleInfo.CurrentStatus == types.UVStatus_UV_STATUS_ACTIVE, nil
+}

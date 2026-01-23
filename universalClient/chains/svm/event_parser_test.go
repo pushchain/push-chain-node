@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -58,7 +59,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 			validate: func(t *testing.T, event *store.Event) {
 				assert.Contains(t, event.EventID, signature)
 				assert.Equal(t, uint64(12345), event.BlockHeight)
-				assert.Equal(t, "OUTBOUND", event.Type)
+				assert.Equal(t, common.EventTypeOutbound, event.Type)
 				assert.Equal(t, "PENDING", event.Status)
 				assert.Equal(t, "STANDARD", event.ConfirmationType)
 

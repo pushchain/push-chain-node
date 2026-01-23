@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
@@ -229,7 +230,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 				// TxHash.Hex() returns full 32-byte hex representation
 				assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000abc123def456:5", event.EventID)
 				assert.Equal(t, uint64(98765), event.BlockHeight)
-				assert.Equal(t, "OUTBOUND", event.Type)
+				assert.Equal(t, common.EventTypeOutbound, event.Type)
 				assert.Equal(t, "PENDING", event.Status)
 				assert.Equal(t, "STANDARD", event.ConfirmationType)
 
@@ -356,7 +357,7 @@ func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 		event := ParseEvent(log, EventTypeOutboundObservation, config.Chain, logger)
 		require.NotNil(t, event)
 
-		assert.Equal(t, "OUTBOUND", event.Type)
+		assert.Equal(t, common.EventTypeOutbound, event.Type)
 		assert.Equal(t, "STANDARD", event.ConfirmationType)
 		assert.Equal(t, uint64(77777), event.BlockHeight)
 

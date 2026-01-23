@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -50,14 +51,6 @@ const (
 	AttrKeyLogIndex         = "log_index"
 	AttrKeyRevertMsg        = "revert_msg"
 	AttrKeyData             = "data"
-)
-
-// Protocol type values for internal event classification.
-const (
-	ProtocolTypeKeygen       = "KEYGEN"
-	ProtocolTypeKeyrefresh   = "KEYREFRESH"
-	ProtocolTypeQuorumChange = "QUORUM_CHANGE"
-	ProtocolTypeSign         = "SIGN"
 )
 
 // OutboundExpiryOffset is the number of blocks after event detection
@@ -198,7 +191,7 @@ func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 
 	return &store.Event{
 		EventID:   txID,
-		Type:      ProtocolTypeSign,
+		Type:      common.EventTypeSign,
 		EventData: eventData,
 	}, nil
 }
@@ -226,15 +219,15 @@ func buildTSSEventData(processID uint64, participants []string) ([]byte, error) 
 	return json.Marshal(data)
 }
 
-// convertProcessType converts a chain process type to an internal protocol type.
+// convertProcessType converts a chain process type to an internal event type.
 func convertProcessType(chainType string) string {
 	switch chainType {
 	case ChainProcessTypeKeygen:
-		return ProtocolTypeKeygen
+		return common.EventTypeKeygen
 	case ChainProcessTypeRefresh:
-		return ProtocolTypeKeyrefresh
+		return common.EventTypeKeyrefresh
 	case ChainProcessTypeQuorumChange:
-		return ProtocolTypeQuorumChange
+		return common.EventTypeQuorumChange
 	default:
 		// Return as-is for unknown types to maintain forward compatibility
 		return chainType

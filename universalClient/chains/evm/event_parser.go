@@ -67,7 +67,7 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       log.BlockNumber,
-		Type:              "INBOUND", // Gateway events from external chains are INBOUND
+		Type:              common.EventTypeInbound, // Gateway events from external chains are INBOUND
 		Status:            "PENDING",
 		ExpiryBlockHeight: 0, // 0 means no expiry
 	}
@@ -127,7 +127,7 @@ func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolo
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       log.BlockNumber,
-		Type:              "OUTBOUND", // Outbound observation events
+		Type:              common.EventTypeOutbound, // Outbound observation events
 		Status:            "PENDING",
 		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
 		ExpiryBlockHeight: 0,          // 0 means no expiry

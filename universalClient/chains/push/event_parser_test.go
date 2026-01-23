@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -35,7 +36,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 500,
 			wantEventID: "123",
-			wantType:    ProtocolTypeKeygen,
+			wantType:    common.EventTypeKeygen,
 			wantExpiry:  1000,
 			wantErr:     false,
 		},
@@ -50,7 +51,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 600,
 			wantEventID: "456",
-			wantType:    ProtocolTypeKeyrefresh,
+			wantType:    common.EventTypeKeyrefresh,
 			wantExpiry:  0,
 			wantErr:     false,
 		},
@@ -66,7 +67,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 700,
 			wantEventID: "789",
-			wantType:    ProtocolTypeQuorumChange,
+			wantType:    common.EventTypeQuorumChange,
 			wantExpiry:  2000,
 			wantErr:     false,
 		},
@@ -241,7 +242,7 @@ func TestParseEvent_OutboundEvent(t *testing.T) {
 			require.NotNil(t, result)
 
 			assert.Equal(t, tt.wantEventID, result.EventID)
-			assert.Equal(t, ProtocolTypeSign, result.Type)
+			assert.Equal(t, common.EventTypeSign, result.Type)
 			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
 			assert.Equal(t, tt.blockHeight, result.BlockHeight)
 			assert.Equal(t, "CONFIRMED", result.Status)
@@ -313,9 +314,9 @@ func TestConvertProcessType(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{ChainProcessTypeKeygen, ProtocolTypeKeygen},
-		{ChainProcessTypeRefresh, ProtocolTypeKeyrefresh},
-		{ChainProcessTypeQuorumChange, ProtocolTypeQuorumChange},
+		{ChainProcessTypeKeygen, common.EventTypeKeygen},
+		{ChainProcessTypeRefresh, common.EventTypeKeyrefresh},
+		{ChainProcessTypeQuorumChange, common.EventTypeQuorumChange},
 		{"UNKNOWN_TYPE", "UNKNOWN_TYPE"}, // Unknown types returned as-is
 		{"", ""},
 	}

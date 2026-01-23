@@ -164,7 +164,7 @@ jobs:
           mkdir -p dist
 
           export CGO_ENABLED=1
-          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
 
           echo "Building pchaind for linux/amd64 (glibc)..."
           go build \
@@ -297,7 +297,7 @@ jobs:
           mkdir -p dist
 
           export CGO_ENABLED=1
-          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
 
           echo "Building pchaind for linux/arm64 (glibc)..."
           go build \

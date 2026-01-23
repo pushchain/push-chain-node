@@ -14,6 +14,11 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
+// NOTE:
+// This logic works well when community tax = 0.
+// When community tax > 0, UVs effectively get boosted from the full fee amount,
+// and community tax is only applied to the remaining (after UV boost allocation), reducing the community pool share.
+
 // BoostMultiplier is the factor applied to UV power when calculating effective total power.
 // This inflates the denominator so non-UVs get diluted.
 const BoostMultiplier = "1.148"

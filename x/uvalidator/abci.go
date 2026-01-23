@@ -2,7 +2,6 @@ package module
 
 import (
 	"context"
-
 	"time"
 
 	"cosmossdk.io/math"
@@ -14,6 +13,14 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
+
+// BoostMultiplier is the factor applied to UV power when calculating effective total power.
+// This inflates the denominator so non-UVs get diluted.
+const BoostMultiplier = "1.148"
+
+// ExtraBoostPortion is the fractional part of the boost (0.148)
+// used when allocating only the incremental boost to UVs.
+const ExtraBoostPortion = "0.148"
 
 func BeginBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
 	defer telemetry.ModuleMeasureSince(types.ModuleName, time.Now(), telemetry.MetricKeyBeginBlocker)
@@ -73,7 +80,7 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 
 		power := math.LegacyNewDec(vote.Validator.Power)
 		if isUV {
-			power = power.Mul(math.LegacyMustNewDecFromStr("1.148"))
+			power = power.Mul(math.LegacyMustNewDecFromStr(BoostMultiplier))
 		}
 
 		effectiveTotalPower = effectiveTotalPower.Add(power)
@@ -87,18 +94,18 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 			return err
 		}
 
-		power := math.LegacyNewDec(vote.Validator.Power)
-
 		isUV, err := k.IsActiveUniversalValidator(ctx, validator.GetOperator())
 		if err != nil {
 			return err
 		}
 
-		if isUV {
-			power = power.Mul(math.LegacyMustNewDecFromStr("0.148"))
-		} else {
+		if !isUV {
 			continue
 		}
+
+		// Use only the extra portion for UV allocation
+		power := math.LegacyNewDec(vote.Validator.Power)
+		power = power.Mul(math.LegacyMustNewDecFromStr(ExtraBoostPortion))
 
 		powerFraction := power.QuoTruncate(effectiveTotalPower)
 		reward := feesCollected.MulDecTruncate(powerFraction)
@@ -111,7 +118,7 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 		allocated = allocated.Add(reward...)
 	}
 
-	// Calculate and return remaining
+	// Calculate and return remaining (including any truncation change)
 	extraCoins, extraChange := allocated.TruncateDecimal()
 	remainingCoins, _ := feesCollectedInt.SafeSub(extraCoins...)
 

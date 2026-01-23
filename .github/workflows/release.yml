@@ -114,30 +114,67 @@ jobs:
           git tag -a $VERSION $COMMIT_REF -m "Release $VERSION"
           git push origin $VERSION
 
-      - name: Patch build for deterministic output
-        run: |
-          # Pin Go to 1.23.8 (1.23.9 causes non-deterministic state computation)
-          sed -i 's|FROM golang:1.23-alpine3.20|FROM golang:1.23.8-alpine3.20|' Dockerfile
-          # Remove netgo build tag (redundant for static musl builds, causes non-determinism)
-          sed -i 's|build_tags = netgo|build_tags =|' Makefile
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.8'
+          cache: true
 
-      - name: Build static binary via Docker
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Patch dkls23-rs for static linking
+        run: |
+          # Add staticlib to crate-type for go-dkls crate (produces .a file for static linking)
+          if grep -q 'crate-type = \["cdylib", "rlib"\]' dkls23-rs/wrapper/go-dkls/Cargo.toml; then
+            sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' dkls23-rs/wrapper/go-dkls/Cargo.toml
+            echo "Added staticlib to crate-type"
+          fi
+
+          # Fix hd-migration to use local garbling path instead of git
+          find dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+          done
+
+      - name: Build dkls23-rs dependency
+        run: |
+          cd dkls23-rs
+          cargo build --release
+          echo "Verifying libgodkls was built..."
+          ls -la target/release/libgodkls* 2>/dev/null || (echo "ERROR: libgodkls not found" && find target -name "*godkls*" -type f && exit 1)
+
+      - name: Download libwasmvm_muslc
+        run: |
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Downloading wasmvm static library version: $WASM_VER"
+          sudo wget -O /usr/lib/libwasmvm_muslc.x86_64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.x86_64.a"
+          sudo ln -sf /usr/lib/libwasmvm_muslc.x86_64.a /usr/lib/libwasmvm_muslc.a
+          ls -la /usr/lib/libwasmvm_muslc*
+
+      - name: Build Linux binary
         run: |
           VERSION=${{ steps.version.outputs.version }}
           VERSION_NO_V="${VERSION#v}"
+          COMMIT=$(git rev-parse HEAD)
 
-          # Build using the existing Dockerfile (Alpine/musl static build)
-          docker build --target build-env -t pchaind-builder .
-
-          # Extract binary
           mkdir -p dist
-          CONTAINER_ID=$(docker create pchaind-builder)
-          docker cp $CONTAINER_ID:/code/build/pchaind ./dist/pchaind
-          docker rm $CONTAINER_ID
 
-          # Verify static linking
-          file ./dist/pchaind
-          file ./dist/pchaind | grep "statically linked"
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+
+          echo "Building pchaind for linux/amd64 (glibc)..."
+          go build \
+            -tags "muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc" \
+            -trimpath \
+            -o dist/pchaind \
+            ./cmd/pchaind
+
+          file dist/pchaind
+          echo "Checking dependencies..."
+          ldd dist/pchaind || true
 
           # Package with bin/ structure for Cosmovisor compatibility
           cd dist
@@ -208,30 +245,67 @@ jobs:
           cp -r ../garbling ./garbling
           sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
-      - name: Patch build for deterministic output
-        run: |
-          # Pin Go to 1.23.8 (1.23.9 causes non-deterministic state computation)
-          sed -i 's|FROM golang:1.23-alpine3.20|FROM golang:1.23.8-alpine3.20|' Dockerfile
-          # Remove netgo build tag (redundant for static musl builds, causes non-determinism)
-          sed -i 's|build_tags = netgo|build_tags =|' Makefile
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.8'
+          cache: true
 
-      - name: Build static binary via Docker
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Patch dkls23-rs for static linking
+        run: |
+          # Add staticlib to crate-type for go-dkls crate (produces .a file for static linking)
+          if grep -q 'crate-type = \["cdylib", "rlib"\]' dkls23-rs/wrapper/go-dkls/Cargo.toml; then
+            sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' dkls23-rs/wrapper/go-dkls/Cargo.toml
+            echo "Added staticlib to crate-type"
+          fi
+
+          # Fix hd-migration to use local garbling path instead of git
+          find dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+          done
+
+      - name: Build dkls23-rs dependency
+        run: |
+          cd dkls23-rs
+          cargo build --release
+          echo "Verifying libgodkls was built..."
+          ls -la target/release/libgodkls* 2>/dev/null || (echo "ERROR: libgodkls not found" && find target -name "*godkls*" -type f && exit 1)
+
+      - name: Download libwasmvm_muslc
+        run: |
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Downloading wasmvm static library version: $WASM_VER"
+          sudo wget -O /usr/lib/libwasmvm_muslc.aarch64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.aarch64.a"
+          sudo ln -sf /usr/lib/libwasmvm_muslc.aarch64.a /usr/lib/libwasmvm_muslc.a
+          ls -la /usr/lib/libwasmvm_muslc*
+
+      - name: Build Linux ARM64 binary
         run: |
           VERSION=${{ steps.version.outputs.version }}
           VERSION_NO_V="${VERSION#v}"
+          COMMIT=$(git rev-parse HEAD)
 
-          # Build using the existing Dockerfile (Alpine/musl static build)
-          docker build --target build-env -t pchaind-builder .
-
-          # Extract binary
           mkdir -p dist
-          CONTAINER_ID=$(docker create pchaind-builder)
-          docker cp $CONTAINER_ID:/code/build/pchaind ./dist/pchaind
-          docker rm $CONTAINER_ID
 
-          # Verify static linking
-          file ./dist/pchaind
-          file ./dist/pchaind | grep "statically linked"
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+
+          echo "Building pchaind for linux/arm64 (glibc)..."
+          go build \
+            -tags "muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc" \
+            -trimpath \
+            -o dist/pchaind \
+            ./cmd/pchaind
+
+          file dist/pchaind
+          echo "Checking dependencies..."
+          ldd dist/pchaind || true
 
           # Package with bin/ structure for Cosmovisor compatibility
           cd dist

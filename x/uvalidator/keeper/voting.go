@@ -42,7 +42,7 @@ func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidat
 	}
 
 	// Ensure the universal validator exists in the staking module
-	validator, err := k.stakingKeeper.GetValidator(ctx, valAddr)
+	validator, err := k.StakingKeeper.GetValidator(ctx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("core validator not found: %w", err)
 	}
@@ -75,7 +75,7 @@ func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalVal
 	}
 
 	// Query the validator
-	validator, err := k.stakingKeeper.GetValidator(sdkCtx, valAddr)
+	validator, err := k.StakingKeeper.GetValidator(sdkCtx, valAddr)
 	if err != nil {
 		return false, fmt.Errorf("core validator not found: %w", err)
 	}
@@ -86,7 +86,7 @@ func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalVal
 		return false, fmt.Errorf("failed to get consensus address: %w", err)
 	}
 
-	return k.slashingKeeper.IsTombstoned(sdkCtx, consAddress), nil
+	return k.SlashingKeeper.IsTombstoned(sdkCtx, consAddress), nil
 }
 
 func (k Keeper) VoteOnBallot(

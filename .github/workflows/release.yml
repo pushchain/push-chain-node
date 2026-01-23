@@ -10,6 +10,15 @@ on:
         description: 'Version tag (e.g., v1.0.0)'
         required: true
         type: string
+      branch:
+        description: 'Branch to build from (default: main)'
+        required: false
+        type: string
+        default: 'main'
+      commit_id:
+        description: 'Specific commit SHA to build (overrides branch if set)'
+        required: false
+        type: string
       compare_from:
         description: 'Compare from tag (optional, auto-detects if empty)'
         required: false
@@ -41,6 +50,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -72,13 +82,19 @@ jobs:
           git config --local user.name "GitHub Action"
 
           VERSION=${{ steps.version.outputs.version }}
+          COMMIT_REF="${{ github.event.inputs.commit_id }}"
+          if [ -z "$COMMIT_REF" ]; then
+            COMMIT_REF="HEAD"
+          fi
+          echo "Tagging commit: $COMMIT_REF"
+
           if git tag --list | grep -q "^${VERSION}$"; then
             echo "Tag $VERSION already exists, deleting it first"
             git tag -d $VERSION || true
             git push --delete origin $VERSION || true
           fi
 
-          git tag -a $VERSION -m "Release $VERSION"
+          git tag -a $VERSION $COMMIT_REF -m "Release $VERSION"
           git push origin $VERSION
 
       - name: Build static binary via Docker
@@ -127,6 +143,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -199,6 +216,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -396,6 +414,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.commit_id || github.event.inputs.branch || '' }}
           fetch-depth: 0
 
       - name: Get version

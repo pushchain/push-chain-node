@@ -172,6 +172,45 @@ func (cs *ChainStore) DeleteCompletedEvents(updatedBefore interface{}) (int64, e
 	return res.RowsAffected, nil
 }
 
+// GetExpiredEvents returns events that have expired (expiry_block_height <= currentBlock)
+// and are still in a non-terminal state (PENDING, CONFIRMED, BROADCASTED, IN_PROGRESS)
+func (cs *ChainStore) GetExpiredEvents(currentBlock uint64, limit int) ([]store.Event, error) {
+	if cs.database == nil {
+		return nil, fmt.Errorf("database is nil")
+	}
+
+	var events []store.Event
+	if err := cs.database.Client().
+		Where("status IN ? AND expiry_block_height > 0 AND expiry_block_height <= ?",
+			[]string{"PENDING", "CONFIRMED", "BROADCASTED", "IN_PROGRESS"}, currentBlock).
+		Order("created_at ASC").
+		Limit(limit).
+		Find(&events).Error; err != nil {
+		return nil, fmt.Errorf("failed to query expired events: %w", err)
+	}
+
+	return events, nil
+}
+
+// DeleteTerminalEvents deletes events in terminal states (COMPLETED, REVERTED, EXPIRED)
+// that were updated before the given time
+func (cs *ChainStore) DeleteTerminalEvents(updatedBefore interface{}) (int64, error) {
+	if cs.database == nil {
+		return 0, fmt.Errorf("database is nil")
+	}
+
+	res := cs.database.Client().
+		Where("status IN ? AND updated_at < ?",
+			[]string{"COMPLETED", "REVERTED", "EXPIRED"}, updatedBefore).
+		Delete(&store.Event{})
+
+	if res.Error != nil {
+		return 0, fmt.Errorf("failed to delete terminal events: %w", res.Error)
+	}
+
+	return res.RowsAffected, nil
+}
+
 // InsertEventIfNotExists inserts an event if it doesn't already exist (by EventID)
 // Returns (true, nil) if a new event was inserted, (false, nil) if it already existed,
 // or (false, error) if insertion failed

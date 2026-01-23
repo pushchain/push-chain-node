@@ -84,7 +84,7 @@ func (ec *EventCleaner) Stop() {
 	close(ec.stopCh)
 }
 
-// performCleanup executes cleanup of old confirmed events
+// performCleanup executes cleanup of terminal events (COMPLETED, REVERTED, EXPIRED)
 func (ec *EventCleaner) performCleanup() error {
 	start := time.Now()
 
@@ -95,7 +95,7 @@ func (ec *EventCleaner) performCleanup() error {
 	cutoffTime := time.Now().Add(-ec.retentionPeriod)
 
 	chainStore := NewChainStore(ec.database)
-	deletedCount, err := chainStore.DeleteCompletedEvents(cutoffTime)
+	deletedCount, err := chainStore.DeleteTerminalEvents(cutoffTime)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup events: %w", err)
 	}
@@ -106,14 +106,14 @@ func (ec *EventCleaner) performCleanup() error {
 		ec.logger.Info().
 			Int64("deleted_count", deletedCount).
 			Str("duration", duration.String()).
-			Msg("event cleanup completed")
+			Msg("terminal event cleanup completed (COMPLETED, REVERTED, EXPIRED)")
 
 		// Checkpoint WAL after cleanup
 		ec.checkpointWAL()
 	} else {
 		ec.logger.Debug().
 			Str("duration", duration.String()).
-			Msg("event cleanup completed - no events to delete")
+			Msg("event cleanup completed - no terminal events to delete")
 	}
 
 	return nil

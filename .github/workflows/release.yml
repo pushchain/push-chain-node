@@ -155,6 +155,11 @@ jobs:
           sudo ln -sf /usr/lib/libwasmvm_muslc.x86_64.a /usr/lib/libwasmvm_muslc.a
           ls -la /usr/lib/libwasmvm_muslc*
 
+      - name: Patch chain ID for production
+        run: |
+          sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
+
       - name: Build Linux binary
         run: |
           VERSION=${{ steps.version.outputs.version }}
@@ -288,6 +293,11 @@ jobs:
             "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.aarch64.a"
           sudo ln -sf /usr/lib/libwasmvm_muslc.aarch64.a /usr/lib/libwasmvm_muslc.a
           ls -la /usr/lib/libwasmvm_muslc*
+
+      - name: Patch chain ID for production
+        run: |
+          sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
 
       - name: Build Linux ARM64 binary
         run: |
@@ -441,6 +451,11 @@ jobs:
             "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm.dylib"
 
           ls -la libwasmvm.dylib
+
+      - name: Patch chain ID for production
+        run: |
+          sed -i '' 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
 
       - name: Build Mac Binary (ARM64 only - native build)
         run: |

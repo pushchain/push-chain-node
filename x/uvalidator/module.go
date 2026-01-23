@@ -45,26 +45,35 @@ type AppModuleBasic struct {
 type AppModule struct {
 	AppModuleBasic
 
-	keeper         keeper.Keeper
-	stakingKeeper  types.StakingKeeper
-	slashingKeeper types.SlashingKeeper
-	utssKeeper     types.UtssKeeper
+	keeper             keeper.Keeper
+	bankKeeper         types.BankKeeper
+	authKeeper         types.AccountKeeper
+	distributionKeeper types.DistributionKeeper
+	stakingKeeper      types.StakingKeeper
+	slashingKeeper     types.SlashingKeeper
+	utssKeeper         types.UtssKeeper
 }
 
 // NewAppModule constructor
 func NewAppModule(
 	cdc codec.Codec,
 	keeper keeper.Keeper,
+	bankKeeper types.BankKeeper,
+	authKeeper types.AccountKeeper,
+	distributionKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
 	utssKeeper types.UtssKeeper,
 ) *AppModule {
 	return &AppModule{
-		AppModuleBasic: AppModuleBasic{cdc: cdc},
-		keeper:         keeper,
-		stakingKeeper:  stakingKeeper,
-		slashingKeeper: slashingKeeper,
-		utssKeeper:     utssKeeper,
+		AppModuleBasic:     AppModuleBasic{cdc: cdc},
+		keeper:             keeper,
+		bankKeeper:         bankKeeper,
+		authKeeper:         authKeeper,
+		distributionKeeper: distributionKeeper,
+		stakingKeeper:      stakingKeeper,
+		slashingKeeper:     slashingKeeper,
+		utssKeeper:         utssKeeper,
 	}
 }
 
@@ -171,4 +180,10 @@ func (a AppModule) migrateToV2() module.MigrationHandler {
 // should be set to 1.
 func (a AppModule) ConsensusVersion() uint64 {
 	return ConsensusVersion
+}
+
+func (a AppModule) BeginBlock(ctx context.Context) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	return BeginBlocker(sdkCtx, a.keeper)
 }

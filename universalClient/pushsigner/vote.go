@@ -66,7 +66,7 @@ func vote(
 		return "", fmt.Errorf("vote failed with code %d: %s", txResp.Code, txResp.RawLog)
 	}
 
-	log.Info().Str("msg_type", msgType).Str("tx_hash", txResp.TxHash).Msg("vote successful")
+	log.Debug().Str("msg_type", msgType).Str("tx_hash", txResp.TxHash).Msg("vote successful")
 	return txResp.TxHash, nil
 }
 

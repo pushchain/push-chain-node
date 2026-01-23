@@ -131,7 +131,7 @@ func (s *Signer) signAndBroadcastAuthZTx(
 	s.sequenceMutex.Lock()
 	defer s.sequenceMutex.Unlock()
 
-	s.log.Info().
+	s.log.Debug().
 		Int("msg_count", len(msgs)).
 		Str("memo", memo).
 		Msg("Creating AuthZ transaction")
@@ -227,7 +227,7 @@ func (s *Signer) signAndBroadcastAuthZTx(
 			Str("tx_hash", txResp.TxHash).
 			Msg("Incremented sequence after successful broadcast")
 
-		s.log.Info().
+		s.log.Debug().
 			Str("tx_hash", txResp.TxHash).
 			Int64("gas_used", txResp.GasUsed).
 			Uint64("sequence_used", s.lastSequence-1).
@@ -306,11 +306,11 @@ func (s *Signer) signTxWithSequence(ctx context.Context, txBuilder client.TxBuil
 	chainSequence := account.GetSequence()
 	if s.lastSequence == 0 {
 		s.lastSequence = chainSequence
-		s.log.Info().
+		s.log.Debug().
 			Uint64("adopted_chain_sequence", chainSequence).
 			Msg("Initialized local sequence from chain")
 	} else if s.lastSequence < chainSequence {
-		s.log.Info().
+		s.log.Debug().
 			Uint64("chain_sequence", chainSequence).
 			Uint64("cached_sequence", s.lastSequence).
 			Msg("Local sequence behind chain, adopting chain's sequence")
@@ -364,7 +364,7 @@ func (s *Signer) signTxWithSequence(ctx context.Context, txBuilder client.TxBuil
 		return fmt.Errorf("failed to sign transaction with keyring: %w", err)
 	}
 
-	s.log.Info().
+	s.log.Debug().
 		Str("signer", hotKeyAddr.String()).
 		Uint64("sequence", s.lastSequence).
 		Msg("Transaction signed successfully with managed sequence")

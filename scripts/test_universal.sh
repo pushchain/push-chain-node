@@ -67,6 +67,47 @@ else
   echo "WARN: $PCHAIN_BIN not found; skipping authz grant."
 fi
 
+sleep 1
+
+if command -v "$PCHAIN_BIN" >/dev/null 2>&1; then
+  echo "==> Granting authz (generic: /uexecutor.v1.MsgVoteGasPrice) to $UV_HOTKEY_ADDR via $PCHAIN_BIN"
+  "$PCHAIN_BIN" tx authz grant "$UV_HOTKEY_ADDR" generic \
+    --msg-type=/uexecutor.v1.MsgVoteGasPrice \
+    --from acc1 \
+    --fees "$FEES" \
+    -y
+else
+  echo "WARN: $PCHAIN_BIN not found; skipping authz grant."
+fi
+
+sleep 1
+
+if command -v "$PCHAIN_BIN" >/dev/null 2>&1; then
+  echo "==> Granting authz (generic: /uexecutor.v1.MsgVoteOutbound) to $UV_HOTKEY_ADDR via $PCHAIN_BIN"
+  "$PCHAIN_BIN" tx authz grant "$UV_HOTKEY_ADDR" generic \
+    --msg-type=/uexecutor.v1.MsgVoteOutbound \
+    --from acc1 \
+    --fees "$FEES" \
+    -y
+else
+  echo "WARN: $PCHAIN_BIN not found; skipping authz grant."
+fi
+
+sleep 1
+
+if command -v "$PCHAIN_BIN" >/dev/null 2>&1; then
+  echo "==> Granting authz (generic: /utss.v1.MsgVoteTssKeyProcess) to $UV_HOTKEY_ADDR via $PCHAIN_BIN"
+  "$PCHAIN_BIN" tx authz grant "$UV_HOTKEY_ADDR" generic \
+    --msg-type=/utss.v1.MsgVoteTssKeyProcess \
+    --from acc1 \
+    --fees "$FEES" \
+    -y
+else
+  echo "WARN: $PCHAIN_BIN not found; skipping authz grant."
+fi
+
+sleep 1
+
 # ---------- Initialize and start ----------
 echo "==> Initializing $BINARY..."
 "$BINARY" init

@@ -139,10 +139,12 @@ jobs:
 
       - name: Build dkls23-rs dependency
         run: |
-          cd dkls23-rs
+          cd dkls23-rs/wrapper/go-dkls
           cargo build --release
+          cd ../../..
           echo "Verifying libgodkls was built..."
-          ls -la target/release/libgodkls* 2>/dev/null || (echo "ERROR: libgodkls not found" && find target -name "*godkls*" -type f && exit 1)
+          ls -la dkls23-rs/target/release/libgodkls* || \
+            (echo "ERROR: libgodkls not found. Searching..." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)
 
       - name: Download libwasmvm_muslc
         run: |
@@ -270,10 +272,12 @@ jobs:
 
       - name: Build dkls23-rs dependency
         run: |
-          cd dkls23-rs
+          cd dkls23-rs/wrapper/go-dkls
           cargo build --release
+          cd ../../..
           echo "Verifying libgodkls was built..."
-          ls -la target/release/libgodkls* 2>/dev/null || (echo "ERROR: libgodkls not found" && find target -name "*godkls*" -type f && exit 1)
+          ls -la dkls23-rs/target/release/libgodkls* || \
+            (echo "ERROR: libgodkls not found. Searching..." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)
 
       - name: Download libwasmvm_muslc
         run: |

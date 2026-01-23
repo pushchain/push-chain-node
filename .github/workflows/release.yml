@@ -163,20 +163,21 @@ jobs:
 
           mkdir -p dist
 
+          export GOTOOLCHAIN=local
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
 
-          echo "Building pchaind for linux/amd64 (glibc)..."
+          echo "Building pchaind for linux/amd64 (glibc, static)..."
           go build \
             -tags "muslc" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
             -trimpath \
             -o dist/pchaind \
             ./cmd/pchaind
 
+          # Verify static linking
           file dist/pchaind
-          echo "Checking dependencies..."
-          ldd dist/pchaind || true
+          file dist/pchaind | grep "statically linked"
 
           # Package with bin/ structure for Cosmovisor compatibility
           cd dist
@@ -296,20 +297,21 @@ jobs:
 
           mkdir -p dist
 
+          export GOTOOLCHAIN=local
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
 
-          echo "Building pchaind for linux/arm64 (glibc)..."
+          echo "Building pchaind for linux/arm64 (glibc, static)..."
           go build \
             -tags "muslc" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
             -trimpath \
             -o dist/pchaind \
             ./cmd/pchaind
 
+          # Verify static linking
           file dist/pchaind
-          echo "Checking dependencies..."
-          ldd dist/pchaind || true
+          file dist/pchaind | grep "statically linked"
 
           # Package with bin/ structure for Cosmovisor compatibility
           cd dist

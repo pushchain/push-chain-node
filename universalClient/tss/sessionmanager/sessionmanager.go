@@ -737,9 +737,9 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			// Clean up session
 			sm.cleanSession(eventID, state)
 
-			// Update event: mark as pending and set new block height (current + delay)
+			// Update event: mark as confimed and set new block height (current + delay)
 			newBlockHeight := currentBlock + blockDelay
-			if err := sm.eventStore.UpdateStatusAndBlockHeight(eventID, eventstore.StatusPending, newBlockHeight); err != nil {
+			if err := sm.eventStore.UpdateStatusAndBlockHeight(eventID, eventstore.StatusConfirmed, newBlockHeight); err != nil {
 				sm.logger.Warn().
 					Err(err).
 					Str("event_id", eventID).

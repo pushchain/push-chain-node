@@ -180,7 +180,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 		EventID:     "event1",
 		BlockHeight: 100,
 		Type:        "KEYGEN",
-		Status:      eventstore.StatusPending,
+		Status:      eventstore.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 
@@ -281,7 +281,7 @@ func TestSessionManager_Integration(t *testing.T) {
 		EventID:     "keygen-event",
 		BlockHeight: 100,
 		Type:        "KEYGEN",
-		Status:      eventstore.StatusPending,
+		Status:      eventstore.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 

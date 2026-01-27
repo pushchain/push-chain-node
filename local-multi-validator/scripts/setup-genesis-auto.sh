@@ -340,6 +340,8 @@ echo "✅ Genesis setup complete!"
   --pruning=nothing \
   --minimum-gas-prices="1000000000${DENOM}" \
   --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+  --json-rpc.address="0.0.0.0:8545" \
+  --json-rpc.ws-address="0.0.0.0:8546" \
   --json-rpc.api=eth,txpool,personal,net,debug,web3 \
   --chain-id="$CHAIN_ID" &
 
@@ -489,6 +491,35 @@ if [ -f "$HOTKEYS_FILE" ]; then
   fi
 else
   echo "⚠️  Hotkeys file not found: $HOTKEYS_FILE"
+fi
+
+# ---------------------------
+# === FUND ADDITIONAL ADDRESSES ===
+# Address used for Local local contract deployment
+# ---------------------------
+
+echo "💰 Funding additional addresses..."
+
+# Fund the universal client test address
+FUND_FROM="genesis-acc-1"
+FUND_TO="push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60"
+FUND_AMOUNT="1000000000000000000upc"
+
+echo "📤 Sending $FUND_AMOUNT to $FUND_TO from $FUND_FROM..."
+FUND_RESULT=$(pchaind tx bank send "$FUND_FROM" "$FUND_TO" "$FUND_AMOUNT" \
+  --from "$FUND_FROM" \
+  --chain-id "$CHAIN_ID" \
+  --keyring-backend test \
+  --home "$HOME_DIR" \
+  --gas-prices "100000000000upc" \
+  --yes \
+  --output json 2>&1 || echo "{}")
+
+if echo "$FUND_RESULT" | grep -q '"txhash"'; then
+  TX_HASH=$(echo "$FUND_RESULT" | jq -r '.txhash' 2>/dev/null)
+  echo "✅ Funded $FUND_TO! TX: $TX_HASH"
+else
+  echo "⚠️ Funding may have failed: $(echo "$FUND_RESULT" | head -1)"
 fi
 
 # Wait for the validator process

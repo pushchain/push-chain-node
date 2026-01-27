@@ -43,9 +43,12 @@ type ModuleInputs struct {
 	StoreService store.KVStoreService
 	AddressCodec address.Codec
 
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
-	UtssKeeper     types.UtssKeeper
+	BankKeeper         types.BankKeeper
+	AuthKeeper         types.AccountKeeper
+	DistributionKeeper types.DistributionKeeper
+	StakingKeeper      stakingkeeper.Keeper
+	SlashingKeeper     slashingkeeper.Keeper
+	UtssKeeper         types.UtssKeeper
 }
 
 type ModuleOutputs struct {
@@ -58,8 +61,8 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
-	m := NewAppModule(in.Cdc, k, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.BankKeeper, in.AuthKeeper, in.DistributionKeeper, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
+	m := NewAppModule(in.Cdc, k, in.BankKeeper, in.AuthKeeper, in.DistributionKeeper, in.StakingKeeper, in.SlashingKeeper, in.UtssKeeper)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}
 }

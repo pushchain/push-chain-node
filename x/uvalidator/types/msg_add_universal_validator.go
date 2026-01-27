@@ -3,6 +3,7 @@ package types
 import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
@@ -50,6 +51,10 @@ func (msg *MsgAddUniversalValidator) ValidateBasic() error {
 	_, err := sdk.ValAddressFromBech32(msg.CoreValidatorAddress)
 	if err != nil {
 		return errors.Wrap(err, "invalid core validator address")
+	}
+
+	if msg.Network == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "network info is required")
 	}
 
 	return msg.Network.ValidateBasic()

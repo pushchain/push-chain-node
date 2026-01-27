@@ -23,7 +23,7 @@ func (k Keeper) UpdateUniversalValidator(
 	}
 
 	// Ensure validator exists in staking module
-	_, err = k.stakingKeeper.GetValidator(sdkCtx, valAddr)
+	_, err = k.StakingKeeper.GetValidator(sdkCtx, valAddr)
 	if err != nil {
 		return fmt.Errorf("core validator not found: %w", err)
 	}

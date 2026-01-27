@@ -47,7 +47,7 @@ func (k Keeper) RemoveUniversalValidator(
 
 	case types.UVStatus_UV_STATUS_PENDING_JOIN:
 		// Check if validator is part of the current TSS process
-		currentParticipants, err := k.utssKeeper.GetCurrentTssParticipants(ctx)
+		currentParticipants, err := k.UtssKeeper.GetCurrentTssParticipants(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch current TSS participants: %w", err)
 		}

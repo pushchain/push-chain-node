@@ -10,6 +10,15 @@ on:
         description: 'Version tag (e.g., v1.0.0)'
         required: true
         type: string
+      branch:
+        description: 'Branch to build from (default: main)'
+        required: false
+        type: string
+        default: 'main'
+      commit_id:
+        description: 'Specific commit SHA to build (overrides branch if set)'
+        required: false
+        type: string
       compare_from:
         description: 'Compare from tag (optional, auto-detects if empty)'
         required: false
@@ -38,9 +47,25 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          # Strip vcs.revision= prefix if accidentally included
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -54,15 +79,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.3'
-          cache: true
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Setup dkls23-rs
         uses: ./.github/actions/setup-dkls23
         with:
@@ -74,11 +90,6 @@ jobs:
           cp -r ../garbling ./garbling
           sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
-      - name: Build dkls23-rs Rust library
-        run: |
-          cd dkls23-rs
-          cargo build --release
-
       - name: Create and push version tag
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -86,24 +97,100 @@ jobs:
           git config --local user.name "GitHub Action"
 
           VERSION=${{ steps.version.outputs.version }}
+          COMMIT_REF="${{ github.event.inputs.commit_id }}"
+          # Strip vcs.revision= prefix if accidentally included
+          COMMIT_REF="${COMMIT_REF#vcs.revision=}"
+          if [ -z "$COMMIT_REF" ]; then
+            COMMIT_REF="HEAD"
+          fi
+          echo "Tagging commit: $COMMIT_REF"
+
           if git tag --list | grep -q "^${VERSION}$"; then
             echo "Tag $VERSION already exists, deleting it first"
             git tag -d $VERSION || true
             git push --delete origin $VERSION || true
           fi
 
-          git tag -a $VERSION -m "Release $VERSION"
+          git tag -a $VERSION $COMMIT_REF -m "Release $VERSION"
           git push origin $VERSION
 
-      - name: Build with GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          version: v1.26.2
-          args: release --clean --skip=validate --skip=publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CGO_ENABLED: "1"
-          CGO_LDFLAGS: "-L${{ github.workspace }}/dkls23-rs/target/release"
+          go-version: '1.23.8'
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Patch dkls23-rs for static linking
+        run: |
+          # Add staticlib to crate-type for go-dkls crate (produces .a file for static linking)
+          if grep -q 'crate-type = \["cdylib", "rlib"\]' dkls23-rs/wrapper/go-dkls/Cargo.toml; then
+            sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' dkls23-rs/wrapper/go-dkls/Cargo.toml
+            echo "Added staticlib to crate-type"
+          fi
+
+          # Fix hd-migration to use local garbling path instead of git
+          find dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+          done
+
+      - name: Build dkls23-rs dependency
+        run: |
+          cd dkls23-rs/wrapper/go-dkls
+          cargo build --release
+          cd ../../..
+          echo "Verifying libgodkls was built..."
+          ls -la dkls23-rs/target/release/libgodkls* || \
+            (echo "ERROR: libgodkls not found. Searching..." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)
+
+      - name: Download libwasmvm_muslc
+        run: |
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Downloading wasmvm static library version: $WASM_VER"
+          sudo wget -O /usr/lib/libwasmvm_muslc.x86_64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.x86_64.a"
+          sudo ln -sf /usr/lib/libwasmvm_muslc.x86_64.a /usr/lib/libwasmvm_muslc.a
+          ls -la /usr/lib/libwasmvm_muslc*
+
+      - name: Patch chain ID for production
+        run: |
+          sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
+
+      - name: Build Linux binary
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          VERSION_NO_V="${VERSION#v}"
+          COMMIT=$(git rev-parse HEAD)
+
+          mkdir -p dist
+
+          export GOTOOLCHAIN=local
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
+
+          echo "Building pchaind for linux/amd64 (glibc, static)..."
+          go build \
+            -tags "muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
+            -trimpath \
+            -o dist/pchaind \
+            ./cmd/pchaind
+
+          # Verify static linking
+          file dist/pchaind
+          file dist/pchaind | grep "statically linked"
+
+          # Package with bin/ structure for Cosmovisor compatibility
+          cd dist
+          mkdir -p bin
+          mv pchaind bin/
+          tar -czvf push-chain_${VERSION_NO_V}_linux_amd64.tar.gz bin/
+          shasum -a 256 push-chain_${VERSION_NO_V}_linux_amd64.tar.gz > push-chain_${VERSION_NO_V}_linux_amd64.tar.gz.sha256
+          rm -rf bin
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -111,7 +198,7 @@ jobs:
           name: linux-binaries
           path: |
             dist/*.tar.gz
-            dist/*.txt
+            dist/*.sha256
           retention-days: 1
 
   # ===========================================
@@ -122,9 +209,24 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -140,15 +242,6 @@ jobs:
           echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.3'
-          cache: true
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Setup dkls23-rs
         uses: ./.github/actions/setup-dkls23
         with:
@@ -160,35 +253,83 @@ jobs:
           cp -r ../garbling ./garbling
           sed -i 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
-      - name: Build dkls23-rs Rust library
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.8'
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Patch dkls23-rs for static linking
         run: |
-          cd dkls23-rs
+          # Add staticlib to crate-type for go-dkls crate (produces .a file for static linking)
+          if grep -q 'crate-type = \["cdylib", "rlib"\]' dkls23-rs/wrapper/go-dkls/Cargo.toml; then
+            sed -i 's/crate-type = \["cdylib", "rlib"\]/crate-type = ["staticlib", "cdylib", "rlib"]/' dkls23-rs/wrapper/go-dkls/Cargo.toml
+            echo "Added staticlib to crate-type"
+          fi
+
+          # Fix hd-migration to use local garbling path instead of git
+          find dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+            sed -i 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+          done
+
+      - name: Build dkls23-rs dependency
+        run: |
+          cd dkls23-rs/wrapper/go-dkls
           cargo build --release
+          cd ../../..
+          echo "Verifying libgodkls was built..."
+          ls -la dkls23-rs/target/release/libgodkls* || \
+            (echo "ERROR: libgodkls not found. Searching..." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)
 
-      - name: Build Linux ARM64 Binary
+      - name: Download libwasmvm_muslc
         run: |
-          mkdir -p dist
+          WASM_VER=$(grep "github.com/CosmWasm/wasmvm/v2" go.mod | head -1 | awk '{print $2}')
+          echo "Downloading wasmvm static library version: $WASM_VER"
+          sudo wget -O /usr/lib/libwasmvm_muslc.aarch64.a \
+            "https://github.com/CosmWasm/wasmvm/releases/download/${WASM_VER}/libwasmvm_muslc.aarch64.a"
+          sudo ln -sf /usr/lib/libwasmvm_muslc.aarch64.a /usr/lib/libwasmvm_muslc.a
+          ls -la /usr/lib/libwasmvm_muslc*
+
+      - name: Patch chain ID for production
+        run: |
+          sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
+
+      - name: Build Linux ARM64 binary
+        run: |
           VERSION=${{ steps.version.outputs.version }}
-          VERSION_NO_V=${{ steps.version.outputs.version_no_v }}
+          VERSION_NO_V="${VERSION#v}"
+          COMMIT=$(git rev-parse HEAD)
 
+          mkdir -p dist
+
+          export GOTOOLCHAIN=local
           export CGO_ENABLED=1
-          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
+          export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release -lm"
 
-          echo "Building for Linux ARM64..."
-          GOOS=linux GOARCH=arm64 go build \
-            -tags "netgo,ledger" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
-            -o dist/${BINARY_NAME} \
+          echo "Building pchaind for linux/arm64 (glibc, static)..."
+          go build \
+            -tags "muslc" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=muslc -linkmode=external -extldflags '-Wl,-z,muldefs -static'" \
+            -trimpath \
+            -o dist/pchaind \
             ./cmd/pchaind
 
-          # Create archive with bin/ structure for Cosmovisor compatibility
+          # Verify static linking
+          file dist/pchaind
+          file dist/pchaind | grep "statically linked"
+
+          # Package with bin/ structure for Cosmovisor compatibility
           cd dist
           mkdir -p bin
-          mv ${BINARY_NAME} bin/
-          tar -czvf ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz bin/
-          shasum -a 256 ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz > ${PROJECT_NAME}_${VERSION_NO_V}_linux_arm64.tar.gz.sha256
+          mv pchaind bin/
+          tar -czvf push-chain_${VERSION_NO_V}_linux_arm64.tar.gz bin/
+          shasum -a 256 push-chain_${VERSION_NO_V}_linux_arm64.tar.gz > push-chain_${VERSION_NO_V}_linux_arm64.tar.gz.sha256
           rm -rf bin
-          ls -la
 
       - name: Upload Linux ARM64 artifacts
         uses: actions/upload-artifact@v4
@@ -207,9 +348,24 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -220,7 +376,7 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          # Strip 'v' prefix to match GoReleaser naming convention
+          # Strip 'v' prefix for file naming
           VERSION_NO_V="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
@@ -229,7 +385,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22.3'
+          go-version: '1.23.8'
           cache: true
 
       - name: Set up Rust
@@ -296,6 +452,11 @@ jobs:
 
           ls -la libwasmvm.dylib
 
+      - name: Patch chain ID for production
+        run: |
+          sed -i '' 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          grep -n "ChainID" app/app.go
+
       - name: Build Mac Binary (ARM64 only - native build)
         run: |
           # Note: GitHub macos-latest is ARM64, can't cross-compile for AMD64 with CGO
@@ -307,10 +468,11 @@ jobs:
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-L$(pwd)/dkls23-rs/target/release"
 
+          COMMIT=$(git rev-parse HEAD)
           echo "Building for Apple Silicon (arm64)..."
           GOOS=darwin GOARCH=arm64 go build \
             -tags "netgo,ledger" \
-            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
+            -ldflags="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=pchain -X github.com/cosmos/cosmos-sdk/version.AppName=pchaind -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${COMMIT} -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger" \
             -o dist/${BINARY_NAME}-darwin-arm64 \
             ./cmd/pchaind
 
@@ -339,6 +501,8 @@ jobs:
           codesign -dv --verbose=2 dist/libwasmvm.dylib
 
       - name: Notarize Binary
+        timeout-minutes: 15
+        continue-on-error: true
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -353,7 +517,7 @@ jobs:
 
           cd dist
 
-          # Use version without 'v' prefix to match GoReleaser naming convention
+          # Use version without 'v' prefix for file naming
           VERSION_NO_V="${VERSION#v}"
 
           # Create archive with bin/ directory structure for Cosmovisor compatibility
@@ -401,9 +565,24 @@ jobs:
     needs: [build-linux, build-linux-arm64, build-macos]
 
     steps:
+      - name: Resolve checkout ref
+        id: resolve-ref
+        run: |
+          COMMIT_ID="${{ github.event.inputs.commit_id }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
+          if [ -n "$COMMIT_ID" ]; then
+            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
+          elif [ -n "$BRANCH" ]; then
+            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "ref=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -414,7 +593,7 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          # Strip 'v' prefix for file naming (matches GoReleaser convention)
+          # Strip 'v' prefix for file naming
           VERSION_NO_V="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
@@ -443,9 +622,9 @@ jobs:
 
           # Copy all artifacts to release folder
           cp dist/linux/*.tar.gz release/ 2>/dev/null || true
-          cp dist/linux/*.txt release/ 2>/dev/null || true
+          cp dist/linux/*.sha256 release/ 2>/dev/null || true
           cp dist/linux-arm64/*.tar.gz release/ 2>/dev/null || true
-          cp dist/linux-arm64/*.txt release/ 2>/dev/null || true
+          cp dist/linux-arm64/*.sha256 release/ 2>/dev/null || true
           cp dist/macos/*.tar.gz release/ 2>/dev/null || true
           cp dist/macos/*.sha256 release/ 2>/dev/null || true
 

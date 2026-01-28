@@ -253,6 +253,7 @@ var maccPerms = map[string][]string{
 	feemarkettypes.ModuleName:    nil,
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
 	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+	uvalidatortypes.ModuleName:   nil,
 }
 
 var (
@@ -750,6 +751,9 @@ func NewChainApp(
 		runtime.NewKVStoreService(keys[uvalidatortypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.BankKeeper,
+		app.AccountKeeper,
+		app.DistrKeeper,
 		app.StakingKeeper,
 		app.SlashingKeeper,
 		&app.UtssKeeper,
@@ -1040,7 +1044,7 @@ func NewChainApp(
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
 		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
-		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
+		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.BankKeeper, app.AccountKeeper, app.DistrKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
 	)
 
@@ -1072,6 +1076,7 @@ func NewChainApp(
 		feemarkettypes.ModuleName,
 		evmtypes.ModuleName, // NOTE: EVM BeginBlocker must come after FeeMarket BeginBlocker
 
+		uvalidatortypes.ModuleName,
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -1090,7 +1095,6 @@ func NewChainApp(
 		uexecutortypes.ModuleName,
 		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
-		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
 	)
 

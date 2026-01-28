@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -230,6 +232,12 @@ func (c *Coordinator) GetCurrentTSSKey(ctx context.Context) (string, string, err
 	return key.KeyId, key.TssPubkey, nil
 }
 
+// GetTSSAddress returns the current TSS ECDSA address derived from the current TSS public key.
+// This is a thin exported wrapper around the internal derivation logic so other packages can reuse it.
+func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
+	return c.getTSSAddress(ctx)
+}
+
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key
 func (c *Coordinator) getTSSAddress(ctx context.Context) (string, error) {
@@ -241,21 +249,28 @@ func (c *Coordinator) getTSSAddress(ctx context.Context) (string, error) {
 		return "", errors.New("no TSS key found")
 	}
 
-	// Derive ECDSA address from public key
-	// TSS public key is hex-encoded, uncompressed format (0x04 prefix + 64 bytes)
-	pubkeyBytes, err := hex.DecodeString(key.TssPubkey)
+	pubkeyHex := strings.TrimPrefix(strings.TrimSpace(key.TssPubkey), "0x")
+	pubkeyBytes, err := hex.DecodeString(pubkeyHex)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to decode TSS public key")
 	}
 
-	// Skip 0x04 prefix (first byte) and hash the rest
-	if len(pubkeyBytes) < 65 {
-		return "", errors.New("invalid TSS public key length")
+	// We store TSS public key as compressed secp256k1 (33 bytes: 0x02/0x03 || X)
+	if len(pubkeyBytes) != 33 {
+		return "", errors.Errorf("invalid TSS public key length: %d bytes (expected 33)", len(pubkeyBytes))
 	}
-	pubkeyBytes = pubkeyBytes[1:] // Remove 0x04 prefix
+	vkX, vkY := secp256k1.DecompressPubkey(pubkeyBytes)
+	if vkX == nil || vkY == nil {
+		return "", errors.New("failed to decompress TSS public key")
+	}
+
+	// Hash keccak256(X || Y) and take last 20 bytes
+	xBytes := vkX.FillBytes(make([]byte, 32))
+	yBytes := vkY.FillBytes(make([]byte, 32))
+	pubkeyXY := append(xBytes, yBytes...)
 
 	// Hash with keccak256 and take last 20 bytes
-	addressBytes := crypto.Keccak256(pubkeyBytes)[12:]
+	addressBytes := crypto.Keccak256(pubkeyXY)[12:]
 
 	return "0x" + hex.EncodeToString(addressBytes), nil
 }

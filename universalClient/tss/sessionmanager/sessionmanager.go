@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -873,31 +872,10 @@ func (sm *SessionManager) validateGasPrice(ctx context.Context, chainID string, 
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key
 func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
-	key, err := sm.pushCore.GetCurrentKey(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get current TSS key")
+	if sm.coordinator == nil {
+		return "", errors.New("coordinator not configured")
 	}
-	if key == nil || key.TssPubkey == "" {
-		return "", errors.New("no TSS key found")
-	}
-
-	// Derive ECDSA address from public key
-	// TSS public key is hex-encoded, uncompressed format (0x04 prefix + 64 bytes)
-	pubkeyBytes, err := hex.DecodeString(key.TssPubkey)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode TSS public key")
-	}
-
-	// Skip 0x04 prefix (first byte) and hash the rest
-	if len(pubkeyBytes) < 65 {
-		return "", errors.New("invalid TSS public key length")
-	}
-	pubkeyBytes = pubkeyBytes[1:] // Remove 0x04 prefix
-
-	// Hash with keccak256 and take last 20 bytes
-	addressBytes := crypto.Keccak256(pubkeyBytes)[12:]
-
-	return "0x" + hex.EncodeToString(addressBytes), nil
+	return sm.coordinator.GetTSSAddress(ctx)
 }
 
 // handleSigningComplete assembles and broadcasts the signed transaction.

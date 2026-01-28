@@ -19,6 +19,15 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
+// DefaultGasLimit is used when gas limit is not provided in the outbound event data
+const DefaultGasLimit = 500000
+
+// RevertInstructions represents the struct for revert instruction in gateway/vault contracts
+type RevertInstructions struct {
+	RevertRecipient ethcommon.Address
+	RevertMsg       []byte
+}
+
 // TxBuilder implements OutboundTxBuilder for EVM chains
 type TxBuilder struct {
 	rpcClient      *RPCClient
@@ -94,16 +103,22 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("failed to get nonce for signer %s: %w", signerAddress, err)
 	}
 
-	// Parse gas limit
-	gasLimit := new(big.Int)
-	gasLimit, ok := gasLimit.SetString(data.GasLimit, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid gas limit: %s", data.GasLimit)
+	// Parse gas limit, use default if not provided
+	var gasLimit *big.Int
+	if data.GasLimit == "" || data.GasLimit == "0" {
+		gasLimit = big.NewInt(DefaultGasLimit)
+	} else {
+		gasLimit = new(big.Int)
+		var ok bool
+		gasLimit, ok = gasLimit.SetString(data.GasLimit, 10)
+		if !ok {
+			return nil, fmt.Errorf("invalid gas limit: %s", data.GasLimit)
+		}
 	}
 
 	// Parse amount
 	amount := new(big.Int)
-	amount, ok = amount.SetString(data.Amount, 10)
+	amount, ok := amount.SetString(data.Amount, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid amount: %s", data.Amount)
 	}
@@ -229,11 +244,16 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		txValue = big.NewInt(0)
 	}
 
-	// Parse gas limit from event data
-	gasLimitForTx := new(big.Int)
-	gasLimitForTx, ok = gasLimitForTx.SetString(data.GasLimit, 10)
-	if !ok {
-		return "", fmt.Errorf("invalid gas limit: %s", data.GasLimit)
+	// Parse gas limit from event data, use default if not provided
+	var gasLimitForTx *big.Int
+	if data.GasLimit == "" || data.GasLimit == "0" {
+		gasLimitForTx = big.NewInt(DefaultGasLimit)
+	} else {
+		gasLimitForTx = new(big.Int)
+		gasLimitForTx, ok = gasLimitForTx.SetString(data.GasLimit, 10)
+		if !ok {
+			return "", fmt.Errorf("invalid gas limit: %s", data.GasLimit)
+		}
 	}
 
 	// Reconstruct the unsigned transaction from the request and event data
@@ -548,11 +568,14 @@ func (tb *TxBuilder) encodeFunctionCall(
 
 	case "revertUniversalTx":
 		// revertUniversalTx(bytes32 txID, bytes32 universalTxID, uint256 amount, RevertInstructions calldata revertInstruction)
-		// RevertInstructions struct: { address revertRecipient; }
-		// We'll encode it as a tuple
-		revertRecipient := recipient // Use recipient as revert recipient
+		// RevertInstructions struct: { address revertRecipient; bytes revertMsg; }
+		revertMsgBytes, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
+		if err != nil {
+			revertMsgBytes = []byte{} // Default to empty if decoding fails
+		}
 		revertInstructionType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 			{Name: "revertRecipient", Type: "address"},
+			{Name: "revertMsg", Type: "bytes"},
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
@@ -560,15 +583,21 @@ func (tb *TxBuilder) encodeFunctionCall(
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID, universalTxID, amount, map[string]interface{}{
-			"revertRecipient": revertRecipient,
+		values = []interface{}{txID, universalTxID, amount, RevertInstructions{
+			RevertRecipient: recipient,
+			RevertMsg:       revertMsgBytes,
 		}}
 
 	case "revertWithdraw":
 		// Vault: revertWithdraw(bytes32 txID, bytes32 universalTxID, address token, uint256 amount, RevertInstructions calldata revertInstruction)
-		revertRecipient := recipient // Use recipient as revert recipient
+		// RevertInstructions struct: { address revertRecipient; bytes revertMsg; }
+		revertMsgBytesWithdraw, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
+		if err != nil {
+			revertMsgBytesWithdraw = []byte{} // Default to empty if decoding fails
+		}
 		revertInstructionType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 			{Name: "revertRecipient", Type: "address"},
+			{Name: "revertMsg", Type: "bytes"},
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
@@ -577,8 +606,9 @@ func (tb *TxBuilder) encodeFunctionCall(
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID, universalTxID, assetAddr, amount, map[string]interface{}{
-			"revertRecipient": revertRecipient,
+		values = []interface{}{txID, universalTxID, assetAddr, amount, RevertInstructions{
+			RevertRecipient: recipient,
+			RevertMsg:       revertMsgBytesWithdraw,
 		}}
 
 	default:
@@ -617,10 +647,10 @@ func (tb *TxBuilder) getFunctionSignature(funcName string, isNative bool) string
 		}
 		return "executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
 	case "revertUniversalTx":
-		return "revertUniversalTx(bytes32,bytes32,uint256,(address))"
+		return "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"
 	case "revertWithdraw":
-		// Vault: revertWithdraw(bytes32,bytes32,address,uint256,(address))
-		return "revertWithdraw(bytes32,bytes32,address,uint256,(address))"
+		// Vault: revertWithdraw(bytes32,bytes32,address,uint256,(address,bytes))
+		return "revertWithdraw(bytes32,bytes32,address,uint256,(address,bytes))"
 	default:
 		return ""
 	}

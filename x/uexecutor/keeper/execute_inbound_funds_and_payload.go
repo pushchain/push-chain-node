@@ -16,6 +16,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	shouldRevert := false
+	var revertReason string
+
 	// Build universalAccountId
 	universalAccountId := types.UniversalAccountId{
 		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
@@ -33,8 +36,12 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
 	if err != nil {
 		execErr = fmt.Errorf("factory lookup failed: %w", err)
+		shouldRevert = true
+		revertReason = execErr.Error()
 	} else if !isDeployed {
 		execErr = fmt.Errorf("UEA is not deployed")
+		shouldRevert = true
+		revertReason = execErr.Error()
 	} else {
 		// --- Step 2: deposit PRC20 into UEA
 		receipt, err = k.depositPRC20(
@@ -46,6 +53,8 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		)
 		if err != nil {
 			execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+			shouldRevert = true
+			revertReason = execErr.Error()
 		}
 	}
 
@@ -75,6 +84,31 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	// If deposit failed, stop here (don’t attempt payload execution)
 	if execErr != nil {
+		if shouldRevert {
+			revertOutbound := &types.OutboundTx{
+				DestinationChain: utx.InboundTx.SourceChain,
+				Recipient: func() string {
+					if utx.InboundTx.RevertInstructions != nil {
+						return utx.InboundTx.RevertInstructions.FundRecipient
+					}
+					return utx.InboundTx.Sender
+				}(),
+				Amount:            utx.InboundTx.Amount,
+				ExternalAssetAddr: utx.InboundTx.AssetAddr,
+				Sender:            utx.InboundTx.Sender,
+				TxType:            types.TxType_INBOUND_REVERT,
+				OutboundStatus:    types.Status_PENDING,
+				Id:                types.GetOutboundRevertId(utx.InboundTx.TxHash),
+			}
+
+			_ = k.attachOutboundsToUtx(
+				sdkCtx,
+				universalTxKey,
+				[]*types.OutboundTx{revertOutbound},
+				revertReason,
+			)
+		}
+
 		return nil
 	}
 
@@ -112,6 +146,10 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"
+
+		if receipt != nil {
+			_ = k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx)
+		}
 	}
 
 	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

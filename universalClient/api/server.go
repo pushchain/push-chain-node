@@ -9,17 +9,15 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Server provides HTTP endpoints for querying configuration data
+// Server provides HTTP endpoints
 type Server struct {
-	client universalClientInterface
 	logger zerolog.Logger
 	server *http.Server
 }
 
 // NewServer creates a new Server instance
-func NewServer(client universalClientInterface, logger zerolog.Logger, port int) *Server {
+func NewServer(logger zerolog.Logger, port int) *Server {
 	s := &Server{
-		client: client,
 		logger: logger,
 	}
 

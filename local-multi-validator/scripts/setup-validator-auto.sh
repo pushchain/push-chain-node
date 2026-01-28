@@ -105,6 +105,8 @@ if [ -f "$HOME_DIR/data/priv_validator_state.json" ]; then
       --pruning=nothing \
       --minimum-gas-prices="1000000000${DENOM}" \
       --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+      --json-rpc.address="0.0.0.0:8545" \
+      --json-rpc.ws-address="0.0.0.0:8546" \
       --json-rpc.api=eth,txpool,personal,net,debug,web3 \
       --chain-id="$CHAIN_ID" &
 
@@ -342,6 +344,8 @@ $BINARY start \
   --pruning=nothing \
   --minimum-gas-prices="1000000000${DENOM}" \
   --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+  --json-rpc.address="0.0.0.0:8545" \
+  --json-rpc.ws-address="0.0.0.0:8546" \
   --json-rpc.api=eth,txpool,personal,net,debug,web3 \
   --chain-id="$CHAIN_ID" &
 

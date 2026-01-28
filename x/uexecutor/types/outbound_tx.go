@@ -31,30 +31,128 @@ func (p OutboundTx) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "destination_chain must be in CAIP-2 format <namespace>:<reference>")
 	}
 
-	// Validate tx_hash (non-empty)
-	if strings.TrimSpace(p.TxHash) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "tx_hash cannot be empty")
-	}
-
-	// Validate recipient (non-empty, valid hex address)
+	// recipient must not be empty
 	if strings.TrimSpace(p.Recipient) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty")
 	}
-	if !utils.IsValidAddress(p.Recipient, utils.HEX) {
-		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient address: %s", p.Recipient)
+
+	// sender
+	if strings.TrimSpace(p.Sender) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidAddress, "sender cannot be empty")
+	}
+	if !utils.IsValidAddress(p.Sender, utils.HEX) {
+		return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid sender address: %s", p.Sender)
 	}
 
-	// Validate amount as uint256 (non-empty, >0)
-	if strings.TrimSpace(p.Amount) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty")
-	}
-	if bi, ok := new(big.Int).SetString(p.Amount, 10); !ok || bi.Sign() <= 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid positive uint256")
+	// tx type support
+	switch p.TxType {
+	case TxType_FUNDS, TxType_FUNDS_AND_PAYLOAD, TxType_PAYLOAD:
+		// supported
+	default:
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "unsupported tx_type: %s", p.TxType.String())
 	}
 
-	// Validate asset_addr (non-empty)
-	if strings.TrimSpace(p.AssetAddr) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidAddress, "asset_addr cannot be empty")
+	// amount validation (only for funds-related txs)
+	if p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD {
+		if strings.TrimSpace(p.Amount) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty for funds tx")
+		}
+		if bi, ok := new(big.Int).SetString(p.Amount, 10); !ok || bi.Sign() <= 0 {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid positive uint256")
+		}
+	}
+
+	// payload validation (required for payload txs)
+	if p.TxType == TxType_PAYLOAD || p.TxType == TxType_FUNDS_AND_PAYLOAD {
+		if strings.TrimSpace(p.Payload) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload cannot be empty for payload tx")
+		}
+	}
+
+	// external_asset_addr required when amount is involved
+	if (p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD) && strings.TrimSpace(p.ExternalAssetAddr) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidAddress, "external_asset_addr cannot be empty for funds tx")
+	}
+
+	if strings.TrimSpace(p.Prc20AssetAddr) != "" {
+		if !utils.IsValidAddress(p.Prc20AssetAddr, utils.HEX) {
+			return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid prc20 address: %s", p.Sender)
+		}
+	}
+
+	// gas_limit (uint)
+	if strings.TrimSpace(p.GasLimit) != "" {
+		if _, ok := new(big.Int).SetString(p.GasLimit, 10); !ok {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_limit must be a valid uint")
+		}
+	}
+
+	// pc_tx validation
+	if strings.TrimSpace(p.PcTx.TxHash) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "pc_tx.tx_hash cannot be empty")
+	}
+	if strings.TrimSpace(p.PcTx.LogIndex) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "pc_tx.log_index cannot be empty")
+	}
+
+	// observed tx validation (if present)
+	if p.ObservedTx != nil {
+		if strings.TrimSpace(p.ObservedTx.TxHash) != "" {
+			if p.ObservedTx.BlockHeight == 0 {
+				return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_tx.block_height must be > 0")
+			}
+		}
+	}
+
+	// index
+	if strings.TrimSpace(p.Id) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "id cannot be empty")
+	}
+
+	// status validation
+	// outbound_status validation
+	switch p.OutboundStatus {
+	case Status_UNSPECIFIED:
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "outbound_status cannot be UNSPECIFIED")
+
+	case Status_PENDING:
+		// PENDING must NOT have observed tx data
+		if p.ObservedTx != nil && strings.TrimSpace(p.ObservedTx.TxHash) != "" {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx must be empty when outbound_status is PENDING",
+			)
+		}
+
+	case Status_OBSERVED:
+		// OBSERVED must have observed tx
+		if p.ObservedTx == nil {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx is required when outbound_status is OBSERVED",
+			)
+		}
+
+		if strings.TrimSpace(p.ObservedTx.TxHash) == "" {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx.tx_hash is required when outbound_status is OBSERVED",
+			)
+		}
+
+		if p.ObservedTx.BlockHeight == 0 {
+			return errors.Wrap(
+				sdkerrors.ErrInvalidRequest,
+				"observed_tx.block_height must be > 0 when outbound_status is OBSERVED",
+			)
+		}
+
+	default:
+		return errors.Wrapf(
+			sdkerrors.ErrInvalidRequest,
+			"invalid outbound_status: %d",
+			p.OutboundStatus,
+		)
 	}
 
 	return nil

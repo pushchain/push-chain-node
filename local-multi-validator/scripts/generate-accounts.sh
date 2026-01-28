@@ -105,24 +105,29 @@ for ((i=1; i<=4; i++)); do
 
   # Generate new validator account
   OUTPUT=$($BINARY keys add "$KEY_NAME" --keyring-backend="$KEYRING" --algo="$KEYALGO" --output=json 2>/dev/null)
-  
+
   MNEMONIC=$(echo "$OUTPUT" | jq -r '.mnemonic')
   ADDRESS=$(echo "$OUTPUT" | jq -r '.address')
-  
+
+  # Get the valoper address (bech32 with 'val' prefix)
+  VALOPER_ADDRESS=$($BINARY keys show "$KEY_NAME" --bech val -a --keyring-backend="$KEYRING" 2>/dev/null)
+
   echo "👨‍⚖️ Validator #$i"
   echo "  Name     : $KEY_NAME"
   echo "  Address  : $ADDRESS"
+  echo "  Valoper  : $VALOPER_ADDRESS"
   echo "  Mnemonic : $MNEMONIC"
   echo
-  
-  # Add to JSON array
-  VALIDATOR_JSON=$(jq -n --arg name "$KEY_NAME" --arg address "$ADDRESS" --arg mnemonic "$MNEMONIC" --argjson id "$i" '{
+
+  # Add to JSON array (including valoper address)
+  VALIDATOR_JSON=$(jq -n --arg name "$KEY_NAME" --arg address "$ADDRESS" --arg valoper "$VALOPER_ADDRESS" --arg mnemonic "$MNEMONIC" --argjson id "$i" '{
     id: $id,
     name: $name,
     address: $address,
+    valoper_address: $valoper,
     mnemonic: $mnemonic
   }')
-  
+
   jq --argjson validator "$VALIDATOR_JSON" '. += [$validator]' "$VALIDATORS_FILE" > "$TMP_DIR/tmp.json" && mv "$TMP_DIR/tmp.json" "$VALIDATORS_FILE"
 done
 

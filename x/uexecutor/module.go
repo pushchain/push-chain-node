@@ -21,11 +21,14 @@ import (
 
 	"github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+
+	v2 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v2"
+	v4 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v4"
 )
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	ConsensusVersion = 3
+	ConsensusVersion = 4
 )
 
 var (
@@ -162,9 +165,27 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
 
-	// Register UExecutor custom migration for v2 (from version 2 → 3)
+	// Register UExecutor custom migration for v2 (from version 1 → 2)
+	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
+	}
+
+	// Register UExecutor custom migration for v2 (from version 2 -> 3)
 	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
 		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
+	}
+
+	// Register UExecutor custom migration for v2 (from version 3 -> 4)
+	if err := cfg.RegisterMigration(types.ModuleName, 3, a.migrateToV4()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
+	}
+}
+
+func (a AppModule) migrateToV2() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uexecutor module migration: v1 → v2")
+
+		return v2.MigrateParamsFromAdminToBool(ctx, &a.keeper, a.AppModuleBasic.cdc)
 	}
 }
 
@@ -173,6 +194,14 @@ func (a AppModule) migrateToV3() module.MigrationHandler {
 		ctx.Logger().Info("🔧 Running uexecutor module migration: v2 → v3")
 
 		return nil
+	}
+}
+
+func (a AppModule) migrateToV4() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uexecutor module migration: v3 → v4")
+
+		return v4.MigrateUniversalTx(ctx, &a.keeper, a.AppModuleBasic.cdc)
 	}
 }
 

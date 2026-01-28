@@ -136,6 +136,41 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
+# ---------------------------
+# === SET CORE VALOPER ADDRESS ===
+# ---------------------------
+
+echo "🔗 Setting core validator's valoper address..."
+
+# Each universal validator maps to a specific core validator:
+# universal-validator-1 → core-validator-1 (validator-1's valoper)
+# universal-validator-2 → core-validator-2 (validator-2's valoper)
+# universal-validator-3 → core-validator-3 (validator-3's valoper)
+# universal-validator-4 → core-validator-4 (validator-4's valoper)
+#
+# The valoper address is used to:
+# 1. Identify which core validator this UV is associated with
+# 2. Check AuthZ grants from the correct granter (validator-N grants to hotkey-N)
+
+VALIDATORS_FILE="/tmp/push-accounts/validators.json"
+if [ -f "$VALIDATORS_FILE" ]; then
+  # Get the valoper address for validator-N (where N = UNIVERSAL_ID)
+  VALIDATOR_INDEX=$((UNIVERSAL_ID - 1))
+  VALOPER_ADDR=$(jq -r ".[$VALIDATOR_INDEX].valoper_address" "$VALIDATORS_FILE")
+
+  if [ -n "$VALOPER_ADDR" ] && [ "$VALOPER_ADDR" != "null" ]; then
+    echo "✅ Using valoper address for validator-$UNIVERSAL_ID: $VALOPER_ADDR"
+    jq --arg valoper "$VALOPER_ADDR" '.push_valoper_address = $valoper' \
+      "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+      mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+  else
+    echo "⚠️ Valoper address not found in validators.json for validator-$UNIVERSAL_ID"
+    echo "   Make sure generate-accounts.sh includes valoper_address field"
+  fi
+else
+  echo "⚠️ Validators file not found at $VALIDATORS_FILE"
+fi
+
 echo "📋 Universal validator config created:"
 cat "$HOME_DIR/config/pushuv_config.json"
 
@@ -182,13 +217,13 @@ fi
 
 echo "🔐 Waiting for AuthZ grants to be created by core validator..."
 echo "📝 Core validators create AuthZ grants after UV registration completes"
-echo "📋 Required grants: MsgVoteInbound, MsgVoteGasPrice, MsgVoteTssKeyProcess"
+echo "📋 Required grants: MsgVoteInbound, MsgVoteGasPrice, MsgVoteOutbound, MsgVoteTssKeyProcess"
 
 # Get the hotkey address
 HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")
 
-# Required number of grants (3 message types)
-REQUIRED_GRANTS=3
+# Required number of grants (4 message types)
+REQUIRED_GRANTS=4
 
 # Query core-validator-1 for grants (genesis validator creates ALL grants immediately)
 GRANTS_QUERY_HOST="core-validator-1"
@@ -197,7 +232,7 @@ if [ -n "$HOTKEY_ADDR" ]; then
   echo "🔍 Checking for AuthZ grants for hotkey: $HOTKEY_ADDR"
   echo "📡 Querying grants from: $GRANTS_QUERY_HOST:1317"
 
-  # Wait for all 3 AuthZ grants (should be fast - genesis validator creates all grants)
+  # Wait for all 4 AuthZ grants (should be fast - genesis validator creates all grants)
   max_wait=20
   wait_time=0
   GRANTS_COUNT=0

@@ -33,9 +33,12 @@ type Keeper struct {
 	ExpiredBallotIDs   collections.KeySet[string]            // set of ballot IDs that have expired (not yet pruned)
 	FinalizedBallotIDs collections.KeySet[string]            // set of ballot IDs that are PASSED or REJECTED
 
-	stakingKeeper  types.StakingKeeper
-	slashingKeeper types.SlashingKeeper
-	utssKeeper     types.UtssKeeper
+	StakingKeeper      types.StakingKeeper
+	SlashingKeeper     types.SlashingKeeper
+	UtssKeeper         types.UtssKeeper
+	BankKeeper         types.BankKeeper
+	AuthKeeper         types.AccountKeeper
+	DistributionKeeper types.DistributionKeeper
 
 	authority string
 	hooks     types.UValidatorHooks
@@ -47,6 +50,9 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
+	bankKeeper types.BankKeeper,
+	authKeeper types.AccountKeeper,
+	distributionKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
 	utssKeeper types.UtssKeeper,
@@ -92,10 +98,13 @@ func NewKeeper(
 			collections.StringKey,
 		),
 
-		authority:      authority,
-		stakingKeeper:  stakingKeeper,
-		slashingKeeper: slashingKeeper,
-		utssKeeper:     utssKeeper,
+		authority:          authority,
+		StakingKeeper:      stakingKeeper,
+		SlashingKeeper:     slashingKeeper,
+		UtssKeeper:         utssKeeper,
+		BankKeeper:         bankKeeper,
+		AuthKeeper:         authKeeper,
+		DistributionKeeper: distributionKeeper,
 	}
 
 	return k

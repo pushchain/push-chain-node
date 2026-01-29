@@ -88,7 +88,7 @@ func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.Msg
 	// Find validator controlled by this account
 	valAddr := sdk.ValAddress(signerAcc)
 
-	validator, err := ms.k.stakingKeeper.GetValidator(ctx, valAddr)
+	validator, err := ms.k.StakingKeeper.GetValidator(ctx, valAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "signer is not a validator operator")
 	}

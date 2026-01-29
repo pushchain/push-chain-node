@@ -17,7 +17,7 @@ func (k Keeper) UpdateUniversalValidatorStatus(
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	isOngoingTSS, err := k.utssKeeper.HasOngoingTss(ctx)
+	isOngoingTSS, err := k.UtssKeeper.HasOngoingTss(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check TSS state: %w", err)
 	}

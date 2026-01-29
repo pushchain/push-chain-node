@@ -21,6 +21,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -88,10 +89,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.bankkeeper, f.accountkeeper, distrkeeper.Keeper{}, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.bankkeeper, f.accountkeeper, distrkeeper.Keeper{}, f.stakingKeeper, slashingKeeper.Keeper{}, mockUtssKeeper{})
 
 	return f
 }

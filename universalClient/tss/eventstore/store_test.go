@@ -70,7 +70,7 @@ func TestNewStore(t *testing.T) {
 func TestGetConfirmedEvents(t *testing.T) {
 	t.Run("no events", func(t *testing.T) {
 		s := setupTestStore(t)
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -85,7 +85,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		// Event is only 5 blocks old, needs 10 blocks confirmation
 		createTestEvent(t, s, "event-1", 95, StatusConfirmed, 200)
 
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -101,7 +101,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
 		createTestEvent(t, s, "event-2", 85, StatusConfirmed, 200)
 
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -123,7 +123,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		createTestEvent(t, s, "success-1", 80, StatusCompleted, 200)
 		createTestEvent(t, s, "reverted-1", 80, StatusReverted, 200)
 
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -142,7 +142,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		createTestEvent(t, s, "valid-1", 80, StatusConfirmed, 200)  // not expired (expiry 200 > current 100)
 		createTestEvent(t, s, "valid-2", 80, StatusConfirmed, 101)  // not expired (expiry 101 > current 100)
 
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -160,7 +160,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		createTestEvent(t, s, "event-3", 75, StatusConfirmed, 200) // Earlier block
 
-		events, err := s.GetConfirmedEvents(100, 10)
+		events, err := s.GetConfirmedEvents(100, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}
@@ -184,7 +184,7 @@ func TestGetConfirmedEvents(t *testing.T) {
 		createTestEvent(t, s, "event-1", 0, StatusConfirmed, 200)
 
 		// Current block is 5, min confirmation is 10
-		events, err := s.GetConfirmedEvents(5, 10)
+		events, err := s.GetConfirmedEvents(5, 10, 0)
 		if err != nil {
 			t.Fatalf("GetConfirmedEvents() error = %v, want nil", err)
 		}

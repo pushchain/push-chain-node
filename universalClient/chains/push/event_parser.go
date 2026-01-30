@@ -2,113 +2,234 @@ package push
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-// ParseTSSProcessInitiatedEvent parses a tss_process_initiated event from ABCI events.
-// Returns nil if the event is not a tss_process_initiated event.
-func ParseTSSProcessInitiatedEvent(events []abci.Event, blockHeight uint64, txHash string) (*TSSProcessEvent, error) {
-	for _, event := range events {
-		if event.Type != EventTypeTssProcessInitiated {
-			continue
-		}
+// Event type constants
+const (
+	EventTypeTSSProcessInitiated = utsstypes.EventTypeTssProcessInitiated
+	EventTypeOutboundCreated     = uexecutortypes.EventTypeOutboundCreated
+)
 
-		parsed := &TSSProcessEvent{
-			BlockHeight: blockHeight,
-			TxHash:      txHash,
-		}
+// TSS event attribute keys.
+const (
+	AttrKeyProcessID    = "process_id"
+	AttrKeyProcessType  = "process_type"
+	AttrKeyParticipants = "participants"
+	AttrKeyExpiryHeight = "expiry_height"
+)
 
-		// Track which required fields were found (process_id=0 is valid!)
-		foundProcessID := false
+// TSS process type values as defined in the Push chain.
+const (
+	ChainProcessTypeKeygen       = "TSS_PROCESS_KEYGEN"
+	ChainProcessTypeRefresh      = "TSS_PROCESS_REFRESH"
+	ChainProcessTypeQuorumChange = "TSS_PROCESS_QUORUM_CHANGE"
+)
 
-		for _, attr := range event.Attributes {
-			switch attr.Key {
-			case AttrKeyProcessID:
-				id, err := strconv.ParseUint(attr.Value, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse process_id: %w", err)
-				}
-				parsed.ProcessID = id
-				foundProcessID = true
+// Outbound event attribute keys.
+const (
+	AttrKeyTxID             = "tx_id"
+	AttrKeyUniversalTxID    = "utx_id"
+	AttrKeyOutboundID       = "outbound_id"
+	AttrKeyDestinationChain = "destination_chain"
+	AttrKeyRecipient        = "recipient"
+	AttrKeyAmount           = "amount"
+	AttrKeyAssetAddr        = "asset_addr"
+	AttrKeySender           = "sender"
+	AttrKeyPayload          = "payload"
+	AttrKeyGasLimit         = "gas_limit"
+	AttrKeyTxType           = "tx_type"
+	AttrKeyPcTxHash         = "pc_tx_hash"
+	AttrKeyLogIndex         = "log_index"
+	AttrKeyRevertMsg        = "revert_msg"
+	AttrKeyData             = "data"
+)
 
-			case AttrKeyProcessType:
-				parsed.ProcessType = convertProcessType(attr.Value)
+// OutboundExpiryOffset is the number of blocks after event detection
+// before an outbound event expires.
+const OutboundExpiryOffset = 400
 
-			case AttrKeyParticipants:
-				var participants []string
-				if err := json.Unmarshal([]byte(attr.Value), &participants); err != nil {
-					return nil, fmt.Errorf("failed to parse participants: %w", err)
-				}
-				parsed.Participants = participants
+// Parser errors.
+var (
+	ErrMissingProcessID    = errors.New("missing required attribute: process_id")
+	ErrMissingProcessType  = errors.New("missing required attribute: process_type")
+	ErrMissingTxID         = errors.New("missing required attribute: tx_id")
+	ErrInvalidProcessID    = errors.New("invalid process_id format")
+	ErrInvalidExpiryHeight = errors.New("invalid expiry_height format")
+	ErrInvalidParticipants = errors.New("invalid participants format")
+)
 
-			case AttrKeyExpiryHeight:
-				height, err := strconv.ParseUint(attr.Value, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse expiry_height: %w", err)
-				}
-				parsed.ExpiryHeight = height
-			}
-		}
+// ParseEvent parses a Push chain event from an ABCI event.
+// Returns nil if the event type is not recognized.
+// Sets BlockHeight and Status on successfully parsed events.
+func ParseEvent(event abci.Event, blockHeight uint64) (*store.Event, error) {
+	var parsed *store.Event
+	var err error
 
-		// Validate required fields
-		if !foundProcessID {
-			return nil, fmt.Errorf("missing process_id in event")
-		}
-		if parsed.ProcessType == "" {
-			return nil, fmt.Errorf("missing process_type in event")
-		}
-
-		return parsed, nil
+	switch event.Type {
+	case EventTypeTSSProcessInitiated:
+		parsed, err = parseTSSEvent(event)
+	case EventTypeOutboundCreated:
+		parsed, err = parseOutboundEvent(event)
+	default:
+		// Unknown event type - not an error, just skip
+		return nil, nil
 	}
 
-	return nil, nil // No tss_process_initiated event found
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s event: %w", event.Type, err)
+	}
+
+	if parsed == nil {
+		return nil, nil
+	}
+
+	// Set common fields
+	parsed.BlockHeight = blockHeight
+	parsed.ConfirmationType = "INSTANT" // push chain is a cosmos chain ie instant finality
+	parsed.Status = "CONFIRMED"         // push chain is a cosmos chain ie instant finality
+
+	// Set expiry for outbound events (block seen + 400)
+	if event.Type == EventTypeOutboundCreated {
+		parsed.ExpiryBlockHeight = blockHeight + OutboundExpiryOffset
+	}
+
+	return parsed, nil
 }
 
-// convertProcessType converts chain process type to internal protocol type.
+// parseTSSEvent parses a tss_process_initiated event.
+func parseTSSEvent(event abci.Event) (*store.Event, error) {
+	attrs := extractAttributes(event)
+
+	// Parse required fields
+	processIDStr, ok := attrs[AttrKeyProcessID]
+	if !ok {
+		return nil, ErrMissingProcessID
+	}
+
+	processID, err := strconv.ParseUint(processIDStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidProcessID, err)
+	}
+
+	processTypeStr, ok := attrs[AttrKeyProcessType]
+	if !ok {
+		return nil, ErrMissingProcessType
+	}
+
+	protocolType := convertProcessType(processTypeStr)
+
+	// Parse optional fields
+	var expiryHeight uint64
+	if expiryStr, ok := attrs[AttrKeyExpiryHeight]; ok {
+		expiryHeight, err = strconv.ParseUint(expiryStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidExpiryHeight, err)
+		}
+	}
+
+	var participants []string
+	if participantsStr, ok := attrs[AttrKeyParticipants]; ok {
+		if err := json.Unmarshal([]byte(participantsStr), &participants); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidParticipants, err)
+		}
+	}
+
+	// Build event data
+	eventData, err := buildTSSEventData(processID, participants)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build event data: %w", err)
+	}
+
+	return &store.Event{
+		EventID:           fmt.Sprintf("%d", processID),
+		ExpiryBlockHeight: expiryHeight,
+		Type:              protocolType,
+		EventData:         eventData,
+	}, nil
+}
+
+// parseOutboundEvent parses an outbound_created event.
+func parseOutboundEvent(event abci.Event) (*store.Event, error) {
+	attrs := extractAttributes(event)
+
+	// Parse required field
+	txID, ok := attrs[AttrKeyTxID]
+	if !ok {
+		return nil, ErrMissingTxID
+	}
+
+	// Build structured event data
+	outboundData := uexecutortypes.OutboundCreatedEvent{
+		UniversalTxId:    attrs[AttrKeyUniversalTxID],
+		TxID:             txID,
+		DestinationChain: attrs[AttrKeyDestinationChain],
+		Recipient:        attrs[AttrKeyRecipient],
+		Amount:           attrs[AttrKeyAmount],
+		AssetAddr:        attrs[AttrKeyAssetAddr],
+		Sender:           attrs[AttrKeySender],
+		Payload:          attrs[AttrKeyPayload],
+		GasLimit:         attrs[AttrKeyGasLimit],
+		TxType:           attrs[AttrKeyTxType],
+		PcTxHash:         attrs[AttrKeyPcTxHash],
+		LogIndex:         attrs[AttrKeyLogIndex],
+		RevertMsg:        attrs[AttrKeyRevertMsg],
+	}
+
+	eventData, err := json.Marshal(outboundData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal outbound event data: %w", err)
+	}
+
+	return &store.Event{
+		EventID:   txID,
+		Type:      common.EventTypeSign,
+		EventData: eventData,
+	}, nil
+}
+
+// extractAttributes extracts all attributes from an ABCI event into a map.
+func extractAttributes(event abci.Event) map[string]string {
+	attrs := make(map[string]string, len(event.Attributes))
+	for _, attr := range event.Attributes {
+		attrs[attr.Key] = attr.Value
+	}
+	return attrs
+}
+
+// buildTSSEventData constructs the JSON event data for TSS events.
+func buildTSSEventData(processID uint64, participants []string) ([]byte, error) {
+	if len(participants) == 0 {
+		return nil, nil
+	}
+
+	data := map[string]interface{}{
+		"process_id":   processID,
+		"participants": participants,
+	}
+
+	return json.Marshal(data)
+}
+
+// convertProcessType converts a chain process type to an internal event type.
 func convertProcessType(chainType string) string {
 	switch chainType {
-	case ProcessTypeKeygen:
-		return ProtocolTypeKeygen
-	case ProcessTypeRefresh:
-		return ProtocolTypeKeyrefresh
-	case ProcessTypeQuorumChange:
-		return ProtocolTypeQuorumChange
+	case ChainProcessTypeKeygen:
+		return common.EventTypeKeygen
+	case ChainProcessTypeRefresh:
+		return common.EventTypeKeyrefresh
+	case ChainProcessTypeQuorumChange:
+		return common.EventTypeQuorumChange
 	default:
-		return chainType // Return as-is if unknown
+		// Return as-is for unknown types to maintain forward compatibility
+		return chainType
 	}
-}
-
-// ToTSSEventRecord converts the parsed event to a TSSEvent database record.
-func (e *TSSProcessEvent) ToTSSEventRecord() *store.TSSEvent {
-	// Serialize participants as event data
-	var eventData []byte
-	if len(e.Participants) > 0 {
-		data := map[string]interface{}{
-			"process_id": e.ProcessID,
-			// TODO: Maybe while tss process participants can be read from this rather than chain
-			"participants": e.Participants,
-			"tx_hash":      e.TxHash,
-		}
-		eventData, _ = json.Marshal(data)
-	}
-
-	return &store.TSSEvent{
-		EventID:      e.EventID(),
-		BlockNumber:  e.BlockHeight,
-		ProtocolType: e.ProcessType,
-		Status:       eventstore.StatusPending,
-		ExpiryHeight: e.ExpiryHeight,
-		EventData:    eventData,
-	}
-}
-
-// EventID returns the unique event ID for this process.
-// Format: "{process_id}"
-func (e *TSSProcessEvent) EventID() string {
-	return fmt.Sprintf("%d", e.ProcessID)
 }

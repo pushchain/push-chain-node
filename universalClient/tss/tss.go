@@ -15,15 +15,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
-	"github.com/pushchain/push-chain-node/universalClient/tss/vote"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -45,13 +46,16 @@ type Config struct {
 	DialTimeout       time.Duration
 	IOTimeout         time.Duration
 
+	// Chains manager (required for sign operations to get txBuilders)
+	Chains *chains.Chains
+
 	// Session expiry checker configuration
 	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
 	SessionExpiryCheckInterval time.Duration // How often to check for expired sessions (default: 30s)
 	SessionExpiryBlockDelay    uint64        // How many blocks to delay retry after expiry (default: 10)
 
 	// Voting configuration
-	VoteHandler *vote.Handler // Optional - nil if voting disabled
+	PushSigner *pushsigner.Signer // Optional - nil if voting disabled
 }
 
 // convertPrivateKeyHexToBase64 converts a hex-encoded Ed25519 private key to base64-encoded libp2p format.
@@ -92,6 +96,7 @@ type Node struct {
 	keyshareManager  *keyshare.Manager
 	database         *db.DB
 	pushCore         *pushcore.Client
+	chains           *chains.Chains
 	logger           zerolog.Logger
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
@@ -110,7 +115,7 @@ type Node struct {
 	sessionExpiryBlockDelay    uint64
 
 	// Voting configuration
-	voteHandler *vote.Handler // Optional - nil if voting disabled
+	pushSigner *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Internal state
 	mu           sync.RWMutex
@@ -220,6 +225,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		keyshareManager:            mgr,
 		database:                   database,
 		pushCore:                   cfg.PushCore,
+		chains:                     cfg.Chains,
 		logger:                     logger,
 		eventStore:                 evtStore,
 		sessionManager:             nil, // Will be initialized in Start()
@@ -229,7 +235,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		sessionExpiryTime:          sessionExpiryTime,
 		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
 		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
-		voteHandler:                cfg.VoteHandler,
+		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
 	}
@@ -270,7 +276,7 @@ func (n *Node) Start(ctx context.Context) error {
 	// Reset all IN_PROGRESS events to PENDING on startup
 	// This handles cases where the node crashed while events were in progress,
 	// causing sessions to be lost from memory but events remaining in IN_PROGRESS state
-	resetCount, err := n.eventStore.ResetInProgressEventsToPending()
+	resetCount, err := n.eventStore.ResetInProgressEventsToConfirmed()
 	if err != nil {
 		n.logger.Warn().Err(err).Msg("failed to reset IN_PROGRESS events to PENDING, continuing anyway")
 	} else if resetCount > 0 {
@@ -285,6 +291,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.pushCore,
 			n.keyshareManager,
+			n.chains, // Chains manager for getting txBuilders
 			n.validatorAddress,
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
@@ -302,13 +309,15 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.coordinator,
 			n.keyshareManager,
+			n.pushCore, // For gas price verification
+			n.chains,   // Chains manager for getting txBuilders
 			func(ctx context.Context, peerID string, data []byte) error {
 				return n.Send(ctx, peerID, data)
 			},
 			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
 			n.logger,
-			n.voteHandler,
+			n.pushSigner,
 		)
 		n.sessionManager = sessionMgr
 	}

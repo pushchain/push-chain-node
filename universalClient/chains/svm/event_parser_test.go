@@ -2,244 +2,162 @@ package svm
 
 import (
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
-func TestNewEventParser(t *testing.T) {
-	tests := []struct {
-		name       string
-		config     *uregistrytypes.ChainConfig
-		wantTopics int
-	}{
-		{
-			name: "creates parser with event topics",
-			config: &uregistrytypes.ChainConfig{
-				Chain:          "solana-testnet",
-				GatewayAddress: "11111111111111111111111111111111",
-				GatewayMethods: []*uregistrytypes.GatewayMethods{
-					{
-						Identifier:      "method1",
-						Name:            "send_funds",
-						EventIdentifier: "2b1f1f0204ec6bff",
-					},
-					{
-						Identifier:      "method2",
-						Name:            "withdraw_funds",
-						EventIdentifier: "abcdef1234567890",
-					},
-				},
-			},
-			wantTopics: 2,
-		},
-		{
-			name: "handles methods without event identifiers",
-			config: &uregistrytypes.ChainConfig{
-				Chain:          "solana-testnet",
-				GatewayAddress: "11111111111111111111111111111111",
-				GatewayMethods: []*uregistrytypes.GatewayMethods{
-					{
-						Identifier:      "method1",
-						Name:            "send_funds",
-						EventIdentifier: "2b1f1f0204ec6bff",
-					},
-					{
-						Identifier: "method2",
-						Name:       "noEvent",
-						// No EventIdentifier
-					},
-				},
-			},
-			wantTopics: 1,
-		},
-		{
-			name: "handles empty gateway methods",
-			config: &uregistrytypes.ChainConfig{
-				Chain:          "solana-testnet",
-				GatewayAddress: "11111111111111111111111111111111",
-				GatewayMethods: []*uregistrytypes.GatewayMethods{},
-			},
-			wantTopics: 0,
-		},
+func TestParseOutboundObservationEvent(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+	chainID := "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+	signature := "5wHu1qwD7q5xMkZxq6z2S3r4y5N7m8P9kL0jH1gF2dE3cB4aA5b6C7d8E9f0G1h2"
+
+	// Helper to create base64-encoded log data
+	createLogData := func(discriminator []byte, txID []byte, universalTxID []byte) string {
+		data := make([]byte, 0, 72)
+		data = append(data, discriminator...)
+		data = append(data, txID...)
+		data = append(data, universalTxID...)
+		return "Program data: " + base64.StdEncoding.EncodeToString(data)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := zerolog.Nop()
-			gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-
-			parser := NewEventParser(gatewayAddr, tt.config, logger)
-
-			require.NotNil(t, parser)
-			assert.Equal(t, gatewayAddr, parser.gatewayAddr)
-			assert.Equal(t, tt.config, parser.config)
-		})
-	}
-}
-
-func TestParseGatewayEvent(t *testing.T) {
-	logger := zerolog.Nop()
-	gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-
-	config := &uregistrytypes.ChainConfig{
-		Chain: "solana-testnet",
-		GatewayMethods: []*uregistrytypes.GatewayMethods{
-			{
-				Identifier:      "method1",
-				Name:            "send_funds",
-				EventIdentifier: UniversalTxDiscriminator,
-			},
-		},
+	// Example discriminator (8 bytes)
+	discriminator := make([]byte, 8)
+	for i := range discriminator {
+		discriminator[i] = byte(i + 1) // 0x01, 0x02, ..., 0x08
 	}
 
-	parser := NewEventParser(gatewayAddr, config, logger)
+	// Example txID (32 bytes)
+	txID := make([]byte, 32)
+	for i := range txID {
+		txID[i] = byte(0xAA)
+	}
 
-	// Create test event data
-	sender := solana.PublicKeyFromBytes(make([]byte, 32))
-	recipient := make([]byte, 20)
-	bridgeToken := solana.PublicKeyFromBytes(make([]byte, 32))
-	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
+	// Example universalTxID (32 bytes)
+	universalTxID := make([]byte, 32)
+	for i := range universalTxID {
+		universalTxID[i] = byte(0xBB)
+	}
 
 	tests := []struct {
 		name      string
-		tx        *rpc.GetTransactionResult
-		signature string
-		slot      uint64
+		log       string
 		wantEvent bool
-		validate  func(*testing.T, *common.GatewayEvent)
+		validate  func(*testing.T, *store.Event)
 	}{
 		{
-			name: "parses valid gateway event",
-			tx: func() *rpc.GetTransactionResult {
-				eventData := createTestEventData(
-					UniversalTxDiscriminator,
-					sender[:],
-					recipient,
-					1000000,
-					bridgeToken[:],
-					"test-data",
-					revertRecipient[:],
-					"revert-message",
-					2, // tx type
-					"signature-data",
-				)
-				encodedData := base64.StdEncoding.EncodeToString(eventData)
-				return &rpc.GetTransactionResult{
-					Meta: &rpc.TransactionMeta{
-						LogMessages: []string{
-							"Program data: " + encodedData,
-						},
-					},
-				}
-			}(),
-			signature: "test-signature",
-			slot:      12345,
+			name:      "parses valid outbound observation event",
+			log:       createLogData(discriminator, txID, universalTxID),
 			wantEvent: true,
-			validate: func(t *testing.T, event *common.GatewayEvent) {
-				assert.Equal(t, "solana-testnet", event.ChainID)
-				assert.Equal(t, "test-signature", event.TxHash)
-				assert.Equal(t, uint64(12345), event.BlockNumber)
-				assert.Equal(t, UniversalTxDiscriminator, event.EventID)
-				assert.Equal(t, "STANDARD", event.ConfirmationType) // TxType 2 = STANDARD
+			validate: func(t *testing.T, event *store.Event) {
+				assert.Contains(t, event.EventID, signature)
+				assert.Equal(t, uint64(12345), event.BlockHeight)
+				assert.Equal(t, common.EventTypeOutbound, event.Type)
+				assert.Equal(t, "PENDING", event.Status)
+				assert.Equal(t, "STANDARD", event.ConfirmationType)
 
-				var payload common.UniversalTx
-				err := json.Unmarshal(event.Payload, &payload)
+				// Verify event data contains tx_id and universal_tx_id
+				assert.NotNil(t, event.EventData)
+				var outboundData map[string]any
+				err := json.Unmarshal(event.EventData, &outboundData)
 				require.NoError(t, err)
-				assert.Equal(t, "1000000", payload.Amount)
-				assert.Equal(t, uint(2), payload.TxType)
+
+				expectedTxID := "0x" + hex.EncodeToString(txID)
+				expectedUniversalTxID := "0x" + hex.EncodeToString(universalTxID)
+
+				assert.Equal(t, expectedTxID, outboundData["tx_id"])
+				assert.Equal(t, expectedUniversalTxID, outboundData["universal_tx_id"])
 			},
 		},
 		{
-			name:      "returns nil for nil transaction",
-			tx:        nil,
+			name:      "returns nil for log without Program data prefix",
+			log:       "Some other log message",
 			wantEvent: false,
 		},
 		{
-			name: "returns nil for transaction with no meta",
-			tx: &rpc.GetTransactionResult{
-				Meta: nil,
-			},
+			name:      "returns nil for empty log",
+			log:       "",
 			wantEvent: false,
 		},
 		{
-			name: "returns nil for no matching event",
-			tx: func() *rpc.GetTransactionResult {
-				eventData := createTestEventData(
-					"wrong-discriminator",
-					sender[:],
-					recipient,
-					1000,
-					bridgeToken[:],
-					"",
-					revertRecipient[:],
-					"",
-					0,
-					"",
-				)
-				encodedData := base64.StdEncoding.EncodeToString(eventData)
-				return &rpc.GetTransactionResult{
-					Meta: &rpc.TransactionMeta{
-						LogMessages: []string{
-							"Program data: " + encodedData,
-						},
-					},
-				}
+			name:      "returns nil for invalid base64",
+			log:       "Program data: not-valid-base64!!!",
+			wantEvent: false,
+		},
+		{
+			name: "returns nil for data too short (less than 72 bytes)",
+			log: func() string {
+				// Only 64 bytes (8 discriminator + 32 txID, missing universalTxID)
+				shortData := make([]byte, 64)
+				copy(shortData[:8], discriminator)
+				copy(shortData[8:40], txID)
+				return "Program data: " + base64.StdEncoding.EncodeToString(shortData)
 			}(),
 			wantEvent: false,
 		},
 		{
-			name: "filters non-UniversalTx discriminator",
-			tx: func() *rpc.GetTransactionResult {
-				eventData := createTestEventData(
-					"wrongdiscriminator",
-					sender[:],
-					recipient,
-					1000,
-					bridgeToken[:],
-					"",
-					revertRecipient[:],
-					"",
-					0,
-					"",
-				)
-				encodedData := base64.StdEncoding.EncodeToString(eventData)
-				return &rpc.GetTransactionResult{
-					Meta: &rpc.TransactionMeta{
-						LogMessages: []string{
-							"Program data: " + encodedData,
-						},
-					},
+			name: "correctly parses minimum valid data (exactly 72 bytes)",
+			log: func() string {
+				exactData := make([]byte, 72)
+				copy(exactData[:8], discriminator)
+				for i := 8; i < 40; i++ {
+					exactData[i] = 0x11 // txID
 				}
+				for i := 40; i < 72; i++ {
+					exactData[i] = 0x22 // universalTxID
+				}
+				return "Program data: " + base64.StdEncoding.EncodeToString(exactData)
 			}(),
-			wantEvent: false,
+			wantEvent: true,
+			validate: func(t *testing.T, event *store.Event) {
+				var outboundData map[string]any
+				err := json.Unmarshal(event.EventData, &outboundData)
+				require.NoError(t, err)
+
+				// Verify the values are correctly parsed
+				assert.Contains(t, outboundData["tx_id"], "0x1111")
+				assert.Contains(t, outboundData["universal_tx_id"], "0x2222")
+			},
+		},
+		{
+			name: "handles data longer than 72 bytes",
+			log: func() string {
+				// 100 bytes - extra data after the required fields should be ignored
+				longData := make([]byte, 100)
+				copy(longData[:8], discriminator)
+				copy(longData[8:40], txID)
+				copy(longData[40:72], universalTxID)
+				// Extra bytes at the end
+				for i := 72; i < 100; i++ {
+					longData[i] = 0xFF
+				}
+				return "Program data: " + base64.StdEncoding.EncodeToString(longData)
+			}(),
+			wantEvent: true,
+			validate: func(t *testing.T, event *store.Event) {
+				var outboundData map[string]any
+				err := json.Unmarshal(event.EventData, &outboundData)
+				require.NoError(t, err)
+
+				expectedTxID := "0x" + hex.EncodeToString(txID)
+				expectedUniversalTxID := "0x" + hex.EncodeToString(universalTxID)
+
+				assert.Equal(t, expectedTxID, outboundData["tx_id"])
+				assert.Equal(t, expectedUniversalTxID, outboundData["universal_tx_id"])
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var event *common.GatewayEvent
-
-			// Iterate through logs and parse each one (similar to EVM pattern)
-			if tt.tx != nil && tt.tx.Meta != nil {
-				for logIndex, log := range tt.tx.Meta.LogMessages {
-					parsedEvent := parser.ParseGatewayEvent(log, tt.signature, tt.slot, uint(logIndex))
-					if parsedEvent != nil {
-						event = parsedEvent
-						break // Take the first valid event found
-					}
-				}
-			}
+			event := ParseEvent(tt.log, signature, 12345, 0, EventTypeOutboundObservation, chainID, logger)
 
 			if tt.wantEvent {
 				require.NotNil(t, event)
@@ -253,212 +171,74 @@ func TestParseGatewayEvent(t *testing.T) {
 	}
 }
 
-func TestDecodeUniversalTxEvent(t *testing.T) {
-	logger := zerolog.Nop()
-	gatewayAddr := solana.PublicKeyFromBytes(make([]byte, 32))
-	parser := NewEventParser(gatewayAddr, &uregistrytypes.ChainConfig{}, logger)
+func TestParseEvent_EventTypes(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+	chainID := "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+	signature := "testSignature123"
 
-	sender := solana.PublicKeyFromBytes(make([]byte, 32))
-	recipient := make([]byte, 20)
-	bridgeToken := solana.PublicKeyFromBytes(make([]byte, 32))
-	revertRecipient := solana.PublicKeyFromBytes(make([]byte, 32))
+	t.Run("returns nil for unknown event type", func(t *testing.T) {
+		log := "Program data: " + base64.StdEncoding.EncodeToString(make([]byte, 100))
+		event := ParseEvent(log, signature, 12345, 0, "unknownEventType", chainID, logger)
+		assert.Nil(t, event)
+	})
+
+	t.Run("returns nil for empty event type", func(t *testing.T) {
+		log := "Program data: " + base64.StdEncoding.EncodeToString(make([]byte, 100))
+		event := ParseEvent(log, signature, 12345, 0, "", chainID, logger)
+		assert.Nil(t, event)
+	})
+}
+
+func TestParseOutboundObservationEvent_EventIDFormat(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+	chainID := "solana:devnet"
+
+	// Create valid outbound data
+	data := make([]byte, 72)
+	for i := 0; i < 8; i++ {
+		data[i] = byte(i) // discriminator
+	}
+	for i := 8; i < 72; i++ {
+		data[i] = byte(i % 256) // txID and universalTxID
+	}
+	log := "Program data: " + base64.StdEncoding.EncodeToString(data)
 
 	tests := []struct {
 		name      string
-		data      []byte
-		wantError bool
-		validate  func(*testing.T, *common.UniversalTx)
+		signature string
+		slot      uint64
+		logIndex  uint
+		wantID    string
 	}{
 		{
-			name: "decodes valid event data",
-			data: createTestEventData(
-				UniversalTxDiscriminator,
-				sender[:],
-				recipient,
-				1000000,
-				bridgeToken[:],
-				"test-data",
-				revertRecipient[:],
-				"revert-message",
-				2,
-				"signature-data",
-			),
-			wantError: false,
-			validate: func(t *testing.T, payload *common.UniversalTx) {
-				assert.Equal(t, "1000000", payload.Amount)
-				assert.Equal(t, "0x"+hex.EncodeToString(recipient), payload.Recipient)
-				assert.Equal(t, uint(2), payload.TxType)
-				assert.Equal(t, "0x7369676e61747572652d64617461", payload.VerificationData)
-				assert.Equal(t, "0x7265766572742d6d657373616765", payload.RevertMsg)
-			},
+			name:      "format with logIndex 0",
+			signature: "abc123",
+			slot:      100,
+			logIndex:  0,
+			wantID:    "abc123:0",
 		},
 		{
-			name: "handles empty fields",
-			data: createTestEventData(
-				UniversalTxDiscriminator,
-				sender[:],
-				recipient,
-				1000000,
-				bridgeToken[:],
-				"",
-				revertRecipient[:],
-				"",
-				2,
-				"",
-			),
-			wantError: false,
-			validate: func(t *testing.T, payload *common.UniversalTx) {
-				assert.Equal(t, "", payload.VerificationData)
-				assert.Equal(t, "", payload.RevertMsg)
-			},
+			name:      "format with logIndex 5",
+			signature: "def456",
+			slot:      200,
+			logIndex:  5,
+			wantID:    "def456:5",
 		},
 		{
-			name:      "handles insufficient data",
-			data:      []byte("short"),
-			wantError: true,
-		},
-		{
-			name: "accepts any tx type",
-			data: func() []byte {
-				data := make([]byte, 0)
-				discBytes, _ := hex.DecodeString(UniversalTxDiscriminator)
-				data = append(data, discBytes...)
-				data = append(data, make([]byte, 32)...) // sender
-				data = append(data, make([]byte, 20)...) // recipient
-				data = append(data, make([]byte, 32)...) // bridge_token
-				bridgeAmount := make([]byte, 8)
-				binary.LittleEndian.PutUint64(bridgeAmount, 1000000)
-				data = append(data, bridgeAmount...)
-				dataLen := make([]byte, 4)
-				binary.LittleEndian.PutUint32(dataLen, 0)
-				data = append(data, dataLen...)
-				data = append(data, make([]byte, 32)...) // revert_recipient
-				revertMsgLen := make([]byte, 4)
-				binary.LittleEndian.PutUint32(revertMsgLen, 0)
-				data = append(data, revertMsgLen...)
-				data = append(data, byte(5)) // tx type 5
-				sigLen := make([]byte, 4)
-				binary.LittleEndian.PutUint32(sigLen, 0)
-				data = append(data, sigLen...)
-				return data
-			}(),
-			wantError: false,
-			validate: func(t *testing.T, payload *common.UniversalTx) {
-				assert.Equal(t, uint(5), payload.TxType)
-			},
+			name:      "format with large logIndex",
+			signature: "ghi789",
+			slot:      300,
+			logIndex:  999,
+			wantID:    "ghi789:999",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload, err := parser.decodeUniversalTxEvent(tt.data)
-
-			if tt.wantError {
-				assert.Error(t, err)
-				assert.Nil(t, payload)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, payload)
-				if tt.validate != nil {
-					tt.validate(t, payload)
-				}
-			}
+			event := ParseEvent(log, tt.signature, tt.slot, tt.logIndex, EventTypeOutboundObservation, chainID, logger)
+			require.NotNil(t, event)
+			assert.Equal(t, tt.wantID, event.EventID)
+			assert.Equal(t, tt.slot, event.BlockHeight)
 		})
 	}
-}
-
-func TestDecodeUniversalPayload(t *testing.T) {
-	tests := []struct {
-		name      string
-		hexStr    string
-		wantError bool
-		wantNil   bool
-	}{
-		{
-			name:      "handles empty string",
-			hexStr:    "",
-			wantError: false,
-			wantNil:   true,
-		},
-		{
-			name:      "handles invalid hex",
-			hexStr:    "invalid-hex",
-			wantError: true,
-			wantNil:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := decodeUniversalPayload(tt.hexStr)
-
-			if tt.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			if tt.wantNil {
-				assert.Nil(t, result)
-			}
-		})
-	}
-}
-
-// Helper function for creating test event data
-// Format: discriminator (8), sender (32), recipient (20), bridge_token (32), bridge_amount (8),
-//
-//	data_len (4) + data, revert_recipient (32), revert_msg_len (4) + revert_msg, tx_type (1), sig_len (4) + sig_data
-func createTestEventData(
-	discriminator string,
-	sender, recipient []byte,
-	bridgeAmount uint64,
-	bridgeToken []byte,
-	data string,
-	revertRecipient []byte,
-	revertMessage string,
-	txType uint8,
-	signatureData string,
-) []byte {
-	discBytes, _ := hex.DecodeString(discriminator)
-
-	dataBytes := make([]byte, 0)
-	dataBytes = append(dataBytes, discBytes...)
-	dataBytes = append(dataBytes, sender...)
-	dataBytes = append(dataBytes, recipient...)
-	dataBytes = append(dataBytes, bridgeToken...)
-
-	bridgeAmountBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bridgeAmountBytes, bridgeAmount)
-	dataBytes = append(dataBytes, bridgeAmountBytes...)
-
-	dataLen := uint32(len(data))
-	dataLenBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(dataLenBytes, dataLen)
-	dataBytes = append(dataBytes, dataLenBytes...)
-	if dataLen > 0 {
-		dataBytes = append(dataBytes, []byte(data)...)
-	}
-
-	dataBytes = append(dataBytes, revertRecipient...)
-
-	revertMsgLen := uint32(len(revertMessage))
-	revertMsgLenBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(revertMsgLenBytes, revertMsgLen)
-	dataBytes = append(dataBytes, revertMsgLenBytes...)
-	if revertMsgLen > 0 {
-		dataBytes = append(dataBytes, []byte(revertMessage)...)
-	}
-
-	dataBytes = append(dataBytes, txType)
-
-	sigLen := uint32(len(signatureData))
-	sigLenBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(sigLenBytes, sigLen)
-	dataBytes = append(dataBytes, sigLenBytes...)
-	if sigLen > 0 {
-		dataBytes = append(dataBytes, []byte(signatureData)...)
-	}
-
-	return dataBytes
 }

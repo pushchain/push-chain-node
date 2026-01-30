@@ -146,9 +146,9 @@ Database access layer for TSS events. Provides methods for getting pending event
 
 **Key methods:**
 
-- `GetPendingEvents()` - Gets events ready to be processed
+- `GetConfirmedEvents()` - Gets events ready to be processed
 - `UpdateStatus()` - Updates event status
-- `UpdateStatusAndBlockNumber()` - Updates status and block number
+- `UpdateStatusAndBlockHeight()` - Updates status and block height
 - `ResetInProgressEventsToPending()` - Resets IN_PROGRESS events on startup
 - `GetEventsByStatus()` - Queries events by status
 

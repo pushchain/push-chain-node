@@ -2,21 +2,27 @@ package coordinator
 
 import (
 	"context"
-	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	session "go-wrapper/go-dkls/sessions"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -25,6 +31,7 @@ type Coordinator struct {
 	eventStore       *eventstore.Store
 	pushCore         *pushcore.Client
 	keyshareManager  *keyshare.Manager
+	chains           *chains.Chains
 	validatorAddress string
 	coordinatorRange uint64
 	pollInterval     time.Duration
@@ -54,6 +61,7 @@ func NewCoordinator(
 	eventStore *eventstore.Store,
 	pushCore *pushcore.Client,
 	keyshareManager *keyshare.Manager,
+	chains *chains.Chains,
 	validatorAddress string,
 	coordinatorRange uint64,
 	pollInterval time.Duration,
@@ -67,6 +75,7 @@ func NewCoordinator(
 		eventStore:       eventStore,
 		pushCore:         pushCore,
 		keyshareManager:  keyshareManager,
+		chains:           chains,
 		validatorAddress: validatorAddress,
 		coordinatorRange: coordinatorRange,
 		pollInterval:     pollInterval,
@@ -87,7 +96,7 @@ func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -114,7 +123,7 @@ func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) 
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -141,7 +150,7 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 
 	if len(allValidators) == 0 {
 		// If cache is empty, try to update it
-		c.updateValidators()
+		c.updateValidators(ctx)
 		c.mu.RLock()
 		allValidators = c.allValidators
 		c.mu.RUnlock()
@@ -157,16 +166,16 @@ func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string
 }
 
 // GetLatestBlockNum gets the latest block number from pushCore.
-func (c *Coordinator) GetLatestBlockNum() (uint64, error) {
-	return c.pushCore.GetLatestBlockNum()
+func (c *Coordinator) GetLatestBlockNum(ctx context.Context) (uint64, error) {
+	return c.pushCore.GetLatestBlock(ctx)
 }
 
 // IsPeerCoordinator checks if the given peerID is the coordinator for the current block.
 // Uses cached allValidators for performance.
 func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (bool, error) {
-	currentBlock, err := c.pushCore.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get latest block number")
+		return false, errors.Wrap(err, "failed to get latest block")
 	}
 
 	// Use cached validators
@@ -211,9 +220,59 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 	return coordValidatorAddr == validatorAddress, nil
 }
 
-// GetCurrentTSSKeyId gets the current TSS key ID from pushCore.
-func (c *Coordinator) GetCurrentTSSKeyId() (string, error) {
-	return c.pushCore.GetCurrentTSSKeyId()
+// GetCurrentTSSKey gets the current TSS key ID and public key from pushCore.
+func (c *Coordinator) GetCurrentTSSKey(ctx context.Context) (string, string, error) {
+	key, err := c.pushCore.GetCurrentKey(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	if key == nil {
+		return "", "", nil // No key exists
+	}
+	return key.KeyId, key.TssPubkey, nil
+}
+
+// GetTSSAddress returns the current TSS ECDSA address derived from the current TSS public key.
+// This is a thin exported wrapper around the internal derivation logic so other packages can reuse it.
+func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
+	return c.getTSSAddress(ctx)
+}
+
+// getTSSAddress gets the TSS ECDSA address from the current TSS public key
+// The TSS address is always the same ECDSA address derived from the TSS public key
+func (c *Coordinator) getTSSAddress(ctx context.Context) (string, error) {
+	key, err := c.pushCore.GetCurrentKey(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get current TSS key")
+	}
+	if key == nil || key.TssPubkey == "" {
+		return "", errors.New("no TSS key found")
+	}
+
+	pubkeyHex := strings.TrimPrefix(strings.TrimSpace(key.TssPubkey), "0x")
+	pubkeyBytes, err := hex.DecodeString(pubkeyHex)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode TSS public key")
+	}
+
+	// We store TSS public key as compressed secp256k1 (33 bytes: 0x02/0x03 || X)
+	if len(pubkeyBytes) != 33 {
+		return "", errors.Errorf("invalid TSS public key length: %d bytes (expected 33)", len(pubkeyBytes))
+	}
+	vkX, vkY := secp256k1.DecompressPubkey(pubkeyBytes)
+	if vkX == nil || vkY == nil {
+		return "", errors.New("failed to decompress TSS public key")
+	}
+
+	// Hash keccak256(X || Y) and take last 20 bytes
+	xBytes := vkX.FillBytes(make([]byte, 32))
+	yBytes := vkY.FillBytes(make([]byte, 32))
+	pubkeyXY := append(xBytes, yBytes...)
+
+	// Hash with keccak256 and take last 20 bytes
+	addressBytes := crypto.Keccak256(pubkeyXY)[12:]
+
+	return "0x" + hex.EncodeToString(addressBytes), nil
 }
 
 // GetEligibleUV returns eligible validators for the given protocol type.
@@ -274,7 +333,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 	defer ticker.Stop()
 
 	// Update validators immediately on start
-	c.updateValidators()
+	c.updateValidators(ctx)
 
 	for {
 		select {
@@ -284,17 +343,17 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// Update validators at each polling interval
-			c.updateValidators()
+			c.updateValidators(ctx)
 			if err := c.processPendingEvents(ctx); err != nil {
-				c.logger.Error().Err(err).Msg("error processing pending events")
+				c.logger.Error().Err(err).Msg("error processing confirmed events")
 			}
 		}
 	}
 }
 
 // updateValidators fetches and caches all validators.
-func (c *Coordinator) updateValidators() {
-	allValidators, err := c.pushCore.GetUniversalValidators()
+func (c *Coordinator) updateValidators(ctx context.Context) {
+	allValidators, err := c.pushCore.GetAllUniversalValidators(ctx)
 	if err != nil {
 		c.logger.Warn().Err(err).Msg("failed to update validators cache")
 		return
@@ -307,11 +366,11 @@ func (c *Coordinator) updateValidators() {
 	c.logger.Debug().Int("count", len(allValidators)).Msg("updated validators cache")
 }
 
-// processPendingEvents checks if this node is coordinator, and only then reads DB and processes events.
+// processPendingEvents checks if this node is coordinator, and only then reads DB and processes confirmed events.
 func (c *Coordinator) processPendingEvents(ctx context.Context) error {
-	currentBlock, err := c.pushCore.GetLatestBlockNum()
+	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to get latest block number")
+		return errors.Wrap(err, "failed to get latest block")
 	}
 
 	// Use cached validators (updated at polling interval)
@@ -356,28 +415,41 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 	c.logger.Info().Msg("processPendingEvents: we ARE coordinator, processing events")
 
-	// We are coordinator - fetch and process events
-	events, err := c.eventStore.GetPendingEvents(currentBlock, 10)
+	// Cap total events in progress at MaxEventsInProgress; use DB count of IN_PROGRESS events as source of truth.
+	const MaxEventsInProgress = 100
+	inProgress, err := c.eventStore.CountInProgress()
 	if err != nil {
-		return errors.Wrap(err, "failed to get pending events")
+		return errors.Wrap(err, "failed to count in-progress events")
+	}
+	capacity := MaxEventsInProgress - int(inProgress)
+	if capacity <= 0 {
+		c.logger.Debug().
+			Int64("in_progress", inProgress).
+			Msg("processPendingEvents: at max events in progress, skipping")
+		return nil
+	}
+
+	// Fetch only as many confirmed events as we have capacity for
+	events, err := c.eventStore.GetConfirmedEvents(currentBlock, 10, capacity)
+	if err != nil {
+		return errors.Wrap(err, "failed to get confirmed events")
 	}
 
 	c.logger.Info().
 		Int("count", len(events)).
+		Int("capacity", capacity).
 		Uint64("current_block", currentBlock).
-		Msg("found pending events")
+		Msg("found confirmed events")
 
-	// Process each event: create setup message and send to all participants
 	for _, event := range events {
 		c.logger.Info().
 			Str("event_id", event.EventID).
-			Str("protocol_type", event.ProtocolType).
-			Uint64("block_number", event.BlockNumber).
+			Str("type", event.Type).
+			Uint64("block_height", event.BlockHeight).
 			Msg("processing event as coordinator")
-		// Get participants based on protocol type (using cached allValidators)
-		participants := getParticipantsForProtocol(event.ProtocolType, allValidators)
+		participants := getParticipantsForProtocol(event.Type, allValidators)
 		if participants == nil {
-			c.logger.Debug().Str("event_id", event.EventID).Str("protocol_type", event.ProtocolType).Msg("unknown protocol type")
+			c.logger.Debug().Str("event_id", event.EventID).Str("type", event.Type).Msg("unknown protocol type")
 			continue
 		}
 		if len(participants) == 0 {
@@ -398,7 +470,7 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 // processEventAsCoordinator processes a TSS event as the coordinator.
 // Creates setup message based on event type and sends to all participants.
-func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.TSSEvent, participants []*types.UniversalValidator) error {
+func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store.Event, participants []*types.UniversalValidator) error {
 	// Sort participants by party ID for consistency
 	sortedParticipants := make([]*types.UniversalValidator, len(participants))
 	copy(sortedParticipants, participants)
@@ -427,17 +499,18 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create setup message based on event type
 	var setupData []byte
+	var unsignedTxReq *common.UnSignedOutboundTxReq
 	var err error
-	switch event.ProtocolType {
-	case "keygen", "keyrefresh":
+	switch event.Type {
+	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
-	case "quorumchange":
+	case string(ProtocolQuorumChange):
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-	case "sign":
-		setupData, err = c.createSignSetup(ctx, event.EventData, partyIDs)
+	case string(ProtocolSign):
+		setupData, unsignedTxReq, err = c.createSignSetup(ctx, event.EventData, partyIDs)
 	default:
-		err = errors.Errorf("unknown protocol type: %s", event.ProtocolType)
+		err = errors.Errorf("unknown protocol type: %s", event.Type)
 	}
 
 	if err != nil {
@@ -446,10 +519,11 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create and send setup message to all participants
 	setupMsg := Message{
-		Type:         "setup",
-		EventID:      event.EventID,
-		Payload:      setupData,
-		Participants: partyIDs,
+		Type:                  "setup",
+		EventID:               event.EventID,
+		Payload:               setupData,
+		Participants:          partyIDs,
+		UnSignedOutboundTxReq: unsignedTxReq, // nil for non-sign events
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {
@@ -613,19 +687,24 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 	return setupData, nil
 }
 
-// createSignSetup creates a sign setup message.
-// Requires loading the keyshare to extract keyID and messageHash from event data.
-func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, error) {
+// createSignSetup creates a sign setup message and returns the unsigned transaction request.
+// Uses the OutboundTxBuilder to build the actual transaction for the destination chain.
+// Returns the setup data, unsigned transaction request (for participant verification), and error.
+func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string) ([]byte, *common.UnSignedOutboundTxReq, error) {
 	// Get current TSS keyId from pushCore
-	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
+	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current TSS keyId")
+		return nil, nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
+	if key == nil {
+		return nil, nil, errors.New("no TSS key exists")
+	}
+	keyIDStr := key.KeyId
 
 	// Load keyshare to ensure it exists (validation)
 	keyshareBytes, err := c.keyshareManager.Get(keyIDStr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
+		return nil, nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyIDStr)
 	}
 	_ = keyshareBytes // Keyshare is loaded for validation, keyID is derived from string
 
@@ -641,34 +720,74 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 		participantIDs = append(participantIDs, []byte(partyID)...)
 	}
 
-	// Extract message string from eventData and hash it
-	var message string
-	// Try to parse as JSON first (in case eventData is JSON with "message" field)
-	var eventDataJSON map[string]interface{}
-	if err := json.Unmarshal(eventData, &eventDataJSON); err == nil {
-		// Successfully parsed as JSON, try to get "message" field
-		if msg, ok := eventDataJSON["message"].(string); ok {
-			message = msg
-		} else {
-			return nil, errors.New("event data JSON does not contain 'message' string field")
-		}
-	} else {
-		// Not JSON, treat eventData as the message string directly
-		message = string(eventData)
-	}
-
-	if message == "" {
-		return nil, errors.New("message is empty")
-	}
-
-	// Hash the message to get messageHash (SHA256)
-	messageHash := sha256.Sum256([]byte(message))
-
-	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, messageHash[:], participantIDs)
+	// Build the transaction and get signing parameters
+	signingReq, err := c.buildSignTransaction(ctx, eventData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create sign setup")
+		return nil, nil, errors.Wrap(err, "failed to build sign transaction")
 	}
-	return setupData, nil
+
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, signingReq.SigningHash, participantIDs)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create sign setup")
+	}
+
+	return setupData, signingReq, nil
+}
+
+// buildSignTransaction builds the outbound transaction using the appropriate OutboundTxBuilder.
+func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte) (*common.UnSignedOutboundTxReq, error) {
+	if len(eventData) == 0 {
+		return nil, errors.New("event data is empty")
+	}
+
+	var data uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(eventData, &data); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal outbound event data")
+	}
+
+	if data.TxID == "" {
+		return nil, errors.New("outbound event missing tx_id")
+	}
+
+	if data.DestinationChain == "" {
+		return nil, errors.New("outbound event missing destination_chain")
+	}
+
+	if c.chains == nil {
+		return nil, errors.New("chains manager not configured")
+	}
+
+	// Get gas price from pushcore oracle
+	gasPrice, err := c.pushCore.GetGasPrice(ctx, data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get gas price for chain %s", data.DestinationChain)
+	}
+
+	// Get the client for the destination chain
+	client, err := c.chains.GetClient(data.DestinationChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get client for chain %s", data.DestinationChain)
+	}
+
+	// Get the builder from the client
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get tx builder for chain %s", data.DestinationChain)
+	}
+
+	// Get TSS ECDSA address (same for all chains)
+	tssAddress, err := c.getTSSAddress(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get TSS address")
+	}
+
+	// Get the signing request with the gas price from oracle
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &data, gasPrice, tssAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get outbound signing request")
+	}
+
+	return signingReq, nil
 }
 
 // createQcSetup creates a quorumchange setup message.
@@ -679,10 +798,14 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 // @dev - Although tss lib can also take pending leave participants in oldParticipantIndices, we don't use that since it needs to be considered that old participants are gone and will only result in errors.
 func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs []string, participants []*types.UniversalValidator) ([]byte, error) {
 	// Get current TSS keyId from pushCore
-	keyIDStr, err := c.pushCore.GetCurrentTSSKeyId()
+	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current TSS keyId")
 	}
+	if key == nil {
+		return nil, errors.New("no TSS key exists")
+	}
+	keyIDStr := key.KeyId
 
 	// Load old keyshare to get the key we're changing
 	oldKeyshareBytes, err := c.keyshareManager.Get(keyIDStr)
@@ -741,13 +864,13 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 // For sign: returns all (Active + Pending Leave) validators.
 func getEligibleForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	switch protocolType {
-	case "keygen", "quorumchange":
+	case string(ProtocolKeygen), string(ProtocolQuorumChange):
 		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
-	case "keyrefresh":
+	case string(ProtocolKeyrefresh):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
-	case "sign":
+	case string(ProtocolSign):
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
 	default:
@@ -761,7 +884,7 @@ func getEligibleForProtocol(protocolType string, allValidators []*types.Universa
 // For other protocols: returns all eligible participants (same as getEligibleForProtocol).
 func getParticipantsForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	// For sign, we need random subset; for others, same as eligible
-	if protocolType == "sign" {
+	if protocolType == string(ProtocolSign) {
 		return getSignParticipants(allValidators)
 	}
 	// For other protocols, return all eligible (same logic)

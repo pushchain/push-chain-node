@@ -20,6 +20,11 @@ func (p UniversalTx) String() string {
 
 // ValidateBasic does the sanity check on the UniversalTx fields.
 func (p UniversalTx) ValidateBasic() error {
+	// Validate Id is non-empty
+	if len(p.Id) == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "id cannot be empty")
+	}
+
 	// Validate inbound_tx
 	if err := p.InboundTx.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid inbound_tx")
@@ -37,8 +42,14 @@ func (p UniversalTx) ValidateBasic() error {
 	}
 
 	// Validate outbound_tx
-	if err := p.OutboundTx.ValidateBasic(); err != nil {
-		return errors.Wrap(err, "invalid outbound_tx")
+	// Validate each outbound_tx
+	for i, tx := range p.OutboundTx {
+		if tx == nil {
+			return fmt.Errorf("pc_tx[%d] is nil", i)
+		}
+		if err := tx.ValidateBasic(); err != nil {
+			return errors.Wrapf(err, "invalid outbound_tx at index %d", i)
+		}
 	}
 
 	// Validate universal_status (must be a valid enum)

@@ -1,0 +1,25 @@
+[Unit]
+Description=PChain Node (Cosmovisor)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment="DAEMON_NAME=pchaind"
+Environment="DAEMON_HOME=/home/app/.pchain"
+Environment="DAEMON_ALLOW_DOWNLOAD_BINARIES=true"
+Environment="DAEMON_RESTART_AFTER_UPGRADE=true"
+Environment="UNSAFE_SKIP_BACKUP=true"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/go/bin"
+ExecStart=/root/go/bin/cosmovisor run start --pruning=nothing --minimum-gas-prices=1000000000upc --rpc.laddr=tcp://0.0.0.0:26657 --json-rpc.address=0.0.0.0:8545 --json-rpc.ws-address=0.0.0.0:8546 --json-rpc.api=eth,txpool,personal,net,web3 --chain-id=push_42101-1 --home=/home/app/.pchain
+StandardOutput=append:/home/app/logs/pchaind.log
+StandardError=append:/home/app/logs/pchaind.log
+Restart=always
+RestartSec=2
+LimitNOFILE=65535
+MemoryMax=75%
+MemoryHigh=80%
+
+[Install]
+WantedBy=multi-user.target

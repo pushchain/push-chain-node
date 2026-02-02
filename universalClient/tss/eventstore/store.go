@@ -42,10 +42,10 @@ func NewStore(db *gorm.DB, logger zerolog.Logger) *Store {
 	}
 }
 
-// GetConfirmedEvents returns all confirmed events that are ready to be processed.
+// GetConfirmedEvents returns confirmed events that are ready to be processed.
 // Events are confirmed if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
-// This method returns events that have been confirmed on-chain (have enough block confirmations).
-func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uint64) ([]store.Event, error) {
+// If limit > 0, at most limit events are returned; otherwise all matching events are returned.
+func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uint64, limit int) ([]store.Event, error) {
 	var events []store.Event
 
 	// Only get events that are old enough (at least minBlockConfirmation blocks behind)
@@ -54,16 +54,27 @@ func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uin
 		minBlock = 0
 	}
 
-	// Get confirmed events (have enough block confirmations) that are not expired
-	// Only get CONFIRMED events that have been confirmed (have enough confirmations)
-	if err := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
+	query := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
 		StatusConfirmed, minBlock, currentBlock).
-		Order("block_height ASC, created_at ASC").
-		Find(&events).Error; err != nil {
+		Order("block_height ASC, created_at ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Find(&events).Error; err != nil {
 		return nil, errors.Wrap(err, "failed to query confirmed events")
 	}
 
 	return events, nil
+}
+
+// CountInProgress returns the number of events with status IN_PROGRESS (TSS or broadcast in flight).
+// Used by the coordinator to cap how many new events to fetch.
+func (s *Store) CountInProgress() (int64, error) {
+	var count int64
+	if err := s.db.Model(&store.Event{}).Where("status = ?", StatusInProgress).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "failed to count IN_PROGRESS events")
+	}
+	return count, nil
 }
 
 // GetEvent retrieves an event by ID.

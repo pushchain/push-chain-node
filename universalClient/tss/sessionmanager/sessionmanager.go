@@ -576,19 +576,13 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			return nil, errors.Wrapf(err, "failed to load keyshare for keyId %s", keyID)
 		}
 
-		// Extract message hash from event data
-		messageHash, err := extractMessageHash(event.EventData)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to extract message hash")
-		}
-
 		return dkls.NewSignSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
 			sm.partyID,
 			msg.Participants,
 			keyshareBytes,
-			messageHash,
+			msg.UnSignedOutboundTxReq.SigningHash,
 			nil, // chainPath
 		)
 
@@ -654,30 +648,6 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 	}
 
 	return nil
-}
-
-// extractMessageHash extracts the message hash from event data.
-func extractMessageHash(eventData []byte) ([]byte, error) {
-	// Try to parse as JSON first
-	var eventDataJSON map[string]interface{}
-	if err := json.Unmarshal(eventData, &eventDataJSON); err == nil {
-		// Successfully parsed as JSON, try to get "message" field
-		if msg, ok := eventDataJSON["message"].(string); ok {
-			// Hash the message
-			hash := sha256.Sum256([]byte(msg))
-			return hash[:], nil
-		}
-		return nil, errors.New("event data JSON does not contain 'message' string field")
-	}
-
-	// Not JSON, treat eventData as the message string directly
-	if len(eventData) == 0 {
-		return nil, errors.New("message is empty")
-	}
-
-	// Hash the message
-	hash := sha256.Sum256(eventData)
-	return hash[:], nil
 }
 
 // StartExpiryChecker starts a background goroutine that periodically checks for expired sessions.

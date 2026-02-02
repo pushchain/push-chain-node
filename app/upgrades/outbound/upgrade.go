@@ -52,6 +52,13 @@ func CreateUpgradeHandler(
 			)
 		}
 
+		err := ak.URegistryKeeper.ReserveUGPC(sdkCtx)
+		if err != nil {
+			panic(err)
+		}
+
+		sdkCtx.Logger().Info("UniversalGatewayPC set at 0x000...0C1")
+
 		// Run module migrations
 		return mm.RunMigrations(ctx, configurator, fromVM)
 	}

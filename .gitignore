@@ -16,3 +16,4 @@ universalClient/coverage.out
 *.DS_Store
 # TSS data directory
 tss-data/
+local-native/data/

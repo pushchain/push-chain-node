@@ -75,7 +75,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 	}
 
 	// deploy system contracts
-	deploySystemContracts(ctx, k.evmKeeper)
+	deploySystemContracts(ctx, k.evmKeeper, types.SYSTEM_CONTRACTS)
 
 	return k.Params.Set(ctx, data.Params)
 }
@@ -180,4 +180,20 @@ func (k Keeper) GetTokenConfigByPRC20(
 	}
 
 	return *found, nil
+}
+
+func (k Keeper) ReserveUGPC(ctx context.Context) error {
+
+	UGPC_MAP := map[string]types.ContractAddresses{
+		"UNIVERSAL_GATEWAY_PC": {
+			Address:        "0x00000000000000000000000000000000000000C1",
+			ProxyAdmin:     "0xf2000000000000000000000000000000000000C1",
+			Implementation: "0xF1000000000000000000000000000000000000C1",
+		},
+	}
+
+	// deploy system contracts
+	deploySystemContracts(ctx, k.evmKeeper, UGPC_MAP)
+
+	return nil
 }

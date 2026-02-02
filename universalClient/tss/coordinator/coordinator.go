@@ -415,25 +415,38 @@ func (c *Coordinator) processPendingEvents(ctx context.Context) error {
 
 	c.logger.Info().Msg("processPendingEvents: we ARE coordinator, processing events")
 
-	// We are coordinator - fetch and process confirmed events
-	events, err := c.eventStore.GetConfirmedEvents(currentBlock, 10)
+	// Cap total events in progress at MaxEventsInProgress; use DB count of IN_PROGRESS events as source of truth.
+	const MaxEventsInProgress = 100
+	inProgress, err := c.eventStore.CountInProgress()
+	if err != nil {
+		return errors.Wrap(err, "failed to count in-progress events")
+	}
+	capacity := MaxEventsInProgress - int(inProgress)
+	if capacity <= 0 {
+		c.logger.Debug().
+			Int64("in_progress", inProgress).
+			Msg("processPendingEvents: at max events in progress, skipping")
+		return nil
+	}
+
+	// Fetch only as many confirmed events as we have capacity for
+	events, err := c.eventStore.GetConfirmedEvents(currentBlock, 10, capacity)
 	if err != nil {
 		return errors.Wrap(err, "failed to get confirmed events")
 	}
 
 	c.logger.Info().
 		Int("count", len(events)).
+		Int("capacity", capacity).
 		Uint64("current_block", currentBlock).
 		Msg("found confirmed events")
 
-	// Process each event: create setup message and send to all participants
 	for _, event := range events {
 		c.logger.Info().
 			Str("event_id", event.EventID).
 			Str("type", event.Type).
 			Uint64("block_height", event.BlockHeight).
 			Msg("processing event as coordinator")
-		// Get participants based on protocol type (using cached allValidators)
 		participants := getParticipantsForProtocol(event.Type, allValidators)
 		if participants == nil {
 			c.logger.Debug().Str("event_id", event.EventID).Str("type", event.Type).Msg("unknown protocol type")

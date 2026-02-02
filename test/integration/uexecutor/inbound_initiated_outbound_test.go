@@ -120,7 +120,7 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 	require.NoError(t, err)
 
 	// signature
-	validVerificationData := "0x4c719b6c0e03cc7faadc7b679eea3bf301983e28ef241baa4e0b2dc17b3bc09f1a8221abf166bd8cbe38aefdda7d62f9f944e28431b9982b6e2d4d1b8594446b1c"
+	validVerificationData := "0xa7531ada733322bd6708c94cba5a7dbd1ce25bccf010f774777b039713fc330643e23b7ef2a4609244900c6ab9a03d83d3ecf73edf6b451f21cc7dbda625a3211b"
 
 	validUP := &uexecutortypes.UniversalPayload{
 		To:                   utils.GetDefaultAddresses().UniversalGatewayPCAddr.Hex(),

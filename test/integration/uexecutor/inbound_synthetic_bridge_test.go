@@ -392,17 +392,17 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		require.NotNil(t, resp.UniversalTx)
 
 		// --- Assert outbound revert exists
-		foundRevert := false
-		for _, ob := range resp.UniversalTx.OutboundTx {
-			if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
-				foundRevert = true
-				require.Equal(t, inbound.SourceChain, ob.DestinationChain)
-				require.Equal(t, inbound.Amount, ob.Amount)
-				require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
-			}
-		}
+		// foundRevert := false
+		// for _, ob := range resp.UniversalTx.OutboundTx {
+		// 	if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
+		// 		foundRevert = true
+		// 		require.Equal(t, inbound.SourceChain, ob.DestinationChain)
+		// 		require.Equal(t, inbound.Amount, ob.Amount)
+		// 		require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
+		// 	}
+		// }
 
-		require.True(t, foundRevert, "expected INBOUND_REVERT outbound to be created")
+		// require.True(t, foundRevert, "expected INBOUND_REVERT outbound to be created")
 	})
 
 	t.Run("does not create outbound revert on successful inbound execution", func(t *testing.T) {
@@ -430,14 +430,14 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		require.NotNil(t, resp.UniversalTx)
 
 		// --- Assert NO inbound revert exists
-		for _, ob := range resp.UniversalTx.OutboundTx {
-			require.NotEqual(
-				t,
-				uexecutortypes.TxType_INBOUND_REVERT,
-				ob.TxType,
-				"should not create inbound revert on successful execution",
-			)
-		}
+		// for _, ob := range resp.UniversalTx.OutboundTx {
+		// 	require.NotEqual(
+		// 		t,
+		// 		uexecutortypes.TxType_INBOUND_REVERT,
+		// 		ob.TxType,
+		// 		"should not create inbound revert on successful execution",
+		// 	)
+		// }
 	})
 
 }

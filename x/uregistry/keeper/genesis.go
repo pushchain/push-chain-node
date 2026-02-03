@@ -88,22 +88,35 @@ func deployProxyAdminContract(ctx context.Context, evmKeeper types.EVMKeeper, pr
 	}
 
 	// Store the runtime bytecode linked to the code hash
-	evmKeeper.SetCode(sdkCtx, codeHash, types.ProxyAdminRuntimeBytecode)
+	evmKeeper.SetCode(sdkCtx, codeHash, runtimeBytecode)
 
 	// Initialize storage slot 0 (Ownable.owner) with the owner address (left padded to 32 bytes)
 	evmKeeper.SetState(sdkCtx, proxyAdminAddress, common.Hash{}, common.LeftPadBytes(owner.Bytes(), 32))
 }
 
-func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper) {
+func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper, systemContracts map[string]types.ContractAddresses) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
 	// Sort contract names for deterministic iteration order across all validators
-	names := make([]string, 0, len(types.SYSTEM_CONTRACTS))
-	for name := range types.SYSTEM_CONTRACTS {
+	names := make([]string, 0, len(systemContracts))
+	for name := range systemContracts {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	for _, name := range names {
-		contract := types.SYSTEM_CONTRACTS[name]
+		contract := systemContracts[name]
+
+		proxyAddr := common.HexToAddress(contract.Address)
+		if isContractDeployed(sdkCtx, evmKeeper, proxyAddr) {
+			sdkCtx.Logger().Info(
+				"system contract already deployed, skipping",
+				"name", name,
+				"proxy", proxyAddr.Hex(),
+			)
+			continue
+		}
+
 		bytecodes, ok := types.BYTECODE[name]
 		if !ok {
 			panic(fmt.Sprintf("no bytecode found for contract %s", name))
@@ -118,4 +131,13 @@ func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper) {
 		// 3. Deploy Proxy with PROXY_RUNTIME
 		deployProxyContract(ctx, evmKeeper, contract.Address, contract.ProxyAdmin, contract.Implementation, bytecodes.PROXY_RUNTIME)
 	}
+}
+
+func isContractDeployed(
+	ctx sdk.Context,
+	evmKeeper types.EVMKeeper,
+	addr common.Address,
+) bool {
+	acc := evmKeeper.GetAccount(ctx, addr)
+	return acc != nil && acc.CodeHash != nil && len(acc.CodeHash) != 0
 }

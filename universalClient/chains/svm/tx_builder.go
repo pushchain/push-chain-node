@@ -21,6 +21,10 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
+// DefaultComputeUnitLimit is used when gas limit is not provided in the outbound event data
+// This is Solana's equivalent of EVM gas limit
+const DefaultComputeUnitLimit = 200000
+
 // TxBuilder implements OutboundTxBuilder for Solana chains
 type TxBuilder struct {
 	rpcClient      *RPCClient
@@ -292,9 +296,15 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		return "", fmt.Errorf("failed to determine recovery ID: %w", err)
 	}
 
+	// Parse revert message from event data
+	revertMsgBytes, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
+	if err != nil {
+		revertMsgBytes = []byte{} // Default to empty if decoding fails
+	}
+
 	// Build instruction data
 	// Format: [8-byte Anchor discriminator] + [1-byte instruction_id] + [64-byte signature] + [1-byte recovery_id] + [additional data]
-	instructionData := tb.buildInstructionData(instructionID, signature, recoveryID, amount.Uint64(), recipientPubkey, isNative, assetAddr)
+	instructionData := tb.buildInstructionData(instructionID, signature, recoveryID, amount.Uint64(), recipientPubkey, isNative, assetAddr, revertMsgBytes)
 
 	// Build accounts list
 	accounts := tb.buildAccountsList(
@@ -309,12 +319,28 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		isNative,
 	)
 
-	// Create instruction
+	// Create main instruction
 	instruction := solana.NewInstruction(
 		tb.gatewayAddress,
 		accounts,
 		instructionData,
 	)
+
+	// Parse compute unit limit from gas limit, use default if not provided
+	var computeUnitLimit uint32
+	if data.GasLimit == "" || data.GasLimit == "0" {
+		computeUnitLimit = DefaultComputeUnitLimit
+	} else {
+		parsedLimit, err := strconv.ParseUint(data.GasLimit, 10, 32)
+		if err != nil {
+			computeUnitLimit = DefaultComputeUnitLimit
+		} else {
+			computeUnitLimit = uint32(parsedLimit)
+		}
+	}
+
+	// Create compute budget instruction for setting compute unit limit
+	computeBudgetInstruction := tb.buildSetComputeUnitLimitInstruction(computeUnitLimit)
 
 	// Get recent blockhash
 	recentBlockhash, err := tb.rpcClient.GetRecentBlockhash(ctx)
@@ -322,9 +348,9 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		return "", fmt.Errorf("failed to get recent blockhash: %w", err)
 	}
 
-	// Create transaction
+	// Create transaction with compute budget instruction first, then main instruction
 	tx, err := solana.NewTransaction(
-		[]solana.Instruction{instruction},
+		[]solana.Instruction{computeBudgetInstruction, instruction},
 		recentBlockhash,
 		solana.TransactionPayer(relayerKeypair.PublicKey()),
 	)
@@ -601,6 +627,7 @@ func (tb *TxBuilder) buildInstructionData(
 	recipient solana.PublicKey,
 	isNative bool,
 	assetAddr string,
+	revertMsg []byte,
 ) []byte {
 	// Anchor discriminator is typically the first 8 bytes of sha256("global:method_name")
 	// For now, we'll use a placeholder - this should match the actual gateway contract
@@ -631,11 +658,22 @@ func (tb *TxBuilder) buildInstructionData(
 	data = append(data, amountBytes...)
 
 	// Add additional data based on instruction type
-	if isNative {
-		// For SOL: recipient (32 bytes)
-		data = append(data, recipient.Bytes()...)
-	} else {
-		// For SPL: mint (32 bytes)
+	// For revert operations (3, 4), include RevertInstructions struct
+	if instructionID == 3 || instructionID == 4 {
+		// RevertInstructions struct (Borsh serialized):
+		// - fund_recipient: Pubkey (32 bytes)
+		// - revert_msg: Vec<u8> (4-byte length prefix + data)
+		data = append(data, recipient.Bytes()...) // fund_recipient = recipient
+		// Append revert_msg length (4 bytes, little-endian)
+		revertMsgLen := make([]byte, 4)
+		binary.LittleEndian.PutUint32(revertMsgLen, uint32(len(revertMsg)))
+		data = append(data, revertMsgLen...)
+		// Append revert_msg data
+		data = append(data, revertMsg...)
+	}
+
+	// For SPL token operations, add mint address
+	if !isNative && (instructionID == 2 || instructionID == 4) {
 		mintPubkey, err := solana.PublicKeyFromBase58(assetAddr)
 		if err == nil {
 			data = append(data, mintPubkey.Bytes()...)
@@ -688,4 +726,23 @@ func (tb *TxBuilder) buildAccountsList(
 	}
 
 	return accounts
+}
+
+// buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program
+// Instruction format: [1-byte instruction type (2 = SetComputeUnitLimit)] + [4-byte u32 units]
+func (tb *TxBuilder) buildSetComputeUnitLimitInstruction(units uint32) solana.Instruction {
+	// Compute Budget Program ID
+	computeBudgetProgramID := solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
+
+	// Instruction data: 1 byte for instruction type + 4 bytes for units (little-endian)
+	// Instruction type 2 = SetComputeUnitLimit
+	data := make([]byte, 5)
+	data[0] = 2 // SetComputeUnitLimit instruction type
+	binary.LittleEndian.PutUint32(data[1:], units)
+
+	return solana.NewInstruction(
+		computeBudgetProgramID,
+		[]*solana.AccountMeta{}, // No accounts required
+		data,
+	)
 }

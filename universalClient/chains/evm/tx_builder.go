@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -19,27 +18,26 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// DefaultGasLimit is used when gas limit is not provided in the outbound event data
-const DefaultGasLimit = 500000
+// DefaultGasLimitV0 is used when gas limit is not provided in the outbound event data
+const DefaultGasLimitV0 = 500000
 
-// RevertInstructions represents the struct for revert instruction in gateway/vault contracts
-type RevertInstructions struct {
-	RevertRecipient ethcommon.Address
-	RevertMsg       []byte
+// RevertInstructionsV0 represents the struct for revert instruction in UniversalGatewayV0 contract
+// Matches: struct RevertInstructions { address fundRecipient; bytes revertMsg; }
+type RevertInstructionsV0 struct {
+	FundRecipient ethcommon.Address
+	RevertMsg     []byte
 }
 
-// TxBuilder implements OutboundTxBuilder for EVM chains
+// TxBuilder implements OutboundTxBuilder for EVM chains using UniversalGatewayV0 contract
 type TxBuilder struct {
 	rpcClient      *RPCClient
 	chainID        string
 	chainIDInt     int64
 	gatewayAddress ethcommon.Address
-	vaultAddress   *ethcommon.Address // Cached vault address (nil if not fetched yet)
-	vaultMu        sync.RWMutex       // Protects vaultAddress
 	logger         zerolog.Logger
 }
 
-// NewTxBuilder creates a new EVM transaction builder
+// NewTxBuilder creates a new EVM transaction builder for UniversalGatewayV0
 func NewTxBuilder(
 	rpcClient *RPCClient,
 	chainID string,
@@ -106,7 +104,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	// Parse gas limit, use default if not provided
 	var gasLimit *big.Int
 	if data.GasLimit == "" || data.GasLimit == "0" {
-		gasLimit = big.NewInt(DefaultGasLimit)
+		gasLimit = big.NewInt(DefaultGasLimitV0)
 	} else {
 		gasLimit = new(big.Int)
 		var ok bool
@@ -127,32 +125,22 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
 
 	// Parse TxType
-	txType, err := parseTxType(data.TxType)
+	txType, err := parseTxTypeV0(data.TxType)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tx type: %w", err)
 	}
 
-	// Determine target contract (gateway or vault)
-	targetContract, err := tb.determineTargetContract(ctx, assetAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine target contract: %w", err)
-	}
-
-	// Determine if we're calling vault or gateway
-	isVault := targetContract != tb.gatewayAddress
-
-	// Determine function name based on TxType, asset type, and target contract
-	funcName := tb.determineFunctionName(txType, assetAddr, isVault)
+	// Determine function name based on TxType and asset type
+	funcName := tb.determineFunctionName(txType, assetAddr)
 
 	// Encode function call
-	txData, err := tb.encodeFunctionCall(funcName, data, amount, assetAddr, txType, isVault)
+	txData, err := tb.encodeFunctionCall(funcName, data, amount, assetAddr, txType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode function call: %w", err)
 	}
 
 	// Determine transaction value
-	// For native token transactions (withdraw, executeUniversalTx native, revertUniversalTx),
-	// the value must equal the amount
+	// For native token transactions, the value must equal the amount
 	var txValue *big.Int
 	isNative := assetAddr == (ethcommon.Address{})
 	if isNative && (txType == uetypes.TxType_FUNDS || txType == uetypes.TxType_FUNDS_AND_PAYLOAD || txType == uetypes.TxType_INBOUND_REVERT) {
@@ -161,10 +149,10 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		txValue = big.NewInt(0)
 	}
 
-	// Create unsigned transaction
+	// Create unsigned transaction (always to gateway - no separate vault in V0)
 	tx := types.NewTransaction(
 		nonce,
-		targetContract,
+		tb.gatewayAddress,
 		txValue,
 		gasLimit.Uint64(),
 		gasPrice,
@@ -183,7 +171,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}, nil
 }
 
-// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature
+// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction
 func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	ctx context.Context,
 	req *common.UnSignedOutboundTxReq,
@@ -211,31 +199,21 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
 
 	// Parse TxType
-	txType, err := parseTxType(data.TxType)
+	txType, err := parseTxTypeV0(data.TxType)
 	if err != nil {
 		return "", fmt.Errorf("invalid tx type: %w", err)
 	}
 
-	// Determine target contract (gateway or vault)
-	targetContract, err := tb.determineTargetContract(ctx, assetAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to determine target contract: %w", err)
-	}
-
-	// Determine if we're calling vault or gateway
-	isVault := targetContract != tb.gatewayAddress
-
-	// Determine function name based on TxType, asset type, and target contract
-	funcName := tb.determineFunctionName(txType, assetAddr, isVault)
+	// Determine function name based on TxType and asset type
+	funcName := tb.determineFunctionName(txType, assetAddr)
 
 	// Encode function call
-	txData, err := tb.encodeFunctionCall(funcName, data, amount, assetAddr, txType, isVault)
+	txData, err := tb.encodeFunctionCall(funcName, data, amount, assetAddr, txType)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode function call: %w", err)
 	}
 
 	// Determine transaction value
-	// For native token transactions, the value must equal the amount
 	var txValue *big.Int
 	isNative := assetAddr == (ethcommon.Address{})
 	if isNative && (txType == uetypes.TxType_FUNDS || txType == uetypes.TxType_FUNDS_AND_PAYLOAD || txType == uetypes.TxType_INBOUND_REVERT) {
@@ -244,10 +222,10 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		txValue = big.NewInt(0)
 	}
 
-	// Parse gas limit from event data, use default if not provided
+	// Parse gas limit from event data
 	var gasLimitForTx *big.Int
 	if data.GasLimit == "" || data.GasLimit == "0" {
-		gasLimitForTx = big.NewInt(DefaultGasLimit)
+		gasLimitForTx = big.NewInt(DefaultGasLimitV0)
 	} else {
 		gasLimitForTx = new(big.Int)
 		gasLimitForTx, ok = gasLimitForTx.SetString(data.GasLimit, 10)
@@ -256,10 +234,10 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		}
 	}
 
-	// Reconstruct the unsigned transaction from the request and event data
+	// Reconstruct the unsigned transaction
 	tx := types.NewTransaction(
 		req.Nonce,
-		targetContract,
+		tb.gatewayAddress,
 		txValue,
 		gasLimitForTx.Uint64(),
 		req.GasPrice,
@@ -270,7 +248,7 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
 	txHash := signer.Hash(tx)
 
-	// Auto-detect recovery ID by attempting to recover the public key
+	// Auto-detect recovery ID
 	var v byte
 	found := false
 	for testV := byte(0); testV < 4; testV++ {
@@ -294,7 +272,7 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	copy(sigWithRecovery[:64], signature)
 	sigWithRecovery[64] = v
 
-	// Create signed transaction using WithSignature
+	// Create signed transaction
 	signedTx, err := tx.WithSignature(signer, sigWithRecovery)
 	if err != nil {
 		return "", fmt.Errorf("failed to apply signature: %w", err)
@@ -313,26 +291,22 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	return txHashStr, nil
 }
 
-// Helper functions
-
-func removeHexPrefix(s string) string {
+// removeHexPrefixV0 removes the 0x prefix from a hex string
+func removeHexPrefixV0(s string) string {
 	if len(s) >= 2 && s[0:2] == "0x" {
 		return s[2:]
 	}
 	return s
 }
 
-// parseTxType parses the TxType string to uetypes.TxType enum
-func parseTxType(txTypeStr string) (uetypes.TxType, error) {
-	// Remove any whitespace and convert to uppercase
+// parseTxTypeV0 parses the TxType string to uetypes.TxType enum
+func parseTxTypeV0(txTypeStr string) (uetypes.TxType, error) {
 	txTypeStr = strings.TrimSpace(strings.ToUpper(txTypeStr))
 
-	// Try to parse as enum name
 	if val, ok := uetypes.TxType_value[txTypeStr]; ok {
 		return uetypes.TxType(val), nil
 	}
 
-	// Try to parse as number
 	if num, err := strconv.ParseInt(txTypeStr, 10, 32); err == nil {
 		return uetypes.TxType(num), nil
 	}
@@ -340,148 +314,76 @@ func parseTxType(txTypeStr string) (uetypes.TxType, error) {
 	return uetypes.TxType_UNSPECIFIED_TX, fmt.Errorf("unknown tx type: %s", txTypeStr)
 }
 
-// determineTargetContract determines whether to call gateway or vault contract
-// Returns gateway address if assetAddr is zero, otherwise returns vault address
-func (tb *TxBuilder) determineTargetContract(ctx context.Context, assetAddr ethcommon.Address) (ethcommon.Address, error) {
-	// If asset address is zero, use gateway
-	if assetAddr == (ethcommon.Address{}) {
-		return tb.gatewayAddress, nil
-	}
+// determineFunctionName determines the function name based on TxType and asset type
+// UniversalGatewayV0 functions:
+// - withdraw(bytes,bytes32,address,address,uint256) - native withdrawal
+// - withdrawTokens(bytes,bytes32,address,address,address,uint256) - ERC20 withdrawal
+// - executeUniversalTx(bytes32,address,address,uint256,bytes) - native with payload
+// - executeUniversalTx(bytes32,address,address,address,uint256,bytes) - ERC20 with payload
+// - revertUniversalTx(bytes32,uint256,(address,bytes)) - native revert
+// - revertUniversalTxToken(bytes32,address,uint256,(address,bytes)) - ERC20 revert
+func (tb *TxBuilder) determineFunctionName(txType uetypes.TxType, assetAddr ethcommon.Address) string {
+	isNative := assetAddr == (ethcommon.Address{})
 
-	// Otherwise, get vault address from gateway contract
-	// Gateway contract has a public variable: address public vault;
-	// We need to call the vault() getter function
-	vaultAddr, err := tb.getVaultAddress(ctx)
-	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("failed to get vault address: %w", err)
-	}
-
-	return vaultAddr, nil
-}
-
-// getVaultAddress gets the vault address from the gateway contract (cached)
-// Fetches it once and caches it for subsequent calls
-// Gateway contract has: address public VAULT;
-func (tb *TxBuilder) getVaultAddress(ctx context.Context) (ethcommon.Address, error) {
-	// Check cache first
-	tb.vaultMu.RLock()
-	if tb.vaultAddress != nil {
-		addr := *tb.vaultAddress
-		tb.vaultMu.RUnlock()
-		return addr, nil
-	}
-	tb.vaultMu.RUnlock()
-
-	// Cache miss - fetch from contract
-	tb.vaultMu.Lock()
-	defer tb.vaultMu.Unlock()
-
-	// Double-check after acquiring write lock (another goroutine might have fetched it)
-	if tb.vaultAddress != nil {
-		return *tb.vaultAddress, nil
-	}
-
-	// Encode the function selector for VAULT() getter
-	// VAULT() function selector: keccak256("VAULT()")[:4]
-	vaultSelector := crypto.Keccak256([]byte("VAULT()"))[:4]
-
-	// Call the contract
-	result, err := tb.rpcClient.CallContract(ctx, tb.gatewayAddress, vaultSelector, nil)
-	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("failed to call VAULT() on gateway: %w", err)
-	}
-
-	// Decode the result (address is 32 bytes, but we only need the last 20)
-	if len(result) < 32 {
-		return ethcommon.Address{}, fmt.Errorf("invalid vault address result length: %d", len(result))
-	}
-
-	// Address is in the last 20 bytes of the 32-byte result
-	var addr ethcommon.Address
-	copy(addr[:], result[12:32])
-
-	// Cache the address
-	tb.vaultAddress = &addr
-
-	tb.logger.Info().
-		Str("vault_address", addr.Hex()).
-		Msg("fetched and cached vault address from gateway")
-
-	return addr, nil
-}
-
-// determineFunctionName determines the function name based on TxType and target contract
-// Gateway functions (for native tokens):
-// - withdraw - for native token withdrawal (no payload)
-// - executeUniversalTx - for native tokens with payload
-// - revertUniversalTx - for native token revert
-// Vault functions (for ERC20 tokens):
-// - withdraw - for ERC20 token withdrawal (no payload)
-// - withdrawAndExecute - for ERC20 tokens with payload
-// - revertWithdraw - for ERC20 token revert
-func (tb *TxBuilder) determineFunctionName(txType uetypes.TxType, assetAddr ethcommon.Address, isVault bool) string {
-	// Gateway is used for native tokens, vault is used for ERC20 tokens
-	if isVault {
-		// Vault functions (ERC20 only)
-		switch txType {
-		case uetypes.TxType_FUNDS:
+	switch txType {
+	case uetypes.TxType_FUNDS:
+		if isNative {
 			return "withdraw"
-		case uetypes.TxType_FUNDS_AND_PAYLOAD:
-			return "withdrawAndExecute"
-		case uetypes.TxType_INBOUND_REVERT:
-			return "revertWithdraw"
-		default:
-			// Vault doesn't handle payload-only, fallback to withdrawAndExecute
-			return "withdrawAndExecute"
 		}
-	} else {
-		// Gateway functions (native only)
-		switch txType {
-		case uetypes.TxType_FUNDS:
-			return "withdraw"
-		case uetypes.TxType_FUNDS_AND_PAYLOAD:
-			return "executeUniversalTx"
-		case uetypes.TxType_PAYLOAD:
-			return "executeUniversalTx"
-		case uetypes.TxType_INBOUND_REVERT:
+		return "withdrawTokens"
+
+	case uetypes.TxType_FUNDS_AND_PAYLOAD, uetypes.TxType_PAYLOAD:
+		return "executeUniversalTx"
+
+	case uetypes.TxType_INBOUND_REVERT:
+		if isNative {
 			return "revertUniversalTx"
-		default:
-			return "executeUniversalTx"
 		}
+		return "revertUniversalTxToken"
+
+	default:
+		return "executeUniversalTx"
 	}
 }
 
-// encodeFunctionCall encodes the function call with ABI encoding based on UniversalGateway and Vault contracts
+// encodeFunctionCall encodes the function call based on UniversalGatewayV0 contract
 func (tb *TxBuilder) encodeFunctionCall(
 	funcName string,
 	data *uetypes.OutboundCreatedEvent,
 	amount *big.Int,
 	assetAddr ethcommon.Address,
 	txType uetypes.TxType,
-	isVault bool,
 ) ([]byte, error) {
-	// Parse common fields
-	txIDBytes, err := hex.DecodeString(removeHexPrefix(data.TxID))
-	if err != nil || len(txIDBytes) != 32 {
+	// Parse txID as bytes (not bytes32 for withdraw function)
+	txIDBytes, err := hex.DecodeString(removeHexPrefixV0(data.TxID))
+	if err != nil {
 		return nil, fmt.Errorf("invalid txID: %s", data.TxID)
 	}
-	var txID [32]byte
-	copy(txID[:], txIDBytes)
 
-	universalTxIDBytes, err := hex.DecodeString(removeHexPrefix(data.UniversalTxId))
+	// Parse universalTxID as bytes32
+	universalTxIDBytes, err := hex.DecodeString(removeHexPrefixV0(data.UniversalTxId))
 	if err != nil || len(universalTxIDBytes) != 32 {
 		return nil, fmt.Errorf("invalid universalTxID: %s", data.UniversalTxId)
 	}
 	var universalTxID [32]byte
 	copy(universalTxID[:], universalTxIDBytes)
 
+	// For executeUniversalTx and revert functions, txID is bytes32
+	var txID32 [32]byte
+	if len(txIDBytes) == 32 {
+		copy(txID32[:], txIDBytes)
+	} else if len(txIDBytes) > 0 {
+		// Pad or truncate to 32 bytes
+		copy(txID32[32-len(txIDBytes):], txIDBytes)
+	}
+
 	originCaller := ethcommon.HexToAddress(data.Sender)
 	recipient := ethcommon.HexToAddress(data.Recipient)
 
 	// Parse payload bytes
-	payloadBytes, err := hex.DecodeString(removeHexPrefix(data.Payload))
+	payloadBytes, err := hex.DecodeString(removeHexPrefixV0(data.Payload))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode payload: %w", err)
+		payloadBytes = []byte{}
 	}
 
 	// Get function signature and selector
@@ -500,115 +402,91 @@ func (tb *TxBuilder) encodeFunctionCall(
 
 	switch funcName {
 	case "withdraw":
-		// Gateway (native): withdraw(bytes32 txID, bytes32 universalTxID, address originCaller, address to, uint256 amount)
-		// Vault (ERC20): withdraw(bytes32 txID, bytes32 universalTxID, address originCaller, address token, address to, uint256 amount)
-		if isNative {
-			// Gateway withdraw (native)
-			arguments = abi.Arguments{
-				{Type: bytes32Type}, // txID
-				{Type: bytes32Type}, // universalTxID
-				{Type: addressType}, // originCaller
-				{Type: addressType}, // to
-				{Type: uint256Type}, // amount
-			}
-			values = []interface{}{txID, universalTxID, originCaller, recipient, amount}
-		} else {
-			// Vault withdraw (ERC20)
-			arguments = abi.Arguments{
-				{Type: bytes32Type}, // txID
-				{Type: bytes32Type}, // universalTxID
-				{Type: addressType}, // originCaller
-				{Type: addressType}, // token
-				{Type: addressType}, // to
-				{Type: uint256Type}, // amount
-			}
-			values = []interface{}{txID, universalTxID, originCaller, assetAddr, recipient, amount}
-		}
-
-	case "withdrawAndExecute":
-		// Vault: withdrawAndExecute(bytes32 txID, bytes32 universalTxID, address originCaller, address token, address target, uint256 amount, bytes calldata data)
+		// withdraw(bytes calldata txID, bytes32 universalTxID, address originCaller, address to, uint256 amount)
 		arguments = abi.Arguments{
-			{Type: bytes32Type}, // txID
+			{Type: bytesType},   // txID (bytes, not bytes32)
+			{Type: bytes32Type}, // universalTxID
+			{Type: addressType}, // originCaller
+			{Type: addressType}, // to
+			{Type: uint256Type}, // amount
+		}
+		values = []interface{}{txIDBytes, universalTxID, originCaller, recipient, amount}
+
+	case "withdrawTokens":
+		// withdrawTokens(bytes calldata txID, bytes32 universalTxID, address originCaller, address token, address to, uint256 amount)
+		arguments = abi.Arguments{
+			{Type: bytesType},   // txID (bytes, not bytes32)
 			{Type: bytes32Type}, // universalTxID
 			{Type: addressType}, // originCaller
 			{Type: addressType}, // token
-			{Type: addressType}, // target
+			{Type: addressType}, // to
 			{Type: uint256Type}, // amount
-			{Type: bytesType},   // data
 		}
-		values = []interface{}{txID, universalTxID, originCaller, assetAddr, recipient, amount, payloadBytes}
+		values = []interface{}{txIDBytes, universalTxID, originCaller, assetAddr, recipient, amount}
 
 	case "executeUniversalTx":
 		if isNative {
-			// executeUniversalTx(bytes32 txID, bytes32 universalTxID, address originCaller, address target, uint256 amount, bytes calldata payload)
+			// executeUniversalTx(bytes32 txID, address originCaller, address target, uint256 amount, bytes calldata payload)
 			arguments = abi.Arguments{
 				{Type: bytes32Type}, // txID
-				{Type: bytes32Type}, // universalTxID
 				{Type: addressType}, // originCaller
 				{Type: addressType}, // target
 				{Type: uint256Type}, // amount
 				{Type: bytesType},   // payload
 			}
-			// For native executeUniversalTx, target is the recipient
-			values = []interface{}{txID, universalTxID, originCaller, recipient, amount, payloadBytes}
+			values = []interface{}{txID32, originCaller, recipient, amount, payloadBytes}
 		} else {
-			// executeUniversalTx(bytes32 txID, bytes32 universalTxID, address originCaller, address token, address target, uint256 amount, bytes calldata payload)
+			// executeUniversalTx(bytes32 txID, address originCaller, address token, address target, uint256 amount, bytes calldata payload)
 			arguments = abi.Arguments{
 				{Type: bytes32Type}, // txID
-				{Type: bytes32Type}, // universalTxID
 				{Type: addressType}, // originCaller
 				{Type: addressType}, // token
 				{Type: addressType}, // target
 				{Type: uint256Type}, // amount
 				{Type: bytesType},   // payload
 			}
-			// For ERC20 executeUniversalTx, target is the recipient
-			values = []interface{}{txID, universalTxID, originCaller, assetAddr, recipient, amount, payloadBytes}
+			values = []interface{}{txID32, originCaller, assetAddr, recipient, amount, payloadBytes}
 		}
 
 	case "revertUniversalTx":
-		// revertUniversalTx(bytes32 txID, bytes32 universalTxID, uint256 amount, RevertInstructions calldata revertInstruction)
-		// RevertInstructions struct: { address revertRecipient; bytes revertMsg; }
-		revertMsgBytes, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
+		// revertUniversalTx(bytes32 txID, uint256 amount, RevertInstructions calldata revertInstruction)
+		revertMsgBytes, err := hex.DecodeString(removeHexPrefixV0(data.RevertMsg))
 		if err != nil {
-			revertMsgBytes = []byte{} // Default to empty if decoding fails
+			revertMsgBytes = []byte{}
 		}
 		revertInstructionType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-			{Name: "revertRecipient", Type: "address"},
+			{Name: "fundRecipient", Type: "address"},
 			{Name: "revertMsg", Type: "bytes"},
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
-			{Type: bytes32Type},           // universalTxID
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID, universalTxID, amount, RevertInstructions{
-			RevertRecipient: recipient,
-			RevertMsg:       revertMsgBytes,
+		values = []interface{}{txID32, amount, RevertInstructionsV0{
+			FundRecipient: recipient,
+			RevertMsg:     revertMsgBytes,
 		}}
 
-	case "revertWithdraw":
-		// Vault: revertWithdraw(bytes32 txID, bytes32 universalTxID, address token, uint256 amount, RevertInstructions calldata revertInstruction)
-		// RevertInstructions struct: { address revertRecipient; bytes revertMsg; }
-		revertMsgBytesWithdraw, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
+	case "revertUniversalTxToken":
+		// revertUniversalTxToken(bytes32 txID, address token, uint256 amount, RevertInstructions calldata revertInstruction)
+		revertMsgBytesToken, err := hex.DecodeString(removeHexPrefixV0(data.RevertMsg))
 		if err != nil {
-			revertMsgBytesWithdraw = []byte{} // Default to empty if decoding fails
+			revertMsgBytesToken = []byte{}
 		}
 		revertInstructionType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-			{Name: "revertRecipient", Type: "address"},
+			{Name: "fundRecipient", Type: "address"},
 			{Name: "revertMsg", Type: "bytes"},
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
-			{Type: bytes32Type},           // universalTxID
 			{Type: addressType},           // token
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID, universalTxID, assetAddr, amount, RevertInstructions{
-			RevertRecipient: recipient,
-			RevertMsg:       revertMsgBytesWithdraw,
+		values = []interface{}{txID32, assetAddr, amount, RevertInstructionsV0{
+			FundRecipient: recipient,
+			RevertMsg:     revertMsgBytesToken,
 		}}
 
 	default:
@@ -628,29 +506,33 @@ func (tb *TxBuilder) encodeFunctionCall(
 }
 
 // getFunctionSignature returns the full function signature for ABI encoding
-// Based on UniversalGateway and Vault contract signatures
+// Based on UniversalGatewayV0 contract
 func (tb *TxBuilder) getFunctionSignature(funcName string, isNative bool) string {
 	switch funcName {
 	case "withdraw":
-		// Gateway (native): withdraw(bytes32,bytes32,address,address,uint256)
-		// Vault (ERC20): withdraw(bytes32,bytes32,address,address,address,uint256)
-		if isNative {
-			return "withdraw(bytes32,bytes32,address,address,uint256)"
-		}
-		return "withdraw(bytes32,bytes32,address,address,address,uint256)"
-	case "withdrawAndExecute":
-		// Vault: withdrawAndExecute(bytes32,bytes32,address,address,address,uint256,bytes)
-		return "withdrawAndExecute(bytes32,bytes32,address,address,address,uint256,bytes)"
+		// withdraw(bytes,bytes32,address,address,uint256)
+		return "withdraw(bytes,bytes32,address,address,uint256)"
+
+	case "withdrawTokens":
+		// withdrawTokens(bytes,bytes32,address,address,address,uint256)
+		return "withdrawTokens(bytes,bytes32,address,address,address,uint256)"
+
 	case "executeUniversalTx":
 		if isNative {
-			return "executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)"
+			// executeUniversalTx(bytes32,address,address,uint256,bytes)
+			return "executeUniversalTx(bytes32,address,address,uint256,bytes)"
 		}
-		return "executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
+		// executeUniversalTx(bytes32,address,address,address,uint256,bytes)
+		return "executeUniversalTx(bytes32,address,address,address,uint256,bytes)"
+
 	case "revertUniversalTx":
-		return "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"
-	case "revertWithdraw":
-		// Vault: revertWithdraw(bytes32,bytes32,address,uint256,(address,bytes))
-		return "revertWithdraw(bytes32,bytes32,address,uint256,(address,bytes))"
+		// revertUniversalTx(bytes32,uint256,(address,bytes))
+		return "revertUniversalTx(bytes32,uint256,(address,bytes))"
+
+	case "revertUniversalTxToken":
+		// revertUniversalTxToken(bytes32,address,uint256,(address,bytes))
+		return "revertUniversalTxToken(bytes32,address,uint256,(address,bytes))"
+
 	default:
 		return ""
 	}

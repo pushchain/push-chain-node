@@ -429,6 +429,40 @@ cmd_tss_keygen() {
     print_success "TSS keygen initiated!"
 }
 
+cmd_tss_refresh() {
+    require_binaries
+    print_header "TSS Key Refresh"
+    print_status "Initiating TSS key refresh process..."
+
+    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
+        --process-type tss-process-refresh \
+        --from genesis-acc-1 \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$DATA_DIR/validator1/.pchain" \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS refresh initiated!"
+}
+
+cmd_tss_quorum() {
+    require_binaries
+    print_header "TSS Quorum Change"
+    print_status "Initiating TSS quorum change process..."
+
+    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
+        --process-type tss-process-quorum-change \
+        --from genesis-acc-1 \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$DATA_DIR/validator1/.pchain" \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS quorum change initiated!"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELP
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -456,6 +490,8 @@ cmd_help() {
     echo
     echo -e "${BOLD}${CYAN}TSS COMMANDS${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "tss-keygen" "Initiate TSS key generation"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-refresh" "Initiate TSS key refresh"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-quorum" "Initiate TSS quorum change"
     echo
     echo -e "${BOLD}${CYAN}MAINTENANCE${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "clean" "Complete reset (removes all data)"
@@ -494,6 +530,8 @@ case "${1:-help}" in
 
     # TSS commands
     tss-keygen)     cmd_tss_keygen ;;
+    tss-refresh)    cmd_tss_refresh ;;
+    tss-quorum)     cmd_tss_quorum ;;
 
     # Universal validators
     setup-uvalidators) "$SCRIPT_DIR/scripts/setup-uvalidators.sh" ;;

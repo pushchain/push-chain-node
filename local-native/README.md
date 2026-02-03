@@ -54,6 +54,9 @@ cd local-native
 | `./devnet status` | Show network status |
 | `./devnet logs [service]` | View logs |
 | `./devnet build` | Build binaries |
+| `./devnet tss-keygen` | Initiate TSS key generation |
+| `./devnet tss-refresh` | Initiate TSS key refresh |
+| `./devnet tss-quorum` | Initiate TSS quorum change |
 | `./devnet clean` | Complete reset |
 | `./devnet help` | Show all commands |
 
@@ -89,13 +92,13 @@ local-native/
 ## Endpoints
 
 ### Validator 1 (Genesis)
-| Service | Port | URL |
-|---------|------|-----|
-| RPC | 26657 | http://localhost:26657 |
-| REST | 1317 | http://localhost:1317 |
-| gRPC | 9090 | localhost:9090 |
-| EVM HTTP | 8545 | http://localhost:8545 |
-| EVM WS | 8546 | ws://localhost:8546 |
+| Service | Port |
+|---------|------|
+| RPC | 26657 |
+| REST | 1317 |
+| gRPC | 9090 |
+| EVM HTTP | 8545 |
+| EVM WS | 8546 |
 
 ### Validator 2
 | Service | Port |

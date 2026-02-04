@@ -89,7 +89,7 @@ message QueryGetUniversalTxRequest {
 }
 
 message QueryGetUniversalTxResponse {
-  UniversalTx universal_tx = 1;
+  UniversalTxLegacy universal_tx = 1;
 }
 
 message QueryAllUniversalTxRequest {

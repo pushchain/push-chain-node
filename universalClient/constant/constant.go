@@ -28,6 +28,6 @@ var DefaultNodeHome = os.ExpandEnv("$HOME/") + NodeDir
 var RequiredMsgGrants = []string{
 	"/uexecutor.v1.MsgVoteInbound",
 	"/uexecutor.v1.MsgVoteGasPrice",
-	// "/uexecutor.v1.MsgVoteOutbound", // TODO: Uncomment this after auth perm
+	"/uexecutor.v1.MsgVoteOutbound",
 	"/utss.v1.MsgVoteTssKeyProcess",
 }

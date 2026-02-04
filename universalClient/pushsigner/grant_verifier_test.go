@@ -22,6 +22,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
 
@@ -39,6 +40,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: nil},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: nil},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: nil},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: nil},
 		}
 
@@ -50,7 +52,7 @@ func TestVerifyGrants(t *testing.T) {
 	t.Run("missing required grant", func(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
-			// Missing MsgVoteGasPrice and MsgVoteTssKeyProcess
+			// Missing MsgVoteGasPrice and MsgVoteTssKeyProcess and MsgVoteOutbound
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -63,6 +65,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &pastTime}, // Expired
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
 
@@ -78,6 +81,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: wrongGranter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
 
@@ -101,6 +105,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime}, // Duplicate
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
 
@@ -113,6 +118,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/some.other.v1.MsgNotRequired", Expiration: &futureTime}, // Extra grant
 		}

@@ -1,0 +1,551 @@
+#!/usr/bin/env bash
+# devnet - Push Chain Local Native Network Manager
+# Unified CLI for managing local native multi-validator setup (no Docker)
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# Resolve script directory
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+source "$SCRIPT_DIR/env.sh"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COLORS
+# ═══════════════════════════════════════════════════════════════════════════════
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BLUE='\033[1;94m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
+DIM='\033[2m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PORT CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+get_rpc_port() { case "$1" in 1) echo 26657;; 2) echo 26658;; 3) echo 26659;; 4) echo 26660;; esac; }
+get_grpc_port() { case "$1" in 1) echo 9090;; 2) echo 9093;; 3) echo 9095;; 4) echo 9097;; esac; }
+get_rest_port() { case "$1" in 1) echo 1317;; 2) echo 1318;; 3) echo 1319;; 4) echo 1320;; esac; }
+get_evm_port() { case "$1" in 1) echo 8545;; 2) echo 8547;; 3) echo 8549;; 4) echo 8551;; esac; }
+get_api_port() { case "$1" in 1) echo 8080;; 2) echo 8081;; 3) echo 8082;; 4) echo 8083;; esac; }
+get_tss_port() { case "$1" in 1) echo 39000;; 2) echo 39001;; 3) echo 39002;; 4) echo 39003;; esac; }
+get_p2p_port() { case "$1" in 1) echo 26656;; 2) echo 26666;; 3) echo 26676;; 4) echo 26686;; esac; }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRINT HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+print_status() { echo -e "${CYAN}$1${NC}"; }
+print_header() { echo -e "${BLUE}$1${NC}"; }
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error() { echo -e "${RED}$1${NC}"; }
+print_warning() { echo -e "${YELLOW}$1${NC}"; }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BINARY HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+require_binaries() {
+    if [ ! -f "$PCHAIND_BIN" ]; then
+        print_error "pchaind binary not found at $PCHAIND_BIN"
+        print_status "Build it with: cd .. && make build"
+        exit 1
+    fi
+    if [ ! -f "$PUNIVERSALD_BIN" ]; then
+        print_error "puniversald binary not found at $PUNIVERSALD_BIN"
+        print_status "Build it with: cd .. && make build"
+        exit 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+pad_text() {
+    local text="$1"
+    local width="$2"
+    printf "%-${width}s" "$text"
+}
+
+get_process_health() {
+    local pid_file="$1"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "running|[ok] running"
+        else
+            echo "dead|[!!] dead"
+        fi
+    else
+        echo "stopped|[--] stopped"
+    fi
+}
+
+get_block_height() {
+    local port="$1"
+    local height
+    height=$(curl -sf "http://127.0.0.1:$port/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // "-"' 2>/dev/null || echo "-")
+    echo "$height"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS DISPLAY
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_status() {
+    echo
+    echo -e "┌──────────────────────────────────────────────────────────────────────┐"
+    echo -e "│               ${BOLD}Push Chain Local Native Network${NC}                       │"
+    echo -e "└──────────────────────────────────────────────────────────────────────┘"
+    echo
+
+    # Core Validators section
+    echo -e "${CYAN}Core Validators${NC}"
+    printf "${BOLD}%-18s %-15s %-8s %-10s %-10s %-10s${NC}\n" "NAME" "STATUS" "BLOCK" "RPC" "gRPC" "EVM"
+    echo
+
+    for i in 1 2 3 4; do
+        local name="validator-$i"
+        local pid_file="$DATA_DIR/validator$i.pid"
+        local status_raw=$(get_process_health "$pid_file")
+        local status_state="${status_raw%%|*}"
+        local status_text="${status_raw#*|}"
+        local rpc_port=$(get_rpc_port $i)
+        local grpc_port=$(get_grpc_port $i)
+        local evm_port=$(get_evm_port $i)
+        local block=$(get_block_height "$rpc_port")
+
+        local status_padded=$(pad_text "$status_text" 15)
+        local status_colored
+        case "$status_state" in
+            running)  status_colored="${GREEN}${status_padded}${NC}";;
+            dead)     status_colored="${RED}${status_padded}${NC}";;
+            *)        status_colored="${GRAY}${status_padded}${NC}";;
+        esac
+
+        printf "%-18s %b %-8s %-10s %-10s %-10s\n" \
+            "$name" "$status_colored" "$block" ":$rpc_port" ":$grpc_port" ":$evm_port"
+    done
+
+    echo
+
+    # Universal Validators section
+    echo -e "${CYAN}Universal Validators${NC}"
+    printf "${BOLD}%-23s %-15s %-10s %-8s${NC}\n" "NAME" "STATUS" "API" "TSS"
+    echo
+
+    for i in 1 2 3 4; do
+        local name="universal-$i"
+        local pid_file="$DATA_DIR/universal$i.pid"
+        local status_raw=$(get_process_health "$pid_file")
+        local status_state="${status_raw%%|*}"
+        local status_text="${status_raw#*|}"
+        local api_port=$(get_api_port $i)
+        local tss_port=$(get_tss_port $i)
+
+        local status_padded=$(pad_text "$status_text" 15)
+        local status_colored
+        case "$status_state" in
+            running)  status_colored="${GREEN}${status_padded}${NC}";;
+            dead)     status_colored="${RED}${status_padded}${NC}";;
+            *)        status_colored="${GRAY}${status_padded}${NC}";;
+        esac
+
+        printf "%-23s %b %-10s %-8s\n" \
+            "$name" "$status_colored" ":$api_port" ":$tss_port"
+    done
+    echo
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BUILD COMMAND
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_build() {
+    print_status "Building binaries..."
+    cd "$SCRIPT_DIR/.."
+    make build
+    print_success "Binaries built successfully!"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# START COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+setup_dirs() {
+    mkdir -p "$DATA_DIR"
+    mkdir -p "$ACCOUNTS_DIR"
+    for i in 1 2 3 4; do
+        mkdir -p "$DATA_DIR/validator$i"
+        mkdir -p "$DATA_DIR/universal$i"
+    done
+}
+
+generate_accounts() {
+    if [ -f "$ACCOUNTS_DIR/genesis_accounts.json" ] && [ -f "$ACCOUNTS_DIR/validators.json" ] && [ -f "$ACCOUNTS_DIR/hotkeys.json" ]; then
+        print_status "Accounts already exist, skipping generation..."
+        return
+    fi
+    print_status "Generating accounts..."
+    "$SCRIPT_DIR/scripts/generate-accounts.sh"
+}
+
+wait_for_rpc() {
+    local port=$1
+    local max_attempts=${2:-60}
+    local attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        if curl -s "http://127.0.0.1:$port/status" > /dev/null 2>&1; then
+            local height=$(curl -s "http://127.0.0.1:$port/status" | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+            if [ "$height" != "0" ] && [ "$height" != "null" ]; then
+                return 0
+            fi
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
+
+start_validator() {
+    local id=$1
+    local pid_file="$DATA_DIR/validator$id.pid"
+    
+    # Check if already running
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            print_warning "Validator $id already running (PID: $pid)"
+            return 0
+        fi
+    fi
+    
+    if [ "$id" = "1" ]; then
+        print_status "Starting validator 1 (genesis)..."
+        "$SCRIPT_DIR/scripts/setup-genesis-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+    else
+        print_status "Starting validator $id..."
+        VALIDATOR_ID=$id "$SCRIPT_DIR/scripts/setup-validator-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+    fi
+    
+    echo $! > "$pid_file"
+    print_success "Validator $id started (PID: $(cat $pid_file))"
+}
+
+start_universal() {
+    local id=$1
+    local pid_file="$DATA_DIR/universal$id.pid"
+    
+    # Check if already running
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            print_warning "Universal validator $id already running (PID: $pid)"
+            return 0
+        fi
+    fi
+    
+    # Create log directory
+    mkdir -p "$DATA_DIR/universal$id"
+    
+    print_status "Starting universal validator $id..."
+    UNIVERSAL_ID=$id "$SCRIPT_DIR/scripts/setup-universal.sh" > "$DATA_DIR/universal$id/universal.log" 2>&1 &
+    
+    echo $! > "$pid_file"
+    print_success "Universal validator $id started (PID: $(cat $pid_file))"
+}
+
+cmd_up() {
+    require_binaries
+    print_header "Starting Push Chain Local Native Network..."
+    echo
+    
+    setup_dirs
+    generate_accounts
+    
+    local num_validators=${1:-1}
+    
+    # Start validator 1 first (genesis)
+    start_validator 1
+    
+    print_status "Waiting for genesis validator..."
+    if ! wait_for_rpc 26657 60; then
+        print_error "Genesis validator failed to start"
+        print_status "Check logs: tail -f $DATA_DIR/validator1/validator.log"
+        exit 1
+    fi
+    print_success "Genesis validator ready!"
+    
+    # Start additional validators if requested
+    if [ "$num_validators" -gt 1 ]; then
+        for i in $(seq 2 $num_validators); do
+            if [ $i -le 4 ]; then
+                start_validator $i
+                sleep 5  # Give time between validators
+            fi
+        done
+    fi
+    
+    echo
+    print_success "Local network started!"
+    echo
+    cmd_status
+}
+
+cmd_start_uv() {
+    require_binaries
+    print_header "Starting Universal Validators..."
+    
+    local num_uv=${1:-4}
+    
+    for i in $(seq 1 $num_uv); do
+        if [ $i -le 4 ]; then
+            start_universal $i
+            sleep 3
+        fi
+    done
+    
+    echo
+    print_success "Universal validators started!"
+    echo
+    cmd_status
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STOP/DOWN COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+stop_process() {
+    local pid_file="$1"
+    local name="$2"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            print_status "Stopping $name (PID: $pid)..."
+            kill "$pid" 2>/dev/null || true
+            # Wait for graceful shutdown
+            local wait_count=0
+            while kill -0 "$pid" 2>/dev/null && [ $wait_count -lt 10 ]; do
+                sleep 1
+                wait_count=$((wait_count + 1))
+            done
+            # Force kill if still running
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+        fi
+        rm -f "$pid_file"
+    fi
+}
+
+cmd_down() {
+    print_header "Stopping Push Chain Local Native Network..."
+    
+    for i in 4 3 2 1; do
+        stop_process "$DATA_DIR/universal$i.pid" "universal-$i"
+        stop_process "$DATA_DIR/validator$i.pid" "validator-$i"
+    done
+    
+    print_success "All validators stopped"
+}
+
+cmd_stop() {
+    cmd_down
+}
+
+cmd_restart() {
+    cmd_down
+    sleep 2
+    cmd_up "$@"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOGS COMMAND
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_logs() {
+    local service="${1:-}"
+    if [ -z "$service" ]; then
+        print_status "Available logs:"
+        for i in 1 2 3 4; do
+            [ -f "$DATA_DIR/validator$i/validator.log" ] && echo "  validator-$i: $DATA_DIR/validator$i/validator.log"
+            [ -f "$DATA_DIR/universal$i/universal.log" ] && echo "  universal-$i: $DATA_DIR/universal$i/universal.log"
+        done
+    else
+        local log_file=""
+        case "$service" in
+            validator-1|v1) log_file="$DATA_DIR/validator1/validator.log" ;;
+            validator-2|v2) log_file="$DATA_DIR/validator2/validator.log" ;;
+            validator-3|v3) log_file="$DATA_DIR/validator3/validator.log" ;;
+            validator-4|v4) log_file="$DATA_DIR/validator4/validator.log" ;;
+            universal-1|u1) log_file="$DATA_DIR/universal1/universal.log" ;;
+            universal-2|u2) log_file="$DATA_DIR/universal2/universal.log" ;;
+            universal-3|u3) log_file="$DATA_DIR/universal3/universal.log" ;;
+            universal-4|u4) log_file="$DATA_DIR/universal4/universal.log" ;;
+            *) print_error "Unknown service: $service"; exit 1 ;;
+        esac
+        if [ -f "$log_file" ]; then
+            tail -f "$log_file"
+        else
+            print_error "Log file not found: $log_file"
+        fi
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLEAN COMMAND
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_clean() {
+    print_warning "This will completely reset the local validator setup"
+    print_warning "  - Stop all validators"
+    print_warning "  - Remove all data and accounts"
+    read -p "Continue? (yes/no): " confirm
+    if [[ "$confirm" =~ ^[Yy][Ee][Ss]$ ]]; then
+        cmd_down
+        print_status "Removing data directory..."
+        rm -rf "$DATA_DIR"
+        print_success "Clean reset complete"
+        print_status "Start fresh with: ./devnet start"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TSS COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_tss_keygen() {
+    require_binaries
+    print_header "TSS Key Generation"
+    print_status "Initiating TSS keygen process..."
+
+    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
+        --process-type tss-process-keygen \
+        --from genesis-acc-1 \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$DATA_DIR/validator1/.pchain" \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS keygen initiated!"
+}
+
+cmd_tss_refresh() {
+    require_binaries
+    print_header "TSS Key Refresh"
+    print_status "Initiating TSS key refresh process..."
+
+    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
+        --process-type tss-process-refresh \
+        --from genesis-acc-1 \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$DATA_DIR/validator1/.pchain" \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS refresh initiated!"
+}
+
+cmd_tss_quorum() {
+    require_binaries
+    print_header "TSS Quorum Change"
+    print_status "Initiating TSS quorum change process..."
+
+    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
+        --process-type tss-process-quorum-change \
+        --from genesis-acc-1 \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend test \
+        --home "$DATA_DIR/validator1/.pchain" \
+        --fees 1000000000000000upc \
+        --yes
+
+    print_success "TSS quorum change initiated!"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELP
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_help() {
+    echo
+    echo -e "${BOLD}${GREEN}Push Chain Local Native Network Manager${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    echo -e "${BOLD}Usage:${NC} ./devnet <command> [options]"
+    echo
+    echo -e "${BOLD}${CYAN}PRIMARY COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "start [n]" "Start n validators (default: 1)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "down" "Stop all validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "stop" "Alias for down"
+    printf "  ${BOLD}%-20s${NC}%s\n" "restart [n]" "Restart validators"
+    printf "  ${BOLD}%-20s${NC}%s\n" "status" "Show network status"
+    printf "  ${BOLD}%-20s${NC}%s\n" "logs [service]" "View logs (validator-1, universal-1, etc.)"
+    echo
+    echo -e "${BOLD}${CYAN}BUILD COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "build" "Build pchaind and puniversald binaries"
+    echo
+    echo -e "${BOLD}${CYAN}UNIVERSAL VALIDATORS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "setup-uvalidators" "Register UVs and create AuthZ grants"
+    printf "  ${BOLD}%-20s${NC}%s\n" "start-uv [n]" "Start n universal validators (default: 4)"
+    echo
+    echo -e "${BOLD}${CYAN}TSS COMMANDS${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-keygen" "Initiate TSS key generation"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-refresh" "Initiate TSS key refresh"
+    printf "  ${BOLD}%-20s${NC}%s\n" "tss-quorum" "Initiate TSS quorum change"
+    echo
+    echo -e "${BOLD}${CYAN}MAINTENANCE${NC}"
+    printf "  ${BOLD}%-20s${NC}%s\n" "clean" "Complete reset (removes all data)"
+    echo
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}QUICK START${NC}"
+    echo -e "  ./devnet ${BOLD}build${NC}        # Build binaries (if not done)"
+    echo -e "  ./devnet ${BOLD}start${NC}        # Start validator 1"
+    echo -e "  ./devnet ${BOLD}start 4${NC}      # Start all 4 validators"
+    echo
+    echo -e "${BOLD}ENDPOINTS (Validator 1)${NC}"
+    echo -e "  Core RPC:     ${YELLOW}localhost:26657${NC}"
+    echo -e "  Core gRPC:    ${YELLOW}localhost:9090${NC}"
+    echo -e "  REST API:     ${YELLOW}localhost:1317${NC}"
+    echo -e "  EVM HTTP:     ${YELLOW}localhost:8545${NC}"
+    echo
+    echo -e "${BOLD}DATA DIRECTORY${NC}"
+    echo -e "  ${YELLOW}$DATA_DIR${NC}"
+    echo
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN COMMAND HANDLER
+# ═══════════════════════════════════════════════════════════════════════════════
+case "${1:-help}" in
+    # Primary commands
+    start|up)       shift; cmd_up "$@" ;;
+    down)           cmd_down ;;
+    stop)           cmd_stop ;;
+    restart)        shift; cmd_restart "$@" ;;
+    status)         cmd_status ;;
+    logs)           shift; cmd_logs "$@" ;;
+
+    # Build commands
+    build)          cmd_build ;;
+
+    # TSS commands
+    tss-keygen)     cmd_tss_keygen ;;
+    tss-refresh)    cmd_tss_refresh ;;
+    tss-quorum)     cmd_tss_quorum ;;
+
+    # Universal validators
+    setup-uvalidators) "$SCRIPT_DIR/scripts/setup-uvalidators.sh" ;;
+    start-uv)       shift; cmd_start_uv "$@" ;;
+
+    # Maintenance
+    clean)          cmd_clean ;;
+
+    # Help
+    help|--help|-h) cmd_help ;;
+
+    *)
+        print_error "Unknown command: $1"
+        echo "Use './devnet help' for usage information"
+        exit 1
+        ;;
+esac

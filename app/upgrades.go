@@ -11,6 +11,7 @@ import (
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
+	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
@@ -18,6 +19,7 @@ import (
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
+	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
 )
 
 // Upgrades list of chain upgrades
@@ -33,6 +35,8 @@ var Upgrades = []upgrades.Upgrade{
 	evmrpcfix.NewUpgrade(),
 	tssvotegasless.NewUpgrade(),
 	removefeeabsv1.NewUpgrade(),
+	outbound.NewUpgrade(),
+	universaltxv1.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

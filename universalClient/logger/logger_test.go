@@ -6,12 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitVariants(t *testing.T) {
+func TestNewVariants(t *testing.T) {
 	t.Run("json format logs expected fields", func(t *testing.T) {
 		r, w, _ := os.Pipe()
 		defer r.Close()
@@ -20,11 +19,7 @@ func TestInitVariants(t *testing.T) {
 		os.Stdout = w
 		defer func() { os.Stdout = stdout }()
 
-		logger := Init(config.Config{
-			LogFormat:  "json",
-			LogLevel:   int(zerolog.InfoLevel),
-			LogSampler: false,
-		})
+		logger := New(int(zerolog.InfoLevel), "json", false)
 
 		logger.Info().Str("key", "value").Msg("json_test")
 
@@ -45,11 +40,7 @@ func TestInitVariants(t *testing.T) {
 		os.Stdout = w
 		defer func() { os.Stdout = stdout }()
 
-		logger := Init(config.Config{
-			LogFormat:  "console",
-			LogLevel:   int(zerolog.DebugLevel),
-			LogSampler: false,
-		})
+		logger := New(int(zerolog.DebugLevel), "console", false)
 
 		logger.Debug().Str("env", "test").Msg("console_log")
 
@@ -70,11 +61,7 @@ func TestInitVariants(t *testing.T) {
 		os.Stdout = w
 		defer func() { os.Stdout = stdout }()
 
-		logger := Init(config.Config{
-			LogFormat:  "json",
-			LogLevel:   int(zerolog.InfoLevel),
-			LogSampler: true,
-		})
+		logger := New(int(zerolog.InfoLevel), "json", true)
 
 		for i := 0; i < 20; i++ {
 			logger.Info().Int("count", i).Msg("sampled")

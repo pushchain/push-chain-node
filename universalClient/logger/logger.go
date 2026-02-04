@@ -6,15 +6,13 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
-	"github.com/pushchain/push-chain-node/universalClient/config"
 )
 
-// Init sets up the global zerolog logger based on config.
+// New creates a new zerolog logger with the specified configuration.
 // Supports console/json format, level filtering, and optional sampling.
-func Init(cfg config.Config) zerolog.Logger {
+func New(logLevel int, logFormat string, logSampler bool) zerolog.Logger {
 	var writer io.Writer = os.Stdout
-	if cfg.LogFormat != "json" {
+	if logFormat != "json" {
 		writer = zerolog.ConsoleWriter{
 			Out:        os.Stdout,
 			TimeFormat: time.RFC3339,
@@ -22,12 +20,12 @@ func Init(cfg config.Config) zerolog.Logger {
 	}
 
 	logger := zerolog.New(writer).
-		Level(zerolog.Level(cfg.LogLevel)).
+		Level(zerolog.Level(logLevel)).
 		With().
 		Timestamp().
 		Logger()
 
-	if cfg.LogSampler {
+	if logSampler {
 		logger = logger.Sample(&zerolog.BasicSampler{N: 5})
 	}
 	return logger

@@ -13,92 +13,132 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// Event type constants
 const (
-	AddFundsEventID = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	EventTypeSendFunds           = "sendFunds"
+	EventTypeOutboundObservation = "outboundObservation"
 )
 
-// EventParser handles parsing of EVM gateway events
-type EventParser struct {
-	gatewayAddr ethcommon.Address
-	config      *uregistrytypes.ChainConfig
-	eventTopics []ethcommon.Hash
-	logger      zerolog.Logger
-}
-
-// NewEventParser creates a new event parser
-func NewEventParser(
-	gatewayAddr ethcommon.Address,
-	config *uregistrytypes.ChainConfig,
-	logger zerolog.Logger,
-) *EventParser {
-	// Build event topics from config methods
-	eventTopics := make([]ethcommon.Hash, 0, len(config.GatewayMethods))
-	logger.Info().
-		Int("gateway_methods_count", len(config.GatewayMethods)).
-		Str("gateway_address", config.GatewayAddress).
-		Msg("building event topics")
-
-	for _, method := range config.GatewayMethods {
-		if method.EventIdentifier != "" {
-			eventTopics = append(eventTopics, ethcommon.HexToHash(method.EventIdentifier))
-			logger.Info().
-				Str("event_identifier", method.EventIdentifier).
-				Msg("registered event topic from config")
-		} else {
-			logger.Warn().
-				Str("event_identifier", "").
-				Msg("no event identifier provided in config for method")
-		}
-	}
-
-	// Debug log the complete cache
-	logger.Debug().
-		Interface("event_topics_cache", eventTopics).
-		Int("total_events", len(eventTopics)).
-		Msg("event topics cache built")
-
-	return &EventParser{
-		gatewayAddr: gatewayAddr,
-		config:      config,
-		eventTopics: eventTopics,
-		logger:      logger.With().Str("component", "evm_event_parser").Logger(),
-	}
-}
-
-// ParseGatewayEvent parses a log into a GatewayEvent
-func (ep *EventParser) ParseGatewayEvent(log *types.Log) *common.GatewayEvent {
+// ParseEvent parses a log into a store.Event based on the event type
+// eventType should be "sendFunds" or "outboundObservation"
+func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
 	}
 
-	eventID := log.Topics[0].Hex()
+	switch eventType {
+	case EventTypeSendFunds:
+		return parseSendFundsEvent(log, chainID, logger)
+	case EventTypeOutboundObservation:
+		return parseOutboundObservationEvent(log, chainID, logger)
+	default:
+		logger.Debug().
+			Str("event_type", eventType).
+			Str("tx_hash", log.TxHash.Hex()).
+			Msg("unknown event type, skipping")
+		return nil
+	}
+}
 
-	// Skip add_funds events
-	// @dev: we don't want to parse add_funds events
-	if eventID == AddFundsEventID {
+// parseSendFundsEvent parses a sendFunds event as UniversalTx
+func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) *store.Event {
+	if len(log.Topics) < 3 {
+		logger.Warn().
+			Msg("not enough indexed fields; nothing to do")
 		return nil
 	}
 
-	ep.logger.Debug().
+	// Create EventID in format: TxHash:LogIndex
+	eventID := fmt.Sprintf("%s:%d", log.TxHash.Hex(), log.Index)
+
+	logger.Debug().
 		Str("event_id", eventID).
 		Str("tx_hash", log.TxHash.Hex()).
-		Msg("processing gateway event")
+		Uint("log_index", log.Index).
+		Msg("processing sendFunds event")
 
-	event := &common.GatewayEvent{
-		ChainID:     ep.config.Chain,
-		TxHash:      log.TxHash.Hex(),
-		BlockNumber: log.BlockNumber,
-		EventID:     eventID,
+	// Create store.Event
+	event := &store.Event{
+		EventID:           eventID,
+		BlockHeight:       log.BlockNumber,
+		Type:              common.EventTypeInbound, // Gateway events from external chains are INBOUND
+		Status:            "PENDING",
+		ExpiryBlockHeight: 0, // 0 means no expiry
 	}
 
-	// @dev: we only support universal tx events for now
-	ep.parseUniversalTxEvent(event, log)
+	// Parse universal tx event data
+	parseUniversalTxEvent(event, log, chainID, logger)
+
+	return event
+}
+
+// parseOutboundObservationEvent parses an outboundObservation event
+// Event structure:
+// - Topics[0]: event signature hash
+// - Topics[1]: txID (bytes32)
+// - Topics[2]: universalTxID (bytes32)
+func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolog.Logger) *store.Event {
+	if len(log.Topics) < 3 {
+		logger.Warn().
+			Str("tx_hash", log.TxHash.Hex()).
+			Int("topic_count", len(log.Topics)).
+			Msg("not enough indexed fields for outboundObservation event; need at least 3 topics")
+		return nil
+	}
+
+	// Create EventID in format: TxHash:LogIndex
+	eventID := fmt.Sprintf("%s:%d", log.TxHash.Hex(), log.Index)
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_hash", log.TxHash.Hex()).
+		Uint("log_index", log.Index).
+		Msg("processing outboundObservation event")
+
+	// Extract txID from Topics[1] (bytes32)
+	txID := "0x" + hex.EncodeToString(log.Topics[1].Bytes())
+
+	// Extract universalTxID from Topics[2] (bytes32)
+	universalTxID := "0x" + hex.EncodeToString(log.Topics[2].Bytes())
+
+	// Create OutboundEvent payload
+	payload := common.OutboundEvent{
+		TxID:          txID,
+		UniversalTxID: universalTxID,
+	}
+
+	// Marshal payload to JSON
+	eventData, err := json.Marshal(payload)
+	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("tx_hash", log.TxHash.Hex()).
+			Msg("failed to marshal outbound event payload")
+		return nil
+	}
+
+	// Create store.Event
+	event := &store.Event{
+		EventID:           eventID,
+		BlockHeight:       log.BlockNumber,
+		Type:              common.EventTypeOutbound, // Outbound observation events
+		Status:            "PENDING",
+		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
+		ExpiryBlockHeight: 0,          // 0 means no expiry
+		EventData:         eventData,
+	}
+
+	logger.Debug().
+		Str("event_id", eventID).
+		Str("tx_id", txID).
+		Str("universal_tx_id", universalTxID).
+		Msg("parsed outboundObservation event")
 
 	return event
 }
@@ -116,15 +156,15 @@ UniversalTx Event:
  7. txType (uint)
  8. signatureData (bytes)
 */
-func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *types.Log) {
+func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) {
 	if len(log.Topics) < 3 {
-		ep.logger.Warn().
+		logger.Warn().
 			Msg("not enough indexed fields; nothing to do")
 		return
 	}
 
 	payload := common.UniversalTx{
-		SourceChain: event.ChainID,
+		SourceChain: chainID,
 		Sender:      ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
 		Recipient:   ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
 		LogIndex:    log.Index,
@@ -143,7 +183,7 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 	// Need at least 5 words for the static head we rely on.
 	if len(log.Data) < 32*5 {
 		b, _ := json.Marshal(payload)
-		event.Payload = b
+		event.EventData = b
 		return
 	}
 
@@ -205,7 +245,7 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 		if hexStr, ok := readBytesAt(dataOffset); ok {
 			up, err := decodeUniversalPayload(hexStr)
 			if err != nil {
-				ep.logger.Warn().
+				logger.Warn().
 					Str("hex_str", hexStr).
 					Err(err).
 					Msg("failed to decode universal payload")
@@ -256,9 +296,13 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 		}
 	}
 
-	// Marshal and store into event.Payload
+	// Marshal and store into event.EventData
 	if b, err := json.Marshal(payload); err == nil {
-		event.Payload = b
+		event.EventData = b
+	} else {
+		logger.Warn().
+			Err(err).
+			Msg("failed to marshal universal tx payload")
 	}
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
@@ -269,7 +313,7 @@ func (ep *EventParser) parseUniversalTxEvent(event *common.GatewayEvent, log *ty
 	}
 }
 
-// DecodeUniversalPayload takes a hex string and unmarshals it into UniversalPayload
+// decodeUniversalPayload takes a hex string and decodes it into UniversalPayload
 func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 	// Handle empty string case
 	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
@@ -293,28 +337,17 @@ func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
 		return nil, nil
 	}
 
-	// Try to decode as ABI-encoded UniversalPayload first
-	up, err := decodeABIUniversalPayload(bz)
-	if err != nil {
-		return nil, err
-	}
-
-	return up, nil
-}
-
-// decodeABIUniversalPayload decodes ABI-encoded UniversalPayload data using standard library
-func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
 	// The data starts with an offset to where the actual tuple data begins
-	if len(data) < 32 {
-		return nil, fmt.Errorf("insufficient data length: got %d, need at least 32", len(data))
+	if len(bz) < 32 {
+		return nil, fmt.Errorf("insufficient data length: got %d, need at least 32", len(bz))
 	}
 
 	// Read the offset (first 32 bytes)
-	offset := new(big.Int).SetBytes(data[:32]).Uint64()
+	offset := new(big.Int).SetBytes(bz[:32]).Uint64()
 
 	// The actual tuple data starts at the offset
-	if int(offset) >= len(data) {
-		return nil, fmt.Errorf("offset %d exceeds data length %d", offset, len(data))
+	if int(offset) >= len(bz) {
+		return nil, fmt.Errorf("offset %d exceeds data length %d", offset, len(bz))
 	}
 
 	// Define the UniversalPayload struct components
@@ -343,7 +376,7 @@ func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
 
 	// Unpack the tuple data using the full data (not just tupleData)
 	// because dynamic fields like bytes are stored after the tuple
-	decoded, err := args.Unpack(data)
+	decoded, err := args.Unpack(bz)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack tuple data: %w", err)
 	}
@@ -447,9 +480,4 @@ func decodeABIUniversalPayload(data []byte) (*uetypes.UniversalPayload, error) {
 	}
 
 	return up, nil
-}
-
-// GetEventTopics returns the configured event topics
-func (ep *EventParser) GetEventTopics() []ethcommon.Hash {
-	return ep.eventTopics
 }

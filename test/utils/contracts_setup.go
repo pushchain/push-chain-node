@@ -52,6 +52,10 @@ func setupUESystem(
 	err = setupPrc20Contract(t, app, ctx, prc20ABI, opts, accounts)
 	require.NoError(t, err)
 
+	// setup UniversalGatewayPC
+	err = setupUniversalGatewayPC(t, app, ctx, prc20ABI, opts)
+	require.NoError(t, err)
+
 	return nil
 }
 
@@ -310,4 +314,68 @@ func DeployContract(
 	app.EVMKeeper.SetCode(ctx, codeHash.Bytes(), bytecode)
 
 	return contractAddr
+}
+
+// ---------------------------------------------------------------------------------------
+// NOTE: The UniversalGatewayPC contract deployed here is a TEST-ONLY version.
+//
+// The withdraw() and withdrawAndExecute() functions inside this test contract:
+//
+//   - DO NOT run validation (_validateCommon)
+//   - DO NOT compute gas fees via UniversalCore
+//   - DO NOT pull PRC20 fees into VaultPC
+//   - DO NOT burn PRC20 tokens
+//   - DO NOT interact with any external contracts
+//
+// Instead, both functions simply **emit UniversalTxWithdraw with hardcoded values**:
+//
+//	chainId   = "eip155:11155111"
+//	gasToken  = fixed test address
+//	gasFee    = 111
+//
+// This behavior is intentional because Cosmos integration tests only need to verify:
+//   - ABI correctness
+//   - Event emission structure
+//   - Outbound pipeline handling
+//   - UE/UEM processing logic on the Cosmos side
+func setupUniversalGatewayPC(
+	t *testing.T,
+	app *app.ChainApp,
+	ctx sdk.Context,
+	gatewayABI abi.ABI,
+	opts AppSetupOptions,
+) error {
+
+	gatewayAddr := opts.Addresses.UniversalGatewayPCAddr
+	universalCoreAddr := opts.Addresses.HandlerAddr
+	vaultPCAddr := opts.Addresses.EVMImplAddr
+
+	// 1. Deploy bytecode of UniversalGatewayPC at reserved address
+	_ = DeployContract(
+		t,
+		app,
+		ctx,
+		gatewayAddr,
+		UNIVERSAL_GATEWAY_PC_BYTECODE,
+	)
+
+	// 2. Manually set storage because initialize() cannot be used
+	//
+	// Storage layout:
+	//   slot 0 → UNIVERSAL_CORE   (address)
+	//   slot 1 → VAULT_PC         (address)
+	app.EVMKeeper.SetState(
+		ctx,
+		gatewayAddr,
+		common.BigToHash(big.NewInt(0)), // key
+		common.LeftPadBytes(universalCoreAddr.Bytes(), 32), // value []byte
+	)
+
+	app.EVMKeeper.SetState(
+		ctx,
+		gatewayAddr,
+		common.BigToHash(big.NewInt(1)), // key
+		common.LeftPadBytes(vaultPCAddr.Bytes(), 32), // value []byte
+	)
+	return nil
 }

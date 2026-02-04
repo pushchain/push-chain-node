@@ -1,21 +1,23 @@
+// Package pushcore provides a client for interacting with Push Chain gRPC endpoints.
+// It implements a fan-out pattern that tries multiple endpoints in round-robin order
+// to provide high availability and fault tolerance.
 package pushcore
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -25,22 +27,38 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Client is a minimal fan-out client over multiple gRPC endpoints.
-// Each call tries endpoints in round-robin order and returns the first success.
+// Client is a fan-out client that connects to multiple Push Chain gRPC endpoints.
+// It implements round-robin failover, trying each endpoint in sequence until one succeeds.
 type Client struct {
-	logger             zerolog.Logger
-	eps                []uregistrytypes.QueryClient
-	uvalidatorClients  []uvalidatortypes.QueryClient
-	utssClients        []utsstypes.QueryClient
-	cmtClients         []cmtservice.ServiceClient
-	txClients          []tx.ServiceClient // for querying transactions by events
-	conns              []*grpc.ClientConn // owned connections for Close()
-	rr                 uint32             // round-robin counter
+	logger            zerolog.Logger                // Logger for client operations
+	eps               []uregistrytypes.QueryClient  // Registry query clients
+	uvalidatorClients []uvalidatortypes.QueryClient // Universal validator query clients
+	utssClients       []utsstypes.QueryClient       // TSS query clients
+	uexecutorClients  []uexecutortypes.QueryClient  // Executor query clients (for gas price queries)
+	cmtClients        []cmtservice.ServiceClient    // CometBFT service clients
+	txClients         []tx.ServiceClient            // Transaction service clients
+	conns             []*grpc.ClientConn            // Owned gRPC connections (for cleanup)
+	rr                uint32                        // Round-robin counter for endpoint selection
 }
 
-// New dials the provided gRPC URLs (best-effort) and builds a Client.
-// - Uses insecure transport by default.
-// - Skips endpoints that fail to dial; requires at least one success.
+// TxResult represents a transaction result with its associated events and metadata.
+type TxResult struct {
+	TxHash     string            // Transaction hash
+	Height     int64             // Block height where the transaction was included
+	TxResponse *tx.GetTxResponse // Full transaction response from the chain
+}
+
+// New creates a new Client by dialing the provided gRPC URLs.
+// It attempts to connect to all endpoints and skips any that fail to dial.
+// At least one endpoint must succeed, otherwise an error is returned.
+//
+// Parameters:
+//   - urls: List of gRPC endpoint URLs (schemes are automatically detected)
+//   - logger: Logger instance for client operations
+//
+// Returns:
+//   - *Client: A configured client instance, or nil on error
+//   - error: Error if all endpoints fail to connect
 func New(urls []string, logger zerolog.Logger) (*Client, error) {
 	if len(urls) == 0 {
 		return nil, errors.New("pushcore: at least one gRPC URL is required")
@@ -61,6 +79,7 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 		c.eps = append(c.eps, uregistrytypes.NewQueryClient(conn))
 		c.uvalidatorClients = append(c.uvalidatorClients, uvalidatortypes.NewQueryClient(conn))
 		c.utssClients = append(c.utssClients, utsstypes.NewQueryClient(conn))
+		c.uexecutorClients = append(c.uexecutorClients, uexecutortypes.NewQueryClient(conn))
 		c.cmtClients = append(c.cmtClients, cmtservice.NewServiceClient(conn))
 		c.txClients = append(c.txClients, tx.NewServiceClient(conn))
 	}
@@ -74,7 +93,8 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 	return c, nil
 }
 
-// Close closes all owned connections.
+// Close gracefully closes all gRPC connections owned by the client.
+// Returns the first error encountered, if any.
 func (c *Client) Close() error {
 	var firstErr error
 	for _, conn := range c.conns {
@@ -86,49 +106,354 @@ func (c *Client) Close() error {
 	c.eps = nil
 	c.uvalidatorClients = nil
 	c.utssClients = nil
+	c.uexecutorClients = nil
 	c.cmtClients = nil
 	c.txClients = nil
 	return firstErr
 }
 
-// GetAllChainConfigs tries each endpoint once in round-robin order.
-// If all endpoints fail, returns the last error.
-func (c *Client) GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
-	if len(c.eps) == 0 {
-		return nil, errors.New("pushcore: no endpoints configured")
+// retryWithRoundRobin executes a function across multiple endpoints in round-robin order.
+// It tries each endpoint until one succeeds or all fail.
+//
+// Parameters:
+//   - numClients: Number of client endpoints available
+//   - rrCounter: Pointer to round-robin counter (atomic)
+//   - operation: Function to execute for each attempt, receives the endpoint index
+//   - operationName: Name of the operation (for logging and error messages)
+//   - logger: Logger for debug messages
+//
+// Returns:
+//   - T: Result from the operation if successful
+//   - error: Error if all endpoints fail
+func retryWithRoundRobin[T any](
+	numClients int,
+	rrCounter *uint32,
+	operation func(idx int) (T, error),
+	operationName string,
+	logger zerolog.Logger,
+) (T, error) {
+	var zero T
+	if numClients == 0 {
+		return zero, errors.New("pushcore: no endpoints configured")
 	}
 
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.eps)
+	start := int(atomic.AddUint32(rrCounter, 1)-1) % numClients
 
 	var lastErr error
-	for i := 0; i < len(c.eps); i++ {
-		idx := (start + i) % len(c.eps)
-		qc := c.eps[idx]
+	for i := 0; i < numClients; i++ {
+		idx := (start + i) % numClients
 
-		resp, err := qc.AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
+		result, err := operation(idx)
 		if err == nil {
-			return resp.Configs, nil
+			return result, nil
 		}
 
 		lastErr = err
-		c.logger.Debug().
+		logger.Debug().
 			Int("attempt", i+1).
 			Int("endpoint_index", idx).
 			Err(err).
-			Msg("GetAllChainConfigs failed; trying next endpoint")
+			Msgf("%s failed; trying next endpoint", operationName)
 	}
 
-	return nil, fmt.Errorf("pushcore: GetAllChainConfigs failed on all %d endpoints: %w", len(c.eps), lastErr)
+	return zero, fmt.Errorf("pushcore: %s failed on all %d endpoints: %w", operationName, numClients, lastErr)
+}
+
+// GetAllChainConfigs retrieves all chain configurations from Push Chain.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//
+// Returns:
+//   - []*uregistrytypes.ChainConfig: List of chain configurations
+//   - error: Error if all endpoints fail
+func (c *Client) GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
+	return retryWithRoundRobin(
+		len(c.eps),
+		&c.rr,
+		func(idx int) ([]*uregistrytypes.ChainConfig, error) {
+			resp, err := c.eps[idx].AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
+			if err != nil {
+				return nil, err
+			}
+			return resp.Configs, nil
+		},
+		"GetAllChainConfigs",
+		c.logger,
+	)
+}
+
+// GetLatestBlock retrieves the latest block from Push Chain.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//
+// Returns:
+//   - uint64: Latest block height
+//   - error: Error if all endpoints fail
+func (c *Client) GetLatestBlock(ctx context.Context) (uint64, error) {
+	return retryWithRoundRobin(
+		len(c.cmtClients),
+		&c.rr,
+		func(idx int) (uint64, error) {
+			resp, err := c.cmtClients[idx].GetLatestBlock(ctx, &cmtservice.GetLatestBlockRequest{})
+			if err != nil {
+				return 0, err
+			}
+			if resp.SdkBlock == nil {
+				return 0, errors.New("pushcore: SdkBlock is nil")
+			}
+			return uint64(resp.SdkBlock.Header.Height), nil
+		},
+		"GetLatestBlock",
+		c.logger,
+	)
+}
+
+// GetAllUniversalValidators retrieves all universal validators from Push Chain.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//
+// Returns:
+//   - []*uvalidatortypes.UniversalValidator: List of universal validators
+//   - error: Error if all endpoints fail
+func (c *Client) GetAllUniversalValidators(ctx context.Context) ([]*uvalidatortypes.UniversalValidator, error) {
+	return retryWithRoundRobin(
+		len(c.uvalidatorClients),
+		&c.rr,
+		func(idx int) ([]*uvalidatortypes.UniversalValidator, error) {
+			resp, err := c.uvalidatorClients[idx].AllUniversalValidators(ctx, &uvalidatortypes.QueryUniversalValidatorsSetRequest{})
+			if err != nil {
+				return nil, err
+			}
+			return resp.UniversalValidator, nil
+		},
+		"GetAllUniversalValidators",
+		c.logger,
+	)
+}
+
+// GetCurrentKey retrieves the current TSS key from Push Chain.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//
+// Returns:
+//   - *utsstypes.TssKey: TSS key
+//   - error: Error if all endpoints fail or no key exists
+func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) (*utsstypes.TssKey, error) {
+			resp, err := c.utssClients[idx].CurrentKey(ctx, &utsstypes.QueryCurrentKeyRequest{})
+			if err != nil {
+				return nil, err
+			}
+			if resp.Key == nil {
+				return nil, errors.New("pushcore: no TSS key found")
+			}
+			return resp.Key, nil
+		},
+		"GetCurrentKey",
+		c.logger,
+	)
+}
+
+// GetTxsByEvents queries transactions matching the given event query.
+// The query should follow Cosmos SDK event query format, e.g., "tss_process_initiated.process_id EXISTS".
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - eventQuery: Cosmos SDK event query string
+//   - minHeight: Minimum block height to search (0 means no minimum)
+//   - maxHeight: Maximum block height to search (0 means no maximum)
+//   - limit: Maximum number of results to return (0 defaults to 100)
+//
+// Returns:
+//   - []*TxResult: List of matching transaction results
+//   - error: Error if all endpoints fail
+func (c *Client) GetTxsByEvents(ctx context.Context, eventQuery string, minHeight, maxHeight uint64, limit uint64) ([]*TxResult, error) {
+	// Build the query events (same for all attempts)
+	events := []string{eventQuery}
+	if minHeight > 0 {
+		events = append(events, fmt.Sprintf("tx.height>=%d", minHeight))
+	}
+	if maxHeight > 0 {
+		events = append(events, fmt.Sprintf("tx.height<=%d", maxHeight))
+	}
+
+	// Set pagination limit
+	pageLimit := limit
+	if pageLimit == 0 {
+		pageLimit = 100 // default limit
+	}
+
+	// Join events with AND to create query string (SDK v0.50+ uses Query field)
+	queryString := strings.Join(events, " AND ")
+
+	return retryWithRoundRobin(
+		len(c.txClients),
+		&c.rr,
+		func(idx int) ([]*TxResult, error) {
+			req := &tx.GetTxsEventRequest{
+				Query: queryString,
+				Pagination: &query.PageRequest{
+					Limit: pageLimit,
+				},
+				OrderBy: tx.OrderBy_ORDER_BY_ASC,
+			}
+
+			resp, err := c.txClients[idx].GetTxsEvent(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+
+			results := make([]*TxResult, 0, len(resp.TxResponses))
+			for _, txResp := range resp.TxResponses {
+				results = append(results, &TxResult{
+					TxHash: txResp.TxHash,
+					Height: txResp.Height,
+					TxResponse: &tx.GetTxResponse{
+						Tx:         resp.Txs[len(results)],
+						TxResponse: txResp,
+					},
+				})
+			}
+			return results, nil
+		},
+		"GetTxsByEvents",
+		c.logger,
+	)
+}
+
+// GetGasPrice retrieves the median gas price for a specific chain from the on-chain oracle.
+// The gas price is voted on by universal validators and stored on-chain.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - chainID: Chain identifier in CAIP-2 format (e.g., "eip155:84532" for Base Sepolia)
+//
+// Returns:
+//   - *big.Int: Median gas price in the chain's native unit (Wei for EVM chains, lamports for Solana)
+//   - error: Error if all endpoints fail or chainID is invalid
+func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, error) {
+	if chainID == "" {
+		return nil, errors.New("pushcore: chainID is required")
+	}
+
+	return retryWithRoundRobin(
+		len(c.uexecutorClients),
+		&c.rr,
+		func(idx int) (*big.Int, error) {
+			resp, err := c.uexecutorClients[idx].GasPrice(ctx, &uexecutortypes.QueryGasPriceRequest{
+				ChainId: chainID,
+			})
+			if err != nil {
+				return nil, err
+			}
+			if resp.GasPrice == nil {
+				return nil, errors.New("pushcore: GasPrice response is nil")
+			}
+
+			// Get the median price using MedianIndex
+			if len(resp.GasPrice.Prices) == 0 {
+				return nil, fmt.Errorf("pushcore: no gas prices available for chain %s", chainID)
+			}
+
+			medianIdx := resp.GasPrice.MedianIndex
+			if medianIdx >= uint64(len(resp.GasPrice.Prices)) {
+				// Fallback to first price if median index is out of bounds
+				medianIdx = 0
+			}
+
+			medianPrice := resp.GasPrice.Prices[medianIdx]
+			return new(big.Int).SetUint64(medianPrice), nil
+		},
+		"GetGasPrice",
+		c.logger,
+	)
+}
+
+// GetGranteeGrants queries AuthZ grants for a grantee using round-robin logic.
+// This function only queries and returns raw grant data; it does not perform validation or processing.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - granteeAddr: Address of the grantee to query grants for
+//
+// Returns:
+//   - *authz.QueryGranteeGrantsResponse: Raw grant response from the chain
+//   - error: Error if all endpoints fail
+func (c *Client) GetGranteeGrants(ctx context.Context, granteeAddr string) (*authz.QueryGranteeGrantsResponse, error) {
+	// Create authz clients from existing connections
+	authzClients := make([]authz.QueryClient, len(c.conns))
+	for i, conn := range c.conns {
+		authzClients[i] = authz.NewQueryClient(conn)
+	}
+
+	return retryWithRoundRobin(
+		len(authzClients),
+		&c.rr,
+		func(idx int) (*authz.QueryGranteeGrantsResponse, error) {
+			return authzClients[idx].GranteeGrants(ctx, &authz.QueryGranteeGrantsRequest{
+				Grantee: granteeAddr,
+			})
+		},
+		"GetGranteeGrants",
+		c.logger,
+	)
+}
+
+// GetAccount retrieves account information for a given address.
+// It tries each endpoint in round-robin order until one succeeds.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - address: Bech32 address of the account
+//
+// Returns:
+//   - *authtypes.QueryAccountResponse: Account response
+//   - error: Error if all endpoints fail
+func (c *Client) GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+	// Create auth clients from existing connections
+	authClients := make([]authtypes.QueryClient, len(c.conns))
+	for i, conn := range c.conns {
+		authClients[i] = authtypes.NewQueryClient(conn)
+	}
+
+	return retryWithRoundRobin(
+		len(authClients),
+		&c.rr,
+		func(idx int) (*authtypes.QueryAccountResponse, error) {
+			return authClients[idx].Account(ctx, &authtypes.QueryAccountRequest{
+				Address: address,
+			})
+		},
+		"GetAccount",
+		c.logger,
+	)
 }
 
 // CreateGRPCConnection creates a gRPC connection with appropriate transport security.
-// It automatically detects whether to use TLS based on the URL scheme (https:// or http://).
+// It automatically detects whether to use TLS based on the URL scheme.
+//
 // The function handles:
 //   - https:// URLs: Uses TLS with default credentials
 //   - http:// or no scheme: Uses insecure connection
 //   - Automatically adds default port 9090 if no port is specified
 //
-// The endpoint is processed to remove the scheme prefix before dialing.
+// Parameters:
+//   - endpoint: gRPC endpoint URL (scheme is optional, port defaults to 9090)
+//
+// Returns:
+//   - *grpc.ClientConn: gRPC client connection
+//   - error: Error if connection fails
 func CreateGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("empty endpoint provided")
@@ -176,13 +501,40 @@ func CreateGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-// ExtractHostnameFromURL extracts the hostname from a URL string.
-// It handles various URL formats including:
-//   - Full URLs with scheme (https://example.com:443)
-//   - URLs without scheme (example.com:9090)
-//   - Plain hostnames (example.com)
+// BroadcastTx broadcasts a signed transaction to the chain.
+// It tries each endpoint in round-robin order until one succeeds.
 //
-// The function returns just the hostname without port or scheme.
+// Parameters:
+//   - ctx: Context for the request
+//   - txBytes: Signed transaction bytes
+//
+// Returns:
+//   - *tx.BroadcastTxResponse: Broadcast response containing tx hash and result
+//   - error: Error if all endpoints fail
+func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte) (*tx.BroadcastTxResponse, error) {
+	return retryWithRoundRobin(
+		len(c.txClients),
+		&c.rr,
+		func(idx int) (*tx.BroadcastTxResponse, error) {
+			return c.txClients[idx].BroadcastTx(ctx, &tx.BroadcastTxRequest{
+				TxBytes: txBytes,
+				Mode:    tx.BroadcastMode_BROADCAST_MODE_SYNC,
+			})
+		},
+		"BroadcastTx",
+		c.logger,
+	)
+}
+
+// ExtractHostnameFromURL extracts the hostname from a URL string.
+// It handles various URL formats including full URLs with scheme, URLs without scheme, and plain hostnames.
+//
+// Parameters:
+//   - grpcURL: URL string in any format (with or without scheme/port)
+//
+// Returns:
+//   - string: Hostname without port or scheme
+//   - error: Error if hostname cannot be extracted
 func ExtractHostnameFromURL(grpcURL string) (string, error) {
 	if grpcURL == "" {
 		return "", fmt.Errorf("empty URL provided")
@@ -223,320 +575,4 @@ func ExtractHostnameFromURL(grpcURL string) (string, error) {
 	}
 
 	return hostname, nil
-}
-
-// QueryGrantsWithRetry queries AuthZ grants for a grantee with retry logic
-func QueryGrantsWithRetry(grpcURL, granteeAddr string, cdc *codec.ProtoCodec, log zerolog.Logger) (string, []string, error) {
-	// Simple retry: 15s, then 30s
-	timeouts := []time.Duration{15 * time.Second, 30 * time.Second}
-
-	for attempt, timeout := range timeouts {
-		conn, err := CreateGRPCConnection(grpcURL)
-		if err != nil {
-			return "", nil, err
-		}
-		defer conn.Close()
-
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-
-		// Single gRPC call to get all grants
-		authzClient := authz.NewQueryClient(conn)
-		grantResp, err := authzClient.GranteeGrants(ctx, &authz.QueryGranteeGrantsRequest{
-			Grantee: granteeAddr,
-		})
-
-		if err == nil {
-			// Process the grants
-			return processGrants(grantResp, granteeAddr, cdc)
-		}
-
-		// On timeout, retry with longer timeout
-		if ctx.Err() == context.DeadlineExceeded && attempt < len(timeouts)-1 {
-			log.Warn().
-				Int("attempt", attempt+1).
-				Dur("timeout", timeout).
-				Msg("Timeout querying grants, retrying...")
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		return "", nil, fmt.Errorf("failed to query grants: %w", err)
-	}
-
-	return "", nil, fmt.Errorf("failed after all retries")
-}
-
-// processGrants processes the AuthZ grant response
-func processGrants(grantResp *authz.QueryGranteeGrantsResponse, granteeAddr string, cdc *codec.ProtoCodec) (string, []string, error) {
-	if len(grantResp.Grants) == 0 {
-		return "", nil, fmt.Errorf("no AuthZ grants found. Please grant permissions:\npuniversald tx authz grant %s generic --msg-type=/uexecutor.v1.MsgVoteInbound --from <granter>", granteeAddr)
-	}
-
-	authorizedMessages := make(map[string]string) // msgType -> granter
-	var granter string
-
-	// Check each grant for our required message types
-	for _, grant := range grantResp.Grants {
-		if grant.Authorization == nil {
-			continue
-		}
-
-		// Only process GenericAuthorization
-		if grant.Authorization.TypeUrl != "/cosmos.authz.v1beta1.GenericAuthorization" {
-			continue
-		}
-
-		msgType, err := extractMessageType(grant.Authorization, cdc)
-		if err != nil {
-			continue // Skip if we can't extract the message type
-		}
-
-		// Check if this is a required message
-		for _, requiredMsg := range constant.SupportedMessages {
-			if msgType == requiredMsg {
-				// Check if grant is not expired
-				if grant.Expiration != nil && grant.Expiration.Before(time.Now()) {
-					continue // Skip expired grants
-				}
-
-				authorizedMessages[msgType] = grant.Granter
-				if granter == "" {
-					granter = grant.Granter
-				}
-				break
-			}
-		}
-	}
-
-	// Check if all required messages are authorized
-	var missingMessages []string
-	for _, requiredMsg := range constant.SupportedMessages {
-		if _, ok := authorizedMessages[requiredMsg]; !ok {
-			missingMessages = append(missingMessages, requiredMsg)
-		}
-	}
-
-	if len(missingMessages) > 0 {
-		return "", nil, fmt.Errorf("missing AuthZ grants for: %v\nGrant permissions using:\npuniversald tx authz grant %s generic --msg-type=<message_type> --from <granter>", missingMessages, granteeAddr)
-	}
-
-	// Return authorized messages
-	authorizedList := make([]string, 0, len(authorizedMessages))
-	for msgType := range authorizedMessages {
-		authorizedList = append(authorizedList, msgType)
-	}
-
-	return granter, authorizedList, nil
-}
-
-// extractMessageType extracts the message type from a GenericAuthorization
-func extractMessageType(authzAny *codectypes.Any, cdc *codec.ProtoCodec) (string, error) {
-	var genericAuth authz.GenericAuthorization
-	if err := cdc.Unmarshal(authzAny.Value, &genericAuth); err != nil {
-		return "", err
-	}
-	return genericAuth.Msg, nil
-}
-
-// GetLatestBlockNum returns the latest block number from Push Chain.
-// It tries each endpoint in round-robin order until one succeeds.
-func (c *Client) GetLatestBlockNum() (uint64, error) {
-	if len(c.cmtClients) == 0 {
-		return 0, errors.New("pushcore: no endpoints configured")
-	}
-
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.cmtClients)
-
-	var lastErr error
-	for i := 0; i < len(c.cmtClients); i++ {
-		idx := (start + i) % len(c.cmtClients)
-		client := c.cmtClients[idx]
-
-		resp, err := client.GetLatestBlock(context.Background(), &cmtservice.GetLatestBlockRequest{})
-		if err == nil && resp.SdkBlock != nil {
-			return uint64(resp.SdkBlock.Header.Height), nil
-		}
-
-		lastErr = err
-		c.logger.Debug().
-			Int("attempt", i+1).
-			Int("endpoint_index", idx).
-			Err(err).
-			Msg("GetLatestBlockNum failed; trying next endpoint")
-	}
-
-	return 0, fmt.Errorf("pushcore: GetLatestBlockNum failed on all %d endpoints: %w", len(c.cmtClients), lastErr)
-}
-
-// GetUniversalValidators returns all universal validators from Push Chain.
-// It tries each endpoint in round-robin order until one succeeds.
-func (c *Client) GetUniversalValidators() ([]*uvalidatortypes.UniversalValidator, error) {
-	if len(c.uvalidatorClients) == 0 {
-		return nil, errors.New("pushcore: no endpoints configured")
-	}
-
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.uvalidatorClients)
-
-	var lastErr error
-	for i := 0; i < len(c.uvalidatorClients); i++ {
-		idx := (start + i) % len(c.uvalidatorClients)
-		client := c.uvalidatorClients[idx]
-
-		resp, err := client.AllUniversalValidators(context.Background(), &uvalidatortypes.QueryUniversalValidatorsSetRequest{})
-		if err == nil {
-			return resp.UniversalValidator, nil
-		}
-
-		lastErr = err
-		c.logger.Debug().
-			Int("attempt", i+1).
-			Int("endpoint_index", idx).
-			Err(err).
-			Msg("GetUniversalValidators failed; trying next endpoint")
-	}
-
-	return nil, fmt.Errorf("pushcore: GetUniversalValidators failed on all %d endpoints: %w", len(c.uvalidatorClients), lastErr)
-}
-
-// GetCurrentTSSKeyId returns the current TSS key ID from Push Chain.
-// It tries each endpoint in round-robin order until one succeeds.
-// Returns empty string if no key exists.
-func (c *Client) GetCurrentTSSKeyId() (string, error) {
-	if len(c.utssClients) == 0 {
-		return "", errors.New("pushcore: no endpoints configured")
-	}
-
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.utssClients)
-
-	var lastErr error
-	for i := 0; i < len(c.utssClients); i++ {
-		idx := (start + i) % len(c.utssClients)
-		client := c.utssClients[idx]
-
-		resp, err := client.CurrentKey(context.Background(), &utsstypes.QueryCurrentKeyRequest{})
-		if err == nil {
-			if resp.Key != nil {
-				return resp.Key.KeyId, nil
-			}
-			return "", nil // No key exists
-		}
-
-		lastErr = err
-		c.logger.Debug().
-			Int("attempt", i+1).
-			Int("endpoint_index", idx).
-			Err(err).
-			Msg("GetCurrentTSSKeyId failed; trying next endpoint")
-	}
-
-	return "", fmt.Errorf("pushcore: GetCurrentTSSKeyId failed on all %d endpoints: %w", len(c.utssClients), lastErr)
-}
-
-// TxResult represents a transaction result with its events.
-type TxResult struct {
-	TxHash      string
-	Height      int64
-	TxResponse  *tx.GetTxResponse
-}
-
-// GetTxsByEvents queries transactions matching the given event query.
-// The query should follow Cosmos SDK event query format, e.g., "tss_process_initiated.process_id EXISTS"
-// minHeight and maxHeight can be used to filter by block range (0 means no limit).
-func (c *Client) GetTxsByEvents(eventQuery string, minHeight, maxHeight uint64, limit uint64) ([]*TxResult, error) {
-	if len(c.txClients) == 0 {
-		return nil, errors.New("pushcore: no endpoints configured")
-	}
-
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.txClients)
-
-	var lastErr error
-	for i := 0; i < len(c.txClients); i++ {
-		idx := (start + i) % len(c.txClients)
-		client := c.txClients[idx]
-
-		// Build the query events
-		events := []string{eventQuery}
-
-		// Add height range filters if specified
-		if minHeight > 0 {
-			events = append(events, fmt.Sprintf("tx.height>=%d", minHeight))
-		}
-		if maxHeight > 0 {
-			events = append(events, fmt.Sprintf("tx.height<=%d", maxHeight))
-		}
-
-		// Set pagination limit
-		pageLimit := limit
-		if pageLimit == 0 {
-			pageLimit = 100 // default limit
-		}
-
-		// Join events with AND to create query string (SDK v0.50+ uses Query field)
-		queryString := strings.Join(events, " AND ")
-
-		req := &tx.GetTxsEventRequest{
-			Query: queryString,
-			Pagination: &query.PageRequest{
-				Limit: pageLimit,
-			},
-			OrderBy: tx.OrderBy_ORDER_BY_ASC,
-		}
-
-		resp, err := client.GetTxsEvent(context.Background(), req)
-		if err == nil {
-			results := make([]*TxResult, 0, len(resp.TxResponses))
-			for _, txResp := range resp.TxResponses {
-				results = append(results, &TxResult{
-					TxHash: txResp.TxHash,
-					Height: txResp.Height,
-					TxResponse: &tx.GetTxResponse{
-						Tx:         resp.Txs[len(results)],
-						TxResponse: txResp,
-					},
-				})
-			}
-			return results, nil
-		}
-
-		lastErr = err
-		c.logger.Debug().
-			Int("attempt", i+1).
-			Int("endpoint_index", idx).
-			Err(err).
-			Msg("GetTxsByEvents failed; trying next endpoint")
-	}
-
-	return nil, fmt.Errorf("pushcore: GetTxsByEvents failed on all %d endpoints: %w", len(c.txClients), lastErr)
-}
-
-// GetBlockByHeight returns block information for a specific height.
-func (c *Client) GetBlockByHeight(height int64) (*cmtservice.GetBlockByHeightResponse, error) {
-	if len(c.cmtClients) == 0 {
-		return nil, errors.New("pushcore: no endpoints configured")
-	}
-
-	start := int(atomic.AddUint32(&c.rr, 1)-1) % len(c.cmtClients)
-
-	var lastErr error
-	for i := 0; i < len(c.cmtClients); i++ {
-		idx := (start + i) % len(c.cmtClients)
-		client := c.cmtClients[idx]
-
-		resp, err := client.GetBlockByHeight(context.Background(), &cmtservice.GetBlockByHeightRequest{
-			Height: height,
-		})
-		if err == nil {
-			return resp, nil
-		}
-
-		lastErr = err
-		c.logger.Debug().
-			Int("attempt", i+1).
-			Int("endpoint_index", idx).
-			Err(err).
-			Msg("GetBlockByHeight failed; trying next endpoint")
-	}
-
-	return nil, fmt.Errorf("pushcore: GetBlockByHeight failed on all %d endpoints: %w", len(c.cmtClients), lastErr)
 }

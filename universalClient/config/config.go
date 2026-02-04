@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-const (
-	configSubdir   = "config"
-	configFileName = "pushuv_config.json"
+	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 //go:embed default_config.json
@@ -49,17 +46,6 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 	if cfg.MaxRetries == 0 && defaultCfg != nil {
 		cfg.MaxRetries = defaultCfg.MaxRetries
 	}
-	if cfg.RetryBackoffSeconds == 0 && defaultCfg != nil {
-		cfg.RetryBackoffSeconds = defaultCfg.RetryBackoffSeconds
-	}
-
-	// Set defaults for startup config from default config
-	if cfg.InitialFetchRetries == 0 && defaultCfg != nil {
-		cfg.InitialFetchRetries = defaultCfg.InitialFetchRetries
-	}
-	if cfg.InitialFetchTimeoutSeconds == 0 && defaultCfg != nil {
-		cfg.InitialFetchTimeoutSeconds = defaultCfg.InitialFetchTimeoutSeconds
-	}
 
 	// Set defaults for registry config from default config
 	if len(cfg.PushChainGRPCURLs) == 0 && defaultCfg != nil {
@@ -89,51 +75,14 @@ func validateConfig(cfg *Config, defaultCfg *Config) error {
 		cfg.KeyringBackend = defaultCfg.KeyringBackend
 	}
 
-	// Set defaults for event monitoring from default config
-	if cfg.EventPollingIntervalSeconds == 0 && defaultCfg != nil {
-		cfg.EventPollingIntervalSeconds = defaultCfg.EventPollingIntervalSeconds
-	}
-
-	// Set defaults for transaction cleanup from default config
-	if cfg.TransactionCleanupIntervalSeconds == 0 && defaultCfg != nil {
-		cfg.TransactionCleanupIntervalSeconds = defaultCfg.TransactionCleanupIntervalSeconds
-	}
-	if cfg.TransactionRetentionPeriodSeconds == 0 && defaultCfg != nil {
-		cfg.TransactionRetentionPeriodSeconds = defaultCfg.TransactionRetentionPeriodSeconds
-	}
-
-	// Initialize ChainConfigs if nil or empty
-	if (cfg.ChainConfigs == nil || len(cfg.ChainConfigs) == 0) && defaultCfg != nil {
+	// Initialize ChainConfigs if empty
+	if len(cfg.ChainConfigs) == 0 && defaultCfg != nil {
 		cfg.ChainConfigs = defaultCfg.ChainConfigs
 	}
 
-	// Set defaults for RPC pool config from default config
-	if defaultCfg != nil {
-		if cfg.RPCPoolConfig.HealthCheckIntervalSeconds == 0 {
-			cfg.RPCPoolConfig.HealthCheckIntervalSeconds = defaultCfg.RPCPoolConfig.HealthCheckIntervalSeconds
-		}
-		if cfg.RPCPoolConfig.UnhealthyThreshold == 0 {
-			cfg.RPCPoolConfig.UnhealthyThreshold = defaultCfg.RPCPoolConfig.UnhealthyThreshold
-		}
-		if cfg.RPCPoolConfig.RecoveryIntervalSeconds == 0 {
-			cfg.RPCPoolConfig.RecoveryIntervalSeconds = defaultCfg.RPCPoolConfig.RecoveryIntervalSeconds
-		}
-		if cfg.RPCPoolConfig.MinHealthyEndpoints == 0 {
-			cfg.RPCPoolConfig.MinHealthyEndpoints = defaultCfg.RPCPoolConfig.MinHealthyEndpoints
-		}
-		if cfg.RPCPoolConfig.RequestTimeoutSeconds == 0 {
-			cfg.RPCPoolConfig.RequestTimeoutSeconds = defaultCfg.RPCPoolConfig.RequestTimeoutSeconds
-		}
-		if cfg.RPCPoolConfig.LoadBalancingStrategy == "" {
-			cfg.RPCPoolConfig.LoadBalancingStrategy = defaultCfg.RPCPoolConfig.LoadBalancingStrategy
-		}
-	}
-
-	// Validate load balancing strategy
-	if cfg.RPCPoolConfig.LoadBalancingStrategy != "" &&
-		cfg.RPCPoolConfig.LoadBalancingStrategy != "round-robin" &&
-		cfg.RPCPoolConfig.LoadBalancingStrategy != "weighted" {
-		return fmt.Errorf("load balancing strategy must be 'round-robin' or 'weighted'")
+	// Set NodeHome default
+	if cfg.NodeHome == "" {
+		cfg.NodeHome = constant.DefaultNodeHome
 	}
 
 	// Set TSS defaults
@@ -172,12 +121,12 @@ func Save(cfg *Config, basePath string) error {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
-	configDir := filepath.Join(basePath, configSubdir)
+	configDir := filepath.Join(basePath, constant.ConfigSubdir)
 	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	configFile := filepath.Join(configDir, configFileName)
+	configFile := filepath.Join(configDir, constant.ConfigFileName)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -191,7 +140,7 @@ func Save(cfg *Config, basePath string) error {
 
 // Load reads and returns the config from <BasePath>/config/pushuv_config.json.
 func Load(basePath string) (Config, error) {
-	configFile := filepath.Join(basePath, configSubdir, configFileName)
+	configFile := filepath.Join(basePath, constant.ConfigSubdir, constant.ConfigFileName)
 	data, err := os.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to read config file: %w", err)

@@ -70,7 +70,7 @@ func (m *mockSession) Close() {
 func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordinator, *eventstore.Store, *keyshare.Manager, *pushcore.Client, *gorm.DB) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&store.TSSEvent{}))
+	require.NoError(t, db.AutoMigrate(&store.Event{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	keyshareMgr, err := keyshare.NewManager(t.TempDir(), "test-password")
@@ -115,6 +115,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		testClient,
 		keyshareMgr,
+		nil, // txBuilderFactory - nil for tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -136,6 +137,8 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		coord,
 		keyshareMgr,
+		nil, // pushCore - nil for testing
+		nil, // txBuilderFactory - nil for testing
 		sendFn,
 		"validator1",
 		3*time.Minute, // sessionExpiryTime
@@ -173,11 +176,11 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a test event by inserting it directly into the database
-	event := store.TSSEvent{
-		EventID:      "event1",
-		ProtocolType: "keygen",
-		Status:       eventstore.StatusPending,
-		BlockNumber:  100,
+	event := store.Event{
+		EventID:     "event1",
+		BlockHeight: 100,
+		Type:        "KEYGEN",
+		Status:      eventstore.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 
@@ -248,7 +251,7 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 		sm.mu.Lock()
 		sm.sessions["event1"] = &sessionState{
 			session:      mockSess,
-			protocolType: "keygen",
+			protocolType: "KEYGEN",
 			coordinator:  "coordinator1",
 			expiryTime:   time.Now().Add(5 * time.Minute),
 			participants: []string{"validator2", "validator3"},
@@ -274,11 +277,11 @@ func TestSessionManager_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a keygen event by inserting it directly into the database
-	event := store.TSSEvent{
-		EventID:      "keygen-event",
-		ProtocolType: "keygen",
-		Status:       eventstore.StatusPending,
-		BlockNumber:  100,
+	event := store.Event{
+		EventID:     "keygen-event",
+		BlockHeight: 100,
+		Type:        "KEYGEN",
+		Status:      eventstore.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 

@@ -53,3 +53,33 @@ func GetInboundBallotKey(inbound Inbound) (string, error) {
 	}
 	return hex.EncodeToString(bz), nil
 }
+
+func GetPcUniversalTxKey(pcCaip string, pc PCTx) string {
+	data := fmt.Sprintf("%s:%s", pcCaip, pc.TxHash)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
+}
+
+func GetOutboundBallotKey(
+	utxId string,
+	outboundIndex string,
+	observedTx OutboundObservation,
+) (string, error) {
+
+	bz, err := observedTx.Marshal()
+	if err != nil {
+		return "", err
+	}
+
+	data := append([]byte(utxId+":"+outboundIndex+":"), bz...)
+	hash := sha256.Sum256(data)
+
+	return hex.EncodeToString(hash[:]), nil
+}
+
+// Outbound Id for a inbound revert tx
+func GetOutboundRevertId(inboundTxHash string) string {
+	data := fmt.Sprintf("%s:REVERT", inboundTxHash)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
+}

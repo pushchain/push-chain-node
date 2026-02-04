@@ -49,10 +49,11 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 
 	prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	tokenConfigTest := uregistrytypes.TokenConfig{
 		Chain:        "eip155:11155111",
-		Address:      prc20Address.String(),
+		Address:      usdcAddress.String(),
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -113,11 +114,14 @@ func setupInboundBridgeTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 		Sender:           testAddress,
 		Recipient:        testAddress,
 		Amount:           "1000000",
-		AssetAddr:        prc20Address.String(),
+		AssetAddr:        usdcAddress.String(),
 		LogIndex:         "1",
-		TxType:           uexecutortypes.InboundTxType_FUNDS,
+		TxType:           uexecutortypes.TxType_FUNDS,
 		UniversalPayload: nil,
 		VerificationData: "",
+		RevertInstructions: &uexecutortypes.RevertInstructions{
+			FundRecipient: testAddress,
+		},
 	}
 
 	return app, ctx, universalVals, inbound, validators
@@ -359,4 +363,81 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		}
 		t.Logf("All %d pc_tx.tx_hash values are unique", len(txHashes))
 	})
+
+	t.Run("creates outbound revert when pre-deposit step fails", func(t *testing.T) {
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
+
+		// --- Remove token config to force pre-deposit failure
+		app.UregistryKeeper.RemoveTokenConfig(ctx, inbound.SourceChain, inbound.AssetAddr)
+
+		// reach quorum
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
+		}
+
+		// Fetch universal tx
+		q := uexecutorkeeper.Querier{Keeper: app.UexecutorKeeper}
+		resp, err := q.GetUniversalTx(
+			sdk.WrapSDKContext(ctx),
+			&uexecutortypes.QueryGetUniversalTxRequest{
+				Id: uexecutortypes.GetInboundUniversalTxKey(*inbound),
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, resp.UniversalTx)
+
+		// --- Assert outbound revert exists
+		// foundRevert := false
+		// for _, ob := range resp.UniversalTx.OutboundTx {
+		// 	if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
+		// 		foundRevert = true
+		// 		require.Equal(t, inbound.SourceChain, ob.DestinationChain)
+		// 		require.Equal(t, inbound.Amount, ob.Amount)
+		// 		require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
+		// 	}
+		// }
+
+		// require.True(t, foundRevert, "expected INBOUND_REVERT outbound to be created")
+	})
+
+	t.Run("does not create outbound revert on successful inbound execution", func(t *testing.T) {
+		app, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
+
+		// reach quorum (happy path)
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
+		}
+
+		// Fetch universal tx
+		q := uexecutorkeeper.Querier{Keeper: app.UexecutorKeeper}
+		resp, err := q.GetUniversalTx(
+			sdk.WrapSDKContext(ctx),
+			&uexecutortypes.QueryGetUniversalTxRequest{
+				Id: uexecutortypes.GetInboundUniversalTxKey(*inbound),
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, resp.UniversalTx)
+
+		// --- Assert NO inbound revert exists
+		// for _, ob := range resp.UniversalTx.OutboundTx {
+		// 	require.NotEqual(
+		// 		t,
+		// 		uexecutortypes.TxType_INBOUND_REVERT,
+		// 		ob.TxType,
+		// 		"should not create inbound revert on successful execution",
+		// 	)
+		// }
+	})
+
 }

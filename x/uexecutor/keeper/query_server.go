@@ -43,7 +43,7 @@ func (k Querier) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniver
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	// Fetch from the collection
-	tx, err := k.UniversalTx.Get(ctx, req.Id) // req.Id is the string key
+	currentTx, err := k.UniversalTx.Get(ctx, req.Id) // req.Id is the string key
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "UniversalTx not found")
@@ -51,9 +51,87 @@ func (k Querier) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniver
 		return nil, err
 	}
 
+	legacyTx := convertToUniversalTxLegacy(&currentTx)
+
 	return &types.QueryGetUniversalTxResponse{
-		UniversalTx: &tx,
+		UniversalTx: legacyTx,
 	}, nil
+}
+
+// convertToUniversalTxLegacy maps the current (post-upgrade) UniversalTx to the legacy shape
+func convertToUniversalTxLegacy(current *types.UniversalTx) *types.UniversalTxLegacy {
+	if current == nil {
+		return nil
+	}
+
+	// Inbound conversion
+	var legacyInbound *types.InboundLegacy
+	if current.InboundTx != nil {
+		legacyInbound = &types.InboundLegacy{
+			SourceChain:      current.InboundTx.SourceChain,
+			TxHash:           current.InboundTx.TxHash,
+			Sender:           current.InboundTx.Sender,
+			Recipient:        current.InboundTx.Recipient,
+			Amount:           current.InboundTx.Amount,
+			AssetAddr:        current.InboundTx.AssetAddr,
+			LogIndex:         current.InboundTx.LogIndex,
+			TxType:           mapTxTypeToLegacy(current.InboundTx.TxType),
+			UniversalPayload: current.InboundTx.UniversalPayload,
+			VerificationData: current.InboundTx.VerificationData,
+		}
+	}
+
+	pcTxs := current.PcTx // repeated PCTx unchanged
+
+	var legacyOutbound *types.OutboundTxLegacy
+	if len(current.OutboundTx) > 0 {
+		first := current.OutboundTx[0]
+		if first != nil {
+			var observedTxHash string
+			if first.ObservedTx != nil {
+				observedTxHash = first.ObservedTx.TxHash
+			} else {
+			}
+
+			legacyOutbound = &types.OutboundTxLegacy{
+				DestinationChain: first.DestinationChain,
+				TxHash:           observedTxHash,
+				Recipient:        first.Recipient,
+				Amount:           first.Amount,
+				AssetAddr:        first.Prc20AssetAddr,
+			}
+		}
+	}
+
+	// Build legacy UniversalTx
+	return &types.UniversalTxLegacy{
+		InboundTx:       legacyInbound,
+		PcTx:            pcTxs,
+		OutboundTx:      legacyOutbound,
+		UniversalStatus: current.UniversalStatus,
+	}
+}
+
+// mapTxTypeToLegacy maps current TxType → legacy InboundTxTypeLegacy
+func mapTxTypeToLegacy(current types.TxType) types.InboundTxTypeLegacy {
+	switch current {
+	case types.TxType_UNSPECIFIED_TX:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_UNSPECIFIED_TX
+	case types.TxType_GAS:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_GAS
+	case types.TxType_GAS_AND_PAYLOAD:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_GAS_AND_PAYLOAD
+	case types.TxType_FUNDS:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_FUNDS
+	case types.TxType_FUNDS_AND_PAYLOAD:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_FUNDS_AND_PAYLOAD
+
+	case types.TxType_PAYLOAD, types.TxType_INBOUND_REVERT:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_UNSPECIFIED_TX
+
+	default:
+		return types.InboundTxTypeLegacy_INBOUND_LEGACY_UNSPECIFIED_TX
+	}
 }
 
 // AllUniversalTx implements types.QueryServer.

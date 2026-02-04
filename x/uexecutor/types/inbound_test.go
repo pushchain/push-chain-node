@@ -16,7 +16,7 @@ func TestInbound_ValidateBasic(t *testing.T) {
 		Amount:      "1000",
 		AssetAddr:   "0x000000000000000000000000000000000000cafe",
 		LogIndex:    "1",
-		TxType:      types.InboundTxType_FUNDS,
+		TxType:      types.TxType_FUNDS,
 	}
 
 	tests := []struct {
@@ -134,7 +134,7 @@ func TestInbound_ValidateBasic(t *testing.T) {
 			name: "unspecified tx_type",
 			inbound: func() types.Inbound {
 				ib := validInbound
-				ib.TxType = types.InboundTxType_UNSPECIFIED_TX
+				ib.TxType = types.TxType_UNSPECIFIED_TX
 				return ib
 			}(),
 			expectError: true,

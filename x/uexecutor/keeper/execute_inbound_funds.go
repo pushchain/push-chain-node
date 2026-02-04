@@ -11,16 +11,18 @@ import (
 func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	inbound := utx.InboundTx
+
 	receipt, err := k.depositPRC20(
 		sdkCtx,
-		utx.InboundTx.SourceChain,
-		utx.InboundTx.AssetAddr,
-		common.HexToAddress(utx.InboundTx.Recipient), // recipient is inbound recipient
-		utx.InboundTx.Amount,
+		inbound.SourceChain,
+		inbound.AssetAddr,
+		common.HexToAddress(inbound.Recipient), // recipient is inbound recipient
+		inbound.Amount,
 	)
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
-	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
+	universalTxKey := types.GetInboundUniversalTxKey(*inbound)
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
 			TxHash:      "", // no hash if depositPRC20 failed
@@ -46,6 +48,25 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 	})
 	if updateErr != nil {
 		return updateErr
+	}
+
+	if err != nil {
+		revertOutbound := types.OutboundTx{
+			DestinationChain: inbound.SourceChain,
+			Recipient: func() string {
+				if inbound.RevertInstructions != nil {
+					return inbound.RevertInstructions.FundRecipient
+				}
+				return inbound.Sender
+			}(),
+			Amount:            inbound.Amount,
+			ExternalAssetAddr: inbound.AssetAddr,
+			Sender:            inbound.Sender,
+			TxType:            types.TxType_INBOUND_REVERT,
+			OutboundStatus:    types.Status_PENDING,
+			Id:                types.GetOutboundRevertId(inbound.TxHash),
+		}
+		_ = k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error())
 	}
 
 	return nil

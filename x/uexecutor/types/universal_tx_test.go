@@ -9,6 +9,7 @@ import (
 
 func TestUniversalTx_ValidateBasic(t *testing.T) {
 	validUniversal := types.UniversalTx{
+		Id: "1",
 		InboundTx: &types.Inbound{
 			SourceChain: "eip155:11155111",
 			TxHash:      "0x123abc",
@@ -17,7 +18,7 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			Amount:      "1000",
 			AssetAddr:   "0x000000000000000000000000000000000000cafe",
 			LogIndex:    "1",
-			TxType:      types.InboundTxType_FUNDS,
+			TxType:      types.TxType_FUNDS,
 		},
 		PcTx: []*types.PCTx{
 			{
@@ -28,12 +29,24 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 				Status:      "SUCCESS",
 			},
 		},
-		OutboundTx: &types.OutboundTx{
-			DestinationChain: "eip155:11155111",
-			TxHash:           "0x456def",
-			Recipient:        "0x000000000000000000000000000000000000beef",
-			Amount:           "500",
-			AssetAddr:        "0x000000000000000000000000000000000000cafe",
+		OutboundTx: []*types.OutboundTx{
+			{
+				DestinationChain:  "eip155:11155111",
+				Recipient:         "0x000000000000000000000000000000000000beef",
+				Sender:            "0x000000000000000000000000000000000000dead",
+				Amount:            "1000",
+				ExternalAssetAddr: "0x000000000000000000000000000000000000cafe",
+				Prc20AssetAddr:    "0x000000000000000000000000000000000000bafe",
+				Payload:           "0xabcdef",
+				GasLimit:          "21000",
+				TxType:            types.TxType_FUNDS_AND_PAYLOAD,
+				PcTx: &types.OriginatingPcTx{
+					TxHash:   "0xpc123",
+					LogIndex: "1",
+				},
+				Id:             "0",
+				OutboundStatus: types.Status_PENDING,
+			},
 		},
 		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,
 	}
@@ -75,7 +88,9 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			name: "invalid outbound",
 			universal: func() types.UniversalTx {
 				utx := validUniversal
-				utx.OutboundTx = &types.OutboundTx{} // Recipient empty
+				utx.OutboundTx = []*types.OutboundTx{
+					{},
+				} // Recipient empty
 				return utx
 			}(),
 			expectError: true,

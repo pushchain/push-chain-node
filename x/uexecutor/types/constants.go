@@ -1,6 +1,9 @@
 package types
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+)
 
 const (
 	FACTORY_PROXY_ADDRESS_HEX     = "0x00000000000000000000000000000000000000eA"
@@ -38,3 +41,7 @@ const (
 	// Default number of blocks after which ballot expires
 	DefaultExpiryAfterBlocks = 10000
 )
+
+var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(
+	"UniversalTxOutbound(bytes32,address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8)",
+)).Hex()

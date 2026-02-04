@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -30,6 +31,42 @@ func ExecVoteInbound(
 	// Universal validator executes it via MsgExec
 	execMsg := authz.NewMsgExec(
 		sdk.MustAccAddressFromBech32(universalAddr), // universal validator
+		[]sdk.Msg{msg},
+	)
+
+	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
+	return err
+}
+
+func ExecVoteOutbound(
+	t *testing.T,
+	ctx sdk.Context,
+	app *app.ChainApp,
+	universalAddr string, // universal validator (grantee)
+	coreValAddr string, // core validator (signer)
+	utxId string, // universal tx id
+	outbound *uexecutortypes.OutboundTx,
+	success bool,
+	errorMsg string,
+) error {
+	t.Helper()
+
+	observed := &uexecutortypes.OutboundObservation{
+		Success:     success,
+		ErrorMsg:    errorMsg,
+		TxHash:      fmt.Sprintf("0xobserved-%s", outbound.Id),
+		BlockHeight: 1,
+	}
+
+	msg := &uexecutortypes.MsgVoteOutbound{
+		Signer:     coreValAddr,
+		TxId:       outbound.Id,
+		UtxId:      utxId,
+		ObservedTx: observed,
+	}
+
+	execMsg := authz.NewMsgExec(
+		sdk.MustAccAddressFromBech32(universalAddr),
 		[]sdk.Msg{msg},
 	)
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -32,11 +31,8 @@ var (
 
 	// schemaModels lists the structs to be auto-migrated into the database.
 	schemaModels = []any{
-		&store.ChainState{},
-		&store.ChainTransaction{},
-		&store.GasVoteTransaction{},
-		&store.TSSEvent{},
-		&store.ChainTSSTransaction{},
+		&store.State{},
+		&store.Event{},
 		// Add additional models here as needed.
 	}
 )
@@ -178,20 +174,4 @@ func prepareFilePath(dir, filename string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s/%s", dir, filename), nil
-}
-
-// DeleteOldConfirmedTransactions removes confirmed gateway transactions older than the specified retention period.
-// Only transactions with status "confirmed" that were last updated before the cutoff time are deleted.
-// Returns the number of deleted records and any error encountered.
-func (d *DB) DeleteOldConfirmedTransactions(retentionPeriod time.Duration) (int64, error) {
-	cutoffTime := time.Now().Add(-retentionPeriod)
-
-	result := d.client.Where("status = ? AND updated_at < ?", "confirmed", cutoffTime).
-		Delete(&store.ChainTransaction{})
-
-	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to delete old confirmed transactions")
-	}
-
-	return result.RowsAffected, nil
 }

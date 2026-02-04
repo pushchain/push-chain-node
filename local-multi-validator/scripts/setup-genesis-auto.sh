@@ -340,6 +340,8 @@ echo "✅ Genesis setup complete!"
   --pruning=nothing \
   --minimum-gas-prices="1000000000${DENOM}" \
   --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+  --json-rpc.address="0.0.0.0:8545" \
+  --json-rpc.ws-address="0.0.0.0:8546" \
   --json-rpc.api=eth,txpool,personal,net,debug,web3 \
   --chain-id="$CHAIN_ID" &
 
@@ -412,7 +414,7 @@ fi
 # ---------------------------
 
 echo "🔐 Setting up AuthZ grants for ALL universal validator hotkeys..."
-echo "📋 Genesis validator has all 4 validator keys, creating ALL 12 grants now"
+echo "📋 Genesis validator has all 4 validator keys, creating ALL 16 grants now"
 
 # Get hotkey addresses from shared volume
 HOTKEYS_FILE="/tmp/push-accounts/hotkeys.json"
@@ -442,10 +444,11 @@ if [ -f "$HOTKEYS_FILE" ]; then
     echo "   Granter: $VALIDATOR_ADDR"
     echo "   Grantee: $HOTKEY_ADDR"
 
-    # Grant all 3 message types for this validator
+    # Grant all 4 message types for this validator
     for MSG_TYPE in \
       "/uexecutor.v1.MsgVoteInbound" \
       "/uexecutor.v1.MsgVoteGasPrice" \
+      "/uexecutor.v1.MsgVoteOutbound" \
       "/utss.v1.MsgVoteTssKeyProcess"
     do
       echo "  → $(basename $MSG_TYPE)"
@@ -479,15 +482,44 @@ if [ -f "$HOTKEYS_FILE" ]; then
   set -e
 
   echo ""
-  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/12"
+  echo "📊 Total AuthZ grants created: $TOTAL_GRANTS_CREATED/16"
 
-  if [ "$TOTAL_GRANTS_CREATED" -ge "12" ]; then
+  if [ "$TOTAL_GRANTS_CREATED" -ge "16" ]; then
     echo "✅ All AuthZ grants created successfully for all validators!"
   else
-    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/12)"
+    echo "⚠️ Some grants may be missing (created $TOTAL_GRANTS_CREATED/16)"
   fi
 else
   echo "⚠️  Hotkeys file not found: $HOTKEYS_FILE"
+fi
+
+# ---------------------------
+# === FUND ADDITIONAL ADDRESSES ===
+# Address used for Local local contract deployment
+# ---------------------------
+
+echo "💰 Funding additional addresses..."
+
+# Fund the universal client test address
+FUND_FROM="genesis-acc-1"
+FUND_TO="push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60"
+FUND_AMOUNT="1000000000000000000upc"
+
+echo "📤 Sending $FUND_AMOUNT to $FUND_TO from $FUND_FROM..."
+FUND_RESULT=$(pchaind tx bank send "$FUND_FROM" "$FUND_TO" "$FUND_AMOUNT" \
+  --from "$FUND_FROM" \
+  --chain-id "$CHAIN_ID" \
+  --keyring-backend test \
+  --home "$HOME_DIR" \
+  --gas-prices "100000000000upc" \
+  --yes \
+  --output json 2>&1 || echo "{}")
+
+if echo "$FUND_RESULT" | grep -q '"txhash"'; then
+  TX_HASH=$(echo "$FUND_RESULT" | jq -r '.txhash' 2>/dev/null)
+  echo "✅ Funded $FUND_TO! TX: $TX_HASH"
+else
+  echo "⚠️ Funding may have failed: $(echo "$FUND_RESULT" | head -1)"
 fi
 
 # Wait for the validator process

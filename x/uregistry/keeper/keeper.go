@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
@@ -74,7 +75,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 	}
 
 	// deploy system contracts
-	deploySystemContracts(ctx, k.evmKeeper)
+	deploySystemContracts(ctx, k.evmKeeper, types.SYSTEM_CONTRACTS)
 
 	return k.Params.Set(ctx, data.Params)
 }
@@ -136,4 +137,63 @@ func (k Keeper) GetTokenConfig(ctx context.Context, chain, address string) (type
 
 func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
+}
+
+func (k Keeper) GetTokenConfigByPRC20(
+	ctx context.Context,
+	chain string,
+	prc20Addr string,
+) (types.TokenConfig, error) {
+
+	prc20Addr = strings.ToLower(strings.TrimSpace(prc20Addr))
+
+	var found *types.TokenConfig
+
+	err := k.TokenConfigs.Walk(ctx, nil, func(
+		key string,
+		cfg types.TokenConfig,
+	) (bool, error) {
+
+		// chain must match
+		if cfg.Chain != chain {
+			return false, nil
+		}
+
+		if cfg.NativeRepresentation == nil {
+			return false, nil
+		}
+
+		if strings.ToLower(cfg.NativeRepresentation.ContractAddress) == prc20Addr {
+			found = &cfg
+			return true, nil // stop walk
+		}
+
+		return false, nil
+	})
+
+	if err != nil {
+		return types.TokenConfig{}, err
+	}
+
+	if found == nil {
+		return types.TokenConfig{}, collections.ErrNotFound
+	}
+
+	return *found, nil
+}
+
+func (k Keeper) ReserveUGPC(ctx context.Context) error {
+
+	UGPC_MAP := map[string]types.ContractAddresses{
+		"UNIVERSAL_GATEWAY_PC": {
+			Address:        "0x00000000000000000000000000000000000000C1",
+			ProxyAdmin:     "0xf2000000000000000000000000000000000000C1",
+			Implementation: "0xF1000000000000000000000000000000000000C1",
+		},
+	}
+
+	// deploy system contracts
+	deploySystemContracts(ctx, k.evmKeeper, UGPC_MAP)
+
+	return nil
 }

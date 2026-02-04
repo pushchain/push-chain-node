@@ -37,6 +37,8 @@ func SetAppWithValidators(t *testing.T) (*app.ChainApp, sdk.Context, sdk.Account
 
 	ctx := app.BaseApp.NewContext(true)
 
+	ctx = ctx.WithChainID("push_42101-1")
+
 	// start with block height 1
 	ctx = ctx.WithBlockHeight(1)
 
@@ -63,6 +65,8 @@ func SetAppWithMultipleValidators(t *testing.T, numVals int) (*app.ChainApp, sdk
 	app := SetupApp(t)
 
 	ctx := app.BaseApp.NewContext(true)
+
+	ctx = ctx.WithChainID("push_42101-1")
 
 	// start with block height 1
 	ctx = ctx.WithBlockHeight(1)

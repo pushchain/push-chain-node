@@ -60,7 +60,7 @@ func TestExecutePayload(t *testing.T) {
 			GasLimit:             "21000000",
 			MaxFeePerGas:         "1000000000",
 			MaxPriorityFeePerGas: "200000000",
-			Nonce:                "0",
+			Nonce:                "1",
 			Deadline:             "0",
 			VType:                uexecutortypes.VerificationType(0),
 		}

@@ -402,54 +402,59 @@ func (tb *TxBuilder) encodeFunctionCall(
 
 	switch funcName {
 	case "withdraw":
-		// withdraw(bytes calldata txID, bytes32 universalTxID, address originCaller, address to, uint256 amount)
+		// withdraw(bytes32 txID, bytes32 universalTxID, address originCaller, address to, uint256 amount)
 		arguments = abi.Arguments{
-			{Type: bytesType},   // txID (bytes, not bytes32)
+			{Type: bytes32Type}, // txID
 			{Type: bytes32Type}, // universalTxID
 			{Type: addressType}, // originCaller
 			{Type: addressType}, // to
 			{Type: uint256Type}, // amount
 		}
-		values = []interface{}{txIDBytes, universalTxID, originCaller, recipient, amount}
+		values = []interface{}{txID32, universalTxID, originCaller, recipient, amount}
 
 	case "withdrawTokens":
-		// withdrawTokens(bytes calldata txID, bytes32 universalTxID, address originCaller, address token, address to, uint256 amount)
+		// withdrawTokens(bytes32 txID, bytes32 universalTxID, address originCaller, address token, address to, uint256 amount)
 		arguments = abi.Arguments{
-			{Type: bytesType},   // txID (bytes, not bytes32)
+			{Type: bytes32Type}, // txID
 			{Type: bytes32Type}, // universalTxID
 			{Type: addressType}, // originCaller
 			{Type: addressType}, // token
 			{Type: addressType}, // to
 			{Type: uint256Type}, // amount
 		}
-		values = []interface{}{txIDBytes, universalTxID, originCaller, assetAddr, recipient, amount}
+		values = []interface{}{txID32, universalTxID, originCaller, assetAddr, recipient, amount}
 
 	case "executeUniversalTx":
 		if isNative {
-			// executeUniversalTx(bytes32 txID, address originCaller, address target, uint256 amount, bytes calldata payload)
+			// executeUniversalTx(bytes32 txID, bytes32 universalTxID, address originCaller, address target, uint256 amount, bytes payload)
+			// Selector: 0x434cfde4
 			arguments = abi.Arguments{
 				{Type: bytes32Type}, // txID
+				{Type: bytes32Type}, // universalTxID
 				{Type: addressType}, // originCaller
 				{Type: addressType}, // target
 				{Type: uint256Type}, // amount
 				{Type: bytesType},   // payload
 			}
-			values = []interface{}{txID32, originCaller, recipient, amount, payloadBytes}
+			values = []interface{}{txID32, universalTxID, originCaller, recipient, amount, payloadBytes}
 		} else {
-			// executeUniversalTx(bytes32 txID, address originCaller, address token, address target, uint256 amount, bytes calldata payload)
+			// executeUniversalTx(bytes32 txID, bytes32 universalTxID, address originCaller, address token, address target, uint256 amount, bytes payload)
+			// Selector: 0xc442a98e
 			arguments = abi.Arguments{
 				{Type: bytes32Type}, // txID
+				{Type: bytes32Type}, // universalTxID
 				{Type: addressType}, // originCaller
 				{Type: addressType}, // token
 				{Type: addressType}, // target
 				{Type: uint256Type}, // amount
 				{Type: bytesType},   // payload
 			}
-			values = []interface{}{txID32, originCaller, assetAddr, recipient, amount, payloadBytes}
+			values = []interface{}{txID32, universalTxID, originCaller, assetAddr, recipient, amount, payloadBytes}
 		}
 
 	case "revertUniversalTx":
-		// revertUniversalTx(bytes32 txID, uint256 amount, RevertInstructions calldata revertInstruction)
+		// revertUniversalTx(bytes32 txID, bytes32 universalTxID, uint256 amount, RevertInstructions revertInstruction)
+		// Selector: 0x09e6d7cd
 		revertMsgBytes, err := hex.DecodeString(removeHexPrefixV0(data.RevertMsg))
 		if err != nil {
 			revertMsgBytes = []byte{}
@@ -460,16 +465,18 @@ func (tb *TxBuilder) encodeFunctionCall(
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
+			{Type: bytes32Type},           // universalTxID
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID32, amount, RevertInstructionsV0{
+		values = []interface{}{txID32, universalTxID, amount, RevertInstructionsV0{
 			FundRecipient: recipient,
 			RevertMsg:     revertMsgBytes,
 		}}
 
 	case "revertUniversalTxToken":
-		// revertUniversalTxToken(bytes32 txID, address token, uint256 amount, RevertInstructions calldata revertInstruction)
+		// revertUniversalTxToken(bytes32 txID, bytes32 universalTxID, address token, uint256 amount, RevertInstructions revertInstruction)
+		// Selector: 0x9fea040a
 		revertMsgBytesToken, err := hex.DecodeString(removeHexPrefixV0(data.RevertMsg))
 		if err != nil {
 			revertMsgBytesToken = []byte{}
@@ -480,11 +487,12 @@ func (tb *TxBuilder) encodeFunctionCall(
 		})
 		arguments = abi.Arguments{
 			{Type: bytes32Type},           // txID
+			{Type: bytes32Type},           // universalTxID
 			{Type: addressType},           // token
 			{Type: uint256Type},           // amount
 			{Type: revertInstructionType}, // revertInstruction
 		}
-		values = []interface{}{txID32, assetAddr, amount, RevertInstructionsV0{
+		values = []interface{}{txID32, universalTxID, assetAddr, amount, RevertInstructionsV0{
 			FundRecipient: recipient,
 			RevertMsg:     revertMsgBytesToken,
 		}}
@@ -510,28 +518,28 @@ func (tb *TxBuilder) encodeFunctionCall(
 func (tb *TxBuilder) getFunctionSignature(funcName string, isNative bool) string {
 	switch funcName {
 	case "withdraw":
-		// withdraw(bytes,bytes32,address,address,uint256)
-		return "withdraw(bytes,bytes32,address,address,uint256)"
+		// withdraw(bytes32,bytes32,address,address,uint256)
+		return "withdraw(bytes32,bytes32,address,address,uint256)"
 
 	case "withdrawTokens":
-		// withdrawTokens(bytes,bytes32,address,address,address,uint256)
-		return "withdrawTokens(bytes,bytes32,address,address,address,uint256)"
+		// withdrawTokens(bytes32,bytes32,address,address,address,uint256)
+		return "withdrawTokens(bytes32,bytes32,address,address,address,uint256)"
 
 	case "executeUniversalTx":
 		if isNative {
-			// executeUniversalTx(bytes32,address,address,uint256,bytes)
-			return "executeUniversalTx(bytes32,address,address,uint256,bytes)"
+			// executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes) - selector 0x434cfde4
+			return "executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)"
 		}
-		// executeUniversalTx(bytes32,address,address,address,uint256,bytes)
-		return "executeUniversalTx(bytes32,address,address,address,uint256,bytes)"
+		// executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes) - selector 0xc442a98e
+		return "executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
 
 	case "revertUniversalTx":
-		// revertUniversalTx(bytes32,uint256,(address,bytes))
-		return "revertUniversalTx(bytes32,uint256,(address,bytes))"
+		// revertUniversalTx(bytes32,bytes32,uint256,(address,bytes)) - selector 0x09e6d7cd
+		return "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"
 
 	case "revertUniversalTxToken":
-		// revertUniversalTxToken(bytes32,address,uint256,(address,bytes))
-		return "revertUniversalTxToken(bytes32,address,uint256,(address,bytes))"
+		// revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes)) - selector 0x9fea040a
+		return "revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes))"
 
 	default:
 		return ""

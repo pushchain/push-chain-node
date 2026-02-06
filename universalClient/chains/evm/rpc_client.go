@@ -94,6 +94,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 	}
 
 	maxAttempts := len(clients)
+	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
 			select {
@@ -114,6 +115,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 		if err == nil {
 			return nil
 		}
+		lastErr = err
 
 		rc.logger.Warn().
 			Str("operation", operation).
@@ -122,6 +124,9 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			Msg("operation failed, trying next endpoint")
 	}
 
+	if lastErr != nil {
+		return fmt.Errorf("operation %s failed after trying %d endpoints: %w", operation, maxAttempts, lastErr)
+	}
 	return fmt.Errorf("operation %s failed after trying %d endpoints", operation, maxAttempts)
 }
 
@@ -206,6 +211,27 @@ func (rc *RPCClient) CallContract(ctx context.Context, contractAddr ethcommon.Ad
 		msg := ethereum.CallMsg{
 			To:   &contractAddr,
 			Data: data,
+		}
+		var innerErr error
+		result, innerErr = client.CallContract(ctx, msg, blockNumber)
+		if innerErr != nil {
+			return innerErr
+		}
+		return nil
+	})
+	return result, err
+}
+
+// CallContractWithFrom simulates a contract call as if from the given address (eth_call).
+// No private key needed - use for simulation to check if a tx would pass or fail.
+func (rc *RPCClient) CallContractWithFrom(ctx context.Context, from, contractAddr ethcommon.Address, data []byte, value *big.Int, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := rc.executeWithFailover(ctx, "call_contract", func(client *ethclient.Client) error {
+		msg := ethereum.CallMsg{
+			From:  from,
+			To:    &contractAddr,
+			Data:  data,
+			Value: value,
 		}
 		var innerErr error
 		result, innerErr = client.CallContract(ctx, msg, blockNumber)

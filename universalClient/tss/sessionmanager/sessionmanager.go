@@ -40,6 +40,7 @@ type sessionState struct {
 	expiryTime   time.Time  // when session expires
 	participants []string   // list of participants (from setup message)
 	stepMu       sync.Mutex // mutex to serialize Step() calls (DKLS may not be thread-safe)
+	signingReq   *common.UnSignedOutboundTxReq // cached from coordinator setup (sign sessions only)
 }
 
 // SessionManager manages TSS protocol sessions and handles incoming messages.
@@ -170,6 +171,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		coordinator:  senderPeerID,
 		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
 		participants: msg.Participants,
+		signingReq:   msg.UnSignedOutboundTxReq,
 	}
 	sm.mu.Unlock()
 
@@ -448,7 +450,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		}
 
 		// All nodes broadcast for redundancy - duplicates are handled gracefully
-		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature); err != nil {
+		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature, state.signingReq); err != nil {
 			// handleSigningComplete only returns errors for critical failures (e.g., BroadcastTransaction, UpdateBroadcastedTxHash, UpdateStatus)
 			// Broadcast errors are logged but don't cause function to return error
 			sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
@@ -850,7 +852,9 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 
 // handleSigningComplete assembles and broadcasts the signed transaction.
 // All nodes call this for redundancy - duplicate broadcasts are handled gracefully by the chain.
-func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID string, eventData []byte, signature []byte) error {
+// signingReq is the cached signing request from the coordinator setup message, ensuring
+// the same gasPrice and nonce used during signing are used for broadcast.
+func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnSignedOutboundTxReq) error {
 	// Parse event data to get outbound details
 	var outboundData uexecutortypes.OutboundCreatedEvent
 	if err := json.Unmarshal(eventData, &outboundData); err != nil {
@@ -859,6 +863,10 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 
 	if sm.chains == nil {
 		return errors.New("chains manager not configured")
+	}
+
+	if signingReq == nil {
+		return errors.New("signing request is nil - cannot broadcast without original signing parameters")
 	}
 
 	// Get the client for the destination chain
@@ -871,24 +879,6 @@ func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID str
 	builder, err := client.GetTxBuilder()
 	if err != nil {
 		return errors.Wrapf(err, "failed to get tx builder for chain %s", outboundData.DestinationChain)
-	}
-
-	// Get gas price from oracle (same as was used during signing)
-	gasPrice, err := sm.pushCore.GetGasPrice(ctx, outboundData.DestinationChain)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get gas price for chain %s", outboundData.DestinationChain)
-	}
-
-	// Get TSS ECDSA address (same for all chains)
-	tssAddress, err := sm.getTSSAddress(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get TSS address")
-	}
-
-	// Get the signing request (same deterministic result as coordinator)
-	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, gasPrice, tssAddress)
-	if err != nil {
-		return errors.Wrap(err, "failed to get signing request")
 	}
 
 	sm.logger.Info().

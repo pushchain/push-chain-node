@@ -430,7 +430,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 	}
 
 	// Fetch only as many confirmed events as we have capacity for
-	events, err := c.eventStore.GetConfirmedEvents(currentBlock, 10, capacity)
+	events, err := c.eventStore.GetNonExpiredConfirmedEvents(currentBlock, 10, capacity)
 	if err != nil {
 		return errors.Wrap(err, "failed to get confirmed events")
 	}

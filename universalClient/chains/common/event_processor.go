@@ -489,13 +489,13 @@ func (ep *EventProcessor) processExpiredEvent(ctx context.Context, event *store.
 	case "PENDING":
 		reason = "unable to confirm event"
 	case "CONFIRMED":
-		reason = "unable to process event"
+		reason = "unable to start tss signing for event"
 	case "IN_PROGRESS":
-		reason = "unable to complete event tss signing"
+		reason = "unable to complete tss signing for event"
 	case "BROADCASTED":
-		reason = "unable to receive event confirmations on destination chain"
+		reason = "unable to receive confirmations on destination chain"
 	default:
-		reason = "expired"
+		reason = "expired with unknown reason"
 	}
 
 	// Vote for revert (failure observation)

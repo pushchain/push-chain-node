@@ -39,6 +39,14 @@ type OutboundTxBuilder interface {
 
 	// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature
 	BroadcastOutboundSigningRequest(ctx context.Context, req *UnSignedOutboundTxReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)
+
+	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
+	// Returns (found, confirmations, status, error):
+	// - found=false: tx not found or not yet mined
+	// - found=true: tx exists on-chain
+	//   - confirmations: number of blocks since the tx was mined (0 = just mined)
+	//   - status: 0 = failed/reverted, 1 = success
+	VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, confirmations uint64, status uint8, err error)
 }
 
 // UniversalTx Payload

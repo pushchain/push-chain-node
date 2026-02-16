@@ -728,6 +728,44 @@ func (tb *TxBuilder) buildAccountsList(
 	return accounts
 }
 
+// VerifyBroadcastedTx checks the status of a broadcasted transaction on Solana.
+// Returns (found, confirmations, status, error):
+// - found=false: tx not found or not yet confirmed
+// - found=true: tx exists on-chain
+//   - confirmations: number of slots since the tx was included (0 = just confirmed)
+//   - status: 0 = failed, 1 = success
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, confirmations uint64, status uint8, err error) {
+	sig, sigErr := solana.SignatureFromBase58(txHash)
+	if sigErr != nil {
+		return false, 0, 0, nil
+	}
+
+	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
+	if txErr != nil {
+		return false, 0, 0, nil
+	}
+
+	if tx == nil {
+		return false, 0, 0, nil
+	}
+
+	// Calculate confirmations from current slot
+	var confs uint64
+	if tx.Slot > 0 {
+		latestSlot, slotErr := tb.rpcClient.GetLatestSlot(ctx)
+		if slotErr == nil && latestSlot >= tx.Slot {
+			confs = latestSlot - tx.Slot + 1
+		}
+	}
+
+	// Check if transaction had an error
+	if tx.Meta != nil && tx.Meta.Err != nil {
+		return true, confs, 0, nil
+	}
+
+	return true, confs, 1, nil
+}
+
 // buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program
 // Instruction format: [1-byte instruction type (2 = SetComputeUnitLimit)] + [4-byte u32 units]
 func (tb *TxBuilder) buildSetComputeUnitLimitInstruction(units uint32) solana.Instruction {

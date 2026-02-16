@@ -513,6 +513,26 @@ func (tb *TxBuilder) encodeFunctionCall(
 	return txData, nil
 }
 
+// VerifyBroadcastedTx checks the status of a broadcasted transaction on the EVM chain.
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, confirmations uint64, status uint8, err error) {
+	hash := ethcommon.HexToHash(txHash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
+	if err != nil {
+		// Transaction not found or not yet mined
+		return false, 0, 0, nil
+	}
+
+	// Calculate confirmations from current block
+	var confs uint64
+	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
+	if err == nil && latestBlock >= receipt.BlockNumber.Uint64() {
+		confs = latestBlock - receipt.BlockNumber.Uint64() + 1
+	}
+
+	// receipt.Status: 1 = success, 0 = reverted
+	return true, confs, uint8(receipt.Status), nil
+}
+
 // getFunctionSignature returns the full function signature for ABI encoding
 // Based on UniversalGatewayV0 contract
 func (tb *TxBuilder) getFunctionSignature(funcName string, isNative bool) string {

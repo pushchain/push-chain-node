@@ -3,7 +3,6 @@ package coordinator
 import (
 	"context"
 	"errors"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -14,12 +13,10 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
@@ -587,27 +584,4 @@ func TestGetSigningHash(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty")
 	})
-}
-
-// mockTxBuilder implements common.OutboundTxBuilder for testing
-type mockTxBuilder struct {
-	signingHash []byte
-	err         error
-	chainID     string
-}
-
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int, signerAddress string) (*common.UnSignedOutboundTxReq, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &common.UnSignedOutboundTxReq{
-		SigningHash: m.signingHash,
-		Signer:      signerAddress,
-		Nonce:       1,
-		GasPrice:    gasPrice,
-	}, nil
-}
-
-func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, signature []byte) (string, error) {
-	return "0xmock-tx-hash", nil
 }

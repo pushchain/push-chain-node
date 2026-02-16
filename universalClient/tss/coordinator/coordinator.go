@@ -344,7 +344,7 @@ func (c *Coordinator) pollLoop(ctx context.Context) {
 		case <-ticker.C:
 			// Update validators at each polling interval
 			c.updateValidators(ctx)
-			if err := c.processPendingEvents(ctx); err != nil {
+			if err := c.processConfirmedEvents(ctx); err != nil {
 				c.logger.Error().Err(err).Msg("error processing confirmed events")
 			}
 		}
@@ -367,7 +367,7 @@ func (c *Coordinator) updateValidators(ctx context.Context) {
 }
 
 // processPendingEvents checks if this node is coordinator, and only then reads DB and processes confirmed events.
-func (c *Coordinator) processPendingEvents(ctx context.Context) error {
+func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 	currentBlock, err := c.pushCore.GetLatestBlock(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest block")

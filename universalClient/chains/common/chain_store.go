@@ -164,7 +164,7 @@ func (cs *ChainStore) DeleteTerminalEvents(updatedBefore interface{}) (int64, er
 
 	res := cs.database.Client().
 		Where("status IN ? AND updated_at < ?",
-			[]string{"COMPLETED", "REVERTED", "EXPIRED"}, updatedBefore).
+			[]string{"COMPLETED", "REORGED", "REVERTED"}, updatedBefore).
 		Delete(&store.Event{})
 
 	if res.Error != nil {

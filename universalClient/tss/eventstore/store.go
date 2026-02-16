@@ -8,24 +8,18 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
-// Event statuses for TSS operations
+// Event statuses for TSS operations.
+//
+// Lifecycle: CONFIRMED → IN_PROGRESS → BROADCASTED → COMPLETED
+//
+//	                                  ↘ FAILED → REVERTED
 const (
-	StatusConfirmed = "CONFIRMED"
-
-	// StatusInProgress - TSS signing is in progress
-	StatusInProgress = "IN_PROGRESS"
-
-	// StatusBroadcasted - Transaction sent to external chain (for sign events)
-	StatusBroadcasted = "BROADCASTED"
-
-	// StatusCompleted - Successfully completed (key events: vote sent, sign events: confirmed)
-	StatusCompleted = "COMPLETED"
-
-	// StatusReverted - Event reverted
-	StatusReverted = "REVERTED"
-
-	// StatusExpired - Event expired (for key events)
-	StatusExpired = "EXPIRED"
+	StatusConfirmed   = "CONFIRMED"   // Event confirmed on Push chain, ready for processing
+	StatusInProgress  = "IN_PROGRESS" // TSS signing is in progress
+	StatusBroadcasted = "BROADCASTED" // Transaction sent to external chain (sign events only)
+	StatusFailed      = "FAILED"      // Post-signing failure (broadcast/vote). RevertHandler will vote and mark REVERTED.
+	StatusReverted    = "REVERTED"    // Reverted (failure vote sent for sign events)
+	StatusCompleted   = "COMPLETED"   // Successfully completed
 )
 
 // Store provides database access for TSS events.
@@ -42,41 +36,6 @@ func NewStore(db *gorm.DB, logger zerolog.Logger) *Store {
 	}
 }
 
-// GetConfirmedEvents returns confirmed events that are ready to be processed.
-// Events are confirmed if they are at least `minBlockConfirmation` blocks behind the current block and not expired.
-// If limit > 0, at most limit events are returned; otherwise all matching events are returned.
-func (s *Store) GetConfirmedEvents(currentBlock uint64, minBlockConfirmation uint64, limit int) ([]store.Event, error) {
-	var events []store.Event
-
-	// Only get events that are old enough (at least minBlockConfirmation blocks behind)
-	minBlock := currentBlock - minBlockConfirmation
-	if currentBlock < minBlockConfirmation {
-		minBlock = 0
-	}
-
-	query := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
-		StatusConfirmed, minBlock, currentBlock).
-		Order("block_height ASC, created_at ASC")
-	if limit > 0 {
-		query = query.Limit(limit)
-	}
-	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query confirmed events")
-	}
-
-	return events, nil
-}
-
-// CountInProgress returns the number of events with status IN_PROGRESS (TSS or broadcast in flight).
-// Used by the coordinator to cap how many new events to fetch.
-func (s *Store) CountInProgress() (int64, error) {
-	var count int64
-	if err := s.db.Model(&store.Event{}).Where("status = ?", StatusInProgress).Count(&count).Error; err != nil {
-		return 0, errors.Wrap(err, "failed to count IN_PROGRESS events")
-	}
-	return count, nil
-}
-
 // GetEvent retrieves an event by ID.
 func (s *Store) GetEvent(eventID string) (*store.Event, error) {
 	var event store.Event
@@ -86,19 +45,18 @@ func (s *Store) GetEvent(eventID string) (*store.Event, error) {
 	return &event, nil
 }
 
-// UpdateStatus updates the status of an event.
-// Note: errorMsg is logged but not stored (Event model doesn't have error_msg field).
-func (s *Store) UpdateStatus(eventID, status, errorMsg string) error {
-	if errorMsg != "" {
-		s.logger.Warn().
-			Str("event_id", eventID).
-			Str("status", status).
-			Str("error", errorMsg).
-			Msg("updating event status with error")
-	}
+// Update applies field updates to an event by ID.
+// Returns an error if the event is not found.
+//
+// Example usage:
+//
+//	s.Update(id, map[string]any{"status": StatusInProgress})
+//	s.Update(id, map[string]any{"status": StatusConfirmed, "block_height": newHeight})
+//	s.Update(id, map[string]any{"broadcasted_tx_hash": txHash})
+func (s *Store) Update(eventID string, fields map[string]any) error {
 	result := s.db.Model(&store.Event{}).
 		Where("event_id = ?", eventID).
-		Update("status", status)
+		Updates(fields)
 	if result.Error != nil {
 		return errors.Wrapf(result.Error, "failed to update event %s", eventID)
 	}
@@ -108,27 +66,18 @@ func (s *Store) UpdateStatus(eventID, status, errorMsg string) error {
 	return nil
 }
 
-// UpdateStatusAndBlockHeight updates the status and block height of an event.
-func (s *Store) UpdateStatusAndBlockHeight(eventID, status string, blockHeight uint64) error {
-	update := map[string]any{
-		"status":       status,
-		"block_height": blockHeight,
+// CountInProgress returns the number of events with status IN_PROGRESS.
+// Used by the coordinator to cap how many new events to fetch.
+func (s *Store) CountInProgress() (int64, error) {
+	var count int64
+	if err := s.db.Model(&store.Event{}).Where("status = ?", StatusInProgress).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "failed to count IN_PROGRESS events")
 	}
-	result := s.db.Model(&store.Event{}).
-		Where("event_id = ?", eventID).
-		Updates(update)
-	if result.Error != nil {
-		return errors.Wrapf(result.Error, "failed to update event %s", eventID)
-	}
-	if result.RowsAffected == 0 {
-		return errors.Errorf("event %s not found", eventID)
-	}
-	return nil
+	return count, nil
 }
 
 // ResetInProgressEventsToConfirmed resets all IN_PROGRESS events to CONFIRMED status.
-// This should be called on node startup to handle cases where the node crashed
-// while events were in progress, causing sessions to be lost from memory.
+// Called on node startup to recover from crashes mid-session.
 func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
 	result := s.db.Model(&store.Event{}).
 		Where("status = ?", StatusInProgress).
@@ -136,37 +85,58 @@ func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to CONFIRMED")
 	}
-	if result.RowsAffected > 0 {
-		s.logger.Info().
-			Int64("reset_count", result.RowsAffected).
-			Msg("reset IN_PROGRESS events to CONFIRMED on node startup")
-	}
 	return result.RowsAffected, nil
 }
 
-// CreateEvent stores a new PCEvent. Returns error if event already exists.
-func (s *Store) CreateEvent(event *store.Event) error {
-	if err := s.db.Create(event).Error; err != nil {
-		return errors.Wrapf(err, "failed to create event %s", event.EventID)
+// GetNonExpiredConfirmedEvents returns confirmed events ready to be processed.
+// Events must be at least minBlockConfirmation blocks old and not past expiry.
+func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation uint64, limit int) ([]store.Event, error) {
+	var minBlock uint64
+	if currentBlock > minBlockConfirmation {
+		minBlock = currentBlock - minBlockConfirmation
 	}
-	s.logger.Info().
-		Str("event_id", event.EventID).
-		Str("type", event.Type).
-		Uint64("block_height", event.BlockHeight).
-		Msg("stored new TSS event")
-	return nil
+
+	query := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
+		StatusConfirmed, minBlock, currentBlock).
+		Order("block_height ASC, created_at ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var events []store.Event
+	if err := query.Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query confirmed events")
+	}
+	return events, nil
 }
 
-// UpdateBroadcastedTxHash updates the BroadcastedTxHash field for an event (used after broadcasting).
-func (s *Store) UpdateBroadcastedTxHash(eventID, txHash string) error {
-	result := s.db.Model(&store.Event{}).
-		Where("event_id = ?", eventID).
-		Update("broadcasted_tx_hash", txHash)
-	if result.Error != nil {
-		return errors.Wrapf(result.Error, "failed to update broadcasted_tx_hash for event %s", eventID)
+// GetFailedEvents returns events with status FAILED.
+func (s *Store) GetFailedEvents(limit int) ([]store.Event, error) {
+	query := s.db.Where("status = ?", StatusFailed).
+		Order("block_height ASC, created_at ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
 	}
-	if result.RowsAffected == 0 {
-		return errors.Errorf("event %s not found", eventID)
+
+	var events []store.Event
+	if err := query.Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query failed events")
 	}
-	return nil
+	return events, nil
+}
+
+// GetBlockExpiredEvents returns CONFIRMED, IN_PROGRESS, or BROADCASTED events past their expiry block.
+func (s *Store) GetBlockExpiredEvents(currentBlock uint64, limit int) ([]store.Event, error) {
+	query := s.db.Where("status IN (?, ?, ?) AND expiry_block_height <= ?",
+		StatusConfirmed, StatusInProgress, StatusBroadcasted, currentBlock).
+		Order("block_height ASC, created_at ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var events []store.Event
+	if err := query.Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query expired events")
+	}
+	return events, nil
 }

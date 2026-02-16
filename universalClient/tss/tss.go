@@ -24,6 +24,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
+	"github.com/pushchain/push-chain-node/universalClient/tss/reverthandler"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
 )
 
@@ -39,9 +40,8 @@ type Config struct {
 	Logger           zerolog.Logger
 
 	// Optional configuration
-	PollInterval      time.Duration
-	ProcessingTimeout time.Duration
-	CoordinatorRange  uint64
+	PollInterval     time.Duration
+	CoordinatorRange uint64
 	ProtocolID        string
 	DialTimeout       time.Duration
 	IOTimeout         time.Duration
@@ -101,6 +101,7 @@ type Node struct {
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
 	sessionManager   *sessionmanager.SessionManager
+	revertHandler    *reverthandler.Handler
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -189,10 +190,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if pollInterval == 0 {
 		pollInterval = 10 * time.Second
 	}
-	processingTimeout := cfg.ProcessingTimeout
-	if processingTimeout == 0 {
-		processingTimeout = 5 * time.Minute
-	}
 	coordinatorRange := cfg.CoordinatorRange
 	if coordinatorRange == 0 {
 		coordinatorRange = 1000
@@ -200,7 +197,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 
 	sessionExpiryTime := cfg.SessionExpiryTime
 	if sessionExpiryTime == 0 {
-		sessionExpiryTime = 3 * time.Minute // Default: 3 minutes
+		sessionExpiryTime = 2 * time.Minute // Default: 2 minutes
 	}
 
 	sessionExpiryCheckInterval := cfg.SessionExpiryCheckInterval
@@ -216,10 +213,18 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	// Create event store for database access
 	evtStore := eventstore.NewStore(database.Client(), logger)
 
-	// Session manager will be created in Start() after coordinator is initialized
-	// (it needs coordinator reference)
+	// Create revert handler (no runtime dependencies — safe to create here)
+	rvHandler := reverthandler.NewHandler(reverthandler.Config{
+		EventStore:    evtStore,
+		PushCore:      cfg.PushCore,
+		Chains:        cfg.Chains,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+	})
 
-	// Create node (network will be started in Start)
+	// Coordinator and session manager are created in Start() because they
+	// depend on the network send function which requires libp2p to be running.
 	node := &Node{
 		validatorAddress:           cfg.ValidatorAddress,
 		keyshareManager:            mgr,
@@ -228,7 +233,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		chains:                     cfg.Chains,
 		logger:                     logger,
 		eventStore:                 evtStore,
-		sessionManager:             nil, // Will be initialized in Start()
+		revertHandler:              rvHandler,
 		networkCfg:                 networkCfg,
 		coordinatorRange:           coordinatorRange,
 		coordinatorPollInterval:    pollInterval,
@@ -316,6 +321,8 @@ func (n *Node) Start(ctx context.Context) error {
 			},
 			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
+			n.sessionExpiryCheckInterval,
+			n.sessionExpiryBlockDelay,
 			n.logger,
 			n.pushSigner,
 		)
@@ -325,8 +332,11 @@ func (n *Node) Start(ctx context.Context) error {
 	// Start coordinator
 	n.coordinator.Start(ctx)
 
-	// Start session manager expiry checker
-	go n.sessionManager.StartExpiryChecker(ctx, n.sessionExpiryCheckInterval, n.sessionExpiryBlockDelay)
+	// Start session manager (includes session expiry checker)
+	n.sessionManager.Start(ctx)
+
+	// Start revert handler (processes FAILED and block-expired events)
+	n.revertHandler.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

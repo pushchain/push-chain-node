@@ -138,10 +138,12 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		coord,
 		keyshareMgr,
 		nil, // pushCore - nil for testing
-		nil, // txBuilderFactory - nil for testing
+		nil, // chains - nil for testing
 		sendFn,
 		"validator1",
 		3*time.Minute, // sessionExpiryTime
+		30*time.Second, // sessionExpiryCheckInterval
+		60,             // sessionExpiryBlockDelay
 		zerolog.Nop(),
 		nil,
 	)

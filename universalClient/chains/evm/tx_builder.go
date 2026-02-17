@@ -278,10 +278,12 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		return "", fmt.Errorf("failed to apply signature: %w", err)
 	}
 
+	// Compute tx hash before broadcast so we can return it even on failure
+	txHashStr := signedTx.Hash().Hex()
+
 	// Broadcast using RPC client
-	txHashStr, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx)
-	if err != nil {
-		return "", fmt.Errorf("failed to broadcast transaction: %w", err)
+	if _, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx); err != nil {
+		return txHashStr, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	tb.logger.Info().

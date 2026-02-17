@@ -12,13 +12,12 @@ import (
 //
 // Lifecycle: CONFIRMED → IN_PROGRESS → BROADCASTED → COMPLETED
 //
-//	                                  ↘ FAILED → REVERTED
+//	                                  ↘ REVERTED (on expiry, after on-chain verification)
 const (
 	StatusConfirmed   = "CONFIRMED"   // Event confirmed on Push chain, ready for processing
 	StatusInProgress  = "IN_PROGRESS" // TSS signing is in progress
 	StatusBroadcasted = "BROADCASTED" // Transaction sent to external chain (sign events only)
-	StatusFailed      = "FAILED"      // Post-signing failure (broadcast/vote). RevertHandler will vote and mark REVERTED.
-	StatusReverted    = "REVERTED"    // Reverted (failure vote sent for sign events)
+	StatusReverted    = "REVERTED"    // Reverted (failure vote sent for sign events, or key vote failed)
 	StatusCompleted   = "COMPLETED"   // Successfully completed
 )
 
@@ -106,21 +105,6 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 	var events []store.Event
 	if err := query.Find(&events).Error; err != nil {
 		return nil, errors.Wrap(err, "failed to query confirmed events")
-	}
-	return events, nil
-}
-
-// GetFailedEvents returns events with status FAILED.
-func (s *Store) GetFailedEvents(limit int) ([]store.Event, error) {
-	query := s.db.Where("status = ?", StatusFailed).
-		Order("block_height ASC, created_at ASC")
-	if limit > 0 {
-		query = query.Limit(limit)
-	}
-
-	var events []store.Event
-	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query failed events")
 	}
 	return events, nil
 }

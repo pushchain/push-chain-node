@@ -406,7 +406,7 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 
 	t.Run("does not affect other statuses", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "failed-1", 100, StatusFailed, 200)
+		createTestEvent(t, s, "reverted-1", 100, StatusReverted, 200)
 		createTestEvent(t, s, "broadcasted-1", 100, StatusBroadcasted, 200)
 		createTestEvent(t, s, "ip-1", 100, StatusInProgress, 200)
 
@@ -415,74 +415,14 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 			t.Errorf("ResetInProgressEventsToConfirmed() reset %d, want 1", count)
 		}
 
-		// FAILED and BROADCASTED should be unchanged
-		failed, _ := s.GetEvent("failed-1")
-		if failed.Status != StatusFailed {
-			t.Errorf("failed event status = %s, want %s", failed.Status, StatusFailed)
+		// REVERTED and BROADCASTED should be unchanged
+		reverted, _ := s.GetEvent("reverted-1")
+		if reverted.Status != StatusReverted {
+			t.Errorf("reverted event status = %s, want %s", reverted.Status, StatusReverted)
 		}
 		broadcasted, _ := s.GetEvent("broadcasted-1")
 		if broadcasted.Status != StatusBroadcasted {
 			t.Errorf("broadcasted event status = %s, want %s", broadcasted.Status, StatusBroadcasted)
-		}
-	})
-}
-
-func TestGetFailedEvents(t *testing.T) {
-	t.Run("returns only failed events", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "failed-1", 80, StatusFailed, 200)
-		createTestEvent(t, s, "failed-2", 90, StatusFailed, 200)
-		createTestEvent(t, s, "confirmed-1", 80, StatusConfirmed, 200)
-		createTestEvent(t, s, "ip-1", 80, StatusInProgress, 200)
-
-		events, err := s.GetFailedEvents(100)
-		if err != nil {
-			t.Fatalf("GetFailedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetFailedEvents() returned %d events, want 2", len(events))
-		}
-	})
-
-	t.Run("orders by block height", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "failed-high", 100, StatusFailed, 200)
-		createTestEvent(t, s, "failed-low", 50, StatusFailed, 200)
-
-		events, err := s.GetFailedEvents(100)
-		if err != nil {
-			t.Fatalf("GetFailedEvents() error = %v, want nil", err)
-		}
-		if events[0].EventID != "failed-low" {
-			t.Errorf("first event = %s, want failed-low", events[0].EventID)
-		}
-	})
-
-	t.Run("respects limit", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "failed-1", 80, StatusFailed, 200)
-		createTestEvent(t, s, "failed-2", 90, StatusFailed, 200)
-		createTestEvent(t, s, "failed-3", 95, StatusFailed, 200)
-
-		events, err := s.GetFailedEvents(2)
-		if err != nil {
-			t.Fatalf("GetFailedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetFailedEvents() returned %d events, want 2", len(events))
-		}
-	})
-
-	t.Run("no failed events", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "confirmed-1", 80, StatusConfirmed, 200)
-
-		events, err := s.GetFailedEvents(100)
-		if err != nil {
-			t.Fatalf("GetFailedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 0 {
-			t.Errorf("GetFailedEvents() returned %d events, want 0", len(events))
 		}
 	})
 }
@@ -499,7 +439,7 @@ func TestGetBlockExpiredEvents(t *testing.T) {
 		// Terminal statuses (should not be returned even if "expired")
 		createTestEvent(t, s, "completed", 50, StatusCompleted, 90)
 		createTestEvent(t, s, "reverted", 50, StatusReverted, 90)
-		createTestEvent(t, s, "failed", 50, StatusFailed, 90)
+		createTestEvent(t, s, "reverted-term", 50, StatusReverted, 90)
 
 		events, err := s.GetBlockExpiredEvents(100, 100)
 		if err != nil {

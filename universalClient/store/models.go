@@ -42,7 +42,7 @@ type Event struct {
 	ConfirmationType string `gorm:"index;not null"`
 
 	// Status tracks the processing state of the event.
-	// For PC: (instant finality) "CONFIRMED", "IN_PROGRESS", "BROADCASTED", "EXPIRED", -> (terminal states) "REVERTED", "COMPLETED"
+	// For PC: (instant finality) "CONFIRMED", "IN_PROGRESS", "BROADCASTED" -> (terminal states) "REVERTED", "COMPLETED"
 	// For external chains: "PENDING", "CONFIRMED", -> (terminal states) "REORGED", "COMPLETED"
 	Status string `gorm:"index;not null"`
 

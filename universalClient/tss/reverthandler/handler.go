@@ -28,11 +28,9 @@ type Config struct {
 	Logger        zerolog.Logger
 }
 
-// Handler finds FAILED or block-expired events and votes to revert them.
+// Handler finds block-expired events and votes to revert them.
 //
 // Event lifecycle context:
-//   - FAILED: TSS signing succeeded but post-signing step failed (broadcast or vote).
-//     Set by SessionManager. Safe to vote failure immediately.
 //   - Block-expired CONFIRMED: coordinator never picked up the event before expiry.
 //     Safe to vote failure immediately.
 //   - Block-expired BROADCASTED: tx was sent to external chain.
@@ -78,21 +76,8 @@ func (h *Handler) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			h.processFailedEvents(ctx)
 			h.processBlockExpiredEvents(ctx)
 		}
-	}
-}
-
-// processFailedEvents handles events where TSS succeeded but post-signing step failed.
-func (h *Handler) processFailedEvents(ctx context.Context) {
-	events, err := h.eventStore.GetFailedEvents(100)
-	if err != nil {
-		h.logger.Warn().Err(err).Msg("failed to get failed events")
-		return
-	}
-	for i := range events {
-		h.handleEvent(ctx, &events[i])
 	}
 }
 
@@ -271,8 +256,6 @@ func extractOutboundIDs(event *store.Event) (txID, utxID string, err error) {
 // errorMsgForStatus returns a human-readable error message for the event's current status.
 func errorMsgForStatus(status string) string {
 	switch status {
-	case eventstore.StatusFailed:
-		return "TSS succeeded but broadcast/vote failed"
 	case eventstore.StatusConfirmed:
 		return "event expired before TSS started"
 	case eventstore.StatusBroadcasted:

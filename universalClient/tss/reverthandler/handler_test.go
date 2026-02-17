@@ -136,7 +136,6 @@ func TestErrorMsgForStatus(t *testing.T) {
 		status string
 		want   string
 	}{
-		{eventstore.StatusFailed, "TSS succeeded but broadcast/vote failed"},
 		{eventstore.StatusConfirmed, "event expired before TSS started"},
 		{eventstore.StatusBroadcasted, "broadcast attempted but tx not found on chain"},
 		{"UNKNOWN", "event expired or failed"},
@@ -204,7 +203,7 @@ func TestHandleEvent_KeyEvents(t *testing.T) {
 			evtStore := eventstore.NewStore(db, zerolog.Nop())
 			h.eventStore = evtStore
 
-			createEvent(t, db, "key-1", eventType, eventstore.StatusFailed, 100, 200, nil)
+			createEvent(t, db, "key-1", eventType, eventstore.StatusBroadcasted, 100, 200, nil)
 
 			event, _ := evtStore.GetEvent("key-1")
 			h.handleEvent(context.Background(), event)
@@ -223,15 +222,15 @@ func TestHandleEvent_UnknownType(t *testing.T) {
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	h.eventStore = evtStore
 
-	createEvent(t, db, "unknown-1", "UNKNOWN_TYPE", eventstore.StatusFailed, 100, 200, nil)
+	createEvent(t, db, "unknown-1", "UNKNOWN_TYPE", eventstore.StatusBroadcasted, 100, 200, nil)
 
 	event, _ := evtStore.GetEvent("unknown-1")
 	h.handleEvent(context.Background(), event)
 
 	// Status should remain unchanged (no revert for unknown types)
 	updated, _ := evtStore.GetEvent("unknown-1")
-	if updated.Status != eventstore.StatusFailed {
-		t.Errorf("status = %s, want %s (unchanged)", updated.Status, eventstore.StatusFailed)
+	if updated.Status != eventstore.StatusBroadcasted {
+		t.Errorf("status = %s, want %s (unchanged)", updated.Status, eventstore.StatusBroadcasted)
 	}
 }
 
@@ -241,7 +240,7 @@ func TestRevertSignEvent_NoPushSigner(t *testing.T) {
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	h.eventStore = evtStore
 
-	createEvent(t, db, "sign-1", string(coordinator.ProtocolSign), eventstore.StatusFailed, 100, 200, makeSignEventData("tx-1", "utx-1"))
+	createEvent(t, db, "sign-1", string(coordinator.ProtocolSign), eventstore.StatusBroadcasted, 100, 200, makeSignEventData("tx-1", "utx-1"))
 
 	event, _ := evtStore.GetEvent("sign-1")
 	err := h.revertSignEvent(context.Background(), event)
@@ -261,7 +260,7 @@ func TestRevertSignEvent_InvalidEventData(t *testing.T) {
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
 	h.eventStore = evtStore
 
-	createEvent(t, db, "sign-bad", string(coordinator.ProtocolSign), eventstore.StatusFailed, 100, 200, []byte("invalid-json"))
+	createEvent(t, db, "sign-bad", string(coordinator.ProtocolSign), eventstore.StatusBroadcasted, 100, 200, []byte("invalid-json"))
 
 	event, _ := evtStore.GetEvent("sign-bad")
 	err := h.revertSignEvent(context.Background(), event)

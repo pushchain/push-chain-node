@@ -13,7 +13,6 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
-	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
@@ -38,7 +37,6 @@ var Upgrades = []upgrades.Upgrade{
 	removefeeabsv1.NewUpgrade(),
 	outbound.NewUpgrade(),
 	universaltxv1.NewUpgrade(),
-	proxybytecodefix.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

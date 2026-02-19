@@ -74,7 +74,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	gasPrice *big.Int,
-	signerAddress string,
+	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
@@ -87,18 +87,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("gasPrice is required")
-	}
-	if signerAddress == "" {
-		return nil, fmt.Errorf("signerAddress is required")
-	}
-
-	// Parse signer address
-	signerAddr := ethcommon.HexToAddress(signerAddress)
-
-	// Get nonce for the signer address
-	nonce, err := tb.rpcClient.GetNonceAt(ctx, signerAddr, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce for signer %s: %w", signerAddress, err)
 	}
 
 	// Parse gas limit, use default if not provided
@@ -165,10 +153,22 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: txHash,
-		Signer:      signerAddress,
 		Nonce:       nonce,
 		GasPrice:    gasPrice,
 	}, nil
+}
+
+// GetNextNonce returns the next nonce for the signer. useFinalized: if true, use nonce at latest block (aggressive, allows replacing stuck txs); if false, use pending.
+func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
+	if signerAddress == "" {
+		return 0, fmt.Errorf("signerAddress is required")
+	}
+	signerAddr := ethcommon.HexToAddress(signerAddress)
+	if useFinalized {
+		// nil blockNum means use latest block
+		return tb.rpcClient.GetFinalizedNonce(ctx, signerAddr, nil)
+	}
+	return tb.rpcClient.GetPendingNonce(ctx, signerAddr)
 }
 
 // BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction

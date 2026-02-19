@@ -72,7 +72,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	gasPrice *big.Int,
-	signerAddress string,
+	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
@@ -85,9 +85,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("gasPrice is required")
-	}
-	if signerAddress == "" {
-		return nil, fmt.Errorf("signerAddress is required")
 	}
 
 	// Parse amount
@@ -112,11 +109,9 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
-
-	// Fetch nonce from TSS PDA
-	nonce, chainID, err := tb.fetchTSSNonce(ctx, tssPDA)
+	_, chainID, err := tb.fetchTSSNonce(ctx, tssPDA)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch TSS nonce: %w", err)
+		return nil, fmt.Errorf("failed to fetch chain ID from TSS PDA: %w", err)
 	}
 
 	// Determine instruction ID based on TxType and asset type
@@ -160,10 +155,20 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: messageHash, // This is the keccak256 hash to be signed by TSS
-		Signer:      signerAddress,
 		Nonce:       nonce,
 		GasPrice:    big.NewInt(int64(prioritizationFee)),
 	}, nil
+}
+
+// GetNextNonce returns the current TSS PDA nonce for this chain. useFinalized is ignored for SVM.
+func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
+	_ = signerAddress // SVM uses PDA, not signer address
+	tssPDA, err := tb.deriveTSSPDA()
+	if err != nil {
+		return 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
+	}
+	nonce, _, err := tb.fetchTSSNonce(ctx, tssPDA)
+	return nonce, err
 }
 
 // BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature

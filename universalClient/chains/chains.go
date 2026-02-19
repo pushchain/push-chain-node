@@ -362,6 +362,25 @@ func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
 	return client, nil
 }
 
+// IsEVMChain returns true if the chain uses EVM (e.g. Ethereum, BSC). Used by coordinator for nonce behaviour.
+func (c *Chains) IsEVMChain(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.VmType == uregistrytypes.VmType_EVM
+}
+
+// GetStandardConfirmations returns the chain's standard block confirmations from registry config (BlockConfirmation.StandardInbound). Used for outbound tx completion. Returns 12 if not set.
+func (c *Chains) GetStandardConfirmations(chainID string) uint64 {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	if cfg != nil && cfg.BlockConfirmation != nil && cfg.BlockConfirmation.StandardInbound > 0 {
+		return uint64(cfg.BlockConfirmation.StandardInbound)
+	}
+	return 12
+}
+
 // getChainDB returns a database instance for a specific chain
 func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 	// Create database file directly named after the chain's CAIP-2 format

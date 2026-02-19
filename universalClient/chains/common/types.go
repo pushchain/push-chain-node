@@ -26,7 +26,6 @@ type ChainClient interface {
 // UnSignedOutboundTxReq contains the request for signing an outbound transaction
 type UnSignedOutboundTxReq struct {
 	SigningHash []byte   // Hash to be signed by TSS
-	Signer      string   // TSS Address | evm - used for nonce calculation | svm - unused
 	Nonce       uint64   // evm - TSS Address nonce | svm - PDA nonce
 	GasPrice    *big.Int // evm - Gas price used | svm - Prioritization fee
 }
@@ -34,8 +33,11 @@ type UnSignedOutboundTxReq struct {
 // OutboundTxBuilder builds and broadcasts transactions for outbound transfers
 type OutboundTxBuilder interface {
 	// GetOutboundSigningRequest creates a signing request from outbound event data
-	// signerAddress is the address that will sign the transaction (TSS address) - used to fetch nonce
-	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, gasPrice *big.Int, signerAddress string) (*UnSignedOutboundTxReq, error)
+	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*UnSignedOutboundTxReq, error)
+
+	// GetNextNonce returns the next nonce for the given signer on this chain (for seeding local nonce).
+	// useFinalized: for EVM, if true use finalized block nonce (aggressive/replace stuck); if false use pending. SVM ignores this.
+	GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error)
 
 	// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature
 	BroadcastOutboundSigningRequest(ctx context.Context, req *UnSignedOutboundTxReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)

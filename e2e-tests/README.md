@@ -65,6 +65,7 @@ Path settings are repository-relative and portable.
 ## One-command full run
 
 ```bash
+./e2e-tests/setup.sh replace-addresses
 ./e2e-tests/setup.sh all
 ```
 
@@ -101,6 +102,7 @@ This runs the full sequence in order:
 ./e2e-tests/setup.sh update-token-config
 ./e2e-tests/setup.sh setup-gateway
 ./e2e-tests/setup.sh add-uregistry-configs
+./e2e-tests/setup.sh replace-addresses
 ./e2e-tests/setup.sh all
 ```
 
@@ -177,6 +179,7 @@ For a fresh run:
 ```bash
 rm -rf e2e-tests/repos
 ./local-native/devnet down || true
+./e2e-tests/setup.sh replace-addresses
 ./e2e-tests/setup.sh all
 ```
 

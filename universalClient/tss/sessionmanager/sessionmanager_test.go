@@ -115,7 +115,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		evtStore,
 		testClient,
 		keyshareMgr,
-		nil, // txBuilderFactory - nil for tests
+		nil, // chains - nil for tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -271,6 +271,84 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not in session participants")
 		mockSess.AssertExpectations(t)
+	})
+}
+
+// setCoordinatorValidators overrides the allValidators field in the coordinator using
+// reflect+unsafe (the field is unexported and the coordinator goroutine is not started in tests).
+func setCoordinatorValidators(coord *coordinator.Coordinator, validators []*types.UniversalValidator) {
+	coordValue := reflect.ValueOf(coord).Elem()
+	field := coordValue.FieldByName("allValidators")
+	if field.IsValid() {
+		*(*[]*types.UniversalValidator)(unsafe.Pointer(field.UnsafeAddr())) = validators
+	}
+}
+
+func makeActiveValidator(addr string) *types.UniversalValidator {
+	return &types.UniversalValidator{
+		IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: addr},
+		LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+	}
+}
+
+// TestValidateParticipants tests the participant validation rules for each protocol.
+// SIGN uses a threshold subset (coordinator picks >2/3); keygen/keyrefresh/quorumchange require all eligible.
+func TestValidateParticipants(t *testing.T) {
+	sm, coord, _, _, _, _ := setupTestSessionManager(t)
+
+	// Use 4 active validators: threshold(4) = (2*4)/3+1 = 3.
+	// This lets us test a valid partial subset (3 of 4) for SIGN.
+	fourActive := []*types.UniversalValidator{
+		makeActiveValidator("v1"),
+		makeActiveValidator("v2"),
+		makeActiveValidator("v3"),
+		makeActiveValidator("v4"),
+	}
+	setCoordinatorValidators(coord, fourActive)
+
+	signEvent := &store.Event{EventID: "sign-1", Type: "SIGN"}
+	keygenEvent := &store.Event{EventID: "keygen-1", Type: "KEYGEN"}
+
+	// --- SIGN: threshold subset rules ---
+
+	t.Run("SIGN: threshold subset is valid", func(t *testing.T) {
+		// 3 of 4 eligible satisfies threshold(4)=3
+		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, signEvent))
+	})
+
+	t.Run("SIGN: all eligible is also valid (threshold is a minimum)", func(t *testing.T) {
+		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, signEvent))
+	})
+
+	t.Run("SIGN: below threshold is rejected", func(t *testing.T) {
+		// 2 < threshold(4)=3
+		err := sm.validateParticipants([]string{"v1", "v2"}, signEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "threshold")
+	})
+
+	t.Run("SIGN: non-eligible participant is rejected", func(t *testing.T) {
+		err := sm.validateParticipants([]string{"v1", "v2", "unknown"}, signEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not eligible")
+	})
+
+	// --- KEYGEN: exact-match rules (all eligible must participate) ---
+
+	t.Run("KEYGEN: all eligible is valid", func(t *testing.T) {
+		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, keygenEvent))
+	})
+
+	t.Run("KEYGEN: missing participant is rejected", func(t *testing.T) {
+		err := sm.validateParticipants([]string{"v1", "v2", "v3"}, keygenEvent) // v4 missing
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match eligible count")
+	})
+
+	t.Run("KEYGEN: non-eligible participant is rejected", func(t *testing.T) {
+		err := sm.validateParticipants([]string{"v1", "v2", "v3", "v4", "unknown"}, keygenEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not eligible")
 	})
 }
 

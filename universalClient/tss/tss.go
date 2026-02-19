@@ -21,6 +21,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/expirysweeper"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
@@ -104,6 +105,7 @@ type Node struct {
 	sessionManager   *sessionmanager.SessionManager
 	txBroadcaster    *txbroadcaster.Broadcaster
 	txResolver       *txresolver.Resolver
+	expirySweeper    *expirysweeper.Sweeper
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -234,12 +236,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
-		txBroadcaster: txbroadcaster.NewBroadcaster(txbroadcaster.Config{
-			EventStore:    evtStore,
-			Chains:        cfg.Chains,
-			CheckInterval: sessionExpiryCheckInterval,
-			Logger:        logger,
-		}),
 		txResolver: txresolver.NewResolver(txresolver.Config{
 			EventStore:    evtStore,
 			Chains:        cfg.Chains,
@@ -248,6 +244,28 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 			Logger:        logger,
 		}),
 	}
+
+	// Create broadcaster after node so the closure can capture `node`.
+	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
+		EventStore:    evtStore,
+		Chains:        cfg.Chains,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+		GetTSSAddress: func(ctx context.Context) (string, error) {
+			if node.coordinator == nil {
+				return "", fmt.Errorf("coordinator not initialized")
+			}
+			return node.coordinator.GetTSSAddress(ctx)
+		},
+	})
+
+	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
+		EventStore:    evtStore,
+		PushCore:      cfg.PushCore,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+	})
 
 	return node, nil
 }
@@ -300,7 +318,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.pushCore,
 			n.keyshareManager,
-			n.chains, // Chains manager for getting txBuilders
+			n.chains,
 			n.validatorAddress,
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
@@ -344,6 +362,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	// Start tx resolver (BROADCASTED → COMPLETED/REVERTED)
 	n.txResolver.Start(ctx)
+
+	// Start expiry sweeper (CONFIRMED past expiry → REVERTED)
+	n.expirySweeper.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

@@ -10,12 +10,13 @@ import (
 
 // Event statuses for TSS operations.
 //
-// Lifecycle: CONFIRMED → IN_PROGRESS → BROADCASTED → COMPLETED
+// Lifecycle: CONFIRMED → IN_PROGRESS → SIGNED → BROADCASTED → COMPLETED
 //
-//	                                  ↘ REVERTED (on expiry, after on-chain verification)
+//	                                  ↘ REVERTED (on expiry, receipt failed, or key vote failed)
 const (
 	StatusConfirmed   = "CONFIRMED"   // Event confirmed on Push chain, ready for processing
 	StatusInProgress  = "IN_PROGRESS" // TSS signing is in progress
+	StatusSigned      = "SIGNED"      // TSS signing done, tx not yet broadcast (sign events only)
 	StatusBroadcasted = "BROADCASTED" // Transaction sent to external chain (sign events only)
 	StatusReverted    = "REVERTED"    // Reverted (failure vote sent for sign events, or key vote failed)
 	StatusCompleted   = "COMPLETED"   // Successfully completed
@@ -109,10 +110,54 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 	return events, nil
 }
 
-// GetBlockExpiredEvents returns CONFIRMED, IN_PROGRESS, or BROADCASTED events past their expiry block.
-func (s *Store) GetBlockExpiredEvents(currentBlock uint64, limit int) ([]store.Event, error) {
-	query := s.db.Where("status IN (?, ?, ?) AND expiry_block_height <= ?",
-		StatusConfirmed, StatusInProgress, StatusBroadcasted, currentBlock).
+// GetInFlightSignEvents returns SIGN events that are currently IN_PROGRESS or SIGNED.
+// BROADCASTED events are excluded because they are already submitted to chain;
+// the pending nonce RPC accounts for them in the mempool, and including them here
+// would make the coordinator wait for the resolver unnecessarily.
+func (s *Store) GetInFlightSignEvents() ([]store.Event, error) {
+	var events []store.Event
+	if err := s.db.Where("type = ? AND status IN (?, ?)",
+		"SIGN", StatusInProgress, StatusSigned).
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query in-flight sign events")
+	}
+	return events, nil
+}
+
+// GetSignedSignEvents returns SIGN events with status SIGNED (ready to be broadcast).
+func (s *Store) GetSignedSignEvents(limit int) ([]store.Event, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var events []store.Event
+	if err := s.db.Where("type = ? AND status = ?", "SIGN", StatusSigned).
+		Order("block_height ASC, created_at ASC").
+		Limit(limit).
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query signed sign events")
+	}
+	return events, nil
+}
+
+// GetBroadcastedSignEvents returns SIGN events with status BROADCASTED (for receipt check).
+func (s *Store) GetBroadcastedSignEvents(limit int) ([]store.Event, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var events []store.Event
+	if err := s.db.Where("type = ? AND status = ? AND broadcasted_tx_hash != ?", "SIGN", StatusBroadcasted, "").
+		Order("block_height ASC, created_at ASC").
+		Limit(limit).
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to query broadcasted sign events")
+	}
+	return events, nil
+}
+
+// GetExpiredConfirmedEvents returns CONFIRMED events past their expiry block.
+func (s *Store) GetExpiredConfirmedEvents(currentBlock uint64, limit int) ([]store.Event, error) {
+	query := s.db.Where("status = ? AND expiry_block_height <= ?",
+		StatusConfirmed, currentBlock).
 		Order("block_height ASC, created_at ASC")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -120,7 +165,7 @@ func (s *Store) GetBlockExpiredEvents(currentBlock uint64, limit int) ([]store.E
 
 	var events []store.Event
 	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query expired events")
+		return nil, errors.Wrap(err, "failed to query expired confirmed events")
 	}
 	return events, nil
 }

@@ -427,26 +427,30 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 	})
 }
 
-func TestGetBlockExpiredEvents(t *testing.T) {
-	t.Run("returns expired CONFIRMED, IN_PROGRESS, and BROADCASTED events", func(t *testing.T) {
+func TestGetExpiredConfirmedEvents(t *testing.T) {
+	t.Run("returns only expired CONFIRMED events", func(t *testing.T) {
 		s := setupTestStore(t)
-		// All expired (expiry <= current block 100)
+		// Expired CONFIRMED (should be returned)
 		createTestEvent(t, s, "confirmed-expired", 50, StatusConfirmed, 90)
+		// Expired non-CONFIRMED (should NOT be returned)
 		createTestEvent(t, s, "ip-expired", 50, StatusInProgress, 95)
+		createTestEvent(t, s, "signed-expired", 50, StatusSigned, 95)
 		createTestEvent(t, s, "broadcasted-expired", 50, StatusBroadcasted, 100)
 		// Not expired
 		createTestEvent(t, s, "confirmed-valid", 50, StatusConfirmed, 200)
-		// Terminal statuses (should not be returned even if "expired")
+		// Terminal statuses (should not be returned)
 		createTestEvent(t, s, "completed", 50, StatusCompleted, 90)
 		createTestEvent(t, s, "reverted", 50, StatusReverted, 90)
-		createTestEvent(t, s, "reverted-term", 50, StatusReverted, 90)
 
-		events, err := s.GetBlockExpiredEvents(100, 100)
+		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
-			t.Fatalf("GetBlockExpiredEvents() error = %v, want nil", err)
+			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
 		}
-		if len(events) != 3 {
-			t.Errorf("GetBlockExpiredEvents() returned %d events, want 3", len(events))
+		if len(events) != 1 {
+			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 1", len(events))
+		}
+		if len(events) > 0 && events[0].EventID != "confirmed-expired" {
+			t.Errorf("GetExpiredConfirmedEvents() event ID = %s, want confirmed-expired", events[0].EventID)
 		}
 	})
 
@@ -454,12 +458,12 @@ func TestGetBlockExpiredEvents(t *testing.T) {
 		s := setupTestStore(t)
 		createTestEvent(t, s, "event-1", 50, StatusConfirmed, 200)
 
-		events, err := s.GetBlockExpiredEvents(100, 100)
+		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
-			t.Fatalf("GetBlockExpiredEvents() error = %v, want nil", err)
+			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 0 {
-			t.Errorf("GetBlockExpiredEvents() returned %d events, want 0", len(events))
+			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 0", len(events))
 		}
 	})
 
@@ -469,12 +473,12 @@ func TestGetBlockExpiredEvents(t *testing.T) {
 		createTestEvent(t, s, "expired-2", 60, StatusConfirmed, 95)
 		createTestEvent(t, s, "expired-3", 70, StatusConfirmed, 99)
 
-		events, err := s.GetBlockExpiredEvents(100, 2)
+		events, err := s.GetExpiredConfirmedEvents(100, 2)
 		if err != nil {
-			t.Fatalf("GetBlockExpiredEvents() error = %v, want nil", err)
+			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
 		}
 		if len(events) != 2 {
-			t.Errorf("GetBlockExpiredEvents() returned %d events, want 2", len(events))
+			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 2", len(events))
 		}
 	})
 
@@ -483,9 +487,9 @@ func TestGetBlockExpiredEvents(t *testing.T) {
 		createTestEvent(t, s, "expired-high", 70, StatusConfirmed, 90)
 		createTestEvent(t, s, "expired-low", 50, StatusConfirmed, 90)
 
-		events, err := s.GetBlockExpiredEvents(100, 100)
+		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
-			t.Fatalf("GetBlockExpiredEvents() error = %v, want nil", err)
+			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
 		}
 		if events[0].EventID != "expired-low" {
 			t.Errorf("first event = %s, want expired-low", events[0].EventID)

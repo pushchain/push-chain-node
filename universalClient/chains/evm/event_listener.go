@@ -57,11 +57,17 @@ func NewEventListener(
 		return nil, fmt.Errorf("chain ID not configured")
 	}
 
-	// Build event topics for filtering - only include sendFunds and outboundObservation
-	eventTopics := make([]ethcommon.Hash, 0, 2)
+	// Build event topics for filtering
+	eventTopics := make([]ethcommon.Hash, 0, 3)
 	topicToEventType := make(map[ethcommon.Hash]string)
 	for _, method := range gatewayMethods {
-		if method.EventIdentifier != "" && (method.Name == EventTypeSendFunds || method.Name == EventTypeOutboundObservation) {
+		if method.EventIdentifier == "" {
+			continue
+		}
+		switch method.Name {
+		case EventTypeSendFunds,
+			EventTypeExecuteUniversalTx,
+			EventTypeRevertUniversalTx:
 			topic := ethcommon.HexToHash(method.EventIdentifier)
 			eventTopics = append(eventTopics, topic)
 			topicToEventType[topic] = method.Name

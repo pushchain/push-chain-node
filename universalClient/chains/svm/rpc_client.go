@@ -296,6 +296,30 @@ func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *solana.Transa
 	return txHash, err
 }
 
+// SimulateTransaction runs a transaction against the current ledger state without broadcasting.
+// Returns the simulation result (logs, error, compute units consumed).
+// Skips signature verification so the TSS/relayer signatures don't need to be valid.
+func (rc *RPCClient) SimulateTransaction(ctx context.Context, tx *solana.Transaction) (*rpc.SimulateTransactionResult, error) {
+	var result *rpc.SimulateTransactionResponse
+	err := rc.executeWithFailover(ctx, "simulate_transaction", func(client *rpc.Client) error {
+		resp, innerErr := client.SimulateTransactionWithOpts(ctx, tx, &rpc.SimulateTransactionOpts{
+			SigVerify: false,
+		})
+		if innerErr != nil {
+			return innerErr
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Value == nil {
+		return nil, fmt.Errorf("empty simulation result")
+	}
+	return result.Value, nil
+}
+
 // GetAccountData fetches account data for a given public key
 func (rc *RPCClient) GetAccountData(ctx context.Context, pubkey solana.PublicKey) ([]byte, error) {
 	var accountData []byte

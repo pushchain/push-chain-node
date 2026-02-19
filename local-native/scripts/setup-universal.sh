@@ -86,6 +86,14 @@ jq --argjson port "$QUERY_PORT" '.query_server_port = $port' \
     "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 
+# Optionally override Sepolia event start height (set by ./devnet start-uv)
+if [ -n "${SEPOLIA_EVENT_START_FROM:-}" ]; then
+    jq --argjson height "$SEPOLIA_EVENT_START_FROM" \
+       '.chain_configs["eip155:11155111"].event_start_from = $height' \
+       "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+       mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
 # Enable TSS
 TSS_PRIVATE_KEY=$(printf '%02x' $UNIVERSAL_ID | head -c 2)
 TSS_PRIVATE_KEY=$(yes $TSS_PRIVATE_KEY | head -32 | tr -d '\n')

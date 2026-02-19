@@ -49,7 +49,8 @@ cd local-native
 |---------|-------------|
 | `./devnet start [n]` | Start n core validators (default: 1) |
 | `./devnet setup-uvalidators` | Register UVs on-chain + create AuthZ grants |
-| `./devnet start-uv [n]` | Start n universal validators (default: 4) |
+| `./devnet start-uv [n]` | Start n universal validators (default: 4) and auto-set Sepolia `event_start_from` |
+| `./devnet configure` | Manually refresh Sepolia `event_start_from` in existing UV configs |
 | `./devnet down` | Stop all validators |
 | `./devnet status` | Show network status |
 | `./devnet logs [service]` | View logs |

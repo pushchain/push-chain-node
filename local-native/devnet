@@ -236,6 +236,7 @@ start_validator() {
 
 start_universal() {
     local id=$1
+    local sepolia_start_height=${2:-}
     local pid_file="$DATA_DIR/universal$id.pid"
     
     # Check if already running
@@ -251,7 +252,7 @@ start_universal() {
     mkdir -p "$DATA_DIR/universal$id"
     
     print_status "Starting universal validator $id..."
-    UNIVERSAL_ID=$id "$SCRIPT_DIR/scripts/setup-universal.sh" > "$DATA_DIR/universal$id/universal.log" 2>&1 &
+    UNIVERSAL_ID=$id SEPOLIA_EVENT_START_FROM="$sepolia_start_height" "$SCRIPT_DIR/scripts/setup-universal.sh" > "$DATA_DIR/universal$id/universal.log" 2>&1 &
     
     echo $! > "$pid_file"
     print_success "Universal validator $id started (PID: $(cat $pid_file))"
@@ -297,12 +298,19 @@ cmd_up() {
 cmd_start_uv() {
     require_binaries
     print_header "Starting Universal Validators..."
+
+    local sepolia_start_height=""
+    if ! sepolia_start_height=$(bash "$SCRIPT_DIR/scripts/configure-pushuv.sh" --get-height); then
+        print_error "Failed to fetch latest Sepolia height"
+        exit 1
+    fi
+    print_status "Using Sepolia event_start_from: $sepolia_start_height"
     
     local num_uv=${1:-4}
     
     for i in $(seq 1 $num_uv); do
         if [ $i -le 4 ]; then
-            start_universal $i
+            start_universal $i "$sepolia_start_height"
             sleep 3
         fi
     done
@@ -311,6 +319,14 @@ cmd_start_uv() {
     print_success "Universal validators started!"
     echo
     cmd_status
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIGURE COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_configure() {
+    print_header "Configuring local-native universal relayer configs..."
+    bash "$SCRIPT_DIR/scripts/configure-pushuv.sh"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -487,6 +503,7 @@ cmd_help() {
     echo -e "${BOLD}${CYAN}UNIVERSAL VALIDATORS${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "setup-uvalidators" "Register UVs and create AuthZ grants"
     printf "  ${BOLD}%-20s${NC}%s\n" "start-uv [n]" "Start n universal validators (default: 4)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "configure" "Set Sepolia event_start_from to latest block"
     echo
     echo -e "${BOLD}${CYAN}TSS COMMANDS${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "tss-keygen" "Initiate TSS key generation"
@@ -536,6 +553,7 @@ case "${1:-help}" in
     # Universal validators
     setup-uvalidators) "$SCRIPT_DIR/scripts/setup-uvalidators.sh" ;;
     start-uv)       shift; cmd_start_uv "$@" ;;
+    configure)      cmd_configure ;;
 
     # Maintenance
     clean)          cmd_clean ;;

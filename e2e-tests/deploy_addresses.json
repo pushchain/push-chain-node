@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-02-19T11:46:45Z",
+  "contracts": {
+    "WPC": "0x4ff2d01380CCd03A53457935B2e9d2eD092e9300",
+    "Factory": "0x373D3F1B2b26729A308C5641970247bc9d4ddDa4",
+    "SwapRouter": "0x6a20557430be6412AF423681e35CC96797506F3a",
+    "QuoterV2": "0xc2055dD3A7Ad875520BdB5c91300F964F7038C73",
+    "PositionManager": "0xdBdFEB7A79868Cb4A4e9e57D7d28C84AE77AC4BC"
+  },
+  "tokens": [
+    {
+      "name": "pETH.eth",
+      "symbol": "pETH",
+      "address": "0x90F4A15601E08570D6fFbaE883C44BDB85bDb7d1",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "USDT.eth",
+      "symbol": "USDT.eth",
+      "address": "0x00cb38A885cf8D0B2dDfd19Bd1c04aAAC44C5a86",
+      "source": "core-contracts",
+      "decimals": 6
+    }
+  ]
+}

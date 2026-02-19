@@ -24,8 +24,9 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
-	"github.com/pushchain/push-chain-node/universalClient/tss/reverthandler"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txbroadcaster"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txresolver"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -42,9 +43,9 @@ type Config struct {
 	// Optional configuration
 	PollInterval     time.Duration
 	CoordinatorRange uint64
-	ProtocolID        string
-	DialTimeout       time.Duration
-	IOTimeout         time.Duration
+	ProtocolID       string
+	DialTimeout      time.Duration
+	IOTimeout        time.Duration
 
 	// Chains manager (required for sign operations to get txBuilders)
 	Chains *chains.Chains
@@ -101,7 +102,8 @@ type Node struct {
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
 	sessionManager   *sessionmanager.SessionManager
-	revertHandler    *reverthandler.Handler
+	txBroadcaster    *txbroadcaster.Broadcaster
+	txResolver       *txresolver.Resolver
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -213,16 +215,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	// Create event store for database access
 	evtStore := eventstore.NewStore(database.Client(), logger)
 
-	// Create revert handler (no runtime dependencies — safe to create here)
-	rvHandler := reverthandler.NewHandler(reverthandler.Config{
-		EventStore:    evtStore,
-		PushCore:      cfg.PushCore,
-		Chains:        cfg.Chains,
-		PushSigner:    cfg.PushSigner,
-		CheckInterval: sessionExpiryCheckInterval,
-		Logger:        logger,
-	})
-
 	// Coordinator and session manager are created in Start() because they
 	// depend on the network send function which requires libp2p to be running.
 	node := &Node{
@@ -233,7 +225,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		chains:                     cfg.Chains,
 		logger:                     logger,
 		eventStore:                 evtStore,
-		revertHandler:              rvHandler,
 		networkCfg:                 networkCfg,
 		coordinatorRange:           coordinatorRange,
 		coordinatorPollInterval:    pollInterval,
@@ -243,6 +234,19 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
+		txBroadcaster: txbroadcaster.NewBroadcaster(txbroadcaster.Config{
+			EventStore:    evtStore,
+			Chains:        cfg.Chains,
+			CheckInterval: sessionExpiryCheckInterval,
+			Logger:        logger,
+		}),
+		txResolver: txresolver.NewResolver(txresolver.Config{
+			EventStore:    evtStore,
+			Chains:        cfg.Chains,
+			PushSigner:    cfg.PushSigner,
+			CheckInterval: sessionExpiryCheckInterval,
+			Logger:        logger,
+		}),
 	}
 
 	return node, nil
@@ -335,8 +339,11 @@ func (n *Node) Start(ctx context.Context) error {
 	// Start session manager (includes session expiry checker)
 	n.sessionManager.Start(ctx)
 
-	// Start revert handler (processes FAILED and block-expired events)
-	n.revertHandler.Start(ctx)
+	// Start tx broadcaster (SIGNED → BROADCASTED)
+	n.txBroadcaster.Start(ctx)
+
+	// Start tx resolver (BROADCASTED → COMPLETED/REVERTED)
+	n.txResolver.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

@@ -3,6 +3,7 @@
   "public_rpc_url": "https://eth-sepolia.public.blastapi.io",
   "vm_type": 1,
   "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
+  "gas_oracle_fetch_interval": "30s",
   "block_confirmation": {
     "fast_inbound": 0,
     "standard_inbound": 2

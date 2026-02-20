@@ -155,25 +155,14 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 		return fmt.Errorf("failed to vote on outbound: %w", err)
 	}
 
-	// Update vote_tx_hash first
-	if err := ep.chainStore.UpdateVoteTxHash(event.EventID, voteTxHash); err != nil {
-		ep.logger.Error().
-			Err(err).
-			Str("event_id", event.EventID).
-			Msg("failed to update vote_tx_hash")
-	}
-
-	// Update event status to COMPLETED using chain_store
-	rowsAffected, err := ep.chainStore.UpdateEventStatus(event.EventID, "CONFIRMED", "COMPLETED")
+	// Atomically record vote hash and flip status in one DB write
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
 	if err != nil {
-		return fmt.Errorf("failed to update event status: %w", err)
+		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		ep.logger.Warn().
-			Str("event_id", event.EventID).
-			Msg("event status was already changed - possibly processed by another worker")
-		return nil
+		return nil // already completed by another validator
 	}
 
 	ep.logger.Info().
@@ -211,25 +200,14 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 		return err
 	}
 
-	// Update event status using chain_store
-	rowsAffected, err := ep.chainStore.UpdateEventStatus(event.EventID, "CONFIRMED", "COMPLETED")
+	// Atomically record vote hash and flip status in one DB write
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		ep.logger.Warn().
-			Str("event_id", event.EventID).
-			Msg("event status was already changed - possibly processed by another worker")
-		return nil
-	}
-
-	// Update vote_tx_hash
-	if err := ep.chainStore.UpdateVoteTxHash(event.EventID, voteTxHash); err != nil {
-		ep.logger.Error().
-			Err(err).
-			Str("event_id", event.EventID).
-			Msg("failed to update vote_tx_hash")
+		return nil // already completed by another validator
 	}
 
 	ep.logger.Info().

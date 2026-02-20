@@ -137,6 +137,26 @@ func (cs *ChainStore) UpdateEventStatus(eventID string, oldStatus, newStatus str
 	return res.RowsAffected, nil
 }
 
+// UpdateStatusAndVoteTxHash atomically flips the event status and records the vote tx hash in one DB write.
+// The update is conditional on the event currently having oldStatus (compare-and-swap semantics).
+// Returns the number of rows affected (0 means the event was already in a different status).
+func (cs *ChainStore) UpdateStatusAndVoteTxHash(eventID, oldStatus, newStatus, voteTxHash string) (int64, error) {
+	if cs.database == nil {
+		return 0, fmt.Errorf("database is nil")
+	}
+
+	res := cs.database.Client().
+		Model(&store.Event{}).
+		Where("event_id = ? AND status = ?", eventID, oldStatus).
+		Updates(map[string]any{"status": newStatus, "vote_tx_hash": voteTxHash})
+
+	if res.Error != nil {
+		return 0, fmt.Errorf("failed to update event status and vote_tx_hash: %w", res.Error)
+	}
+
+	return res.RowsAffected, nil
+}
+
 // UpdateVoteTxHash updates the vote_tx_hash field for an event
 func (cs *ChainStore) UpdateVoteTxHash(eventID string, voteTxHash string) error {
 	if cs.database == nil {

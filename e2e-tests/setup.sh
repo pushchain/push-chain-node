@@ -41,11 +41,6 @@ fi
 : "${TOKEN_CONFIG_PATH:=./config/testnet-donut/tokens/eth_sepolia_eth.json}"
 : "${CHAIN_CONFIG_PATH:=./config/testnet-donut/chains/eth_sepolia_chain_config.json}"
 
-: "${OLD_PUSH_ADDRESS:=push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20}"
-: "${NEW_PUSH_ADDRESS:=push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20}"
-: "${OLD_EVM_ADDRESS:=0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4}"
-: "${NEW_EVM_ADDRESS:=0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4}"
-
 abs_from_root() {
   local path="$1"
   if [[ "$path" = /* ]]; then
@@ -247,6 +242,15 @@ clone_or_update_repo() {
   fi
 
   if [[ -d "$dest/.git" ]]; then
+    local current_branch has_changes
+    current_branch="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    has_changes="$(git -C "$dest" status --porcelain 2>/dev/null)"
+
+    if [[ -n "$has_changes" && "$current_branch" == "$resolved_branch" ]]; then
+      log_warn "Repo $(basename "$dest") has local changes on branch '$current_branch'. Skipping update to preserve local changes."
+      return 0
+    fi
+
     log_info "Updating repo $(basename "$dest")"
     git -C "$dest" fetch origin
     git -C "$dest" checkout "$resolved_branch"
@@ -1032,44 +1036,6 @@ step_configure_universal_core() {
   done
 }
 
-step_replace_addresses_everywhere() {
-  require_cmd grep perl
-
-  local touched=0
-  local file
-
-  while IFS= read -r file; do
-    [[ -n "$file" ]] || continue
-    perl -0777 -i -pe "s/\Q$OLD_PUSH_ADDRESS\E/$NEW_PUSH_ADDRESS/g; s/\Q$OLD_EVM_ADDRESS\E/$NEW_EVM_ADDRESS/g;" "$file"
-    touched=$((touched + 1))
-  done < <(
-    grep -RIl \
-      --exclude-dir=.git \
-      --binary-files=without-match \
-      -e "$OLD_PUSH_ADDRESS" \
-      -e "$OLD_EVM_ADDRESS" \
-      "$PUSH_CHAIN_DIR" || true
-  )
-
-  if [[ "$touched" -eq 0 ]]; then
-    log_warn "No files contained legacy addresses"
-  else
-    log_ok "Replaced legacy addresses in $touched file(s)"
-  fi
-}
-
-run_preflight() {
-  local cmd="$1"
-
-  case "$cmd" in
-    help|--help|-h|replace-addresses)
-      return 0
-      ;;
-  esac
-
-  step_replace_addresses_everywhere
-}
-
 cmd_all() {
   step_devnet
   step_recover_genesis_key
@@ -1100,7 +1066,6 @@ Commands:
   sync-addresses         Apply deploy_addresses.json into test-addresses.json
   create-pool            Create WPC pools for all deployed core tokens
   configure-core         Run configureUniversalCore.s.sol (auto --resume retries)
-  replace-addresses      Replace legacy push/evm addresses across repo
   check-addresses        Verify required deploy addresses exist (WPC/Factory/QuoterV2/SwapRouter)
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
@@ -1119,7 +1084,6 @@ EOF
 
 main() {
   local cmd="${1:-help}"
-  run_preflight "$cmd"
   case "$cmd" in
     devnet) step_devnet ;;
     print-genesis) step_print_genesis ;;
@@ -1130,7 +1094,6 @@ main() {
     sync-addresses) step_sync_test_addresses ;;
     create-pool) step_create_all_wpc_pools ;;
     configure-core) step_configure_universal_core ;;
-    replace-addresses) step_replace_addresses_everywhere ;;
     check-addresses) assert_required_addresses ;;
     write-core-env) step_write_core_env ;;
     update-token-config) step_update_deployed_token_configs ;;

@@ -390,8 +390,8 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		Uint64("current_block", currentBlock).
 		Msg("found confirmed events")
 
-	// Track which chains we've already decided to skip this poll (has in-flight, within patience).
-	// This avoids re-evaluating per event and ensures consistent behavior within a single poll.
+	// Per-chain nonce cache: fetched once per chain per poll, then incremented locally (n, n+1, n+2, …).
+	nonceByChain := make(map[string]uint64)
 	skippedChains := make(map[string]bool)
 
 	for _, event := range events {
@@ -402,64 +402,11 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 
-			// Already decided to skip this chain this poll
-			if skippedChains[chain] {
+			nonce, ok := c.assignSignNonce(ctx, event, chain, inFlightPerChain, nonceByChain, skippedChains)
+			if !ok {
 				continue
 			}
-
-			// Per-chain cap: skip if this chain already has PerChainCap in this batch
-			if inFlightPerChain[chain] >= PerChainCap {
-				c.logger.Debug().
-					Str("event_id", event.EventID).
-					Str("chain", chain).
-					Int("in_flight", inFlightPerChain[chain]).
-					Msg("skipping SIGN event — per-chain cap reached")
-				continue
-			}
-
-			// 3-state gating per chain based on in-flight count
-			c.chainWaitMu.Lock()
-			consecutiveWait := c.consecutiveWaitPerChain[chain]
-			c.chainWaitMu.Unlock()
-
-			useFinalized := false
-			if inFlightPerChain[chain] > 0 {
-				if consecutiveWait < ConsecutiveWaitThreshold {
-					// HAS IN-FLIGHT, within patience → skip this chain entirely
-					c.chainWaitMu.Lock()
-					c.consecutiveWaitPerChain[chain]++
-					c.chainWaitMu.Unlock()
-					skippedChains[chain] = true
-					c.logger.Debug().
-						Str("event_id", event.EventID).
-						Str("chain", chain).
-						Int("in_flight", inFlightPerChain[chain]).
-						Int("consecutive_wait", consecutiveWait+1).
-						Msg("skipping SIGN event — waiting for in-flight to clear")
-					continue
-				}
-				// HAS IN-FLIGHT, patience exhausted → use finalized nonce to recover
-				useFinalized = true
-				c.logger.Info().
-					Str("chain", chain).
-					Int("in_flight", inFlightPerChain[chain]).
-					Int("consecutive_wait", consecutiveWait).
-					Msg("patience exhausted — using finalized nonce to recover")
-			}
-
-			// NO IN-FLIGHT or patience exhausted: assign nonce and batch
-			nextNonce, err := c.getNextNonceForChain(ctx, chain, useFinalized)
-			if err != nil {
-				c.logger.Error().Err(err).Str("chain", chain).Str("event_id", event.EventID).Msg("failed to get next nonce for chain")
-				continue
-			}
-			assignedNonce = &nextNonce
-			inFlightPerChain[chain]++
-
-			// Reset consecutive wait counter when we process events for this chain
-			c.chainWaitMu.Lock()
-			c.consecutiveWaitPerChain[chain] = 0
-			c.chainWaitMu.Unlock()
+			assignedNonce = &nonce
 		}
 
 		c.logger.Info().
@@ -1004,6 +951,85 @@ func (c *Coordinator) getInFlightSignCountPerChain() (map[string]int, error) {
 		}
 	}
 	return perChain, nil
+}
+
+// assignSignNonce resolves the nonce for a SIGN event on the given destination chain.
+// Returns (nonce, true) if the event should proceed, or (0, false) to skip.
+//
+// Nonce is fetched from chain once per destination chain per poll, then incremented
+// locally for each additional event (n, n+1, n+2, …).
+func (c *Coordinator) assignSignNonce(
+	ctx context.Context,
+	event store.Event,
+	chain string,
+	inFlightPerChain map[string]int,
+	nonceByChain map[string]uint64,
+	skippedChains map[string]bool,
+) (uint64, bool) {
+	if skippedChains[chain] {
+		return 0, false
+	}
+
+	// ── Subsequent event for this chain (nonce already fetched this poll) ──
+	if _, exists := nonceByChain[chain]; exists {
+		if inFlightPerChain[chain] >= PerChainCap {
+			return 0, false
+		}
+		nonceByChain[chain]++
+		inFlightPerChain[chain]++
+		return nonceByChain[chain], true
+	}
+
+	// ── First event for this chain this poll ──
+	// Decide: process normally, wait (skip), or recover with finalized nonce.
+	useFinalized := false
+
+	if inFlightPerChain[chain] > 0 {
+		c.chainWaitMu.Lock()
+		consecutiveWait := c.consecutiveWaitPerChain[chain]
+		c.chainWaitMu.Unlock()
+
+		if consecutiveWait < ConsecutiveWaitThreshold {
+			// Still within patience — skip chain, let in-flight events clear
+			c.chainWaitMu.Lock()
+			c.consecutiveWaitPerChain[chain]++
+			c.chainWaitMu.Unlock()
+			skippedChains[chain] = true
+			c.logger.Debug().
+				Str("chain", chain).
+				Int("in_flight", inFlightPerChain[chain]).
+				Int("consecutive_wait", consecutiveWait+1).
+				Msg("skipping chain — waiting for in-flight to clear")
+			return 0, false
+		}
+
+		// Patience exhausted — recover with finalized nonce.
+		// Cap is intentionally bypassed: stuck events have stale nonces and will
+		// be cleared by broadcaster → resolver → REVERTED.
+		useFinalized = true
+		c.logger.Info().
+			Str("chain", chain).
+			Int("in_flight", inFlightPerChain[chain]).
+			Int("consecutive_wait", consecutiveWait).
+			Msg("patience exhausted — recovering with finalized nonce")
+	}
+
+	// Fetch nonce (once per chain per poll)
+	nonce, err := c.getNextNonceForChain(ctx, chain, useFinalized)
+	if err != nil {
+		c.logger.Error().Err(err).Str("chain", chain).Str("event_id", event.EventID).
+			Msg("failed to get next nonce")
+		return 0, false
+	}
+
+	nonceByChain[chain] = nonce
+	inFlightPerChain[chain]++
+
+	c.chainWaitMu.Lock()
+	c.consecutiveWaitPerChain[chain] = 0
+	c.chainWaitMu.Unlock()
+
+	return nonce, true
 }
 
 // getNextNonceForChain queries the chain for the next nonce to assign.

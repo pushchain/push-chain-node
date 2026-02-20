@@ -1539,7 +1539,7 @@ func buildAndSimulate(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, da
 	defer cancel()
 
 	// Step 1: Build signing request (fetches TSS PDA nonce from on-chain)
-	req, err := builder.GetOutboundSigningRequest(ctx, data, big.NewInt(1000), "0x0000000000000000000000000000000000000000")
+	req, err := builder.GetOutboundSigningRequest(ctx, data, big.NewInt(1000), 0)
 	if err != nil {
 		return nil, fmt.Errorf("GetOutboundSigningRequest: %w", err)
 	}

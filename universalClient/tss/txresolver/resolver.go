@@ -115,7 +115,7 @@ func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
 			r.logger.Warn().Err(extractErr).Str("event_id", event.EventID).Msg("invalid broadcasted tx hash and failed to extract outbound IDs")
 			return
 		}
-		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", "invalid broadcasted tx hash format")
+		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "invalid broadcasted tx hash format")
 		return
 	}
 
@@ -128,15 +128,16 @@ func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
 	r.resolveSVM(event, chainID)
 }
 
-func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, txID, utxID, txHash, errorMsg string) error {
+func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, txID, utxID, txHash string, blockHeight uint64, errorMsg string) error {
 	if r.pushSigner == nil {
 		r.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, cannot vote failure")
 		return nil
 	}
 	observation := &uexecutortypes.OutboundObservation{
-		Success:  false,
-		TxHash:   txHash,
-		ErrorMsg: errorMsg,
+		Success:     false,
+		BlockHeight: blockHeight,
+		TxHash:      txHash,
+		ErrorMsg:    errorMsg,
 	}
 	voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
 	if err != nil {

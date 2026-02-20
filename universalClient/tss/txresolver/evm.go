@@ -14,17 +14,23 @@ import (
 //  2. If NOT FOUND for maxNotFoundRetries consecutive polls (~5 min): vote failure and REVERT.
 //     This covers cases where the tx was dropped from the mempool (gas spike, nonce replaced).
 //  3. If FOUND but not enough confirmations yet: wait (retry next tick).
-//  4. If FOUND with enough confirmations and receipt status == 0 (reverted): vote failure and REVERT.
-//  5. If FOUND with enough confirmations and receipt status == 1 (success): mark COMPLETED, success vote will be done by destination chain event listening.
+//  4. If FOUND with enough confirmations and receipt status == 0 (reverted): vote failure and REVERT
+//     with the receipt's block height and tx hash.
+//  5. If FOUND with enough confirmations and receipt status == 1 (success): mark COMPLETED,
+//     success vote will be done by destination chain event listening.
 //
 // The failure vote triggers a refund of user funds on Push chain.
+//
+// Observation semantics for the user:
+//   - txHash + blockHeight → tx landed on chain (success or revert)
+//   - no txHash + no blockHeight → protocol issue (tx dropped, invalid hash, etc.)
 func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string) {
 	txID, utxID, err := extractOutboundIDs(event)
 	if err != nil {
 		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to extract outbound IDs")
 		return
 	}
-	found, confirmations, status, err := r.verifyTxOnChain(ctx, chainID, rawTxHash)
+	found, blockHeight, confirmations, status, err := r.verifyTxOnChain(ctx, chainID, rawTxHash)
 	if err != nil {
 		r.logger.Debug().Err(err).Str("event_id", event.EventID).Msg("tx verification error")
 		return
@@ -38,7 +44,8 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 
 		if count >= maxNotFoundRetries {
 			delete(r.notFoundCounts, event.EventID)
-			_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, "tx not found on destination chain after max retries")
+			// Protocol issue: tx dropped/not found — no txHash, no height
+			_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "tx not found on destination chain after max retries")
 		}
 		return
 	}
@@ -53,7 +60,8 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 
 	// Enough confirmations: finalize based on status
 	if status == 0 {
-		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, "tx execution reverted on destination chain")
+		// Destination chain revert — attach receipt block height and tx hash
+		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, "tx execution reverted on destination chain")
 		return
 	}
 
@@ -67,14 +75,14 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 		Uint64("confirmations", confirmations).Msg("broadcasted EVM tx marked COMPLETED")
 }
 
-func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint8, error) {
+func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {
 	client, err := r.chains.GetClient(chainID)
 	if err != nil {
-		return false, 0, 0, err
+		return false, 0, 0, 0, err
 	}
 	builder, err := client.GetTxBuilder()
 	if err != nil {
-		return false, 0, 0, err
+		return false, 0, 0, 0, err
 	}
 	return builder.VerifyBroadcastedTx(ctx, txHash)
 }

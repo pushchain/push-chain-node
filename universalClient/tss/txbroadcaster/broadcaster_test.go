@@ -50,9 +50,9 @@ func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (bool, uint64, uint8, error) {
+func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (bool, uint64, uint64, uint8, error) {
 	args := m.Called(ctx, txHash)
-	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint8), args.Error(3)
+	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
 type mockChainClient struct{ builder *mockTxBuilder }

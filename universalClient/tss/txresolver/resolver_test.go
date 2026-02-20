@@ -251,7 +251,7 @@ func TestVoteFailureAndMarkReverted(t *testing.T) {
 		})
 
 		event := &store.Event{EventID: "ev-1"}
-		err := resolver.voteFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", "some error")
+		err := resolver.voteFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", 12345, "some error")
 		assert.NoError(t, err)
 	})
 }

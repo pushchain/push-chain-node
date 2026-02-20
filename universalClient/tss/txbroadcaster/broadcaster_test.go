@@ -152,8 +152,8 @@ func newBroadcaster(evtStore *eventstore.Store, ch *chains.Chains, tssAddr strin
 // EVM Tests
 // ---------------------------------------------------------------------------
 
-func TestEVM_NonceAlreadyConsumed_MarksBroadcasted(t *testing.T) {
-	// Event nonce (5) < finalized nonce (10) → mark BROADCASTED without broadcasting.
+func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
+	// Broadcast fails with txHash, finalized nonce shows consumed → BROADCASTED.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -161,16 +161,16 @@ func TestEVM_NonceAlreadyConsumed_MarksBroadcasted(t *testing.T) {
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xabc", fmt.Errorf("already known"))
 	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(10), nil)
-	// BroadcastOutboundSigningRequest should NOT be called.
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
-	require.Equal(t, "eip155:1:", ev.BroadcastedTxHash) // empty txHash
-	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	require.Equal(t, "eip155:1:0xabc", ev.BroadcastedTxHash)
 }
 
 func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
@@ -181,8 +181,6 @@ func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 10)
 
-	// Finalized nonce == event nonce → proceed to broadcast.
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(10), nil)
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xabc123", nil)
 
@@ -192,10 +190,11 @@ func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xabc123", ev.BroadcastedTxHash)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestEVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T) {
-	// Broadcast fails, but re-checking nonce shows it was consumed (race with another node).
+	// Broadcast fails, but nonce check shows it was consumed (race with another node).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -203,14 +202,9 @@ func TestEVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 
-	// First nonce check: nonce not yet consumed.
-	// Second nonce check (after broadcast error): nonce consumed.
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).
-		Return(uint64(5), nil).Once()
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).
-		Return(uint64(6), nil).Once()
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xfailed", fmt.Errorf("some RPC error"))
+	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(6), nil)
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
 	b.processSigned(context.Background())
@@ -220,7 +214,7 @@ func TestEVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T
 }
 
 func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
-	// Broadcast fails, nonce still not consumed → keep SIGNED for retry.
+	// Broadcast fails with no txHash (assembly failure) → stay SIGNED for retry.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -228,8 +222,6 @@ func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 
-	// Both nonce checks return the same value → nonce not consumed.
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(5), nil)
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("connection refused"))
 
@@ -238,10 +230,11 @@ func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
 
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestEVM_PreCheckNonceFails_StillBroadcasts(t *testing.T) {
-	// Pre-check GetNextNonce fails → should still attempt broadcast.
+func TestEVM_BroadcastFails_WithTxHash_NonceNotConsumed_StaysSigned(t *testing.T) {
+	// Broadcast fails with txHash, but nonce not consumed → stay SIGNED.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -249,23 +242,19 @@ func TestEVM_PreCheckNonceFails_StillBroadcasts(t *testing.T) {
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 
-	// Pre-check fails.
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).
-		Return(uint64(0), fmt.Errorf("RPC down")).Once()
-	// Broadcast succeeds.
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return("0xabc", nil)
+		Return("0xabc", fmt.Errorf("gas too low"))
+	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(5), nil)
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
-	require.Equal(t, "eip155:1:0xabc", ev.BroadcastedTxHash)
+	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
 }
 
 func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
-	// getTSSAddress is nil → empty string passed to GetNextNonce.
+	// getTSSAddress is nil → empty string passed to GetNextNonce on broadcast error.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -273,6 +262,8 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xabc", fmt.Errorf("already known"))
 	// Expect empty address since GetTSSAddress is nil.
 	builder.On("GetNextNonce", mock.Anything, "", true).Return(uint64(10), nil)
 
@@ -448,8 +439,8 @@ func TestProcessSigned_MultipleEvents(t *testing.T) {
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
 	insertSignedEvent(t, db, "ev-2", "eip155:1", 6)
 
-	// Both nonces already consumed.
-	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(10), nil)
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xabc", nil)
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
 	b.processSigned(context.Background())

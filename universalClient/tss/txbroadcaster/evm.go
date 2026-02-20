@@ -31,11 +31,6 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 		return
 	}
 
-	// Strip recovery byte if 65 bytes (broadcast expects 64-byte signature)
-	if len(signature) == 65 {
-		signature = signature[:64]
-	}
-
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get chain client")
@@ -67,7 +62,13 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 	eventNonce := data.SigningData.Nonce
 	tssAddress := ""
 	if b.getTSSAddress != nil {
-		tssAddress, _ = b.getTSSAddress(ctx)
+		var addrErr error
+		tssAddress, addrErr = b.getTSSAddress(ctx)
+		if addrErr != nil {
+			b.logger.Warn().Err(addrErr).Str("event_id", event.EventID).
+				Msg("failed to get TSS address for nonce check, will retry next tick")
+			return
+		}
 	}
 
 	finalizedNonce, err := builder.GetNextNonce(ctx, tssAddress, true)

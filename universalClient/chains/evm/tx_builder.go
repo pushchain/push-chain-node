@@ -184,8 +184,8 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	if data == nil {
 		return "", fmt.Errorf("outbound event data is nil")
 	}
-	if len(signature) != 64 {
-		return "", fmt.Errorf("signature must be 64 bytes, got %d", len(signature))
+	if len(signature) != 65 {
+		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
 	}
 
 	// Parse amount
@@ -246,34 +246,9 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 
 	// Create EIP-155 signer
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
-	txHash := signer.Hash(tx)
 
-	// Auto-detect recovery ID
-	var v byte
-	found := false
-	for testV := byte(0); testV < 4; testV++ {
-		sigWithRecovery := make([]byte, 65)
-		copy(sigWithRecovery[:64], signature)
-		sigWithRecovery[64] = testV
-
-		_, err := crypto.SigToPub(txHash.Bytes(), sigWithRecovery)
-		if err == nil {
-			v = testV
-			found = true
-			break
-		}
-	}
-	if !found {
-		return "", fmt.Errorf("failed to determine recovery ID for signature")
-	}
-
-	// Construct the full signature with recovery ID
-	sigWithRecovery := make([]byte, 65)
-	copy(sigWithRecovery[:64], signature)
-	sigWithRecovery[64] = v
-
-	// Create signed transaction
-	signedTx, err := tx.WithSignature(signer, sigWithRecovery)
+	// DKLS TSS produces [r(32)|s(32)|v(1)] — use the recovery byte directly
+	signedTx, err := tx.WithSignature(signer, signature)
 	if err != nil {
 		return "", fmt.Errorf("failed to apply signature: %w", err)
 	}

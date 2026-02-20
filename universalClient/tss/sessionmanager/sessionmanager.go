@@ -29,31 +29,31 @@ import (
 // SendFunc is a function type for sending messages to participants.
 type SendFunc func(ctx context.Context, peerID string, data []byte) error
 
-// retryBlockDelay is the number of blocks to delay before retrying a failed event
-const retryBlockDelay = 10
-
 // sessionState holds all state for a single session.
 type sessionState struct {
 	session      dkls.Session
-	protocolType string     // type of protocol (keygen, keyrefresh, quorumchange, sign)
-	coordinator  string     // coordinatorPeerID
-	expiryTime   time.Time  // when session expires
-	participants []string   // list of participants (from setup message)
-	stepMu       sync.Mutex // mutex to serialize Step() calls (DKLS may not be thread-safe)
+	protocolType string                        // type of protocol (keygen, keyrefresh, quorumchange, sign)
+	coordinator  string                        // coordinatorPeerID
+	expiryTime   time.Time                     // when session expires
+	participants []string                      // list of participants (from setup message)
+	stepMu       sync.Mutex                    // mutex to serialize Step() calls (DKLS may not be thread-safe)
+	signingReq   *common.UnSignedOutboundTxReq // cached from coordinator setup (sign sessions only)
 }
 
 // SessionManager manages TSS protocol sessions and handles incoming messages.
 type SessionManager struct {
-	eventStore        *eventstore.Store
-	coordinator       *coordinator.Coordinator
-	keyshareManager   *keyshare.Manager
-	pushCore          *pushcore.Client // For validating gas prices
-	chains            *chains.Chains   // For getting txBuilders
-	send              SendFunc
-	partyID           string // Our validator address (pushvaloper format)
-	logger            zerolog.Logger
-	sessionExpiryTime time.Duration      // How long a session can be inactive before expiring
-	pushSigner        *pushsigner.Signer // Optional - nil if voting disabled
+	eventStore                 *eventstore.Store
+	coordinator                *coordinator.Coordinator
+	keyshareManager            *keyshare.Manager
+	pushCore                   *pushcore.Client // For validating gas prices
+	chains                     *chains.Chains   // For getting txBuilders
+	send                       SendFunc
+	partyID                    string // Our validator address (pushvaloper format)
+	logger                     zerolog.Logger
+	sessionExpiryTime          time.Duration      // How long a session can be inactive before expiring
+	sessionExpiryCheckInterval time.Duration      // How often to check for expired sessions
+	sessionExpiryBlockDelay    uint64             // How many blocks to delay retry after expiry
+	pushSigner                 *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Session storage
 	mu       sync.RWMutex
@@ -70,22 +70,31 @@ func NewSessionManager(
 	send SendFunc,
 	partyID string,
 	sessionExpiryTime time.Duration,
+	sessionExpiryCheckInterval time.Duration,
+	sessionExpiryBlockDelay uint64,
 	logger zerolog.Logger,
 	pushSigner *pushsigner.Signer, // Optional - nil if voting disabled
 ) *SessionManager {
 	return &SessionManager{
-		eventStore:        eventStore,
-		coordinator:       coord,
-		keyshareManager:   keyshareManager,
-		pushCore:          pushCore,
-		chains:            chains,
-		send:              send,
-		partyID:           partyID,
-		sessionExpiryTime: sessionExpiryTime,
-		logger:            logger,
-		pushSigner:        pushSigner,
-		sessions:          make(map[string]*sessionState),
+		eventStore:                 eventStore,
+		coordinator:                coord,
+		keyshareManager:            keyshareManager,
+		pushCore:                   pushCore,
+		chains:                     chains,
+		send:                       send,
+		partyID:                    partyID,
+		sessionExpiryTime:          sessionExpiryTime,
+		sessionExpiryCheckInterval: sessionExpiryCheckInterval,
+		sessionExpiryBlockDelay:    sessionExpiryBlockDelay,
+		logger:                     logger,
+		pushSigner:                 pushSigner,
+		sessions:                   make(map[string]*sessionState),
 	}
+}
+
+// Start starts the session manager's background goroutines (e.g. expiry checker).
+func (sm *SessionManager) Start(ctx context.Context) {
+	go sm.startExpiryChecker(ctx)
 }
 
 // HandleIncomingMessage handles an incoming message.
@@ -120,13 +129,34 @@ func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID stri
 
 // handleSetupMessage validates and processes a setup message.
 func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
-	// 1. Validate event exists in DB
+	// 1. Check if session already exists (duplicate setup - ignore)
+	sm.mu.RLock()
+	_, sessionExists := sm.sessions[msg.EventID]
+	sm.mu.RUnlock()
+	if sessionExists {
+		sm.logger.Warn().Str("event_id", msg.EventID).Msg("session already exists, ignoring setup")
+		return nil
+	}
+
+	// 2. Validate event exists in DB
 	event, err := sm.eventStore.GetEvent(msg.EventID)
 	if err != nil {
 		return errors.Wrapf(err, "event %s not found in database", msg.EventID)
 	}
 
-	// 2. Validate sender is coordinator
+	// 3. Validate event is CONFIRMED and not expired
+	if event.Status != eventstore.StatusConfirmed {
+		return errors.Errorf("event %s is not in confirmed status (got %s)", msg.EventID, event.Status)
+	}
+	currentBlock, err := sm.coordinator.GetLatestBlockNum(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get current block for setup validation")
+	}
+	if event.ExpiryBlockHeight > 0 && event.ExpiryBlockHeight <= currentBlock {
+		return errors.Errorf("event %s has expired (expiry_block_height %d <= current_block %d)", msg.EventID, event.ExpiryBlockHeight, currentBlock)
+	}
+
+	// 4. Validate sender is coordinator
 	isCoord, err := sm.coordinator.IsPeerCoordinator(ctx, senderPeerID)
 	if err != nil {
 		return errors.Wrap(err, "failed to check if sender is coordinator")
@@ -135,34 +165,25 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return errors.Errorf("sender %s is not the coordinator", senderPeerID)
 	}
 
-	// 3. Validate participants list matches event protocol requirements
+	// 5. Validate participants list matches event protocol requirements
 	if err := sm.validateParticipants(msg.Participants, event); err != nil {
 		return errors.Wrap(err, "participants validation failed")
 	}
 
-	// 4. Check if session already exists
-	sm.mu.Lock()
-	if _, exists := sm.sessions[msg.EventID]; exists {
-		sm.mu.Unlock()
-		sm.logger.Warn().Str("event_id", msg.EventID).Msg("session already exists, ignoring setup")
-		return nil
-	}
-	sm.mu.Unlock()
-
-	// 4.5. For SIGN events, verify the signing hash independently
+	// 6. For SIGN events, verify the signing hash independently
 	if event.Type == string(coordinator.ProtocolSign) {
 		if err := sm.verifySigningRequest(ctx, event, msg.UnSignedOutboundTxReq); err != nil {
 			return errors.Wrap(err, "signing request verification failed")
 		}
 	}
 
-	// 5. Create session based on protocol type
+	// 7. Create session based on protocol type
 	session, err := sm.createSession(ctx, event, msg)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create session for event %s", msg.EventID)
 	}
 
-	// 6. Store session state
+	// 8. Store session state
 	sm.mu.Lock()
 	sm.sessions[msg.EventID] = &sessionState{
 		session:      session,
@@ -170,11 +191,12 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		coordinator:  senderPeerID,
 		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
 		participants: msg.Participants,
+		signingReq:   msg.UnSignedOutboundTxReq,
 	}
 	sm.mu.Unlock()
 
-	// 7. Update event status to IN_PROGRESS
-	if err := sm.eventStore.UpdateStatus(msg.EventID, eventstore.StatusInProgress, ""); err != nil {
+	// 9. Update event status to IN_PROGRESS
+	if err := sm.eventStore.Update(msg.EventID, map[string]any{"status": eventstore.StatusInProgress}); err != nil {
 		sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
 	}
 
@@ -183,7 +205,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		Str("protocol", event.Type).
 		Msg("created session from setup message")
 
-	// 8. Send ACK to coordinator
+	// 10. Send ACK to coordinator
 	if err := sm.sendACK(ctx, senderPeerID, msg.EventID); err != nil {
 		sm.logger.Warn().
 			Err(err).
@@ -376,120 +398,90 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 	// Ensure session is cleaned up even on error
 	defer sm.cleanSession(eventID, state)
 
-	session := state.session
-
-	// Get result
-	result, err := session.GetResult()
+	result, err := state.session.GetResult()
 	if err != nil {
 		return errors.Wrapf(err, "failed to get result for session %s", eventID)
 	}
 
+	// SIGN sessions: broadcast the signed tx, then done (status managed by handleSigningComplete)
+	if state.protocolType == string(coordinator.ProtocolSign) {
+		return sm.handleSignFinished(ctx, eventID, result, state.signingReq)
+	}
+
+	// Key sessions (keygen/keyrefresh/quorumchange): store keyshare, vote, mark completed
+	return sm.handleKeyFinished(ctx, eventID, state.protocolType, result)
+}
+
+// handleSignFinished handles a completed SIGN session by broadcasting the signed transaction.
+func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string, result *dkls.Result, signingReq *common.UnSignedOutboundTxReq) error {
+	sm.logger.Info().
+		Str("event_id", eventID).
+		Str("signature", hex.EncodeToString(result.Signature)).
+		Str("public_key", hex.EncodeToString(result.PublicKey)).
+		Msg("signature generated from sign session")
+
+	event, err := sm.eventStore.GetEvent(eventID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get event %s for broadcasting", eventID)
+	}
+
+	if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature, signingReq); err != nil {
+		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
+		return err
+	}
+
+	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
+	return nil
+}
+
+// handleKeyFinished handles a completed key session (keygen/keyrefresh/quorumchange):
+// stores the keyshare, votes on Push chain, and marks the event completed.
+func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protocolType string, result *dkls.Result) error {
 	// Use SHA256 hash of eventID as the storage identifier
 	eventIDHash := sha256.Sum256([]byte(eventID))
 	storageID := hex.EncodeToString(eventIDHash[:])
 
-	// Handle based on protocol type
-	switch state.protocolType {
-	case string(coordinator.ProtocolKeygen):
-		// Save keyshare using SHA256 hash of eventID
-		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
-			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
-		}
-		// Calculate SHA256 hash of keyshare for verification
-		keyshareHash := sha256.Sum256(result.Keyshare)
-		sm.logger.Info().
-			Str("event_id", eventID).
-			Str("storage_id", storageID).
-			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
-			Msg("saved keyshare from keygen")
+	// Store keyshare
+	if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
+		return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
+	}
 
-	case string(coordinator.ProtocolKeyrefresh):
-		// Save new keyshare using SHA256 hash of eventID
-		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
-			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
-		}
-		// Calculate SHA256 hash of keyshare for verification
-		keyshareHash := sha256.Sum256(result.Keyshare)
-		sm.logger.Info().
-			Str("event_id", eventID).
-			Str("storage_id", storageID).
-			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
-			Msg("saved new keyshare from keyrefresh")
+	keyshareHash := sha256.Sum256(result.Keyshare)
+	sm.logger.Info().
+		Str("event_id", eventID).
+		Str("protocol", protocolType).
+		Str("storage_id", storageID).
+		Str("public_key", hex.EncodeToString(result.PublicKey)).
+		Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
+		Msg("saved keyshare")
 
-	case string(coordinator.ProtocolQuorumChange):
-		// Quorumchange produces a new keyshare
-		// Save new keyshare using SHA256 hash of eventID
-		if err := sm.keyshareManager.Store(result.Keyshare, storageID); err != nil {
-			return errors.Wrapf(err, "failed to store keyshare for event %s", eventID)
-		}
-		// Calculate SHA256 hash of keyshare for verification
-		keyshareHash := sha256.Sum256(result.Keyshare)
-		sm.logger.Info().
-			Str("event_id", eventID).
-			Str("storage_id", storageID).
-			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
-			Int("participant_count", len(result.Participants)).
-			Msg("saved new keyshare from quorumchange with updated participants")
+	// Vote on Push chain
+	var voteTxHash string
+	if sm.pushSigner != nil {
+		pubKeyHex := hex.EncodeToString(result.PublicKey)
 
-	case string(coordinator.ProtocolSign):
-		sm.logger.Info().
-			Str("event_id", eventID).
-			Str("signature", hex.EncodeToString(result.Signature)).
-			Str("public_key", hex.EncodeToString(result.PublicKey)).
-			Msg("signature generated from sign session")
-
-		// Get event data for broadcasting
-		event, err := sm.eventStore.GetEvent(eventID)
+		processID, err := strconv.ParseUint(eventID, 10, 64)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get event %s for broadcasting", eventID)
+			return errors.Wrapf(err, "failed to parse process id from %s", eventID)
 		}
 
-		// All nodes broadcast for redundancy - duplicates are handled gracefully
-		if err := sm.handleSigningComplete(ctx, eventID, event.EventData, result.Signature); err != nil {
-			// handleSigningComplete only returns errors for critical failures (e.g., BroadcastTransaction, UpdateBroadcastedTxHash, UpdateStatus)
-			// Broadcast errors are logged but don't cause function to return error
-			sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to complete signing process")
-			return errors.Wrapf(err, "failed to complete signing process for event %s", eventID)
+		voteTxHash, err = sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, processID)
+		if err != nil {
+			// Vote failed after TSS signing — mark REVERTED directly (no RevertHandler needed for key events)
+			if updateErr := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusReverted}); updateErr != nil {
+				sm.logger.Error().Err(updateErr).Str("event_id", eventID).Msg("failed to mark event as REVERTED")
+			}
+			return errors.Wrapf(err, "TSS vote failed for event %s — marked REVERTED", eventID)
 		}
 
-	default:
-		return errors.Errorf("unknown protocol type: %s", state.protocolType)
+		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
 	}
 
-	// Vote and mark completed for key events (keygen/keyrefresh/quorumchange)
-	// SIGN events are handled separately in handleSigningComplete
-	if state.protocolType != string(coordinator.ProtocolSign) {
-		if sm.pushSigner != nil {
-			pubKeyHex := hex.EncodeToString(result.PublicKey)
-
-			paEventIDInt, err := strconv.ParseUint(eventID, 10, 64)
-			if err != nil {
-				return errors.Wrapf(err, "failed to parse process id from %s", eventID)
-			}
-			voteTxHash, err := sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, paEventIDInt)
-			if err != nil {
-				// Vote failed after TSS signing - do NOT retry, let it expire naturally
-				// This prevents double signing since TSS signing is already complete
-				sm.logger.Error().
-					Err(err).
-					Str("event_id", eventID).
-					Msg("TSS vote failed after signing - event will expire naturally (no retry to prevent double signing)")
-				// Leave event in IN_PROGRESS status - it will expire and be handled by maintenance handler
-				return errors.Wrapf(err, "failed to vote for key process after TSS signing")
-			}
-			sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
-		}
-
-		if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusCompleted, ""); err != nil {
-			return errors.Wrapf(err, "failed to update event status")
-		}
+	if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
+		return errors.Wrapf(err, "failed to update event status to completed")
 	}
 
-	sm.logger.Info().Str("event_id", eventID).Msg("session finished successfully")
-
+	sm.logger.Info().Str("event_id", eventID).Msg("key session finished successfully")
 	return nil
 }
 
@@ -636,12 +628,14 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 		}
 
 	case string(coordinator.ProtocolSign):
-		// For sign: participants must be exactly equal to threshold (no more, no less)
+		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible) rather than
+		// all eligible validators. Accept any subset as long as it meets the threshold minimum;
+		// all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
-		if len(participants) != threshold {
-			return errors.Errorf("participants count %d must equal threshold %d (required >2/3 of %d eligible) for sign", len(participants), threshold, len(eligibleList))
+		if len(participants) < threshold {
+			return errors.Errorf("SIGN participants count %d is below required threshold %d (eligible: %d)",
+				len(participants), threshold, len(eligibleList))
 		}
-		// All participants must be from eligible set (already validated above)
 
 	default:
 		return errors.Errorf("unknown protocol type: %s", event.Type)
@@ -650,11 +644,13 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 	return nil
 }
 
-// StartExpiryChecker starts a background goroutine that periodically checks for expired sessions.
-func (sm *SessionManager) StartExpiryChecker(ctx context.Context, checkInterval time.Duration, blockDelay uint64) {
+// startExpiryChecker runs a loop that periodically checks for expired sessions.
+func (sm *SessionManager) startExpiryChecker(ctx context.Context) {
+	checkInterval := sm.sessionExpiryCheckInterval
 	if checkInterval == 0 {
 		checkInterval = 30 * time.Second
 	}
+	blockDelay := sm.sessionExpiryBlockDelay
 	if blockDelay == 0 {
 		blockDelay = 60 // Default: retry after 60 blocks ( Approx 1 Minute for PC)
 	}
@@ -708,7 +704,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 
 			// Update event: mark as confimed and set new block height (current + delay)
 			newBlockHeight := currentBlock + blockDelay
-			if err := sm.eventStore.UpdateStatusAndBlockHeight(eventID, eventstore.StatusConfirmed, newBlockHeight); err != nil {
+			if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusConfirmed, "block_height": newBlockHeight}); err != nil {
 				sm.logger.Warn().
 					Err(err).
 					Str("event_id", eventID).
@@ -726,10 +722,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 // GasPriceTolerancePercent defines the acceptable deviation from oracle gas price (e.g., 10 = 10%)
 const GasPriceTolerancePercent = 10
 
-// verifySigningRequest validates the coordinator's signing request by:
-// 1. Verifying the gas price is within acceptable range of on-chain oracle
-// 2. Building the transaction independently using the same gas price
-// 3. Comparing the resulting hash with coordinator's hash - must match exactly
+// verifySigningRequest validates the coordinator's signing request: gas price and hash (coordinator nonce is source of truth).
 func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store.Event, req *common.UnSignedOutboundTxReq) error {
 	if req == nil {
 		return errors.New("unsigned transaction request is required for SIGN events")
@@ -749,44 +742,52 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 		return errors.Wrap(err, "failed to parse outbound event data")
 	}
 
-	// 1. Validate gas price is reasonable (within tolerance of oracle price)
-	if err := sm.validateGasPrice(ctx, outboundData.DestinationChain, req.GasPrice); err != nil {
+	chainID := outboundData.DestinationChain
+	if chainID == "" {
+		return errors.New("destination chain is missing")
+	}
+
+	if err := sm.validateGasPrice(ctx, chainID, req.GasPrice); err != nil {
 		return errors.Wrap(err, "gas price validation failed")
 	}
 
-	// 2. Build the transaction independently using the same gas price
+	// Build with coordinator's nonce and compare hash
 	if sm.chains == nil {
 		sm.logger.Warn().Msg("chains manager not configured, skipping hash verification")
 		return nil
 	}
 
-	// Get the client for the destination chain
-	client, err := sm.chains.GetClient(outboundData.DestinationChain)
+	client, err := sm.chains.GetClient(chainID)
 	if err != nil {
-		sm.logger.Warn().Err(err).Str("chain", outboundData.DestinationChain).Msg("failed to get client, skipping hash verification")
+		sm.logger.Warn().Err(err).Str("chain", chainID).Msg("failed to get client, skipping hash verification")
 		return nil
 	}
 
-	// Get the builder from the client
 	builder, err := client.GetTxBuilder()
 	if err != nil {
-		sm.logger.Warn().Err(err).Str("chain", outboundData.DestinationChain).Msg("failed to get tx builder, skipping hash verification")
+		sm.logger.Warn().Err(err).Str("chain", chainID).Msg("failed to get tx builder, skipping hash verification")
 		return nil
 	}
 
-	// Get TSS ECDSA address (same for all chains)
-	tssAddress, err := sm.getTSSAddress(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get TSS address")
+	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
+	// last finalized nonce on chain (i.e. that nonce has already been committed).
+	// We only hard-reject on a definitive answer — warn and skip if we can't determine it.
+	if tssAddr, addrErr := sm.getTSSAddress(ctx); addrErr != nil {
+		sm.logger.Warn().Err(addrErr).Str("chain", chainID).Msg("cannot get TSS address for nonce check, skipping")
+	} else if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, tssAddr, true /* useFinalized */); nonceErr != nil {
+		sm.logger.Warn().Err(nonceErr).Str("chain", chainID).Msg("cannot get finalized nonce for check, skipping")
+	} else if req.Nonce < finalizedNonce {
+		return errors.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
+			req.Nonce, finalizedNonce, chainID)
 	}
 
-	// Get signing request with the coordinator's gas price
-	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, req.GasPrice, tssAddress)
+	// Use coordinator's nonce so our computed hash matches
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, req.GasPrice, req.Nonce)
 	if err != nil {
 		return errors.Wrap(err, "failed to get signing request for verification")
 	}
 
-	// 3. Compare hashes - must match exactly
+	// Compare hashes - must match exactly
 	if !bytes.Equal(signingReq.SigningHash, req.SigningHash) {
 		sm.logger.Error().
 			Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
@@ -848,95 +849,46 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 	return sm.coordinator.GetTSSAddress(ctx)
 }
 
-// handleSigningComplete assembles and broadcasts the signed transaction.
-// All nodes call this for redundancy - duplicate broadcasts are handled gracefully by the chain.
-func (sm *SessionManager) handleSigningComplete(ctx context.Context, eventID string, eventData []byte, signature []byte) error {
-	// Parse event data to get outbound details
-	var outboundData uexecutortypes.OutboundCreatedEvent
-	if err := json.Unmarshal(eventData, &outboundData); err != nil {
-		return errors.Wrap(err, "failed to parse outbound event data")
+// handleSigningComplete handles post-sign steps. EVM: set status SIGNED and store payload (txlifecycle/signed runs BroadcastOutboundSigningRequest). Solana: enqueue for sequential per-chain broadcast (PDA nonce order).
+// signingReq is the cached signing request from the coordinator setup message.
+func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnSignedOutboundTxReq) error {
+	if signingReq == nil {
+		return errors.New("signing request is nil - cannot persist signing data")
 	}
 
-	if sm.chains == nil {
-		return errors.New("chains manager not configured")
+	// Build signing_data to persist alongside the original event data
+	signingData := map[string]any{
+		"signature":    hex.EncodeToString(signature),
+		"signing_hash": hex.EncodeToString(signingReq.SigningHash),
+		"nonce":        signingReq.Nonce,
+		"gas_price":    "0",
+	}
+	if signingReq.GasPrice != nil {
+		signingData["gas_price"] = signingReq.GasPrice.String()
 	}
 
-	// Get the client for the destination chain
-	client, err := sm.chains.GetClient(outboundData.DestinationChain)
+	// Unmarshal original event data, add signing_data, re-marshal
+	var raw map[string]any
+	if err := json.Unmarshal(eventData, &raw); err != nil {
+		return errors.Wrap(err, "failed to parse event data for signing_data injection")
+	}
+	raw["signing_data"] = signingData
+
+	newEventData, err := json.Marshal(raw)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get client for chain %s", outboundData.DestinationChain)
+		return errors.Wrap(err, "failed to marshal event data with signing_data")
 	}
 
-	// Get the builder from the client
-	builder, err := client.GetTxBuilder()
-	if err != nil {
-		return errors.Wrapf(err, "failed to get tx builder for chain %s", outboundData.DestinationChain)
-	}
-
-	// Get gas price from oracle (same as was used during signing)
-	gasPrice, err := sm.pushCore.GetGasPrice(ctx, outboundData.DestinationChain)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get gas price for chain %s", outboundData.DestinationChain)
-	}
-
-	// Get TSS ECDSA address (same for all chains)
-	tssAddress, err := sm.getTSSAddress(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get TSS address")
-	}
-
-	// Get the signing request (same deterministic result as coordinator)
-	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, gasPrice, tssAddress)
-	if err != nil {
-		return errors.Wrap(err, "failed to get signing request")
+	// Persist enriched event data + mark SIGNED; txBroadcaster will pick it up
+	if err := sm.eventStore.Update(eventID, map[string]any{
+		"event_data": newEventData,
+		"status":     eventstore.StatusSigned,
+	}); err != nil {
+		return errors.Wrap(err, "failed to update event with signing data")
 	}
 
 	sm.logger.Info().
 		Str("event_id", eventID).
-		Str("destination_chain", outboundData.DestinationChain).
-		Int("signature_len", len(signature)).
-		Msg("assembling and broadcasting signed transaction")
-
-	// Extract signature bytes (remove recovery ID if present)
-	sigBytes := signature
-	if len(signature) == 65 {
-		sigBytes = signature[:64]
-	}
-
-	// Broadcast transaction and get tx hash
-	// Note: BroadcastOutboundSigningRequest returns the hash even if broadcast fails
-	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, sigBytes)
-
-	// Format tx hash in CAIP format: {chainId}:{txHash}
-	caipTxHash := outboundData.DestinationChain + ":" + txHash
-
-	// Always store the txHash (from broadcast result, even if broadcast failed)
-	if err := sm.eventStore.UpdateBroadcastedTxHash(eventID, caipTxHash); err != nil {
-		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update tx hash")
-	}
-
-	// Log broadcast result (errors are logged but don't prevent marking as BROADCASTED)
-	if broadcastErr != nil {
-		sm.logger.Warn().
-			Err(broadcastErr).
-			Str("event_id", eventID).
-			Str("tx_hash", txHash).
-			Str("caip_tx_hash", caipTxHash).
-			Msg("broadcast failed - txHash stored, will expire automatically if not confirmed")
-	} else {
-		sm.logger.Info().
-			Str("event_id", eventID).
-			Str("tx_hash", txHash).
-			Str("caip_tx_hash", caipTxHash).
-			Str("destination_chain", outboundData.DestinationChain).
-			Msg("transaction broadcasted successfully")
-	}
-
-	// Mark as BROADCASTED since we have the txHash (will expire automatically if not confirmed)
-	if err := sm.eventStore.UpdateStatus(eventID, eventstore.StatusBroadcasted, ""); err != nil {
-		sm.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to update event status to BROADCASTED")
-		return errors.Wrap(err, "failed to update event status to BROADCASTED")
-	}
-
+		Msg("signing complete — event marked SIGNED with signing_data for txBroadcaster")
 	return nil
 }

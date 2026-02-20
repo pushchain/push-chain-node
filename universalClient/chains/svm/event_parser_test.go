@@ -157,7 +157,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := ParseEvent(tt.log, signature, 12345, 0, EventTypeOutboundObservation, chainID, logger)
+			event := ParseEvent(tt.log, signature, 12345, 0, EventTypeExecuteUniversalTx, chainID, logger)
 
 			if tt.wantEvent {
 				require.NotNil(t, event)
@@ -235,7 +235,7 @@ func TestParseOutboundObservationEvent_EventIDFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := ParseEvent(log, tt.signature, tt.slot, tt.logIndex, EventTypeOutboundObservation, chainID, logger)
+			event := ParseEvent(log, tt.signature, tt.slot, tt.logIndex, EventTypeExecuteUniversalTx, chainID, logger)
 			require.NotNil(t, event)
 			assert.Equal(t, tt.wantID, event.EventID)
 			assert.Equal(t, tt.slot, event.BlockHeight)

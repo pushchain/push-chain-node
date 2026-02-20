@@ -21,10 +21,13 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/expirysweeper"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txbroadcaster"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txresolver"
 )
 
 // Config holds configuration for initializing a TSS node.
@@ -39,12 +42,11 @@ type Config struct {
 	Logger           zerolog.Logger
 
 	// Optional configuration
-	PollInterval      time.Duration
-	ProcessingTimeout time.Duration
-	CoordinatorRange  uint64
-	ProtocolID        string
-	DialTimeout       time.Duration
-	IOTimeout         time.Duration
+	PollInterval     time.Duration
+	CoordinatorRange uint64
+	ProtocolID       string
+	DialTimeout      time.Duration
+	IOTimeout        time.Duration
 
 	// Chains manager (required for sign operations to get txBuilders)
 	Chains *chains.Chains
@@ -101,6 +103,9 @@ type Node struct {
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator
 	sessionManager   *sessionmanager.SessionManager
+	txBroadcaster    *txbroadcaster.Broadcaster
+	txResolver       *txresolver.Resolver
+	expirySweeper    *expirysweeper.Sweeper
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -189,10 +194,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	if pollInterval == 0 {
 		pollInterval = 10 * time.Second
 	}
-	processingTimeout := cfg.ProcessingTimeout
-	if processingTimeout == 0 {
-		processingTimeout = 5 * time.Minute
-	}
 	coordinatorRange := cfg.CoordinatorRange
 	if coordinatorRange == 0 {
 		coordinatorRange = 1000
@@ -200,7 +201,7 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 
 	sessionExpiryTime := cfg.SessionExpiryTime
 	if sessionExpiryTime == 0 {
-		sessionExpiryTime = 3 * time.Minute // Default: 3 minutes
+		sessionExpiryTime = 2 * time.Minute // Default: 2 minutes
 	}
 
 	sessionExpiryCheckInterval := cfg.SessionExpiryCheckInterval
@@ -216,10 +217,8 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	// Create event store for database access
 	evtStore := eventstore.NewStore(database.Client(), logger)
 
-	// Session manager will be created in Start() after coordinator is initialized
-	// (it needs coordinator reference)
-
-	// Create node (network will be started in Start)
+	// Coordinator and session manager are created in Start() because they
+	// depend on the network send function which requires libp2p to be running.
 	node := &Node{
 		validatorAddress:           cfg.ValidatorAddress,
 		keyshareManager:            mgr,
@@ -228,7 +227,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		chains:                     cfg.Chains,
 		logger:                     logger,
 		eventStore:                 evtStore,
-		sessionManager:             nil, // Will be initialized in Start()
 		networkCfg:                 networkCfg,
 		coordinatorRange:           coordinatorRange,
 		coordinatorPollInterval:    pollInterval,
@@ -238,7 +236,36 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
+		txResolver: txresolver.NewResolver(txresolver.Config{
+			EventStore:    evtStore,
+			Chains:        cfg.Chains,
+			PushSigner:    cfg.PushSigner,
+			CheckInterval: sessionExpiryCheckInterval,
+			Logger:        logger,
+		}),
 	}
+
+	// Create broadcaster after node so the closure can capture `node`.
+	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
+		EventStore:    evtStore,
+		Chains:        cfg.Chains,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+		GetTSSAddress: func(ctx context.Context) (string, error) {
+			if node.coordinator == nil {
+				return "", fmt.Errorf("coordinator not initialized")
+			}
+			return node.coordinator.GetTSSAddress(ctx)
+		},
+	})
+
+	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
+		EventStore:    evtStore,
+		PushCore:      cfg.PushCore,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+	})
 
 	return node, nil
 }
@@ -291,7 +318,7 @@ func (n *Node) Start(ctx context.Context) error {
 			n.eventStore,
 			n.pushCore,
 			n.keyshareManager,
-			n.chains, // Chains manager for getting txBuilders
+			n.chains,
 			n.validatorAddress,
 			n.coordinatorRange,
 			n.coordinatorPollInterval,
@@ -316,6 +343,8 @@ func (n *Node) Start(ctx context.Context) error {
 			},
 			n.validatorAddress, // partyID for DKLS sessions
 			n.sessionExpiryTime,
+			n.sessionExpiryCheckInterval,
+			n.sessionExpiryBlockDelay,
 			n.logger,
 			n.pushSigner,
 		)
@@ -325,8 +354,17 @@ func (n *Node) Start(ctx context.Context) error {
 	// Start coordinator
 	n.coordinator.Start(ctx)
 
-	// Start session manager expiry checker
-	go n.sessionManager.StartExpiryChecker(ctx, n.sessionExpiryCheckInterval, n.sessionExpiryBlockDelay)
+	// Start session manager (includes session expiry checker)
+	n.sessionManager.Start(ctx)
+
+	// Start tx broadcaster (SIGNED → BROADCASTED)
+	n.txBroadcaster.Start(ctx)
+
+	// Start tx resolver (BROADCASTED → COMPLETED/REVERTED)
+	n.txResolver.Start(ctx)
+
+	// Start expiry sweeper (CONFIRMED past expiry → REVERTED)
+	n.expirySweeper.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

@@ -163,7 +163,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	gasPrice *big.Int,
-	signerAddress string,
+	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
@@ -176,9 +176,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("gasPrice is required")
-	}
-	if signerAddress == "" {
-		return nil, fmt.Errorf("signerAddress is required")
 	}
 
 	// --- Parse all fields from the outbound event ---
@@ -211,10 +208,9 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
-
-	nonce, chainID, err := tb.fetchTSSNonce(ctx, tssPDA)
+	_, chainID, err := tb.fetchTSSNonce(ctx, tssPDA)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch TSS nonce: %w", err)
+		return nil, fmt.Errorf("failed to fetch chain ID from TSS PDA: %w", err)
 	}
 
 	// --- Parse identifiers from hex strings to fixed-size byte arrays ---
@@ -389,11 +385,21 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	prioritizationFee := gasPrice.Uint64()
 
 	return &common.UnSignedOutboundTxReq{
-		SigningHash: messageHash,
-		Signer:      signerAddress,
+		SigningHash: messageHash, // This is the keccak256 hash to be signed by TSS
 		Nonce:       nonce,
 		GasPrice:    big.NewInt(int64(prioritizationFee)),
 	}, nil
+}
+
+// GetNextNonce returns the current TSS PDA nonce for this chain. useFinalized is ignored for SVM.
+func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
+	_ = signerAddress // SVM uses PDA, not signer address
+	tssPDA, err := tb.deriveTSSPDA()
+	if err != nil {
+		return 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
+	}
+	nonce, _, err := tb.fetchTSSNonce(ctx, tssPDA)
+	return nonce, err
 }
 
 // =============================================================================
@@ -455,9 +461,13 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	if data == nil {
 		return nil, 0, fmt.Errorf("outbound event data is nil")
 	}
-	if len(signature) != 64 {
-		return nil, 0, fmt.Errorf("signature must be 64 bytes, got %d", len(signature))
+	if len(signature) != 65 {
+		return nil, 0, fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
 	}
+
+	// DKLS TSS produces [r(32)|s(32)|v(1)] — extract recovery ID and use r||s for the instruction
+	recoveryID := signature[64]
+	signature = signature[:64]
 
 	// Load the relayer's Solana keypair from disk.
 	// The relayer is the entity that pays for Solana transaction fees (gas).
@@ -615,21 +625,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_tx"), txID[:]}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
-	}
-
-	// --- Determine recovery ID ---
-	tssAccountData, err := tb.rpcClient.GetAccountData(ctx, tssPDA)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to fetch TSS PDA account for recovery ID: %w", err)
-	}
-	if len(tssAccountData) < 28 {
-		return nil, 0, fmt.Errorf("invalid TSS PDA account data for recovery ID")
-	}
-	tssEthAddress := tssAccountData[8:28]
-
-	recoveryID, err := tb.determineRecoveryID(req.SigningHash, signature, hex.EncodeToString(tssEthAddress))
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to determine recovery ID: %w", err)
 	}
 
 	// --- Build instruction data and accounts list ---
@@ -1082,48 +1077,6 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 }
 
 // =============================================================================
-//  Recovery ID
-// =============================================================================
-
-// determineRecoveryID finds the ECDSA recovery ID (v value, 0-3) for a secp256k1 signature.
-//
-// Background: An ECDSA signature (r, s) can correspond to up to 4 different public keys.
-// The recovery ID tells secp256k1_recover which one to use. In Ethereum, this is the "v" value.
-//
-// How it works:
-//  1. Try each recovery ID (0, 1, 2, 3)
-//  2. Recover the public key from (messageHash, signature, recoveryID)
-//  3. Derive the ETH address from the recovered public key: keccak256(pubkey[1:])[-20:]
-//  4. Compare with the expected TSS ETH address stored on-chain
-//  5. Return the recovery ID that matches
-//
-// This is needed because the TSS signing protocol returns only (r, s) without v.
-func (tb *TxBuilder) determineRecoveryID(messageHash []byte, signature []byte, expectedAddress string) (byte, error) {
-	for recoveryID := byte(0); recoveryID < 4; recoveryID++ {
-		sigWithRecovery := make([]byte, 65)
-		copy(sigWithRecovery[:64], signature)
-		sigWithRecovery[64] = recoveryID
-
-		pubKey, err := crypto.SigToPub(messageHash, sigWithRecovery)
-		if err != nil {
-			continue
-		}
-
-		pubKeyBytes := crypto.FromECDSAPub(pubKey)
-		addressBytes := crypto.Keccak256(pubKeyBytes[1:])[12:]
-
-		expectedBytes, err := hex.DecodeString(removeHexPrefix(expectedAddress))
-		if err == nil && len(expectedBytes) == 20 {
-			if hex.EncodeToString(addressBytes) == hex.EncodeToString(expectedBytes) {
-				return recoveryID, nil
-			}
-		}
-	}
-
-	return 0, fmt.Errorf("failed to determine recovery ID for signature")
-}
-
-// =============================================================================
 //  Payload Decoding (Execute Mode)
 // =============================================================================
 
@@ -1517,6 +1470,46 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	return accounts
 }
 
+// VerifyBroadcastedTx checks the status of a broadcasted transaction on Solana.
+// Returns (found, confirmations, status, error):
+// - found=false: tx not found or not yet confirmed
+// - found=true: tx exists on-chain
+//   - confirmations: number of slots since the tx was included (0 = just confirmed)
+//   - status: 0 = failed, 1 = success
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
+	sig, sigErr := solana.SignatureFromBase58(txHash)
+	if sigErr != nil {
+		return false, 0, 0, 0, nil
+	}
+
+	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
+	if txErr != nil {
+		return false, 0, 0, 0, nil
+	}
+
+	if tx == nil {
+		return false, 0, 0, 0, nil
+	}
+
+	// Calculate confirmations from current slot
+	var confs uint64
+	if tx.Slot > 0 {
+		latestSlot, slotErr := tb.rpcClient.GetLatestSlot(ctx)
+		if slotErr == nil && latestSlot >= tx.Slot {
+			confs = latestSlot - tx.Slot + 1
+		}
+	}
+
+	// Check if transaction had an error
+	if tx.Meta != nil && tx.Meta.Err != nil {
+		return true, tx.Slot, confs, 0, nil
+	}
+
+	return true, tx.Slot, confs, 1, nil
+}
+
+// buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program
+// Instruction format: [1-byte instruction type (2 = SetComputeUnitLimit)] + [4-byte u32 units]
 // buildRevertSOLAccounts builds the accounts list for revert_universal_tx (native SOL refund).
 //
 // Must match the RevertUniversalTx struct in revert.rs:

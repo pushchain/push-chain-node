@@ -100,7 +100,7 @@ func TestParseGatewayEvent(t *testing.T) {
 		},
 		{
 			name:      "returns nil for outboundObservation with insufficient topics",
-			eventType: EventTypeOutboundObservation,
+			eventType: EventTypeExecuteUniversalTx,
 			log: &types.Log{
 				Address: gatewayAddr,
 				Topics:  []ethcommon.Hash{eventTopic}, // Only 1 topic, need 3 for outbound
@@ -308,7 +308,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := ParseEvent(tt.log, EventTypeOutboundObservation, chainID, logger)
+			event := ParseEvent(tt.log, EventTypeExecuteUniversalTx, chainID, logger)
 
 			if tt.wantEvent {
 				require.NotNil(t, event)
@@ -354,7 +354,7 @@ func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 			BlockNumber: 77777,
 		}
 
-		event := ParseEvent(log, EventTypeOutboundObservation, config.Chain, logger)
+		event := ParseEvent(log, EventTypeExecuteUniversalTx, config.Chain, logger)
 		require.NotNil(t, event)
 
 		assert.Equal(t, common.EventTypeOutbound, event.Type)

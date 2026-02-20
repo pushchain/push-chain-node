@@ -277,24 +277,6 @@ func TestEventProcessorExtractOutboundObservation(t *testing.T) {
 		assert.Equal(t, "0xabc123", obs.TxHash)
 	})
 
-	t.Run("extracts error_msg from event data", func(t *testing.T) {
-		eventData := map[string]interface{}{
-			"error_msg": "transaction reverted",
-		}
-		eventDataBytes, _ := json.Marshal(eventData)
-
-		event := &store.Event{
-			EventID:     "0xdef456:0",
-			BlockHeight: 100,
-			EventData:   eventDataBytes,
-		}
-
-		obs, err := processor.extractOutboundObservation(event)
-		require.NoError(t, err)
-		require.NotNil(t, obs)
-		assert.Equal(t, "transaction reverted", obs.ErrorMsg)
-	})
-
 	t.Run("handles base58 tx hash", func(t *testing.T) {
 		event := &store.Event{
 			EventID:     "2VfUX:0", // Base58 encoded

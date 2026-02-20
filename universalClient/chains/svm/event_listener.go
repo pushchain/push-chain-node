@@ -57,10 +57,16 @@ func NewEventListener(
 		return nil, fmt.Errorf("chain ID not configured")
 	}
 
-	// Build discriminator to event type mapping - only include sendFunds and outboundObservation
+	// Build discriminator to event type mapping
 	discriminatorToEventType := make(map[string]string)
 	for _, method := range gatewayMethods {
-		if method.EventIdentifier != "" && (method.Name == EventTypeSendFunds || method.Name == EventTypeOutboundObservation) {
+		if method.EventIdentifier == "" {
+			continue
+		}
+		switch method.Name {
+		case EventTypeSendFunds,
+			EventTypeExecuteUniversalTx,
+			EventTypeRevertUniversalTx:
 			discriminator := strings.ToLower(method.EventIdentifier)
 			discriminatorToEventType[discriminator] = method.Name
 		}

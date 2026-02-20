@@ -74,7 +74,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	gasPrice *big.Int,
-	signerAddress string,
+	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
@@ -87,18 +87,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("gasPrice is required")
-	}
-	if signerAddress == "" {
-		return nil, fmt.Errorf("signerAddress is required")
-	}
-
-	// Parse signer address
-	signerAddr := ethcommon.HexToAddress(signerAddress)
-
-	// Get nonce for the signer address
-	nonce, err := tb.rpcClient.GetNonceAt(ctx, signerAddr, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce for signer %s: %w", signerAddress, err)
 	}
 
 	// Parse gas limit, use default if not provided
@@ -165,10 +153,22 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: txHash,
-		Signer:      signerAddress,
 		Nonce:       nonce,
 		GasPrice:    gasPrice,
 	}, nil
+}
+
+// GetNextNonce returns the next nonce for the signer. useFinalized: if true, use nonce at latest block (aggressive, allows replacing stuck txs); if false, use pending.
+func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
+	if signerAddress == "" {
+		return 0, fmt.Errorf("signerAddress is required")
+	}
+	signerAddr := ethcommon.HexToAddress(signerAddress)
+	if useFinalized {
+		// nil blockNum means use latest block
+		return tb.rpcClient.GetFinalizedNonce(ctx, signerAddr, nil)
+	}
+	return tb.rpcClient.GetPendingNonce(ctx, signerAddr)
 }
 
 // BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction
@@ -184,8 +184,8 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	if data == nil {
 		return "", fmt.Errorf("outbound event data is nil")
 	}
-	if len(signature) != 64 {
-		return "", fmt.Errorf("signature must be 64 bytes, got %d", len(signature))
+	if len(signature) != 65 {
+		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
 	}
 
 	// Parse amount
@@ -246,42 +246,19 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 
 	// Create EIP-155 signer
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
-	txHash := signer.Hash(tx)
 
-	// Auto-detect recovery ID
-	var v byte
-	found := false
-	for testV := byte(0); testV < 4; testV++ {
-		sigWithRecovery := make([]byte, 65)
-		copy(sigWithRecovery[:64], signature)
-		sigWithRecovery[64] = testV
-
-		_, err := crypto.SigToPub(txHash.Bytes(), sigWithRecovery)
-		if err == nil {
-			v = testV
-			found = true
-			break
-		}
-	}
-	if !found {
-		return "", fmt.Errorf("failed to determine recovery ID for signature")
-	}
-
-	// Construct the full signature with recovery ID
-	sigWithRecovery := make([]byte, 65)
-	copy(sigWithRecovery[:64], signature)
-	sigWithRecovery[64] = v
-
-	// Create signed transaction
-	signedTx, err := tx.WithSignature(signer, sigWithRecovery)
+	// DKLS TSS produces [r(32)|s(32)|v(1)] — use the recovery byte directly
+	signedTx, err := tx.WithSignature(signer, signature)
 	if err != nil {
 		return "", fmt.Errorf("failed to apply signature: %w", err)
 	}
 
+	// Compute tx hash before broadcast so we can return it even on failure
+	txHashStr := signedTx.Hash().Hex()
+
 	// Broadcast using RPC client
-	txHashStr, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx)
-	if err != nil {
-		return "", fmt.Errorf("failed to broadcast transaction: %w", err)
+	if _, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx); err != nil {
+		return txHashStr, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	tb.logger.Info().
@@ -511,6 +488,28 @@ func (tb *TxBuilder) encodeFunctionCall(
 	txData := append(funcSelector, encodedArgs...)
 
 	return txData, nil
+}
+
+// VerifyBroadcastedTx checks the status of a broadcasted transaction on the EVM chain.
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
+	hash := ethcommon.HexToHash(txHash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
+	if err != nil {
+		// Transaction not found or not yet mined
+		return false, 0, 0, 0, nil
+	}
+
+	receiptBlock := receipt.BlockNumber.Uint64()
+
+	// Calculate confirmations from current block
+	var confs uint64
+	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
+	if err == nil && latestBlock >= receiptBlock {
+		confs = latestBlock - receiptBlock + 1
+	}
+
+	// receipt.Status: 1 = success, 0 = reverted
+	return true, receiptBlock, confs, uint8(receipt.Status), nil
 }
 
 // getFunctionSignature returns the full function signature for ABI encoding

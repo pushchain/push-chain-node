@@ -1267,46 +1267,6 @@ func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 //  TestDetermineRecoveryID — real EVM key signing
 // ============================================================
 
-func TestDetermineRecoveryID(t *testing.T) {
-	builder := newTestBuilder(t)
-	evmKey, _, ethAddrHex := generateTestEVMKey(t)
-
-	t.Run("recovers correct ID from real signature", func(t *testing.T) {
-		// Construct a real TSS message hash
-		msgHash, err := builder.constructTSSMessage(
-			1, "devnet", 0, 1000000,
-			makeTxID(0xAA), makeTxID(0xBB), makeSender(0xCC), [32]byte{},
-			0, makeTxID(0xDD), nil, nil, 0,
-			[32]byte{}, [32]byte{},
-		)
-		require.NoError(t, err)
-
-		sig, expectedRecoveryID := signMessageHash(t, evmKey, msgHash)
-
-		recoveryID, err := builder.determineRecoveryID(msgHash, sig, ethAddrHex)
-		require.NoError(t, err)
-		assert.Equal(t, expectedRecoveryID, recoveryID)
-	})
-
-	t.Run("fails with wrong address", func(t *testing.T) {
-		msgHash := crypto.Keccak256([]byte("test message"))
-		sig, _ := signMessageHash(t, evmKey, msgHash)
-
-		_, err := builder.determineRecoveryID(msgHash, sig, "0000000000000000000000000000000000000000")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to determine recovery ID")
-	})
-
-	t.Run("works with 0x-prefixed address", func(t *testing.T) {
-		msgHash := crypto.Keccak256([]byte("another test"))
-		sig, expectedRecoveryID := signMessageHash(t, evmKey, msgHash)
-
-		recoveryID, err := builder.determineRecoveryID(msgHash, sig, "0x"+ethAddrHex)
-		require.NoError(t, err)
-		assert.Equal(t, expectedRecoveryID, recoveryID)
-	})
-}
-
 // ============================================================
 //  TestEndToEndWithRealSignature
 //  Full offline end-to-end: construct TSS message → sign with
@@ -1315,7 +1275,7 @@ func TestDetermineRecoveryID(t *testing.T) {
 
 func TestEndToEndWithRealSignature(t *testing.T) {
 	builder := newTestBuilder(t)
-	evmKey, _, ethAddrHex := generateTestEVMKey(t)
+	evmKey, _, _ := generateTestEVMKey(t)
 
 	txID := makeTxID(0xAA)
 	utxID := makeTxID(0xBB)
@@ -1336,21 +1296,17 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		// 2. Sign with real EVM key (simulating TSS signing)
-		sig, _ := signMessageHash(t, evmKey, msgHash)
+		// 2. Sign with real EVM key (simulating TSS signing — returns r||s and v separately)
+		sig, recoveryID := signMessageHash(t, evmKey, msgHash)
 
-		// 3. Determine recovery ID (what the relayer does)
-		recoveryID, err := builder.determineRecoveryID(msgHash, sig, ethAddrHex)
-		require.NoError(t, err)
-
-		// 4. Build instruction data with real signature
+		// 3. Build instruction data with real signature
 		instrData := builder.buildWithdrawAndExecuteData(
 			1, txID, utxID, amount, sender,
 			[]byte{}, []byte{}, 0, 0,
 			sig, recoveryID, msgHash, nonce,
 		)
 
-		// 5. Verify the instruction data contains the real signature
+		// 4. Verify the instruction data contains the real signature
 		assert.Equal(t, sig, instrData[125:189], "real signature in instruction data")
 		assert.Equal(t, recoveryID, instrData[189], "recovery ID in instruction data")
 		assert.Equal(t, msgHash, instrData[190:222], "message hash in instruction data")
@@ -1373,9 +1329,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		sig, _ := signMessageHash(t, evmKey, msgHash)
-		recoveryID, err := builder.determineRecoveryID(msgHash, sig, ethAddrHex)
-		require.NoError(t, err)
+		sig, recoveryID := signMessageHash(t, evmKey, msgHash)
 
 		wf := accountsToWritableFlags(accs)
 		instrData := builder.buildWithdrawAndExecuteData(
@@ -1405,9 +1359,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		sig, _ := signMessageHash(t, evmKey, msgHash)
-		recoveryID, err := builder.determineRecoveryID(msgHash, sig, ethAddrHex)
-		require.NoError(t, err)
+		sig, recoveryID := signMessageHash(t, evmKey, msgHash)
 
 		recipient := solana.PublicKeyFromBytes(revertRecipient[:])
 		instrData := builder.buildRevertData(

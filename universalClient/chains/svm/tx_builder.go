@@ -461,9 +461,13 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	if data == nil {
 		return nil, 0, fmt.Errorf("outbound event data is nil")
 	}
-	if len(signature) != 64 {
-		return nil, 0, fmt.Errorf("signature must be 64 bytes, got %d", len(signature))
+	if len(signature) != 65 {
+		return nil, 0, fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
 	}
+
+	// DKLS TSS produces [r(32)|s(32)|v(1)] — extract recovery ID and use r||s for the instruction
+	recoveryID := signature[64]
+	signature = signature[:64]
 
 	// Load the relayer's Solana keypair from disk.
 	// The relayer is the entity that pays for Solana transaction fees (gas).
@@ -621,21 +625,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_tx"), txID[:]}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
-	}
-
-	// --- Determine recovery ID ---
-	tssAccountData, err := tb.rpcClient.GetAccountData(ctx, tssPDA)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to fetch TSS PDA account for recovery ID: %w", err)
-	}
-	if len(tssAccountData) < 28 {
-		return nil, 0, fmt.Errorf("invalid TSS PDA account data for recovery ID")
-	}
-	tssEthAddress := tssAccountData[8:28]
-
-	recoveryID, err := tb.determineRecoveryID(req.SigningHash, signature, hex.EncodeToString(tssEthAddress))
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to determine recovery ID: %w", err)
 	}
 
 	// --- Build instruction data and accounts list ---
@@ -1085,48 +1074,6 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 	privateKey := solana.PrivateKey(keyBytes)
 
 	return privateKey, nil
-}
-
-// =============================================================================
-//  Recovery ID
-// =============================================================================
-
-// determineRecoveryID finds the ECDSA recovery ID (v value, 0-3) for a secp256k1 signature.
-//
-// Background: An ECDSA signature (r, s) can correspond to up to 4 different public keys.
-// The recovery ID tells secp256k1_recover which one to use. In Ethereum, this is the "v" value.
-//
-// How it works:
-//  1. Try each recovery ID (0, 1, 2, 3)
-//  2. Recover the public key from (messageHash, signature, recoveryID)
-//  3. Derive the ETH address from the recovered public key: keccak256(pubkey[1:])[-20:]
-//  4. Compare with the expected TSS ETH address stored on-chain
-//  5. Return the recovery ID that matches
-//
-// This is needed because the TSS signing protocol returns only (r, s) without v.
-func (tb *TxBuilder) determineRecoveryID(messageHash []byte, signature []byte, expectedAddress string) (byte, error) {
-	for recoveryID := byte(0); recoveryID < 4; recoveryID++ {
-		sigWithRecovery := make([]byte, 65)
-		copy(sigWithRecovery[:64], signature)
-		sigWithRecovery[64] = recoveryID
-
-		pubKey, err := crypto.SigToPub(messageHash, sigWithRecovery)
-		if err != nil {
-			continue
-		}
-
-		pubKeyBytes := crypto.FromECDSAPub(pubKey)
-		addressBytes := crypto.Keccak256(pubKeyBytes[1:])[12:]
-
-		expectedBytes, err := hex.DecodeString(removeHexPrefix(expectedAddress))
-		if err == nil && len(expectedBytes) == 20 {
-			if hex.EncodeToString(addressBytes) == hex.EncodeToString(expectedBytes) {
-				return recoveryID, nil
-			}
-		}
-	}
-
-	return 0, fmt.Errorf("failed to determine recovery ID for signature")
 }
 
 // =============================================================================

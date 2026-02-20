@@ -37,11 +37,6 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 		return
 	}
 
-	// Strip recovery byte if 65 bytes
-	if len(signature) == 65 {
-		signature = signature[:64]
-	}
-
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get chain client")

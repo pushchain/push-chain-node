@@ -18,10 +18,13 @@ fi
 : "${CHAIN_ID:=localchain_9000-1}"
 : "${KEYRING_BACKEND:=test}"
 : "${GENESIS_KEY_NAME:=genesis-acc-1}"
-: "${GENESIS_KEY_HOME:=$PUSH_CHAIN_DIR/local-native/data/validator1/.pchain}"
-: "${GENESIS_ACCOUNTS_JSON:=$PUSH_CHAIN_DIR/local-native/data/accounts/genesis_accounts.json}"
+: "${GENESIS_KEY_HOME:=./e2e-tests/.pchain}"
+: "${GENESIS_ACCOUNTS_JSON:=./e2e-tests/genesis_accounts.json}"
 : "${FUND_AMOUNT:=1000000000000000000upc}"
+: "${POOL_CREATION_TOPUP_AMOUNT:=50000000000000000000upc}"
 : "${GAS_PRICES:=100000000000upc}"
+: "${LOCAL_DEVNET_DIR:=./local-multi-validator}"
+: "${LEGACY_LOCAL_NATIVE_DIR:=./local-native}"
 
 : "${CORE_CONTRACTS_REPO:=https://github.com/pushchain/push-chain-core-contracts.git}"
 : "${CORE_CONTRACTS_BRANCH:=e2e-push-node}"
@@ -52,6 +55,8 @@ abs_from_root() {
 
 GENESIS_KEY_HOME="$(abs_from_root "$GENESIS_KEY_HOME")"
 GENESIS_ACCOUNTS_JSON="$(abs_from_root "$GENESIS_ACCOUNTS_JSON")"
+LOCAL_DEVNET_DIR="$(abs_from_root "$LOCAL_DEVNET_DIR")"
+LEGACY_LOCAL_NATIVE_DIR="$(abs_from_root "$LEGACY_LOCAL_NATIVE_DIR")"
 E2E_PARENT_DIR="$(abs_from_root "$E2E_PARENT_DIR")"
 CORE_CONTRACTS_DIR="$(abs_from_root "$CORE_CONTRACTS_DIR")"
 SWAP_AMM_DIR="$(abs_from_root "$SWAP_AMM_DIR")"
@@ -75,6 +80,24 @@ log_info() { printf "%b\n" "${cyan}==>${nc} $*"; }
 log_ok() { printf "%b\n" "${green}✓${nc} $*"; }
 log_warn() { printf "%b\n" "${yellow}!${nc} $*"; }
 log_err() { printf "%b\n" "${red}x${nc} $*"; }
+
+get_genesis_accounts_json() {
+  if [[ -f "$GENESIS_ACCOUNTS_JSON" ]]; then
+    cat "$GENESIS_ACCOUNTS_JSON"
+    return 0
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    if docker ps --format '{{.Names}}' | grep -qx 'core-validator-1'; then
+      if docker exec core-validator-1 test -f /tmp/push-accounts/genesis_accounts.json >/dev/null 2>&1; then
+        docker exec core-validator-1 cat /tmp/push-accounts/genesis_accounts.json
+        return 0
+      fi
+    fi
+  fi
+
+  return 1
+}
 
 require_cmd() {
   local c
@@ -263,25 +286,47 @@ clone_or_update_repo() {
 
 step_devnet() {
   require_cmd bash
-  log_info "Starting local-native devnet"
+  log_info "Starting local-multi-validator devnet"
   (
-    cd "$PUSH_CHAIN_DIR/local-native"
-    ./devnet build
-    ./devnet start 4
+    cd "$LOCAL_DEVNET_DIR"
+    ./devnet start --build
     ./devnet setup-uvalidators
-    ./devnet start-uv 4
   )
   log_ok "Devnet is up"
 }
 
+step_stop_running_nodes() {
+  log_info "Stopping running local nodes/validators"
+
+  if [[ -x "$LOCAL_DEVNET_DIR/devnet" ]]; then
+    (
+      cd "$LOCAL_DEVNET_DIR"
+      ./devnet down || true
+    )
+  fi
+
+  if [[ -x "$LEGACY_LOCAL_NATIVE_DIR/devnet" ]]; then
+    (
+      cd "$LEGACY_LOCAL_NATIVE_DIR"
+      ./devnet down || true
+    )
+  fi
+
+  pkill -f "$PUSH_CHAIN_DIR/build/pchaind start" >/dev/null 2>&1 || true
+  pkill -f "$PUSH_CHAIN_DIR/build/puniversald" >/dev/null 2>&1 || true
+
+  log_ok "Running nodes stopped"
+}
+
 step_print_genesis() {
   require_cmd jq
-  if [[ ! -f "$GENESIS_ACCOUNTS_JSON" ]]; then
-    log_err "Missing genesis accounts file: $GENESIS_ACCOUNTS_JSON"
+  local accounts_json
+  if ! accounts_json="$(get_genesis_accounts_json)"; then
+    log_err "Could not resolve genesis accounts from $GENESIS_ACCOUNTS_JSON or docker container core-validator-1"
     exit 1
   fi
 
-  jq -r '.[0] | "Account: \(.name)\nAddress: \(.address)\nMnemonic: \(.mnemonic)"' "$GENESIS_ACCOUNTS_JSON"
+  jq -r '.[0] | "Account: \(.name)\nAddress: \(.address)\nMnemonic: \(.mnemonic)"' <<<"$accounts_json"
 }
 
 step_recover_genesis_key() {
@@ -289,15 +334,17 @@ step_recover_genesis_key() {
 
   local mnemonic="${GENESIS_MNEMONIC:-}"
   if [[ -z "$mnemonic" ]]; then
-    if [[ -f "$GENESIS_ACCOUNTS_JSON" ]]; then
+    local accounts_json
+    accounts_json="$(get_genesis_accounts_json || true)"
+    if [[ -n "$accounts_json" ]]; then
       mnemonic="$(jq -r --arg n "$GENESIS_KEY_NAME" '
         (first(.[] | select(.name == $n) | .mnemonic) // first(.[].mnemonic) // "")
-      ' "$GENESIS_ACCOUNTS_JSON")"
+      ' <<<"$accounts_json")"
     fi
   fi
 
   if [[ -z "$mnemonic" ]]; then
-    log_err "Could not auto-resolve mnemonic from $GENESIS_ACCOUNTS_JSON"
+    log_err "Could not auto-resolve mnemonic from $GENESIS_ACCOUNTS_JSON or docker container core-validator-1"
     log_err "Set GENESIS_MNEMONIC in e2e-tests/.env"
     exit 1
   fi
@@ -812,7 +859,7 @@ step_add_uregistry_configs() {
           --chain-config "$payload" \
           --from "$GENESIS_KEY_NAME" \
           --keyring-backend "$KEYRING_BACKEND" \
-          --home data/validator1/.pchain \
+          --home "$GENESIS_KEY_HOME" \
           --node tcp://127.0.0.1:26657 \
           --gas-prices "$GAS_PRICES" \
           -y)"
@@ -821,7 +868,7 @@ step_add_uregistry_configs() {
           --token-config "$payload" \
           --from "$GENESIS_KEY_NAME" \
           --keyring-backend "$KEYRING_BACKEND" \
-          --home data/validator1/.pchain \
+          --home "$GENESIS_KEY_HOME" \
           --node tcp://127.0.0.1:26657 \
           --gas-prices "$GAS_PRICES" \
           -y)"
@@ -853,10 +900,7 @@ step_add_uregistry_configs() {
   }
 
   log_info "Adding chain config to uregistry"
-  (
-    cd "$PUSH_CHAIN_DIR/local-native"
-    run_registry_tx "chain" "$chain_payload"
-  )
+  run_registry_tx "chain" "$chain_payload"
 
   local deployed_addrs token_file token_addr matched_count
   deployed_addrs="$(jq -r '.tokens[]?.address | ascii_downcase' "$DEPLOY_ADDRESSES_FILE")"
@@ -870,10 +914,7 @@ step_add_uregistry_configs() {
     if echo "$deployed_addrs" | grep -Fxq "$token_addr"; then
       token_payload="$(jq -c . "$token_file")"
       log_info "Adding token config to uregistry: $(basename "$token_file")"
-      (
-        cd "$PUSH_CHAIN_DIR/local-native"
-        run_registry_tx "token" "$token_payload"
-      )
+      run_registry_tx "token" "$token_payload"
       matched_count=$((matched_count + 1))
     fi
   done < <(find "$TOKENS_CONFIG_DIR" -maxdepth 1 -type f -name '*.json' | sort)
@@ -943,8 +984,10 @@ step_sync_test_addresses() {
 }
 
 step_create_all_wpc_pools() {
-  require_cmd node
+  require_cmd node cast "$PUSH_CHAIN_DIR/build/pchaind"
   ensure_deploy_file
+
+  [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
 
   if [[ ! -f "$TEST_ADDRESSES_PATH" ]]; then
     log_err "Missing test-addresses.json at $TEST_ADDRESSES_PATH"
@@ -963,6 +1006,51 @@ step_create_all_wpc_pools() {
     log_warn "No core tokens found in deploy addresses; skipping pool creation"
     return 0
   fi
+
+  local deployer_evm_addr
+  deployer_evm_addr="$(cast wallet address --private-key "$PRIVATE_KEY" 2>/dev/null || true)"
+  if ! validate_eth_address "$deployer_evm_addr"; then
+    log_err "Could not resolve deployer EVM address from PRIVATE_KEY"
+    exit 1
+  fi
+
+  local deployer_hex deployer_push_addr
+  deployer_hex="$(echo "$deployer_evm_addr" | tr '[:upper:]' '[:lower:]' | sed 's/^0x//')"
+  deployer_push_addr="$("$PUSH_CHAIN_DIR/build/pchaind" debug addr "$deployer_hex" 2>/dev/null | awk -F': ' '/Bech32 Acc:/ {print $2; exit}')"
+  if [[ -z "$deployer_push_addr" ]]; then
+    log_err "Could not derive bech32 deployer address from $deployer_evm_addr"
+    exit 1
+  fi
+
+  log_info "Funding deployer $deployer_push_addr ($deployer_evm_addr) for pool creation ($POOL_CREATION_TOPUP_AMOUNT)"
+  local fund_attempt=1
+  local fund_max_attempts=5
+  local fund_out=""
+  while true; do
+    fund_out="$("$PUSH_CHAIN_DIR/build/pchaind" tx bank send "$GENESIS_KEY_NAME" "$deployer_push_addr" "$POOL_CREATION_TOPUP_AMOUNT" \
+      --gas-prices "$GAS_PRICES" \
+      --keyring-backend "$KEYRING_BACKEND" \
+      --chain-id "$CHAIN_ID" \
+      --home "$GENESIS_KEY_HOME" \
+      -y 2>&1 || true)"
+
+    if echo "$fund_out" | grep -q 'txhash:' || echo "$fund_out" | grep -q '"txhash"'; then
+      log_ok "Deployer funding transaction submitted"
+      break
+    fi
+
+    if echo "$fund_out" | grep -qi 'account sequence mismatch' && [[ "$fund_attempt" -lt "$fund_max_attempts" ]]; then
+      log_warn "Funding sequence mismatch on attempt $fund_attempt/$fund_max_attempts. Retrying..."
+      fund_attempt=$((fund_attempt + 1))
+      sleep 2
+      continue
+    fi
+
+    log_err "Failed to fund deployer for pool creation"
+    echo "$fund_out"
+    exit 1
+  done
+  sleep 2
 
   while IFS=$'\t' read -r token_symbol token_addr; do
     [[ -n "$token_addr" ]] || continue
@@ -1037,6 +1125,7 @@ step_configure_universal_core() {
 }
 
 cmd_all() {
+  step_stop_running_nodes
   step_devnet
   step_recover_genesis_key
   step_fund_account
@@ -1057,7 +1146,7 @@ cmd_show_help() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  devnet                 Build/start local-native devnet + uvalidators
+  devnet                 Build/start local-multi-validator devnet + uvalidators
   print-genesis          Print first genesis account + mnemonic
   recover-genesis-key    Recover genesis key into local keyring
   fund                   Fund FUND_TO_ADDRESS from genesis key
@@ -1070,7 +1159,7 @@ Commands:
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
-  add-uregistry-configs  Submit chain + token config txs via local-native validator1
+  add-uregistry-configs  Submit chain + token config txs via local-multi-validator validator1
   record-contract K A    Manually record contract key/address
   record-token N S A     Manually record token name/symbol/address
   all                    Run full setup pipeline

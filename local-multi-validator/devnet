@@ -15,6 +15,8 @@ cd "$SCRIPT_DIR"
 # ═══════════════════════════════════════════════════════════════════════════════
 GCR_REGISTRY="${GCR_REGISTRY:-gcr.io/push-chain-testnet}"
 CACHE_TAG="${CACHE_TAG:-latest}"
+SEPOLIA_CHAIN_ID="eip155:11155111"
+SEPOLIA_DEFAULT_RPC_URL="${SEPOLIA_DEFAULT_RPC_URL:-https://sepolia.drpc.org}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COLORS
@@ -66,6 +68,23 @@ require_docker() {
 
 has_buildx() {
     docker buildx version >/dev/null 2>&1
+}
+
+fetch_sepolia_height() {
+    local rpc_url="$1"
+    local response
+    response=$(curl -sS -X POST "$rpc_url" \
+        -H "Content-Type: application/json" \
+        --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
+
+    local hex_height
+    hex_height=$(echo "$response" | jq -r '.result // empty')
+
+    if [ -z "$hex_height" ] || [ "$hex_height" = "null" ] || [[ ! "$hex_height" =~ ^0x[0-9a-fA-F]+$ ]]; then
+        return 1
+    fi
+
+    echo "$((16#${hex_height#0x}))"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -413,7 +432,24 @@ cmd_up() {
         fi
     fi
 
-    docker compose up -d
+    local sepolia_start_height="${SEPOLIA_EVENT_START_FROM:-}"
+    if [ -z "$sepolia_start_height" ]; then
+        if sepolia_start_height=$(fetch_sepolia_height "$SEPOLIA_DEFAULT_RPC_URL"); then
+            print_status "Using Sepolia event_start_from: $sepolia_start_height"
+        else
+            print_warning "Could not fetch Sepolia latest block from $SEPOLIA_DEFAULT_RPC_URL"
+            print_warning "Universal validators will use default event_start_from from pushuv config"
+            sepolia_start_height=""
+        fi
+    else
+        print_status "Using provided SEPOLIA_EVENT_START_FROM: $sepolia_start_height"
+    fi
+
+    if [ -n "$sepolia_start_height" ]; then
+        SEPOLIA_EVENT_START_FROM="$sepolia_start_height" docker compose up -d
+    else
+        docker compose up -d
+    fi
 
     # Auto-push to cache if we built locally (populate cache for team)
     if [ -n "$built_locally" ] && [ -z "$skip_cache" ]; then

@@ -4,7 +4,7 @@ This folder provides a full, automated local E2E bootstrap for Push Chain.
 
 It covers:
 
-1. local-native devnet (validators + universal validators)
+1. local-multi-validator devnet (Docker, validators + universal validators)
 2. genesis key recovery + account funding
 3. core contracts deployment
 4. swap AMM deployment (WPC + V3 core + V3 periphery)
@@ -54,9 +54,15 @@ Important variables in `.env`:
 - `PUSH_RPC_URL` (default `http://localhost:8545`)
 - `PRIVATE_KEY`
 - `FUND_TO_ADDRESS`
+- `POOL_CREATION_TOPUP_AMOUNT` (funding for deployer before pool creation)
 - `CORE_CONTRACTS_BRANCH`
 - `SWAP_AMM_BRANCH`
 - `GATEWAY_BRANCH` (currently `e2e-push-node`)
+
+Genesis account source:
+
+- `GENESIS_ACCOUNTS_JSON` can point to a local file, but if missing `setup.sh` automatically
+  reads `/tmp/push-accounts/genesis_accounts.json` from docker container `core-validator-1`.
 
 Path settings are repository-relative and portable.
 
@@ -178,7 +184,7 @@ For a fresh run:
 
 ```bash
 rm -rf e2e-tests/repos
-./local-native/devnet down || true
+./local-multi-validator/devnet down || true
 ./e2e-tests/setup.sh replace-addresses
 ./e2e-tests/setup.sh all
 ```

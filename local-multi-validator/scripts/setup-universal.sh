@@ -136,6 +136,15 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
+# Optionally override Sepolia event start height (set by ./devnet start)
+if [ -n "${SEPOLIA_EVENT_START_FROM:-}" ]; then
+  echo "📍 Setting Sepolia event_start_from: $SEPOLIA_EVENT_START_FROM"
+  jq --argjson height "$SEPOLIA_EVENT_START_FROM" \
+    '.chain_configs["eip155:11155111"].event_start_from = $height' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===
 # ---------------------------

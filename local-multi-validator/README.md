@@ -37,6 +37,20 @@ docker compose up --build
 - Auto-builds base image if missing (~15-20 min first time)
 - Pulls core/universal from cache or builds locally
 - Starts all 8 validators
+- Auto-sets Sepolia `event_start_from` to latest block for all universal validators
+
+### Sepolia Event Start Block
+
+On `./devnet start`, the script fetches latest Sepolia block height from `https://sepolia.drpc.org`
+and injects it into each universal validator config:
+
+- `chain_configs["eip155:11155111"].event_start_from = <latest block>`
+
+You can override this manually at startup:
+
+```bash
+SEPOLIA_EVENT_START_FROM=12345678 ./devnet start
+```
 
 ### I Changed Core Validator Code
 **Files:** `cmd/pchaind/`, `app/`, `x/` modules
@@ -132,6 +146,12 @@ docker compose up -d      # Start containers directly
 | `./devnet pull-cache` | Pull pre-built images from GCR |
 | `./devnet push-cache` | Push local images to GCR |
 | `./devnet refresh-cache` | Force rebuild and push to GCR |
+
+The `start` command also supports:
+
+| Environment Variable | Description |
+|----------------------|-------------|
+| `SEPOLIA_EVENT_START_FROM` | Force universal validators to start monitoring Sepolia from a specific block |
 
 ## Endpoints
 

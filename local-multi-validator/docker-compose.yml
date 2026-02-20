@@ -231,6 +231,7 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-1:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
+      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-1:
@@ -264,6 +265,7 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-2:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
+      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-2:
@@ -297,6 +299,7 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-3:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
+      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-3:
@@ -330,6 +333,7 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-4:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
+      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-4:

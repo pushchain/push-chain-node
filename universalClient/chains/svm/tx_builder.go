@@ -1476,19 +1476,19 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 // - found=true: tx exists on-chain
 //   - confirmations: number of slots since the tx was included (0 = just confirmed)
 //   - status: 0 = failed, 1 = success
-func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, confirmations uint64, status uint8, err error) {
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
 	sig, sigErr := solana.SignatureFromBase58(txHash)
 	if sigErr != nil {
-		return false, 0, 0, nil
+		return false, 0, 0, 0, nil
 	}
 
 	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
 	if txErr != nil {
-		return false, 0, 0, nil
+		return false, 0, 0, 0, nil
 	}
 
 	if tx == nil {
-		return false, 0, 0, nil
+		return false, 0, 0, 0, nil
 	}
 
 	// Calculate confirmations from current slot
@@ -1502,10 +1502,10 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 
 	// Check if transaction had an error
 	if tx.Meta != nil && tx.Meta.Err != nil {
-		return true, confs, 0, nil
+		return true, tx.Slot, confs, 0, nil
 	}
 
-	return true, confs, 1, nil
+	return true, tx.Slot, confs, 1, nil
 }
 
 // buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program

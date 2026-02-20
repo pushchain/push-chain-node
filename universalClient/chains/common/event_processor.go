@@ -366,27 +366,12 @@ func (ep *EventProcessor) extractOutboundObservation(event *store.Event) (*uexec
 		txHashHex = txHash
 	}
 
-	// Since the event is confirmed, success is always true
-	// Parse event data to extract error_msg if available
-	var errorMsg string = ""
-
-	if len(event.EventData) > 0 {
-		var eventData map[string]interface{}
-		if err := json.Unmarshal(event.EventData, &eventData); err == nil {
-			// Check for error_msg field
-			if errorMsgVal, ok := eventData["error_msg"].(string); ok {
-				errorMsg = errorMsgVal
-			}
-		}
-	}
-
 	observation := &uexecutortypes.OutboundObservation{
 		Success:     true, // Since event is confirmed, success is always true
 		BlockHeight: event.BlockHeight,
 		TxHash:      txHashHex,
-		ErrorMsg:    errorMsg,
+		ErrorMsg:    "",
 	}
 
 	return observation, nil
 }
-

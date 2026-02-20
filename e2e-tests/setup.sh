@@ -242,6 +242,15 @@ clone_or_update_repo() {
   fi
 
   if [[ -d "$dest/.git" ]]; then
+    local current_branch has_changes
+    current_branch="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    has_changes="$(git -C "$dest" status --porcelain 2>/dev/null)"
+
+    if [[ -n "$has_changes" && "$current_branch" == "$resolved_branch" ]]; then
+      log_warn "Repo $(basename "$dest") has local changes on branch '$current_branch'. Skipping update to preserve local changes."
+      return 0
+    fi
+
     log_info "Updating repo $(basename "$dest")"
     git -C "$dest" fetch origin
     git -C "$dest" checkout "$resolved_branch"

@@ -109,6 +109,7 @@ update_genesis '.app_state["gov"]["params"]["max_deposit_period"]="300s"'
 update_genesis '.app_state["gov"]["params"]["voting_period"]="300s"'
 update_genesis ".app_state[\"evm\"][\"params\"][\"evm_denom\"]=\"$DENOM\""
 update_genesis ".app_state[\"evm\"][\"params\"][\"chain_config\"][\"chain_id\"]=$EVM_CHAIN_ID"
+update_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000CB","0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
 update_genesis ".app_state[\"staking\"][\"params\"][\"bond_denom\"]=\"$DENOM\""
 update_genesis ".app_state[\"mint\"][\"params\"][\"mint_denom\"]=\"$DENOM\""
 update_genesis ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""

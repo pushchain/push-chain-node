@@ -456,6 +456,7 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		Msg("saved keyshare")
 
 	// Vote on Push chain
+	var voteTxHash string
 	if sm.pushSigner != nil {
 		pubKeyHex := hex.EncodeToString(result.PublicKey)
 
@@ -464,7 +465,7 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 			return errors.Wrapf(err, "failed to parse process id from %s", eventID)
 		}
 
-		voteTxHash, err := sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, processID)
+		voteTxHash, err = sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, processID)
 		if err != nil {
 			// Vote failed after TSS signing — mark REVERTED directly (no RevertHandler needed for key events)
 			if updateErr := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusReverted}); updateErr != nil {
@@ -476,7 +477,7 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
 	}
 
-	if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
+	if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
 		return errors.Wrapf(err, "failed to update event status to completed")
 	}
 

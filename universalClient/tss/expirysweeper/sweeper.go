@@ -124,6 +124,8 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 		return errors.Wrapf(err, "failed to parse outbound event data for event %s", event.EventID)
 	}
 
+	fields := map[string]any{"status": eventstore.StatusReverted}
+
 	if s.pushSigner == nil {
 		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
 	} else {
@@ -132,12 +134,14 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 			TxHash:   "",
 			ErrorMsg: errorMsg,
 		}
-		if _, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation); err != nil {
+		voteTxHash, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation)
+		if err != nil {
 			return errors.Wrapf(err, "failed to vote failure for event %s", event.EventID)
 		}
+		fields["vote_tx_hash"] = voteTxHash
 	}
 
-	if err := s.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusReverted}); err != nil {
+	if err := s.eventStore.Update(event.EventID, fields); err != nil {
 		return errors.Wrapf(err, "failed to mark event %s as reverted", event.EventID)
 	}
 	s.logger.Info().

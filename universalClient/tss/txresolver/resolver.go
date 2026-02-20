@@ -138,11 +138,12 @@ func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.
 		TxHash:   txHash,
 		ErrorMsg: errorMsg,
 	}
-	if _, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation); err != nil {
+	voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
+	if err != nil {
 		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to vote failure")
 		return err
 	}
-	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusReverted}); err != nil {
+	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusReverted, "vote_tx_hash": voteTxHash}); err != nil {
 		return errors.Wrapf(err, "failed to mark event %s as reverted", event.EventID)
 	}
 	r.logger.Info().

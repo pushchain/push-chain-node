@@ -7,19 +7,16 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
-// broadcastEVM broadcasts a signed EVM transaction using nonce-based gating.
+// broadcastEVM broadcasts a signed EVM transaction.
 //
-// The broadcaster only marks BROADCASTED when there is evidence the nonce was
-// consumed (successful broadcast or finalized nonce advanced). On any other
-// error, the event stays SIGNED and retries next tick. If it stays stuck, the
-// coordinator's patience mechanism recovers it via finalized-nonce after ~200s.
+// All validators produce the same signed tx (deterministic TSS output), so the
+// tx hash is known before broadcasting (computed from the assembled signed tx).
 //
 // Flow:
-//  1. Pre-check: if event nonce < finalized nonce → nonce already consumed → BROADCASTED
-//  2. Broadcast the signed tx
-//  3. Success → BROADCASTED
-//  4. Error → re-check finalized nonce:
-//     - nonce consumed → BROADCASTED (race: another node got it between step 1 and 2)
+//  1. Build and broadcast the signed tx (tx hash is always returned, even on error)
+//  2. Success → BROADCASTED with tx hash
+//  3. Error → check finalized nonce on chain:
+//     - nonce consumed (tx landed) → BROADCASTED with tx hash
 //     - nonce NOT consumed → keep SIGNED, retry next tick
 func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data *SignedEventData, chainID string) {
 	signingReq, err := reconstructSigningReq(data.SigningData)
@@ -50,43 +47,36 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 		return
 	}
 
+	// Broadcast — tx hash is computed before sending, so it's returned even on RPC error
+	outboundData := data.OutboundCreatedEvent
+	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
+
+	if broadcastErr == nil {
+		b.markBroadcasted(event, chainID, txHash)
+		return
+	}
+
+	// Broadcast failed — check if the tx landed on chain anyway (another node, or "already known")
+	if txHash == "" {
+		// Tx couldn't even be assembled (bad signature, invalid data) — permanent error, retry won't help
+		b.logger.Warn().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+			Msg("failed to assemble tx, will retry next tick")
+		return
+	}
+
 	eventNonce := data.SigningData.Nonce
 	tssAddress := ""
 	if b.getTSSAddress != nil {
 		tssAddress, _ = b.getTSSAddress(ctx)
 	}
 
-	// Step 1: Pre-check — if finalized nonce already advanced past our event nonce,
-	// the tx was consumed (by us or another node). No need to broadcast.
 	finalizedNonce, err := builder.GetNextNonce(ctx, tssAddress, true)
-	if err != nil {
-		b.logger.Debug().Err(err).Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("failed to get finalized nonce, will try broadcast anyway")
-	} else if eventNonce < finalizedNonce {
-		b.logger.Info().Str("event_id", event.EventID).Str("chain", chainID).
-			Uint64("event_nonce", eventNonce).Uint64("finalized_nonce", finalizedNonce).
-			Msg("nonce already consumed, marking BROADCASTED")
-		b.markBroadcasted(event, chainID, "")
-		return
-	}
-
-	// Step 2: Broadcast
-	outboundData := data.OutboundCreatedEvent
-	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
-
-	// Step 3: Success
-	if broadcastErr == nil {
-		b.markBroadcasted(event, chainID, txHash)
-		return
-	}
-
-	// Step 4: Broadcast failed — re-check finalized nonce to see if the nonce was
-	// consumed between our pre-check and broadcast attempt (race with another node).
-	finalizedNonce, err = builder.GetNextNonce(ctx, tssAddress, true)
 	if err == nil && eventNonce < finalizedNonce {
+		// Nonce consumed — tx is on chain. Mark BROADCASTED so the resolver can verify it.
 		b.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+			Str("tx_hash", txHash).
 			Uint64("event_nonce", eventNonce).Uint64("finalized_nonce", finalizedNonce).
-			Msg("broadcast failed but nonce already consumed, marking BROADCASTED")
+			Msg("broadcast failed but tx already on chain, marking BROADCASTED")
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}

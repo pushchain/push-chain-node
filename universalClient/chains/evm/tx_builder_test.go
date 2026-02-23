@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -15,37 +16,56 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func TestDefaultGasLimitV0(t *testing.T) {
-	assert.Equal(t, int64(500000), int64(DefaultGasLimitV0), "DefaultGasLimitV0 should be 500000")
+// testVaultAddress is a non-zero address used as the vault in tests
+const testVaultAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+// newTestTxBuilder creates a TxBuilder for unit tests by directly setting the
+// vault address, bypassing the constructor's RPC call to VAULT().
+func newTestTxBuilder(t *testing.T) *TxBuilder {
+	t.Helper()
+	logger := zerolog.Nop()
+	gwAddr := ethcommon.HexToAddress("0x1234567890123456789012345678901234567890")
+	vAddr := ethcommon.HexToAddress(testVaultAddress)
+
+	return &TxBuilder{
+		rpcClient:      &RPCClient{},
+		chainID:        "eth_sepolia",
+		chainIDInt:     11155111,
+		gatewayAddress: gwAddr,
+		vaultAddress:   vAddr,
+		vaultFetchedAt: time.Now(),
+		logger:         logger.With().Str("component", "evm_tx_builder").Logger(),
+	}
 }
 
-func TestRevertInstructionsV0Struct(t *testing.T) {
-	// Test that RevertInstructionsV0 struct can be created and used
+func TestDefaultGasLimit(t *testing.T) {
+	assert.Equal(t, int64(500000), int64(DefaultGasLimit))
+}
+
+func TestRevertInstructionsStruct(t *testing.T) {
 	recipient := ethcommon.HexToAddress("0x1234567890123456789012345678901234567890")
 	revertMsg := []byte("test revert message")
 
-	ri := RevertInstructionsV0{
-		FundRecipient: recipient,
-		RevertMsg:     revertMsg,
+	ri := RevertInstructions{
+		RevertRecipient: recipient,
+		RevertMsg:       revertMsg,
 	}
 
-	assert.Equal(t, recipient, ri.FundRecipient)
+	assert.Equal(t, recipient, ri.RevertRecipient)
 	assert.Equal(t, revertMsg, ri.RevertMsg)
 }
 
-func TestRevertInstructionsV0ABIEncoding(t *testing.T) {
-	// Test that RevertInstructionsV0 can be ABI encoded as a tuple
+func TestRevertInstructionsABIEncoding(t *testing.T) {
 	recipient := ethcommon.HexToAddress("0x1234567890123456789012345678901234567890")
 	revertMsg := []byte("test message")
 
-	ri := RevertInstructionsV0{
-		FundRecipient: recipient,
-		RevertMsg:     revertMsg,
+	ri := RevertInstructions{
+		RevertRecipient: recipient,
+		RevertMsg:       revertMsg,
 	}
 
-	// Create tuple type matching the Solidity struct
 	revertInstructionType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "fundRecipient", Type: "address"},
+		{Name: "revertRecipient", Type: "address"},
 		{Name: "revertMsg", Type: "bytes"},
 	})
 	require.NoError(t, err)
@@ -54,94 +74,13 @@ func TestRevertInstructionsV0ABIEncoding(t *testing.T) {
 		{Type: revertInstructionType},
 	}
 
-	// This should not panic or error - the struct should be encodable
 	encoded, err := arguments.Pack(ri)
-	require.NoError(t, err, "RevertInstructionsV0 should be ABI encodable")
-	assert.NotEmpty(t, encoded, "Encoded data should not be empty")
+	require.NoError(t, err, "RevertInstructions should be ABI encodable")
+	assert.NotEmpty(t, encoded)
 }
 
-func TestNewTxBuilderV0(t *testing.T) {
-	logger := zerolog.Nop()
-
-	tests := []struct {
-		name           string
-		rpcClient      *RPCClient
-		chainID        string
-		chainIDInt     int64
-		gatewayAddress string
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:           "valid inputs",
-			rpcClient:      &RPCClient{},
-			chainID:        "eth_sepolia",
-			chainIDInt:     11155111,
-			gatewayAddress: "0x1234567890123456789012345678901234567890",
-			expectError:    false,
-		},
-		{
-			name:           "nil rpcClient",
-			rpcClient:      nil,
-			chainID:        "eth_sepolia",
-			chainIDInt:     11155111,
-			gatewayAddress: "0x1234567890123456789012345678901234567890",
-			expectError:    true,
-			errorContains:  "rpcClient is required",
-		},
-		{
-			name:           "empty chainID",
-			rpcClient:      &RPCClient{},
-			chainID:        "",
-			chainIDInt:     11155111,
-			gatewayAddress: "0x1234567890123456789012345678901234567890",
-			expectError:    true,
-			errorContains:  "chainID is required",
-		},
-		{
-			name:           "empty gatewayAddress",
-			rpcClient:      &RPCClient{},
-			chainID:        "eth_sepolia",
-			chainIDInt:     11155111,
-			gatewayAddress: "",
-			expectError:    true,
-			errorContains:  "gatewayAddress is required",
-		},
-		{
-			name:           "invalid gatewayAddress (zero address)",
-			rpcClient:      &RPCClient{},
-			chainID:        "eth_sepolia",
-			chainIDInt:     11155111,
-			gatewayAddress: "0x0000000000000000000000000000000000000000",
-			expectError:    true,
-			errorContains:  "invalid gateway address",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			builder, err := NewTxBuilder(tt.rpcClient, tt.chainID, tt.chainIDInt, tt.gatewayAddress, logger)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-				assert.Nil(t, builder)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, builder)
-				assert.Equal(t, tt.chainID, builder.chainID)
-				assert.Equal(t, tt.chainIDInt, builder.chainIDInt)
-			}
-		})
-	}
-}
-
-func TestGetFunctionSignatureV0(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestGetFunctionSignature(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	tests := []struct {
 		name     string
@@ -150,28 +89,10 @@ func TestGetFunctionSignatureV0(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "withdraw native",
-			funcName: "withdraw",
+			name:     "finalizeUniversalTx",
+			funcName: "finalizeUniversalTx",
 			isNative: true,
-			expected: "withdraw(bytes32,bytes32,address,address,uint256)",
-		},
-		{
-			name:     "withdrawTokens ERC20",
-			funcName: "withdrawTokens",
-			isNative: false,
-			expected: "withdrawTokens(bytes32,bytes32,address,address,address,uint256)",
-		},
-		{
-			name:     "executeUniversalTx native",
-			funcName: "executeUniversalTx",
-			isNative: true,
-			expected: "executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)",
-		},
-		{
-			name:     "executeUniversalTx ERC20",
-			funcName: "executeUniversalTx",
-			isNative: false,
-			expected: "executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)",
+			expected: "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)",
 		},
 		{
 			name:     "revertUniversalTx native",
@@ -195,15 +116,11 @@ func TestGetFunctionSignatureV0(t *testing.T) {
 	}
 }
 
-func TestFunctionSelectorGenerationV0(t *testing.T) {
-	// Test that function selectors are correctly generated from UniversalGatewayV0 signatures
+func TestFunctionSelectorGeneration(t *testing.T) {
 	tests := []struct {
 		signature string
 	}{
-		{"withdraw(bytes32,bytes32,address,address,uint256)"},
-		{"withdrawTokens(bytes32,bytes32,address,address,address,uint256)"},
-		{"executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)"},
-		{"executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"},
+		{"finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"},
 		{"revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"},
 		{"revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes))"},
 	}
@@ -211,15 +128,13 @@ func TestFunctionSelectorGenerationV0(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.signature, func(t *testing.T) {
 			selector := crypto.Keccak256([]byte(tt.signature))[:4]
-			assert.Len(t, selector, 4, "Function selector should be 4 bytes")
+			assert.Len(t, selector, 4)
 		})
 	}
 }
 
-func TestDetermineFunctionNameV0(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestDetermineFunctionName(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	nativeAsset := ethcommon.Address{}
 	erc20Asset := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
@@ -230,12 +145,12 @@ func TestDetermineFunctionNameV0(t *testing.T) {
 		assetAddr    ethcommon.Address
 		expectedFunc string
 	}{
-		{"FUNDS native", uetypes.TxType_FUNDS, nativeAsset, "withdraw"},
-		{"FUNDS ERC20", uetypes.TxType_FUNDS, erc20Asset, "withdrawTokens"},
-		{"FUNDS_AND_PAYLOAD native", uetypes.TxType_FUNDS_AND_PAYLOAD, nativeAsset, "executeUniversalTx"},
-		{"FUNDS_AND_PAYLOAD ERC20", uetypes.TxType_FUNDS_AND_PAYLOAD, erc20Asset, "executeUniversalTx"},
-		{"PAYLOAD native", uetypes.TxType_PAYLOAD, nativeAsset, "executeUniversalTx"},
-		{"PAYLOAD ERC20", uetypes.TxType_PAYLOAD, erc20Asset, "executeUniversalTx"},
+		{"FUNDS native", uetypes.TxType_FUNDS, nativeAsset, "finalizeUniversalTx"},
+		{"FUNDS ERC20", uetypes.TxType_FUNDS, erc20Asset, "finalizeUniversalTx"},
+		{"FUNDS_AND_PAYLOAD native", uetypes.TxType_FUNDS_AND_PAYLOAD, nativeAsset, "finalizeUniversalTx"},
+		{"FUNDS_AND_PAYLOAD ERC20", uetypes.TxType_FUNDS_AND_PAYLOAD, erc20Asset, "finalizeUniversalTx"},
+		{"PAYLOAD native", uetypes.TxType_PAYLOAD, nativeAsset, "finalizeUniversalTx"},
+		{"PAYLOAD ERC20", uetypes.TxType_PAYLOAD, erc20Asset, "finalizeUniversalTx"},
 		{"INBOUND_REVERT native", uetypes.TxType_INBOUND_REVERT, nativeAsset, "revertUniversalTx"},
 		{"INBOUND_REVERT ERC20", uetypes.TxType_INBOUND_REVERT, erc20Asset, "revertUniversalTxToken"},
 	}
@@ -248,13 +163,63 @@ func TestDetermineFunctionNameV0(t *testing.T) {
 	}
 }
 
-// TestEncodeFunctionCallV0AllFunctions tests all UniversalGatewayV0 function encodings
-func TestEncodeFunctionCallV0AllFunctions(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestResolveTxParams(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
-	// Sample test data
+	nativeAsset := ethcommon.Address{}
+	erc20Asset := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
+	amount := big.NewInt(1000000000000000000)
+
+	tests := []struct {
+		name          string
+		funcName      string
+		assetAddr     ethcommon.Address
+		expectedTo    ethcommon.Address
+		expectedValue *big.Int
+	}{
+		{
+			name:          "finalizeUniversalTx native → vault with value",
+			funcName:      "finalizeUniversalTx",
+			assetAddr:     nativeAsset,
+			expectedTo:    ethcommon.HexToAddress(testVaultAddress),
+			expectedValue: amount,
+		},
+		{
+			name:          "finalizeUniversalTx ERC20 → vault no value",
+			funcName:      "finalizeUniversalTx",
+			assetAddr:     erc20Asset,
+			expectedTo:    ethcommon.HexToAddress(testVaultAddress),
+			expectedValue: big.NewInt(0),
+		},
+		{
+			name:          "revertUniversalTx native → gateway with value",
+			funcName:      "revertUniversalTx",
+			assetAddr:     nativeAsset,
+			expectedTo:    ethcommon.HexToAddress("0x1234567890123456789012345678901234567890"),
+			expectedValue: amount,
+		},
+		{
+			name:          "revertUniversalTxToken ERC20 → vault no value",
+			funcName:      "revertUniversalTxToken",
+			assetAddr:     erc20Asset,
+			expectedTo:    ethcommon.HexToAddress(testVaultAddress),
+			expectedValue: big.NewInt(0),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			txValue, toAddr, err := builder.resolveTxParams(tt.funcName, tt.assetAddr, amount)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedTo, toAddr)
+			assert.Equal(t, tt.expectedValue.Int64(), txValue.Int64())
+		})
+	}
+}
+
+func TestEncodeFunctionCallAllFunctions(t *testing.T) {
+	builder := newTestTxBuilder(t)
+
 	txIDBytes := make([]byte, 32)
 	for i := range txIDBytes {
 		txIDBytes[i] = byte(i)
@@ -286,41 +251,20 @@ func TestEncodeFunctionCallV0AllFunctions(t *testing.T) {
 		expectedSignature string
 		expectError       bool
 	}{
-		// ========== withdraw (native) ==========
 		{
-			name:              "withdraw native",
-			funcName:          "withdraw",
+			name:              "finalizeUniversalTx native",
+			funcName:          "finalizeUniversalTx",
 			assetAddr:         nativeAsset,
 			txType:            uetypes.TxType_FUNDS,
-			expectedSignature: "withdraw(bytes32,bytes32,address,address,uint256)",
-		},
-
-		// ========== withdrawTokens (ERC20) ==========
-		{
-			name:              "withdrawTokens ERC20",
-			funcName:          "withdrawTokens",
-			assetAddr:         erc20Asset,
-			txType:            uetypes.TxType_FUNDS,
-			expectedSignature: "withdrawTokens(bytes32,bytes32,address,address,address,uint256)",
-		},
-
-		// ========== executeUniversalTx ==========
-		{
-			name:              "executeUniversalTx native",
-			funcName:          "executeUniversalTx",
-			assetAddr:         nativeAsset,
-			txType:            uetypes.TxType_FUNDS_AND_PAYLOAD,
-			expectedSignature: "executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)",
+			expectedSignature: "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)",
 		},
 		{
-			name:              "executeUniversalTx ERC20",
-			funcName:          "executeUniversalTx",
+			name:              "finalizeUniversalTx ERC20",
+			funcName:          "finalizeUniversalTx",
 			assetAddr:         erc20Asset,
 			txType:            uetypes.TxType_FUNDS_AND_PAYLOAD,
-			expectedSignature: "executeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)",
+			expectedSignature: "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)",
 		},
-
-		// ========== revertUniversalTx ==========
 		{
 			name:              "revertUniversalTx native",
 			funcName:          "revertUniversalTx",
@@ -328,8 +272,6 @@ func TestEncodeFunctionCallV0AllFunctions(t *testing.T) {
 			txType:            uetypes.TxType_INBOUND_REVERT,
 			expectedSignature: "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))",
 		},
-
-		// ========== revertUniversalTxToken ==========
 		{
 			name:              "revertUniversalTxToken ERC20",
 			funcName:          "revertUniversalTxToken",
@@ -337,8 +279,6 @@ func TestEncodeFunctionCallV0AllFunctions(t *testing.T) {
 			txType:            uetypes.TxType_INBOUND_REVERT,
 			expectedSignature: "revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes))",
 		},
-
-		// ========== Error cases ==========
 		{
 			name:        "unknown function",
 			funcName:    "unknownFunction",
@@ -357,91 +297,22 @@ func TestEncodeFunctionCallV0AllFunctions(t *testing.T) {
 				return
 			}
 
-			require.NoError(t, err, "encodeFunctionCall should not error for %s", tt.name)
-			assert.NotEmpty(t, encoded, "encoded data should not be empty")
+			require.NoError(t, err)
+			assert.NotEmpty(t, encoded)
 
-			// Verify function selector (first 4 bytes)
 			expectedSelector := crypto.Keccak256([]byte(tt.expectedSignature))[:4]
 			actualSelector := encoded[:4]
 			assert.Equal(t, expectedSelector, actualSelector,
-				"Function selector mismatch for %s\nExpected signature: %s\nExpected selector: 0x%x\nActual selector: 0x%x",
-				tt.name, tt.expectedSignature, expectedSelector, actualSelector)
+				"Function selector mismatch for %s\nExpected: 0x%x\nActual: 0x%x",
+				tt.name, expectedSelector, actualSelector)
 
 			t.Logf("%s: selector=0x%x, total_length=%d bytes", tt.name, actualSelector, len(encoded))
 		})
 	}
 }
 
-// TestEncodeFunctionCallV0WithAllTxTypes tests each function with all applicable TxTypes
-func TestEncodeFunctionCallV0WithAllTxTypes(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
-
-	txIDBytes := make([]byte, 32)
-	universalTxIDBytes := make([]byte, 32)
-
-	data := &uetypes.OutboundCreatedEvent{
-		TxID:          "0x" + hex.EncodeToString(txIDBytes),
-		UniversalTxId: "0x" + hex.EncodeToString(universalTxIDBytes),
-		Sender:        "0xabcdef1234567890abcdef1234567890abcdef12",
-		Recipient:     "0x1111111111111111111111111111111111111111",
-		Amount:        "1000000000000000000",
-		Payload:       "0x",
-		RevertMsg:     "",
-	}
-
-	amount := big.NewInt(1000000000000000000)
-	nativeAsset := ethcommon.Address{}
-	erc20Asset := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
-
-	allTxTypes := []uetypes.TxType{
-		uetypes.TxType_GAS,
-		uetypes.TxType_GAS_AND_PAYLOAD,
-		uetypes.TxType_FUNDS,
-		uetypes.TxType_FUNDS_AND_PAYLOAD,
-		uetypes.TxType_PAYLOAD,
-		uetypes.TxType_INBOUND_REVERT,
-	}
-
-	functions := []struct {
-		name      string
-		assetAddr ethcommon.Address
-	}{
-		{"withdraw", nativeAsset},
-		{"withdrawTokens", erc20Asset},
-		{"executeUniversalTx", nativeAsset},
-		{"executeUniversalTx", erc20Asset},
-		{"revertUniversalTx", nativeAsset},
-		{"revertUniversalTxToken", erc20Asset},
-	}
-
-	for _, fn := range functions {
-		for _, txType := range allTxTypes {
-			testName := fn.name
-			if fn.assetAddr == nativeAsset {
-				testName += "_native"
-			} else {
-				testName += "_erc20"
-			}
-			testName += "_" + txType.String()
-
-			t.Run(testName, func(t *testing.T) {
-				encoded, err := builder.encodeFunctionCall(fn.name, data, amount, fn.assetAddr, txType)
-				require.NoError(t, err, "encoding should succeed")
-				assert.NotEmpty(t, encoded)
-				assert.GreaterOrEqual(t, len(encoded), 4, "encoded data should have at least function selector")
-				t.Logf("%s: length=%d bytes, selector=0x%x", testName, len(encoded), encoded[:4])
-			})
-		}
-	}
-}
-
-// TestEncodeFunctionCallV0RevertInstructionsEncoding tests RevertInstructionsV0 encoding
-func TestEncodeFunctionCallV0RevertInstructionsEncoding(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestEncodeFunctionCallRevertInstructionsEncoding(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	tests := []struct {
 		name      string
@@ -472,21 +343,15 @@ func TestEncodeFunctionCallV0RevertInstructionsEncoding(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, encoded)
 
-			// Verify function selector
 			expectedSignature := "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"
 			expectedSelector := crypto.Keccak256([]byte(expectedSignature))[:4]
 			assert.Equal(t, expectedSelector, encoded[:4])
-
-			t.Logf("%s: revertMsg_hex_len=%d, encoded_len=%d", tt.name, len(tt.revertMsg)/2, len(encoded))
 		})
 	}
 }
 
-// TestEncodeFunctionCallV0PayloadEncoding tests various payload sizes
-func TestEncodeFunctionCallV0PayloadEncoding(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestEncodeFunctionCallPayloadEncoding(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	tests := []struct {
 		name    string
@@ -514,26 +379,19 @@ func TestEncodeFunctionCallV0PayloadEncoding(t *testing.T) {
 			amount := big.NewInt(1000000000000000000)
 			nativeAsset := ethcommon.Address{}
 
-			encoded, err := builder.encodeFunctionCall("executeUniversalTx", data, amount, nativeAsset, uetypes.TxType_FUNDS_AND_PAYLOAD)
+			encoded, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, nativeAsset, uetypes.TxType_FUNDS_AND_PAYLOAD)
 			require.NoError(t, err)
 			assert.NotEmpty(t, encoded)
 
-			// Verify function selector
-			expectedSignature := "executeUniversalTx(bytes32,bytes32,address,address,uint256,bytes)"
+			expectedSignature := "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
 			expectedSelector := crypto.Keccak256([]byte(expectedSignature))[:4]
 			assert.Equal(t, expectedSelector, encoded[:4])
-
-			payloadBytes, _ := hex.DecodeString(removeHexPrefixV0(tt.payload))
-			t.Logf("%s: payload_len=%d, encoded_len=%d", tt.name, len(payloadBytes), len(encoded))
 		})
 	}
 }
 
-// TestEncodeFunctionCallV0EdgeCases tests edge cases and boundary conditions
-func TestEncodeFunctionCallV0EdgeCases(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestEncodeFunctionCallEdgeCases(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	t.Run("zero amount", func(t *testing.T) {
 		data := &uetypes.OutboundCreatedEvent{
@@ -543,13 +401,12 @@ func TestEncodeFunctionCallV0EdgeCases(t *testing.T) {
 			Recipient:     "0x1111111111111111111111111111111111111111",
 			Amount:        "0",
 			Payload:       "0x",
-			RevertMsg:     "",
 		}
 
 		amount := big.NewInt(0)
 		nativeAsset := ethcommon.Address{}
 
-		encoded, err := builder.encodeFunctionCall("withdraw", data, amount, nativeAsset, uetypes.TxType_FUNDS)
+		encoded, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, nativeAsset, uetypes.TxType_FUNDS)
 		require.NoError(t, err)
 		assert.NotEmpty(t, encoded)
 	})
@@ -562,45 +419,23 @@ func TestEncodeFunctionCallV0EdgeCases(t *testing.T) {
 			Recipient:     "0x1111111111111111111111111111111111111111",
 			Amount:        "115792089237316195423570985008687907853269984665640564039457584007913129639935",
 			Payload:       "0x",
-			RevertMsg:     "",
 		}
 
 		maxUint256 := new(big.Int)
 		maxUint256.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
 		nativeAsset := ethcommon.Address{}
 
-		encoded, err := builder.encodeFunctionCall("withdraw", data, maxUint256, nativeAsset, uetypes.TxType_FUNDS)
-		require.NoError(t, err)
-		assert.NotEmpty(t, encoded)
-	})
-
-	t.Run("zero address recipient", func(t *testing.T) {
-		data := &uetypes.OutboundCreatedEvent{
-			TxID:          "0x" + hex.EncodeToString(make([]byte, 32)),
-			UniversalTxId: "0x" + hex.EncodeToString(make([]byte, 32)),
-			Sender:        "0xabcdef1234567890abcdef1234567890abcdef12",
-			Recipient:     "0x0000000000000000000000000000000000000000",
-			Amount:        "1000000000000000000",
-			Payload:       "0x",
-			RevertMsg:     "",
-		}
-
-		amount := big.NewInt(1000000000000000000)
-		nativeAsset := ethcommon.Address{}
-
-		encoded, err := builder.encodeFunctionCall("withdraw", data, amount, nativeAsset, uetypes.TxType_FUNDS)
+		encoded, err := builder.encodeFunctionCall("finalizeUniversalTx", data, maxUint256, nativeAsset, uetypes.TxType_FUNDS)
 		require.NoError(t, err)
 		assert.NotEmpty(t, encoded)
 	})
 }
 
-func TestEncodeFunctionCallV0InvalidTxID(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestEncodeFunctionCallInvalidTxID(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	data := &uetypes.OutboundCreatedEvent{
-		TxID:          "invalid-tx-id", // Invalid hex
+		TxID:          "invalid-tx-id",
 		UniversalTxId: "0x" + hex.EncodeToString(make([]byte, 32)),
 		Sender:        "0xabcdef1234567890abcdef1234567890abcdef12",
 		Recipient:     "0x1111111111111111111111111111111111111111",
@@ -611,15 +446,13 @@ func TestEncodeFunctionCallV0InvalidTxID(t *testing.T) {
 	amount := big.NewInt(1000000000000000000)
 	assetAddr := ethcommon.Address{}
 
-	_, err = builder.encodeFunctionCall("withdraw", data, amount, assetAddr, uetypes.TxType_FUNDS)
+	_, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid txID")
 }
 
-func TestEncodeFunctionCallV0InvalidUniversalTxID(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
+func TestEncodeFunctionCallInvalidUniversalTxID(t *testing.T) {
+	builder := newTestTxBuilder(t)
 
 	data := &uetypes.OutboundCreatedEvent{
 		TxID:          "0x" + hex.EncodeToString(make([]byte, 32)),
@@ -633,40 +466,18 @@ func TestEncodeFunctionCallV0InvalidUniversalTxID(t *testing.T) {
 	amount := big.NewInt(1000000000000000000)
 	assetAddr := ethcommon.Address{}
 
-	_, err = builder.encodeFunctionCall("withdraw", data, amount, assetAddr, uetypes.TxType_FUNDS)
+	_, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid universalTxID")
 }
 
-func TestEncodeFunctionCallV0UnknownFunction(t *testing.T) {
-	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "eth_sepolia", 11155111, "0x1234567890123456789012345678901234567890", logger)
-	require.NoError(t, err)
-
-	data := &uetypes.OutboundCreatedEvent{
-		TxID:          "0x" + hex.EncodeToString(make([]byte, 32)),
-		UniversalTxId: "0x" + hex.EncodeToString(make([]byte, 32)),
-		Sender:        "0xabcdef1234567890abcdef1234567890abcdef12",
-		Recipient:     "0x1111111111111111111111111111111111111111",
-		Amount:        "1000000000000000000",
-		Payload:       "0x",
-	}
-
-	amount := big.NewInt(1000000000000000000)
-	assetAddr := ethcommon.Address{}
-
-	_, err = builder.encodeFunctionCall("unknownFunction", data, amount, assetAddr, uetypes.TxType_FUNDS)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown function name")
-}
-
-func TestRemoveHexPrefixV0(t *testing.T) {
+func TestRemoveHexPrefix(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
 		{"0xabcdef", "abcdef"},
-		{"0XABCDEF", "0XABCDEF"}, // Only lowercase 0x is handled
+		{"0XABCDEF", "0XABCDEF"},
 		{"abcdef", "abcdef"},
 		{"", ""},
 		{"0x", ""},
@@ -674,13 +485,13 @@ func TestRemoveHexPrefixV0(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			result := removeHexPrefixV0(tt.input)
+			result := removeHexPrefix(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestParseTxTypeV0(t *testing.T) {
+func TestParseTxType(t *testing.T) {
 	tests := []struct {
 		input       string
 		expected    uetypes.TxType
@@ -698,7 +509,7 @@ func TestParseTxTypeV0(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			result, err := parseTxTypeV0(tt.input)
+			result, err := parseTxType(tt.input)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -709,107 +520,235 @@ func TestParseTxTypeV0(t *testing.T) {
 	}
 }
 
-func TestGasLimitParsingV0(t *testing.T) {
+func TestParseGasLimit(t *testing.T) {
 	tests := []struct {
-		name       string
-		gasLimit   string
-		expected   int64
-		useDefault bool
+		name     string
+		input    string
+		expected int64
 	}{
-		{
-			name:       "empty gas limit uses default",
-			gasLimit:   "",
-			expected:   DefaultGasLimitV0,
-			useDefault: true,
-		},
-		{
-			name:       "zero gas limit uses default",
-			gasLimit:   "0",
-			expected:   DefaultGasLimitV0,
-			useDefault: true,
-		},
-		{
-			name:       "valid gas limit",
-			gasLimit:   "100000",
-			expected:   100000,
-			useDefault: false,
-		},
-		{
-			name:       "large gas limit",
-			gasLimit:   "1000000",
-			expected:   1000000,
-			useDefault: false,
-		},
+		{"empty uses default", "", DefaultGasLimit},
+		{"zero uses default", "0", DefaultGasLimit},
+		{"valid gas limit", "100000", 100000},
+		{"large gas limit", "1000000", 1000000},
+		{"invalid uses default", "not-a-number", DefaultGasLimit},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var gasLimit *big.Int
-			if tt.gasLimit == "" || tt.gasLimit == "0" {
-				gasLimit = big.NewInt(DefaultGasLimitV0)
-			} else {
-				gasLimit = new(big.Int)
-				gasLimit, _ = gasLimit.SetString(tt.gasLimit, 10)
-			}
-
-			assert.Equal(t, tt.expected, gasLimit.Int64())
+			result := parseGasLimit(tt.input)
+			assert.Equal(t, tt.expected, result.Int64())
 		})
 	}
 }
 
-// // Sepolia gateway contract and simulate address for integration tests
+// TestFinalizeUniversalTxUnifiedEncoding verifies that finalizeUniversalTx is used
+// for all non-revert tx types (replacing withdraw, withdrawTokens, executeUniversalTx)
+func TestFinalizeUniversalTxUnifiedEncoding(t *testing.T) {
+	builder := newTestTxBuilder(t)
+
+	data := &uetypes.OutboundCreatedEvent{
+		TxID:          "0x" + hex.EncodeToString(make([]byte, 32)),
+		UniversalTxId: "0x" + hex.EncodeToString(make([]byte, 32)),
+		Sender:        "0xabcdef1234567890abcdef1234567890abcdef12",
+		Recipient:     "0x1111111111111111111111111111111111111111",
+		Amount:        "1000000000000000000",
+		Payload:       "0x1234",
+	}
+
+	amount := big.NewInt(1000000000000000000)
+	expectedSignature := "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
+	expectedSelector := crypto.Keccak256([]byte(expectedSignature))[:4]
+
+	txTypes := []uetypes.TxType{
+		uetypes.TxType_FUNDS,
+		uetypes.TxType_FUNDS_AND_PAYLOAD,
+		uetypes.TxType_PAYLOAD,
+	}
+
+	assets := []struct {
+		name string
+		addr ethcommon.Address
+	}{
+		{"native", ethcommon.Address{}},
+		{"ERC20", ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")},
+	}
+
+	for _, txType := range txTypes {
+		for _, asset := range assets {
+			testName := txType.String() + "_" + asset.name
+			t.Run(testName, func(t *testing.T) {
+				funcName := builder.determineFunctionName(txType, asset.addr)
+				assert.Equal(t, "finalizeUniversalTx", funcName)
+
+				encoded, err := builder.encodeFunctionCall(funcName, data, amount, asset.addr, txType)
+				require.NoError(t, err)
+				assert.Equal(t, expectedSelector, encoded[:4])
+			})
+		}
+	}
+}
+
+func TestGetVaultAddressReturnsCached(t *testing.T) {
+	builder := newTestTxBuilder(t)
+
+	// Vault was set at construction with time.Now(), so it's fresh
+	addr, err := builder.getVaultAddress()
+	require.NoError(t, err)
+	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
+}
+
+func TestGetVaultAddressStaleTriggersRefresh(t *testing.T) {
+	builder := newTestTxBuilder(t)
+
+	// Make the cache stale
+	builder.vaultFetchedAt = time.Now().Add(-2 * vaultRefreshInterval)
+
+	// Should still return the cached address (refresh is async, and will fail
+	// since we have no real RPC — that's fine, stale address is kept)
+	addr, err := builder.getVaultAddress()
+	require.NoError(t, err)
+	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
+
+	// Give the goroutine a moment to attempt and fail refresh
+	time.Sleep(50 * time.Millisecond)
+
+	// Address should still be the same (failed refresh keeps stale)
+	addr, err = builder.getVaultAddress()
+	require.NoError(t, err)
+	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
+}
+
+func TestGetVaultAddressFailsWhenNeverFetched(t *testing.T) {
+	logger := zerolog.Nop()
+	// Create builder with zero vault address (simulates failed init fetch)
+	builder := &TxBuilder{
+		rpcClient:      &RPCClient{},
+		chainID:        "eth_sepolia",
+		chainIDInt:     11155111,
+		gatewayAddress: ethcommon.HexToAddress("0x1234567890123456789012345678901234567890"),
+		logger:         logger.With().Str("component", "evm_tx_builder").Logger(),
+	}
+
+	// Should fail since vault was never fetched and RPC is not real
+	_, err := builder.getVaultAddress()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "vault address not available")
+}
+
+func TestVaultCallSelector(t *testing.T) {
+	// Verify the VAULT() selector is correct
+	expected := crypto.Keccak256([]byte("VAULT()"))[:4]
+	assert.Equal(t, expected, vaultCallSelector)
+	t.Logf("VAULT() selector: 0x%x", vaultCallSelector)
+}
+
+// =============================================================================
+// Sepolia V2 Simulation Tests
+//
+// These tests simulate contract calls (eth_call) against the live V2 gateway
+// and vault contracts on Sepolia. They verify that the encoded calldata is
+// accepted by the on-chain contracts.
+//
+// Prerequisites:
+// 1. sepoliaV2SimulateFrom must have TSS_ROLE on both gateway and vault
+// 2. Contracts must not be paused
+// 3. For ERC20 tests, the vault must have sufficient token balance
+// 4. The gateway's VAULT() must return a valid vault address
+//
+// These tests are skipped in -short mode and when RPC connection fails.
+// =============================================================================
+
 // const (
-// 	sepoliaGatewayAddress = "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A"
-// 	sepoliaSimulateFrom   = "0x05d7386fb3d7cb00e0cfac5af3b2eff6bf37c5f1" // TSS Address (has TSS_ROLE)
-// 	sepoliaOriginCaller   = "0x35B84d6848D16415177c64D64504663b998A6ab4" // Origin caller for test txs
-// 	sepoliaRPCURL         = "https://rpc.sepolia.org"
-// 	sepoliaUSDT           = "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06" // USDT on Sepolia
-// 	nativeAssetAddr       = "0x0000000000000000000000000000000000000000" // zero address = native ETH
+// 	sepoliaV2GatewayAddress = "0x4DCab975cDe839632db6695e2e936A29ce3e325E"
+// 	sepoliaV2SimulateFrom   = "0x05d7386fb3d7cb00e0cfac5af3b2eff6bf37c5f1" // TSS Address (has TSS_ROLE)
+// 	sepoliaV2OriginCaller   = "0x35B84d6848D16415177c64D64504663b998A6ab4" // Push account / origin caller
+// 	sepoliaV2RPCURL         = "https://rpc.sepolia.org"
+// 	sepoliaV2ChainID        = int64(11155111)
+// 	sepoliaV2USDT           = "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06" // USDT on Sepolia
+// 	sepoliaV2NativeAsset    = "0x0000000000000000000000000000000000000000"
 // )
 
-// // setupSepoliaSimulation creates RPCClient and TxBuilder for Sepolia gateway simulation tests.
+// // setupSepoliaV2Simulation creates RPCClient and TxBuilder for Sepolia V2 simulation tests.
 // // Skips the test if -short is passed or RPC connection fails.
-// //
-// // NOTE: These simulation tests require the Sepolia gateway contract to be in a specific state:
-// // 1. The sepoliaSimulateFrom address must have TSS_ROLE
-// // 2. The contract must not be paused
-// // 3. For ERC20 tests, the gateway must have sufficient token balance
-// // 4. For native tests, the TSS must be able to send ETH with the call
-// //
-// // If simulations fail with "execution reverted", verify:
-// // - The gateway contract address is correct
-// // - The TSS address has the proper role: hasRole(TSS_ROLE, sepoliaSimulateFrom) should return true
-// // - The contract is not paused: paused() should return false
-// func setupSepoliaSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
+// func setupSepoliaV2Simulation(t *testing.T) (*RPCClient, *TxBuilder) {
 // 	t.Helper()
 // 	if testing.Short() {
 // 		t.Skip("skipping simulation test in short mode")
 // 	}
 
 // 	logger := zerolog.Nop()
-// 	rpcClient, err := NewRPCClient([]string{sepoliaRPCURL}, sepoliaChainID, logger)
+// 	rpcClient, err := NewRPCClient([]string{sepoliaV2RPCURL}, sepoliaV2ChainID, logger)
 // 	if err != nil {
 // 		t.Skipf("skipping simulation test: failed to connect to Sepolia RPC: %v", err)
 // 	}
 
-// 	builder, err := NewTxBuilder(rpcClient, "eth_sepolia", sepoliaChainID, sepoliaGatewayAddress, logger)
-// 	require.NoError(t, err)
+// 	builder, err := NewTxBuilder(rpcClient, "eip155:11155111", sepoliaV2ChainID, sepoliaV2GatewayAddress, logger)
+// 	if err != nil {
+// 		t.Skipf("skipping simulation test: failed to create TxBuilder: %v", err)
+// 	}
+
+// 	// Log the vault address fetched from gateway
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err, "vault address should be available after init")
+// 	t.Logf("V2 Gateway: %s", sepoliaV2GatewayAddress)
+// 	t.Logf("V2 Vault (from VAULT()): %s", vaultAddr.Hex())
+// 	t.Logf("V2 TSS: %s", sepoliaV2SimulateFrom)
 
 // 	return rpcClient, builder
 // }
 
-// // newSepoliaSimulationOutbound creates a full OutboundCreatedEvent for simulation tests.
-// // All values (amount, assetAddr, sender, etc.) come from this struct - single source of truth.
-// // Uses zero txID and universalTxID as verified working in Tenderly simulation.
-// // Note: Sender is used as originCaller parameter, NOT as the from address for the call.
-// func newSepoliaSimulationOutbound(amount, assetAddr, payload, revertMsg string) *uetypes.OutboundCreatedEvent {
-// 	// Use all zeros for txID and universalTxID (verified working in Tenderly)
-// 	txIDBytes := make([]byte, 32)          // all zeros
-// 	universalTxIDBytes := make([]byte, 32) // all zeros
+// // encodeMulticallPayload ABI-encodes a Multicall[] array for use as the `data` param in finalizeUniversalTx.
+// // The CEA contract expects: abi.encode(Multicall[]) where Multicall is (address to, uint256 value, bytes data).
+// // Pass nil or empty slice for an empty multicall (no-op / funds-only).
+// func encodeMulticallPayload(t *testing.T, calls []struct {
+// 	To    ethcommon.Address
+// 	Value *big.Int
+// 	Data  []byte
+// }) string {
+// 	t.Helper()
+
+// 	// ABI type for Multicall[] = tuple(address,uint256,bytes)[]
+// 	multicallArrayType, err := abi.NewType("tuple[]", "", []abi.ArgumentMarshaling{
+// 		{Name: "to", Type: "address"},
+// 		{Name: "value", Type: "uint256"},
+// 		{Name: "data", Type: "bytes"},
+// 	})
+// 	require.NoError(t, err)
+
+// 	type Multicall struct {
+// 		To    ethcommon.Address
+// 		Value *big.Int
+// 		Data  []byte
+// 	}
+
+// 	var multicalls []Multicall
+// 	for _, c := range calls {
+// 		multicalls = append(multicalls, Multicall{To: c.To, Value: c.Value, Data: c.Data})
+// 	}
+// 	if multicalls == nil {
+// 		multicalls = []Multicall{}
+// 	}
+
+// 	args := abi.Arguments{{Type: multicallArrayType}}
+// 	encoded, err := args.Pack(multicalls)
+// 	require.NoError(t, err)
+
+// 	return "0x" + hex.EncodeToString(encoded)
+// }
+
+// // newSepoliaV2SimulationOutbound creates a full OutboundCreatedEvent for V2 simulation tests.
+// // Uses unique txID per test to avoid "PayloadExecuted" revert from duplicate txIDs.
+// // Sender is used as pushAccount parameter (origin caller), NOT as the from address.
+// func newSepoliaV2SimulationOutbound(t *testing.T, amount, assetAddr, payload, revertMsg string) *uetypes.OutboundCreatedEvent {
+// 	t.Helper()
+// 	// Use test name hash for unique txID to avoid isExecuted collision
+// 	txIDBytes := crypto.Keccak256([]byte(t.Name() + time.Now().String()))
+// 	universalTxIDBytes := crypto.Keccak256([]byte("utx-" + t.Name() + time.Now().String()))
+
 // 	return &uetypes.OutboundCreatedEvent{
 // 		TxID:          "0x" + hex.EncodeToString(txIDBytes),
 // 		UniversalTxId: "0x" + hex.EncodeToString(universalTxIDBytes),
-// 		Sender:        sepoliaOriginCaller, // originCaller parameter in contract call
+// 		Sender:        sepoliaV2OriginCaller,
 // 		Recipient:     "0x28F1C7B4596D9db14f85c04DcBd867Bf4b14b811",
 // 		Amount:        amount,
 // 		AssetAddr:     assetAddr,
@@ -818,153 +757,339 @@ func TestGasLimitParsingV0(t *testing.T) {
 // 	}
 // }
 
-// // valuesFromOutbound extracts amount, assetAddr, and tx value from OutboundCreatedEvent for simulation.
-// func valuesFromOutbound(data *uetypes.OutboundCreatedEvent, txType uetypes.TxType) (amount *big.Int, assetAddr ethcommon.Address, value *big.Int) {
-// 	amount = new(big.Int)
-// 	amount, _ = amount.SetString(data.Amount, 10)
-// 	assetAddr = ethcommon.HexToAddress(data.AssetAddr)
-// 	value = big.NewInt(0)
-// 	if assetAddr == (ethcommon.Address{}) && (txType == uetypes.TxType_FUNDS || txType == uetypes.TxType_FUNDS_AND_PAYLOAD || txType == uetypes.TxType_INBOUND_REVERT) {
-// 		value = amount
+// // TestSimulateV2_FetchVaultFromGateway verifies that VAULT() can be read from the gateway
+// func TestSimulateV2_FetchVaultFromGateway(t *testing.T) {
+// 	if testing.Short() {
+// 		t.Skip("skipping simulation test in short mode")
 // 	}
-// 	return amount, assetAddr, value
-// }
 
-// // TestSimulateGatewayCall_Sepolia_Withdraw_Native simulates native withdraw on Sepolia gateway
-// // This test verifies that the encoded calldata can be successfully simulated against
-// // the live Sepolia gateway contract. It requires proper contract state.
-// func TestSimulateGatewayCall_Sepolia_Withdraw_Native(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
-// 	defer rpcClient.Close()
-
-// 	data := newSepoliaSimulationOutbound("10000000000", nativeAssetAddr, "0x", "")
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_FUNDS)
-
-// 	calldata, err := builder.encodeFunctionCall("withdraw", data, amount, assetAddr, uetypes.TxType_FUNDS)
-// 	require.NoError(t, err)
-
-// 	// Log the calldata for debugging purposes
-// 	t.Logf("withdraw calldata: 0x%s", hex.EncodeToString(calldata))
-// 	t.Logf("from (TSS): %s, gateway: %s, value: %s", sepoliaSimulateFrom, sepoliaGatewayAddress, value.String())
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-// 	defer cancel()
-
-// 	// Use TSS address as from (who has TSS_ROLE), not data.Sender (which is originCaller)
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
+// 	logger := zerolog.Nop()
+// 	rpcClient, err := NewRPCClient([]string{sepoliaV2RPCURL}, sepoliaV2ChainID, logger)
 // 	if err != nil {
-// 		// Log detailed error info for debugging
-// 		t.Logf("Simulation failed with error: %v", err)
-// 		t.Logf("Verify: 1) TSS has TSS_ROLE, 2) contract not paused, 3) txID not already executed")
+// 		t.Skipf("skipping: failed to connect to Sepolia RPC: %v", err)
 // 	}
-// 	require.NoError(t, err, "simulate withdraw (native) should pass")
-// 	require.NotNil(t, result)
-// }
-
-// // TestSimulateGatewayCall_Sepolia_ExecuteUniversalTx_Native simulates native executeUniversalTx on Sepolia gateway
-// func TestSimulateGatewayCall_Sepolia_ExecuteUniversalTx_Native(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
 // 	defer rpcClient.Close()
-
-// 	// Contract requires amount > 0, using 0.001 ETH with empty payload
-// 	data := newSepoliaSimulationOutbound("1000000000000000", nativeAssetAddr, "0x", "") // 0.001 ETH with payload
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_FUNDS_AND_PAYLOAD)
-
-// 	calldata, err := builder.encodeFunctionCall("executeUniversalTx", data, amount, assetAddr, uetypes.TxType_PAYLOAD)
-// 	require.NoError(t, err)
 
 // 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 // 	defer cancel()
 
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
-// 	require.NoError(t, err, "simulate executeUniversalTx (native) should pass")
-// 	require.NotNil(t, result)
+// 	gwAddr := ethcommon.HexToAddress(sepoliaV2GatewayAddress)
+// 	result, err := rpcClient.CallContract(ctx, gwAddr, vaultCallSelector, nil)
+// 	require.NoError(t, err, "VAULT() call should succeed")
+// 	require.True(t, len(result) >= 32, "VAULT() should return at least 32 bytes")
+
+// 	vaultAddr := ethcommon.BytesToAddress(result[12:32])
+// 	assert.NotEqual(t, ethcommon.Address{}, vaultAddr, "VAULT() should not return zero address")
+// 	t.Logf("VAULT() returned: %s", vaultAddr.Hex())
 // }
 
-// // TestSimulateGatewayCall_Sepolia_ExecuteUniversalTx_ERC20 simulates ERC20 executeUniversalTx on Sepolia gateway
-// func TestSimulateGatewayCall_Sepolia_ExecuteUniversalTx_ERC20(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
+// // ---------- 1. Native Revert (Gateway) ----------
+
+// // TestSimulateV2_RevertUniversalTx_Native simulates native revertUniversalTx on Sepolia gateway
+// func TestSimulateV2_RevertUniversalTx_Native(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
 // 	defer rpcClient.Close()
 
-// 	data := newSepoliaSimulationOutbound("1000000000000000000", sepoliaUSDT, "0x", "")
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_FUNDS_AND_PAYLOAD)
-
-// 	calldata, err := builder.encodeFunctionCall("executeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS_AND_PAYLOAD)
-// 	require.NoError(t, err)
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-// 	defer cancel()
-
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
-// 	require.NoError(t, err, "simulate executeUniversalTx (ERC20) should pass")
-// 	require.NotNil(t, result)
-// }
-
-// // TestSimulateGatewayCall_Sepolia_RevertUniversalTx_Native simulates native revertUniversalTx on Sepolia gateway
-// func TestSimulateGatewayCall_Sepolia_RevertUniversalTx_Native(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
-// 	defer rpcClient.Close()
-
-// 	data := newSepoliaSimulationOutbound("1000000000000000", nativeAssetAddr, "0x", hex.EncodeToString([]byte("test revert"))) // 0.001 ETH, native
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_INBOUND_REVERT)
+// 	revertMsg := hex.EncodeToString([]byte("test revert"))
+// 	data := newSepoliaV2SimulationOutbound(t, "1000000000000000", sepoliaV2NativeAsset, "0x", revertMsg) // 0.001 ETH
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
 
 // 	calldata, err := builder.encodeFunctionCall("revertUniversalTx", data, amount, assetAddr, uetypes.TxType_INBOUND_REVERT)
 // 	require.NoError(t, err)
 
+// 	t.Logf("revertUniversalTx (native) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, gateway: %s, value: %s", sepoliaV2SimulateFrom, sepoliaV2GatewayAddress, amount.String())
+
 // 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 // 	defer cancel()
 
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	gateway := ethcommon.HexToAddress(sepoliaV2GatewayAddress)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, amount, nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 		t.Logf("Verify: 1) TSS has onlyTSS on gateway, 2) gateway not paused, 3) txID not already executed")
+// 	}
 // 	require.NoError(t, err, "simulate revertUniversalTx (native) should pass")
 // 	require.NotNil(t, result)
 // }
 
-// // TestSimulateGatewayCall_Sepolia_RevertUniversalTx_ERC20 simulates ERC20 revertUniversalTxToken on Sepolia gateway
-// func TestSimulateGatewayCall_Sepolia_RevertUniversalTx_ERC20(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
+// // ---------- 2. Token Revert (Vault) ----------
+
+// // TestSimulateV2_RevertUniversalTxToken_ERC20 simulates ERC20 revertUniversalTxToken on Sepolia vault
+// func TestSimulateV2_RevertUniversalTxToken_ERC20(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
 // 	defer rpcClient.Close()
 
-// 	data := newSepoliaSimulationOutbound("1000000000000000000", sepoliaUSDT, "0x", hex.EncodeToString([]byte("test revert")))
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_INBOUND_REVERT)
+// 	revertMsg := hex.EncodeToString([]byte("test revert token"))
+// 	data := newSepoliaV2SimulationOutbound(t, "1000000", sepoliaV2USDT, "0x", revertMsg) // 1 USDT (6 decimals)
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
 
 // 	calldata, err := builder.encodeFunctionCall("revertUniversalTxToken", data, amount, assetAddr, uetypes.TxType_INBOUND_REVERT)
 // 	require.NoError(t, err)
 
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("revertUniversalTxToken (ERC20) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, token: %s", sepoliaV2SimulateFrom, vaultAddr.Hex(), sepoliaV2USDT)
+
 // 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 // 	defer cancel()
 
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, big.NewInt(0), nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 		t.Logf("Verify: 1) TSS has TSS_ROLE on vault, 2) vault has token balance, 3) token is supported")
+// 	}
 // 	require.NoError(t, err, "simulate revertUniversalTxToken (ERC20) should pass")
 // 	require.NotNil(t, result)
 // }
 
-// // TestSimulateGatewayCall_Sepolia_Withdraw_ERC20 simulates ERC20 withdrawTokens on Sepolia gateway
-// func TestSimulateGatewayCall_Sepolia_Withdraw_ERC20(t *testing.T) {
-// 	rpcClient, builder := setupSepoliaSimulation(t)
+// // ---------- 3. Native FinalizeUniversalTx — no payload (Vault) ----------
+
+// // TestSimulateV2_FinalizeUniversalTx_Native simulates native finalizeUniversalTx (funds only, no payload)
+// func TestSimulateV2_FinalizeUniversalTx_Native(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
 // 	defer rpcClient.Close()
 
-// 	data := newSepoliaSimulationOutbound("1000000000000000000", sepoliaUSDT, "0x", "")
-// 	amount, assetAddr, value := valuesFromOutbound(data, uetypes.TxType_FUNDS)
+// 	emptyMulticall := encodeMulticallPayload(t, nil)
+// 	data := newSepoliaV2SimulationOutbound(t, "10000000000", sepoliaV2NativeAsset, emptyMulticall, "") // ~10 gwei worth of ETH, no payload
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
 
-// 	calldata, err := builder.encodeFunctionCall("withdrawTokens", data, amount, assetAddr, uetypes.TxType_FUNDS)
+// 	calldata, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS)
 // 	require.NoError(t, err)
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("finalizeUniversalTx (native, no payload) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, value: %s", sepoliaV2SimulateFrom, vaultAddr.Hex(), amount.String())
 
 // 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 // 	defer cancel()
 
-// 	from := ethcommon.HexToAddress(sepoliaSimulateFrom)
-// 	gateway := ethcommon.HexToAddress(sepoliaGatewayAddress)
-// 	result, err := rpcClient.CallContractWithFrom(ctx, from, gateway, calldata, value, nil)
-// 	require.NoError(t, err, "simulate withdrawTokens (ERC20) should pass")
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, amount, nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 		t.Logf("Verify: 1) TSS has TSS_ROLE on vault, 2) vault not paused, 3) txID not already executed")
+// 	}
+// 	require.NoError(t, err, "simulate finalizeUniversalTx (native, no payload) should pass")
 // 	require.NotNil(t, result)
+// }
+
+// // ---------- 4. ERC20 FinalizeUniversalTx — no payload (Vault) ----------
+
+// // TestSimulateV2_FinalizeUniversalTx_ERC20 simulates ERC20 finalizeUniversalTx (funds only, no payload)
+// func TestSimulateV2_FinalizeUniversalTx_ERC20(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
+// 	defer rpcClient.Close()
+
+// 	emptyMulticall := encodeMulticallPayload(t, nil)
+// 	data := newSepoliaV2SimulationOutbound(t, "1000000", sepoliaV2USDT, emptyMulticall, "") // 1 USDT (6 decimals), no payload
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
+
+// 	calldata, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS)
+// 	require.NoError(t, err)
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("finalizeUniversalTx (ERC20, no payload) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, token: %s", sepoliaV2SimulateFrom, vaultAddr.Hex(), sepoliaV2USDT)
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// 	defer cancel()
+
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, big.NewInt(0), nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 		t.Logf("Verify: 1) TSS has TSS_ROLE on vault, 2) vault has token balance, 3) token is supported")
+// 	}
+// 	require.NoError(t, err, "simulate finalizeUniversalTx (ERC20, no payload) should pass")
+// 	require.NotNil(t, result)
+// }
+
+// // ---------- 5. Native FinalizeUniversalTx — with payload (Vault) ----------
+
+// // TestSimulateV2_FinalizeUniversalTx_NativeWithPayload simulates native finalizeUniversalTx with funds + payload
+// func TestSimulateV2_FinalizeUniversalTx_NativeWithPayload(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
+// 	defer rpcClient.Close()
+
+// 	// Multicall: send 0.001 ETH to recipient
+// 	recipient := ethcommon.HexToAddress("0x28F1C7B4596D9db14f85c04DcBd867Bf4b14b811")
+// 	nativeMulticall := encodeMulticallPayload(t, []struct {
+// 		To    ethcommon.Address
+// 		Value *big.Int
+// 		Data  []byte
+// 	}{{To: recipient, Value: big.NewInt(1000000000000000), Data: nil}})
+// 	data := newSepoliaV2SimulationOutbound(t, "1000000000000000", sepoliaV2NativeAsset, nativeMulticall, "") // 0.001 ETH + payload
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
+
+// 	calldata, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS_AND_PAYLOAD)
+// 	require.NoError(t, err)
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("finalizeUniversalTx (native+payload) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, value: %s", sepoliaV2SimulateFrom, vaultAddr.Hex(), amount.String())
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// 	defer cancel()
+
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, amount, nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 	}
+// 	require.NoError(t, err, "simulate finalizeUniversalTx (native+payload) should pass")
+// 	require.NotNil(t, result)
+// }
+
+// // ---------- 6. ERC20 FinalizeUniversalTx — with payload (Vault) ----------
+
+// // TestSimulateV2_FinalizeUniversalTx_ERC20WithPayload simulates ERC20 finalizeUniversalTx with funds + payload
+// func TestSimulateV2_FinalizeUniversalTx_ERC20WithPayload(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
+// 	defer rpcClient.Close()
+
+// 	// Multicall: transfer 1 USDT to recipient via ERC20.transfer
+// 	erc20Recipient := ethcommon.HexToAddress("0x28F1C7B4596D9db14f85c04DcBd867Bf4b14b811")
+// 	transferSel := crypto.Keccak256([]byte("transfer(address,uint256)"))[:4]
+// 	transferArgs := abi.Arguments{
+// 		{Type: func() abi.Type { t, _ := abi.NewType("address", "", nil); return t }()},
+// 		{Type: func() abi.Type { t, _ := abi.NewType("uint256", "", nil); return t }()},
+// 	}
+// 	transferData, err := transferArgs.Pack(erc20Recipient, big.NewInt(1000000)) // 1 USDT (6 decimals)
+// 	require.NoError(t, err)
+// 	erc20TransferCalldata := append(transferSel, transferData...)
+// 	usdtAddr := ethcommon.HexToAddress(sepoliaV2USDT)
+// 	erc20Multicall := encodeMulticallPayload(t, []struct {
+// 		To    ethcommon.Address
+// 		Value *big.Int
+// 		Data  []byte
+// 	}{{To: usdtAddr, Value: big.NewInt(0), Data: erc20TransferCalldata}})
+// 	data := newSepoliaV2SimulationOutbound(t, "1000000", sepoliaV2USDT, erc20Multicall, "") // 1 USDT (6 decimals) + payload
+// 	amount := new(big.Int)
+// 	amount.SetString(data.Amount, 10)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
+
+// 	calldata, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_FUNDS_AND_PAYLOAD)
+// 	require.NoError(t, err)
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("finalizeUniversalTx (ERC20+payload) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, token: %s", sepoliaV2SimulateFrom, vaultAddr.Hex(), sepoliaV2USDT)
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// 	defer cancel()
+
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, big.NewInt(0), nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 	}
+// 	require.NoError(t, err, "simulate finalizeUniversalTx (ERC20+payload) should pass")
+// 	require.NotNil(t, result)
+// }
+
+// // ---------- 7. FinalizeUniversalTx — payload only, no funds (Vault) ----------
+
+// // TestSimulateV2_FinalizeUniversalTx_PayloadOnly simulates finalizeUniversalTx with only payload (no funds)
+// // Uses native asset (zero address) with zero amount — pure contract execution via CEA
+// func TestSimulateV2_FinalizeUniversalTx_PayloadOnly(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
+// 	defer rpcClient.Close()
+
+// 	// amount=0, native asset, non-empty payload → PAYLOAD tx type
+// 	// Multicall: simple call to recipient with no value (pure execution)
+// 	payloadRecipient := ethcommon.HexToAddress("0x28F1C7B4596D9db14f85c04DcBd867Bf4b14b811")
+// 	payloadOnlyMulticall := encodeMulticallPayload(t, []struct {
+// 		To    ethcommon.Address
+// 		Value *big.Int
+// 		Data  []byte
+// 	}{{To: payloadRecipient, Value: big.NewInt(0), Data: []byte{0xde, 0xad, 0xbe, 0xef}}})
+// 	data := newSepoliaV2SimulationOutbound(t, "0", sepoliaV2NativeAsset, payloadOnlyMulticall, "")
+// 	amount := big.NewInt(0)
+// 	assetAddr := ethcommon.HexToAddress(data.AssetAddr)
+
+// 	calldata, err := builder.encodeFunctionCall("finalizeUniversalTx", data, amount, assetAddr, uetypes.TxType_PAYLOAD)
+// 	require.NoError(t, err)
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+
+// 	t.Logf("finalizeUniversalTx (payload only) calldata: 0x%s", hex.EncodeToString(calldata))
+// 	t.Logf("from (TSS): %s, vault: %s, value: 0", sepoliaV2SimulateFrom, vaultAddr.Hex())
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// 	defer cancel()
+
+// 	from := ethcommon.HexToAddress(sepoliaV2SimulateFrom)
+// 	result, err := rpcClient.CallContractWithFrom(ctx, from, vaultAddr, calldata, big.NewInt(0), nil)
+// 	if err != nil {
+// 		t.Logf("Simulation failed: %v", err)
+// 	}
+// 	require.NoError(t, err, "simulate finalizeUniversalTx (payload only) should pass")
+// 	require.NotNil(t, result)
+// }
+
+// // ---------- Routing verification ----------
+
+// // TestSimulateV2_FullFlow_ResolveTxParams verifies that resolveTxParams routes to the correct contract
+// func TestSimulateV2_FullFlow_ResolveTxParams(t *testing.T) {
+// 	rpcClient, builder := setupSepoliaV2Simulation(t)
+// 	defer rpcClient.Close()
+
+// 	vaultAddr, err := builder.getVaultAddress()
+// 	require.NoError(t, err)
+// 	gatewayAddr := ethcommon.HexToAddress(sepoliaV2GatewayAddress)
+
+// 	amount := big.NewInt(1000000000000000) // 0.001 ETH
+// 	nativeAsset := ethcommon.Address{}
+// 	erc20Asset := ethcommon.HexToAddress(sepoliaV2USDT)
+
+// 	tests := []struct {
+// 		name       string
+// 		funcName   string
+// 		assetAddr  ethcommon.Address
+// 		expectedTo ethcommon.Address
+// 		expectVal  bool // true if txValue should equal amount
+// 	}{
+// 		{"finalizeUniversalTx native → vault", "finalizeUniversalTx", nativeAsset, vaultAddr, true},
+// 		{"finalizeUniversalTx ERC20 → vault", "finalizeUniversalTx", erc20Asset, vaultAddr, false},
+// 		{"revertUniversalTx native → gateway", "revertUniversalTx", nativeAsset, gatewayAddr, true},
+// 		{"revertUniversalTxToken ERC20 → vault", "revertUniversalTxToken", erc20Asset, vaultAddr, false},
+// 	}
+
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			txValue, toAddr, err := builder.resolveTxParams(tt.funcName, tt.assetAddr, amount)
+// 			require.NoError(t, err)
+// 			assert.Equal(t, tt.expectedTo, toAddr, "should route to correct contract")
+// 			if tt.expectVal {
+// 				assert.Equal(t, amount.Int64(), txValue.Int64(), "native calls should have value=amount")
+// 			} else {
+// 				assert.Equal(t, int64(0), txValue.Int64(), "ERC20 calls should have value=0")
+// 			}
+// 			t.Logf("%s → to=%s value=%s", tt.funcName, toAddr.Hex(), txValue.String())
+// 		})
+// 	}
 // }

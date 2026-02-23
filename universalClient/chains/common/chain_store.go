@@ -137,6 +137,26 @@ func (cs *ChainStore) UpdateEventStatus(eventID string, oldStatus, newStatus str
 	return res.RowsAffected, nil
 }
 
+// UpdateStatusAndVoteTxHash atomically flips the event status and records the vote tx hash in one DB write.
+// The update is conditional on the event currently having oldStatus (compare-and-swap semantics).
+// Returns the number of rows affected (0 means the event was already in a different status).
+func (cs *ChainStore) UpdateStatusAndVoteTxHash(eventID, oldStatus, newStatus, voteTxHash string) (int64, error) {
+	if cs.database == nil {
+		return 0, fmt.Errorf("database is nil")
+	}
+
+	res := cs.database.Client().
+		Model(&store.Event{}).
+		Where("event_id = ? AND status = ?", eventID, oldStatus).
+		Updates(map[string]any{"status": newStatus, "vote_tx_hash": voteTxHash})
+
+	if res.Error != nil {
+		return 0, fmt.Errorf("failed to update event status and vote_tx_hash: %w", res.Error)
+	}
+
+	return res.RowsAffected, nil
+}
+
 // UpdateVoteTxHash updates the vote_tx_hash field for an event
 func (cs *ChainStore) UpdateVoteTxHash(eventID string, voteTxHash string) error {
 	if cs.database == nil {
@@ -155,43 +175,6 @@ func (cs *ChainStore) UpdateVoteTxHash(eventID string, voteTxHash string) error 
 	return nil
 }
 
-// DeleteCompletedEvents deletes completed events updated before the given time
-func (cs *ChainStore) DeleteCompletedEvents(updatedBefore interface{}) (int64, error) {
-	if cs.database == nil {
-		return 0, fmt.Errorf("database is nil")
-	}
-
-	res := cs.database.Client().
-		Where("status = ? AND updated_at < ?", "COMPLETED", updatedBefore).
-		Delete(&store.Event{})
-
-	if res.Error != nil {
-		return 0, fmt.Errorf("failed to delete events: %w", res.Error)
-	}
-
-	return res.RowsAffected, nil
-}
-
-// GetExpiredEvents returns events that have expired (expiry_block_height <= currentBlock)
-// and are still in a non-terminal state (PENDING, CONFIRMED, BROADCASTED, IN_PROGRESS)
-func (cs *ChainStore) GetExpiredEvents(currentBlock uint64, limit int) ([]store.Event, error) {
-	if cs.database == nil {
-		return nil, fmt.Errorf("database is nil")
-	}
-
-	var events []store.Event
-	if err := cs.database.Client().
-		Where("status IN ? AND expiry_block_height > 0 AND expiry_block_height <= ?",
-			[]string{"PENDING", "CONFIRMED", "BROADCASTED", "IN_PROGRESS"}, currentBlock).
-		Order("created_at ASC").
-		Limit(limit).
-		Find(&events).Error; err != nil {
-		return nil, fmt.Errorf("failed to query expired events: %w", err)
-	}
-
-	return events, nil
-}
-
 // DeleteTerminalEvents deletes events in terminal states (COMPLETED, REVERTED, EXPIRED)
 // that were updated before the given time
 func (cs *ChainStore) DeleteTerminalEvents(updatedBefore interface{}) (int64, error) {
@@ -201,7 +184,7 @@ func (cs *ChainStore) DeleteTerminalEvents(updatedBefore interface{}) (int64, er
 
 	res := cs.database.Client().
 		Where("status IN ? AND updated_at < ?",
-			[]string{"COMPLETED", "REVERTED", "EXPIRED"}, updatedBefore).
+			[]string{"COMPLETED", "REORGED", "REVERTED"}, updatedBefore).
 		Delete(&store.Event{})
 
 	if res.Error != nil {

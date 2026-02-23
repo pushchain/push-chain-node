@@ -101,11 +101,6 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 			if err := ep.processConfirmedEvents(ctx); err != nil {
 				ep.logger.Error().Err(err).Msg("failed to process confirmed events")
 			}
-
-			// Check for expired events and vote for revert
-			if err := ep.processExpiredEvents(ctx); err != nil {
-				ep.logger.Error().Err(err).Msg("failed to process expired events")
-			}
 		}
 	}
 }
@@ -160,25 +155,14 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 		return fmt.Errorf("failed to vote on outbound: %w", err)
 	}
 
-	// Update vote_tx_hash first
-	if err := ep.chainStore.UpdateVoteTxHash(event.EventID, voteTxHash); err != nil {
-		ep.logger.Error().
-			Err(err).
-			Str("event_id", event.EventID).
-			Msg("failed to update vote_tx_hash")
-	}
-
-	// Update event status to COMPLETED using chain_store
-	rowsAffected, err := ep.chainStore.UpdateEventStatus(event.EventID, "CONFIRMED", "COMPLETED")
+	// Atomically record vote hash and flip status in one DB write
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
 	if err != nil {
-		return fmt.Errorf("failed to update event status: %w", err)
+		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		ep.logger.Warn().
-			Str("event_id", event.EventID).
-			Msg("event status was already changed - possibly processed by another worker")
-		return nil
+		return nil // already completed by another validator
 	}
 
 	ep.logger.Info().
@@ -216,25 +200,14 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 		return err
 	}
 
-	// Update event status using chain_store
-	rowsAffected, err := ep.chainStore.UpdateEventStatus(event.EventID, "CONFIRMED", "COMPLETED")
+	// Atomically record vote hash and flip status in one DB write
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		ep.logger.Warn().
-			Str("event_id", event.EventID).
-			Msg("event status was already changed - possibly processed by another worker")
-		return nil
-	}
-
-	// Update vote_tx_hash
-	if err := ep.chainStore.UpdateVoteTxHash(event.EventID, voteTxHash); err != nil {
-		ep.logger.Error().
-			Err(err).
-			Str("event_id", event.EventID).
-			Msg("failed to update vote_tx_hash")
+		return nil // already completed by another validator
 	}
 
 	ep.logger.Info().
@@ -393,147 +366,12 @@ func (ep *EventProcessor) extractOutboundObservation(event *store.Event) (*uexec
 		txHashHex = txHash
 	}
 
-	// Since the event is confirmed, success is always true
-	// Parse event data to extract error_msg if available
-	var errorMsg string = ""
-
-	if len(event.EventData) > 0 {
-		var eventData map[string]interface{}
-		if err := json.Unmarshal(event.EventData, &eventData); err == nil {
-			// Check for error_msg field
-			if errorMsgVal, ok := eventData["error_msg"].(string); ok {
-				errorMsg = errorMsgVal
-			}
-		}
-	}
-
 	observation := &uexecutortypes.OutboundObservation{
 		Success:     true, // Since event is confirmed, success is always true
 		BlockHeight: event.BlockHeight,
 		TxHash:      txHashHex,
-		ErrorMsg:    errorMsg,
+		ErrorMsg:    "",
 	}
 
 	return observation, nil
-}
-
-// processExpiredEvents checks for expired events and votes for revert
-func (ep *EventProcessor) processExpiredEvents(ctx context.Context) error {
-	// Get current chain block height from database
-	currentBlock, err := ep.chainStore.GetChainHeight()
-	if err != nil {
-		return fmt.Errorf("failed to get current block from database: %w", err)
-	}
-
-	// Get expired events (limit 1000)
-	events, err := ep.chainStore.GetExpiredEvents(currentBlock, 1000)
-	if err != nil {
-		return fmt.Errorf("failed to get expired events: %w", err)
-	}
-
-	if len(events) == 0 {
-		return nil
-	}
-
-	ep.logger.Info().
-		Int("count", len(events)).
-		Uint64("current_block", currentBlock).
-		Msg("processing expired events")
-
-	for _, event := range events {
-		if err := ep.processExpiredEvent(ctx, &event); err != nil {
-			ep.logger.Error().
-				Err(err).
-				Str("event_id", event.EventID).
-				Str("type", event.Type).
-				Str("status", event.Status).
-				Msg("failed to process expired event")
-		}
-	}
-
-	return nil
-}
-
-// processExpiredEvent processes a single expired event
-func (ep *EventProcessor) processExpiredEvent(ctx context.Context, event *store.Event) error {
-	ep.logger.Info().
-		Str("event_id", event.EventID).
-		Str("type", event.Type).
-		Str("status", event.Status).
-		Uint64("expiry_block", event.ExpiryBlockHeight).
-		Msg("processing expired event")
-
-	// Only process SIGN events for revert voting
-	if event.Type != EventTypeSign {
-		// For non-sign events, just mark as expired
-		if _, err := ep.chainStore.UpdateEventStatus(event.EventID, event.Status, "EXPIRED"); err != nil {
-			return fmt.Errorf("failed to mark event as expired: %w", err)
-		}
-		ep.logger.Info().
-			Str("event_id", event.EventID).
-			Str("type", event.Type).
-			Msg("non-sign event marked as expired")
-		return nil
-	}
-
-	// Extract txID and universalTxID for sign events
-	txID, utxID, err := ep.extractOutboundIDs(event)
-	if err != nil {
-		return fmt.Errorf("failed to extract outbound IDs: %w", err)
-	}
-
-	// Determine reason based on current status
-	var reason string
-
-	switch event.Status {
-	case "PENDING":
-		reason = "unable to confirm event"
-	case "CONFIRMED":
-		reason = "unable to process event"
-	case "IN_PROGRESS":
-		reason = "unable to complete event tss signing"
-	case "BROADCASTED":
-		reason = "unable to receive event confirmations on destination chain"
-	default:
-		reason = "expired"
-	}
-
-	// Vote for revert (failure observation)
-	observation := &uexecutortypes.OutboundObservation{
-		Success:     false,
-		BlockHeight: 0,
-		TxHash:      event.BroadcastedTxHash,
-		ErrorMsg:    reason,
-	}
-
-	voteTxHash, err := ep.signer.VoteOutbound(ctx, txID, utxID, observation)
-	if err != nil {
-		ep.logger.Error().
-			Err(err).
-			Str("event_id", event.EventID).
-			Str("tx_id", txID).
-			Msg("failed to vote for revert on expired event")
-		// Don't mark as reverted if vote fails - leave in current status for retry
-		return fmt.Errorf("failed to vote for revert: %w", err)
-	}
-
-	// Vote succeeded - now mark as REVERTED
-	ep.logger.Info().
-		Str("event_id", event.EventID).
-		Str("tx_id", txID).
-		Str("vote_tx_hash", voteTxHash).
-		Str("original_status", event.Status).
-		Msg("voted for sign revert (expired)")
-
-	// Mark event as REVERTED only after successful vote
-	if _, err := ep.chainStore.UpdateEventStatus(event.EventID, event.Status, "REVERTED"); err != nil {
-		return fmt.Errorf("failed to mark event as reverted: %w", err)
-	}
-
-	ep.logger.Info().
-		Str("event_id", event.EventID).
-		Str("original_status", event.Status).
-		Msg("sign event marked as reverted (expired)")
-
-	return nil
 }

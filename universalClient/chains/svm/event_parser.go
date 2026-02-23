@@ -21,8 +21,9 @@ import (
 
 // Event type constants
 const (
-	EventTypeSendFunds           = "send_funds"
-	EventTypeOutboundObservation = "outboundObservation"
+	EventTypeSendFunds          = "send_funds"
+	EventTypeExecuteUniversalTx = "execute_universal_tx"
+	EventTypeRevertUniversalTx  = "revert_universal_tx"
 )
 
 // base58ToHex converts a base58 encoded string to hex format (0x...)
@@ -41,13 +42,13 @@ func base58ToHex(base58Str string) (string, error) {
 	return "0x" + hex.EncodeToString(decoded), nil
 }
 
-// ParseEvent parses a log into a store.Event based on the event type
-// eventType should be "sendFunds" or "outboundObservation"
+// ParseEvent parses a log into a store.Event based on the event type.
+// eventType should be one of: "send_funds", "executeUniversalTx", "revertUniversalTx"
 func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
-	case EventTypeOutboundObservation:
+	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx:
 		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
 	default:
 		logger.Debug().

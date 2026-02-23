@@ -9,6 +9,7 @@ import (
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
+	feeburn "github.com/pushchain/push-chain-node/app/upgrades/fee-burn"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
@@ -39,6 +40,7 @@ var Upgrades = []upgrades.Upgrade{
 	outbound.NewUpgrade(),
 	universaltxv1.NewUpgrade(),
 	proxybytecodefix.NewUpgrade(),
+	feeburn.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

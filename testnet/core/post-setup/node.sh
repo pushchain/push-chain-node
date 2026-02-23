@@ -18,7 +18,7 @@ LOG_FILE="$APP_DIR/logs/pchaind.log"
 SERVICE_NAME="pchaind"
 BINARY="$APP_DIR/binary/pchaind"
 NODE_HOME="$APP_DIR/.pchain"
-UPGRADE_NAME="remove-fee-abs-v1"
+UPGRADE_NAME="fee-burn"
 
 # Setup cosmovisor and directory structure
 do_setup() {

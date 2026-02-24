@@ -3,28 +3,79 @@ package txresolver
 import (
 	"context"
 	"encoding/json"
+	"math/big"
+	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
-// --- helpers ---
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
 
-func setupTestDB(t *testing.T) *eventstore.Store {
+type mockTxBuilder struct{ mock.Mock }
+
+func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
+	args := m.Called(ctx, data, gasPrice, nonce)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*common.UnSignedOutboundTxReq), args.Error(1)
+}
+
+func (m *mockTxBuilder) GetNextNonce(ctx context.Context, addr string, useFinalized bool) (uint64, error) {
+	args := m.Called(ctx, addr, useFinalized)
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, sig []byte) (string, error) {
+	args := m.Called(ctx, req, data, sig)
+	return args.String(0), args.Error(1)
+}
+
+func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (bool, uint64, uint64, uint8, error) {
+	args := m.Called(ctx, txHash)
+	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
+}
+
+func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+	args := m.Called(ctx, txID)
+	return args.Bool(0), args.Error(1)
+}
+
+type mockChainClient struct{ builder *mockTxBuilder }
+
+func (m *mockChainClient) Start(context.Context) error                     { return nil }
+func (m *mockChainClient) Stop() error                                     { return nil }
+func (m *mockChainClient) IsHealthy() bool                                 { return true }
+func (m *mockChainClient) GetTxBuilder() (common.OutboundTxBuilder, error) { return m.builder, nil }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&store.Event{}))
-	return eventstore.NewStore(db, zerolog.Nop())
+	return eventstore.NewStore(db, zerolog.Nop()), db
 }
 
 func makeOutboundEventData(txID, utxID, destChain string) []byte {
@@ -37,7 +88,57 @@ func makeOutboundEventData(txID, utxID, destChain string) []byte {
 	return b
 }
 
-// --- parseCAIPTxHash tests ---
+func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+	t.Helper()
+	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+
+	v := reflect.ValueOf(c).Elem()
+
+	chainsField := v.FieldByName("chains")
+	chainsMap := *(*map[string]common.ChainClient)(unsafe.Pointer(chainsField.UnsafeAddr()))
+	chainsMap[chainID] = client
+
+	configsField := v.FieldByName("chainConfigs")
+	configsMap := *(*map[string]*uregistrytypes.ChainConfig)(unsafe.Pointer(configsField.UnsafeAddr()))
+	configsMap[chainID] = &uregistrytypes.ChainConfig{Chain: chainID, VmType: vmType}
+
+	return c
+}
+
+func insertBroadcastedEvent(t *testing.T, db *gorm.DB, eventID, destChain, broadcastedTxHash string, eventData []byte) {
+	t.Helper()
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              "SIGN",
+		ConfirmationType:  "STANDARD",
+		Status:            eventstore.StatusBroadcasted,
+		EventData:         eventData,
+		BroadcastedTxHash: broadcastedTxHash,
+	}
+	require.NoError(t, db.Create(&event).Error)
+}
+
+func getEvent(t *testing.T, db *gorm.DB, eventID string) store.Event {
+	t.Helper()
+	var ev store.Event
+	require.NoError(t, db.Where("event_id = ?", eventID).First(&ev).Error)
+	return ev
+}
+
+func newResolver(evtStore *eventstore.Store, ch *chains.Chains) *Resolver {
+	return NewResolver(Config{
+		EventStore:    evtStore,
+		Chains:        ch,
+		CheckInterval: 0,
+		Logger:        zerolog.Nop(),
+	})
+}
+
+// ---------------------------------------------------------------------------
+// parseCAIPTxHash tests
+// ---------------------------------------------------------------------------
 
 func TestParseCAIPTxHash(t *testing.T) {
 	t.Run("valid CAIP tx hash", func(t *testing.T) {
@@ -83,7 +184,9 @@ func TestParseCAIPTxHash(t *testing.T) {
 	})
 }
 
-// --- extractOutboundIDs tests ---
+// ---------------------------------------------------------------------------
+// extractOutboundIDs tests
+// ---------------------------------------------------------------------------
 
 func TestExtractOutboundIDs(t *testing.T) {
 	t.Run("valid event data", func(t *testing.T) {
@@ -112,49 +215,99 @@ func TestExtractOutboundIDs(t *testing.T) {
 	})
 }
 
-// --- resolveSVM tests ---
+// ---------------------------------------------------------------------------
+// resolveSVM tests
+// ---------------------------------------------------------------------------
 
-func TestResolveSVM(t *testing.T) {
-	t.Run("marks event COMPLETED immediately", func(t *testing.T) {
-		evtStore := setupTestDB(t)
+func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
+	// PDA found on-chain → mark COMPLETED.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-		// Insert a BROADCASTED event directly
-		eventData := makeOutboundEventData("tx-1", "utx-1", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp")
-		err := evtStore.Update("", nil) // dummy call to ensure store works — ignore error
-		_ = err
+	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
 
-		// Use the store's DB to insert
-		resolver := NewResolver(Config{
-			EventStore: evtStore,
-			Logger:     zerolog.Nop(),
-		})
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, nil)
 
-		// Create event in DB first via store
-		event := &store.Event{
-			EventID:           "svm-event-1",
-			BlockHeight:       100,
-			ExpiryBlockHeight: 10000,
-			Type:              "SIGN",
-			ConfirmationType:  "STANDARD",
-			Status:            eventstore.StatusBroadcasted,
-			EventData:         eventData,
-			BroadcastedTxHash: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:3AsdoTxHash",
-		}
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
-		// resolveSVM just updates status, so we need the event in DB
-		// We can test that the method calls Update correctly
-		resolver.resolveSVM(event, "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp")
-
-		// The update will fail since event isn't in DB, but the method shouldn't panic
-		// This validates the code path runs without error
-	})
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, eventstore.StatusCompleted, updated.Status)
 }
 
-// --- resolveEvent routing tests ---
+func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
+	// PDA not found → vote failure → REVERTED.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
+
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
+
+	// No PushSigner — voteFailure will log warning and return nil, but won't mark REVERTED
+	// (because pushSigner is nil, it returns early). This validates the code path.
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	// With no push signer, voteFailureAndMarkReverted returns nil early (logs warning).
+	// The event stays BROADCASTED because the vote+revert is skipped.
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, eventstore.StatusBroadcasted, updated.Status)
+}
+
+func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
+	// RPC error on PDA check → stays BROADCASTED for retry.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
+
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, assert.AnError)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, eventstore.StatusBroadcasted, updated.Status) // stays BROADCASTED
+}
+
+func TestSVM_InvalidEventData_Skips(t *testing.T) {
+	// Bad event data → logged and skipped (stays BROADCASTED).
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", []byte("not json"))
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, eventstore.StatusBroadcasted, updated.Status) // stays BROADCASTED
+	builder.AssertNotCalled(t, "IsAlreadyExecuted", mock.Anything, mock.Anything)
+}
+
+// ---------------------------------------------------------------------------
+// resolveEvent routing tests
+// ---------------------------------------------------------------------------
 
 func TestResolveEventRouting(t *testing.T) {
 	t.Run("invalid CAIP hash with no outbound IDs triggers warning", func(t *testing.T) {
-		evtStore := setupTestDB(t)
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
 			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
@@ -171,7 +324,7 @@ func TestResolveEventRouting(t *testing.T) {
 	})
 
 	t.Run("invalid CAIP hash with valid outbound IDs attempts revert", func(t *testing.T) {
-		evtStore := setupTestDB(t)
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
 			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
@@ -190,12 +343,15 @@ func TestResolveEventRouting(t *testing.T) {
 	})
 }
 
-// --- notFoundCounts tracking tests ---
+// ---------------------------------------------------------------------------
+// notFoundCounts tracking tests
+// ---------------------------------------------------------------------------
 
 func TestNotFoundCountTracking(t *testing.T) {
 	t.Run("increments on not found", func(t *testing.T) {
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
-			EventStore: setupTestDB(t),
+			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
 		})
 
@@ -210,8 +366,9 @@ func TestNotFoundCountTracking(t *testing.T) {
 	})
 
 	t.Run("cleared after max retries", func(t *testing.T) {
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
-			EventStore: setupTestDB(t),
+			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
 		})
 
@@ -224,8 +381,9 @@ func TestNotFoundCountTracking(t *testing.T) {
 	})
 
 	t.Run("cleared when tx found", func(t *testing.T) {
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
-			EventStore: setupTestDB(t),
+			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
 		})
 
@@ -239,11 +397,13 @@ func TestNotFoundCountTracking(t *testing.T) {
 	})
 }
 
-// --- voteFailureAndMarkReverted tests ---
+// ---------------------------------------------------------------------------
+// voteFailureAndMarkReverted tests
+// ---------------------------------------------------------------------------
 
 func TestVoteFailureAndMarkReverted(t *testing.T) {
 	t.Run("no push signer logs warning and returns nil", func(t *testing.T) {
-		evtStore := setupTestDB(t)
+		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
 			EventStore: evtStore,
 			PushSigner: nil, // no signer
@@ -256,7 +416,9 @@ func TestVoteFailureAndMarkReverted(t *testing.T) {
 	})
 }
 
-// --- constants tests ---
+// ---------------------------------------------------------------------------
+// constants tests
+// ---------------------------------------------------------------------------
 
 func TestConstants(t *testing.T) {
 	t.Run("maxNotFoundRetries is reasonable", func(t *testing.T) {

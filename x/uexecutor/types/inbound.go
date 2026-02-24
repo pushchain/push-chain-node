@@ -64,14 +64,27 @@ func (p Inbound) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid tx_type: %v", p.TxType)
 	}
 
+	// isCEA is only supported for FUNDS and FUNDS_AND_PAYLOAD
+	if p.IsCEA && p.TxType != TxType_FUNDS && p.TxType != TxType_FUNDS_AND_PAYLOAD {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "isCEA is only supported for FUNDS and FUNDS_AND_PAYLOAD tx types, got: %v", p.TxType)
+	}
+
 	// Validate payload only if tx_type requires it
 	switch p.TxType {
 	case TxType_FUNDS_AND_PAYLOAD, TxType_GAS_AND_PAYLOAD:
 		if p.UniversalPayload == nil {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload is required for payload tx types")
 		}
-		if strings.TrimSpace(p.Recipient) != "" {
+		// When isCEA is true, recipient should be the payload's "to" address (which is the UEA)
+		// When isCEA is false, recipient must be empty (payload handles all execution)
+		if !p.IsCEA && strings.TrimSpace(p.Recipient) != "" {
 			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient must be empty for a payload tx type")
+		}
+		if p.IsCEA && strings.TrimSpace(p.Recipient) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty when isCEA is true")
+		}
+		if p.IsCEA && !utils.IsValidAddress(p.Recipient, utils.HEX) {
+			return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient address when isCEA is true: %s", p.Recipient)
 		}
 		if err := p.UniversalPayload.ValidateBasic(); err != nil {
 			return errors.Wrap(err, "invalid payload")

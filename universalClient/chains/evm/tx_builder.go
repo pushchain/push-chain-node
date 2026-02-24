@@ -602,3 +602,9 @@ func parseGasLimit(gasLimitStr string) *big.Int {
 	}
 	return gasLimit
 }
+
+// IsAlreadyExecuted returns false for EVM. EVM uses nonce-based replay protection,
+// checked via GetNextNonce in the broadcaster.
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+	return false, nil
+}

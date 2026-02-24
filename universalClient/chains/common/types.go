@@ -50,6 +50,12 @@ type OutboundTxBuilder interface {
 	//   - confirmations: number of blocks since the tx was mined (0 = just mined)
 	//   - status: 0 = failed/reverted, 1 = success
 	VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error)
+
+	// IsAlreadyExecuted checks whether a transaction with the given txID has already been
+	// executed on the destination chain (e.g., by another relayer).
+	// For SVM: checks if the ExecutedTx PDA exists on-chain.
+	// For EVM: returns false (EVM uses nonce-based replay protection).
+	IsAlreadyExecuted(ctx context.Context, txID string) (bool, error)
 }
 
 // UniversalTx Payload

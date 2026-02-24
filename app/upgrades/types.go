@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
@@ -30,6 +31,7 @@ type AppKeepers struct {
 	CapabilityKeeper      *capabilitykeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
 	EVMKeeper             *evmkeeper.Keeper
+	BankKeeper            bankkeeper.BaseKeeper
 
 	// Module keepers
 	UExecutorKeeper   *uexecutorkeeper.Keeper

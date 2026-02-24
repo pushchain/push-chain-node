@@ -1,0 +1,5894 @@
+[
+  {
+    "address": "push10thpdx07utysvfgcv0fy6ddnm6lqjvhvq8mx9v",
+    "evm_address": "0x7aee1699fee2c906251863d24d35b3debe0932ec",
+    "amount_upc": 8207002528154.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1360djjg5htxhfzk6x4x8ycdg0xrtpy9687ksc7",
+    "evm_address": "0x8e9ed94914bacd748ada354c7261a87986b090ba",
+    "amount_upc": 6782236852320.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1pfpf97cyzzzm6splz3jg5235kmmeyys8f8rsgz",
+    "evm_address": "0x0a4292fb041085bd403f14648a2a34b6f7921207",
+    "amount_upc": 3712771780044.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push19ga4vgqz9kfcy2cl5gqu43cew360vjvwgtyu9a",
+    "evm_address": "0x2a3b5620022d93822b1fa201cac7197474f6498e",
+    "amount_upc": 650181079745.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1mrwjplu3m0cxsqlgjr5mfz6fmzh5s2zyj0c2nu",
+    "evm_address": "0xd8dd20ff91dbf06803e890e9b48b49d8af482844",
+    "amount_upc": 524845658203.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1fv2fm76q7cjnr58wdwyntzrjgtc7qya6ctk0zm",
+    "evm_address": "0x4b149dfb40f62531d0ee6b8935887242f1e013ba",
+    "amount_upc": 479045562782.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1363wzz5ws6qlaewywtwjcmy43mgzpncqlpn83u",
+    "evm_address": "0x8ea2e10a8e8681fee5c472dd2c6c958ed020cf00",
+    "amount_upc": 471412454377.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1wzuz8228tajnx7878t9jmu5ke9mzh04x4dxn6l",
+    "evm_address": "0x70b823a9475f653378fe3acb2df296c9762bbea6",
+    "amount_upc": 429178879130.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1uvcwjjh5je6mraudj3ul6s4c6kf7wa2wq0rstk",
+    "evm_address": "0xe330e94af49675b1f78d9479fd42b8d593e7754e",
+    "amount_upc": 393872734961.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ydrhvk5238prftz6kf6yapzjr025usnddex9n5",
+    "evm_address": "0x2347765a8a89c234ac5ab2744e84521bd54e426d",
+    "amount_upc": 9164078340.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push18m33crytnzywyemcrvhaw0x6r4ll53hw3ncfrr",
+    "evm_address": "0x3ee31c0c8b9888e267781b2fd73cda1d7ffa46ee",
+    "amount_upc": 4502198041.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1s5ash48rydteltqwxd3grdlnt7jkpqlsxmdwak",
+    "evm_address": "0x853b0bd4e323579fac0e336281b7f35fa56083f0",
+    "amount_upc": 2000000000.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1777ape9p9j38ddwxn65weapnnf424ahzrlgt4y",
+    "evm_address": "0xf7bdd0e4a12ca276b5c69ea8ecf4339a6aaaf6e2",
+    "amount_upc": 2000000000.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push14s60v703yd6mmjtpksvkc45xydshhh6044eg3a",
+    "evm_address": "0xac34f679f12375bdc961b4196c568623617bdf4f",
+    "amount_upc": 2000000000.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1rqxv07ccljhfskceqwggtms8j034mae56njr5t",
+    "evm_address": "0x180cc7fb18fcae985b19039085ee0793e35df734",
+    "amount_upc": 1999000000.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1p9wxp8uczwdmt0d5f4nzayqezhha5lrxv0heqg",
+    "evm_address": "0x095c609f98139bb5bdb44d662e901915efda7c66",
+    "amount_upc": 1993492784.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push10g2jqvxlmzd30nk9ekxmfrcs3998x6pk7gut5e",
+    "evm_address": "0x7a152030dfd89b17cec5cd8db48f10894a736836",
+    "amount_upc": 1045381409.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1s5zmzzjujhpdvzek2qa9fks9yaxnremrav8uag",
+    "evm_address": "0x8505b10a5c95c2d60b36503a54da05274d31e763",
+    "amount_upc": 589384270.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1477lm7sgankgf9cklgxagkjcesuclhm8dquefx",
+    "evm_address": "0xafbdfdfa08ecec849716fa0dd45a58cc398fdf67",
+    "amount_upc": 215908404.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1wr2xmz3vxh4typv7kr325xmm58l3m4p8a8fc80",
+    "evm_address": "0x70d46d8a2c35eab2059eb0e2aa1b7ba1ff1dd427",
+    "amount_upc": 192976168.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1l3553qaa8njh2ncfm2pka6r4xqjza2kuu7rary",
+    "evm_address": "0xfc694883bd3ce5754f09da836ee87530242eaadc",
+    "amount_upc": 192504885.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push13rz4jc25x7ddkexnxtsyv05lcxvpd9qhslu9zz",
+    "evm_address": "0x88c5596154379adb64d332e0463e9fc198169417",
+    "amount_upc": 169489056.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push146vngm4dzqxgd8cuwvyxdxjee90ddk4fryddm4",
+    "evm_address": "0xae99346ead100c869f1c7308669a59c95ed6daa9",
+    "amount_upc": 124680931.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push160hhky7g2ggccs06m0v80lk9ug0esfeqslqhe8",
+    "evm_address": "0xd3ef7b13c852118c41fadbd877fec5e21f982720",
+    "amount_upc": 92515119.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1hanttnlgrp6n03nn2r4f7e3ggrav87n57gp2zs",
+    "evm_address": "0xbf66b5cfe8187537c67350ea9f662840fac3fa74",
+    "amount_upc": 88315339.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push17nr3nvt0hzgu2zscse8da25ggxsvxym6qk0fw3",
+    "evm_address": "0xf4c719b16fb891c50a18864edeaa8841a0c3137a",
+    "amount_upc": 66190122.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ltjzh3wvywauylv89zd2l89clk4270hlgsxd6h",
+    "evm_address": "0xfae42bc5cc23bbc27d87289aaf9cb8fdaaaf3eff",
+    "amount_upc": 33698719.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1m7vtj048dyxxwt4ucclqd44us3zh92jl3pj9j2",
+    "evm_address": "0xdf98b93ea7690c672ebcc63e06d6bc844572aa5f",
+    "amount_upc": 26259211.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1uuaeqmelu3sp8a5vxsum7klvsjwj9sj8fmrsj6",
+    "evm_address": "0xe73b906f3fe46013f68c3439bf5bec849d22c247",
+    "amount_upc": 20478461.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push15k8f8fy6ryw48efxj2xfvafm00mn4k749pf0ac",
+    "evm_address": "0xa58e93a49a191d53e526928c96753b7bf73adbd5",
+    "amount_upc": 20032365.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push145x4dgzywraxn84wmkmz3r2ynm8uw98a0p4y7p",
+    "evm_address": "0xad0d56a04470fa699eaeddb6288d449ecfc714fd",
+    "amount_upc": 19217898.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1zsjgjnsryyvrgn99trtggcq89hh8ghmlcphtak",
+    "evm_address": "0x1424894e032118344ca558d68460072dee745f7f",
+    "amount_upc": 13729568.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push166285334mxrkufa9vayvhevela2leu57x333lu",
+    "evm_address": "0xd6947a4635d9876e27a56748cbe599ff55fcf29e",
+    "amount_upc": 12887882.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1w2ewvqhpcv2nx30xwktpwjlyqeq6cvp0adlv8r",
+    "evm_address": "0x72b2e602e1c3153345e67596174be40641ac302f",
+    "amount_upc": 11362624.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1xxmtk2pwplkl4fxrwufu80sne3zm8kzzrx6ylt",
+    "evm_address": "0x31b6bb282e0fedfaa4c37713c3be13cc45b3d842",
+    "amount_upc": 8275616.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1jqp38aqh87c0uaefcl3872pv6yc8hew078nl9z",
+    "evm_address": "0x900313f4173fb0fe7729c7e27f282cd1307be5cf",
+    "amount_upc": 8273101.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1c40rrekm78rrn4628cfjjderjydzvv6c6qcpar",
+    "evm_address": "0xc55e31e6dbf1c639d74a3e13293723911a263358",
+    "amount_upc": 8269429.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1v20ez6dpf8zhuz4ae9dm34cqfymg0xx2hvuvce",
+    "evm_address": "0x629f9169a149c57e0abdc95bb8d70049368798ca",
+    "amount_upc": 5684483.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1cajje3f6zn0jfkcpmdepahh8p9yha9vveav9dk",
+    "evm_address": "0xc7652cc53a14df24db01db721edee709497e958c",
+    "amount_upc": 4561135.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1gpquy3ytyrkjdm48yuyhr2r93qqws4ga2zydc9",
+    "evm_address": "0x4041c2448b20ed26eea7270971a8658800e8551d",
+    "amount_upc": 4528186.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push12m36zaalh75f9lffcdxlvsnsrvl7cm9stfjd8z",
+    "evm_address": "0x56e3a177bfbfa892fd29c34df642701b3fec6cb0",
+    "amount_upc": 4495119.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push10xlcemdhyprrqtymaxckk63cnvwz0h6l960y9h",
+    "evm_address": "0x79bf8cedb72046302c9be9b16b6a389b1c27df5f",
+    "amount_upc": 4461937.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ldxfm49ht9w4srxtjtgdjwrwnt9duxhekezwwe",
+    "evm_address": "0xfb4c9dd4b7595d580ccb92d0d9386e9acade1af9",
+    "amount_upc": 4428639.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1utwyr8vghefnw3a403pcaxnlqyy87g2knm6snn",
+    "evm_address": "0xe2dc419d88be533747b57c438e9a7f01087f2156",
+    "amount_upc": 4395228.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1meu325tggsn2qs67tye3whe4zusmruznqv2nfp",
+    "evm_address": "0xde791551684426a0435e5933175f351721b1f053",
+    "amount_upc": 4361701.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ljzpx38w7uzvwdk24wkcc9n22lwcfwlyqt5w95",
+    "evm_address": "0xfc841344eef704c736caabad8c166a57dd84bbe4",
+    "amount_upc": 4328063.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1pwxfanu8fmyg6l0r2deyj9eqe9vuvv3vydvatp",
+    "evm_address": "0x0b8c9ecf874ec88d7de35372491720c959c6322c",
+    "amount_upc": 4299184.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1h527drcm0ggp707p29djag8uhfd4hgxe93kh2w",
+    "evm_address": "0xbd15e68f1b7a101f3fc1515b2ea0fcba5b5ba0d9",
+    "amount_upc": 4255439.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push162tdekv7qupaphrgnj4tjhrkc8800pjgcy5nsg",
+    "evm_address": "0xd296dcd99e0703d0dc689caab95c76c1cef78648",
+    "amount_upc": 3490606.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push17juw9t6faq3njxvruxs20zpg9eyr3tkvqyetlk",
+    "evm_address": "0xf4b8e2af49e823391983e1a0a788282e4838aecc",
+    "amount_upc": 3461119.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1yvu7vwjswnj6vwz300usejcfwhmr5lm7thq0ah",
+    "evm_address": "0x2339e63a5074e5a638517bf90ccb0975f63a7f7e",
+    "amount_upc": 3431550.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1p64tgc52lrh4n647cmxs0sd9xp0ctzszc7m0a7",
+    "evm_address": "0x0eaab4628af8ef59eabec6cd07c1a5305f858a02",
+    "amount_upc": 3401887.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1l20k570xppkg3usgqsvy30zjl447m5lz2an2e4",
+    "evm_address": "0xfa9f6a79e6086c88f208041848bc52fd6bedd3e2",
+    "amount_upc": 3372143.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1465xffnattxs346xa99kz8hfpmc3ltx3r9x9we",
+    "evm_address": "0xaea864a67d5acd08d746e94b611ee90ef11facd1",
+    "amount_upc": 3342313.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1vsxxw0wnv6fm93f0gqjt7uhc0pstgka76l2zez",
+    "evm_address": "0x640c673dd36693b2c52f4024bf72f87860b45bbe",
+    "amount_upc": 3312401.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ppaucmwmak9qygs87v7lvp9m0y3l6arqpkgrrf",
+    "evm_address": "0x087bcc6ddbed8a022207f33df604bb7923fd7460",
+    "amount_upc": 3289932.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1zt2rctl672g4x9kwn6p92n7gy640qfk65seg8c",
+    "evm_address": "0x12d43c2ffaf2915316ce9e82554fc826aaf026da",
+    "amount_upc": 3282404.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1knvjw7z2d8yxsl0kgv74gqeu25ev08qwxccsyv",
+    "evm_address": "0xb4d927784a69c8687df6433d54033c5532c79c0e",
+    "amount_upc": 3252323.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ntktueaeyal2t7xrqwejzplye7x9zcvma878ey",
+    "evm_address": "0x9aecbe67b9277ea5f8c303b32107e4cf8c51619b",
+    "amount_upc": 3222155.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ajmnwa59g5t2942xq3yunrepua40xrv4av7acs",
+    "evm_address": "0xecb73776854516a2d5460449c98f21e76af30d95",
+    "amount_upc": 3220536.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1zzyexpsz2nthz4mj8fzwjmlj7c904huc0jftz2",
+    "evm_address": "0x108993060254d77157723a44e96ff2f60afadf98",
+    "amount_upc": 3191583.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1nmr2pwwm8kymung0f7qppzdnex8gumun00dg84",
+    "evm_address": "0x9ec6a0b9db3d89be4d0f4f801089b3c98e8e6f93",
+    "amount_upc": 3182554.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1edersqsqa00fy4xg0cys2spcd4a2pm07hfmled",
+    "evm_address": "0xcb72380200ebde9254c87e090540386d7aa0edfe",
+    "amount_upc": 3131048.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push10c4vnd8c8rqyugjmcl8mg6kslv3ueajemktf70",
+    "evm_address": "0x7e2ac9b4f838c04e225bc7cfb46ad0fb23ccf659",
+    "amount_upc": 3070196.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1yuqvayupgv0ygl6hjm6h7uzj0zg5nr622p3530",
+    "evm_address": "0x2700ce9381431e447f5796f57f70527891498f4a",
+    "amount_upc": 3067024.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1sx2m8cye0fepzlncwgygnn5hakfewn9nvm6sj5",
+    "evm_address": "0x8195b3e0997a72117e78720889ce97ed93974cb3",
+    "amount_upc": 3039653.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push13hnfrm3j0rm2p3q4gevj77yjwwqugy7q2xx567",
+    "evm_address": "0x8de691ee3278f6a0c41546592f78927381c413c0",
+    "amount_upc": 3022071.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1n5slfupcdkqu6nlvmnqv0z3uytnxllmnjmp93q",
+    "evm_address": "0x9d21f4f0386d81cd4fecdcc0c78a3c22e66fff73",
+    "amount_upc": 3009033.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1f64zjwkjedmq6pw0gvh26jeuewzc7x5j7rzecx",
+    "evm_address": "0x4eaa293ad2cb760d05cf432ead4b3ccb858f1a92",
+    "amount_upc": 2982074.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1lqenc2r20h86hhl7epdaynp47sq7a396sr3rtd",
+    "evm_address": "0xf8333c286a7dcfabdffec85bd24c35f401eec4ba",
+    "amount_upc": 2978336.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1vqe3rz0qnmg63jcethjegmufh4kas6lce2334m",
+    "evm_address": "0x60331189e09ed1a8cb195de5946f89bd6dd86bf8",
+    "amount_upc": 2947564.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push10rkk3qcy86mtcr63e0u8emn64s5kc5686uk4mr",
+    "evm_address": "0x78ed6883043eb6bc0f51cbf87cee7aac296c5347",
+    "amount_upc": 2916716.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1gn6z7ehhrpltskt9kk7f8xwe7eqhf93cyl0g6p",
+    "evm_address": "0x44f42f66f7187eb85965b5bc9399d9f641749638",
+    "amount_upc": 2885794.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1u5h303w30estfr8ynj6mejjvfrzmknne7ywgal",
+    "evm_address": "0xe52f17c5d17e60b48ce49cb5bcca4c48c5bb4e79",
+    "amount_upc": 2854798.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1eatucwn3kyrastydphjq8f6kcqf2xue2xcdl9j",
+    "evm_address": "0xcf57cc3a71b107d82c8d0de403a756c012a3732a",
+    "amount_upc": 2823729.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1ygntz6zu8t5vuya0alwsnyetyqsl3pz2pkmy9k",
+    "evm_address": "0x2226b1685c3ae8ce13afefdd09932b2021f8844a",
+    "amount_upc": 2792588.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1usajsefuysm94gheaa0dnv7r4l4su6lp0ur6ts",
+    "evm_address": "0xe43b28653c24365aa2f9ef5ed9b3c3afeb0e6be1",
+    "amount_upc": 2761375.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1chvxhae2krc4skw40wpdyy36aw6q2zz43tvgak",
+    "evm_address": "0xc5d86bf72ab0f15859d57b82d2123aebb4050855",
+    "amount_upc": 2730092.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1al96d3l37d0eqgd7w94nnmr35ekq4wc3hp0fk6",
+    "evm_address": "0xefcba6c7f1f35f9021be716b39ec71a66c0abb11",
+    "amount_upc": 2698738.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1txwhaemvrc78sj8mhz622tcxqy0qhv7sxxl2gc",
+    "evm_address": "0x599d7ee76c1e3c7848fbb8b4a52f06011e0bb3d0",
+    "amount_upc": 2667315.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1f8qdwdsufwvnna7k522thpz9ua7l84wdwk9ve5",
+    "evm_address": "0x49c0d7361c4b9939f7d6a294bb8445e77df3d5cd",
+    "amount_upc": 2650073.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push15cjm3pwlyr057vjul5egydpd3057jz9alvd4xg",
+    "evm_address": "0xa625b885df20df4f325cfd3282342d8be9e908bd",
+    "amount_upc": 2643441.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push18zwl89mys97zar3tp8gkty5jxs4h8qqtqu687p",
+    "evm_address": "0x389df39764817c2e8e2b09d1659292342b73800b",
+    "amount_upc": 2636833.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1d4fns2le70rjhk95g6u4c93ysphnzkynew9t2r",
+    "evm_address": "0x6d53382bf9f3c72bd8b446b95c1624806f315893",
+    "amount_upc": 2635823.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1v3h956exekvcp8trp27pnls0t3rjmlfwh546f3",
+    "evm_address": "0x646e5a6b26cd99809d630abc19fe0f5c472dfd2e",
+    "amount_upc": 2630250.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1j4ea5h6k9nhn9f36ugwvk47d869e6kqkduf6kq",
+    "evm_address": "0x9573da5f562cef32a63ae21ccb57cd3e8b9d5816",
+    "amount_upc": 2623692.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1qe8k8c3w0ccrkmyf9ps4nlhuafj36r7g87qpa7",
+    "evm_address": "0x064f63e22e7e303b6c89286159fefcea651d0fc8",
+    "amount_upc": 2604263.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1c62dmfl36h04ulpztah4w0lnv605cg9zna5a5l",
+    "evm_address": "0xc694dda7f1d5df5e7c225f6f573ff3669f4c20a2",
+    "amount_upc": 2590658.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1krg6974uquv9g07ra7nwh4gtsy0tqr45vj7p9y",
+    "evm_address": "0xb0d1a2fabc0718543fc3efa6ebd50b811eb00eb4",
+    "amount_upc": 2580393.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push15g6re69q4f9zlwmar2rf9f5e638h49s2tkrzvq",
+    "evm_address": "0xa2343ce8a0aa4a2fbb7d1a8692a699d44f7a960a",
+    "amount_upc": 2574057.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1e4uv9u42yd760ftvy56zu8pgul8tfqz4x7h8fv",
+    "evm_address": "0xcd78c2f2aa237da7a56c25342e1c28e7ceb48055",
+    "amount_upc": 2537981.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1mujpa7tjf49euwl3q0vpqmahguz57ev2pzc0qp",
+    "evm_address": "0xdf241ef9724d4b9e3bf103d8106fb747054f658a",
+    "amount_upc": 2523666.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1tpmxz683prq6uz6ytvwhty5l9t9y57prpfuevv",
+    "evm_address": "0x58766168f108c1ae0b445b1d75929f2aca4a7823",
+    "amount_upc": 2517574.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push12z5qvpu7qq5992emdh5q6fx808gnx9u4d5u66z",
+    "evm_address": "0x50a806079e002852ab3b6de80d24c779d1331795",
+    "amount_upc": 2511505.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1f5e5vq7vr4d5ugrh7yfxkdzpt8fh79lmkjvmhu",
+    "evm_address": "0x4d334603cc1d5b4e2077f1126b344159d37f17fb",
+    "amount_upc": 2510223.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push15xq6vchg7facgt4egf8n4p6w4wcw6zzfxs2f50",
+    "evm_address": "0xa181a662e8f27b842eb9424f3a874eabb0ed0849",
+    "amount_upc": 2505457.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push12gxe3dfhj0kxlkpvd9m60vz49yl5tnzf7m6tm7",
+    "evm_address": "0x520d98b53793ec6fd82c6977a7b055293f45cc49",
+    "amount_upc": 2504722.0,
+    "rebalanced_tokens": 2000.0
+  },
+  {
+    "address": "push1d0gpdmp89tz9msl76m52alsfu9qv0gn8narm83",
+    "evm_address": "0x6bd016ec272ac45dc3fed6e8aefe09e140c7a267",
+    "amount_upc": 2499431.0,
+    "rebalanced_tokens": 1999.0
+  },
+  {
+    "address": "push1q9l7ype9qgwtcf2lcuzjg3h8dxp057hpyjwxpa",
+    "evm_address": "0x017fe20725021cbc255fc7052446e76982fa7ae1",
+    "amount_upc": 2487445.0,
+    "rebalanced_tokens": 1997.0
+  },
+  {
+    "address": "push1m7fk3jwy38nz0dvlmexdgtgz9r2mpq9cyfeq48",
+    "evm_address": "0xdf9368c9c489e627b59fde4cd42d0228d5b080b8",
+    "amount_upc": 2481484.0,
+    "rebalanced_tokens": 1996.0
+  },
+  {
+    "address": "push1n4w05xrcmzavvp9hj789xwmwh2twtw5akfyrex",
+    "evm_address": "0x9d5cfa1878d8bac604b7978e533b6eba96e5ba9d",
+    "amount_upc": 2475544.0,
+    "rebalanced_tokens": 1995.0
+  },
+  {
+    "address": "push173phwzag5ljzjkruwhjud576dwaurv7u9f3pqw",
+    "evm_address": "0xf443770ba8a7e429587c75e5c6d3da6bbbc1b3dc",
+    "amount_upc": 2463729.0,
+    "rebalanced_tokens": 1993.0
+  },
+  {
+    "address": "push1e0czfjvvyhhdfmgmzuzdhjwgjaqzj3aercu4px",
+    "evm_address": "0xcbf024c98c25eed4ed1b1704dbc9c897402947b9",
+    "amount_upc": 2457853.0,
+    "rebalanced_tokens": 1992.0
+  },
+  {
+    "address": "push15wwz42p4gsekmzraszpqgnjpz0lmrq7e87r0sn",
+    "evm_address": "0xa39c2aa83544336d887d8082044e4113ffb183d9",
+    "amount_upc": 2451998.0,
+    "rebalanced_tokens": 1991.0
+  },
+  {
+    "address": "push1cu04axr07xaqx65fjcyvdck0xe5fsrknlkdjk2",
+    "evm_address": "0xc71f5e986ff1ba036a899608c6e2cf3668980ed3",
+    "amount_upc": 2446164.0,
+    "rebalanced_tokens": 1990.0
+  },
+  {
+    "address": "push17xu3g0x49n9nga0vwgzl0sqv4ugm9j7f3en64k",
+    "evm_address": "0xf1b9143cd52ccb3475ec7205f7c00caf11b2cbc9",
+    "amount_upc": 2220520.0,
+    "rebalanced_tokens": 1949.0
+  },
+  {
+    "address": "push12epm9hqn27znk7dsmw0s02f86sugunu4w7mg4e",
+    "evm_address": "0x5643b2dc1357853b79b0db9f07a927d4388e4f95",
+    "amount_upc": 2188146.0,
+    "rebalanced_tokens": 1943.0
+  },
+  {
+    "address": "push1p85fm4kgl54zmu6s4m3p2ya7yst2896fvtmjgz",
+    "evm_address": "0x09e89dd6c8fd2a2df350aee21513be2416a39749",
+    "amount_upc": 2155714.0,
+    "rebalanced_tokens": 1937.0
+  },
+  {
+    "address": "push1mxl8h73lyn6dlcrs8ak20zhk8lv0j4ygnspy2v",
+    "evm_address": "0xd9be7bfa3f24f4dfe0703f6ca78af63fd8f95488",
+    "amount_upc": 2123227.0,
+    "rebalanced_tokens": 1931.0
+  },
+  {
+    "address": "push1cc8l84cqnt9k5xlhz2xq69aq6rnrvghr02pz05",
+    "evm_address": "0xc60ff3d7009acb6a1bf7128c0d17a0d0e63622e3",
+    "amount_upc": 2090684.0,
+    "rebalanced_tokens": 1925.0
+  },
+  {
+    "address": "push162c64ltnush6dcfdqkjcvuux7p7zgu08at2zw7",
+    "evm_address": "0xd2b1aafd73e42fa6e12d05a5867386f07c2471e7",
+    "amount_upc": 2058086.0,
+    "rebalanced_tokens": 1919.0
+  },
+  {
+    "address": "push157wa4l65fjf3fcuyaz8ygjzsyh6pacfnvef420",
+    "evm_address": "0xa79ddaff544c9314e384e88e44485025f41ee133",
+    "amount_upc": 2025434.0,
+    "rebalanced_tokens": 1912.0
+  },
+  {
+    "address": "push1mwdmxzxsu9umpjspxnprkgngs24z7hzjxkrqfn",
+    "evm_address": "0xdb9bb308d0e179b0ca0134c23b226882aa2f5c52",
+    "amount_upc": 1992729.0,
+    "rebalanced_tokens": 1906.0
+  },
+  {
+    "address": "push1tcd3j9gwewc2qjgfxh80xafqqsk8zjjsdqv4vw",
+    "evm_address": "0x5e1b19150ecbb0a0490935cef37520042c714a50",
+    "amount_upc": 1959972.0,
+    "rebalanced_tokens": 1900.0
+  },
+  {
+    "address": "push1fdzjzcjcu3x3kmuetjh00lapl8gunvggczrx9y",
+    "evm_address": "0x4b45216258e44d1b6f995caef7ffa1f9d1c9b108",
+    "amount_upc": 1927163.0,
+    "rebalanced_tokens": 1893.0
+  },
+  {
+    "address": "push1j0kjqj232ut82g0narhhwapy3ktjj523rl8jnt",
+    "evm_address": "0x93ed20495157167521f3e8ef7774248d97295151",
+    "amount_upc": 1894303.0,
+    "rebalanced_tokens": 1887.0
+  },
+  {
+    "address": "push17tzau8pp54zsm787476lvg5yung54s0dcs5cxc",
+    "evm_address": "0xf2c5de1c21a5450df8feafb5f62284e4d14ac1ed",
+    "amount_upc": 1860590.0,
+    "rebalanced_tokens": 1880.0
+  },
+  {
+    "address": "push172qu9qw2wzjrl57l5rtvmuy0vhfmmvfv7xgmff",
+    "evm_address": "0xf281c281ca70a43fd3dfa0d6cdf08f65d3bdb12c",
+    "amount_upc": 1826827.0,
+    "rebalanced_tokens": 1873.0
+  },
+  {
+    "address": "push1av3x2nktcwd2wzfeapx8humulxtc6jlntwakc4",
+    "evm_address": "0xeb22654ecbc39aa70939e84c7bf37cf9978d4bf3",
+    "amount_upc": 1793014.0,
+    "rebalanced_tokens": 1866.0
+  },
+  {
+    "address": "push1wj9h54lgtwgzq4ac0zhtarydd77rka2tj3md54",
+    "evm_address": "0x748b7a57e85b902057b878aebe8c8d6fbc3b754b",
+    "amount_upc": 1759153.0,
+    "rebalanced_tokens": 1859.0
+  },
+  {
+    "address": "push18qanuqzw6yl7mdw4zk9q8m7uf4glzlyugrgu88",
+    "evm_address": "0x383b3e004ed13fedb5d5158a03efdc4d51f17c9c",
+    "amount_upc": 1725244.0,
+    "rebalanced_tokens": 1852.0
+  },
+  {
+    "address": "push15wgt8hzz93rhps7mlfvsgn8jccxfhnynvkwgmr",
+    "evm_address": "0xa390b3dc422c4770c3dbfa59044cf2c60c9bcc93",
+    "amount_upc": 1691289.0,
+    "rebalanced_tokens": 1845.0
+  },
+  {
+    "address": "push174hmwnprmqrd4e5hlahst3m6tkqwrv8wp0dwua",
+    "evm_address": "0xf56fb74c23d806dae697ff6f05c77a5d80e1b0ee",
+    "amount_upc": 1657288.0,
+    "rebalanced_tokens": 1838.0
+  },
+  {
+    "address": "push1xg89p26ktk5nagq4st2ew5t876qn0hh26xdcss",
+    "evm_address": "0x320e50ab565da93ea01582d5975167f68137deea",
+    "amount_upc": 1623242.0,
+    "rebalanced_tokens": 1830.0
+  },
+  {
+    "address": "push14kr8dxcl0cu5pqjlhctt7hyrdvakmwm2rsmx5p",
+    "evm_address": "0xad86769b1f7e3940825fbe16bf5c836b3b6dbb6a",
+    "amount_upc": 1604668.0,
+    "rebalanced_tokens": 1826.0
+  },
+  {
+    "address": "push1paqr5wd9ue94lmz7z3cqce98jvda6ydd8sv9rp",
+    "evm_address": "0x0f403a39a5e64b5fec5e14700c64a7931bdd11ad",
+    "amount_upc": 1589151.0,
+    "rebalanced_tokens": 1823.0
+  },
+  {
+    "address": "push17qttm3d2s4ylwaw98nv4n9wcuyya7cvesye9wk",
+    "evm_address": "0xf016bdc5aa8549f775c53cd95995d8e109df6199",
+    "amount_upc": 1588232.0,
+    "rebalanced_tokens": 1823.0
+  },
+  {
+    "address": "push1y79jhejj0kk4pfjvpjm94lquk4a4c9ln4k22dk",
+    "evm_address": "0x278b2be6527dad50a64c0cb65afc1cb57b5c17f3",
+    "amount_upc": 1555019.0,
+    "rebalanced_tokens": 1816.0
+  },
+  {
+    "address": "push1uuxrsxkje2acp9nd4apm5eejvzdfpd2yq6ujql",
+    "evm_address": "0xe70c381ad2cabb80966daf43ba6732609a90b544",
+    "amount_upc": 1533945.0,
+    "rebalanced_tokens": 1811.0
+  },
+  {
+    "address": "push127stqwpnecjpgzsccwrgdd7gkqeasmd073wsre",
+    "evm_address": "0x57a0b03833ce24140a18c38686b7c8b033d86daf",
+    "amount_upc": 1520843.0,
+    "rebalanced_tokens": 1808.0
+  },
+  {
+    "address": "push17xejkmpsge26vpcgq54k2u0fwruy2pulvqecat",
+    "evm_address": "0xf1b32b6c304655a60708052b6571e970f845079f",
+    "amount_upc": 1511912.0,
+    "rebalanced_tokens": 1806.0
+  },
+  {
+    "address": "push1x5z0rwn6dw8l8gewq9pzp2wpmdezrypf046mke",
+    "evm_address": "0x3504f1ba7a6b8ff3a32e014220a9c1db72219029",
+    "amount_upc": 1486627.0,
+    "rebalanced_tokens": 1800.0
+  },
+  {
+    "address": "push1c7m9tre3065r882fsc3ecrqwky8fl4xmwhsdaf",
+    "evm_address": "0xc7b6558f317ea8339d4986239c0c0eb10e9fd4db",
+    "amount_upc": 1452370.0,
+    "rebalanced_tokens": 1793.0
+  },
+  {
+    "address": "push1yd26tj6fwrnpmnrwsav3jkskznx89z9qe0ana7",
+    "evm_address": "0x2355a5cb4970e61dcc6e8759195a1614cc7288a0",
+    "amount_upc": 1434754.0,
+    "rebalanced_tokens": 1789.0
+  },
+  {
+    "address": "push1ncx4auz7te0jelrc3qtvh42jqg9e2mwra2vnxe",
+    "evm_address": "0x9e0d5ef05e5e5f2cfc788816cbd552020b956dc3",
+    "amount_upc": 1418073.0,
+    "rebalanced_tokens": 1785.0
+  },
+  {
+    "address": "push1df2pz59dl023ym7lsc7d6wdlavww4vm9dxm0l2",
+    "evm_address": "0x6a541150adfbd5126fdf863cdd39bfeb1ceab365",
+    "amount_upc": 1383738.0,
+    "rebalanced_tokens": 1777.0
+  },
+  {
+    "address": "push1r8d5hsspctwzx2e0fch8sdjvl9g0k5dj4m62ls",
+    "evm_address": "0x19db4bc201c2dc232b2f4e2e78364cf950fb51b2",
+    "amount_upc": 1349366.0,
+    "rebalanced_tokens": 1769.0
+  },
+  {
+    "address": "push15zaaqfyph2xhuauseqdlzvvfyxvketz5zusetw",
+    "evm_address": "0xa0bbd02481ba8d7e7790c81bf1318921996cac54",
+    "amount_upc": 1314956.0,
+    "rebalanced_tokens": 1760.0
+  },
+  {
+    "address": "push1xdrcyj8jxa4x7w9y7ym4ufk6n2atkqwhhld3eu",
+    "evm_address": "0x33478248f2376a6f38a4f1375e26da9ababb01d7",
+    "amount_upc": 1288520.0,
+    "rebalanced_tokens": 1754.0
+  },
+  {
+    "address": "push1uzspvfehhsz38j7mjvv7gv6smdwu3yk6n57jpj",
+    "evm_address": "0xe0a0162737bc0513cbdb9319e43350db5dc892da",
+    "amount_upc": 1280511.0,
+    "rebalanced_tokens": 1752.0
+  },
+  {
+    "address": "push17vg0z29x4ekhgjeg5eu5me7cwgjv05zm3hawrp",
+    "evm_address": "0xf310f128a6ae6d744b28a6794de7d87224c7d05b",
+    "amount_upc": 1246031.0,
+    "rebalanced_tokens": 1744.0
+  },
+  {
+    "address": "push1p50apz97f55qq2vvyy64vqhed72x9mhp0cpgp8",
+    "evm_address": "0x0d1fd088be4d2800298c21355602f96f9462eee1",
+    "amount_upc": 1211516.0,
+    "rebalanced_tokens": 1735.0
+  },
+  {
+    "address": "push1jdngufay7w50pnrx8aqzvfvejwxdq8sv3dfuwj",
+    "evm_address": "0x93668e27a4f3a8f0cc663f40262599938cd01e0c",
+    "amount_upc": 1177320.0,
+    "rebalanced_tokens": 1727.0
+  },
+  {
+    "address": "push1z389j70t7yayapdc4tagvvajyvar8p26j2nh5z",
+    "evm_address": "0x144e5979ebf13a4e85b8aafa8633b2233a33855a",
+    "amount_upc": 1143091.0,
+    "rebalanced_tokens": 1718.0
+  },
+  {
+    "address": "push1z5us5nrjuzpm9ena0ek3fp8jrlq4t6e76l0vuy",
+    "evm_address": "0x15390a4c72e083b2e67d7e6d1484f21fc155eb3e",
+    "amount_upc": 1108832.0,
+    "rebalanced_tokens": 1709.0
+  },
+  {
+    "address": "push15xfx92nead6xzcpajxkvz4fuku6nenkqlp9xjy",
+    "evm_address": "0xa19262aa79eb7461603d91acc1553cb7353ccec0",
+    "amount_upc": 1074542.0,
+    "rebalanced_tokens": 1700.0
+  },
+  {
+    "address": "push170mhrf0777p6wdm5p6ewxv7hjn0f2wryg6smts",
+    "evm_address": "0xf3f771a5fef783a737740eb2e333d794de953864",
+    "amount_upc": 1072397.0,
+    "rebalanced_tokens": 1699.0
+  },
+  {
+    "address": "push156gnq7svvjun5wkfx3m78nfvhn0gaa5r74cklf",
+    "evm_address": "0xa691307a0c64b93a3ac93477e3cd2cbcde8ef683",
+    "amount_upc": 1042791.0,
+    "rebalanced_tokens": 1691.0
+  },
+  {
+    "address": "push1sewhdn75dlywfrt56qhff4qf8v26ufczcsrrss",
+    "evm_address": "0x865d76cfd46fc8e48d74d02e94d4093b15ae2702",
+    "amount_upc": 1040224.0,
+    "rebalanced_tokens": 1691.0
+  },
+  {
+    "address": "push1r4jdmj8wxj6p9zpclmrznler5yhk97jaxeusgz",
+    "evm_address": "0x1d64ddc8ee34b4128838fec629ff23a12f62fa5d",
+    "amount_upc": 1039831.0,
+    "rebalanced_tokens": 1691.0
+  },
+  {
+    "address": "push12syzp6k49crh29q9src0ge2ftxn83lpqql45t2",
+    "evm_address": "0x540820ead52e0775140580f0f4654959a678fc20",
+    "amount_upc": 1005877.0,
+    "rebalanced_tokens": 1681.0
+  },
+  {
+    "address": "push1j2mxh4au48ymuye34stysz0h4rvjzu25skyczu",
+    "evm_address": "0x92b66bd7bca9c9be1331ac164809f7a8d9217154",
+    "amount_upc": 975176.0,
+    "rebalanced_tokens": 1673.0
+  },
+  {
+    "address": "push1tj97u2vxjgxq7rw0sn8sgwjpmkfddfe2wdyl8n",
+    "evm_address": "0x5c8bee2986920c0f0dcf84cf043a41dd92d6a72a",
+    "amount_upc": 974471.0,
+    "rebalanced_tokens": 1673.0
+  },
+  {
+    "address": "push1umfkc2yukyk83tenwv2d33l88jdh7xtvcshnxx",
+    "evm_address": "0xe6d36c289cb12c78af337314d8c7e73c9b7f196c",
+    "amount_upc": 971503.0,
+    "rebalanced_tokens": 1672.0
+  },
+  {
+    "address": "push1ayxfqxecjs79tnluvednhjuxchl9f4ng6mk02g",
+    "evm_address": "0xe90c901b38943c55cffc665b3bcb86c5fe54d668",
+    "amount_upc": 956921.0,
+    "rebalanced_tokens": 1668.0
+  },
+  {
+    "address": "push16wcvqp9xswye0mekdnkuaepnc9zmcju6j53q7a",
+    "evm_address": "0xd3b0c004a6838997ef366cedcee433c145bc4b9a",
+    "amount_upc": 955477.0,
+    "rebalanced_tokens": 1667.0
+  },
+  {
+    "address": "push1556pzxzrfvnh4k0akn3evncwqvvgayj7thk9es",
+    "evm_address": "0xa5341118434b277ad9fdb4e3964f0e03188e925e",
+    "amount_upc": 937103.0,
+    "rebalanced_tokens": 1662.0
+  },
+  {
+    "address": "push1ndarxdf7756wckgf9f84p9929fhhyhgnzw8cgr",
+    "evm_address": "0x9b7a33353ef534ec59092a4f5094aa2a6f725d13",
+    "amount_upc": 931389.0,
+    "rebalanced_tokens": 1661.0
+  },
+  {
+    "address": "push12vm9r6rcd4uexl2u80rgwmszlw4jg6prtm2rkz",
+    "evm_address": "0x533651e8786d79937d5c3bc6876e02fbab246823",
+    "amount_upc": 926097.0,
+    "rebalanced_tokens": 1659.0
+  },
+  {
+    "address": "push16dca7jna5zkaz4dpyrzeduej2fmcx5e4m0uc8n",
+    "evm_address": "0xd371df4a7da0add155a120c596f3325277835335",
+    "amount_upc": 902677.0,
+    "rebalanced_tokens": 1652.0
+  },
+  {
+    "address": "push1y4ysr669ypehem4rge076t0072985fj4x75s8q",
+    "evm_address": "0x254901eb4520737ceea3465fed2deff28a7a2655",
+    "amount_upc": 877933.0,
+    "rebalanced_tokens": 1645.0
+  },
+  {
+    "address": "push16tej6d3prxwwc8f6uxqwqnf2m4es6k3px24fm7",
+    "evm_address": "0xd2f32d3621199cec1d3ae180e04d2add730d5a21",
+    "amount_upc": 868227.0,
+    "rebalanced_tokens": 1642.0
+  },
+  {
+    "address": "push1hr0fm3xe0yp7r0rfh8zt5zxmal3ewdlnx8dvkj",
+    "evm_address": "0xb8de9dc4d97903e1bc69b9c4ba08dbefe39737f3",
+    "amount_upc": 833753.0,
+    "rebalanced_tokens": 1632.0
+  },
+  {
+    "address": "push1t8h4ch65rsed94jy460vrsnud92jgq7fy5q40t",
+    "evm_address": "0x59ef5c5f541c32d2d644ae9ec1c27c69552403c9",
+    "amount_upc": 815962.0,
+    "rebalanced_tokens": 1627.0
+  },
+  {
+    "address": "push13w77h5me308x7lx4w9w0fu6y6t48gwpsgjax35",
+    "evm_address": "0x8bbdebd3798bce6f7cd5715cf4f344d2ea743830",
+    "amount_upc": 813837.0,
+    "rebalanced_tokens": 1626.0
+  },
+  {
+    "address": "push1qr3khj66mp3v6ykk5u7cvmjxtpyvxpx9lxzn88",
+    "evm_address": "0x00e36bcb5ad862cd12d6a73d866e465848c304c5",
+    "amount_upc": 799257.0,
+    "rebalanced_tokens": 1622.0
+  },
+  {
+    "address": "push1qafnglaa55par8hncmur3v0k8j5vq6faz3eup6",
+    "evm_address": "0x0753347fbda503d19ef3c6f838b1f63ca8c0693d",
+    "amount_upc": 764739.0,
+    "rebalanced_tokens": 1611.0
+  },
+  {
+    "address": "push1tucx5zg4ug02pxjrhktxr3d0pnu7v8p02ecwfy",
+    "evm_address": "0x5f306a0915e21ea09a43bd9661c5af0cf9e61c2f",
+    "amount_upc": 739706.0,
+    "rebalanced_tokens": 1603.0
+  },
+  {
+    "address": "push1e9pn7tyc36jc8ldtuuwqrj6gv7naf0dkfwajm6",
+    "evm_address": "0xc9433f2c988ea583fdabe71c01cb4867a7d4bdb6",
+    "amount_upc": 730200.0,
+    "rebalanced_tokens": 1600.0
+  },
+  {
+    "address": "push15f4837n285hkpqatgvlv7xg2ce2c2t0q6es2ca",
+    "evm_address": "0xa26a78fa6a3d2f6083ab433ecf190ac655852de0",
+    "amount_upc": 707175.0,
+    "rebalanced_tokens": 1592.0
+  },
+  {
+    "address": "push1efgxzufczgjqh8ywp44rttlyux70vwdjr0asej",
+    "evm_address": "0xca5061713812240b9c8e0d6a35afe4e1bcf639b2",
+    "amount_upc": 695641.0,
+    "rebalanced_tokens": 1589.0
+  },
+  {
+    "address": "push1w5tx2w4tv9quvez39j8x6suvdpv0mpm6pdap95",
+    "evm_address": "0x7516653aab6141c664512c8e6d438c6858fd877a",
+    "amount_upc": 661064.0,
+    "rebalanced_tokens": 1577.0
+  },
+  {
+    "address": "push1rwa8s23w2e5hf4d76qrte0s5mn0mgw3njrna8l",
+    "evm_address": "0x1bba782a2e566974d5bed006bcbe14dcdfb43a33",
+    "amount_upc": 653309.0,
+    "rebalanced_tokens": 1574.0
+  },
+  {
+    "address": "push13hugtk8mtw34d4cjslkuxqvmhzyr6n44dustc5",
+    "evm_address": "0x8df885d8fb5ba356d71287edc3019bb8883d4eb5",
+    "amount_upc": 626468.0,
+    "rebalanced_tokens": 1565.0
+  },
+  {
+    "address": "push1w3lhuvathu52utflwx8xk99sw2t8r92jy8mwnd",
+    "evm_address": "0x747f7e33abbf28ae2d3f718e6b14b07296719552",
+    "amount_upc": 591856.0,
+    "rebalanced_tokens": 1553.0
+  },
+  {
+    "address": "push17ymlj3v8tkrp5y87nrml28e2wgpgrv0xlwf8rs",
+    "evm_address": "0xf137f945875d861a10fe98f7f51f2a720281b1e6",
+    "amount_upc": 573994.0,
+    "rebalanced_tokens": 1547.0
+  },
+  {
+    "address": "push1nl4v5n88dcjzh5x0z7l2txutw76e395cwsm8vf",
+    "evm_address": "0x9feaca4ce76e242bd0cf17bea59b8b77b5989698",
+    "amount_upc": 573316.0,
+    "rebalanced_tokens": 1546.0
+  },
+  {
+    "address": "push1eexsvkwxg2f32yp98fn4k2z6mzjjecsthxrxjd",
+    "evm_address": "0xce4d0659c642931510253a675b285ad8a52ce20b",
+    "amount_upc": 572646.0,
+    "rebalanced_tokens": 1546.0
+  },
+  {
+    "address": "push1rtvytap2wy6quk4qhewg006l5wlm57s86dww3r",
+    "evm_address": "0x1ad845f42a71340e5aa0be5c87bf5fa3bfba7a07",
+    "amount_upc": 571977.0,
+    "rebalanced_tokens": 1546.0
+  },
+  {
+    "address": "push1gmr28fl0aey7pxhgg22m04f50rnrycx9l2k52h",
+    "evm_address": "0x46c6a3a7efee49e09ae84295b7d53478e63260c5",
+    "amount_upc": 571310.0,
+    "rebalanced_tokens": 1546.0
+  },
+  {
+    "address": "push1khw77e55k4vfwcm4rqe7plseygteqlgzjfx4g2",
+    "evm_address": "0xb5ddef6694b5589763751833e0fe192217907d02",
+    "amount_upc": 569978.0,
+    "rebalanced_tokens": 1545.0
+  },
+  {
+    "address": "push12xx8gsk2eev8fnug6hvzj927gt94ndfdjgz3vt",
+    "evm_address": "0x518c7442cace5874cf88d5d829155e42cb59b52d",
+    "amount_upc": 569314.0,
+    "rebalanced_tokens": 1545.0
+  },
+  {
+    "address": "push1v3l404w6hl3464l89k4e775xt8njt56mpppzxj",
+    "evm_address": "0x647f57d5dabfe35d57e72dab9f7a8659e725d35b",
+    "amount_upc": 568651.0,
+    "rebalanced_tokens": 1545.0
+  },
+  {
+    "address": "push184dzmylyex87kejdd9danatr4mafrvnm6hyyu2",
+    "evm_address": "0x3d5a2d93e4c98feb664d695bd9f563aefa91b27b",
+    "amount_upc": 567990.0,
+    "rebalanced_tokens": 1544.0
+  },
+  {
+    "address": "push12ycvnvp92e73s4avnlg963ehpquxmvkqfpys2t",
+    "evm_address": "0x5130c9b025567d1857ac9fd05d473708386db2c0",
+    "amount_upc": 557227.0,
+    "rebalanced_tokens": 1541.0
+  },
+  {
+    "address": "push1ate07lvre92kuh8flscuacd7ccelt8yn4ny3f2",
+    "evm_address": "0xeaf2ff7d83c9556e5ce9fc31cee1bec633f59c93",
+    "amount_upc": 522583.0,
+    "rebalanced_tokens": 1528.0
+  },
+  {
+    "address": "push13yjt89apx0p4smzp7yneumu3z56pkgk0ffeumm",
+    "evm_address": "0x8924b397a133c3586c41f1279e6f9115341b22cf",
+    "amount_upc": 487925.0,
+    "rebalanced_tokens": 1514.0
+  },
+  {
+    "address": "push1a0cvls6wqlks8szkz5u5ug5jkwrmv0cjg5n666",
+    "evm_address": "0xebf0cfc34e07ed03c05615394e2292b387b63f12",
+    "amount_upc": 463251.0,
+    "rebalanced_tokens": 1504.0
+  },
+  {
+    "address": "push135qkr68l74mz8jthxr8ynpfswt8e5fw8l46aq0",
+    "evm_address": "0x8d0161e8fff57623c97730ce49853072cf9a25c7",
+    "amount_upc": 453254.0,
+    "rebalanced_tokens": 1500.0
+  },
+  {
+    "address": "push12z2rwz7tnpaywjzcwgqa53ea0jcrc7x29azuc6",
+    "evm_address": "0x5094370bcb987a4748587201da473d7cb03c78ca",
+    "amount_upc": 435898.0,
+    "rebalanced_tokens": 1493.0
+  },
+  {
+    "address": "push1p2fy2q7w0ldje9vk5qyvjkzcp4yua08a3uvwmy",
+    "evm_address": "0x0a924503ce7fdb2c9596a008c958580d49cebcfd",
+    "amount_upc": 418571.0,
+    "rebalanced_tokens": 1486.0
+  },
+  {
+    "address": "push1smfyk7r7gyuuwl8qx3r6psr0qq0fusgxsy70px",
+    "evm_address": "0x86d24b787e4139c77ce03447a0c06f001e9e4106",
+    "amount_upc": 383876.0,
+    "rebalanced_tokens": 1471.0
+  },
+  {
+    "address": "push14c5hgwj469ehyc8r4rumc29tn8cfltsvd7wdkh",
+    "evm_address": "0xae29743a55d1737260e3a8f9bc28ab99f09fae0c",
+    "amount_upc": 381630.0,
+    "rebalanced_tokens": 1470.0
+  },
+  {
+    "address": "push1afrt6dmmfu8rfchug3p9ekq5slfnefh576vv56",
+    "evm_address": "0xea46bd377b4f0e34e2fc44425cd81487d33ca6f4",
+    "amount_upc": 378959.0,
+    "rebalanced_tokens": 1469.0
+  },
+  {
+    "address": "push1p0j964v43kgqwqcvy5lt2sdfh3xrx3m4eqd2up",
+    "evm_address": "0x0be45d55958d9007030c253eb541a9bc4c334775",
+    "amount_upc": 378870.0,
+    "rebalanced_tokens": 1469.0
+  },
+  {
+    "address": "push1xye9d7zfglmhgtqfp6zjethq30p54kpxc7sd0v",
+    "evm_address": "0x313256f84947f7742c090e852caee08bc34ad826",
+    "amount_upc": 373218.0,
+    "rebalanced_tokens": 1466.0
+  },
+  {
+    "address": "push1epyl0qhqz3sywpttzc4c5ykes953275lj958rw",
+    "evm_address": "0xc849f782e0146047056b162b8a12d98169157a9f",
+    "amount_upc": 349170.0,
+    "rebalanced_tokens": 1455.0
+  },
+  {
+    "address": "push1rpt8guchur2sqgagunmujc5epls8wlghp29ygz",
+    "evm_address": "0x1856747317e0d50023a8e4f7c962990fe0777d17",
+    "amount_upc": 341012.0,
+    "rebalanced_tokens": 1451.0
+  },
+  {
+    "address": "push1wzu9ezqy4pvtsten6p4d5svnug8n3zeay760gn",
+    "evm_address": "0x70b85c8804a858b82f33d06ada4193e20f388b3d",
+    "amount_upc": 324513.0,
+    "rebalanced_tokens": 1443.0
+  },
+  {
+    "address": "push15ezckca96hxzp6lpz2paja0ccffy7jzulvzkd6",
+    "evm_address": "0xa6458b63a5d5cc20ebe11283d975f8c2524f485c",
+    "amount_upc": 314455.0,
+    "rebalanced_tokens": 1438.0
+  },
+  {
+    "address": "push1z73nsnz84amur5grvet8naldtuulzl5rdagfxk",
+    "evm_address": "0x17a3384c47af77c1d103665679f7ed5f39f17e83",
+    "amount_upc": 303145.0,
+    "rebalanced_tokens": 1433.0
+  },
+  {
+    "address": "push13spzkn5fka8xr8fjwy4r7m687glrrenp98jr8u",
+    "evm_address": "0x8c022b4e89b74e619d32712a3f6f47f23e31e661",
+    "amount_upc": 299146.0,
+    "rebalanced_tokens": 1431.0
+  },
+  {
+    "address": "push1sfg379rszs0r9dgunxkwgqcc6dlstzqpdxyls5",
+    "evm_address": "0x82511f1470141e32b51c99ace40318d37f058801",
+    "amount_upc": 279732.0,
+    "rebalanced_tokens": 1421.0
+  },
+  {
+    "address": "push1ntu6f5c4jj2ylw7ltpud6ud54429n7n0h3rdrz",
+    "evm_address": "0x9af9a4d31594944fbbdf5878dd71b4ad5459fa6f",
+    "amount_upc": 269023.0,
+    "rebalanced_tokens": 1415.0
+  },
+  {
+    "address": "push1agc5zd0dndpdzk9w3pgtsq94uk37q0lrs8htwf",
+    "evm_address": "0xea314135ed9b42d158ae8850b800b5e5a3e03fe3",
+    "amount_upc": 265348.0,
+    "rebalanced_tokens": 1413.0
+  },
+  {
+    "address": "push1tcakweu3cqjew3jvrnyfkhy42pmxdcy03afuqp",
+    "evm_address": "0x5e3b676791c02597464c1cc89b5c95507666e08f",
+    "amount_upc": 265270.0,
+    "rebalanced_tokens": 1413.0
+  },
+  {
+    "address": "push1cxgx65skjlyh7f95ry5rwd8nwflkxj09sc7glw",
+    "evm_address": "0xc1906d521697c97f24b419283734f3727f6349e5",
+    "amount_upc": 245001.0,
+    "rebalanced_tokens": 1402.0
+  },
+  {
+    "address": "push1llum264tcpjlqmk9lfdeg3yt4thq3jpep2zlu8",
+    "evm_address": "0xfff9b56aabc065f06ec5fa5b94448baaee08c839",
+    "amount_upc": 227387.0,
+    "rebalanced_tokens": 1392.0
+  },
+  {
+    "address": "push1jcdk2z63dcu90c33a9lnwjkd2zwm4scktxk0el",
+    "evm_address": "0x961b650b516e3857e231e97f374acd509dbac316",
+    "amount_upc": 223013.0,
+    "rebalanced_tokens": 1390.0
+  },
+  {
+    "address": "push1aea2yppcrtjn772g60nnj8th8h3m68y6gyxt0e",
+    "evm_address": "0xee7aa204381ae53f7948d3e7391d773de3bd1c9a",
+    "amount_upc": 210263.0,
+    "rebalanced_tokens": 1382.0
+  },
+  {
+    "address": "push12md9xr6gssqhh845cumjd3xyd0sfc08prnve8g",
+    "evm_address": "0x56da530f4884017b9eb4c73726c4c46be09c3ce1",
+    "amount_upc": 189498.0,
+    "rebalanced_tokens": 1369.0
+  },
+  {
+    "address": "push1ymyd08m878e96ra5h88uhgfpg8037nv5r6kwnr",
+    "evm_address": "0x26c8d79f67f1f25d0fb4b9cfcba12141df1f4d94",
+    "amount_upc": 189488.0,
+    "rebalanced_tokens": 1369.0
+  },
+  {
+    "address": "push1xkuy66zg69jp29muvnty2prx8wvc5645ue5cey",
+    "evm_address": "0x35b84d6848d16415177c64d64504663b998a6ab4",
+    "amount_upc": 178661.0,
+    "rebalanced_tokens": 1362.0
+  },
+  {
+    "address": "push1wfqcj7nlzztf9nw7u53hnyqqujaktnwq06d2lm",
+    "evm_address": "0x7241897a7f109692cddee523799000e4bb65cdc0",
+    "amount_upc": 175520.0,
+    "rebalanced_tokens": 1360.0
+  },
+  {
+    "address": "push1ds9wjz4xct8dqhfye8h6kfgvhdgt7y0w34p9mj",
+    "evm_address": "0x6c0ae90aa6c2ced05d24c9efab250cbb50bf11ee",
+    "amount_upc": 151606.0,
+    "rebalanced_tokens": 1344.0
+  },
+  {
+    "address": "push1jzyf4hehuhzzz0d6w0szf0qmua9pkxn8ef9787",
+    "evm_address": "0x90889adf37e5c4213dba73e024bc1be74a1b1a67",
+    "amount_upc": 146915.0,
+    "rebalanced_tokens": 1341.0
+  },
+  {
+    "address": "push1l6sz3atm507q30a95fdzvlx5d78xwztygktjqg",
+    "evm_address": "0xfea028f57ba3fc08bfa5a25a267cd46f8e670964",
+    "amount_upc": 140422.0,
+    "rebalanced_tokens": 1336.0
+  },
+  {
+    "address": "push1uzwktnxlv2fm2wtzdhqulh2qg2txqxw3q6pf4x",
+    "evm_address": "0xe09d65ccdf6293b539626dc1cfdd4042966019d1",
+    "amount_upc": 128914.0,
+    "rebalanced_tokens": 1327.0
+  },
+  {
+    "address": "push1vfpyg78juppupd398nq5nu6nahngm3n826seu3",
+    "evm_address": "0x62424478f2e043c0b6253cc149f353ede68dc667",
+    "amount_upc": 123010.0,
+    "rebalanced_tokens": 1323.0
+  },
+  {
+    "address": "push1xplhmp970kwk2y3vdanlxxpzpedusmj5vp3xxu",
+    "evm_address": "0x307f7d84be7d9d65122c6f67f318220e5bc86e54",
+    "amount_upc": 115859.0,
+    "rebalanced_tokens": 1317.0
+  },
+  {
+    "address": "push17vpve302ln8y2sxs335uwlc0dhhaeahuzflctj",
+    "evm_address": "0xf302ccc5eafcce4540d08c69c77f0f6defdcf6fc",
+    "amount_upc": 113708.0,
+    "rebalanced_tokens": 1315.0
+  },
+  {
+    "address": "push1muc4uyqsyvx6pyts8wzetvdf3ywvl4vffg2qvu",
+    "evm_address": "0xdf315e1010230da091703b8595b1a9891ccfd589",
+    "amount_upc": 112066.0,
+    "rebalanced_tokens": 1314.0
+  },
+  {
+    "address": "push1j4tc9urzmqsrrggdjf0jkyn28mughpv86u4xf9",
+    "evm_address": "0x955782f062d82031a10d925f2b126a3ef88b8587",
+    "amount_upc": 105321.0,
+    "rebalanced_tokens": 1308.0
+  },
+  {
+    "address": "push1jguqse4sa2vep97ke52advec3pqj55jdxntvgu",
+    "evm_address": "0x92380866b0ea999097d6cd15d6b33888412a524d",
+    "amount_upc": 102460.0,
+    "rebalanced_tokens": 1306.0
+  },
+  {
+    "address": "push149k2570tyvfdh6ct36furn5yex9k00c3k3ckkj",
+    "evm_address": "0xa96caa79eb2312dbeb0b8e93c1ce84c98b67bf11",
+    "amount_upc": 100004.0,
+    "rebalanced_tokens": 1304.0
+  },
+  {
+    "address": "push139rfh68gyp4tt8mjle28zm33n25dw3lhm47tvt",
+    "evm_address": "0x89469be8e8206ab59f72fe54716e319aa8d747f7",
+    "amount_upc": 100000.0,
+    "rebalanced_tokens": 1304.0
+  },
+  {
+    "address": "push1a4vxrhzj8ys642nazfjdrkf9kz7ye52maerf4d",
+    "evm_address": "0xed5861dc523921aaaa7d1264d1d925b0bc4cd15b",
+    "amount_upc": 99999.0,
+    "rebalanced_tokens": 1304.0
+  },
+  {
+    "address": "push1vzuw2x3k2ccme70zcgswv8d88kyc07grx5h6v7",
+    "evm_address": "0x60b8e51a365631bcf9e2c220e61da73d8987f903",
+    "amount_upc": 99999.0,
+    "rebalanced_tokens": 1304.0
+  },
+  {
+    "address": "push12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddt0ljtrn",
+    "evm_address": "0x54843086a1b73063325abbaad49a13be024d35ab",
+    "amount_upc": 99999.0,
+    "rebalanced_tokens": 1304.0
+  },
+  {
+    "address": "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a",
+    "evm_address": "0x9e510b6120e3cb2a0981b7a77677137108adf529",
+    "amount_upc": 95600.0,
+    "rebalanced_tokens": 1300.0
+  },
+  {
+    "address": "push1syy8q2cwrkhw0r98exyfaswzva2ljah9nz3tu8",
+    "evm_address": "0x8108702b0e1daee78ca7c9889ec1c26755f976e5",
+    "amount_upc": 94592.0,
+    "rebalanced_tokens": 1299.0
+  },
+  {
+    "address": "push1m8gphwtkytvmedtpexydhlf4zatex7nycrtvtd",
+    "evm_address": "0xd9d01bb97622d9bcb561c988dbfd351757937a64",
+    "amount_upc": 89894.0,
+    "rebalanced_tokens": 1295.0
+  },
+  {
+    "address": "push10s3fre4zme7fa2ld54l8w7gpcmflvl32kngnhy",
+    "evm_address": "0x7c2291e6a2de7c9eabeda57e777901c6d3f67e2a",
+    "amount_upc": 83780.0,
+    "rebalanced_tokens": 1289.0
+  },
+  {
+    "address": "push1ml2vu0vx4t2veekt5h00sgluh0z07v05np0m93",
+    "evm_address": "0xdfd4ce3d86aad4cce6cba5def823fcbbc4ff31f4",
+    "amount_upc": 75808.0,
+    "rebalanced_tokens": 1281.0
+  },
+  {
+    "address": "push1w343wu5unz3h96mxhhxw0t7tjcrfc87femvlgz",
+    "evm_address": "0x746b17729c98a372eb66bdcce7afcb96069c1fc9",
+    "amount_upc": 74713.0,
+    "rebalanced_tokens": 1280.0
+  },
+  {
+    "address": "push1g3mt2l8ckecj5xx2d9yq99cseqk7nuvr8a32c0",
+    "evm_address": "0x4476b57cf8b6712a18ca6948029710c82de9f183",
+    "amount_upc": 74709.0,
+    "rebalanced_tokens": 1280.0
+  },
+  {
+    "address": "push13xr7xjw0rs8ny653yj0w3hmjru89r6h6dng4pf",
+    "evm_address": "0x8987e349cf1c0f326a91249ee8df721f0e51eafa",
+    "amount_upc": 74707.0,
+    "rebalanced_tokens": 1280.0
+  },
+  {
+    "address": "push1hzk2m0k9483zuv9cp8scu5r5r8rklzur3ltjqe",
+    "evm_address": "0xb8acadbec5a9e22e30b809e18e507419c76f8b83",
+    "amount_upc": 70216.0,
+    "rebalanced_tokens": 1275.0
+  },
+  {
+    "address": "push1kepxzp33lrv3hpz5qnaj4cz57rt9cdjuzlrs34",
+    "evm_address": "0xb642610631f8d91b845404fb2ae054f0d65c365c",
+    "amount_upc": 66384.0,
+    "rebalanced_tokens": 1271.0
+  },
+  {
+    "address": "push1hpw4l2krl8g789snvc2astgkhjn2usn7fwwew2",
+    "evm_address": "0xb85d5faac3f9d1e396136615d82d16bca6ae427e",
+    "amount_upc": 63986.0,
+    "rebalanced_tokens": 1269.0
+  },
+  {
+    "address": "push1faml8tawzvc5lgh03wvfy3zjj0dy9zuvxt99kf",
+    "evm_address": "0x4f77f3afae13314fa2ef8b9892445293da428b8c",
+    "amount_upc": 63986.0,
+    "rebalanced_tokens": 1269.0
+  },
+  {
+    "address": "push12nctzhg9p29q8hljdap7h9gh65gfz2xdnklka6",
+    "evm_address": "0x54f0b15d050a8a03dff26f43eb9517d5109128cd",
+    "amount_upc": 47313.0,
+    "rebalanced_tokens": 1249.0
+  },
+  {
+    "address": "push1c5x3v0g58sjyk0d0apxfkk83z4hwamhw8f4xv0",
+    "evm_address": "0xc50d163d143c244b3dafe84c9b58f1156eeeeeee",
+    "amount_upc": 44972.0,
+    "rebalanced_tokens": 1246.0
+  },
+  {
+    "address": "push1kkwdepw2e52sjlkwf3m7m8fz2q2tf4tdnkzsgq",
+    "evm_address": "0xb59cdc85cacd15097ece4c77ed9d225014b4d56d",
+    "amount_upc": 43379.0,
+    "rebalanced_tokens": 1244.0
+  },
+  {
+    "address": "push1w5xhns5prz9pmwy47wxvrfpccdzp4543tarhvc",
+    "evm_address": "0x750d79c281188a1db895f38cc1a438c3441ad2b1",
+    "amount_upc": 39989.0,
+    "rebalanced_tokens": 1239.0
+  },
+  {
+    "address": "push145qqshujm8cea8g2dk5euy5c6m076umhcy7k4f",
+    "evm_address": "0xad00085f92d9f19e9d0a6da99e1298d6dfed7377",
+    "amount_upc": 37906.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1f3m2n5fam5tpvvqjra98q6wc4q00rzyfn03f5e",
+    "evm_address": "0x4c76a9d13ddd161630121f4a7069d8a81ef18889",
+    "amount_upc": 37358.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1ule8e385v04ltwjmkemmgw323lap6ttys49zxc",
+    "evm_address": "0xe7f27cc4f463ebf5ba5bb677b43a2a8ffa1d2d64",
+    "amount_upc": 37356.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push17sq37g83lc4jltf4mwkp5ucxtnq8s54hvfxme8",
+    "evm_address": "0xf4011f20f1fe2b2fad35dbac1a73065cc07852b7",
+    "amount_upc": 37355.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1sa0hg668ug7c3sv8qpmm3f7eaxwalpls0p5nmz",
+    "evm_address": "0x875f746b47e23d88c1870077b8a7d9e99ddf87f0",
+    "amount_upc": 37354.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1rlgm3qufujw7vsxtdy7t7zcp76rzw8vv2qu5cw",
+    "evm_address": "0x1fd1b88389e49de640cb693cbf0b01f686271d8c",
+    "amount_upc": 37354.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1435s5f5te05d3h8qh4e9e7xkdwjsfmmn280awn",
+    "evm_address": "0xac690a268bcbe8d8dce0bd725cf8d66ba504ef73",
+    "amount_upc": 37354.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1t0ynu0zakalt00gtpg6v0ytt2d4y96aafjtgrz",
+    "evm_address": "0x5bc93e3c5db77eb7bd0b0a34c7916b536a42ebbd",
+    "amount_upc": 37353.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1vw9au7548ppfzgfm7zt70g59gteenhkvl7mapj",
+    "evm_address": "0x638bde7a95384291213bf097e7a28542f399decc",
+    "amount_upc": 37353.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1drl6s8sxqcpmxy2deyhc2rq3lvhhugqw20wjl8",
+    "evm_address": "0x68ffa81e060603b3114dc92f850c11fb2f7e200e",
+    "amount_upc": 37353.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1waxdseszwqhc4esly4vtp7rufjyyzkh4watec6",
+    "evm_address": "0x774cd86602702f8ae61f2558b0f87c4c88415af5",
+    "amount_upc": 37352.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push13uexj7le6zlt2mf8pwakdsf7hazqg8pa6h9k0j",
+    "evm_address": "0x8f32697bf9d0beb56d270bbb66c13ebf44041c3d",
+    "amount_upc": 37352.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push162kqw64w5c022vzvnyh76tw3cawg4sepm07pna",
+    "evm_address": "0xd2ac076aaea61ea5304c992fed2dd1c75c8ac321",
+    "amount_upc": 37352.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1jh3d4spcshwm68m5wg83y5h4epte8d3pnz60ns",
+    "evm_address": "0x95e2dac03885ddbd1f74720f1252f5c85793b621",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1uhqg38p204atsctxdkjez8h0asp3qs3j84mcvw",
+    "evm_address": "0xe5c0889c2a7d7ab861666da5911eefec03104232",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push14kgv3qwatww42yfr20apvq4xqzukvs9pt8qts0",
+    "evm_address": "0xad90c881dd5b9d55112353fa1602a600b96640a1",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push19rclk6lhj94a3neuq3j8yt8w3xhjghfhkr96aa",
+    "evm_address": "0x28f1fb6bf7916bd8cf3c0464722cee89af245d37",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push19u590kgynqndxrfg6dj2ma6yf4hwws4pxcdjcf",
+    "evm_address": "0x2f2857d9049826d30d28d364adf7444d6ee742a1",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1qyhtsqrn5y45j6h2x4cj8czv2lr85wk3gccjly",
+    "evm_address": "0x012eb80073a12b496aea357123e04c57c67a3ad1",
+    "amount_upc": 37350.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1lentva4w8gathsqavfumf007syvmjlvc700lgc",
+    "evm_address": "0xfe66b676ae3a3abbc01d6279b4bdfe8119b97d98",
+    "amount_upc": 37349.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push16k3tgvzpyp6vhsyn8v6f0w9jss8lhzl59w7zr7",
+    "evm_address": "0xd5a2b430412074cbc0933b3497b8b2840ffb8bf4",
+    "amount_upc": 37349.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1u3ppgzayksjx75lrdhkrnsffsjhsp63pgqy2az",
+    "evm_address": "0xe442140ba4b4246f53e36dec39c12984af00ea21",
+    "amount_upc": 37349.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push12m0tlmw9s8x368g3pmvczynsl964acrwnqtqqv",
+    "evm_address": "0x56debfedc581cd1d1d110ed9811270f9755ee06e",
+    "amount_upc": 37348.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1gzxkddhszmwyed2yaj6czkwdp2p5qjjq97zewf",
+    "evm_address": "0x408d66b6f016dc4cb544ecb58159cd0a83404a40",
+    "amount_upc": 37348.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1ugh3l2c0g5ge9mdwvugxgu7neswcf4zsk5w5n5",
+    "evm_address": "0xe22f1fab0f451192edae67106473d3cc1d84d450",
+    "amount_upc": 37348.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1lahgjjlyusnlpn2weh46gyt07f2fn3jsnxmy2q",
+    "evm_address": "0xff6e894be4e427f0cd4ecdeba4116ff25499c650",
+    "amount_upc": 37347.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1m5tuvtxm63zfkz2w8jfw5mrkkw53pm9cxgeek5",
+    "evm_address": "0xdd17c62cdbd4449b094e3c92ea6c76b3a910ecb8",
+    "amount_upc": 37347.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1yhz7cqahvww8a6ua5gykdxtmn425kasc89q2mu",
+    "evm_address": "0x25c5ec03b7639c7eeb9da20966997b9d554b7618",
+    "amount_upc": 37347.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1m79drglsl75zx4p8yg2n2yrjawdwxzslr47f6c",
+    "evm_address": "0xdf8ad1a3f0ffa82354272215351072eb9ae30a1f",
+    "amount_upc": 37346.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push14cm4nspzry94ld4f0eal38hfvmy3uaaxc9gltg",
+    "evm_address": "0xae3759c022190b5fb6a97e7bf89ee966c91e77a6",
+    "amount_upc": 37346.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1ghdr88lz2wr4hwajl55uv823ppvwnq9yw89k86",
+    "evm_address": "0x45da339fe253875bbbb2fd29c61d510858e980a4",
+    "amount_upc": 37346.0,
+    "rebalanced_tokens": 1236.0
+  },
+  {
+    "address": "push1uaxh09lrmkzue0rj978lc5jgxqyarh3w8shvz7",
+    "evm_address": "0xe74d7797e3dd85ccbc722f8ffc52483009d1de2e",
+    "amount_upc": 35114.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1qcepu0g248jwwt6elffcs59z6mgqdgxgxwvhh4",
+    "evm_address": "0x06321e3d0aa9e4e72f59fa538850a2d6d006a0c8",
+    "amount_upc": 35114.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1vcx8kjgmas6gnufpqfteju9afx6rkf5fp4s22j",
+    "evm_address": "0x660c7b491bec3489f12102579970bd49b43b2689",
+    "amount_upc": 35114.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push127s4kxekyh3xyllfjstw9eagthhexqlz4x9v80",
+    "evm_address": "0x57a15b1b3625e2627fe99416e2e7a85def9303e2",
+    "amount_upc": 35113.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1us53pv3vz8tv2u7sdh53xz52pzxu9anrp4s2qv",
+    "evm_address": "0xe42910b22c11d6c573d06de9130a8a088dc2f663",
+    "amount_upc": 35113.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1jvctt9dhvnuddtjgx3lvcv9u4n29amnyl3k9mx",
+    "evm_address": "0x9330b595b764f8d6ae48347ecc30bcacd45eee64",
+    "amount_upc": 35113.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1re2p7udw63teucmdph4gde07ake49q42cyglvw",
+    "evm_address": "0x1e541f71aed4579e636d0dea86e5feedb35282aa",
+    "amount_upc": 35113.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push177nk5sdrrctkp78cxs5uh8e9hs9ygxljutve8c",
+    "evm_address": "0xf7a76a41a31e1760f8f83429cb9f25bc0a441bf2",
+    "amount_upc": 35113.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1tp09765teaett2vlhjx7e03g7xrt2czpjfjup7",
+    "evm_address": "0x585e5f6a8bcf72b5a99fbc8decbe28f186b56041",
+    "amount_upc": 35112.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1kz3n8ykjdzzz9z7dpvnr2vs3acv7y93lzt78xz",
+    "evm_address": "0xb0a33392d26884228bcd0b26353211ee19e2163f",
+    "amount_upc": 35112.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1gh8ejw0jx5j2hndun2p7wlswspqkndkzcmxz29",
+    "evm_address": "0x45cf9939f23524abcdbc9a83e77e0e804169b6c2",
+    "amount_upc": 35112.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1c76xk4k9dreeucudnfkh5uq8xw6560ugdnfrtg",
+    "evm_address": "0xc7b46b56c568f39e638d9a6d7a700733b54d3f88",
+    "amount_upc": 35112.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push13hwn0gwhpzrpl05m44aayvwg3z4vmxt965xse5",
+    "evm_address": "0x8ddd37a1d708861fbe9bad7bd231c888aacd9965",
+    "amount_upc": 35111.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1y6cne7pz084du57xjhevu969xupyx9sshxhujv",
+    "evm_address": "0x26b13cf82279eade53c695f2ce17453702431610",
+    "amount_upc": 35111.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1nuy2cgzy6crxjxnsfk54zqy57hra8fe08ya498",
+    "evm_address": "0x9f08ac2044d606691a704da9510094f5c7d3a72f",
+    "amount_upc": 35110.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1ycnspaa89weqquufzgh8a8f69vxf55ffkaafz4",
+    "evm_address": "0x262700f7a72bb2007389122e7e9d3a2b0c9a5129",
+    "amount_upc": 35110.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1595zdn78meqjgd80y2y3dya6rnccp7x6v3kpay",
+    "evm_address": "0xa16826cfc7de412434ef22891693ba1cf180f8da",
+    "amount_upc": 35110.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1t85k6j99w0rz5a07hhqhjs30a5pd7d9c9nk5zk",
+    "evm_address": "0x59e96d48a573c62a75febdc179422fed02df34b8",
+    "amount_upc": 35110.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1hu0hmvd232t5d2mj8dux0j4t6t2kuu5urj9ucc",
+    "evm_address": "0xbf1f7db1aa8a9746ab723b7867caabd2d56e729c",
+    "amount_upc": 34769.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1mt7jm0tmvz0rw92ceejkry7tg7hkmvlp6dgjqx",
+    "evm_address": "0xdafd2dbd7b609e371558ce656193cb47af6db3e1",
+    "amount_upc": 34769.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1ku2m70mmtyswdp8j6deaz7h0yzgj6dp8u5sa4t",
+    "evm_address": "0xb715bf3f7b5920e684f2d373d17aef20912d3427",
+    "amount_upc": 34769.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1s9a7xcfgur7e659xczjvd0j3x2y8p5g3xwcsd2",
+    "evm_address": "0x817be36128e0fd9d50a6c0a4c6be51328870d111",
+    "amount_upc": 34769.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1z08gjx0t3384jnxv95dmmjeldevwgxpd45r5ej",
+    "evm_address": "0x13ce8919eb8c4f594ccc2d1bbdcb3f6e58e4182d",
+    "amount_upc": 34768.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1l70ve4g5szc8ad9624jesu5cwfwma4uswp0jcy",
+    "evm_address": "0xff9eccd51480b07eb4ba5565987298725dbed790",
+    "amount_upc": 34768.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push10gkl7vzs0vnwqvcutxdrvkhsczdz9vvazeju9n",
+    "evm_address": "0x7a2dff30507b26e0331c599a365af0c09a22b19d",
+    "amount_upc": 34768.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1et58u5kk6nw6l3dvfghp4nsgeqw8sexcnmrmz7",
+    "evm_address": "0xcae87e52d6d4ddafc5ac4a2e1ace08c81c7864d8",
+    "amount_upc": 34767.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1uad73lgxst3ugjey4hjclxzd8hzdp9g4qztz7a",
+    "evm_address": "0xe75be8fd0682e3c44b24ade58f984d3dc4d09515",
+    "amount_upc": 34767.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1yx5p4l0tz85jpe4367729njel3syrz3pkgjjl8",
+    "evm_address": "0x21a81afdeb11e920e6b1d7bca2ce59fc60418a21",
+    "amount_upc": 34767.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1akxsd552sw0j69wql8fld3s5mvd3a5xlr4enwx",
+    "evm_address": "0xed8d06d28a839f2d15c0f9d3f6c614db1b1ed0df",
+    "amount_upc": 34767.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1re5hxt3klwffztq2nc6zswrs00aq0ff4tcqlxx",
+    "evm_address": "0x1e69732e36fb92912c0a9e342838707bfa07a535",
+    "amount_upc": 34766.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1skc23gktzsjj67hjlgpqedsacgpssmpewyl024",
+    "evm_address": "0x85b0a8a2cb14252d7af2fa020cb61dc203086c39",
+    "amount_upc": 34766.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1nedpm2ajg3z5xg8c90r4ydfgswmaz2vmaj4338",
+    "evm_address": "0x9e5a1dabb244454320f82bc752352883b7d1299b",
+    "amount_upc": 34766.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push165jfrwzy0uettlfkmxx3t8zkp0ygjdpawyptq0",
+    "evm_address": "0xd52491b8447f32b5fd36d98d159c560bc889343d",
+    "amount_upc": 34765.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1dn5jhtq7hzf4zwtzauzeu4z6kwl07pvx4pqlex",
+    "evm_address": "0x6ce92bac1eb893513962ef059e545ab3beff0586",
+    "amount_upc": 34765.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1nlmvr77dwwk0xssxprp4n3kxx2fhnujese85qf",
+    "evm_address": "0x9ff6c1fbcd73acf3420608c359c6c6329379f259",
+    "amount_upc": 34765.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1uayay49wpjwt70u5macgsqnmcle3kwavr4k0nc",
+    "evm_address": "0xe749d254ae0c9cbf3f94df7088027bc7f31b3bac",
+    "amount_upc": 34764.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1ash2w3zw70lp3ctmjjhtv08n4klmz3659qeadt",
+    "evm_address": "0xec2ea7444ef3fe18e17b94aeb63cf3adbfb14754",
+    "amount_upc": 34764.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1pkvfa4ujumj8nel5e88wg5fc0z6s7q0tqcudmh",
+    "evm_address": "0x0d989ed792e6e479e7f4c9cee4513878b50f01eb",
+    "amount_upc": 34764.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push144rp9c969prux75p38esntawmx4tuga2psg6e9",
+    "evm_address": "0xad4612e0ba2847c37a8189f309afaed9aabe23aa",
+    "amount_upc": 34763.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push1sclqat276qszqzm7ydg87uwtc59762fdfyxjlk",
+    "evm_address": "0x863e0ead5ed020200b7e23507f71cbc50bed292d",
+    "amount_upc": 34763.0,
+    "rebalanced_tokens": 1232.0
+  },
+  {
+    "address": "push192rz8knwlgtcyqvlh9z37q9mjw4zx68j0n3tfw",
+    "evm_address": "0x2a8623da6efa1782019fb9451f00bb93aa2368f2",
+    "amount_upc": 34408.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push17p2360wkst594ugda0pf9vcc4gmyvrjkm7q6tu",
+    "evm_address": "0xf0551d3dd682e85af10debc292b318aa36460e56",
+    "amount_upc": 34407.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1q0pc46nv4cstzmxnxnys7mwawsuzn53f423cx0",
+    "evm_address": "0x03c38aea6cae20b16cd334c90f6ddd743829d229",
+    "amount_upc": 34407.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push10wa9k9dxe47h82upcwkfzcup0gmvwc2vke4xk6",
+    "evm_address": "0x7bba5b15a6cd7d73ab81c3ac9163817a36c7614c",
+    "amount_upc": 34407.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1jj659hvhsd73hyesn3lgs0ukglk7klu48jxkn0",
+    "evm_address": "0x94b542dd97837d1b93309c7e883f9647edeb7f95",
+    "amount_upc": 34406.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1x6hf7epk4nj9tkj4x0yq998sd6zc4xs23u2s99",
+    "evm_address": "0x36ae9f6436ace455da5533c80294f06e858a9a0a",
+    "amount_upc": 34406.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1kae4nm65589rwkvmn6kkuqked57slcnn9qsra8",
+    "evm_address": "0xb77359ef54a1ca37599b9ead6e02d96d3d0fe273",
+    "amount_upc": 34406.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push18k7nk47pcq355qp0h4ane7kx9a5sey5m4zzznt",
+    "evm_address": "0x3dbd3b57c1c0234a002fbd7b3cfac62f690c929b",
+    "amount_upc": 34405.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push15m7k2qrvgqe5dhrx0s9q8d7flq0fw7c38ufdrx",
+    "evm_address": "0xa6fd65006c403346dc667c0a03b7c9f81e977b11",
+    "amount_upc": 34405.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push18lcfckds6yr3mw6pkqsyw03usjx8g9c6vjp3j0",
+    "evm_address": "0x3ff09c59b0d1071dbb41b020473e3c848c74171a",
+    "amount_upc": 34405.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1gfksmt6nnmxswmtv9p6w43trw960fhzz5hwpny",
+    "evm_address": "0x426d0daf539ecd076d6c2874eac5637174f4dc42",
+    "amount_upc": 33991.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1942x5wats85ljc45z9hl53l6u2ezhjh6424zg3",
+    "evm_address": "0x2d546a3bab81e9f962b4116ffa47fae2b22bcafa",
+    "amount_upc": 33991.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1czd3ntwrcz2zw0wkpqkjr0vt4zdn97l7az86d3",
+    "evm_address": "0xc09b19adc3c094273dd6082d21bd8ba89b32fbfe",
+    "amount_upc": 33991.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1t2rzfmyd4hguwyfdf542pyv60ejdcdajxfzkq7",
+    "evm_address": "0x5a8624ec8dadd1c7112d4d2aa0919a7e64dc37b2",
+    "amount_upc": 33990.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push17tstktuh4ee230r3kk5e4ju7lg2lkwmfrpanuq",
+    "evm_address": "0xf2e0bb2f97ae72a8bc71b5a99acb9efa15fb3b69",
+    "amount_upc": 33990.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push16gfs6jgfa5wj298zfs2t2fu7lngn005cxla8j9",
+    "evm_address": "0xd2130d4909ed1d2514e24c14b5279efcd137be98",
+    "amount_upc": 33990.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1ddv74x5fvhgc9jl334dgwdzc6g4uk6qvkhz7md",
+    "evm_address": "0x6b59ea9a8965d182cbf18d5a873458d22bcb680c",
+    "amount_upc": 33989.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1lkenswjudmaqpp9dp3jc6nq5njw4vwfegvg7h0",
+    "evm_address": "0xfdb3383a5c6efa0084ad0c658d4c149c9d563939",
+    "amount_upc": 33989.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1zr0u6gyrp4p86uds9ew00l6tkfle8jhjc6ya37",
+    "evm_address": "0x10dfcd20830d427d71b02e5cf7ff4bb27f93caf2",
+    "amount_upc": 33989.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1scmvu687rshdkzw9qhws3m4xds8k04f6h9grdj",
+    "evm_address": "0x8636ce68fe1c2edb09c505dd08eea66c0f67d53a",
+    "amount_upc": 33989.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1k3q4v5c95kmc0fvlknc63alsundkg2uqymzwdd",
+    "evm_address": "0xb441565305a5b787a59fb4f1a8f7f0e4db642b80",
+    "amount_upc": 33988.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1e3ec6qnzjxqyy4hw406yqjt7lgdehdwmsgnq0v",
+    "evm_address": "0xcc738d026291804256eeabf440497efa1b9bb5db",
+    "amount_upc": 33988.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1yvpvy6wuwz9sa7kv7fvmm2e8c6c05u2qc94zfx",
+    "evm_address": "0x2302c269dc708b0efaccf259bdab27c6b0fa7140",
+    "amount_upc": 33988.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push18ldcm8xenku7te26utvc0mjq85lr5lylrf55na",
+    "evm_address": "0x3fdb8d9cd99db9e5e55ae2d987ee403d3e3a7c9f",
+    "amount_upc": 33987.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1ssehsaluw4h7q2y96qe4qt3gmxg9xe0ge8h2mv",
+    "evm_address": "0x84337877fc756fe02885d033502e28d9905365e8",
+    "amount_upc": 33987.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1cq8ug2yvxf6dnzsphs8kc6cagxuv5sef9zcr2e",
+    "evm_address": "0xc00fc4288c3274d98a01bc0f6c6b1d41b8ca4329",
+    "amount_upc": 33987.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1grnhxw3s44yl0aua05av4nrmcxu83qnnusvl9r",
+    "evm_address": "0x40e7733a30ad49f7f79d7d3acacc7bc1b8788273",
+    "amount_upc": 33986.0,
+    "rebalanced_tokens": 1231.0
+  },
+  {
+    "address": "push1pl0un48fmrt50ygknmc6qtakj7ej6d22yq23lq",
+    "evm_address": "0x0fdfc9d4e9d8d74791169ef1a02fb697b32d354a",
+    "amount_upc": 33797.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push18kfct5djuxt3frccy4h85pqtyg68k3hpxye0su",
+    "evm_address": "0x3d9385d1b2e197148f18256e7a040b22347b46e1",
+    "amount_upc": 33627.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push1chn77c4489d68wekl3n7x0huw2mgcg50vsqca6",
+    "evm_address": "0xc5e7ef62b5395ba3bb36fc67e33efc72b68c228f",
+    "amount_upc": 33626.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push1rmlesscp63j97pr8l6yl3fej69mmt3wwl9rt9e",
+    "evm_address": "0x1eff984301d4645f0467fe89f8a732d177b5c5ce",
+    "amount_upc": 33626.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push1x07txvf5p8q44cw28pllzju9mm33v6mqnrk207",
+    "evm_address": "0x33fcb3313409c15ae1ca387ff14b85dee3166b60",
+    "amount_upc": 33626.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push1y9l24fu8qfl966d98ty7m60qdaqva4u3uxuu5p",
+    "evm_address": "0x217eaaa787027e5d69a53ac9ede9e06f40ced791",
+    "amount_upc": 33625.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push1lt34jnrgah7z5cdh2fckf0dwsz7rqggg00vs7y",
+    "evm_address": "0xfae3594c68edfc2a61b7527164bdae80bc302108",
+    "amount_upc": 33422.0,
+    "rebalanced_tokens": 1230.0
+  },
+  {
+    "address": "push15j6xpgr0xy5myyrpr52w5hq7u8mlav5tpcyxl8",
+    "evm_address": "0xa4b460a06f3129b210611d14ea5c1ee1f7feb28b",
+    "amount_upc": 33289.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1hmdvfpdsfjemtfs9ayr8mdj09f02f3vu3zzsj0",
+    "evm_address": "0xbedac485b04cb3b5a605e9067db64f2a5ea4c59c",
+    "amount_upc": 33278.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1funmpzhdna0zp7vmdh9p2v3d8385xsql5c7wh9",
+    "evm_address": "0x4f27b08aed9f5e20f99b6dca15322d3c4f43401f",
+    "amount_upc": 33278.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1064329h4mrncathu0r3zglaykcfvgrmat4rjql",
+    "evm_address": "0x7eab1516f5d8e78eaefc78e2247fa4b612c40f7d",
+    "amount_upc": 33278.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1htg637lg4nchf83yg9emnem92rakhaqe0gfcly",
+    "evm_address": "0xbad1a8fbe8acf1749e244173b9e76550fb6bf419",
+    "amount_upc": 33277.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push10kkzju0xq2n3l34gdlc5wqen8t7rwujhav8mw4",
+    "evm_address": "0x7dac2971e602a71fc6a86ff14703333afc377257",
+    "amount_upc": 33277.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push17vc07y9kukf7dgxpj23r7ezv8n9gplypmm4v5q",
+    "evm_address": "0xf330ff10b6e593e6a0c192a23f644c3cca80fc81",
+    "amount_upc": 33276.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push14djdkk5xpu3zgam8pj5qttdxqs3nc9ptxkxqvv",
+    "evm_address": "0xab64db5a860f222477670ca805ada604233c142b",
+    "amount_upc": 33276.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1gzd8x6gz3ttmjdcdhaw8876mxuzvn72v77fhu7",
+    "evm_address": "0x409a7369028ad7b9370dbf5c73fb5b3704c9f94c",
+    "amount_upc": 33276.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push19as35u7et8j0enmye25ej42w5fvuljdyt78sqs",
+    "evm_address": "0x2f611a73d959e4fccf64caa999554ea259cfc9a4",
+    "amount_upc": 33276.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push10p7xu7k3fgdedrr28ktargyzxux5eakw5067dv",
+    "evm_address": "0x787c6e7ad14a1b968c6a3d97d1a082370d4cf6ce",
+    "amount_upc": 33275.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1404gfkm9pmk7lsptzm3edkd0uwrrggw62fxqj0",
+    "evm_address": "0xabea84db650eedefc02b16e396d9afe3863421da",
+    "amount_upc": 33275.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1sj5fapqp9m0wysytfdfen8lc8r59fds68m79av",
+    "evm_address": "0x84a89e84012edee2408b4b53999ff838e854b61a",
+    "amount_upc": 33275.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1kckt9gcm2lnr0630w4cqmscw62e0cqucndql0p",
+    "evm_address": "0xb62cb2a31b57e637ea2f75700dc30ed2b2fc0398",
+    "amount_upc": 33274.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1fnlty73m2df74fslajgu9gul3e388j2hzxj9t0",
+    "evm_address": "0x4cfeb27a3b5353eaa61fec91c2a39f8e6273c957",
+    "amount_upc": 33274.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1d9w526nh575t3k36zzu6sajhwynv4kg4uc8kve",
+    "evm_address": "0x695d456a77a7a8b8da3a10b9a876577126cad915",
+    "amount_upc": 33274.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1m89rfzmasas3y4tynlwv52rgrg8u6gdgr8pwdr",
+    "evm_address": "0xd9ca348b7d87611255649fdcca28681a0fcd21a8",
+    "amount_upc": 33274.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1f2pm3lek36fn8l7nt3k7kun8890n9akhzry6l8",
+    "evm_address": "0x4a83b8ff368e9333ffd35c6deb7267395f32f6d7",
+    "amount_upc": 33273.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1a50qu7343glh20d5rqhzwy0ztc4pk0tx9wm7l3",
+    "evm_address": "0xed1e0e7a358a3f753db4182e2711e25e2a1b3d66",
+    "amount_upc": 33273.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1pexdagdls9g4hdp3jsxcjzekpn6295r8m9zhqt",
+    "evm_address": "0x0e4cdea1bf81515bb431940d890b360cf4a2d067",
+    "amount_upc": 33273.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push14rsl5k0vytk98msd45rchspwwqyshy6u7k3wpz",
+    "evm_address": "0xa8e1fa59ec22ec53ee0dad078bc02e70090b935c",
+    "amount_upc": 33272.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1cye9rk3scuxlqynf57n42cpkpsz8t27k8vr9j2",
+    "evm_address": "0xc13251da30c70df01269a7a75560360c0475abd6",
+    "amount_upc": 33272.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1vk7cffd4p8mk7qlgtdhpljgl6wx5c8rzx2ce4u",
+    "evm_address": "0x65bd84a5b509f76f03e85b6e1fc91fd38d4c1c62",
+    "amount_upc": 33272.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1l00secr054uyghcykx8fj5ckvayd2c0uwyxuqa",
+    "evm_address": "0xfbdf0ce06fa578445f04b18e9953166748d561fc",
+    "amount_upc": 33260.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1na6lezynzs70wumlfn38fu6f2drfn8hy9y88wx",
+    "evm_address": "0x9f75fc8893143cf7737f4ce274f3495346999ee4",
+    "amount_upc": 33260.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1pjqvz2pchjxhrkekwcwqunqnqyu3nx93hhdy5y",
+    "evm_address": "0x0c80c12838bc8d71db36761c0e4c1301391998b1",
+    "amount_upc": 33260.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1jxq6t30ngf9kgj8pj5ntnjnjprs4u3v88hhzzf",
+    "evm_address": "0x9181a5c5f3424b6448e19526b9ca7208e15e4587",
+    "amount_upc": 33259.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1w7jzykkgey4e7pxj00swg8jfhg94x0y3k463ud",
+    "evm_address": "0x77a4225ac8c92b9f04d27be0e41e49ba0b533c91",
+    "amount_upc": 33259.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1qv328tc30ruelqllkn8c7mscect94gvhlus5xx",
+    "evm_address": "0x0322a3af1178f99f83ffb4cf8f6e18ce165aa197",
+    "amount_upc": 33259.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1flm8trk53zlptshgdayf7sk0wlu87xmduu9wwd",
+    "evm_address": "0x4ff6758ed488be15c2e86f489f42cf77f87f1b6d",
+    "amount_upc": 33259.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1achmu7fd5exj6vww3tvsgh2y465p6uqcrr3a7k",
+    "evm_address": "0xee2fbe792da64d2d31ce8ad9045d44aea81d7018",
+    "amount_upc": 33258.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1zw4faj7x0av6adxr9n7rsrqt7fjaxrft0zahwy",
+    "evm_address": "0x13aa9ecbc67f59aeb4c32cfc380c0bf265d30d2b",
+    "amount_upc": 33258.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push14s224f6n0n3txq6tf8ku6sas9hp32vguf0m0zg",
+    "evm_address": "0xac14aaa7537ce2b3034b49edcd43b02dc315311c",
+    "amount_upc": 33258.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1yfrda42fu6gt6jpa4z0xm47t9rl80nf5aw56jl",
+    "evm_address": "0x2246ded549e690bd483da89e6dd7cb28fe77cd34",
+    "amount_upc": 33257.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1czs9pm2da28rq00sgnpgyx55w2eu28uvvj2vhu",
+    "evm_address": "0xc0a050ed4dea8e303df044c2821a9472b3c51f8c",
+    "amount_upc": 33257.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1za4le0nv48jdtnq7y0798ascg08455k88ksna6",
+    "evm_address": "0x176bfcbe6ca9e4d5cc1e23fc53f61843cf5a52c7",
+    "amount_upc": 33257.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push16d2p8yqgyr9lh8843x3ndjc0t40klc2hd787uv",
+    "evm_address": "0xd35413900820cbfb9cf589a336cb0f5d5f6fe157",
+    "amount_upc": 33257.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push16h0rgmqvrqz8fmpm2lyjqrk0jqf8apnyjxfupk",
+    "evm_address": "0xd5de346c0c180474ec3b57c9200ecf90127e8664",
+    "amount_upc": 33256.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1tkhsuc6ak5trrmnded0hnckeusxm098qmxj4jv",
+    "evm_address": "0x5daf0e635db51631ee6dcb5f79e2d9e40db794e0",
+    "amount_upc": 33246.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1ftz8klnjlj87ly3rkvg95j0h8x5ymszye3hs7m",
+    "evm_address": "0x4ac47b7e72fc8fef9223b3105a49f739a84dc044",
+    "amount_upc": 33246.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push14fprqw3u5cajftvc0pmwa54skv2yzfwjvwecsd",
+    "evm_address": "0xaa42303a3ca63b24ad987876eed2b0b3144125d2",
+    "amount_upc": 33246.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1lrwrssa7ulu5639aa9fynmecq40ya57n647w9j",
+    "evm_address": "0xf8dc3843bee7f94d44bde95249ef38055e4ed3d3",
+    "amount_upc": 33245.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1vd9hkrpj48arpnzhvepehz88yerpxx9efxxpvv",
+    "evm_address": "0x634b7b0c32a9fa30cc5766439b88e726461318b9",
+    "amount_upc": 33245.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1a2t7070tp5l2stsqmg3tz9x8rtffuj5z77q7cx",
+    "evm_address": "0xea97e7f9eb0d3ea82e00da22b114c71ad29e4a82",
+    "amount_upc": 33245.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1yy987ze96jtv8z4kdrweh9yq5fhrmhm68vlht7",
+    "evm_address": "0x210a7f0b25d496c38ab668dd9b9480a26e3ddf7a",
+    "amount_upc": 33244.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1f6lg6kg6m2wjlr5d8fydvajsv6eu7hyck9vfmu",
+    "evm_address": "0x4ebe8d591ada9d2f8e8d3a48d6765066b3cf5c98",
+    "amount_upc": 33244.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1z2g8w2qu8r947cqaecfnkfsgs8x0jgf0fjec5d",
+    "evm_address": "0x129077281c38cb5f601dce133b260881ccf9212f",
+    "amount_upc": 33244.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1n5durxmy0y4u97xlcghslp836phk0wzxr0p9ky",
+    "evm_address": "0x9d1bc19b64792bc2f8dfc22f0f84f1d06f67b846",
+    "amount_upc": 33244.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1fy83nyvew40mwcc57gvq6x7zzvufpf05mdxcau",
+    "evm_address": "0x490f199199755fb76314f2180d1bc2133890a5f4",
+    "amount_upc": 33243.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1r53lu607980aj9m69lhzg279uw0ekeg29l47qj",
+    "evm_address": "0x1d23fe69fe29dfd9177a2fee242bc5e39f9b650a",
+    "amount_upc": 33243.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1pxzxa88xx3smp94fnlrq0s54uyvlcfngu95uuv",
+    "evm_address": "0x09846e9ce63461b096a99fc607c295e119fc2668",
+    "amount_upc": 33197.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push19a7vsq4v9g500yf0ah5cuu4cnz6srspaz279f7",
+    "evm_address": "0x2f7cc802ac2a28f7912fede98e72b898b501c03d",
+    "amount_upc": 33196.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push13jhdxzfqsn0xzktcgum0a0c79s0ltldaj067an",
+    "evm_address": "0x8caed3092084de6159784736febf1e2c1ff5fdbd",
+    "amount_upc": 33196.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1ujv5vjdwkj5sxtzupl0e7jyhmyutkdsccw7nsf",
+    "evm_address": "0xe4994649aeb4a9032c5c0fdf9f4897d938bb3618",
+    "amount_upc": 33196.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1rgd099z4e26asasxjlap5vnn0w3xfkcaajlyhr",
+    "evm_address": "0x1a1af29455cab5d8760697fa1a32737ba264db1d",
+    "amount_upc": 33196.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1m38mkx8z5mqjj25nka3h4jpyyqmwfrdae676ec",
+    "evm_address": "0xdc4fbb18e2a6c1292a93b7637ac8242036e48dbd",
+    "amount_upc": 33196.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1u64e77nmz8gf6zpdn4s873cj2uddluh3dtwhz4",
+    "evm_address": "0xe6ab9f7a7b11d09d082d9d607f4712571adff2f1",
+    "amount_upc": 33195.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push12sxr0u9txn2elnhnw6em8rp0dkdfsj9wjs4mmy",
+    "evm_address": "0x540c37f0ab34d59fcef376b3b38c2f6d9a9848ae",
+    "amount_upc": 33195.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1gttwf645zdwwfz89amqlvlmwfkk8cy22rea78d",
+    "evm_address": "0x42d6e4eab4135ce488e5eec1f67f6e4dac7c114a",
+    "amount_upc": 33180.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push19rz97sxc9fudewxpewknjfgv8kcyjzwwtm46mv",
+    "evm_address": "0x28c45f40d82a78dcb8c1cbad39250c3db04909ce",
+    "amount_upc": 33180.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push186sgfqd8cv8e8c43vca0rm6fhgrprqpa5xwt3x",
+    "evm_address": "0x3ea08481a7c30f93e2b1663af1ef49ba0611803d",
+    "amount_upc": 33180.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1wd930e2drhzgeaykvx2kgp9mhychx65r98v0f6",
+    "evm_address": "0x734b17e54d1dc48cf49661956404bbb931736a83",
+    "amount_upc": 33179.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1er47kygw7zwtg76zec6guxpf34gl0xv88wrm9y",
+    "evm_address": "0xc8ebeb110ef09cb47b42ce348e18298d51f79987",
+    "amount_upc": 33175.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1kjwgqvpccc5zhq6kf3vxkf8xapxtr6t4d4dds8",
+    "evm_address": "0xb49c803038c6282b83564c586b24e6e84cb1e975",
+    "amount_upc": 33175.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push166f73v3fumx07mgnypc8hxegutyewjlv3knuz2",
+    "evm_address": "0xd693e8b229e6ccff6d1320707b9b28e2c9974bec",
+    "amount_upc": 33174.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push19lupyhpprgvytkdj696wu9dr57472qx2ayp3cj",
+    "evm_address": "0x2ff8125c211a1845d9b2d174ee15a3a7abe500ca",
+    "amount_upc": 32913.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1p249fjag4cp5046tchxh58rzhu5srqgs8nhapq",
+    "evm_address": "0x0aaa54cba8ae0347d74bc5cd7a1c62bf29018110",
+    "amount_upc": 32913.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1gy8a74tsm8s79m98t36g3l0vy0u062qef82mhg",
+    "evm_address": "0x410fdf5570d9e1e2eca75c7488fdec23f8fd2819",
+    "amount_upc": 32913.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1pdssqz8ns76t7kkq0e4kfge2acq6lyf97hmm3c",
+    "evm_address": "0x0b610008f387b4bf5ac07e6b64a32aee01af9125",
+    "amount_upc": 32912.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1att7zru84q6p797xku74rfslsfy3nsfsl2uxyt",
+    "evm_address": "0xead7e10f87a8341f17c6b73d51a61f824919c130",
+    "amount_upc": 32912.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1295wpyuesst8vskcm0cxanfahunramvrxesa5y",
+    "evm_address": "0x5168e0939984167642d8dbf06ecd3dbf263eed83",
+    "amount_upc": 32689.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1zpnu0ztfr939rr2nlq0hy6zwq8dscluarx2n4u",
+    "evm_address": "0x1067c789691962518d53f81f72684e01db0c7f9d",
+    "amount_upc": 32689.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push18ze0n0sqcqdhjjfra29w4c3387up3qhncs4ghy",
+    "evm_address": "0x38b2f9be00c01b794923ea8aeae2313fb81882f3",
+    "amount_upc": 32689.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push149x4z07pas6wntjr0em7fpmjgu0uvz42tspfan",
+    "evm_address": "0xa94d513fc1ec34e9ae437e77e48772471fc60aaa",
+    "amount_upc": 32688.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push136g25nhh3q3mkrytgmquwcc4veck7xu5d4a757",
+    "evm_address": "0x8e90aa4ef78823bb0c8b46c1c7631566716f1b94",
+    "amount_upc": 32688.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push15939qshyehjjd7xpmqn34xjz7259whcy6sq0fz",
+    "evm_address": "0xa1625042e4cde526f8c1d8271a9a42f2a8575f04",
+    "amount_upc": 32688.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1khky9u0ryer5755wlcwspq8dkh22f7a2r4hdut",
+    "evm_address": "0xb5ec42f1e326474f528efe1d0080edb5d4a4fbaa",
+    "amount_upc": 32687.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push18fg3m23f8gumvec8gu8zlwrrzd40n9g78j0r52",
+    "evm_address": "0x3a511daa293a39b66707470e2fb863136af9951e",
+    "amount_upc": 32687.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push13kjxd8frkvptwlu7rxdsxmtx54t5ejyzzr9jdm",
+    "evm_address": "0x8da4669d23b302b77f9e199b036d66a5574cc882",
+    "amount_upc": 32687.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push15nkm72nemf25vz8ku0um0dpnmdf8hfh4htwu77",
+    "evm_address": "0xa4edbf2a79da554608f6e3f9b7b433db527ba6f5",
+    "amount_upc": 32687.0,
+    "rebalanced_tokens": 1229.0
+  },
+  {
+    "address": "push1q54ns6fgtspx4f235ywagtzc65vs7z7xw4hakn",
+    "evm_address": "0x052b3869285c026aa551a11dd42c58d5190f0bc6",
+    "amount_upc": 32449.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push16w7xw96ugap0re28u685m7x4t2ex0z640h3aks",
+    "evm_address": "0xd3bc67175c4742f1e547e68f4df8d55ab2678b55",
+    "amount_upc": 32449.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1k5n8lh6r8t9cy9herdm5k7v3la268gwt0lq0n7",
+    "evm_address": "0xb5267fdf433acb8216f91b774b7991ff55a3a1cb",
+    "amount_upc": 32449.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push186k7sz9eylyx5thkk9je25zp7vdnqrl7eh6a23",
+    "evm_address": "0x3eade808b927c86a2ef6b165955041f31b300ffe",
+    "amount_upc": 32449.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1zfqgrlqmu9xw7jkt2uv0l557lymfnn6ksm0hgp",
+    "evm_address": "0x124081fc1be14cef4acb5718ffd29ef93699cf56",
+    "amount_upc": 32448.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1z6hfd9t7cuzg6nyvh2kdu6uy762j5d35t8842m",
+    "evm_address": "0x16ae96957ec7048d4c8cbaacde6b84f6952a3634",
+    "amount_upc": 32448.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1hzndqfm6l9phd8sjv4vgytugpyf40w6cs53ruc",
+    "evm_address": "0xb8a6d0277af943769e126558822f88091357bb58",
+    "amount_upc": 32448.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push138nr3wl5nqhy25e46nc9sujc72877jesm84wyd",
+    "evm_address": "0x89e638bbf4982e455335d4f0587258f28fef4b30",
+    "amount_upc": 32447.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1za9zsxcn3ec9q4mcz4228347w4wm8jqjexhcd0",
+    "evm_address": "0x174a281b138e705057781554a3c6be755db3c812",
+    "amount_upc": 32447.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1en0er35rs2vkztwmu60zke5u2rsw9ssd5ts5e8",
+    "evm_address": "0xccdf91c6838299612ddbe69e2b669c50e0e2c20d",
+    "amount_upc": 32447.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1gqqgp04ljudle2l20tukaq8khvkr5xajg0agh8",
+    "evm_address": "0x400080bebf971bfcabea7af96e80f6bb2c3a1bb2",
+    "amount_upc": 32447.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1fxm4hjyghwuczd9rgjxqva4f7kvrzpng6k00wx",
+    "evm_address": "0x49b75bc888bbb98134a3448c0676a9f598310668",
+    "amount_upc": 32446.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1n8rx5jacm07nfcl8844zm86cgz35vn6c546u25",
+    "evm_address": "0x99c66a4bb8dbfd34e3e73d6a2d9f5840a3464f58",
+    "amount_upc": 32446.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1chtfvzrhf3um6psve8xvjrj2vsn4pzd8v78e7z",
+    "evm_address": "0xc5d69608774c79bd060cc9ccc90e4a64275089a7",
+    "amount_upc": 32446.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1l88739dj952tkumt64mt2k0munllnegrzgvwkk",
+    "evm_address": "0xf9cfe895b22d14bb736bd576b559fbe4fff9e503",
+    "amount_upc": 32446.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1udz6q8z6l6829v6nrg0emfey9mr6cgvntewqk4",
+    "evm_address": "0xe345a01c5afe8ea2b3531a1f9da7242ec7ac2193",
+    "amount_upc": 32445.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1ml9g24mfmhqrmp37j5s3fe8t7f03crelpf3nh8",
+    "evm_address": "0xdfca855769ddc03d863e952114e4ebf25f1c0f3f",
+    "amount_upc": 32445.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1ymrv3eqfvqpg666xayy9sekg2uqhzvymzlk37t",
+    "evm_address": "0x26c6c8e40960028d6b46e9085866c8570171309b",
+    "amount_upc": 32445.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1lc872qnvdltxf2j2sqdg7fqcutg8rrlv607r2m",
+    "evm_address": "0xfe0fe5026c6fd664aa4a801a8f2418e2d0718fec",
+    "amount_upc": 32444.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1jnwm7h37e6mwp2k46334q53c2mjyts9mp0p9py",
+    "evm_address": "0x94ddbf5e3eceb6e0aad5d46350523856e445c0bb",
+    "amount_upc": 32444.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push1np8aykfkwc33u8fd76mwkt09cllye64lhc9q3w",
+    "evm_address": "0x984fd2593676231e1d2df6b6eb2de5c7fe4ceabf",
+    "amount_upc": 32444.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push135nrju8plj0xu0ntncqprpyy7mz9tz835c8x8d",
+    "evm_address": "0x8d263970e1fc9e6e3e6b9e00118484f6c45588f1",
+    "amount_upc": 32444.0,
+    "rebalanced_tokens": 1228.0
+  },
+  {
+    "address": "push16qhxhvdl7dudff9rdce6fkl6hwazhve5ankv8l",
+    "evm_address": "0xd02e6bb1bff378d4a4a36e33a4dbfabbba2bb334",
+    "amount_upc": 25826.0,
+    "rebalanced_tokens": 1217.0
+  },
+  {
+    "address": "push1p9f9navqgm3skv9f8n9c6ujk8gy9z8h8fqx50p",
+    "evm_address": "0x095259f58046e30b30a93ccb8d72563a08511ee7",
+    "amount_upc": 25825.0,
+    "rebalanced_tokens": 1217.0
+  },
+  {
+    "address": "push17d6wppl9htlcrx6u4vferttjn96a5zs8p3e2wf",
+    "evm_address": "0xf374e087e5baff819b5cab1391ad729975da0a07",
+    "amount_upc": 25825.0,
+    "rebalanced_tokens": 1217.0
+  },
+  {
+    "address": "push1zhsy53n5a7e4mmg3wf02wuk6h2n7rgv4mvrpsn",
+    "evm_address": "0x15e04a4674efb35ded11725ea772dabaa7e1a195",
+    "amount_upc": 24312.0,
+    "rebalanced_tokens": 1215.0
+  },
+  {
+    "address": "push1ptxf83grvyaj49m9893qt6fexx823nkrv5es8v",
+    "evm_address": "0x0acc93c503613b2a9765396205e939318ea8cec3",
+    "amount_upc": 24070.0,
+    "rebalanced_tokens": 1214.0
+  },
+  {
+    "address": "push1ry5arhy56hnt7yk4v88dcprsvq8h9jr0fa2xkg",
+    "evm_address": "0x1929d1dc94d5e6bf12d561cedc0470600f72c86f",
+    "amount_upc": 24018.0,
+    "rebalanced_tokens": 1214.0
+  },
+  {
+    "address": "push1mffvcg0k3263825sdftp9udugqv5jx8254783y",
+    "evm_address": "0xda52cc21f68ab513aa906a5612f1bc40194918ea",
+    "amount_upc": 23574.0,
+    "rebalanced_tokens": 1213.0
+  },
+  {
+    "address": "push1aeshva7xhzell4s7uk6cx2zglk5lsq3ddl9lyd",
+    "evm_address": "0xee617677c6b8b3ffd61ee5b5832848fda9f8022d",
+    "amount_upc": 23368.0,
+    "rebalanced_tokens": 1213.0
+  },
+  {
+    "address": "push17vzcjzesehdaghgc0u7t6ma3cq4wf0j556kz27",
+    "evm_address": "0xf305890b30cddbd45d187f3cbd6fb1c02ae4be54",
+    "amount_upc": 20515.0,
+    "rebalanced_tokens": 1207.0
+  },
+  {
+    "address": "push1apzm7hvuydudwug22rrcxu6kr7chpsupwfnr28",
+    "evm_address": "0xe845bf5d9c2378d7710a50c78373561fb170c381",
+    "amount_upc": 20496.0,
+    "rebalanced_tokens": 1207.0
+  },
+  {
+    "address": "push1nel0gnptajsszxd3au7zx3xylneuzlpt8xu9td",
+    "evm_address": "0x9e7ef44c2beca10119b1ef3c2344c4fcf3c17c2b",
+    "amount_upc": 20191.0,
+    "rebalanced_tokens": 1207.0
+  },
+  {
+    "address": "push1llvqjvupqdf4pt6a0fgr675zq5l3kkzk9y8sxh",
+    "evm_address": "0xffd8093381035350af5d7a503d7a82053f1b5856",
+    "amount_upc": 19867.0,
+    "rebalanced_tokens": 1206.0
+  },
+  {
+    "address": "push1yslzypfcyqfrnfsw8r77qtnwycxrgwjvrhgjzz",
+    "evm_address": "0x243e220538201239a60e38fde02e6e260c343a4c",
+    "amount_upc": 19543.0,
+    "rebalanced_tokens": 1206.0
+  },
+  {
+    "address": "push1zf22a9jjh4vl2twwzwlstxns4u3rhxrmph732c",
+    "evm_address": "0x1254ae9652bd59f52dce13bf059a70af223b987b",
+    "amount_upc": 19219.0,
+    "rebalanced_tokens": 1205.0
+  },
+  {
+    "address": "push1p78rghts6fjhfdkh99tq77zca8g8ln6yd2q0rr",
+    "evm_address": "0x0f8e345d70d26574b6d729560f7858e9d07fcf44",
+    "amount_upc": 18894.0,
+    "rebalanced_tokens": 1204.0
+  },
+  {
+    "address": "push186qthmhjh9g38cv3jwczcd8n3zcsz76jj4wrk2",
+    "evm_address": "0x3e80bbeef2b95113e19193b02c34f388b1017b52",
+    "amount_upc": 18743.0,
+    "rebalanced_tokens": 1204.0
+  },
+  {
+    "address": "push1mep58tmw5tg2pdrzwg6dg9hf897tvwxms0tlhd",
+    "evm_address": "0xde4343af6ea2d0a0b4627234d416e9397cb638db",
+    "amount_upc": 18570.0,
+    "rebalanced_tokens": 1204.0
+  },
+  {
+    "address": "push1xp3w6ulevhypa4skles0k66w4w2uz4rzdzytcy",
+    "evm_address": "0x3062ed73f965c81ed616fe60fb6b4eab95c15462",
+    "amount_upc": 18246.0,
+    "rebalanced_tokens": 1203.0
+  },
+  {
+    "address": "push193n08fn44xaje0e48kxkhul9c4a69w0v236apt",
+    "evm_address": "0x2c66f3a675a9bb2cbf353d8d6bf3e5c57ba2b9ec",
+    "amount_upc": 17922.0,
+    "rebalanced_tokens": 1202.0
+  },
+  {
+    "address": "push12q63t2259peqj374pcpjkp0536zh3mjv7l3jtx",
+    "evm_address": "0x503515a95428720947d50e032b05f48e8578ee4c",
+    "amount_upc": 17597.0,
+    "rebalanced_tokens": 1201.0
+  },
+  {
+    "address": "push1zg6km8ymqjfsvw08ktvep9674qnnn4ugk3c63q",
+    "evm_address": "0x12356d9c9b04930639e7b2d990975ea82739d788",
+    "amount_upc": 17286.0,
+    "rebalanced_tokens": 1201.0
+  },
+  {
+    "address": "push1tp3c82j7rg0ssq0vjcvrty5zax69k7f9q97tm7",
+    "evm_address": "0x586383aa5e1a1f0801ec9618359282e9b45b7925",
+    "amount_upc": 17273.0,
+    "rebalanced_tokens": 1201.0
+  },
+  {
+    "address": "push1cs5l0whw7t82h006l0u5ymmuuf2xu7msk0lnvg",
+    "evm_address": "0xc429f7baeef2ceabbdfafbf9426f7ce2546e7b70",
+    "amount_upc": 16880.0,
+    "rebalanced_tokens": 1200.0
+  },
+  {
+    "address": "push1cdthvanxqra02cwlwqg2vpncurlr66tuqvwj96",
+    "evm_address": "0xc35776766600faf561df7010a60678e0fe3d697c",
+    "amount_upc": 16131.0,
+    "rebalanced_tokens": 1198.0
+  },
+  {
+    "address": "push1tpp40hfxlvm9ruh6k5qmekl9fvkhqnmj5ed5vm",
+    "evm_address": "0x584357dd26fb3651f2fab501bcdbe54b2d704f72",
+    "amount_upc": 15177.0,
+    "rebalanced_tokens": 1196.0
+  },
+  {
+    "address": "push1tv3q0q2j5chw3ztvy047d2gg2tetavmqm032t8",
+    "evm_address": "0x5b22078152a62ee8896c23ebe6a90852f2beb360",
+    "amount_upc": 13730.0,
+    "rebalanced_tokens": 1193.0
+  },
+  {
+    "address": "push14krnqu6qh3h73t6thee3548kvuksww3qt0p77t",
+    "evm_address": "0xad87307340bc6fe8af4bbe731a54f6672d073a20",
+    "amount_upc": 13664.0,
+    "rebalanced_tokens": 1192.0
+  },
+  {
+    "address": "push12p0cq47gq069k9tnyveddcamq0xglas9f6dc3h",
+    "evm_address": "0x505f8057c803f45b15732332d6e3bb03cc8ff605",
+    "amount_upc": 13343.0,
+    "rebalanced_tokens": 1192.0
+  },
+  {
+    "address": "push1u6kcuwzty3dlu0y6aj54t29e6ej0xd4248f579",
+    "evm_address": "0xe6ad8e384b245bfe3c9aeca955a8b9d664f336aa",
+    "amount_upc": 13021.0,
+    "rebalanced_tokens": 1191.0
+  },
+  {
+    "address": "push1tygms3xhhs3yv487phx3dw4a95jn7t7leexlmt",
+    "evm_address": "0x5911b844d7bc224654fe0dcd16babd2d253f2fdf",
+    "amount_upc": 12931.0,
+    "rebalanced_tokens": 1191.0
+  },
+  {
+    "address": "push1rnpmwe3z9nykla70cy3mcv3ppw4rrdnvm00djw",
+    "evm_address": "0x1cc3b766222cc96ff7cfc123bc32210baa31b66c",
+    "amount_upc": 12700.0,
+    "rebalanced_tokens": 1190.0
+  },
+  {
+    "address": "push17u807ru8h7d0nfnd0us5r7ccj4mlw2atm4lr9k",
+    "evm_address": "0xf70eff0f87bf9af9a66d7f2141fb189577f72bab",
+    "amount_upc": 12379.0,
+    "rebalanced_tokens": 1189.0
+  },
+  {
+    "address": "push1xeu9g6dacxdykh6rxtnnhzemq4vwldne8wzqdm",
+    "evm_address": "0x36785469bdc19a4b5f4332e73b8b3b0558efb679",
+    "amount_upc": 12057.0,
+    "rebalanced_tokens": 1188.0
+  },
+  {
+    "address": "push1vzcn333txrulrqhrs4xpv238x8mhaa57y45wve",
+    "evm_address": "0x60b138c62b30f9f182e3854c162a2731f77ef69e",
+    "amount_upc": 11998.0,
+    "rebalanced_tokens": 1188.0
+  },
+  {
+    "address": "push130jc9257atvcaraay8mlpm64gegjumfaysjx0x",
+    "evm_address": "0x8be582aa9eead98e8fbd21f7f0ef5546512e6d3d",
+    "amount_upc": 11985.0,
+    "rebalanced_tokens": 1188.0
+  },
+  {
+    "address": "push1j79skautl3ehulr3dalpk7qjqsg8cxvxddw4sc",
+    "evm_address": "0x978b0b778bfc737e7c716f7e1b781204107c1986",
+    "amount_upc": 11878.0,
+    "rebalanced_tokens": 1188.0
+  },
+  {
+    "address": "push1250d9srh053fu82euejj0zhfj7pkrnqzatgy7q",
+    "evm_address": "0x551ed2c0777d229e1d59e665278ae9978361cc02",
+    "amount_upc": 11736.0,
+    "rebalanced_tokens": 1188.0
+  },
+  {
+    "address": "push10c59w5khvpmc8s29eaq6pdyw2lu6e9gt3un42w",
+    "evm_address": "0x7e285752d7607783c145cf41a0b48e57f9ac950b",
+    "amount_upc": 11414.0,
+    "rebalanced_tokens": 1187.0
+  },
+  {
+    "address": "push1lc5d7mnfh6kr4s4h6v08pqvgumawzsed6mujta",
+    "evm_address": "0xfe28df6e69beac3ac2b7d31e708188e6fae1432d",
+    "amount_upc": 11092.0,
+    "rebalanced_tokens": 1186.0
+  },
+  {
+    "address": "push1km4zwglfk6mc2k65tqspw20mjhnk52dk6dqtcw",
+    "evm_address": "0xb6ea2723e9b6b7855b5458201729fb95e76a29b6",
+    "amount_upc": 10771.0,
+    "rebalanced_tokens": 1185.0
+  },
+  {
+    "address": "push1rcxumqxxfh2evpucahdr3kswjeg8wscasly5p5",
+    "evm_address": "0x1e0dcd80c64dd5960798edda38da0e965077431d",
+    "amount_upc": 10718.0,
+    "rebalanced_tokens": 1185.0
+  },
+  {
+    "address": "push16ds4h35w0v9nhfumq33cagcwa4llqtjmf5d7yt",
+    "evm_address": "0xd3615bc68e7b0b3ba79b04638ea30eed7ff02e5b",
+    "amount_upc": 10706.0,
+    "rebalanced_tokens": 1185.0
+  },
+  {
+    "address": "push1r02he03y8ladvg8hlv9d39jgzprvep75spmz2k",
+    "evm_address": "0x1bd57cbe243ffad620f7fb0ad896481046cc87d4",
+    "amount_upc": 10449.0,
+    "rebalanced_tokens": 1184.0
+  },
+  {
+    "address": "push1p4ja58qnavrq5yhtarn2fvyfm3a2s04t62cj0h",
+    "evm_address": "0x0d65da1c13eb060a12ebe8e6a4b089dc7aa83eab",
+    "amount_upc": 10374.0,
+    "rebalanced_tokens": 1184.0
+  },
+  {
+    "address": "push1t400y053k988ju4kejsd57jlw9nge0dt7j955v",
+    "evm_address": "0x5d5ef23e91b14e7972b6cca0da7a5f71668cbdab",
+    "amount_upc": 10124.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push1tdmw7u3s775qgjj23js96y485t93d2f2hulzgj",
+    "evm_address": "0x5b76ef7230f7a8044a4a8ca05d12a7a2cb16a92a",
+    "amount_upc": 10000.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push1ctjlvq63yaxzjvgq2yw7zdzt46zuknnzpxarwh",
+    "evm_address": "0xc2e5f60351274c293100511de1344bae85cb4e62",
+    "amount_upc": 10000.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push1wvy6j98pkuj4pua96ctm0y59w6nv64x2dwuzqx",
+    "evm_address": "0x7309a914e1b72550f3a5d617b7928576a6cd54ca",
+    "amount_upc": 9999.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push187gscvvggfm9un8jjyuhprw8qsu04jgtlnzmea",
+    "evm_address": "0x3f910c318842765e4cf29139708dc70438fac90b",
+    "amount_upc": 9999.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push10ywrnmyghh43xp48dlkez5f6e76edtvwh4kj36",
+    "evm_address": "0x791c39ec88bdeb1306a76fed91513acfb596ad8e",
+    "amount_upc": 9956.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push1evhr7qzrmt5vgw8ntapx47a3wngys4vvdvzsgf",
+    "evm_address": "0xcb2e3f0043dae8c438f35f426afbb174d048558c",
+    "amount_upc": 9953.0,
+    "rebalanced_tokens": 1183.0
+  },
+  {
+    "address": "push1nwqj4frsezljg4chj4wf88q56qwqyduanhqsaa",
+    "evm_address": "0x9b812aa470c8bf245717955c939c14d01c02379d",
+    "amount_upc": 9897.0,
+    "rebalanced_tokens": 1182.0
+  },
+  {
+    "address": "push1d6g67tnsax8ef8xkpp3wqt2mehelttzwknv97y",
+    "evm_address": "0x6e91af2e70e98f949cd60862e02d5bcdf3f5ac4e",
+    "amount_upc": 9799.0,
+    "rebalanced_tokens": 1182.0
+  },
+  {
+    "address": "push1zrujmzrm576umcyu3dkt8nvk8at5wmaf54es0m",
+    "evm_address": "0x10f92d887ba7b5cde09c8b6cb3cd963f57476fa9",
+    "amount_upc": 9685.0,
+    "rebalanced_tokens": 1182.0
+  },
+  {
+    "address": "push1vmlsn4rc53unhtjzal6l6py5f84427amntdsca",
+    "evm_address": "0x66ff09d478a4793bae42eff5fd049449eb557bbb",
+    "amount_upc": 9612.0,
+    "rebalanced_tokens": 1182.0
+  },
+  {
+    "address": "push1wgeyqt7hypdfr8dvwyu4pee04y9ndpkurlx0y5",
+    "evm_address": "0x7232402fd7205a919dac713950e72fa90b3686dc",
+    "amount_upc": 9474.0,
+    "rebalanced_tokens": 1181.0
+  },
+  {
+    "address": "push1fct28mpzh0dt6k7gdjvn6v0yxgxnds7l4ldfqm",
+    "evm_address": "0x4e16a3ec22bbdabd5bc86c993d31e4320d36c3df",
+    "amount_upc": 9149.0,
+    "rebalanced_tokens": 1180.0
+  },
+  {
+    "address": "push1uxxs4v33lkq22pmgelfuzrsqtpuca457cwuct3",
+    "evm_address": "0xe18d0ab231fd80a50768cfd3c10e0058798ed69e",
+    "amount_upc": 8998.0,
+    "rebalanced_tokens": 1180.0
+  },
+  {
+    "address": "push1mye9vd80epq3tyyyqxqa0rec08atazp2v3w6x6",
+    "evm_address": "0xd9325634efc8411590840181d78f3879fabe882a",
+    "amount_upc": 8904.0,
+    "rebalanced_tokens": 1179.0
+  },
+  {
+    "address": "push1vyg94sxcs60hr4rt6d92us2t0zhvm64fpp26f5",
+    "evm_address": "0x61105ac0d8869f71d46bd34aae414b78aecdeaa9",
+    "amount_upc": 8901.0,
+    "rebalanced_tokens": 1179.0
+  },
+  {
+    "address": "push19n3l3hyurhyjyl5errgscamqeq93pgc44del6r",
+    "evm_address": "0x2ce3f8dc9c1dc9227e9918d10c7760c80b10a315",
+    "amount_upc": 8882.0,
+    "rebalanced_tokens": 1179.0
+  },
+  {
+    "address": "push1gc5ycketzfnufhfmj990gcwuhau57vzn2m9pdw",
+    "evm_address": "0x46284c5b2b1267c4dd3b914af461dcbf794f3053",
+    "amount_upc": 8882.0,
+    "rebalanced_tokens": 1179.0
+  },
+  {
+    "address": "push1dcwrf0ul6xmzk0mhesnldczev2z7l2fv49lsyc",
+    "evm_address": "0x6e1c34bf9fd1b62b3f77cc27f6e0596285efa92c",
+    "amount_upc": 8823.0,
+    "rebalanced_tokens": 1179.0
+  },
+  {
+    "address": "push1qtm9pnjg8gk9ahp5hjlhypt7htjvr07aen9pz8",
+    "evm_address": "0x02f650ce483a2c5edc34bcbf72057ebae4c1bfdd",
+    "amount_upc": 8498.0,
+    "rebalanced_tokens": 1178.0
+  },
+  {
+    "address": "push1khhtjndd2wk7ygwltjurk50javdm0f2fvvqeas",
+    "evm_address": "0xb5eeb94dad53ade221df5cb83b51f2eb1bb7a549",
+    "amount_upc": 8173.0,
+    "rebalanced_tokens": 1177.0
+  },
+  {
+    "address": "push1v08kund93a5e0e8zw5gu0gtad8r0u07s5m3dzq",
+    "evm_address": "0x63cf6e4da58f6997e4e27511c7a17d69c6fe3fd0",
+    "amount_upc": 7999.0,
+    "rebalanced_tokens": 1177.0
+  },
+  {
+    "address": "push1jhdq2hnqsd7sny7l6aedzjlg95ja8cw2vh0zxu",
+    "evm_address": "0x95da055e60837d0993dfd772d14be82d25d3e1ca",
+    "amount_upc": 7848.0,
+    "rebalanced_tokens": 1176.0
+  },
+  {
+    "address": "push1q5gm528zvuq5c3z532myr6a0097e495ucfh6l7",
+    "evm_address": "0x0511ba28e267014c44548ab641ebaf797d9a969c",
+    "amount_upc": 7522.0,
+    "rebalanced_tokens": 1175.0
+  },
+  {
+    "address": "push154fxm70tyqtdxcjtfhpk4ytqs7tmtdk48zzqhx",
+    "evm_address": "0xa5526df9eb2016d3624b4dc36a91608797b5b6d5",
+    "amount_upc": 7198.0,
+    "rebalanced_tokens": 1174.0
+  },
+  {
+    "address": "push1yfnk9wt69jl38zksww8kn0r94yq0uzh9kuaxjh",
+    "evm_address": "0x226762b97a2cbf138ad0738f69bc65a900fe0ae5",
+    "amount_upc": 7197.0,
+    "rebalanced_tokens": 1174.0
+  },
+  {
+    "address": "push1crw8ue6xkxzvkjul20wc6qz7f7307ly0t6jt77",
+    "evm_address": "0xc0dc7e6746b184cb4b9f53dd8d005e4fa2ff7c8f",
+    "amount_upc": 6951.0,
+    "rebalanced_tokens": 1173.0
+  },
+  {
+    "address": "push142pun068dvxhdft4amz5a9q9xsa6cezdrw0xc4",
+    "evm_address": "0xaa83c9bf476b0d76a575eec54e9405343bac644d",
+    "amount_upc": 6667.0,
+    "rebalanced_tokens": 1172.0
+  },
+  {
+    "address": "push1hyzv43vkja4lkafywzde6f824lvh2s9gpmdf2d",
+    "evm_address": "0xb904cac596976bfb7524709b9d24eaafd97540a8",
+    "amount_upc": 6636.0,
+    "rebalanced_tokens": 1172.0
+  },
+  {
+    "address": "push1pgyt0535quyasnkzz42as269mktmtfs2xn4urv",
+    "evm_address": "0x0a08b7d2340709d84ec21555d82b45dd97b5a60a",
+    "amount_upc": 6491.0,
+    "rebalanced_tokens": 1171.0
+  },
+  {
+    "address": "push1gp3erwggrm77pcjv8rx5yp56rshdzqwum2l4rr",
+    "evm_address": "0x406391b9081efde0e24c38cd42069a1c2ed101dc",
+    "amount_upc": 6470.0,
+    "rebalanced_tokens": 1171.0
+  },
+  {
+    "address": "push1pc8nk9aj6gawgr5j29zw9sqtdld2kj85gymcqk",
+    "evm_address": "0x0e0f3b17b2d23ae40e925144e2c00b6fdaab48f4",
+    "amount_upc": 5750.0,
+    "rebalanced_tokens": 1168.0
+  },
+  {
+    "address": "push16m8mfsws6k4edczcf29cvp2t056fr72fyw3myl",
+    "evm_address": "0xd6cfb4c1d0d5ab96e0584a8b86054b7d3491f949",
+    "amount_upc": 5021.0,
+    "rebalanced_tokens": 1165.0
+  },
+  {
+    "address": "push148d8kzrxk088eeevsqmxxtqd2cv0y8avp27wan",
+    "evm_address": "0xa9da7b0866b3ce7ce72c8036632c0d5618f21fac",
+    "amount_upc": 5000.0,
+    "rebalanced_tokens": 1165.0
+  },
+  {
+    "address": "push1hnwrq8u6fne60ucpkw9ptd9c9zfaz6x7tpk7fr",
+    "evm_address": "0xbcdc301f9a4cf3a7f301b38a15b4b82893d168de",
+    "amount_upc": 4948.0,
+    "rebalanced_tokens": 1165.0
+  },
+  {
+    "address": "push1kkhrsydlq6ys6krsgpwnm64dpqdr4p2hp7hf7u",
+    "evm_address": "0xb5ae3811bf06890d5870405d3deaad081a3a8557",
+    "amount_upc": 4884.0,
+    "rebalanced_tokens": 1165.0
+  },
+  {
+    "address": "push1tqq9kylmch30ysrwddj9jageccw3gcg2e39y6y",
+    "evm_address": "0x58005b13fbc5e2f2406e6b64597519c61d14610a",
+    "amount_upc": 4689.0,
+    "rebalanced_tokens": 1164.0
+  },
+  {
+    "address": "push1exc70klzfc5ar7dfzl4zg6tuwp9thlhqwp7f5e",
+    "evm_address": "0xc9b1e7dbe24e29d1f9a917ea24697c704abbfee0",
+    "amount_upc": 4237.0,
+    "rebalanced_tokens": 1162.0
+  },
+  {
+    "address": "push1vjkuafjfm7353x9fdf9c8fy048rrtcz7esefsl",
+    "evm_address": "0x64adcea649dfa34898a96a4b83a48fa9c635e05e",
+    "amount_upc": 3877.0,
+    "rebalanced_tokens": 1160.0
+  },
+  {
+    "address": "push1u394k5vay66up5ll0dsxk3c3whxpjkw3xth97g",
+    "evm_address": "0xe44b5b519d26b5c0d3ff7b606b471175cc1959d1",
+    "amount_upc": 3748.0,
+    "rebalanced_tokens": 1159.0
+  },
+  {
+    "address": "push1kl482xfun9qgn2wq4hjh3ryazwt7ymdh3avxls",
+    "evm_address": "0xb7ea75193c994089a9c0ade5788c9d1397e26db7",
+    "amount_upc": 3691.0,
+    "rebalanced_tokens": 1159.0
+  },
+  {
+    "address": "push1x0spqjxc30v8ajpxdpr8s7av334kegec55y4vp",
+    "evm_address": "0x33e01048d88bd87ec8266846787bac8c6b6ca338",
+    "amount_upc": 3608.0,
+    "rebalanced_tokens": 1158.0
+  },
+  {
+    "address": "push1lmnmdtcw3np6mucq8cj2mv3rhshv8u6km75fta",
+    "evm_address": "0xfee7b6af0e8cc3adf3003e24adb223bc2ec3f356",
+    "amount_upc": 3567.0,
+    "rebalanced_tokens": 1158.0
+  },
+  {
+    "address": "push17ce8dxmxxpsvwpygttdqcvww5rghdsxe7k6jhn",
+    "evm_address": "0xf632769b663060c704885ada0c31cea0d176c0d9",
+    "amount_upc": 3559.0,
+    "rebalanced_tokens": 1158.0
+  },
+  {
+    "address": "push16up279hkehpd9u7w5yxnsv9x6e700dj3rcv2z6",
+    "evm_address": "0xd702af16f6cdc2d2f3cea10d3830a6d67cf7b651",
+    "amount_upc": 3545.0,
+    "rebalanced_tokens": 1158.0
+  },
+  {
+    "address": "push1nx03smx69dud6k0la0j64x2wag9syhwt2zpgdw",
+    "evm_address": "0x999f186cda2b78dd59ffebe5aa994eea0b025dcb",
+    "amount_upc": 3426.0,
+    "rebalanced_tokens": 1157.0
+  },
+  {
+    "address": "push1sprh22cz95tqfnyv6qaeztcahjr7prnjslspau",
+    "evm_address": "0x8047752b022d1604cc8cd03b912f1dbc87e08e72",
+    "amount_upc": 3333.0,
+    "rebalanced_tokens": 1157.0
+  },
+  {
+    "address": "push1tjuptetx8klyr3z744j5mmqph5tjn8w49u5grh",
+    "evm_address": "0x5cb815e5663dbe41c45ead654dec01bd17299dd5",
+    "amount_upc": 3230.0,
+    "rebalanced_tokens": 1156.0
+  },
+  {
+    "address": "push1fhrpqj69uqcwd2957d9jahkn9xw6fu4hszyqtz",
+    "evm_address": "0x4dc6104b45e030e6a8b4f34b2eded3299da4f2b7",
+    "amount_upc": 3050.0,
+    "rebalanced_tokens": 1155.0
+  },
+  {
+    "address": "push1nyrpc7s5k3j2z5qgh632mczchxdkawv39xlxwh",
+    "evm_address": "0x99061c7a14b464a15008bea2ade058b99b6eb991",
+    "amount_upc": 2915.0,
+    "rebalanced_tokens": 1154.0
+  },
+  {
+    "address": "push1pk24hh6xyufdtf6fy0kvpjfn6xuznhxndunm6s",
+    "evm_address": "0x0d955bdf462712d5a74923ecc0c933d1b829dcd3",
+    "amount_upc": 2906.0,
+    "rebalanced_tokens": 1154.0
+  },
+  {
+    "address": "push1c03u9kt9q79j6zhnl06nexal4xg7slc9mau6yw",
+    "evm_address": "0xc3e3c2d965078b2d0af3fbf53c9bbfa991e87f05",
+    "amount_upc": 2892.0,
+    "rebalanced_tokens": 1154.0
+  },
+  {
+    "address": "push1lzkzf64kwt3uum6w8jtg0q00z6sk86lgkpz4y0",
+    "evm_address": "0xf8ac24eab672e3ce6f4e3c968781ef16a163ebe8",
+    "amount_upc": 2626.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push160gphdrznq6egxlk5dcmuzqpktl4uja5nlvjgz",
+    "evm_address": "0xd3d01bb4629835941bf6a371be0801b2ff5e4bb4",
+    "amount_upc": 2626.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push184snhuk825h98l6xdc26g76vnqtuaztet3kw7v",
+    "evm_address": "0x3d613bf2c7552e53ff466e15a47b4c9817ce8979",
+    "amount_upc": 2607.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1tev3v5789avkn4qdkqrx5ffx5sh29l8rvcq3l6",
+    "evm_address": "0x5e591653c72f5969d40db0066a2526a42ea2fce3",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1pp3xflt8kwfu9v3zsg6w3lv5936qmemxaktq0k",
+    "evm_address": "0x086264fd67b393c2b2228234e8fd942c740de766",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1gy9claxq348x7uaqr3t6pzc260v6t59gjcv0mk",
+    "evm_address": "0x410b8ff4c08d4e6f73a01c57a08b0ad3d9a5d0a8",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1euhndxk8j90se2254tecg6qcg9lz82y95k9x94",
+    "evm_address": "0xcf2f369ac7915f0ca954aaf3846818417e23a885",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1497az64uzy2kmw82duzp8j502ld43a5l73y976",
+    "evm_address": "0xa97dd16abc11156db8ea6f0413ca8f57db58f69f",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1zxgalvwv32p9a6lp9yhar4ekhjf58qkls0k2u0",
+    "evm_address": "0x1191dfb1cc8a825eebe1292fd1d736bc934382df",
+    "amount_upc": 2594.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push17ymrjph4rx3hzf326ppcmh5echc0gy6d47eumu",
+    "evm_address": "0xf1363906f519a371262ad0438dde99c5f0f4134d",
+    "amount_upc": 2584.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1hcf7xeahz3ctt65c0npjlnuv0k5xm2u8hqn833",
+    "evm_address": "0xbe13e367b71470b5ea987cc32fcf8c7da86dab87",
+    "amount_upc": 2568.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1n4yt5srcn7uz0sqftkfgag5kk97dr5xczfc06r",
+    "evm_address": "0x9d48ba40789fb827c0095d928ea296b17cd1d0d8",
+    "amount_upc": 2567.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1dkzh9sdc2c0tryzmf0y02tkwvyg6qpgkev684r",
+    "evm_address": "0x6d8572c1b8561eb1905b4bc8f52ece6111a00516",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1kpqjqcyhmcruylyfkz8rq6v23u05yg9qle65a3",
+    "evm_address": "0xb041206097de07c27c89b08e30698a8f1f4220a0",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1hlsurfx3ps98ewf4qwa0slrjucdnx5qlk7egms",
+    "evm_address": "0xbfe1c1a4d10c0a7cb93503baf87c72e61b33501f",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1frzd7a653968y0pcnv7p56tng03lex80zta2k5",
+    "evm_address": "0x48c4df77548974723c389b3c1a697343e3fc98ef",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1gfm5csxfz7qfxzpwek6x6agcv04zvwvwwlmkxg",
+    "evm_address": "0x42774c40c9178093082ecdb46d751863ea26398e",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push15rgzmnfpd5n76f3s9haswxvswrn9vw0r3zdleq",
+    "evm_address": "0xa0d02dcd216d27ed26302dfb07199070e65639e3",
+    "amount_upc": 2561.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push16j3p3z8ny5hfw43eh9mv23lh8sleh8mlma9j35",
+    "evm_address": "0xd4a21888f3252e975639b976c547f73c3f9b9f7f",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push13t8t83jepj93lht5teztd28rs3wp0acegnktyv",
+    "evm_address": "0x8aceb3c6590c8b1fdd745e44b6a8e3845c17f719",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push13lpjmkxwxawhzllwt3d5qjrn4k09d0rpq5g7et",
+    "evm_address": "0x8fc32dd8ce375d717fee5c5b404873ad9e56bc61",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1qen4xppzeeaezaft0dd6rls2ue7928y4znlcp4",
+    "evm_address": "0x0667530422ce7b91752b7b5ba1fe0ae67c551c95",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push18r5wjgmp3d3lrr8cu0yh8fkuplmf79t3g0hd4a",
+    "evm_address": "0x38e8e923618b63f18cf8e3c973a6dc0ff69f1571",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1k8c4g6srhw90f3paupmzar7vp3erapqqzmekeu",
+    "evm_address": "0xb1f1546a03bb8af4c43de0762e8fcc0c723e8400",
+    "amount_upc": 2558.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push12up5yqyrr9v2yp3sjay4w0cdxmfprpweg5va9d",
+    "evm_address": "0x57034200831958a206309749573f0d36d21185d9",
+    "amount_upc": 2557.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1levhjuy6eanmeypvjmzug4tehv05g5m8yf2ayx",
+    "evm_address": "0xfe5979709acf67bc902c96c5c45579bb1f445367",
+    "amount_upc": 2557.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push15d2dg74xh3cx7rept5659vp2fk6ewlpcx5hdkj",
+    "evm_address": "0xa354d47aa6bc706f0f215d3542b02a4db5977c38",
+    "amount_upc": 2557.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1rvf9damxqlw5qzuq7l82rl2xlhyap3yqreqv97",
+    "evm_address": "0x1b1256f76607dd400b80f7cea1fd46fdc9d0c480",
+    "amount_upc": 2554.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1hyeuxftellr7vy6gd7n90d25lhzsys2vdsk96a",
+    "evm_address": "0xb933c32579ffc7e613486fa657b554fdc502414c",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push102q67dufw73hsa20z5fr59hxplgma7j3kg2kc3",
+    "evm_address": "0x7a81af378977a378754f15123a16e60fd1befa51",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1p3sz7z69efurraghew680zj7lypz586xcdp5aa",
+    "evm_address": "0x0c602f0b45ca7831f517cbb4778a5ef9022a1f46",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1t5pt94msd0v7pupxwxc4auvnnjl2c3mjex9hgy",
+    "evm_address": "0x5d02b2d7706bd9e0f02671b15ef1939cbeac4772",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push15j7j6cwexy4k562vpk3rt9p4mv7vtxv30h99et",
+    "evm_address": "0xa4bd2d61d9312b6a694c0da2359435db3cc59991",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1fyy6njz3q2zn3dfafkxj2grygw5c0qf8um8z48",
+    "evm_address": "0x4909a9c851028538b53d4d8d25206443a9878127",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1w9pqwff8akpa4ujswkdjl43sh7lxv3070gpyv6",
+    "evm_address": "0x7142072527ed83daf250759b2fd630bfbe6645fe",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1h8w48c7z9e8l7n346lx9xe9ahrfzhghq7mj5xc",
+    "evm_address": "0xb9dd53e3c22e4fff4e35d7cc5364bdb8d22ba2e0",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1gt6v9uft0gj3u74fsw2nmke7ulu8pkm46thvp6",
+    "evm_address": "0x42f4c2f12b7a251e7aa983953ddb3ee7f870db75",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push17ku9evv9r87qwkw7xg7wfdljnwptkuqg2h8sn4",
+    "evm_address": "0xf5b85cb18519fc0759de323ce4b7f29b82bb7008",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push13aqxdztha4tfugaunk2qask57h6dhjknaz2rg6",
+    "evm_address": "0x8f40668977ed569e23bc9d940ec2d4f5f4dbcad3",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1mlengdsh5hk5n06s7fwlx6lp0y7jmw0q7d8242",
+    "evm_address": "0xdff3343617a5ed49bf50f25df36be1793d2db9e0",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push14q43d4sc6dx5pk4w6dlm96e3ey49gpsezmrq9j",
+    "evm_address": "0xa82b16d618d34d40daaed37fb2eb31c92a540619",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1snzy7e5n6dzfux3nh0l8n6cqfwvp8dqkx4lva3",
+    "evm_address": "0x84c44f6693d3449e1a33bbfe79eb004b9813b416",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push100hjlgagguzn05xng2n72qryyt72awe6eyupey",
+    "evm_address": "0x7bef2fa3a8470537d0d342a7e5006422fcaebb3a",
+    "amount_upc": 2545.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1y0h3ywk9f8al270yw03j2aw8ley0ed6a5j57el",
+    "evm_address": "0x23ef123ac549fbf579e473e32575c7fe48fcb75d",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1dy8gxsa03hmduvw0pcgxv9zwvpj679040d3jr0",
+    "evm_address": "0x690e8343af8df6de31cf0e1066144e6065af15f5",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1kvh0h4kx3y6h39532kmvrpyx2clpjx2n64xvpl",
+    "evm_address": "0xb32efbd6c6893578969155b6c18486563e191953",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1nvx6unt3d2kyp64anyxu4chhv3p3mtnx6wellg",
+    "evm_address": "0x9b0dae4d716aac40eabd990dcae2f764431dae66",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1us34l2j93mcfvqg9f93qyaftrx20x9rkx6x24w",
+    "evm_address": "0xe4235faa458ef0960105496202752b1994f31476",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1pmfzsxhf432jlmcr9c2k4lpe5psmqla373svhw",
+    "evm_address": "0x0ed2281ae9ac552fef032e156afc39a061b07fb1",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1hvmy8m92sq77m7ga0sd9g804sjtt2xgg0zq7lj",
+    "evm_address": "0xbb3643ecaa803dedf91d7c1a541df58496b51908",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1etlt2rpj85hch3qe2562zgmk7w56ufxaa75tke",
+    "evm_address": "0xcafeb50c323d2f8bc4195534a12376f3a9ae24dd",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push18tfd8fkya2hd83yrqn2suy7xwdvnsj0z4pgu0p",
+    "evm_address": "0x3ad2d3a6c4eaaed3c48304d50e13c673593849e2",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push19ah8h504998w5q7g53qcn7jcz8eynlawwfrt68",
+    "evm_address": "0x2f6e7bd1f5294eea03c8a44189fa5811f249ffae",
+    "amount_upc": 2535.0,
+    "rebalanced_tokens": 1152.0
+  },
+  {
+    "address": "push1s9xeaw4ggy7669x2nt7rtcrk6mvy24u0cwun0a",
+    "evm_address": "0x814d9ebaa8413dad14ca9afc35e076d6d845578f",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ghtute25s3xtn3x7005hq5rv09ce85fzd9drn3",
+    "evm_address": "0x45d7c5e554844cb9c4de7be970506c797193d122",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1vn5amj75gkxn7zm728k447rjguwpk9mrur4cgj",
+    "evm_address": "0x64e9ddcbd4458d3f0b7e51ed5af872471c1b1763",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push166uln9mad8yrrumaw4jv3uayxmp6ag9kl4aj8j",
+    "evm_address": "0xd6b9f9977d69c831f37d7564c8f3a436c3aea0b6",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1depyty2kxexhp9cwuwpza4mq00fmm86cyws3tx",
+    "evm_address": "0x6e42459156364d70970ee3822ed7607bd3bd9f58",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1zzxzwljktla25qahynw8eugg8x4vyvdxeyvad2",
+    "evm_address": "0x108c277e565ffaaa03b724dc7cf10839aac231a6",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1a0760g830hpvkmww82x2lz3w5fsjps22krejqa",
+    "evm_address": "0xebfda7a0f17dc2cb6dce3a8caf8a2ea26120c14a",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14yfjyhff0nk3dl98whhhkygwlxmc6tv45jlvh0",
+    "evm_address": "0xa913225d297ced16fca775ef7b110ef9b78d2d95",
+    "amount_upc": 2520.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1cnnmdjkz7vpwdca8xgg7vrl25kmtdqfwkc7kp7",
+    "evm_address": "0xc4e7b6cac2f302e6e3a73211e60feaa5b6b6812e",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19h0z4nh2x6ug60hnmas64ze0hxjeyzwm9l8qhm",
+    "evm_address": "0x2dde2aceea36b88d3ef3df61aa8b2fb9a59209db",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1sd7ujxh57szxpzcea6c2zdxrq55g2aj2qftef9",
+    "evm_address": "0x837dc91af4f404608b19eeb0a134c3052885764a",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1l44um93jx86xr8fz93zxhaj37meph0sen229vx",
+    "evm_address": "0xfd6bcd963231f4619d222c446bf651f6f21bbe19",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ns25tndw7h5mw7er0ustzqkpnzah2mqcv7qqvr",
+    "evm_address": "0x9c1545cdaef5e9b77b237f20b102c198bb756c18",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fy4x4pwujtqsft2qd68qsakexjfkdpxvpy606n",
+    "evm_address": "0x492a6a85dc92c104ad406e8e0876d934936684cc",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kvty4g5jnez092x27h5d738unfanshyrx9mwf7",
+    "evm_address": "0xb3164aa2929e44f2a8caf5e8df44fc9a7b385c83",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push17vvuvyvqcmjfm5p6gdq9ntkvl2ln3lcpjy2ghu",
+    "evm_address": "0xf319c61180c6e49dd03a434059aeccfabf38ff01",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gpsyx567k3j0tnsqdjl98d0sux4dugjrkgyq53",
+    "evm_address": "0x406043535eb464f5ce006cbe53b5f0e1aade2243",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1mccl3np6ehac5253klscu9gymjf3gxsux2ttru",
+    "evm_address": "0xde31f8cc3acdfb8a2a91b7e18e1504dc93141a1c",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dpsxajl0pz0pt0cfuldel8q67mqvgev85732wu",
+    "evm_address": "0x68606ecbef089e15bf09e7db9f9c1af6c0c46587",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1g6y8exzyta2afu2am6dm73lawpps480c4ma0e6",
+    "evm_address": "0x46887c98445f55d4f15dde9bbf47fd70430a9df8",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fgzkrl087mk3nmxjvqm0fzs63tth64uynzlwyw",
+    "evm_address": "0x4a0561fde7f6ed19ecd26036f48a1a8ad77d5784",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push140wfepnkvkk5ddcldplu3jxdr9cmaj3vgz73wm",
+    "evm_address": "0xabdc9c867665ad46b71f687fc8c8cd1971beca2c",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14zayljyreyftv08a4avauqa349cluhe63a6e6w",
+    "evm_address": "0xa8ba4fc883c912b63cfdaf59de03b1a971fe5f3a",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push17h90vf4zt9s5srl7jljwdkwjeffjfdgftp0k7m",
+    "evm_address": "0xf5caf626a25961480ffe97e4e6d9d2ca5324b509",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18jfz09us8m9aexv5a6snaksngc77t6sh9krwna",
+    "evm_address": "0x3c922797903ecbdc9994eea13eda13463de5ea17",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18uwsydvnm6g6wkdhnv88qghg6csft3p8r2hldn",
+    "evm_address": "0x3f1d023593de91a759b79b0e7022e8d62095c427",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1w0s0zhy4zmmk666dg2cpva47rwd47ny3357eaw",
+    "evm_address": "0x73e0f15c9516f76d6b4d42b01676be1b9b5f4c91",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1zkrc83jarktaskdrl97ywy8zut7qdvrwkxrged",
+    "evm_address": "0x158783c65d1d97d859a3f97c4710e2e2fc06b06e",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1347a5uhzvd292cm30a009fdjuf2ats2qsf2uql",
+    "evm_address": "0x8d7dda72e263545563717f5ef2a5b2e255d5c140",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qfdpn6jnm29r0wujpdl6jgwwt0xf3x2d2tx72p",
+    "evm_address": "0x025a19ea53da8a37bb920b7fa921ce5bcc98994d",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push176mjemvuu08vcllqp8zy8qwk98r0z4hn5xnjse",
+    "evm_address": "0xf6b72ced9ce3cecc7fe009c44381d629c6f156f3",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13mt5y26m8nrnyummts93g444th62vxzd65jn92",
+    "evm_address": "0x8ed7422b5b3cc732737b5c0b1456b55df4a6184d",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1cn7w8rguyzyrsxl4y5vj5qgqg3vmms53mmlln3",
+    "evm_address": "0xc4fce38d1c2088381bf525192a01004459bdc291",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1s4xkmd5hs9alys3zk6day8afw4mjacz3f742cd",
+    "evm_address": "0x854d6db697817bf24222b69bd21fa975772ee051",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1x5tzp86964cp484lt2mvcg2rfqmzj4vxuvp3nx",
+    "evm_address": "0x3516209f45d5701a9ebf5ab6cc21434836295586",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push126qll22lkzmz4x528x87w9jt6v3wke3mjc9yup",
+    "evm_address": "0x5681ffa95fb0b62a9a8a398fe7164bd322eb663b",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13gkjfvhkvc75gaskjauwactuyhv7ca6v0v2y2u",
+    "evm_address": "0x8a2d24b2f6663d4476169778eee17c25d9ec774c",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c5jqh3xfjk60pr5c6zpd5dngvvy0vqn8nfra5j",
+    "evm_address": "0xc5240bc4c995b4f08e98d082da36686308f60267",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dml57r9qge7uqsdcqruwvrgmwlcsannaq7r4v9",
+    "evm_address": "0x6eff4f0ca0467dc041b800f8e60d1b77f10ece7d",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1j0glh6rw56krdrmygt6t90v6q9gfe4s4zywmcp",
+    "evm_address": "0x93d1fbe86ea6ac368f6442f4b2bd9a01509cd615",
+    "amount_upc": 2519.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nrwgnru59pcelxwphx0zfy2htpddq4287x60fx",
+    "evm_address": "0x98dc898f9428719f99c1b99e249157585ad05547",
+    "amount_upc": 2518.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10wll78v65h83e9gz6wtg3chcwxescswwd3v2x9",
+    "evm_address": "0x7bbfff1d9aa5cf1c9502d39688e2f871b30c41ce",
+    "amount_upc": 2515.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1zmaef22g8qp6zgtgc24eu4e4rts0h8nh7lvaah",
+    "evm_address": "0x16fb94a9483803a12168c2ab9e57351ae0fb9e77",
+    "amount_upc": 2515.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19hwaz4dyznvcyffrytvyd7dltq8sxtm5tecc3z",
+    "evm_address": "0x2dddd155a414d982252322d846f9bf580f032f74",
+    "amount_upc": 2515.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14zvh7pwypgc07fhew90ecgcmgqhday0f8xj4jn",
+    "evm_address": "0xa8997f05c40a30ff26f9715f9c231b402ede91e9",
+    "amount_upc": 2509.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1yqr5akmtk40y37env35se0cx7j0hxtgnad9w56",
+    "evm_address": "0x20074edb6bb55e48fb3364690cbf06f49f732d13",
+    "amount_upc": 2509.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ygp6j6m34fsc8mwsmy5e77tczlqskrl7k5v5j5",
+    "evm_address": "0x2203a96b71aa6183edd0d9299f797817c10b0ffe",
+    "amount_upc": 2509.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push139xxmx0ceplt2tsh06rrv553s52jvxppgdap0n",
+    "evm_address": "0x894c6d99f8c87eb52e177e863652918515261821",
+    "amount_upc": 2509.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ags06gpadkfqkwwra09epa4hervva69ey52txy",
+    "evm_address": "0xea20fd203d6d920b39c3ebcb90f6b7c8d8cee8b9",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qrakmvnmjpawy8ya3wayh298gm6nvgu3ayerwj",
+    "evm_address": "0x00fb6db27b907ae21c9d8bba4ba8a746f5362391",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18c2re4z7x9f3ep85sw7auf7yl8plyu2gdp9lv0",
+    "evm_address": "0x3e143cd45e31531c84f483bdde27c4f9c3f27148",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ktvxe2pyksg32tu54kt7hwu9tasphuxvyvp54q",
+    "evm_address": "0xb2d86ca824b411152f94ad97ebbb855f601bf0cc",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fsazeykeesq75v7mcd228t0lugdwxm9hqup5k3",
+    "evm_address": "0x4c3a2c92d9cc01ea33dbc354a3adffe21ae36cb7",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1j4q547cxh897suw2a0mqmte7krpywaznwkhacy",
+    "evm_address": "0x95414afb06b9cbe871caebf60daf3eb0c2477453",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push17jy0j8znl8manhtdrhq8rdehwuzjsaj3rsu5xc",
+    "evm_address": "0xf488f91c53f9f7d9dd6d1dc071b7377705287651",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1z64m8qk6mghhdkgcrq7mnmgvmw65d904m0jszh",
+    "evm_address": "0x16abb382dada2f76d918183db9ed0cdbb54695f5",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push185ythtw48288ead3x0lhutyauh3uuzw6npzk7y",
+    "evm_address": "0x3d08bbadd53a8e7cf5b133ff7e2c9de5e3ce09da",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1texsaqjkcmalwq4a9zpspphapvqc820gh4ck83",
+    "evm_address": "0x5e4d0e8256c6fbf702bd28830086fd0b0183a9e8",
+    "amount_upc": 2501.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12yzj5qd2ahjh6qky0vwxykkhckw2cs33exqp43",
+    "evm_address": "0x51052a01aaede57d02c47b1c625ad7c59cac4231",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1tw0hw9dpw2egcusj6fc4n405ytlzk6m5zh2ge9",
+    "evm_address": "0x5b9f7715a172b28c7212d27159d5f422fe2b6b74",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push126fkrkgen5crlzvnc5pc39sju5dswcmym7trhj",
+    "evm_address": "0x569361d9199d303f8993c503889612e51b076364",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c7kc7q0thjkppg59lvxgzfa62g0qps8z3rsun4",
+    "evm_address": "0xc7ad8f01ebbcac10a285fb0c8127ba521e00c0e2",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nx3ezgkxrqf80n0hma8z0d6g0qmu3xund5evu0",
+    "evm_address": "0x99a39122c6181277cdf7df4e27b7487837c89b93",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c5yymy45r98sgdj5lx7arz06auvq0sasu556kd",
+    "evm_address": "0xc5084d92b4194f043654f9bdd189faef1807c3b0",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1s6cqx9344w4220na3ccnh0f0a5syqzsyaal4zl",
+    "evm_address": "0x86b0031635abaaa53e7d8e313bbd2fed20400a04",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1eu0r4lpv9p2wvsxrg0dupjpre48cn6rwcjwfr3",
+    "evm_address": "0xcf1e3afc2c2854e640c343dbc0c823cd4f89e86e",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qkadpejp3wnelusucatr3yf9equ3he96stkzhu",
+    "evm_address": "0x05bad0e6418ba79ff21cc756389125c8391be4ba",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1z5595t6ulqz3rfmrp87lp3v0sqyv4kv5sexd65",
+    "evm_address": "0x15285a2f5cf80511a76309fdf0c58f8008cad994",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1r7h9mn279s3rygenk2tfmg8c2arjhqhypucymw",
+    "evm_address": "0x1fae5dcd5e2c22322333b2969da0f857472b82e4",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1h2sapyp3e53lmnmchf0sef7uv7k9uspc77rpz9",
+    "evm_address": "0xbaa1d09031cd23fdcf78ba5f0ca7dc67ac5e4038",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10a49ksa9humayxq3c50cnkgzvvrp3fnpguj5ud",
+    "evm_address": "0x7f6a5b43a5bf37d21811c51f89d902630618a661",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dvjhzztjshpn8qzadsk7qe7s5mfyfrl0lne99l",
+    "evm_address": "0x6b2571097285c333805d6c2de067d0a6d2448fef",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push185ctye2wn2x50cp850m9cu8gx4cwu54j4n79za",
+    "evm_address": "0x3d30b2654e9a8d47e027a3f65c70e83570ee52b2",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15m3as3ad8fw80vl6u258m9ex6s9ssy7hymvfc0",
+    "evm_address": "0xa6e3d847ad3a5c77b3fae2a87d9726d40b0813d7",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gdqq6f7msvla37kxrajpjpdn702rnj4yrac9mh",
+    "evm_address": "0x43400d27db833fd8fac61f641905b3f3d439caa4",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18c8yrshngelwredapdmh279xhmzhpv9v78qzl3",
+    "evm_address": "0x3e0e41c2f3467ee1e5bd0b777578a6bec570b0ac",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ruj9rchaa4ze5ekh3hajpdt4gvk9whrmhrtede",
+    "evm_address": "0x1f2451e2fded459a66d78dfb20b575432c575c7b",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1vsfpahrsj7gdaj66sey0lc8hg6kw5yzwc8vl2c",
+    "evm_address": "0x64121edc709790decb5a8648ffe0f746acea104e",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18akqhg45q3p6jln5s4af9d6mjheypp9kxyeqjf",
+    "evm_address": "0x3f6c0ba2b40443a97e74857a92b75b95f24084b6",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1xl6kl6qq8spheyzr2w0pcgcwzwv8cmz4gvq24h",
+    "evm_address": "0x37f56fe8003c037c9043539e1c230e13987c6c55",
+    "amount_upc": 2498.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c3rardmsyrdvms28lfxlwwdfjl5dwzneqley2f",
+    "evm_address": "0xc447d1b77020dacdc147fa4df739a997e8d70a79",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1g7fyx0pzz369gqd43kkwfa62jddkuq3ly52dvc",
+    "evm_address": "0x4792433c2214745401b58dace4f74a935b6e023f",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c4038ytcv5r2qxvus74z9vl63ljy886kc0jm6p",
+    "evm_address": "0xc55f1391786506a0199c87aa22b3fa8fe4439f56",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19nurn72r7v3za5kn2fqvymlavwld7ztkt2kn5k",
+    "evm_address": "0x2cf839f943f3222ed2d35240c26ffd63bedf0976",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1plkxpvpd7xzennmqw9wdjpx902t2nkwduqagpv",
+    "evm_address": "0x0fec60b02df18599cf60715cd904c57a96a9d9cd",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kjh2ng6nmeaxs52lp975z4l2q6jsuwjq70n7ec",
+    "evm_address": "0xb4aea9a353de7a68515f097d4157ea06a50e3a40",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1maz20k72c4gn0aqjrd79dxcze8duqyjnp2h0n4",
+    "evm_address": "0xdf44a7dbcac55137f4121b7c569b02c9dbc01253",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gt5hhckhfy27442gntt0eujlzls04avs364clp",
+    "evm_address": "0x42e97be2d74915ead5489ad6fcf25f17e0faf590",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qvszu7fd3xxam2fzwm424hx5cevs4h7kgxzewk",
+    "evm_address": "0x03202e792d898ddda92276eaaadcd4c6590adfd6",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1n3kwp4cwr9q000emelf46c0m0h57ft9t4a2j0j",
+    "evm_address": "0x9c6ce0d70e1940f7bf3bcfd35d61fb7de9e4acab",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1t09aedmh5mmykqkv7rxjw64egrn05pvtzw2ypq",
+    "evm_address": "0x5bcbdcb777a6f64b02ccf0cd276ab940e6fa058b",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1thxy606ka5yl76353mczw3nx84uxglt9fm7v7p",
+    "evm_address": "0x5dcc4d3f56ed09ff6a348ef02746663d78647d65",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12jw6q4lt9qlz98kzsh7f3nrzq5syz5ac35npyx",
+    "evm_address": "0x549da057eb283e229ec285fc98cc6205204153b8",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1jyh8rww7ur2qa9ktnypknf57x87nka5lj25l6w",
+    "evm_address": "0x912e71b9dee0d40e96cb990369a69e31fd3b769f",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1z396wltunzrl46dd37jvwrar9x6nt5f4ds4wuh",
+    "evm_address": "0x144ba77d7c9887fae9ad8fa4c70fa329b535d135",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1t6s9cedh5schhcu0lppzrdjl050gc929r8t9ze",
+    "evm_address": "0x5ea05c65b7a4317be38ff84221b65f7d1e8c1545",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13vdu8j6mn98pu90qqa0r3djf6a4s8lw8th6kv4",
+    "evm_address": "0x8b1bc3cb5b994e1e15e0075e38b649d76b03fdc7",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1cx8mylu52c4y4v8pa7agt54mzsrr6dp0s0cknk",
+    "evm_address": "0xc18fb27f94562a4ab0e1efba85d2bb14063d342f",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15ktulj7w4cr8qyf9e8tz944ul2x7zq6cm6swd0",
+    "evm_address": "0xa597cfcbceae06701125c9d622d6bcfa8de10358",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19wycpah647k6hl4sc4y4g0umz7m3j63xsw27p3",
+    "evm_address": "0x2b8980f6faafadabfeb0c549543f9b17b7196a26",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13zsq7lugwmhdllc43he64y37lkwug6fsadlp2h",
+    "evm_address": "0x88a00f7f8876eedfff158df3aa923efd9dc46930",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1l0twmdzs0pjp6t3hct6jnqajh08mspaqajuxs3",
+    "evm_address": "0xfbd6edb45078641d2e37c2f52983b2bbcfb807a0",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1wqtjfk2a6ltre5pytlxumk7chevs22xnedum4m",
+    "evm_address": "0x701724d95dd7d63cd0245fcdcddbd8be590528d3",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1yeflnrjttzkmcgwty8wa5pr9js6wgxvxrnhcpe",
+    "evm_address": "0x2653f98e4b58adbc21cb21ddda04659434e41986",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1psa9ytjrz2ue5p0plk9lslrxdp0xmzk37gylpd",
+    "evm_address": "0x0c3a522e4312b99a05e1fd8bf87c66685e6d8ad1",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1rmfhcmwqen4405s2kggpj479z4h6z6wdk8rmms",
+    "evm_address": "0x1ed37c6dc0cceb57d20ab2101957c5156fa169cd",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gxsn0h2vphe6pgjeg26r96v7hej7ry9uxll0y7",
+    "evm_address": "0x41a137dd4c0df3a0a25942b432e99ebe65e190bc",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qkuj7gw4agh9er7ddc58w6k6cz3tawpcfa0zcg",
+    "evm_address": "0x05b92f21d5ea2e5c8fcd6e28776adac0a2beb838",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10h8xkkytzy5jtsmlm893w9y7gmel6xr7szym2s",
+    "evm_address": "0x7dce6b588b112925c37fd9cb17149e46f3fd187e",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dfcaqxkxstgamf7870qwkv5xejq7zwp2lxf7l4",
+    "evm_address": "0x6a71d01ac682d1dda7c7f3c0eb3286cc81e1382a",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1664jcdtpj8c73tldvw6hcm9v48yevkmrxx9fed",
+    "evm_address": "0xd6ab2c356191f1e8afed63b57c6caca9c9965b63",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push156rlzyclkax39cm40629lapdtzz4jq9y56tavf",
+    "evm_address": "0xa687f1131fb74d12e3757e945ff42d58855900a4",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dvlt6fktmvy6nm8ae6h6n56l7r6r6e7rr40a5p",
+    "evm_address": "0x6b3ebd26cbdb09a9ecfdceafa9d35ff0f43d67c3",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18563u05xagd8eq6dfekz9ju89yfl9unum5kem3",
+    "evm_address": "0x3d351e3e86ea1a7c834d4e6c22cb872913f2f27c",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10u5z9cnnwjnn9m4qqlpvdmf040fdvh3jmwrelm",
+    "evm_address": "0x7f2822e27374a732eea007c2c6ed2fabd2d65e32",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1g3lkhas39h43pgcxx7z66qda5990elq09ssaz7",
+    "evm_address": "0x447f6bf6112deb10a3063785ad01bda14afcfc0f",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18ssfq6sy7yt6s72mctng7aygdx9h36cg8ed29u",
+    "evm_address": "0x3c20906a04f117a8795bc2e68f7488698b78eb08",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18pq2ef65fmedllnzaqjn4p3wu92f0qjr0eu6zk",
+    "evm_address": "0x3840aca7544ef2dffe62e8253a862ee154978243",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1utc8jjd4lm9snv4v52l64l0pl3uq0dgud7lf0e",
+    "evm_address": "0xe2f07949b5fecb09b2aca2bfaafde1fc7807b51c",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ec7pxkt24v20egefvg48le3kkadqtej5hcenqd",
+    "evm_address": "0xce3c13596aab14fca329622a7fe636b75a05e654",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1v503jrf8a07j69lwy2tjf7e49w0t4ydcvcryxv",
+    "evm_address": "0x651f190d27ebfd2d17ee229724fb352b9eba91b8",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1uddnr079sr63yddu7vmt54fc3gyuxatuk9jj9j",
+    "evm_address": "0xe35b31bfc580f51235bcf336ba55388a09c3757c",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14va05s8qjenda0alugxgwxlngdn8h96mxzfe6d",
+    "evm_address": "0xab3afa40e09666debfbfe20c871bf343667b975b",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1unhzjarpsx94j7uad4vsqa8lxmuj3r4lwu5jwx",
+    "evm_address": "0xe4ee297461818b597b9d6d590074ff36f9288ebf",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kwm7xgm3xrj6pjmy7l36t0a9kqvfwhaufkj0pv",
+    "evm_address": "0xb3b7e3237130e5a0cb64f7e3a5bfa5b018975fbc",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nmq8fwcq2r9l4u9e0htc6v00jug764rgpwr0w3",
+    "evm_address": "0x9ec074bb0050cbfaf0b97dd78d31ef9711ed5468",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1rwltmm39rtlc2g8xhf45mpzad4np5ue6jk26js",
+    "evm_address": "0x1bbebdee251aff8520e6ba6b4d845d6d661a733a",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1srx64w883v254vpfq80a3jp470ar0l4v83lnpe",
+    "evm_address": "0x80cdaab8e78b154ab02901dfd8c835f3fa37feac",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push16fedynkg30vcv52ma700nx7mefjqatmjv6tf2k",
+    "evm_address": "0xd272d24ec88bd986515bef9ef99bdbca640eaf72",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1khk728vdn0eaw9rpfwelvljxqvar80dqrtvnhg",
+    "evm_address": "0xb5ede51d8d9bf3d714614bb3f67e46033a33bda0",
+    "amount_upc": 2488.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1supq4sp3tqxn8kp6e5yk68a3frp9g9yglg2t40",
+    "evm_address": "0x87020ac031580d33d83acd096d1fb148c2541488",
+    "amount_upc": 2487.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1m283urnzam68ldtma3x4ekvq27rcuxmkkz7wwl",
+    "evm_address": "0xda8f1e0e62eef47fb57bec4d5cd98057878e1b76",
+    "amount_upc": 2487.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lskrwnzpf6agp7xehjw6td0zqmpr03evdx3q0y",
+    "evm_address": "0xfc2c374c414eba80f8d9bc9da5b5e206c237c72c",
+    "amount_upc": 2487.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19cy88sc3p5nj7qex67srdqzqevveuky570sk4h",
+    "evm_address": "0x2e0873c3110d272f0326d7a0368040cb199e5894",
+    "amount_upc": 2487.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1l9x8352zjn5vs5f0eaxnucgj8e9d3zkspzrg2x",
+    "evm_address": "0xf94c78d14294e8c8512fcf4d3e61123e4ad88ad0",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1v83e7wse2aaeg7zv0v95qdgau8umdvtfz07jaq",
+    "evm_address": "0x61e39f3a19577b94784c7b0b40351de1f9b6b169",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1u4dhlyqmhyu37n650l9kpfe6hnxq58z69fjxss",
+    "evm_address": "0xe55b7f901bb9391f4f547fcb60a73abccc0a1c5a",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1skgjrssr3htmcxqg0pqqyzl0vy3qr64uq9wm8p",
+    "evm_address": "0x859121c2038dd7bc18087840020bef612201eabc",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nh5s0fmal9qucx030m4zle8m44cqqcaytlca2l",
+    "evm_address": "0x9de907a77df941cc19f17eea2fe4fbad700063a4",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1834ujq2ftqsmt2uv7h6ywc75nhugwxzyyqmra4",
+    "evm_address": "0x3c6bc901495821b5ab8cf5f44763d49df8871844",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1x7lmqtgpw2wll2m3562cz8j0wunamvmlmmpuyn",
+    "evm_address": "0x37bfb02d01729dffab71a695811e4f7727ddb37f",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1jj9hl48dk7s2u262r7tuugewy8rxlg9r2uu43s",
+    "evm_address": "0x948b7fd4edb7a0ae2b4a1f97ce232e21c66fa0a3",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lyhap0avunf0anhl7eflupsq89zf7avqk5ngws",
+    "evm_address": "0xf92fd0bface4d2fecefff653fe060039449f7580",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push159tnsk3lpue4gsl98mukvrgpvzau8xk67t3q6d",
+    "evm_address": "0xa157385a3f0f335443e53ef9660d0160bbc39ada",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18c6zqne9n6ucya2seq9qvk0sr6azu294p6euup",
+    "evm_address": "0x3e34204f259eb9827550c80a0659f01eba2e28b5",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nshm2ukuj6gng84dw5fsjfv7tmxq4q08v6xc0e",
+    "evm_address": "0x9c2fb572dc9691341ead751309259e5ecc0a81e7",
+    "amount_upc": 2482.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ug0ny9rkce4ty340q88ew9ed0l9g3cxvl2rmc6",
+    "evm_address": "0xe21f321476c66ab246af01cf97172d7fca88e0cc",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1wpue3whlfxelcd6p4rt8se8trxy3em0fzzkpk2",
+    "evm_address": "0x707998baff49b3fc3741a8d67864eb19891cede9",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19wh7a4463pc4jnxlav9kh85zyq760gf7u8a7v3",
+    "evm_address": "0x2bafeed6ba8871594cdfeb0b6b9e82203da7a13e",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1jwetnp5d9fvmat6trte7dl96keut7ylwn73pkm",
+    "evm_address": "0x93b2b9868d2a59beaf4b1af3e6fcbab678bf13ee",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1e7lht7xrqtym7ak8w3znnggut7865lj2c2cm95",
+    "evm_address": "0xcfbf75f8c302c9bf76c7744539a11c5f8faa7e4a",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1t4l25zshfaje302svg77h78mg38n02xrp5tzsl",
+    "evm_address": "0x5d7eaa0a174f6598bd50623debf8fb444f37a8c3",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1y6xhzgg0s4r9lsnekzjg4tkx4cxtg93k8w2ax9",
+    "evm_address": "0x268d71210f85465fc279b0a48aaec6ae0cb41636",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13grgpw59q05guwmu0nh93zgcgnv0uqdhnwwmnn",
+    "evm_address": "0x8a0680ba8503e88e3b7c7cee58891844d8fe01b7",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1vgts4k9f0qvhrhuerx99n6r3mv2w4dkykhkcuc",
+    "evm_address": "0x62170ad8a9781971df99198a59e871db14eab6c4",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1q7dgk5zf8ewfqhvsz4873huf6pw2trevm2jlk5",
+    "evm_address": "0x079a8b50493e5c905d90154fe8df89d05ca58f2c",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ka0ewdja6e46zt7ddh80rcaat5gdrx90j5v0w7",
+    "evm_address": "0xb75f97365dd66ba12fcd6dcef1e3bd5d10d198af",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15qacmamnm3yns926hju0ssrm0cwrm9xk80cs8c",
+    "evm_address": "0xa03b8df773dc4938155abcb8f8407b7e1c3d94d6",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19u65w9nh5qskncy3x3dhskmcvevva3n4dfw87p",
+    "evm_address": "0x2f35471677a02169e091345b785b786658cec675",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ltwzgc038g4ypedhcl4xgcmmvsp78dv7fykt2g",
+    "evm_address": "0xfadc2461f13a2a40e5b7c7ea64637b6403e3b59e",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1053rq58c52ufq3e9mmyhgjhw2a54eyqty96gvu",
+    "evm_address": "0x7d223050f8a2b8904725dec9744aee57695c900b",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18p5r25vmnfxzay0lgmejfgce4u9932f423l5cj",
+    "evm_address": "0x386835519b9a4c2e91ff46f324a319af0a58a935",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1mcljklfy9leypuq8n7wdefkhshgmuf4csy3yuv",
+    "evm_address": "0xde3f2b7d242ff240f0079f9cdca6d785d1be26b8",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nyhk2s0zlwamv4lnujetgn8ev6cl7vefgx8nv4",
+    "evm_address": "0x992f6541e2fbbbb657f3e4b2b44cf966b1ff3329",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13p5u34hxrgdu24gll79u6w797ujh6vfprhgjuk",
+    "evm_address": "0x8869c8d6e61a1bc5551fff8bcd3bc5f7257d3121",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19gvdtwu8ww9p2evapqsgd5r053jupq6k9gsj54",
+    "evm_address": "0x2a18d5bb87738a15659d082086d06fa465c08356",
+    "amount_upc": 2476.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1j938qymfrfgqfs2mrcn7ehsz2w6dghw84ad59t",
+    "evm_address": "0x91627013691a5004c15b1e27ecde0253b4d45dc7",
+    "amount_upc": 2470.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lc5s077wqmvke02rtca6mkrmjpak7tj6euxhe9",
+    "evm_address": "0xfe2907fbce06d96cbd435e3badd87b907b6f2e5a",
+    "amount_upc": 2434.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1hepyuh5q5f9rr7qnarernvpn2zvyx27xzr535w",
+    "evm_address": "0xbe424e5e80a24a31f813e8f239b0335098432bc6",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1zckwqc6d2paqcjvneduvhlm8d9ae58yax9qwuz",
+    "evm_address": "0x162ce0634d507a0c4993cb78cbff67697b9a1c9d",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14k5wulkyellcaafgx44hx0cevykspwa73jvr8m",
+    "evm_address": "0xada8ee7ec4cfff8ef528356b733f19612d00bbbe",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push199d45qt4nfpl6my6j5ysusj0sxz6jn8v79lg2r",
+    "evm_address": "0x295b5a01759a43fd6c9a95090e424f8185a94cec",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18fnvzr4sdrqev0m9vz8lguffzk0j20y7dqycdf",
+    "evm_address": "0x3a66c10eb068c1963f65608ff47129159f253c9e",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push17w3rcdz6rwl5s6j2tuwtg7mgf0gdd7shlhyw9j",
+    "evm_address": "0xf3a23c345a1bbf486a4a5f1cb47b684bd0d6fa17",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kqmwh65v58lvtpazqhvc76drlsskquxptlpexw",
+    "evm_address": "0xb036ebea8ca1fec587a205d98f69a3fc216070c1",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10wllxw6mwzvfvck0382qdraudkfyjdygvc6qxa",
+    "evm_address": "0x7bbff33b5b70989662cf89d4068fbc6d92493488",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14737s5vw3qn0z3xj3geyt5769wpv3eul7lx9m6",
+    "evm_address": "0xafa3e8518e8826f144d28a3245d3da2b82c8e79f",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push135vap0gqhmll6cc7y6rp546a78thedcq2x0nmy",
+    "evm_address": "0x8d19d0bd00befffd631e26861a575df1d77cb700",
+    "amount_upc": 2427.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13p22e7y9tvlffuwjg3vgpnldmz5p3d24e8wuuj",
+    "evm_address": "0x8854acf8855b3e94f1d2445880cfedd8a818b555",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18t6a75rcy0902ltm0mrvrl75jctvha45rrf774",
+    "evm_address": "0x3af5df507823caf57d7b7ec6c1ffd49616cbf6b4",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19dgnajjz923nmzu05tg03cqcxpet0y89lrnnan",
+    "evm_address": "0x2b513eca422aa33d8b8fa2d0f8e0183072b790e5",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fk8aeqz4t0wg2heettwtgargwk8pgs75fq3j0v",
+    "evm_address": "0x4d8fdc80555bdc855f395adcb47468758e1443d4",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fnrzt84yqspx2gtut9st2w55z4j2qthd2m06yv",
+    "evm_address": "0x4cc6259ea4040265217c5960b53a941564a02eed",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1w7rfyq94c22sag6n82dvf92l8atxca3hnej3sp",
+    "evm_address": "0x77869200b5c2950ea3533a9ac4955f3f566c7637",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1k63yhgu889l39gyk0r9uxasfzrvkcxaakvyg92",
+    "evm_address": "0xb6a24ba387397f12a09678cbc3760910d96c1bbd",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12x830m7ly74gh0mgarj3al6ren22zhhpl68y0f",
+    "evm_address": "0x518f17efdf27aa8bbf68e8e51eff43ccd4a15ee1",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1and2ntcqa03d9jx3m5ydyuzk8j8l6sutj24ne0",
+    "evm_address": "0xecdaa9af00ebe2d2c8d1dd08d270563c8ffd438b",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push16knqmyu5cmmy9pwjs4zfdxdcmsphutg47u332s",
+    "evm_address": "0xd5a60d9394c6f64285d285449699b8dc037e2d15",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ccnvnhqyj3q7fj5tvllnkwyfxdgwzxh7jn9ht5",
+    "evm_address": "0xc626c9dc049441e4ca8b67ff3b38893350e11afe",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ypwmtg87yuwxea44svpdtwjgylqf039dxt377a",
+    "evm_address": "0x205db5a0fe271c6cf6b58302d5ba4827c097c4ad",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1mh2585l6upzr5c8q78sx4ttj8kxt2ck30w9lld",
+    "evm_address": "0xddd543d3fae0443a60e0f1e06aad723d8cb562d1",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12ujdtjslrpt8ctk8fppx386fdfvzfut07v8qqs",
+    "evm_address": "0x5724d5ca1f18567c2ec74842689f496a5824f16f",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1fuyzrm6t6a7jcrtqx3ryh7pqj8wvaum3yckhem",
+    "evm_address": "0x4f0821ef4bd77d2c0d6034464bf82091dccef371",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c9hqjav8u63v7np4f67hwc8jqjpnkhhr58wnwu",
+    "evm_address": "0xc16e097587e6a2cf4c354ebd7760f204833b5ee3",
+    "amount_upc": 2422.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1y70ncpqwcsaqp24lu3h2d8eknwj22vkawnmrhj",
+    "evm_address": "0x279f3c040ec43a00aabfe46ea69f369ba4a532dd",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kw7ed0kk5zvgvmd66mhsw7h9kwzzjeclsavwh0",
+    "evm_address": "0xb3bd96bed6a098866dbad6ef077ae5b38429671f",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push144yw7dkhysnzgl9qr5ngwc2uzsxsrczhlt7208",
+    "evm_address": "0xad48ef36d72426247ca01d2687615c140d01e057",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1m4jtm0ly0pzq5huec7yta5x96550v56spgvd9r",
+    "evm_address": "0xdd64bdbfe478440a5f99c788bed0c5d528f65350",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ge84dw8skd4dgvztek9k4w3sc067ul8y5p0cxc",
+    "evm_address": "0x464f56b8f0b36ad4304bcd8b6aba30c3f5ee7ce4",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push143fssca9akdhq2gsucmmfqeqa070le4zua9480",
+    "evm_address": "0xac530863a5ed9b702910e637b48320ebfcffe6a2",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12x64qfclkgladmg650w8m6hxnnhqrxgfptvy58",
+    "evm_address": "0x51b550271fb23fd6ed1aa3dc7deae69cee019909",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push16k7em64qtw7azcucx7nvwpzwx6ng59xmph9vjw",
+    "evm_address": "0xd5bd9deaa05bbdd1639837a6c7044e36a68a14db",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push19m97jvfh82ltzfzvtx7uuxya44vdfqjqg66xjr",
+    "evm_address": "0x2ecbe931373abeb1244c59bdce189dad58d48240",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dwdx3tp0w0qvp8nehnsl5kf72fsuh5454plyn7",
+    "evm_address": "0x6b9a68ac2f73c0c09e79bce1fa593e5261cbd2b4",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ccjywg9gslmht00qwqq275xaqcfu5gd4252j8v",
+    "evm_address": "0xc6244720a887f775bde07000af50dd0613ca21b5",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1xvxqwzxndcmt5stygcw9klq0gg5akzemwzzktu",
+    "evm_address": "0x330c0708d36e36ba4164461c5b7c0f4229db0b3b",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nsx4vuw00nulfenvr3ntwm0sx7pc8gugdgn383",
+    "evm_address": "0x9c0d5671cf7cf9f4e66c1c66b76df0378383a388",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13law976gj8vld7e0xx4ls9xrzj7c92pj82388e",
+    "evm_address": "0x8ffae2fb4891d9f6fb2f31abf814c314bd82a832",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1y48hn9llwmhv0wdtqyrrkf7nryuqmp7hyke8tw",
+    "evm_address": "0x254f7997ff76eec7b9ab01063b27d319380d87d7",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1g3xtsghf75xm0rsylhup9epr7dfy7ffe4zkclk",
+    "evm_address": "0x444cb822e9f50db78e04fdf812e423f3524f2539",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ylxm42n92s2f8dar744ksmnz50p0paklrezfks",
+    "evm_address": "0x27cdbaaa65541493b7a3f56b686e62a3c2f0f6df",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1n4m43ehwth0stk62xc7hh937waptancr5knkrm",
+    "evm_address": "0x9d7758e6ee5ddf05db4a363d7b963e7742becf03",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push128ku9c08375k5prz76zcx0m2e5wyn3d6gy8wn0",
+    "evm_address": "0x51edc2e1e78fa96a0462f685833f6acd1c49c5ba",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1h9d6nurufqes23szsj6rwhnxdng2jh8nffc6rn",
+    "evm_address": "0xb95ba9f07c483305460284b4375e666cd0a95cf3",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12sdt56qfw6qc2eplymzd5rlyxlucul70eglkpl",
+    "evm_address": "0x541aba6809768185643f26c4da0fe437f98e7fcf",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1xx5ah330stlfl8vk4ntrt8qqm4um5kdulr65fc",
+    "evm_address": "0x31a9dbc62f82fe9f9d96acd6359c00dd79ba59bc",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push14rdyeyq26zmqw2m5vdcl94y5dxcp5ezsadnq8a",
+    "evm_address": "0xa8da4c900ad0b6072b746371f2d49469b01a6450",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12egl4p3xzw3yuh9sdn3qrwyvnsfnxp70kd7y3e",
+    "evm_address": "0x5651fa862613a24e5cb06ce201b88c9c133307cf",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c007jpk566h3fycs6j23hgzyp03ummhc8me5ep",
+    "evm_address": "0xc3dfe906d4d6af149310d4951ba0440be3cdeef8",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13qcj6f48ah539f86dy645459d5fvy8jnu30nqk",
+    "evm_address": "0x88312d26a7ede912a4fa69355a56856d12c21e53",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1e7qav02th4zq2yez9mf208sww0zu65hgtl8jel",
+    "evm_address": "0xcf81d63d4bbd440513222ed2a79e0e73c5cd52e8",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gq2qml3gmw4qmah2ahgy6s9qgruw4q8yuxv0e0",
+    "evm_address": "0x40140dfe28dbaa0df6eaedd04d40a040f8ea80e4",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ut32y694j855njww5ckz7v3lrrs9zpn5cdq0fr",
+    "evm_address": "0xe2e2a268b591e949c9cea62c2f323f18e0510674",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push190thymzmn9aqhe43fpcjgknq23nzyrgdzadsfv",
+    "evm_address": "0x2bd7726c5b997a0be6b14871245a605466220d0d",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dfadmaz5gydnuf33evm2fj6a4ddfl9n9jpu25z",
+    "evm_address": "0x6a7addf454411b3e2631cb36a4cb5dab5a9f9665",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1e3w4y8xv3kme786gqr3dt8acvjhl2nhwwqrrl7",
+    "evm_address": "0xcc5d521ccc8db79f1f4800e2d59fb864aff54eee",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1pppe3avwpacxca3affrvupune4yhgfz9wqrpra",
+    "evm_address": "0x084398f58e0f706c763d4a46ce0793cd49742445",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push16zpwa72hnhvpqyen6w7c8wxhu6wlrl8j2gvlgl",
+    "evm_address": "0xd082eef9579dd8101333d3bd83b8d7e69df1fcf2",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13sazpzkghkcwwqe25p865zflvgz6uwsczmmdqw",
+    "evm_address": "0x8c3a208ac8bdb0e7032aa04faa093f6205ae3a18",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1r4v94xm56d8laamt88w0knj9n65km523jjdsl4",
+    "evm_address": "0x1d585a9b74d34ffef76b39dcfb4e459ea96dd151",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1mnp8xmqpprv4rs4004532aa89yk6zq6l7awd0g",
+    "evm_address": "0xdcc2736c0108d951c2af7d691577a7292da1035f",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1sfc66svvtx4s00ny406gv082h6cj8mdk823dv0",
+    "evm_address": "0x8271ad418c59ab07be64abf4863ceabeb123edb6",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lmzuatthk37f2gusgrejkgkfh4znan9d4f6h2u",
+    "evm_address": "0xfec5cead77b47c95239040f32b22c9bd453eccad",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ncuv8v6sx4an5jmhj4wh4e4lzugmpv5as96z9k",
+    "evm_address": "0x9e38c3b350357b3a4b77955d7ae6bf1711b0b29d",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lrnttgrtcye4438mhksa7mtpmvhh8x0976rvuk",
+    "evm_address": "0xf8e6b5a06bc1335ac4fbbda1df6d61db2f7399e5",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1k9j7l5hs32sf3xzxlhlflr04rhg0f070a5zat2",
+    "evm_address": "0xb165efd2f08aa0989846fdfe9f8df51dd0f4bfcf",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1mec58zeh385fgs4r3acffvphqskr0kex2u7hrk",
+    "evm_address": "0xde71438b3789e89442a38f7094b037042c37db26",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12h4gl5vwarzlsdk8sa67fjeqp0jn9kuf0en88e",
+    "evm_address": "0x55ea8fd18ee8c5f836c78775e4cb200be532db89",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1h4x4nxu8fwsm039n5cavfv0qsp7x65dyw3ydc3",
+    "evm_address": "0xbd4d599b874ba1b7c4b3a63ac4b1e0807c6d51a4",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1eg64dtth2elzpg39lvjfnqwqmxfanzldfrsm24",
+    "evm_address": "0xca3556ad77567e20a225fb249981c0d993d98bed",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1y0hz7kkuney9llgm0lezurcvgl3wgwf5gvnqph",
+    "evm_address": "0x23ee2f5adc9e485ffd1b7ff22e0f0c47e2e43934",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1pyqd5a48jmvplcr52hrupkepr4dcc674tsyj7x",
+    "evm_address": "0x0900da76a796d81fe07455c7c0db211d5b8c6bd5",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1w9arjrmysmwgqjapege5z927mtz4ydcdeakv08",
+    "evm_address": "0x717a390f6486dc804ba1ca3341155edac552370d",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1l22nr2e3wmrwwlwmx73erj0p6zrfrhrrhzqhcj",
+    "evm_address": "0xfa9531ab3176c6e77ddb37a391c9e1d08691dc63",
+    "amount_upc": 2421.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qj2dm6fh99rwy7g0jhcc0ww6fcyxrr064ac6v8",
+    "evm_address": "0x0494dde9372946e2790f95f187b9da4e08618dfa",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1wq7s69vzgv6uvhajjxeva5xtaqa7s5lrk6e56v",
+    "evm_address": "0x703d0d15824335c65fb291b2ced0cbe83be853e3",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1lulq642t2kfgwssuruu22ld2lypfglpmh7a64x",
+    "evm_address": "0xff3e0d554b559287421c1f38a57daaf902947c3b",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13aa8vml42pc4xxvej3r3j0zlvg7ysew6flyz23",
+    "evm_address": "0x8f7a766ff550715319999447193c5f623c4865da",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1uc20wdluyxa99eak7ztqqvtkw2xe0dwfghwn7m",
+    "evm_address": "0xe614f737fc21ba52e7b6f096003176728d97b5c9",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1s03euyrce6uypgax8vejxxtkp6w33x66xxn38m",
+    "evm_address": "0x83e39e1078ceb840a3a63b332319760e9d189b5a",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1gkcnyl2u39tllrf3sjhc07dgdx2mjxsmq7awxl",
+    "evm_address": "0x45b1327d5c8957ff8d3184af87f9a86995b91a1b",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push174c4gcfddlfj06h7d4v74tz5e7u9agwrwwkl52",
+    "evm_address": "0xf57154612d6fd327eafe6d59eaac54cfb85ea1c3",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1y4yykgurq5yjpqk2rc5va28yqmcupxa6lfcd30",
+    "evm_address": "0x25484b238305092082ca1e28cea8e406f1c09bba",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1zcv7y208rmeh6zn9aa08344r2yjldda3a6q3pq",
+    "evm_address": "0x1619e229e71ef37d0a65ef5e78d6a35125f6b7b1",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12zqmu7v67v37h8p7hl44hsj3rlhshk4gaxptq5",
+    "evm_address": "0x5081be799af323eb9c3ebfeb5bc2511fef0bdaa8",
+    "amount_upc": 2420.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18ufx535s6dkpr5cg4uqmum0pwwz57ju4ace9dy",
+    "evm_address": "0x3f126a4690d36c11d308af01be6de173854f4b95",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1x3vr6x0d83frsxtx79ahz756w4zuyedq6xu87n",
+    "evm_address": "0x34583d19ed3c52381966f17b717a9a7545c265a0",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1h2dlpax62rnc7gglwgx6yzhwlh5u525r6dtzhg",
+    "evm_address": "0xba9bf0f4da50e78f211f720da20aeefde9ca2a83",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1uyll4qg2ngpz9wk20hp3gnvtyaqknncrhu67ys",
+    "evm_address": "0xe13ffa810a9a0222baca7dc3144d8b274169cf03",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18dkydhzd898ntg6yxgec5wlwe9sm7ym0up9na6",
+    "evm_address": "0x3b6c46dc4d394f35a34432338a3beec961bf136f",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push18phxhlxjdxah3lzyyqwhs7nffgwmvuu4lttat4",
+    "evm_address": "0x386e6bfcd269bb78fc44201d787a694a1db67395",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15cvj7xra5803kl8d8fu0t3kueftm0qfm249l96",
+    "evm_address": "0xa6192f187da1df1b7ced3a78f5c6dcca57b7813b",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1e7pmflqhhhakr7tqfkq9qgyfxdhwlgrdpfuvu4",
+    "evm_address": "0xcf83b4fc17bdfb61f9604d80502089336eefa06d",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1c8sjkl0e0lml7nnz5jdrncnz7d8qfy9049gruw",
+    "evm_address": "0xc1e12b7df97ff7ff4e62a49a39e262f34e0490af",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1wz4wpp8nzl90c0qne9tlwqhr5w9s4aywg274yw",
+    "evm_address": "0x70aae084f317cafc3c13c957f702e3a38b0af48e",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1qgyt26d8succ6vcg60r2xqz9ac870fhxh53zrl",
+    "evm_address": "0x0208b569a787318d3308d3c6a30045ee0fe7a6e6",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1nf3mygrvdewzh8086z5ff6mnza0r74v7r89w3m",
+    "evm_address": "0x9a63b2206c6e5c2b9de7d0a894eb73175e3f559e",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push12lz5u8yqv8a5vega460tyfqtl0upjrscvv0dd0",
+    "evm_address": "0x57c54e1c8061fb46651dae9eb2240bfbf8190e18",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1sdgra7t9rcfpg6vf374x2fy0k33psmyed2wvf7",
+    "evm_address": "0x83503ef9651e121469898faa65248fb462186c99",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1amsv3cmj3s3h0qpcqu574h9fvvesgfkwpqlzz5",
+    "evm_address": "0xeee0c8e3728c237780380729eadca963330426ce",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push13j44xwwqy5eausllk243ywp7v425hl8nu4r9q9",
+    "evm_address": "0x8cab5339c02533de43ffb2ab12383e65554bfcf3",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1yj9y6cnexve8f77a37e3l5ak8tzcrc7mktsnad",
+    "evm_address": "0x248a4d6279333274fbdd8fb31fd3b63ac581e3db",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kh40gh9nr5tvlt9ml9cydqu4ksrjcjqm0mcy36",
+    "evm_address": "0xb5eaf45cb31d16cfacbbf970468395b4072c481b",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1urgc74js9cyz4v58qzzermuqk2726jz4qal8ds",
+    "evm_address": "0xe0d18f56502e082ab287008591ef80b2bcad4855",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15ehlpyxj0s6qg444qcrvsmhcncwu6s6jhwlztu",
+    "evm_address": "0xa66ff090d27c340456b50606c86ef89e1dcd4352",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1krs7a8kzmvahuhah2tnphks9gvdqj5legt4fy6",
+    "evm_address": "0xb0e1ee9ec2db3b7e5fb752e61bda05431a0953f9",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1ylzkh47lw5n4a9v76e37gdw0rsk9cl9h02mmfu",
+    "evm_address": "0x27c56bd7df75275e959ed663e435cf1c2c5c7cb7",
+    "amount_upc": 2419.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1kekx2acdqup857wdzznvhy9swqka8e8qem9kxl",
+    "evm_address": "0xb66c65770d07027a79cd10a6cb90b0702dd3e4e0",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1g5lz64awvtl90hzd4uzlnjhyzmykw9v6vfvjw6",
+    "evm_address": "0x453e2d57ae62fe57dc4daf05f9cae416c967159a",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1dexpnrgdlnucf9f86qxg6ucp05ukrawdkfpygj",
+    "evm_address": "0x6e4c198d0dfcf9849527d00c8d73017d3961f5cd",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1w6xdqrhwt2gcwvy6e76xu0hgqnqxt7m4v32xss",
+    "evm_address": "0x768cd00eee5a9187309acfb46e3ee804c065fb75",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15dnnvz9w4cnsjjyqfazfex6j39qgnncf2fu4kn",
+    "evm_address": "0xa3673608aeae270948804f449c9b52894089cf09",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push10glqc8zchh0r7gpuap08xzld3akrxs88hu2szu",
+    "evm_address": "0x7a3e0c1c58bdde3f203ce85e730bed8f6c3340e7",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1azh4qefs5xr2wdcawjc3csc926xmcvn0598dsq",
+    "evm_address": "0xe8af506530a186a7371d74b11c4305568dbc326f",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1e6gcrgr02u4p2w44rggvkgg3a3fh6jjyn7k4ap",
+    "evm_address": "0xce9181a06f572a153ab51a10cb2111ec537d4a44",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push15076ymglgla64urnsfz33rjqxja75cx9gqa6sj",
+    "evm_address": "0xa3fda26d1f47fbaaf0738245188e4034bbea60c5",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1z62s6seudv3wg7gp6u7lrcfy2df0cpfv0gxpck",
+    "evm_address": "0x16950d433c6b22e47901d73df1e1245352fc052c",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1uaz2yg0rv272ljspcmhfgm73exj9kcf0pz4eef",
+    "evm_address": "0xe744a221e362bcafca01c6ee946fd1c9a45b612f",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1uz35uwy22j50pme3343mej2vw4ktxey45uz9zh",
+    "evm_address": "0xe0a34e388a54a8f0ef318d63bcc94c756cb36495",
+    "amount_upc": 2418.0,
+    "rebalanced_tokens": 1151.0
+  },
+  {
+    "address": "push1l4hun0vf6mvux36fe0kuavfay880m25k92ptx4",
+    "evm_address": "0xfd6fc9bd89d6d9c34749cbedceb13d21cefdaa96",
+    "amount_upc": 2261.0,
+    "rebalanced_tokens": 1149.0
+  },
+  {
+    "address": "push1hnadqhjlrxhydl42ktmj4kvh00prnvu4z6usxr",
+    "evm_address": "0xbcfad05e5f19ae46feaab2f72ad9977bc239b395",
+    "amount_upc": 2239.0,
+    "rebalanced_tokens": 1149.0
+  },
+  {
+    "address": "push1909p4atzwqzefe8ch27ht0s3fq4mq24qdghl0k",
+    "evm_address": "0x2bca1af562700594e4f8babd75be11482bb02aa0",
+    "amount_upc": 2231.0,
+    "rebalanced_tokens": 1149.0
+  },
+  {
+    "address": "push1y7h75g3qr5xg09v5305e980h8rayplrjcydhtz",
+    "evm_address": "0x27afea22201d0c8795948be9929df738fa40fc72",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1c208u2a7v6vhcnqnrr0gd0x3zv3u2wfq8j7wm2",
+    "evm_address": "0xc29e7e2bbe66997c4c1318de86bcd11323c53920",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1rrjnse0k2y4pztsmx7k2je7qlnte66hsw2jue2",
+    "evm_address": "0x18e53865f6512a112e1b37aca967c0fcd79d6af0",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push15lhu36nhlycehczrakzfezrwu3faxe2vyq9dsr",
+    "evm_address": "0xa7efc8ea77f9319be043ed849c886ee453d3654c",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1euxcqs65wcwyj6yqd86yh6xetjnwpc2zxfjwfc",
+    "evm_address": "0xcf0d804354761c49688069f44be8d95ca6e0e142",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1sfgp2uv5tzw5mzehugzuj6axuydgfssx36cgvd",
+    "evm_address": "0x8250157194589d4d8b37e205c96ba6e11a84c206",
+    "amount_upc": 2137.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1x4at979gaxavchv4zt4y6udfhqehas66anyd8j",
+    "evm_address": "0x357ab2f8a8e9bacc5d9512ea4d71a9b8337ec35a",
+    "amount_upc": 2133.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push130f98ee5v9mp64w0zzzx9tnh0llt43zjlu99qv",
+    "evm_address": "0x8bd253e73461761d55cf108462ae777ffebac452",
+    "amount_upc": 2133.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push16ncqtrje72ypu0ud3yrkevh3amk5pfqapk00ln",
+    "evm_address": "0xd4f0058e59f2881e3f8d89076cb2f1eeed40a41d",
+    "amount_upc": 2133.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1mmk7htx6xh3n3kvd43ql6e98s9km8aghq2zzwh",
+    "evm_address": "0xdeedebacda35e338d98dac41fd64a7816db3f517",
+    "amount_upc": 2133.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1rnejyf8azna4yw2hyschyrxaqx0kpvjfckesqa",
+    "evm_address": "0x1cf32224fd14fb5239572431720cdd019f60b249",
+    "amount_upc": 2133.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1v82nysgvxafclsvnfk99mzfpd352ghp00z79wd",
+    "evm_address": "0x61d532410c37538fc1934d8a5d89216c68a45c2f",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1qd32cls95343stxapfgctnm80mchas2uh4vzjp",
+    "evm_address": "0x0362ac7e05a46b182cdd0a5185cf677ef17ec15c",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1w798rayztcvxn9d2ujg5wywtxa7ypvelr4hx28",
+    "evm_address": "0x778a71f4825e186995aae4914711cb377c40b33f",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push140g0e5j6cdwrmzuvfn6akt750cam46ltaqgjv7",
+    "evm_address": "0xabd0fcd25ac35c3d8b8c4cf5db2fd47e3bbaebeb",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1d29e3jlrte2qgzlfslztvnfx6fmt982cq4vsn2",
+    "evm_address": "0x6a8b98cbe35e54040be987c4b64d26d276b29d58",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1kflap3tvjfpt85f2h0z9hc2pces07d0wks058t",
+    "evm_address": "0xb27fd0c56c9242b3d12abbc45be141c660ff35ee",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1zpjg4zaxdvgufdfz0at5pe3swtxy2zsk9wkus5",
+    "evm_address": "0x10648a8ba66b11c4b5227f5740e63072cc450a16",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1m2xflz8p0eml52vtr2zyy9lwkynu4cmr5cdan6",
+    "evm_address": "0xda8c9f88e17e77fa298b1a844217eeb127cae363",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1nqf26dnxffj3q4f3tyrjj24ttca23407jcmtlu",
+    "evm_address": "0x9812ad36664a651055315907292aab5e3aa8d5fe",
+    "amount_upc": 2111.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1fecd6drmsa0wvjqz8nxk4k3dfh03h0zgltmz7h",
+    "evm_address": "0x4e70dd347b875ee648023ccd6ada2d4ddf1bbc48",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1puflzuketzt9k7znz6mk8j4jwmrf3tgmfqndpj",
+    "evm_address": "0x0f13f172d958965b785316b763cab276c698ad1b",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1qpn7kjp8ezxxuy6whz6t50tf4tslpffne6yr4r",
+    "evm_address": "0x0067eb4827c88c6e134eb8b4ba3d69aae1f0a533",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1xmjqkm7vxnvn5kv9czdrgggdnshq43m8lmcxax",
+    "evm_address": "0x36e40b6fcc34d93a5985c09a34210d9c2e0ac767",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push19kty2rraqhkeqq9lf2ecr3eupfg6szdkrdu3r4",
+    "evm_address": "0x2d96450c7d05ed9000bf4ab381c73c0a51a809b6",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1jtjcgprl4dl98rntcksyrglq4kp62n6vxmrece",
+    "evm_address": "0x92e584047fab7e538e6bc5a041a3e0ad83a54f4c",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1xp94hzu82fag48mns73dyyu6w39we5cdjhnz8y",
+    "evm_address": "0x304b5b8b87527a8a9f7387a2d2139a744aecd30d",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1w7sxxpy2x8sfuhp39y34zpcy86wddwr6t0v52t",
+    "evm_address": "0x77a063048a31e09e5c3129235107043e9cd6b87a",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1kazu2kegf7nlumu0pqe5sy8xevpasn3el2prc9",
+    "evm_address": "0xb745c55b284fa7fe6f8f08334810e6cb03d84e39",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push17fe7vpawqcacptu0w3xjevjgzwfac520m8pc23",
+    "evm_address": "0xf273e607ae063b80af8f744d2cb2481393dc514f",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1nrjvmx2gj0g0t8gaa4d035katlq0fxeelukfw0",
+    "evm_address": "0x98e4cd994893d0f59d1ded5af8d2dd5fc0f49b39",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1l256s268zpazrgg239rufz682ntejx6njrufr5",
+    "evm_address": "0xfaa9a82b47107a21a10a8947c48b4754d7991b53",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1paqkn3wk4rkvmh99cchfh4creye6jm5gwyjfdf",
+    "evm_address": "0x0f4169c5d6a8eccddca5c62e9bd703c933a96e88",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push19s09p728l5qdfu9d3mmhe0nyexk0d5h4f0w8ph",
+    "evm_address": "0x2c1e50f947fd00d4f0ad8ef77cbe64c9acf6d2f5",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1y7r5hyeggnj95mw7p8lxnxq9fes67afcayeeu4",
+    "evm_address": "0x27874b932844e45a6dde09fe6998054e61af7538",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1tywcsp500uxs6f03ya7mwcdaywrfkatcmydhlj",
+    "evm_address": "0x591d88068f7f0d0d25f1277db761bd23869b7578",
+    "amount_upc": 2092.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1y6g3ae8qu4dm6dp4h3j0c54n2fyp6aq0tmduf9",
+    "evm_address": "0x26911ee4e0e55bbd3435bc64fc52b352481d740f",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1tcrjrkyade3z0kec4p95m6slwhyq08cgg7zmpy",
+    "evm_address": "0x5e0721d89d6e6227db38a84b4dea1f75c8079f08",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1fn8qfs4fphledgna2y5ugln5rr5qfww22kj6f4",
+    "evm_address": "0x4cce04c2a90dff96a27d5129c47e7418e804b9ca",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1745knz7rlyal64krcjy0x3a7m4uykcukt0ntmw",
+    "evm_address": "0xf569698bc3f93bfd56c3c488f347bedd784b6396",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1jwdcgfrcrx3vluq34t5kpex3rug65jx6zuh7qe",
+    "evm_address": "0x939b84247819a2cff011aae960e4d11f11aa48da",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push19js8v33wxq4e8a0r248tp2z4q3cgycsym5z3ak",
+    "evm_address": "0x2ca076462e302b93f5e3554eb0a8550470826204",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1mpsa4n4xeelkyspluwug0uyzsfex6n74awmuq3",
+    "evm_address": "0xd861dacea6ce7f62403fe3b887f08282726d4fd5",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push104heddek7eq5c2gu6uhs5pkdy6srff97w43k7y",
+    "evm_address": "0x7d6f96b736f6414c291cd72f0a06cd26a034a4be",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1p820n8ndmzufq5mylld624t6c83hvthe4tyspy",
+    "evm_address": "0x09d4f99e6dd8b8905364ffdba5557ac1e3762ef9",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1xjgakde229hsg6sasehn4g6hevvuar5jq7p3hz",
+    "evm_address": "0x3491db372a516f046a1d866f3aa357cb19ce8e92",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1lenc399ght6w36w8gf9e6ee7ecjz58lqn3qtju",
+    "evm_address": "0xfe678894a8baf4e8e9c7424b9d673ece242a1fe0",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push18se792dp8m80e6vwcpqtdutu7na3mfm504939h",
+    "evm_address": "0x3c33e2a9a13ecefce98ec040b6f17cf4fb1da774",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1t8mwadnntcqqhwelf0uyhh2q4w7rp48fmsnw0r",
+    "evm_address": "0x59f6eeb6735e000bbb3f4bf84bdd40abbc30d4e9",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push15unfccwayjsaljttcm07ksf4cjm89xfykjln0t",
+    "evm_address": "0xa7269c61dd24a1dfc96bc6dfeb4135c4b6729924",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1lzj2ktgzamd69jgdhzym85zw6cvf3rqtp9wpue",
+    "evm_address": "0xf8a4ab2d02eedba2c90db889b3d04ed618988c0b",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1hrpyxrhjk0tgqt35h7q2mpt7yk2w8k92xdlcxt",
+    "evm_address": "0xb8c2430ef2b3d6802e34bf80ad857e2594e3d8aa",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push17sk2crjh488gqdcpf3r5yrtlcwm7pzxa743c4p",
+    "evm_address": "0xf42cac0e57a9ce8037014c47420d7fc3b7e088dd",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1cnqf402u5wzvudxp642hh8k6hfxsxskrte8y8k",
+    "evm_address": "0xc4c09abd5ca384ce34c1d5557b9edaba4d0342c3",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push124vdvthplgaj8zkjneflxfdf4y60qu6r9aw0r8",
+    "evm_address": "0x5558d62ee1fa3b238ad29e53f325a9a934f07343",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push154xy2xgkemhzchvx3wevsf82g85573ggp2ntaf",
+    "evm_address": "0xa54c451916ceee2c5d868bb2c824ea41e94f4508",
+    "amount_upc": 2071.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1c22j6n0gx07v3k0rxcwyy599eacd7q8k079vev",
+    "evm_address": "0xc2952d4de833fcc8d9e3361c4250a5cf70df00f6",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push15xlsx39j05a7ejdvrx95qgwyaw69ys67zayve4",
+    "evm_address": "0xa1bf0344b27d3becc9ac198b4021c4ebb452435e",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1l9w97nxyex8vgahlekcjenk8k60rtwe3knuq3h",
+    "evm_address": "0xf95c5f4cc4c98ec476ffcdb12ccec7b69e35bb31",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1zf4f8mrdxy009qf56nzjqgdtelkrncfue5vz5s",
+    "evm_address": "0x126a93ec6d311ef28134d4c52021abcfec39e13c",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1av5cdnvmtqelfq739k78str0gc5w7kpvl5ntnc",
+    "evm_address": "0xeb2986cd9b5833f483d12dbc782c6f4628ef582c",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1u9vsnrakfnwd9psqrqs245k27tst3jwcymumng",
+    "evm_address": "0xe159098fb64cdcd286001820aad2caf2e0b8c9d8",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1sv3ce8j762yhtlmrhzj2cfgssu6dtgejqj9r8y",
+    "evm_address": "0x83238c9e5ed28975ff63b8a4ac25108734d5a332",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push17j528h28wwgz9asu3p2kf7yvcu0yrjs635s4jz",
+    "evm_address": "0xf4a8a3dd47739022f61c885564f88cc71e41ca1a",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1gl6shhk5hvdznp4rktegull6cwg2y0lnsuuawn",
+    "evm_address": "0x47f50bded4bb1a2986a3b2f28e7ffac390a23ff3",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1q89wlv3qc228e4pu9d04v4ks58tvpzcjtu4zr5",
+    "evm_address": "0x01caefb220c2947cd43c2b5f5656d0a1d6c08b12",
+    "amount_upc": 2059.0,
+    "rebalanced_tokens": 1148.0
+  },
+  {
+    "address": "push1wy7xh7vl7q732aw9z86v03hh7v453pn5l538ft",
+    "evm_address": "0x713c6bf99ff03d1575c511f4c7c6f7f32b488674",
+    "amount_upc": 1997.0,
+    "rebalanced_tokens": 1147.0
+  },
+  {
+    "address": "push1ts5jwste5td8xqgwk6yvjl58xund02a6xusguq",
+    "evm_address": "0x5c29274179a2da73010eb688c97e873726d7abba",
+    "amount_upc": 1990.0,
+    "rebalanced_tokens": 1147.0
+  },
+  {
+    "address": "push1eemlf8g2wj9hrmjysu5jytv7dsgyvfen9x80ja",
+    "evm_address": "0xce77f49d0a748b71ee448729222d9e6c10462733",
+    "amount_upc": 1938.0,
+    "rebalanced_tokens": 1147.0
+  },
+  {
+    "address": "push1rmc4ym72h247efenue4evj8whpj3zdzjmfzl2n",
+    "evm_address": "0x1ef1526fcabaabeca733e66b9648eeb865113452",
+    "amount_upc": 1906.0,
+    "rebalanced_tokens": 1146.0
+  },
+  {
+    "address": "push1zmv42t5zwh23ka9dqmjh7mzsqlzfyls3suvxtu",
+    "evm_address": "0x16d9552e8275d51b74ad06e57f6c5007c4927e11",
+    "amount_upc": 1696.0,
+    "rebalanced_tokens": 1144.0
+  },
+  {
+    "address": "push1y8s9jxf3dppt6tqee4dhw04s27ulgh8r6l23w4",
+    "evm_address": "0x21e05919316842bd2c19cd5b773eb057b9f45ce3",
+    "amount_upc": 1615.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1mw3hxlx9wfpkzurlzvzzten7l7zp7fh9lq2vm2",
+    "evm_address": "0xdba3737cc5724361707f130425e67eff841f26e5",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1rwhcxg8v84vura8u7jqrlasx50x2pn0k5zm5tr",
+    "evm_address": "0x1baf8320ec3d59c1f4fcf4803ff606a3cca0cdf6",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push199w7qareq905wth576ne3kn97mdj3q76qsfjdm",
+    "evm_address": "0x295de07479015f472ef4f6a798da65f6db2883da",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1nwng0axrn26thud3dxk2vhuc44z8nruv6l858g",
+    "evm_address": "0x9ba687f4c39ab4bbf1b169aca65f98ad44798f8c",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push139y3r27mwueqe87nynahphjjzvnjafdfe573jk",
+    "evm_address": "0x894911abdb77320c9fd324fb70de5213272ea5a9",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1e86q0yc8mp3ys6a4vj6knakg0m28qny3rhds34",
+    "evm_address": "0xc9f4079307d862486bb564b569f6c87ed4704c91",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1u7l6nv39krgwxc94yjc2ksa0hc7euup76nevfj",
+    "evm_address": "0xe7bfa9b225b0d0e360b524b0ab43afbe3d9e703e",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push104xskctrnr8rn2a4q0lyssl9fyvjwzy5ecv6yz",
+    "evm_address": "0x7d4d0b616398ce39abb503fe4843e54919270894",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1ueumet9c3q3v9rk5hrc3qszlns9dg6mkg3td25",
+    "evm_address": "0xe679bcacb88822c28ed4b8f110405f9c0ad46b76",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1sdg4aamsu636wcndegcwvrn78nh3z7d34x9umn",
+    "evm_address": "0x83515ef770e6a3a7626dca30e60e7e3cef1179b1",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push19td4hs495zurgr7sklwjeawtfcclc3levucgs4",
+    "evm_address": "0x2adb5bc2a5a0b8340fd0b7dd2cf5cb4e31fc47f9",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1m245t2eg226as8l55sg0lju79lcc4x2lkvx3sw",
+    "evm_address": "0xdaab45ab2852b5d81ff4a410ffcb9e2ff18a995f",
+    "amount_upc": 1586.0,
+    "rebalanced_tokens": 1143.0
+  },
+  {
+    "address": "push1dtfkemne22yusl2cn5y6lvewxwfk0a9rcs7rv6",
+    "evm_address": "0x6ad36cee795289c87d589d09afb32e339367f4a3",
+    "amount_upc": 1484.0,
+    "rebalanced_tokens": 1141.0
+  },
+  {
+    "address": "push1u8ezsgs83zam5pr8mgtmv6tnml4vkmstkavcl8",
+    "evm_address": "0xe1f228220788bbba0467da17b66973dfeacb6e0b",
+    "amount_upc": 1356.0,
+    "rebalanced_tokens": 1139.0
+  },
+  {
+    "address": "push1wapsyqk5mldu40eju7k40dxmksdftxz4ppd4fh",
+    "evm_address": "0x77430202d4dfdbcabf32e7ad57b4dbb41a959855",
+    "amount_upc": 1353.0,
+    "rebalanced_tokens": 1139.0
+  },
+  {
+    "address": "push1feruathrsh4ea8zqzz8ev43uxn5h2vl5x08z3l",
+    "evm_address": "0x4e47ceaee385eb9e9c40108f96563c34e97533f4",
+    "amount_upc": 1292.0,
+    "rebalanced_tokens": 1138.0
+  },
+  {
+    "address": "push1ntttv60tx4w5jf8v5fka7p3k7jyh4mez7u99d8",
+    "evm_address": "0x9ad6b669eb355d4924eca26ddf0636f4897aef22",
+    "amount_upc": 1223.0,
+    "rebalanced_tokens": 1136.0
+  }
+]

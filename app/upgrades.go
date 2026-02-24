@@ -14,6 +14,7 @@ import (
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
+	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
@@ -39,6 +40,7 @@ var Upgrades = []upgrades.Upgrade{
 	outbound.NewUpgrade(),
 	universaltxv1.NewUpgrade(),
 	proxybytecodefix.NewUpgrade(),
+	supplyslash.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -57,6 +59,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		Codec:                 app.appCodec,
 		GetStoreKey:           app.GetKey,
 		EVMKeeper:             app.EVMKeeper,
+		BankKeeper:            app.BankKeeper,
 
 		// Module keepers
 		UExecutorKeeper:   &app.UexecutorKeeper,

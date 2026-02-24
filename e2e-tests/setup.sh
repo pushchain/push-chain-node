@@ -32,11 +32,16 @@ fi
 : "${SWAP_AMM_BRANCH:=e2e-push-node}"
 : "${GATEWAY_REPO:=https://github.com/pushchain/push-chain-gateway-contracts.git}"
 : "${GATEWAY_BRANCH:=e2e-push-node}"
+: "${PUSH_CHAIN_SDK_REPO:=https://github.com/pushchain/push-chain-sdk.git}"
+: "${PUSH_CHAIN_SDK_BRANCH:=feb-11-2026-alpha-publish}"
 
 : "${E2E_PARENT_DIR:=../}"
 : "${CORE_CONTRACTS_DIR:=$E2E_PARENT_DIR/push-chain-core-contracts}"
 : "${SWAP_AMM_DIR:=$E2E_PARENT_DIR/push-chain-swap-internal-amm-contracts}"
 : "${GATEWAY_DIR:=$E2E_PARENT_DIR/push-chain-gateway-contracts}"
+: "${PUSH_CHAIN_SDK_DIR:=$E2E_PARENT_DIR/push-chain-sdk}"
+: "${PUSH_CHAIN_SDK_E2E_DIR:=packages/core/__e2e__}"
+: "${PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH:=packages/core/src/lib/constants/chain.ts}"
 : "${DEPLOY_ADDRESSES_FILE:=$SCRIPT_DIR/deploy_addresses.json}"
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
 : "${TEST_ADDRESSES_PATH:=$SWAP_AMM_DIR/test-addresses.json}"
@@ -61,6 +66,7 @@ E2E_PARENT_DIR="$(abs_from_root "$E2E_PARENT_DIR")"
 CORE_CONTRACTS_DIR="$(abs_from_root "$CORE_CONTRACTS_DIR")"
 SWAP_AMM_DIR="$(abs_from_root "$SWAP_AMM_DIR")"
 GATEWAY_DIR="$(abs_from_root "$GATEWAY_DIR")"
+PUSH_CHAIN_SDK_DIR="$(abs_from_root "$PUSH_CHAIN_SDK_DIR")"
 DEPLOY_ADDRESSES_FILE="$(abs_from_root "$DEPLOY_ADDRESSES_FILE")"
 TEST_ADDRESSES_PATH="$(abs_from_root "$TEST_ADDRESSES_PATH")"
 LOG_DIR="$(abs_from_root "$LOG_DIR")"
@@ -282,6 +288,149 @@ clone_or_update_repo() {
     log_info "Cloning $(basename "$dest")"
     git clone --branch "$resolved_branch" "$repo_url" "$dest"
   fi
+}
+
+sdk_test_files() {
+  local base_dir="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_E2E_DIR"
+  local file alt
+  local requested_files=(
+    "pctx-last-transaction.spec.tx"
+    "send-to-self.spec.ts"
+    "progress-hook-per-tx.spec.ts"
+    "bridge-multicall.spec.ts"
+    "pushchain.spec.ts"
+  )
+
+  for file in "${requested_files[@]}"; do
+    if [[ -f "$base_dir/$file" ]]; then
+      printf "%s\n" "$base_dir/$file"
+      continue
+    fi
+
+    if [[ "$file" == *.tx ]]; then
+      alt="${file%.tx}.ts"
+      if [[ -f "$base_dir/$alt" ]]; then
+        log_warn "Test file '$file' not found. Using '$alt'."
+        printf "%s\n" "$base_dir/$alt"
+        continue
+      fi
+    fi
+
+    log_err "SDK test file not found: $base_dir/$file"
+    exit 1
+  done
+}
+
+sdk_prepare_test_files_for_localnet() {
+  require_cmd perl
+
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR/.git" && ! -d "$PUSH_CHAIN_SDK_DIR" ]]; then
+    log_err "SDK repo not found at $PUSH_CHAIN_SDK_DIR"
+    log_err "Run: $0 setup-sdk"
+    exit 1
+  fi
+
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_E2E_DIR" ]]; then
+    log_err "SDK E2E directory not found: $PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_E2E_DIR"
+    exit 1
+  fi
+
+  while IFS= read -r test_file; do
+    [[ -n "$test_file" ]] || continue
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g' "$test_file"
+    log_ok "Prepared LOCALNET network replacement in $(basename "$test_file")"
+  done < <(sdk_test_files)
+}
+
+step_setup_push_chain_sdk() {
+  require_cmd git yarn npm cast jq
+
+  local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
+  local uea_impl_raw uea_impl synced_localnet_uea
+
+  clone_or_update_repo "$PUSH_CHAIN_SDK_REPO" "$PUSH_CHAIN_SDK_BRANCH" "$PUSH_CHAIN_SDK_DIR"
+
+  if [[ ! -f "$chain_constants_file" ]]; then
+    log_err "SDK chain constants file not found: $chain_constants_file"
+    exit 1
+  fi
+
+  log_info "Fetching UEA_PROXY_IMPLEMENTATION from local chain"
+  uea_impl_raw="$(cast call 0x00000000000000000000000000000000000000ea 'UEA_PROXY_IMPLEMENTATION()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+  uea_impl="$(echo "$uea_impl_raw" | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
+
+  if ! validate_eth_address "$uea_impl"; then
+    log_err "Could not resolve valid UEA_PROXY_IMPLEMENTATION address from cast output: $uea_impl_raw"
+    exit 1
+  fi
+
+  ensure_deploy_file
+  record_contract "UEA_PROXY_IMPLEMENTATION" "$uea_impl"
+
+  UEA_PROXY_IMPL="$uea_impl" perl -0pi -e 's#(\[PUSH_NETWORK\.LOCALNET\]:\s*)'\''[^'\'']*'\''#$1'\''$ENV{UEA_PROXY_IMPL}'\''#g' "$chain_constants_file"
+
+  synced_localnet_uea="$(grep -E '\[PUSH_NETWORK\.LOCALNET\]:' "$chain_constants_file" | head -1 | sed -E "s/.*'([^']+)'.*/\1/")"
+  if [[ "$synced_localnet_uea" != "$uea_impl" ]]; then
+    log_err "Failed to update PUSH_NETWORK.LOCALNET UEA proxy in $chain_constants_file"
+    exit 1
+  fi
+
+  log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
+
+  log_info "Installing push-chain-sdk dependencies"
+  (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    yarn install
+    npm install
+    npm i --save-dev @types/bs58
+  )
+
+  log_ok "push-chain-sdk setup complete"
+}
+
+step_run_sdk_test_file() {
+  local test_basename="$1"
+  local test_file=""
+
+  sdk_prepare_test_files_for_localnet
+
+  while IFS= read -r candidate; do
+    [[ -n "$candidate" ]] || continue
+    if [[ "$(basename "$candidate")" == "$test_basename" ]]; then
+      test_file="$candidate"
+      break
+    fi
+  done < <(sdk_test_files)
+
+  if [[ -z "$test_file" ]]; then
+    log_err "Requested SDK test file not in configured list: $test_basename"
+    exit 1
+  fi
+
+  log_info "Running SDK test: $test_basename"
+  (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    npx jest "$test_file"
+  )
+
+  log_ok "Completed SDK test: $test_basename"
+}
+
+step_run_sdk_tests_all() {
+  local test_file
+
+  sdk_prepare_test_files_for_localnet
+
+  while IFS= read -r test_file; do
+    [[ -n "$test_file" ]] || continue
+    log_info "Running SDK test: $(basename "$test_file")"
+    (
+      cd "$PUSH_CHAIN_SDK_DIR"
+      npx jest "$test_file"
+    )
+  done < <(sdk_test_files)
+
+  log_ok "Completed all configured SDK E2E tests"
 }
 
 step_devnet() {
@@ -1159,6 +1308,13 @@ Commands:
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
+  setup-sdk              Clone/setup push-chain-sdk and install dependencies
+  sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
+  sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
+  sdk-test-send-to-self  Run send-to-self.spec.ts
+  sdk-test-progress-hook Run progress-hook-per-tx.spec.ts
+  sdk-test-bridge-multicall  Run bridge-multicall.spec.ts
+  sdk-test-pushchain     Run pushchain.spec.ts
   add-uregistry-configs  Submit chain + token config txs via local-multi-validator validator1
   record-contract K A    Manually record contract key/address
   record-token N S A     Manually record token name/symbol/address
@@ -1187,6 +1343,13 @@ main() {
     write-core-env) step_write_core_env ;;
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
+    setup-sdk) step_setup_push_chain_sdk ;;
+    sdk-test-all) step_run_sdk_tests_all ;;
+    sdk-test-pctx-last-transaction) step_run_sdk_test_file "pctx-last-transaction.spec.ts" ;;
+    sdk-test-send-to-self) step_run_sdk_test_file "send-to-self.spec.ts" ;;
+    sdk-test-progress-hook) step_run_sdk_test_file "progress-hook-per-tx.spec.ts" ;;
+    sdk-test-bridge-multicall) step_run_sdk_test_file "bridge-multicall.spec.ts" ;;
+    sdk-test-pushchain) step_run_sdk_test_file "pushchain.spec.ts" ;;
     add-uregistry-configs) step_add_uregistry_configs ;;
     record-contract)
       ensure_deploy_file

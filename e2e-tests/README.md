@@ -12,7 +12,8 @@ It covers:
 6. core `.env` generation from deployed addresses
 7. token config update (`eth_sepolia_eth.json`)
 8. gateway contracts deployment
-9. uregistry chain/token config submission
+9. push-chain-sdk setup + E2E test runners
+10. uregistry chain/token config submission
 
 ---
 
@@ -22,6 +23,7 @@ It covers:
   - push-chain-core-contracts
   - push-chain-swap-internal-amm-contracts
   - push-chain-gateway-contracts
+  - push-chain-sdk
 - `e2e-tests/logs/` — logs for each major deployment step
 - `e2e-tests/deploy_addresses.json` — contract/token address source-of-truth
 
@@ -58,6 +60,7 @@ Important variables in `.env`:
 - `CORE_CONTRACTS_BRANCH`
 - `SWAP_AMM_BRANCH`
 - `GATEWAY_BRANCH` (currently `e2e-push-node`)
+- `PUSH_CHAIN_SDK_BRANCH` (default `feb-11-2026-alpha-publish`)
 
 Genesis account source:
 
@@ -107,10 +110,61 @@ This runs the full sequence in order:
 ./e2e-tests/setup.sh write-core-env
 ./e2e-tests/setup.sh update-token-config
 ./e2e-tests/setup.sh setup-gateway
+./e2e-tests/setup.sh setup-sdk
+./e2e-tests/setup.sh sdk-test-all
+./e2e-tests/setup.sh sdk-test-pctx-last-transaction
+./e2e-tests/setup.sh sdk-test-send-to-self
+./e2e-tests/setup.sh sdk-test-progress-hook
+./e2e-tests/setup.sh sdk-test-bridge-multicall
+./e2e-tests/setup.sh sdk-test-pushchain
 ./e2e-tests/setup.sh add-uregistry-configs
 ./e2e-tests/setup.sh replace-addresses
 ./e2e-tests/setup.sh all
 ```
+
+### push-chain-sdk setup + tests
+
+Clone and install dependencies in one command:
+
+```bash
+./e2e-tests/setup.sh setup-sdk
+```
+
+This executes:
+
+- `yarn install`
+- `npm install`
+- `npm i --save-dev @types/bs58`
+
+It also fetches `UEA_PROXY_IMPLEMENTATION` with:
+
+- `cast call 0x00000000000000000000000000000000000000ea "UEA_PROXY_IMPLEMENTATION()(address)"`
+
+Then it updates both:
+
+- `e2e-tests/deploy_addresses.json` as `contracts.UEA_PROXY_IMPLEMENTATION`
+- `push-chain-sdk/packages/core/src/lib/constants/chain.ts` at `[PUSH_NETWORK.LOCALNET]`
+
+Run all configured SDK E2E files:
+
+```bash
+./e2e-tests/setup.sh sdk-test-all
+```
+
+Run single files:
+
+```bash
+./e2e-tests/setup.sh sdk-test-pctx-last-transaction
+./e2e-tests/setup.sh sdk-test-send-to-self
+./e2e-tests/setup.sh sdk-test-progress-hook
+./e2e-tests/setup.sh sdk-test-bridge-multicall
+./e2e-tests/setup.sh sdk-test-pushchain
+```
+
+Before each SDK test run, the script automatically rewrites these values in configured files:
+
+- `PUSH_NETWORK.TESTNET_DONUT` → `PUSH_NETWORK.LOCALNET`
+- `PUSH_NETWORK.TESTNET` → `PUSH_NETWORK.LOCALNET`
 
 ---
 

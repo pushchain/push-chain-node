@@ -1,0 +1,24 @@
+syntax = "proto3";
+package uexecutor.v2;
+
+import "google/api/annotations.proto";
+import "uexecutor/v1/types.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/typesv2";
+
+// Query defines the gRPC querier service for uexecutor v2.
+service Query {
+  // GetUniversalTx queries a single UniversalTx by ID, returning the native type.
+  rpc GetUniversalTx(QueryGetUniversalTxRequest) returns (QueryGetUniversalTxResponse) {
+    option (google.api.http).get = "/uexecutor/v2/universal_txs/{id}";
+  }
+}
+
+message QueryGetUniversalTxRequest {
+  string id = 1;
+}
+
+message QueryGetUniversalTxResponse {
+  uexecutor.v1.UniversalTx universal_tx = 1;
+}

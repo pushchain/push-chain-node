@@ -35,9 +35,8 @@ const maxNotFoundRetries = 10
 // Chain-specific behavior:
 //   - EVM: Checks on-chain receipt. Success (status=1) → COMPLETED. Failure (status=0)
 //     or tx not found after retries → vote failure on Push chain and REVERT (refunds user).
-//   - SVM (Solana): Marks COMPLETED immediately. Solana nonces only increment on success,
-//     so there's no "reverted receipt" to detect. Success/failure voting comes from
-//     destination chain event listening instead.
+//   - SVM (Solana): Checks on-chain ExecutedTx PDA via IsAlreadyExecuted. PDA exists →
+//     COMPLETED. PDA absent → vote failure and REVERT. RPC error → stay BROADCASTED, retry.
 type Resolver struct {
 	eventStore     *eventstore.Store
 	chains         *chains.Chains
@@ -124,8 +123,8 @@ func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
 		return
 	}
 
-	// Solana (or other non-EVM): mark COMPLETED immediately
-	r.resolveSVM(event, chainID)
+	// Solana (or other non-EVM): verify on-chain PDA
+	r.resolveSVM(ctx, event, chainID)
 }
 
 func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, txID, utxID, txHash string, blockHeight uint64, errorMsg string) error {

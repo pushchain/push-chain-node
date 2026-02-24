@@ -31,30 +31,72 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	var execErr error
 	var receipt *evmtypes.MsgEthereumTxResponse
+	var ueaAddr common.Address
 
-	// --- Step 1: check factory for UEA
-	ueaAddr, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
-	if err != nil {
-		execErr = fmt.Errorf("factory lookup failed: %w", err)
-		shouldRevert = true
-		revertReason = execErr.Error()
-	} else if !isDeployed {
-		execErr = fmt.Errorf("UEA is not deployed")
-		shouldRevert = true
-		revertReason = execErr.Error()
-	} else {
-		// --- Step 2: deposit PRC20 into UEA
-		receipt, err = k.depositPRC20(
-			sdkCtx,
-			utx.InboundTx.SourceChain,
-			utx.InboundTx.AssetAddr,
-			ueaAddr,
-			utx.InboundTx.Amount,
-		)
-		if err != nil {
-			execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+	// When isCEA is true, validate recipient is a UEA before attempting deposit
+	if utx.InboundTx.IsCEA {
+		// Validate and use recipient as the UEA address
+		if !strings.HasPrefix(strings.ToLower(utx.InboundTx.Recipient), "0x") {
+			execErr = fmt.Errorf("recipient must be a valid hex address when isCEA is true")
 			shouldRevert = true
 			revertReason = execErr.Error()
+		} else {
+			ueaAddr = common.HexToAddress(utx.InboundTx.Recipient)
+
+			// --- Step 1: Validate that recipient is a UEA
+			_, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
+			if ueaCheckErr != nil {
+				execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
+				shouldRevert = true
+				revertReason = execErr.Error()
+			} else if !isUEA {
+				execErr = fmt.Errorf("recipient is not a valid UEA")
+				shouldRevert = true
+				revertReason = execErr.Error()
+			} else {
+				// --- Step 2: Recipient is valid UEA, deposit PRC20 into it
+				receipt, execErr = k.depositPRC20(
+					sdkCtx,
+					utx.InboundTx.SourceChain,
+					utx.InboundTx.AssetAddr,
+					ueaAddr,
+					utx.InboundTx.Amount,
+				)
+				if execErr != nil {
+					execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+					shouldRevert = true
+					revertReason = execErr.Error()
+				}
+			}
+		}
+	} else {
+		// Original logic: check factory for UEA
+		// --- Step 1: check factory for UEA
+		ueaAddrRes, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
+		if err != nil {
+			execErr = fmt.Errorf("factory lookup failed: %w", err)
+			shouldRevert = true
+			revertReason = execErr.Error()
+		} else if !isDeployed {
+			execErr = fmt.Errorf("UEA is not deployed")
+			shouldRevert = true
+			revertReason = execErr.Error()
+		} else {
+			ueaAddr = ueaAddrRes
+
+			// --- Step 2: deposit PRC20 into UEA
+			receipt, err = k.depositPRC20(
+				sdkCtx,
+				utx.InboundTx.SourceChain,
+				utx.InboundTx.AssetAddr,
+				ueaAddr,
+				utx.InboundTx.Amount,
+			)
+			if err != nil {
+				execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+				shouldRevert = true
+				revertReason = execErr.Error()
+			}
 		}
 	}
 
@@ -133,15 +175,17 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	}
 
 	// --- Step 4: execute payload
-	receipt, err = k.ExecutePayloadV2(ctx, ueModuleAddr, &universalAccountId, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
+	// ueaAddr is already resolved and validated above (either from recipient for CEA, or from factory)
+	var payloadErr error
+	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
 
 	payloadPcTx := types.PCTx{
 		Sender:      ueModuleAddressStr,
 		BlockHeight: uint64(sdkCtx.BlockHeight()),
 		Status:      "FAILED",
 	}
-	if err != nil {
-		payloadPcTx.ErrorMsg = err.Error()
+	if payloadErr != nil {
+		payloadPcTx.ErrorMsg = payloadErr.Error()
 	} else {
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
@@ -154,7 +198,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
-		if err != nil {
+		if payloadErr != nil {
 			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
 		} else {
 			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS

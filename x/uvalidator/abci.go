@@ -10,6 +10,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
@@ -130,6 +131,18 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 	remainingDec := sdk.NewDecCoinsFromCoins(remainingCoins...)
 	remainingDec = remainingDec.Add(extraChange...)
 	remainingFinal, _ := remainingDec.TruncateDecimal()
+
+	// Send the integer portion of UV boost rewards to the distribution module
+	// to back the AllocateTokensToValidator accounting entries made above.
+	// Without this, extraCoins sit in the uvalidator account permanently with
+	// no mechanism to withdraw them, while the distribution module is underfunded
+	// by exactly this amount for UV reward payouts.
+	if !extraCoins.IsZero() {
+		err = k.BankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, distrtypes.ModuleName, extraCoins)
+		if err != nil {
+			return err
+		}
+	}
 
 	if !remainingFinal.IsZero() {
 		err = k.BankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, authtypes.FeeCollectorName, remainingFinal)

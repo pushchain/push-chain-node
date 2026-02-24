@@ -21,6 +21,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	typesv2 "github.com/pushchain/push-chain-node/x/uexecutor/typesv2"
 
 	v2 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v2"
 	v4 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v4"
@@ -108,9 +109,10 @@ func (a AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {
 }
 
 func (a AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
-	if err != nil {
-		// same behavior as in cosmos-sdk
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
+		panic(err)
+	}
+	if err := typesv2.RegisterQueryHandlerClient(context.Background(), mux, typesv2.NewQueryClient(clientCtx)); err != nil {
 		panic(err)
 	}
 }
@@ -164,6 +166,7 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
+	typesv2.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerierV2(a.keeper))
 
 	// Register UExecutor custom migration for v2 (from version 1 → 2)
 	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {

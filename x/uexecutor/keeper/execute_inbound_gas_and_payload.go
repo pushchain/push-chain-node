@@ -178,10 +178,11 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 
 	// --- Step 6: execute payload
+	// ueaAddr is already resolved and validated in step 3
 	receipt, err = k.ExecutePayloadV2(
 		ctx,
 		ueModuleAddr,
-		&universalAccountId,
+		ueaAddr,
 		utx.InboundTx.UniversalPayload,
 		utx.InboundTx.VerificationData,
 	)

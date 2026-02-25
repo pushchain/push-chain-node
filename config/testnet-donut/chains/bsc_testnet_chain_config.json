@@ -1,13 +1,13 @@
 {
-  "chain": "eip155:11155111",
-  "public_rpc_url": "https://eth-sepolia.public.blastapi.io",
+  "chain": "eip155:97",
+  "public_rpc_url": "https://bsc-testnet-rpc.publicnode.com",
   "vm_type": 1,
-  "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
-  "gas_oracle_fetch_interval": "30s",
+  "gateway_address": "0x44aFFC61983F4348DdddB886349eb992C061EaC0",
   "block_confirmation": {
     "fast_inbound": 0,
     "standard_inbound": 1
   },
+  "gas_oracle_fetch_interval": "30s",
   "gateway_methods": [
     {
       "name": "sendFunds",

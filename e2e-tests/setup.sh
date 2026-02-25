@@ -1012,9 +1012,6 @@ step_add_uregistry_configs() {
   [[ -f "$CHAIN_CONFIG_PATH" ]] || { log_err "Missing chain config: $CHAIN_CONFIG_PATH"; exit 1; }
   [[ -d "$TOKENS_CONFIG_DIR" ]] || { log_err "Missing tokens config directory: $TOKENS_CONFIG_DIR"; exit 1; }
 
-  # Ensure all deployed core tokens have updated contract addresses in token config files.
-  step_update_deployed_token_configs
-
   local chain_payload token_payload
   chain_payload="$(jq -c . "$CHAIN_CONFIG_PATH")"
 
@@ -1074,27 +1071,44 @@ step_add_uregistry_configs() {
   log_info "Adding chain config to uregistry"
   run_registry_tx "chain" "$chain_payload"
 
-  local deployed_addrs token_file token_addr matched_count
-  deployed_addrs="$(jq -r '.tokens[]?.address | ascii_downcase' "$DEPLOY_ADDRESSES_FILE")"
+  local token_json token_file token_addr token_symbol token_name matched_count submitted_files tmp
   matched_count=0
+  submitted_files=""
 
-  while IFS= read -r token_file; do
-    [[ -f "$token_file" ]] || continue
-    token_addr="$(jq -r '.native_representation.contract_address // "" | ascii_downcase' "$token_file")"
+  while IFS= read -r token_json; do
+    token_symbol="$(echo "$token_json" | jq -r '.symbol // ""')"
+    token_name="$(echo "$token_json" | jq -r '.name // ""')"
+    token_addr="$(echo "$token_json" | jq -r '.address // ""')"
+
     [[ -n "$token_addr" ]] || continue
 
-    if echo "$deployed_addrs" | grep -Fxq "$token_addr"; then
-      token_payload="$(jq -c . "$token_file")"
-      log_info "Adding token config to uregistry: $(basename "$token_file")"
-      run_registry_tx "token" "$token_payload"
-      matched_count=$((matched_count + 1))
+    token_file="$(find_matching_token_config_file "$token_symbol" "$token_name")"
+    if [[ -z "$token_file" ]]; then
+      log_warn "No token config match found for deployed token (uregistry): $token_symbol ($token_name)"
+      continue
     fi
-  done < <(find "$TOKENS_CONFIG_DIR" -maxdepth 1 -type f -name '*.json' | sort)
+
+    if echo "$submitted_files" | grep -Fxq "$token_file"; then
+      log_warn "Token config already submitted by another deployed token, skipping: $(basename "$token_file")"
+      continue
+    fi
+
+    tmp="$(mktemp)"
+    jq --arg a "$token_addr" '.native_representation.contract_address = $a' "$token_file" >"$tmp"
+    mv "$tmp" "$token_file"
+
+    token_payload="$(jq -c . "$token_file")"
+    log_info "Adding token config to uregistry: $(basename "$token_file") (from $token_symbol)"
+    run_registry_tx "token" "$token_payload"
+
+    submitted_files+="$token_file"$'\n'
+    matched_count=$((matched_count + 1))
+  done < <(jq -c '.tokens[]?' "$DEPLOY_ADDRESSES_FILE")
 
   if [[ "$matched_count" -eq 0 ]]; then
-    log_warn "No deployed tokens matched token config files for uregistry add-token-config"
+    log_warn "No token configs were registered from deploy_addresses.json tokens"
   else
-    log_ok "Registered $matched_count deployed token config(s) in uregistry"
+    log_ok "Registered $matched_count token config(s) from deploy_addresses.json"
   fi
 
   log_ok "uregistry chain/token configs added"

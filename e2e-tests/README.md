@@ -41,6 +41,12 @@ Required tools:
 
 Also ensure the Push Chain repo builds/runs locally.
 
+Before running any e2e setup command, run:
+
+```bash
+make replace-addresses
+```
+
 ---
 
 ## Configuration
@@ -74,7 +80,7 @@ Path settings are repository-relative and portable.
 ## One-command full run
 
 ```bash
-./e2e-tests/setup.sh replace-addresses
+make replace-addresses
 ./e2e-tests/setup.sh all
 ```
 
@@ -118,7 +124,7 @@ This runs the full sequence in order:
 ./e2e-tests/setup.sh sdk-test-bridge-multicall
 ./e2e-tests/setup.sh sdk-test-pushchain
 ./e2e-tests/setup.sh add-uregistry-configs
-./e2e-tests/setup.sh replace-addresses
+make replace-addresses
 ./e2e-tests/setup.sh all
 ```
 
@@ -239,7 +245,7 @@ For a fresh run:
 ```bash
 rm -rf e2e-tests/repos
 ./local-multi-validator/devnet down || true
-./e2e-tests/setup.sh replace-addresses
+make replace-addresses
 ./e2e-tests/setup.sh all
 ```
 

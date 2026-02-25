@@ -196,7 +196,7 @@ func TestParseEvent_OutboundEvent(t *testing.T) {
 			},
 			blockHeight: 1000,
 			wantEventID: "0x123abc",
-			wantExpiry:  1000 + OutboundExpiryOffset, // blockHeight + 400
+			wantExpiry:  1000 + OutboundExpiryOffset, // blockHeight + 1000
 			wantErr:     false,
 		},
 		{
@@ -377,7 +377,7 @@ func TestBuildTSSEventData(t *testing.T) {
 
 func TestOutboundExpiryOffset(t *testing.T) {
 	// Verify the constant is set correctly
-	assert.Equal(t, uint64(400), uint64(OutboundExpiryOffset))
+	assert.Equal(t, uint64(1000), uint64(OutboundExpiryOffset))
 
 	// Verify expiry calculation
 	blockHeight := uint64(1000)

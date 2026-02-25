@@ -2,9 +2,6 @@ package coordinator
 
 import (
 	"context"
-	"errors"
-	"math/big"
-	"sync"
 	"testing"
 	"time"
 
@@ -14,166 +11,51 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// mockPushCoreClient is a mock implementation that can be used in place of *pushcore.Client
-// Since we can't modify pushcore.Client, we'll use a wrapper approach
-type mockPushCoreClient struct {
-	mu               sync.RWMutex
-	latestBlock      uint64
-	validators       []*types.UniversalValidator
-	currentTSSKeyId  string
-	currentTSSPubkey string
-	getBlockNumErr   error
-	getValidatorsErr error
-	getKeyIdErr      error
-}
-
-func newMockPushCoreClient() *mockPushCoreClient {
-	return &mockPushCoreClient{
-		latestBlock:      100,
-		currentTSSKeyId:  "test-key-id",
-		currentTSSPubkey: "test-pubkey",
-		validators:       []*types.UniversalValidator{},
-	}
-}
-
-func (m *mockPushCoreClient) GetLatestBlock() (uint64, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.getBlockNumErr != nil {
-		return 0, m.getBlockNumErr
-	}
-	// Create a mock block response
-	return m.latestBlock, nil
-}
-
-func (m *mockPushCoreClient) GetAllUniversalValidators() ([]*types.UniversalValidator, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.getValidatorsErr != nil {
-		return nil, m.getValidatorsErr
-	}
-	return m.validators, nil
-}
-
-func (m *mockPushCoreClient) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.getKeyIdErr != nil {
-		return nil, m.getKeyIdErr
-	}
-	if m.currentTSSKeyId == "" {
-		return nil, nil // No key exists
-	}
-	return &utsstypes.TssKey{
-		KeyId:     m.currentTSSKeyId,
-		TssPubkey: m.currentTSSPubkey,
-	}, nil
-}
-
-func (m *mockPushCoreClient) GetCurrentTSSKey(ctx context.Context) (string, string, error) {
-	key, err := m.GetCurrentKey(ctx)
-	if err != nil {
-		return "", "", err
-	}
-	if key == nil {
-		return "", "", errors.New("no TSS key found")
-	}
-	return key.KeyId, key.TssPubkey, nil
-}
-
-func (m *mockPushCoreClient) Close() error {
-	return nil
-}
-
-func (m *mockPushCoreClient) setLatestBlock(block uint64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.latestBlock = block
-}
-
-func (m *mockPushCoreClient) setValidators(validators []*types.UniversalValidator) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.validators = validators
-}
-
-func (m *mockPushCoreClient) setCurrentTSSKeyId(keyId string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.currentTSSKeyId = keyId
-}
-
-func (m *mockPushCoreClient) setGetBlockNumError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.getBlockNumErr = err
-}
-
-// setupTestCoordinator creates a test coordinator with test dependencies.
-// Since we can't mock *pushcore.Client directly, we create a minimal client
-// and manually set the coordinator's internal state for testing.
-func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eventstore.Store) {
+// setupTestCoordinator creates a test coordinator with in-memory dependencies.
+// The pushcore client is a zero-value *pushcore.Client that will fail on any live RPC call —
+// tests that need coordinator logic should use the pure-function helpers directly.
+func setupTestCoordinator(t *testing.T) (*Coordinator, *eventstore.Store, *gorm.DB) {
+	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&store.Event{}))
 
 	evtStore := eventstore.NewStore(db, zerolog.Nop())
-
-	// Create a mock client for test data
-	mockClient := newMockPushCoreClient()
-	testValidators := []*types.UniversalValidator{
-		{
-			IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator1"},
-			NetworkInfo: &types.NetworkInfo{
-				PeerId:     "peer1",
-				MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"},
-			},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator2"},
-			NetworkInfo: &types.NetworkInfo{
-				PeerId:     "peer2",
-				MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9002"},
-			},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "validator3"},
-			NetworkInfo: &types.NetworkInfo{
-				PeerId:     "peer3",
-				MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9003"},
-			},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
-		},
-	}
-	mockClient.setValidators(testValidators)
-
 	keyshareMgr, err := keyshare.NewManager(t.TempDir(), "test-password")
 	require.NoError(t, err)
 
-	sendFn := func(ctx context.Context, peerID string, data []byte) error {
-		return nil
-	}
+	sendFn := func(_ context.Context, _ string, _ []byte) error { return nil }
 
-	// Create a minimal client (will fail on actual calls, but that's OK for most tests)
-	testClient := &pushcore.Client{}
+	testValidators := []*types.UniversalValidator{
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator1"},
+			NetworkInfo:   &types.NetworkInfo{PeerId: "peer1", MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"}},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator2"},
+			NetworkInfo:   &types.NetworkInfo{PeerId: "peer2", MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9002"}},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+		},
+		{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator3"},
+			NetworkInfo:   &types.NetworkInfo{PeerId: "peer3", MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9003"}},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
+		},
+	}
 
 	coord := NewCoordinator(
 		evtStore,
-		testClient,
+		&pushcore.Client{}, // real but empty — fails on any RPC call (expected)
 		keyshareMgr,
-		nil, // chains - nil for most tests
+		nil, // chains — nil for most tests
 		"validator1",
 		100, // coordinatorRange
 		100*time.Millisecond,
@@ -181,176 +63,156 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *mockPushCoreClient, *eve
 		zerolog.Nop(),
 	)
 
-	// Manually set validators in coordinator for testing
 	coord.mu.Lock()
 	coord.allValidators = testValidators
 	coord.mu.Unlock()
 
-	return coord, mockClient, evtStore
+	return coord, evtStore, db
 }
 
-func TestIsPeerCoordinator(t *testing.T) {
-	coord, mockClient, _ := setupTestCoordinator(t)
-	ctx := context.Background()
+// validatorAddresses extracts the CoreValidatorAddress set from a validator slice.
+func validatorAddresses(vs []*types.UniversalValidator) map[string]bool {
+	m := make(map[string]bool, len(vs))
+	for _, v := range vs {
+		if v.IdentifyInfo != nil {
+			m[v.IdentifyInfo.CoreValidatorAddress] = true
+		}
+	}
+	return m
+}
 
-	// Validators are already set in setupTestCoordinator
-	coord.mu.RLock()
-	hasValidators := len(coord.allValidators) > 0
-	coord.mu.RUnlock()
-	require.True(t, hasValidators, "validators should be set in setup")
+// --- Coordinator rotation logic ---
 
-	// Note: IsPeerCoordinator calls GetLatestBlockNum which requires a real client
-	// Since we can't mock it, these tests will fail on the GetLatestBlockNum call
-	// We'll test the coordinator selection logic by manually setting the block number
-	// in the coordinator's internal state if possible, or accept the error
+// TestCoordinatorAddressForBlock tests the pure coordinator-rotation helper.
+// This covers the logic that was previously only reachable through IsPeerCoordinator
+// (which requires a live pushcore client and cannot be easily unit-tested).
+func TestCoordinatorAddressForBlock(t *testing.T) {
+	active1 := &types.UniversalValidator{
+		IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator1"},
+		LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+	}
+	active2 := &types.UniversalValidator{
+		IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator2"},
+		LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+	}
+	pendingJoin := &types.UniversalValidator{
+		IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "validator3"},
+		LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
+	}
+	validators := []*types.UniversalValidator{active1, active2, pendingJoin}
 
-	t.Run("peer is coordinator", func(t *testing.T) {
-		// Block 100, epoch 1, should be validator2 (index 1)
-		mockClient.setLatestBlock(100)
-		// This will fail because GetLatestBlockNum needs real client
-		isCoord, err := coord.IsPeerCoordinator(ctx, "peer2")
-		require.Error(t, err) // Expected - client has no endpoints
-		assert.Contains(t, err.Error(), "no endpoints")
-		assert.False(t, isCoord)
+	const coordRange = 100
+
+	t.Run("epoch 0 → first active validator", func(t *testing.T) {
+		// block 0: epoch = 0/100 = 0, pool=[v1,v2], idx = 0%2 = 0 → validator1
+		assert.Equal(t, "validator1", coordinatorAddressForBlock(validators, coordRange, 0))
 	})
 
-	t.Run("peer is not coordinator", func(t *testing.T) {
-		mockClient.setLatestBlock(100)
-		isCoord, err := coord.IsPeerCoordinator(ctx, "peer1")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints")
-		assert.False(t, isCoord)
+	t.Run("epoch 1 → second active validator", func(t *testing.T) {
+		// block 100: epoch = 1, idx = 1%2 = 1 → validator2
+		assert.Equal(t, "validator2", coordinatorAddressForBlock(validators, coordRange, 100))
 	})
 
-	t.Run("peer not found", func(t *testing.T) {
-		mockClient.setLatestBlock(100)
-		isCoord, err := coord.IsPeerCoordinator(ctx, "unknown-peer")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints")
-		assert.False(t, isCoord)
+	t.Run("epoch 2 wraps back to first", func(t *testing.T) {
+		// block 200: epoch = 2, idx = 2%2 = 0 → validator1
+		assert.Equal(t, "validator1", coordinatorAddressForBlock(validators, coordRange, 200))
 	})
 
-	t.Run("no validators", func(t *testing.T) {
-		coord.mu.Lock()
-		coord.allValidators = nil
-		coord.mu.Unlock()
-
-		mockClient.setLatestBlock(100)
-		isCoord, err := coord.IsPeerCoordinator(ctx, "peer1")
-		// Will get error from GetLatestBlockNum
-		require.Error(t, err)
-		assert.False(t, isCoord)
+	t.Run("mid-epoch block uses current epoch floor", func(t *testing.T) {
+		// block 150: epoch = 150/100 = 1, idx = 1%2 = 1 → validator2
+		assert.Equal(t, "validator2", coordinatorAddressForBlock(validators, coordRange, 150))
 	})
 
-	t.Run("error getting block number", func(t *testing.T) {
-		mockClient.setGetBlockNumError(errors.New("block number error"))
-		isCoord, err := coord.IsPeerCoordinator(ctx, "peer1")
-		// Will get error from GetLatestBlockNum (no endpoints), not from mock
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints")
-		assert.False(t, isCoord)
-		mockClient.setGetBlockNumError(nil) // Reset
+	t.Run("PendingJoin validators are excluded from coordinator pool", func(t *testing.T) {
+		// Active pool = [v1, v2]; v3 (PendingJoin) must never be selected.
+		for block := uint64(0); block < 400; block += 100 {
+			addr := coordinatorAddressForBlock(validators, coordRange, block)
+			assert.NotEqual(t, "validator3", addr, "PendingJoin should not be coordinator at block %d", block)
+		}
+	})
+
+	t.Run("no active validators falls back to all validators", func(t *testing.T) {
+		// Bootstrap / single-node case: no Active validators → use all (just pendingJoin here).
+		pendingOnly := []*types.UniversalValidator{pendingJoin}
+		assert.Equal(t, "validator3", coordinatorAddressForBlock(pendingOnly, coordRange, 0))
+	})
+
+	t.Run("empty validator list returns empty string", func(t *testing.T) {
+		assert.Equal(t, "", coordinatorAddressForBlock(nil, coordRange, 0))
+		assert.Equal(t, "", coordinatorAddressForBlock([]*types.UniversalValidator{}, coordRange, 0))
 	})
 }
+
+// --- Participant selection ---
 
 func TestGetEligibleUV(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
 
-	// Validators are already set in setupTestCoordinator
 	coord.mu.RLock()
-	hasValidators := len(coord.allValidators) > 0
+	require.NotEmpty(t, coord.allValidators, "validators must be set in setup")
 	coord.mu.RUnlock()
-	require.True(t, hasValidators, "validators should be set in setup")
 
-	t.Run("keygen protocol", func(t *testing.T) {
+	// Fixture: validator1=Active, validator2=Active, validator3=PendingJoin
+
+	t.Run("keygen includes Active+PendingJoin", func(t *testing.T) {
 		eligible := coord.GetEligibleUV("KEYGEN")
-		// Should return Active + Pending Join: validator1, validator2, validator3
-		require.Len(t, eligible, 3)
-		addresses := make(map[string]bool)
-		for _, v := range eligible {
-			if v.IdentifyInfo != nil {
-				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
-			}
-		}
-		assert.True(t, addresses["validator1"])
-		assert.True(t, addresses["validator2"])
-		assert.True(t, addresses["validator3"])
+		require.Len(t, eligible, 3, "keygen = active(2) + pending_join(1)")
+		addrs := validatorAddresses(eligible)
+		assert.True(t, addrs["validator1"])
+		assert.True(t, addrs["validator2"])
+		assert.True(t, addrs["validator3"])
 	})
 
-	t.Run("keyrefresh protocol", func(t *testing.T) {
+	t.Run("keyrefresh includes only Active+PendingLeave (not PendingJoin)", func(t *testing.T) {
 		eligible := coord.GetEligibleUV("KEYREFRESH")
-		// Should return only Active: validator1, validator2 (not validator3 which is PendingJoin)
-		assert.Len(t, eligible, 2)
-		addresses := make(map[string]bool)
-		for _, v := range eligible {
-			if v.IdentifyInfo != nil {
-				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
-			}
-		}
-		assert.True(t, addresses["validator1"])
-		assert.True(t, addresses["validator2"])
-		assert.False(t, addresses["validator3"]) // PendingJoin not eligible for keyrefresh
+		assert.Len(t, eligible, 2, "keyrefresh = active(2); pending_join excluded")
+		addrs := validatorAddresses(eligible)
+		assert.True(t, addrs["validator1"])
+		assert.True(t, addrs["validator2"])
+		assert.False(t, addrs["validator3"], "PendingJoin not eligible for keyrefresh")
 	})
 
-	t.Run("quorumchange protocol", func(t *testing.T) {
+	t.Run("quorum_change includes Active+PendingJoin", func(t *testing.T) {
 		eligible := coord.GetEligibleUV("QUORUM_CHANGE")
-		// Should return Active + Pending Join: validator1, validator2, validator3
 		require.Len(t, eligible, 3)
-		addresses := make(map[string]bool)
-		for _, v := range eligible {
-			if v.IdentifyInfo != nil {
-				addresses[v.IdentifyInfo.CoreValidatorAddress] = true
-			}
-		}
-		assert.True(t, addresses["validator1"])
-		assert.True(t, addresses["validator2"])
-		assert.True(t, addresses["validator3"])
+		addrs := validatorAddresses(eligible)
+		assert.True(t, addrs["validator1"])
+		assert.True(t, addrs["validator2"])
+		assert.True(t, addrs["validator3"])
 	})
 
-	t.Run("sign protocol", func(t *testing.T) {
+	t.Run("sign returns ALL Active+PendingLeave (no random selection here)", func(t *testing.T) {
+		// GetEligibleUV is used for validation, not coordinator setup.
+		// validator1 and validator2 are Active; validator3 is PendingJoin (not eligible for sign).
 		eligible := coord.GetEligibleUV("SIGN")
-		// Should return random subset of Active + Pending Leave
-		// validator1 and validator2 are Active, validator3 is PendingJoin (not eligible)
-		// So should return validator1 and validator2 (or subset if >2/3 threshold applies)
-		assert.GreaterOrEqual(t, len(eligible), 1)
-		assert.LessOrEqual(t, len(eligible), 2)
+		assert.Len(t, eligible, 2, "sign = active(2); pending_join excluded")
+		addrs := validatorAddresses(eligible)
+		assert.True(t, addrs["validator1"])
+		assert.True(t, addrs["validator2"])
+		assert.False(t, addrs["validator3"])
 	})
 
-	t.Run("unknown protocol", func(t *testing.T) {
-		eligible := coord.GetEligibleUV("unknown")
-		assert.Nil(t, eligible)
+	t.Run("unknown protocol returns nil", func(t *testing.T) {
+		assert.Nil(t, coord.GetEligibleUV("unknown"))
 	})
 
-	t.Run("no validators", func(t *testing.T) {
+	t.Run("no validators returns nil", func(t *testing.T) {
 		coord.mu.Lock()
 		coord.allValidators = nil
 		coord.mu.Unlock()
-
-		eligible := coord.GetEligibleUV("KEYGEN")
-		assert.Nil(t, eligible)
+		assert.Nil(t, coord.GetEligibleUV("KEYGEN"))
 	})
 }
 
 func TestGetKeygenKeyrefreshParticipants(t *testing.T) {
 	validators := []*types.UniversalValidator{
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE},
-		},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v1"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v2"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v3"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v4"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE}},
 	}
 
+	// getQuorumChangeParticipants returns Active + PendingJoin only.
 	participants := getQuorumChangeParticipants(validators)
 	assert.Len(t, participants, 2)
 	if participants[0].IdentifyInfo != nil {
@@ -363,251 +225,193 @@ func TestGetKeygenKeyrefreshParticipants(t *testing.T) {
 
 func TestGetSignParticipants(t *testing.T) {
 	validators := []*types.UniversalValidator{
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v5"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE},
-		},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v1"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v2"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v3"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_LEAVE}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v4"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_PENDING_JOIN}},
+		{IdentifyInfo: &types.IdentityInfo{CoreValidatorAddress: "v5"}, LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_INACTIVE}},
 	}
 
+	// Eligible: v1 (Active), v2 (Active), v3 (PendingLeave) = 3 eligible.
+	// threshold(3) = (2*3)/3 + 1 = 3, so all 3 are returned.
 	participants := getSignParticipants(validators)
-	// Eligible: v1, v2, v3 (Active + Pending Leave)
-	// Threshold for 3: (2*3)/3 + 1 = 3
-	// So should return all 3
 	assert.Len(t, participants, 3)
-
-	addresses := make(map[string]bool)
-	for _, v := range participants {
-		if v.IdentifyInfo != nil {
-			addresses[v.IdentifyInfo.CoreValidatorAddress] = true
-		}
-	}
-	assert.True(t, addresses["v1"])
-	assert.True(t, addresses["v2"])
-	assert.True(t, addresses["v3"])
-	assert.False(t, addresses["v4"]) // PendingJoin not eligible
-	assert.False(t, addresses["v5"]) // Inactive not eligible
+	addrs := validatorAddresses(participants)
+	assert.True(t, addrs["v1"])
+	assert.True(t, addrs["v2"])
+	assert.True(t, addrs["v3"])
+	assert.False(t, addrs["v4"], "PendingJoin not eligible for sign")
+	assert.False(t, addrs["v5"], "Inactive not eligible for sign")
 }
+
+// --- Threshold and random selection ---
 
 func TestCalculateThreshold(t *testing.T) {
 	tests := []struct {
-		name            string
-		numParticipants int
-		expected        int
+		n        int
+		expected int
 	}{
-		{"3 participants", 3, 3}, // (2*3)/3 + 1 = 3
-		{"4 participants", 4, 3}, // (2*4)/3 + 1 = 3
-		{"5 participants", 5, 4}, // (2*5)/3 + 1 = 4
-		{"6 participants", 6, 5}, // (2*6)/3 + 1 = 5
-		{"1 participant", 1, 1},
-		{"0 participants", 0, 1},
+		{0, 1},  // edge: 0 or fewer → 1
+		{1, 1},
+		{3, 3},  // (2*3)/3+1 = 3
+		{4, 3},  // (2*4)/3+1 = 3
+		{5, 4},  // (2*5)/3+1 = 4
+		{6, 5},  // (2*6)/3+1 = 5
+		{9, 7},  // (2*9)/3+1 = 7
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateThreshold(tt.numParticipants)
-			assert.Equal(t, tt.expected, result)
-		})
+		assert.Equal(t, tt.expected, CalculateThreshold(tt.n), "n=%d", tt.n)
 	}
 }
 
 func TestSelectRandomThreshold(t *testing.T) {
-	validators := []*types.UniversalValidator{
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v1"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v2"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v3"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v4"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
-		{
-			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "v5"},
-			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
-		},
+	makeN := func(n int) []*types.UniversalValidator {
+		vs := make([]*types.UniversalValidator, n)
+		names := []string{"A", "B", "C", "D", "E", "F"}
+		for i := range vs {
+			vs[i] = &types.UniversalValidator{
+				IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: names[i]},
+				LifecycleInfo: &types.LifecycleInfo{CurrentStatus: types.UVStatus_UV_STATUS_ACTIVE},
+			}
+		}
+		return vs
 	}
 
-	t.Run("returns threshold subset", func(t *testing.T) {
-		// For 5 participants, threshold is 4
-		selected := selectRandomThreshold(validators)
-		assert.Len(t, selected, 4)
+	t.Run("returns exactly threshold count", func(t *testing.T) {
+		// threshold(5) = 4
+		assert.Len(t, selectRandomThreshold(makeN(5)), 4)
 	})
 
-	t.Run("returns all when fewer than threshold", func(t *testing.T) {
-		smallList := validators[:2] // 2 participants, threshold is 2
-		selected := selectRandomThreshold(smallList)
-		assert.Len(t, selected, 2)
+	t.Run("returns all when count equals threshold", func(t *testing.T) {
+		// threshold(2) = 2 → returns all 2
+		assert.Len(t, selectRandomThreshold(makeN(2)), 2)
+	})
+
+	t.Run("returns all when count is below threshold", func(t *testing.T) {
+		// threshold(1) = 1 → returns all 1
+		assert.Len(t, selectRandomThreshold(makeN(1)), 1)
 	})
 
 	t.Run("returns nil for empty list", func(t *testing.T) {
-		selected := selectRandomThreshold(nil)
-		assert.Nil(t, selected)
+		assert.Nil(t, selectRandomThreshold(nil))
+	})
+}
+
+// --- Utility functions ---
+
+func TestExtractDestinationChain(t *testing.T) {
+	t.Run("valid JSON with destination_chain", func(t *testing.T) {
+		data := []byte(`{"tx_id":"0x1","destination_chain":"ethereum","amount":"100"}`)
+		assert.Equal(t, "ethereum", extractDestinationChain(data))
+	})
+
+	t.Run("missing destination_chain field", func(t *testing.T) {
+		assert.Equal(t, "", extractDestinationChain([]byte(`{"tx_id":"0x1"}`)))
+	})
+
+	t.Run("nil or empty input", func(t *testing.T) {
+		assert.Equal(t, "", extractDestinationChain(nil))
+		assert.Equal(t, "", extractDestinationChain([]byte{}))
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		assert.Equal(t, "", extractDestinationChain([]byte("not-json")))
 	})
 }
 
 func TestDeriveKeyIDBytes(t *testing.T) {
-	keyID := "test-key-id"
-	bytes := deriveKeyIDBytes(keyID)
+	b := deriveKeyIDBytes("test-key-id")
+	assert.Len(t, b, 32, "SHA256 hash is always 32 bytes")
 
-	// Should be SHA256 hash (32 bytes)
-	assert.Len(t, bytes, 32)
-	assert.NotNil(t, bytes)
+	// Deterministic: same input → same output.
+	assert.Equal(t, b, deriveKeyIDBytes("test-key-id"))
 
-	// Should be deterministic
-	bytes2 := deriveKeyIDBytes(keyID)
-	assert.Equal(t, bytes, bytes2)
-
-	// Different keyID should produce different hash
-	bytes3 := deriveKeyIDBytes("different-key-id")
-	assert.NotEqual(t, bytes, bytes3)
+	// Different inputs produce different hashes.
+	assert.NotEqual(t, b, deriveKeyIDBytes("different-key-id"))
 }
+
+// --- In-flight counting ---
+
+func TestGetInFlightSignCountPerChain(t *testing.T) {
+	coord, _, db := setupTestCoordinator(t)
+
+	ethData := []byte(`{"destination_chain":"ethereum"}`)
+	polyData := []byte(`{"destination_chain":"polygon"}`)
+
+	// IN_PROGRESS and SIGNED both count as in-flight.
+	db.Create(&store.Event{EventID: "e1", Type: "SIGN", Status: eventstore.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e2", Type: "SIGN", Status: eventstore.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e3", Type: "SIGN", Status: eventstore.StatusSigned, EventData: polyData})
+
+	// These must NOT be counted.
+	db.Create(&store.Event{EventID: "e4", Type: "SIGN", Status: eventstore.StatusConfirmed, EventData: ethData})    // not yet in-flight
+	db.Create(&store.Event{EventID: "e5", Type: "SIGN", Status: eventstore.StatusBroadcasted, EventData: ethData}) // pending nonce RPC covers it
+	db.Create(&store.Event{EventID: "e6", Type: "KEYGEN", Status: eventstore.StatusInProgress})                    // not a SIGN event
+
+	perChain, err := coord.getInFlightSignCountPerChain()
+	require.NoError(t, err)
+	assert.Equal(t, 2, perChain["ethereum"])
+	assert.Equal(t, 1, perChain["polygon"])
+	assert.Zero(t, perChain["arbitrum"], "unknown chain has zero count")
+}
+
+// --- Sign transaction building ---
+
+func TestBuildSignTransaction(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("empty event data", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		_, err := coord.buildSignTransaction(ctx, []byte{}, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty")
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		_, err := coord.buildSignTransaction(ctx, []byte("not json"), nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal")
+	})
+
+	t.Run("missing tx_id", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		_, err := coord.buildSignTransaction(ctx, []byte(`{"destination_chain":"ethereum"}`), nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx_id")
+	})
+
+	t.Run("missing destination_chain", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		_, err := coord.buildSignTransaction(ctx, []byte(`{"tx_id":"0x1"}`), nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "destination_chain")
+	})
+
+	t.Run("chains manager not configured", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t) // chains is nil in test setup
+		data := []byte(`{"tx_id":"0x1","destination_chain":"ethereum"}`)
+		_, err := coord.buildSignTransaction(ctx, data, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "chains manager not configured")
+	})
+}
+
+// --- Lifecycle ---
 
 func TestCoordinator_StartStop(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
 	ctx := context.Background()
 
-	// Test Start
 	coord.Start(ctx)
-	time.Sleep(50 * time.Millisecond) // Let it run briefly
-
+	time.Sleep(50 * time.Millisecond)
 	coord.mu.RLock()
-	running := coord.running
+	assert.True(t, coord.running, "should be running after Start")
 	coord.mu.RUnlock()
-	assert.True(t, running, "coordinator should be running")
 
-	// Test Stop
 	coord.Stop()
 	time.Sleep(50 * time.Millisecond)
-
 	coord.mu.RLock()
-	running = coord.running
+	assert.False(t, coord.running, "should be stopped after Stop")
 	coord.mu.RUnlock()
-	assert.False(t, running, "coordinator should be stopped")
-}
-
-func TestGetSigningHash(t *testing.T) {
-	ctx := context.Background()
-
-	// Note: "valid outbound event data" test requires integration with pushcore.GetGasPrice
-	// which cannot be easily mocked. The validation tests below cover error paths.
-
-	t.Run("gas price fetch fails with minimal pushCore", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-		// Note: chains is nil in test setup, so this test will fail on chains check
-		// This is expected behavior - the test validates error handling
-
-		eventData := []byte(`{
-			"tx_id": "0x123abc",
-			"destination_chain": "ethereum",
-			"recipient": "0xrecipient",
-			"amount": "1000000",
-			"asset_addr": "0xtoken",
-			"sender": "0xsender",
-			"payload": "0x",
-			"gas_limit": "21000"
-		}`)
-
-		// With nil chains, chains check will fail
-		_, err := coord.buildSignTransaction(ctx, eventData)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "chains manager not configured")
-	})
-
-	t.Run("missing tx_id", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-		// chains is nil, will fail on chains check - this is expected
-
-		eventData := []byte(`{"destination_chain": "ethereum"}`)
-
-		_, err := coord.buildSignTransaction(ctx, eventData)
-		require.Error(t, err)
-		// Error could be either "tx_id" or "chains manager not configured"
-		assert.True(t, err.Error() == "outbound event missing tx_id" || err.Error() == "chains manager not configured")
-	})
-
-	t.Run("missing destination_chain", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-		// chains is nil, will fail on chains check - this is expected
-
-		eventData := []byte(`{"tx_id": "0x123"}`)
-
-		_, err := coord.buildSignTransaction(ctx, eventData)
-		require.Error(t, err)
-		// Error could be either "destination_chain" or "chains manager not configured"
-		assert.True(t, err.Error() == "outbound event missing destination_chain" || err.Error() == "chains manager not configured")
-	})
-
-	t.Run("nil chains", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-		// chains is nil by default in test setup
-
-		eventData := []byte(`{"tx_id": "0x123", "destination_chain": "ethereum"}`)
-
-		_, err := coord.buildSignTransaction(ctx, eventData)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "chains manager not configured")
-	})
-
-	t.Run("invalid json", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-		// chains is nil, will fail on chains check
-
-		_, err := coord.buildSignTransaction(ctx, []byte("not json"))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unmarshal")
-	})
-
-	t.Run("empty event data", func(t *testing.T) {
-		coord, _, _ := setupTestCoordinator(t)
-
-		_, err := coord.buildSignTransaction(ctx, []byte{})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "empty")
-	})
-}
-
-// mockTxBuilder implements common.OutboundTxBuilder for testing
-type mockTxBuilder struct {
-	signingHash []byte
-	err         error
-	chainID     string
-}
-
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int, signerAddress string) (*common.UnSignedOutboundTxReq, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &common.UnSignedOutboundTxReq{
-		SigningHash: m.signingHash,
-		Signer:      signerAddress,
-		Nonce:       1,
-		GasPrice:    gasPrice,
-	}, nil
-}
-
-func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, signature []byte) (string, error) {
-	return "0xmock-tx-hash", nil
 }

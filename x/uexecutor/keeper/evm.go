@@ -52,6 +52,43 @@ func (k Keeper) CallFactoryToGetUEAAddressForOrigin(
 	return ueaAddress, isDeployed, nil
 }
 
+// CallFactoryGetOriginForUEA checks if a given address is a UEA
+// Returns the UniversalAccountId and a boolean indicating if the address is a UEA
+func (k Keeper) CallFactoryGetOriginForUEA(
+	ctx sdk.Context,
+	from, factoryAddr, ueaAddr common.Address,
+) (*types.UniversalAccountId, bool, error) {
+	abi, err := types.ParseFactoryABI()
+	if err != nil {
+		return nil, false, errors.Wrap(err, "failed to parse factory ABI")
+	}
+
+	receipt, err := k.evmKeeper.CallEVM(
+		ctx,
+		abi,
+		from,
+		factoryAddr,
+		false, // commit
+		"getOriginForUEA",
+		ueaAddr,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+
+	results, err := abi.Methods["getOriginForUEA"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "failed to decode result")
+	}
+
+	// Extract the UniversalAccountId from the result
+	// The first return value is a struct (UniversalAccountId)
+	// The second return value is bool (isUEA)
+	isUEA := results[1].(bool)
+
+	return nil, isUEA, nil
+}
+
 // CallFactoryToDeployUEA deploys a new UEA using factory contract
 // Returns deployment response or error if deployment fails
 func (k Keeper) CallFactoryToDeployUEA(

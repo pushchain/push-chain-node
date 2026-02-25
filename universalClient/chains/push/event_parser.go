@@ -55,7 +55,7 @@ const (
 
 // OutboundExpiryOffset is the number of blocks after event detection
 // before an outbound event expires.
-const OutboundExpiryOffset = 400
+const OutboundExpiryOffset = 1000
 
 // Parser errors.
 var (

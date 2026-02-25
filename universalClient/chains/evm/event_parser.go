@@ -19,14 +19,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-// Event type constants
+// Event type constants matching gateway method names in chain config.
 const (
-	EventTypeSendFunds           = "sendFunds"
-	EventTypeOutboundObservation = "outboundObservation"
+	EventTypeSendFunds          = "sendFunds"
+	EventTypeExecuteUniversalTx = "executeUniversalTx" // UniversalTxExecuted on-chain event
+	EventTypeRevertUniversalTx  = "revertUniversalTx"  // RevertUniversalTx on-chain event
 )
 
-// ParseEvent parses a log into a store.Event based on the event type
-// eventType should be "sendFunds" or "outboundObservation"
+// ParseEvent parses a log into a store.Event based on the event type.
+// eventType should be one of: sendFunds, executeUniversalTx, revertUniversalTx.
 func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
@@ -35,7 +36,8 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
-	case EventTypeOutboundObservation:
+	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx:
+		// Both events share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
 		return parseOutboundObservationEvent(log, chainID, logger)
 	default:
 		logger.Debug().

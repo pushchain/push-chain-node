@@ -190,16 +190,24 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 	return receipt, err
 }
 
-// GetNonceAt returns the nonce of an account at a specific block number (nil = latest)
-func (rc *RPCClient) GetNonceAt(ctx context.Context, address ethcommon.Address, blockNumber *big.Int) (uint64, error) {
+// GetPendingNonce returns the pending nonce (next nonce the chain will accept for this account).
+func (rc *RPCClient) GetPendingNonce(ctx context.Context, address ethcommon.Address) (uint64, error) {
 	var nonce uint64
-	err := rc.executeWithFailover(ctx, "get_transaction_count", func(client *ethclient.Client) error {
+	err := rc.executeWithFailover(ctx, "get_transaction_count_pending", func(client *ethclient.Client) error {
 		var innerErr error
 		nonce, innerErr = client.PendingNonceAt(ctx, address)
-		if innerErr != nil {
-			return innerErr
-		}
-		return nil
+		return innerErr
+	})
+	return nonce, err
+}
+
+// GetFinalizedNonce returns the finalized nonce at a block.
+func (rc *RPCClient) GetFinalizedNonce(ctx context.Context, address ethcommon.Address, blockNum *big.Int) (uint64, error) {
+	var nonce uint64
+	err := rc.executeWithFailover(ctx, "get_transaction_count_finalized", func(client *ethclient.Client) error {
+		var innerErr error
+		nonce, innerErr = client.NonceAt(ctx, address, blockNum)
+		return innerErr
 	})
 	return nonce, err
 }

@@ -5,8 +5,9 @@
   "gateway_address": "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS",
   "block_confirmation": {
     "fast_inbound": 0,
-    "standard_inbound": 12
+    "standard_inbound": 1
   },
+  "gas_oracle_fetch_interval": "30s",
   "gateway_methods": [
     {
       "name": "add_funds",
@@ -16,7 +17,7 @@
     },
     {"name": "send_funds",
       "identifier": "54f7d3283f6a0f3b",
-      "event_identifier": "6C9AD829B5EA1D7C",
+      "event_identifier": "6c9ad829b5ea1d7c",
       "confirmation_type": 1
     }
   ],

@@ -346,7 +346,7 @@ sdk_test_files() {
     if [[ "$file" == *.tx ]]; then
       alt="${file%.tx}.ts"
       if [[ -f "$base_dir/$alt" ]]; then
-        log_warn "Test file '$file' not found. Using '$alt'."
+        printf "%b\n" "${yellow}!${nc} Test file '$file' not found. Using '$alt'." >&2
         printf "%s\n" "$base_dir/$alt"
         continue
       fi
@@ -472,7 +472,7 @@ step_run_sdk_test_file() {
   log_info "Running SDK test: $test_basename"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
-    npx jest "$test_file"
+    npx nx test core --runInBand --testPathPattern="$(basename "$test_file")"
   )
 
   log_ok "Completed SDK test: $test_basename"
@@ -488,7 +488,7 @@ step_run_sdk_tests_all() {
     log_info "Running SDK test: $(basename "$test_file")"
     (
       cd "$PUSH_CHAIN_SDK_DIR"
-      npx jest "$test_file"
+      npx nx test core --runInBand --testPathPattern="$(basename "$test_file")"
     )
   done < <(sdk_test_files)
 

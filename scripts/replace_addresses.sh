@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-OLD_BECH32="push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+OLD_BECH32="push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
 NEW_BECH32="push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
-OLD_HEX="0xa96CaA79eb2312DbEb0B8E93c1Ce84C98b67bF11"
+OLD_HEX="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
 NEW_HEX="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
 
 ROOT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

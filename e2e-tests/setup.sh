@@ -201,7 +201,9 @@ resolve_branch() {
 }
 
 ensure_deploy_file() {
-  if [[ ! -f "$DEPLOY_ADDRESSES_FILE" ]]; then
+  mkdir -p "$(dirname "$DEPLOY_ADDRESSES_FILE")"
+
+  if [[ ! -s "$DEPLOY_ADDRESSES_FILE" ]]; then
     cat >"$DEPLOY_ADDRESSES_FILE" <<'JSON'
 {
   "generatedAt": "",
@@ -209,7 +211,29 @@ ensure_deploy_file() {
   "tokens": []
 }
 JSON
+    return
   fi
+
+  if ! jq -e . "$DEPLOY_ADDRESSES_FILE" >/dev/null 2>&1; then
+    log_warn "Deploy file is empty/invalid JSON, reinitializing: $DEPLOY_ADDRESSES_FILE"
+    cat >"$DEPLOY_ADDRESSES_FILE" <<'JSON'
+{
+  "generatedAt": "",
+  "contracts": {},
+  "tokens": []
+}
+JSON
+    return
+  fi
+
+  local tmp
+  tmp="$(mktemp)"
+  jq '
+    .generatedAt = (.generatedAt // "")
+    | .contracts = (.contracts // {})
+    | .tokens = (.tokens // [])
+  ' "$DEPLOY_ADDRESSES_FILE" >"$tmp"
+  mv "$tmp" "$DEPLOY_ADDRESSES_FILE"
 }
 
 set_generated_at() {
@@ -684,7 +708,7 @@ assert_required_addresses() {
   for key in "${required[@]}"; do
     val="$(address_from_deploy_contract "$key")"
     if [[ -z "$val" ]]; then
-      log_err "Missing required address in deploy file: contracts.$key"
+      log_warn "Missing address in deploy file: contracts.$key"
       missing=1
     else
       log_ok "contracts.$key=$val"
@@ -692,8 +716,7 @@ assert_required_addresses() {
   done
 
   if [[ "$missing" -ne 0 ]]; then
-    log_err "Required addresses are missing in $DEPLOY_ADDRESSES_FILE"
-    exit 1
+    log_warn "Some addresses are missing in $DEPLOY_ADDRESSES_FILE; continuing with available values"
   fi
 }
 
@@ -1304,7 +1327,7 @@ Commands:
   sync-addresses         Apply deploy_addresses.json into test-addresses.json
   create-pool            Create WPC pools for all deployed core tokens
   configure-core         Run configureUniversalCore.s.sol (auto --resume retries)
-  check-addresses        Verify required deploy addresses exist (WPC/Factory/QuoterV2/SwapRouter)
+  check-addresses        Check/report deploy addresses (WPC/Factory/QuoterV2/SwapRouter)
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)

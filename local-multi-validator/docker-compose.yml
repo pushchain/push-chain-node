@@ -232,6 +232,10 @@ services:
       - QUERY_PORT=8080
       - TSS_ENABLED=true
       - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
+      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
+      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
+      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
+      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-1:
@@ -266,6 +270,10 @@ services:
       - QUERY_PORT=8080
       - TSS_ENABLED=true
       - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
+      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
+      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
+      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
+      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-2:
@@ -300,6 +308,10 @@ services:
       - QUERY_PORT=8080
       - TSS_ENABLED=true
       - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
+      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
+      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
+      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
+      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-3:
@@ -334,6 +346,10 @@ services:
       - QUERY_PORT=8080
       - TSS_ENABLED=true
       - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
+      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
+      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
+      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
+      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-4:

@@ -1050,8 +1050,7 @@ step_add_uregistry_configs() {
   [[ -f "$CHAIN_CONFIG_PATH" ]] || { log_err "Missing chain config: $CHAIN_CONFIG_PATH"; exit 1; }
   [[ -d "$TOKENS_CONFIG_DIR" ]] || { log_err "Missing tokens config directory: $TOKENS_CONFIG_DIR"; exit 1; }
 
-  local chain_payload token_payload
-  chain_payload="$(jq -c . "$CHAIN_CONFIG_PATH")"
+  local token_payload
 
   run_registry_tx() {
     local kind="$1"
@@ -1106,8 +1105,24 @@ step_add_uregistry_configs() {
     done
   }
 
-  log_info "Adding chain config to uregistry"
-  run_registry_tx "chain" "$chain_payload"
+  local chain_config_dir chain_file chain_payload chain_count
+  chain_config_dir="$(dirname "$CHAIN_CONFIG_PATH")"
+  chain_count=0
+
+  while IFS= read -r chain_file; do
+    [[ -f "$chain_file" ]] || continue
+    chain_payload="$(jq -c . "$chain_file")"
+    log_info "Adding chain config to uregistry: $(basename "$chain_file")"
+    run_registry_tx "chain" "$chain_payload"
+    chain_count=$((chain_count + 1))
+  done < <(find "$chain_config_dir" -maxdepth 1 -type f -name '*_chain_config.json' | sort)
+
+  if [[ "$chain_count" -eq 0 ]]; then
+    log_err "No chain config files found in: $chain_config_dir"
+    exit 1
+  fi
+
+  log_ok "Registered $chain_count chain config(s) from $chain_config_dir"
 
   local token_json token_file token_addr token_symbol token_name matched_count submitted_files tmp
   matched_count=0

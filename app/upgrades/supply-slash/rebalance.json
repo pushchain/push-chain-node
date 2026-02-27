@@ -1345,7 +1345,7 @@
   },
   {
     "address": "push149k2570tyvfdh6ct36furn5yex9k00c3k3ckkj",
-    "evm_address": "0xa96caa79eb2312dbeb0b8e93c1ce84c98b67bf11",
+    "evm_address": "0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4",
     "amount_upc": 100004.0,
     "rebalanced_tokens": 1304.0
   },
@@ -1374,7 +1374,7 @@
     "rebalanced_tokens": 1304.0
   },
   {
-    "address": "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a",
+    "address": "push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20",
     "evm_address": "0x9e510b6120e3cb2a0981b7a77677137108adf529",
     "amount_upc": 95600.0,
     "rebalanced_tokens": 1300.0

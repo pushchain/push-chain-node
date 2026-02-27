@@ -1,14 +1,14 @@
 {
-  "chain": "eip155:11155111",
+  "chain": "eip155:84532",
   "address": "0x0000000000000000000000000000000000000000",
-  "name": "pETH",
-  "symbol": "pETH",
+  "name": "pETH.base",
+  "symbol": "pETH.base",
   "decimals": 18,
   "enabled": true,
   "liquidity_cap": "1000000000000000000000000",
   "token_type": 1,
   "native_representation": {
     "denom": "",
-    "contract_address": "0x69c5560bB765a935C345f507D2adD34253FBe41b"
+    "contract_address": "0x697164dD5f2727a4d6EfcF977dCc080Ff10c7459"
   }
 }

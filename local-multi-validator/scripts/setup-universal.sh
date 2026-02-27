@@ -136,14 +136,26 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
-# Optionally override Sepolia event start height (set by ./devnet start)
-if [ -n "${SEPOLIA_EVENT_START_FROM:-}" ]; then
-  echo "📍 Setting Sepolia event_start_from: $SEPOLIA_EVENT_START_FROM"
-  jq --argjson height "$SEPOLIA_EVENT_START_FROM" \
-    '.chain_configs["eip155:11155111"].event_start_from = $height' \
+# Optionally override chain event start heights (set by ./devnet start)
+set_chain_event_start_from() {
+  local chain_id="$1"
+  local chain_label="$2"
+  local start_height="$3"
+
+  [ -n "$start_height" ] || return 0
+
+  echo "📍 Setting ${chain_label} event_start_from: $start_height"
+  jq --arg chain "$chain_id" --argjson height "$start_height" \
+    '.chain_configs[$chain].event_start_from = $height' \
     "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
+}
+
+set_chain_event_start_from "eip155:11155111" "Sepolia" "${SEPOLIA_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:84532" "Base Sepolia" "${BASE_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:421614" "Arbitrum Sepolia" "${ARBITRUM_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:97" "BSC testnet" "${BSC_EVENT_START_FROM:-}"
+set_chain_event_start_from "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "Solana devnet" "${SOLANA_EVENT_START_FROM:-}"
 
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===

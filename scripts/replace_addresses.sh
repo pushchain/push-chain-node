@@ -2,24 +2,57 @@
 
 set -euo pipefail
 
-OLD_BECH32="push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
-NEW_BECH32="push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20"
-OLD_HEX="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
-NEW_HEX="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
-
 ROOT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if ! command -v git >/dev/null 2>&1; then
-  echo "git command not found" >&2
+ENV_FILE="e2e-tests/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "e2e-tests/.env not found" >&2
   exit 1
 fi
 
-if ! command -v perl >/dev/null 2>&1; then
-  echo "perl command not found" >&2
+PRIVATE_KEY=$(grep '^PRIVATE_KEY=' "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+if [[ -z "$PRIVATE_KEY" ]]; then
+  echo "PRIVATE_KEY not found in $ENV_FILE" >&2
   exit 1
 fi
 
-git ls-files -z | xargs -0 perl -pi -e "s/\Q$OLD_BECH32\E/$NEW_BECH32/g; s/\Q$OLD_HEX\E/$NEW_HEX/g"
+# Derive EVM address
+if ! command -v cast >/dev/null 2>&1; then
+  echo "cast command not found (install foundry/cast)" >&2
+  exit 1
+fi
+EVM_ADDRESS=$(cast wallet address $PRIVATE_KEY)
 
-echo "Address replacement completed in tracked files."
+# Derive push (cosmos) address
+if ! command -v $PWD/build/pchaind >/dev/null 2>&1; then
+  echo "pchaind binary not found in build/ (run make build)" >&2
+  exit 1
+fi
+PUSH_ADDRESS=$($PWD/build/pchaind debug addr $(echo $EVM_ADDRESS | tr '[:upper:]' '[:lower:]' | sed 's/^0x//') | awk -F': ' '/Bech32 Acc:/ {print $2; exit}')
+if [[ -z "$PUSH_ADDRESS" ]]; then
+  echo "Could not derive push address from $EVM_ADDRESS" >&2
+  exit 1
+fi
+
+echo "Replacing with PUSH_ADDRESS: $PUSH_ADDRESS"
+echo "Replacing with EVM_ADDRESS: $EVM_ADDRESS"
+
+# Replace Admin in params.go files
+for f in x/utss/types/params.go x/uregistry/types/params.go x/uvalidator/types/params.go; do
+  if [[ -f "$f" ]]; then
+    perl -pi -e "s/Admin: \"push1[0-9a-z]+\"/Admin: \"$PUSH_ADDRESS\"/g" "$f"
+    echo "Updated Admin in $f"
+  fi
+done
+
+# Replace PROXY_ADMIN_OWNER_ADDRESS in constants.go files
+for f in x/uexecutor/types/constants.go x/uregistry/types/constants.go; do
+  if [[ -f "$f" ]]; then
+    perl -pi -e "s/PROXY_ADMIN_OWNER_ADDRESS_HEX = \"0x[a-fA-F0-9]{40}\"/PROXY_ADMIN_OWNER_ADDRESS_HEX = \"$EVM_ADDRESS\"/g" "$f"
+    perl -pi -e "s/PROXY_ADMIN_OWNER_ADDRESS = \"0x[a-fA-F0-9]{40}\"/PROXY_ADMIN_OWNER_ADDRESS = \"$EVM_ADDRESS\"/g" "$f"
+    echo "Updated PROXY_ADMIN_OWNER_ADDRESS in $f"
+  fi
+done
+
+echo "Address replacement completed."

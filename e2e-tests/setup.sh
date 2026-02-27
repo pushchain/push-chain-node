@@ -1365,6 +1365,8 @@ step_configure_universal_core() {
 }
 
 cmd_all() {
+  (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
+  (cd "$PUSH_CHAIN_DIR" && make build)
   step_stop_running_nodes
   step_devnet
   step_recover_genesis_key

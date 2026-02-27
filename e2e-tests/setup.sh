@@ -330,11 +330,12 @@ sdk_test_files() {
   local base_dir="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_E2E_DIR"
   local file alt
   local requested_files=(
-    "pctx-last-transaction.spec.tx"
+    "pctx-last-transaction.spec.ts"
     "send-to-self.spec.ts"
     "progress-hook-per-tx.spec.ts"
     "bridge-multicall.spec.ts"
     "pushchain.spec.ts"
+    "bridge-hooks.spec.ts"
   )
 
   for file in "${requested_files[@]}"; do
@@ -1405,6 +1406,7 @@ Commands:
   sdk-test-progress-hook Run progress-hook-per-tx.spec.ts
   sdk-test-bridge-multicall  Run bridge-multicall.spec.ts
   sdk-test-pushchain     Run pushchain.spec.ts
+  sdk-test-bridge-hooks  Run bridge-hooks.spec.ts
   add-uregistry-configs  Submit chain + token config txs via local-multi-validator validator1
   record-contract K A    Manually record contract key/address
   record-token N S A     Manually record token name/symbol/address
@@ -1440,6 +1442,7 @@ main() {
     sdk-test-progress-hook) step_run_sdk_test_file "progress-hook-per-tx.spec.ts" ;;
     sdk-test-bridge-multicall) step_run_sdk_test_file "bridge-multicall.spec.ts" ;;
     sdk-test-pushchain) step_run_sdk_test_file "pushchain.spec.ts" ;;
+    sdk-test-bridge-hooks) step_run_sdk_test_file "bridge-hooks.spec.ts" ;;
     add-uregistry-configs) step_add_uregistry_configs ;;
     record-contract)
       ensure_deploy_file

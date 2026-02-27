@@ -136,6 +136,16 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
+# After initialization and before event start from overrides
+# Force Arbitrum Sepolia RPC URL to tenderly endpoint
+ARBITRUM_CHAIN_ID="eip155:421614"
+ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
+
+jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
 # Optionally override chain event start heights (set by ./devnet start)
 set_chain_event_start_from() {
   local chain_id="$1"

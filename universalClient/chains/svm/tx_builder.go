@@ -49,7 +49,7 @@
 //   - Borsh Serialization: Solana's standard binary format. Little-endian integers,
 //     Vec<T> = 4-byte LE length prefix + elements. Used for instruction data.
 //
-//   - TSS PDA: Stores the TSS group's 20-byte ETH address, chain ID, and a nonce for replay protection.
+//   - TSS PDA: Stores the TSS group's 20-byte ETH address and chain ID. Replay protection uses per-tx ExecutedTx PDAs.
 //
 //   - CEA (Cross-chain Execution Account): Per-sender identity PDA derived from the EVM sender address.
 //
@@ -148,7 +148,7 @@ func NewTxBuilder(
 //
 //  Called when Push Chain detects an outbound event targeting Solana.
 //  This method:
-//    1. Fetches the current TSS nonce from the on-chain TSS PDA (replay protection)
+//    1. Fetches the chain ID from the on-chain TSS PDA
 //    2. Determines the instruction type (withdraw/execute/revert)
 //    3. Constructs the exact message that TSS validators will sign
 //    4. Returns the 32-byte keccak256 hash for TSS signing
@@ -202,13 +202,12 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 
 	// --- Fetch on-chain state from the TSS PDA ---
-	// The TSS PDA stores: ETH address of the TSS group, chain ID, and a nonce.
-	// The nonce increments with each operation to prevent replay attacks.
+	// The TSS PDA stores: ETH address of the TSS group and chain ID.
 	tssPDA, err := tb.deriveTSSPDA()
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
-	_, chainID, err := tb.fetchTSSNonce(ctx, tssPDA)
+	chainID, err := tb.fetchTSSChainID(ctx, tssPDA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch chain ID from TSS PDA: %w", err)
 	}
@@ -373,7 +372,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	// This message is what TSS validators sign. The gateway contract reconstructs
 	// the same message on-chain and verifies the signature matches.
 	messageHash, err := tb.constructTSSMessage(
-		instructionID, chainID, nonce, amount.Uint64(),
+		instructionID, chainID, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
 		targetProgram, accounts, ixData, rentFee,
 		revertRecipient, revertMint,
@@ -391,15 +390,39 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}, nil
 }
 
-// GetNextNonce returns the current TSS PDA nonce for this chain. useFinalized is ignored for SVM.
+// GetNextNonce returns 0 for SVM. The contract no longer uses a global nonce;
+// replay protection is handled by per-tx ExecutedTx PDAs.
 func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
-	_ = signerAddress // SVM uses PDA, not signer address
-	tssPDA, err := tb.deriveTSSPDA()
+	return 0, nil
+}
+
+// IsAlreadyExecuted checks if the ExecutedTx PDA for the given txID exists on-chain,
+// indicating another relayer has already processed this transaction.
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+	txIDBytes, err := hex.DecodeString(removeHexPrefix(txID))
 	if err != nil {
-		return 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
+		return false, fmt.Errorf("invalid txID: %s", txID)
 	}
-	nonce, _, err := tb.fetchTSSNonce(ctx, tssPDA)
-	return nonce, err
+	if len(txIDBytes) != 32 {
+		return false, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
+	}
+
+	var txIDArr [32]byte
+	copy(txIDArr[:], txIDBytes)
+
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_tx"), txIDArr[:]}, tb.gatewayAddress)
+	if err != nil {
+		return false, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+	}
+
+	data, err := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
+	if err != nil {
+		// Account doesn't exist or RPC error — treat as not executed
+		return false, nil
+	}
+
+	// If we got non-empty data, the PDA exists → tx was already executed
+	return len(data) > 0, nil
 }
 
 // =============================================================================
@@ -617,7 +640,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to derive vault PDA: %w", err)
 	}
 
-	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda")}, tb.gatewayAddress)
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda_v2")}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
@@ -656,7 +679,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData = tb.buildWithdrawAndExecuteData(
 			instructionID, txID, universalTxID, amount.Uint64(), sender,
 			writableFlags, ixData, gasFee, rentFee,
-			signature, recoveryID, req.SigningHash, req.Nonce,
+			signature, recoveryID, req.SigningHash,
 		)
 
 		accounts = tb.buildWithdrawAndExecuteAccounts(
@@ -673,7 +696,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData = tb.buildRevertData(
 			instructionID, txID, universalTxID, amount.Uint64(),
 			recipientPubkey, revertMsgBytes, gasFee,
-			signature, recoveryID, req.SigningHash, req.Nonce,
+			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRevertSOLAccounts(
 			configPDA, vaultPDA, tssPDA, recipientPubkey,
@@ -703,7 +726,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData = tb.buildRevertData(
 			instructionID, txID, universalTxID, amount.Uint64(),
 			recipientPubkey, revertMsgBytes, gasFee,
-			signature, recoveryID, req.SigningHash, req.Nonce,
+			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRevertSPLAccounts(
 			configPDA, vaultPDA, tokenVaultATA, tssPDA,
@@ -806,16 +829,15 @@ func removeHexPrefix(s string) string {
 // The TSS PDA is a singleton account (one per gateway) that stores:
 //   - tss_eth_address: the 20-byte Ethereum address of the TSS signing group
 //   - chain_id: identifies this Solana cluster (for cross-chain replay protection)
-//   - nonce: increments with each operation (per-chain replay protection)
 //
-// Seed: ["tsspda"] — must match the Rust constant TSS_SEED in state.rs
+// Seed: ["tsspda_v2"] — must match the Rust constant TSS_SEED in state.rs
 func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
-	seeds := [][]byte{[]byte("tsspda")}
+	seeds := [][]byte{[]byte("tsspda_v2")}
 	address, _, err := solana.FindProgramAddress(seeds, tb.gatewayAddress)
 	return address, err
 }
 
-// fetchTSSNonce reads the TSS PDA account from on-chain and extracts the nonce and chain ID.
+// fetchTSSChainID reads the TSS PDA account from on-chain and extracts the chain ID.
 //
 // On-chain layout (Borsh-serialized TssPda struct from state.rs):
 //
@@ -824,36 +846,31 @@ func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
 //	8       20       tss_eth_address [u8; 20]
 //	28      4        chain_id length (u32, little-endian) — Borsh String prefix
 //	32      N        chain_id bytes (UTF-8, variable length)
-//	32+N    8        nonce (u64, little-endian)
-//	32+N+8  32       authority (Pubkey)
-//	...     1        bump
-func (tb *TxBuilder) fetchTSSNonce(ctx context.Context, tssPDA solana.PublicKey) (uint64, string, error) {
+//	32+N    32       authority (Pubkey)
+//	32+N+32 1        bump
+func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKey) (string, error) {
 	accountData, err := tb.rpcClient.GetAccountData(ctx, tssPDA)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to fetch TSS PDA account: %w", err)
+		return "", fmt.Errorf("failed to fetch TSS PDA account: %w", err)
 	}
 
 	// Need at least: discriminator(8) + tss_eth_address(20) + chain_id_len(4) = 32 bytes
 	if len(accountData) < 32 {
-		return 0, "", fmt.Errorf("invalid TSS PDA account data: too short (%d bytes)", len(accountData))
+		return "", fmt.Errorf("invalid TSS PDA account data: too short (%d bytes)", len(accountData))
 	}
 
 	// chain_id is a Borsh String: 4-byte LE length prefix followed by UTF-8 bytes.
 	// This is NOT fixed-length — different clusters have different chain IDs.
 	chainIDLen := binary.LittleEndian.Uint32(accountData[28:32])
 
-	requiredLen := 32 + int(chainIDLen) + 8
+	requiredLen := 32 + int(chainIDLen) + 32 + 1
 	if len(accountData) < requiredLen {
-		return 0, "", fmt.Errorf("invalid TSS PDA account data: too short for chain_id length %d (%d bytes)", chainIDLen, len(accountData))
+		return "", fmt.Errorf("invalid TSS PDA account data: too short for chain_id length %d (%d bytes)", chainIDLen, len(accountData))
 	}
 
 	chainID := string(accountData[32 : 32+chainIDLen])
 
-	// Nonce is right after the chain_id bytes
-	nonceOffset := 32 + int(chainIDLen)
-	nonce := binary.LittleEndian.Uint64(accountData[nonceOffset : nonceOffset+8])
-
-	return nonce, chainID, nil
+	return chainID, nil
 }
 
 // =============================================================================
@@ -903,7 +920,6 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 //	instruction_id                — 1 byte (1=withdraw, 2=execute, 3=revert SOL, 4=revert SPL)
 //	chain_id                      — N bytes UTF-8 (prevents cross-chain replay, e.g., "devnet")
 //	                                NOTE: raw UTF-8 bytes, NOT Borsh-encoded (no length prefix)
-//	nonce                         — 8 bytes big-endian (prevents same-chain replay)
 //	amount                        — 8 bytes big-endian
 //	additional_data               — varies by instruction_id (see below)
 //
@@ -920,7 +936,6 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 func (tb *TxBuilder) constructTSSMessage(
 	instructionID uint8,
 	chainID string,
-	nonce uint64,
 	amount uint64,
 	txID [32]byte,
 	universalTxID [32]byte,
@@ -937,10 +952,6 @@ func (tb *TxBuilder) constructTSSMessage(
 	message := []byte("PUSH_CHAIN_SVM")
 	message = append(message, instructionID)
 	message = append(message, []byte(chainID)...)
-
-	nonceBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(nonceBytes, nonce)
-	message = append(message, nonceBytes...)
 
 	amountBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(amountBytes, amount)
@@ -1211,7 +1222,6 @@ func anchorDiscriminator(methodName string) []byte {
 //	...     64       signature              [u8; 64] (TSS secp256k1 r||s)
 //	...     1        recovery_id            u8 (ECDSA v value, 0-3)
 //	...     32       message_hash           [u8; 32] (keccak256 of TSS message)
-//	...     8        nonce                  u64 (little-endian)
 func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	instructionID uint8,
 	txID [32]byte,
@@ -1225,7 +1235,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
-	nonce uint64,
 ) []byte {
 	discriminator := anchorDiscriminator("withdraw_and_execute")
 
@@ -1264,10 +1273,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
 
-	nonceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(nonceBytes, nonce)
-	data = append(data, nonceBytes...)
-
 	return data
 }
 
@@ -1287,7 +1292,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 //	...     64       signature              [u8; 64]
 //	...     1        recovery_id            u8
 //	...     32       message_hash           [u8; 32]
-//	...     8        nonce                  u64 (LE)
 func (tb *TxBuilder) buildRevertData(
 	instructionID uint8,
 	txID [32]byte,
@@ -1299,7 +1303,6 @@ func (tb *TxBuilder) buildRevertData(
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
-	nonce uint64,
 ) []byte {
 	var discriminator []byte
 	if instructionID == 3 {
@@ -1332,10 +1335,6 @@ func (tb *TxBuilder) buildRevertData(
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
 
-	nonceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(nonceBytes, nonce)
-	data = append(data, nonceBytes...)
-
 	return data
 }
 
@@ -1359,7 +1358,7 @@ func (tb *TxBuilder) buildRevertData(
 //	2   config                 read-only   Gateway configuration PDA
 //	3   vault_sol              mut         SOL vault PDA (holds native SOL)
 //	4   cea_authority          mut         Cross-chain identity PDA for this sender
-//	5   tss_pda                mut         TSS state (nonce gets incremented)
+//	5   tss_pda                mut         TSS state
 //	6   executed_tx            mut         Replay protection PDA (gets created)
 //	7   system_program         read-only   Solana system program
 //	8   destination_program    read-only   Target program (system_program for withdraw)
@@ -1372,8 +1371,11 @@ func (tb *TxBuilder) buildRevertData(
 //	14  rent                   read/None   Rent sysvar
 //	15  associated_token_prog  read/None   ATA program
 //	16  recipient_ata          mut/None    Recipient's token account (withdraw SPL only)
+//	--- Optional rate limit accounts (17-18) ---
+//	17  rate_limit_config      read/None   Rate limit configuration (CEA path only)
+//	18  token_rate_limit       mut/None    Per-token rate limit state (CEA path only)
 //	--- Execute-only remaining accounts ---
-//	17+ remaining_accounts     varies      Accounts that the target program needs
+//	19+ remaining_accounts     varies      Accounts that the target program needs
 //
 // For Anchor Option<Account> fields: passing the gateway program's own ID = None.
 // This is Anchor's convention for encoding "this optional account is not provided".
@@ -1454,6 +1456,11 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 		}
 	}
 
+	// rateLimitConfig: null (CEA withdrawal path only)
+	accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	// tokenRateLimit: null (CEA withdrawal path only)
+	accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+
 	// For execute mode: append the target program's accounts as "remaining_accounts".
 	// These are the accounts that the gateway will pass through via CPI to the target program.
 	if instructionID == 2 {
@@ -1517,7 +1524,7 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 //	#  Account          Flags
 //	1  config           read-only
 //	2  vault            mut         SOL vault (source of refund)
-//	3  tss_pda          mut         TSS state (nonce increment)
+//	3  tss_pda          mut         TSS state
 //	4  recipient        mut         Gets the SOL refund
 //	5  executed_tx       mut         Replay protection (gets created)
 //	6  caller           signer,mut  Relayer
@@ -1549,7 +1556,7 @@ func (tb *TxBuilder) buildRevertSOLAccounts(
 //	1   config                   read-only
 //	2   vault                    mut         SOL vault PDA (authority for token transfers)
 //	3   token_vault              mut         Vault's ATA for the token (source of refund)
-//	4   tss_pda                  mut         TSS state (nonce increment)
+//	4   tss_pda                  mut         TSS state
 //	5   recipient_token_account  mut         Recipient's ATA (destination of refund)
 //	6   token_mint               read-only   The SPL token mint
 //	7   executed_tx              mut         Replay protection

@@ -15,6 +15,7 @@ import (
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
 	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
+	supplyslash15 "github.com/pushchain/push-chain-node/app/upgrades/supply-slash-1.5"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
@@ -41,6 +42,7 @@ var Upgrades = []upgrades.Upgrade{
 	universaltxv1.NewUpgrade(),
 	proxybytecodefix.NewUpgrade(),
 	supplyslash.NewUpgrade(),
+	supplyslash15.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

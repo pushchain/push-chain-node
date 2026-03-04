@@ -71,7 +71,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 				FundRecipient: event.RevertRecipient,
 			},
 			OutboundStatus: types.Status_PENDING,
-			Id:             event.TxID,
+			Id:             strings.TrimPrefix(event.TxID, "0x"),
 		}
 
 		outbounds = append(outbounds, outbound)

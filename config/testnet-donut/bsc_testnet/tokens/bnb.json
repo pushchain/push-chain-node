@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:97",
+  "address": "0x0000000000000000000000000000000000000000",
+  "name": "pBNB",
+  "symbol": "pBNB",
+  "decimals": 18,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1,
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0x7a9082dA308f3fa005beA7dB0d203b3b86664E36"
+  }
+}

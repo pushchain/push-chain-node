@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -143,6 +144,10 @@ func (ms msgServer) VoteOutbound(ctx context.Context, msg *types.MsgVoteOutbound
 	if err != nil {
 		return nil, fmt.Errorf("invalid signer address: %w", err)
 	}
+
+	// Normalize IDs: strip 0x prefix
+	msg.TxId = strings.TrimPrefix(msg.TxId, "0x")
+	msg.UtxId = strings.TrimPrefix(msg.UtxId, "0x")
 
 	// Convert account to validator operator address
 	signerValAddr := sdk.ValAddress(signerAccAddr)

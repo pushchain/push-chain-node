@@ -287,4 +287,88 @@ func TestOutboundVoting(t *testing.T) {
 		require.Equal(t, outbound.Sender, ob.PcRevertExecution.Sender)
 	})
 
+	t.Run("vote with 0x-prefixed utxId and txId still finalizes correctly", func(t *testing.T) {
+		app, ctx, vals, utxId, outbound, coreVals :=
+			setupOutboundVotingTest(t, 4)
+
+		// Simulate UVs submitting IDs with 0x prefix (as observed on testnet).
+		// The handler strips the prefix exactly once before the keeper lookup.
+		prefixedUtxId := "0x" + utxId
+		prefixedOutbound := *outbound
+		prefixedOutbound.Id = "0x" + outbound.Id
+
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+
+			coreAcc := sdk.AccAddress(valAddr).String()
+			err = utils.ExecVoteOutbound(
+				t,
+				ctx,
+				app,
+				vals[i],
+				coreAcc,
+				prefixedUtxId,
+				&prefixedOutbound,
+				true,
+				"",
+			)
+			require.NoError(t, err)
+		}
+
+		utx, _, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, err)
+
+		ob := utx.OutboundTx[0]
+		require.Equal(t, uexecutortypes.Status_OBSERVED, ob.OutboundStatus)
+		require.NotNil(t, ob.ObservedTx)
+		require.True(t, ob.ObservedTx.Success)
+	})
+
+	t.Run("vote with unknown utxId returns error", func(t *testing.T) {
+		app, ctx, vals, _, outbound, coreVals :=
+			setupOutboundVotingTest(t, 4)
+
+		valAddr, _ := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		coreAcc := sdk.AccAddress(valAddr).String()
+
+		err := utils.ExecVoteOutbound(
+			t,
+			ctx,
+			app,
+			vals[0],
+			coreAcc,
+			"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+			outbound,
+			true,
+			"",
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("vote with unknown outboundId returns error", func(t *testing.T) {
+		app, ctx, vals, utxId, outbound, coreVals :=
+			setupOutboundVotingTest(t, 4)
+
+		valAddr, _ := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+		coreAcc := sdk.AccAddress(valAddr).String()
+
+		badOutbound := *outbound
+		badOutbound.Id = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+		err := utils.ExecVoteOutbound(
+			t,
+			ctx,
+			app,
+			vals[0],
+			coreAcc,
+			utxId,
+			&badOutbound,
+			true,
+			"",
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not found")
+	})
 }

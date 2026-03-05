@@ -63,6 +63,18 @@ message GatewayMethods {
   ConfirmationType confirmation_type = 4; // Which block confirmation to use for this method
 }
 
+// VaultMethods defines the configuration for a method exposed by the vault contract
+message VaultMethods {
+  option (amino.name) = "uregistry/vault_methods";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  string name = 1;                // Human-readable method name (e.g. "deposit")
+  string identifier = 2;          // Hex-encoded selector or discriminator for the method
+  string event_identifier = 3;    // Hex-encoded topic or identifier for emitted event
+  ConfirmationType confirmation_type = 4; // Which block confirmation to use for this method
+}
+
 // BlockConfirmation defines the number of blocks to wait for confirmation on the external chain
 message BlockConfirmation {
   option (amino.name) = "uregistry/block_confirmation";
@@ -100,6 +112,9 @@ message ChainConfig {
 
   ChainEnabled enabled = 7; // Whether this chain is currently enabled or not
   google.protobuf.Duration gas_oracle_fetch_interval = 8 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true]; // how often relayers should fetch gas prices
+
+  string vault_address = 9; // vault_address is the address of the vault contract on the external chain (optional)
+  repeated VaultMethods vault_methods = 10; // List of methods exposed by the vault contract (optional)
 }
 
 message NativeRepresentation {

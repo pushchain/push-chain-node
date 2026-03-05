@@ -198,22 +198,18 @@ func (c *Client) initializeComponents() error {
 		}
 
 		// Fetch vault address from gateway contract
-		var vaultAddress string
-		var vaultAddr ethcommon.Address
 		fetchCtx, fetchCancel := context.WithTimeout(c.ctx, 15*time.Second)
 		vaultAddr, err := FetchVaultAddress(fetchCtx, c.rpcClient, ethcommon.HexToAddress(c.registryConfig.GatewayAddress))
 		fetchCancel()
 		if err != nil {
-			c.logger.Warn().Err(err).Msg("failed to fetch vault address from gateway, vault events will not be monitored")
-		} else {
-			vaultAddress = vaultAddr.Hex()
-			c.logger.Info().Str("vault_address", vaultAddress).Msg("vault address fetched from gateway")
+			return fmt.Errorf("failed to fetch vault address from gateway: %w", err)
 		}
+		c.logger.Info().Str("vault_address", vaultAddr.Hex()).Msg("vault address fetched from gateway")
 
 		eventListener, err := NewEventListener(
 			c.rpcClient,
 			c.registryConfig.GatewayAddress,
-			vaultAddress,
+			vaultAddr.Hex(),
 			c.registryConfig.Chain,
 			c.registryConfig.GatewayMethods,
 			c.registryConfig.VaultMethods,

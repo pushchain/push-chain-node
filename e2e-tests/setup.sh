@@ -447,8 +447,14 @@ step_setup_push_chain_sdk() {
     exit 1
   fi
 
-  perl -0pi -e 's/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$sdk_account_file"
-  log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET in $sdk_account_file"
+  perl -0pi -e '
+    s{(function\s+convertExecutorToOriginAccount\b.*?\{)(.*?)(\n\})}{
+      my ($head, $body, $tail) = ($1, $2, $3);
+      $body =~ s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
+      "$head$body$tail";
+    }gse;
+  ' "$sdk_account_file"
+  log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET only in convertExecutorToOriginAccount() in $sdk_account_file"
 
   log_info "Installing push-chain-sdk dependencies"
   (

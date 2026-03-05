@@ -605,6 +605,40 @@ step_fund_account() {
   log_ok "Funding transaction submitted"
 }
 
+step_update_env_fund_to_address() {
+  require_cmd jq
+  ENV_FILE="$SCRIPT_DIR/.env"
+  if [[ ! -f "$ENV_FILE" ]]; then
+    log_err ".env file not found in e2e-tests folder"
+    exit 1
+  fi
+  PRIVATE_KEY=$(grep '^PRIVATE_KEY=' "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+  if [[ -z "$PRIVATE_KEY" ]]; then
+    log_err "PRIVATE_KEY not found in .env"
+    exit 1
+  fi
+  if ! command -v $PUSH_CHAIN_DIR/build/pchaind >/dev/null 2>&1; then
+    log_err "pchaind binary not found in build/ (run make build)"
+    exit 1
+  fi
+  EVM_ADDRESS=$(cast wallet address $PRIVATE_KEY)
+  COSMOS_ADDRESS=$($PUSH_CHAIN_DIR/build/pchaind debug addr $(echo $EVM_ADDRESS | tr '[:upper:]' '[:lower:]' | sed 's/^0x//') | awk -F': ' '/Bech32 Acc:/ {print $2; exit}')
+  if [[ -z "$COSMOS_ADDRESS" ]]; then
+    log_err "Could not derive cosmos address from $EVM_ADDRESS"
+    exit 1
+  fi
+  if grep -q '^FUND_TO_ADDRESS=' "$ENV_FILE"; then
+    sed -i.bak "s|^FUND_TO_ADDRESS=.*$|FUND_TO_ADDRESS=$COSMOS_ADDRESS|" "$ENV_FILE"
+  else
+    echo "FUND_TO_ADDRESS=$COSMOS_ADDRESS" >> "$ENV_FILE"
+  fi
+  # Refresh .env after updating FUND_TO_ADDRESS
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
+  log_ok "Updated FUND_TO_ADDRESS in .env to $COSMOS_ADDRESS"
+}
+
 parse_core_prc20_logs() {
   local log_file="$1"
   local current_addr=""
@@ -1367,6 +1401,7 @@ step_configure_universal_core() {
 cmd_all() {
   (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
   (cd "$PUSH_CHAIN_DIR" && make build)
+  step_update_env_fund_to_address
   step_stop_running_nodes
   step_devnet
   step_recover_genesis_key

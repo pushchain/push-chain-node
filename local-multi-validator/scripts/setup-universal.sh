@@ -140,8 +140,15 @@ fi
 # Force Arbitrum Sepolia RPC URL to tenderly endpoint
 ARBITRUM_CHAIN_ID="eip155:421614"
 ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
+BSC_TESTNET_CHAIN_ID="eip155:97"
+BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
 
 jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+jq --arg chain "$BSC_TESTNET_CHAIN_ID" --arg url "$BSC_TESTNET_RPC_URL" \
   '.chain_configs[$chain].rpc_urls = [$url]' \
   "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
   mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"

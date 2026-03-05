@@ -29,11 +29,7 @@ if ! command -v $PWD/build/pchaind >/dev/null 2>&1; then
   echo "pchaind binary not found in build/ (run make build)" >&2
   exit 1
 fi
-PUSH_ADDRESS=$($PWD/build/pchaind debug addr $(echo $EVM_ADDRESS | tr '[:upper:]' '[:lower:]' | sed 's/^0x//') | awk -F': ' '/Bech32 Acc:/ {print $2; exit}')
-if [[ -z "$PUSH_ADDRESS" ]]; then
-  echo "Could not derive push address from $EVM_ADDRESS" >&2
-  exit 1
-fi
+PUSH_ADDRESS=push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20
 
 echo "Replacing with PUSH_ADDRESS: $PUSH_ADDRESS"
 echo "Replacing with EVM_ADDRESS: $EVM_ADDRESS"

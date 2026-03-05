@@ -46,9 +46,9 @@ fi
 : "${DEPLOY_ADDRESSES_FILE:=$SCRIPT_DIR/deploy_addresses.json}"
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
 : "${TEST_ADDRESSES_PATH:=$SWAP_AMM_DIR/test-addresses.json}"
-: "${TOKENS_CONFIG_DIR:=./config/testnet-donut/tokens}"
-: "${TOKEN_CONFIG_PATH:=./config/testnet-donut/tokens/eth_sepolia_eth.json}"
-: "${CHAIN_CONFIG_PATH:=./config/testnet-donut/chains/eth_sepolia_chain_config.json}"
+: "${TOKENS_CONFIG_DIR:=./config/testnet-donut}"
+: "${TOKEN_CONFIG_PATH:=./config/testnet-donut/eth_sepolia/tokens/eth.json}"
+: "${CHAIN_CONFIG_PATH:=./config/testnet-donut/eth_sepolia/chain.json}"
 
 abs_from_root() {
   local path="$1"
@@ -859,7 +859,7 @@ find_matching_token_config_file() {
   d_name_np="$(norm_token_key_without_leading_p "$deployed_name")"
 
   local file f_sym f_name f_base f_sym_np f_name_np score
-  for file in "$TOKENS_CONFIG_DIR"/*.json; do
+  while IFS= read -r file; do
     [[ -f "$file" ]] || continue
     f_sym="$(jq -r '.symbol // ""' "$file")"
     f_name="$(jq -r '.name // ""' "$file")"
@@ -885,7 +885,7 @@ find_matching_token_config_file() {
       best_score=$score
       best_file="$file"
     fi
-  done
+  done < <(find "$TOKENS_CONFIG_DIR" -type f -path '*/tokens/*.json' | sort)
 
   if (( best_score >= 60 )); then
     printf "%s" "$best_file"
@@ -898,6 +898,11 @@ step_update_deployed_token_configs() {
 
   if [[ ! -d "$TOKENS_CONFIG_DIR" ]]; then
     log_err "Tokens config directory missing: $TOKENS_CONFIG_DIR"
+    exit 1
+  fi
+
+  if ! find "$TOKENS_CONFIG_DIR" -type f -path '*/tokens/*.json' | grep -q .; then
+    log_err "No token config files found under: $TOKENS_CONFIG_DIR"
     exit 1
   fi
 
@@ -1082,7 +1087,6 @@ step_setup_gateway() {
 step_add_uregistry_configs() {
   require_cmd "$PUSH_CHAIN_DIR/build/pchaind" jq
 
-  [[ -f "$CHAIN_CONFIG_PATH" ]] || { log_err "Missing chain config: $CHAIN_CONFIG_PATH"; exit 1; }
   [[ -d "$TOKENS_CONFIG_DIR" ]] || { log_err "Missing tokens config directory: $TOKENS_CONFIG_DIR"; exit 1; }
 
   local token_payload
@@ -1141,7 +1145,7 @@ step_add_uregistry_configs() {
   }
 
   local chain_config_dir chain_file chain_payload chain_count
-  chain_config_dir="$(dirname "$CHAIN_CONFIG_PATH")"
+  chain_config_dir="$TOKENS_CONFIG_DIR"
   chain_count=0
 
   while IFS= read -r chain_file; do
@@ -1150,7 +1154,7 @@ step_add_uregistry_configs() {
     log_info "Adding chain config to uregistry: $(basename "$chain_file")"
     run_registry_tx "chain" "$chain_payload"
     chain_count=$((chain_count + 1))
-  done < <(find "$chain_config_dir" -maxdepth 1 -type f -name '*_chain_config.json' | sort)
+  done < <(find "$chain_config_dir" -type f \( -name 'chain.json' -o -name '*_chain_config.json' \) | sort)
 
   if [[ "$chain_count" -eq 0 ]]; then
     log_err "No chain config files found in: $chain_config_dir"

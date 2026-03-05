@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -25,10 +24,10 @@ func (k Keeper) VoteOutbound(
 		return err
 	}
 	if !found {
-		return errors.Wrap(err, "UniversalTx not found")
+		return fmt.Errorf("UniversalTx not found: %s", utxId)
 	}
 	if utx.OutboundTx == nil {
-		return errors.Wrap(err, "No outbound tx found in the specified UniversalTx")
+		return fmt.Errorf("no outbound tx found in UniversalTx %s", utxId)
 	}
 
 	// Step 2: Find outbound by id
@@ -42,7 +41,7 @@ func (k Keeper) VoteOutbound(
 		}
 	}
 	if !found {
-		return errors.Wrap(err, "Outbound not found")
+		return fmt.Errorf("outbound %s not found in UniversalTx %s", outboundId, utxId)
 	}
 
 	// Prevent double-finalization

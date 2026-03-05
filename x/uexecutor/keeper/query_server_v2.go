@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -32,7 +33,7 @@ func (k QuerierV2) GetUniversalTx(goCtx context.Context, req *typesv2.QueryGetUn
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	currentTx, err := k.UniversalTx.Get(ctx, req.Id)
+	currentTx, err := k.UniversalTx.Get(ctx, strings.TrimPrefix(req.Id, "0x"))
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "UniversalTx not found")

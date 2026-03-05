@@ -44,11 +44,7 @@ func (p ChainConfig) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid vm_type: %v", p.VmType)
 	}
 
-	// Validate gateway methods
-	if len(p.GatewayMethods) == 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gateway_methods cannot be empty")
-	}
-
+	// Validate gateway methods (can be empty, but each provided method must be valid)
 	for _, method := range p.GatewayMethods {
 		if err := method.ValidateBasic(); err != nil {
 			return errors.Wrapf(err, "invalid method in gateway_methods: %s", method.Name)
@@ -58,6 +54,12 @@ func (p ChainConfig) ValidateBasic() error {
 	// Validate gas oracle fetch interval
 	if p.GasOracleFetchInterval <= 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_oracle_fetch_interval must be positive")
+	}
+
+	for _, method := range p.VaultMethods {
+		if err := method.ValidateBasic(); err != nil {
+			return errors.Wrapf(err, "invalid method in vault_methods: %s", method.Name)
+		}
 	}
 
 	return p.BlockConfirmation.ValidateBasic()

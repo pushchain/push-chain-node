@@ -1,0 +1,27 @@
+[
+  {
+    "address": "push1p9wxp8uczwdmt0d5f4nzayqezhha5lrxv0heqg",
+    "keep_pc": 0,
+    "note": "Hegemon — burn all spendable"
+  },
+  {
+    "address": "push1fv2fm76q7cjnr58wdwyntzrjgtc7qya6ctk0zm",
+    "keep_pc": 0,
+    "note": "Dev Donut operator — burn all spendable"
+  },
+  {
+    "address": "push12jzrpp4pkucxxvj6hw4dfxsnhcpy6ddt0ljtrn",
+    "keep_pc": 0,
+    "note": "Trader's Espresso operator — burn all spendable"
+  },
+  {
+    "address": "push1vzuw2x3k2ccme70zcgswv8d88kyc07grx5h6v7",
+    "keep_pc": 0,
+    "note": "Validator's Valhalla operator — burn all spendable (incl. 296B PC liquid)"
+  },
+  {
+    "address": "push1wvy6j98pkuj4pua96ctm0y59w6nv64x2dwuzqx",
+    "keep_pc": 0,
+    "note": "User's Utopia operator — burn all spendable"
+  }
+]

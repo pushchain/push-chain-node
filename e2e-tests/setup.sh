@@ -42,6 +42,7 @@ fi
 : "${PUSH_CHAIN_SDK_DIR:=$E2E_PARENT_DIR/push-chain-sdk}"
 : "${PUSH_CHAIN_SDK_E2E_DIR:=packages/core/__e2e__}"
 : "${PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH:=packages/core/src/lib/constants/chain.ts}"
+: "${PUSH_CHAIN_SDK_ACCOUNT_TS_PATH:=packages/core/src/lib/universal/account/account.ts}"
 : "${PUSH_CHAIN_SDK_CORE_ENV_PATH:=packages/core/.env}"
 : "${DEPLOY_ADDRESSES_FILE:=$SCRIPT_DIR/deploy_addresses.json}"
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
@@ -374,15 +375,16 @@ sdk_prepare_test_files_for_localnet() {
 
   while IFS= read -r test_file; do
     [[ -n "$test_file" ]] || continue
-    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g' "$test_file"
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$test_file"
     log_ok "Prepared LOCALNET network replacement in $(basename "$test_file")"
   done < <(sdk_test_files)
 }
 
 step_setup_push_chain_sdk() {
-  require_cmd git yarn npm cast jq
+  require_cmd git yarn npm cast jq perl
 
   local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
+  local sdk_account_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_ACCOUNT_TS_PATH"
   local uea_impl_raw uea_impl synced_localnet_uea
 
   clone_or_update_repo "$PUSH_CHAIN_SDK_REPO" "$PUSH_CHAIN_SDK_BRANCH" "$PUSH_CHAIN_SDK_DIR"
@@ -439,6 +441,14 @@ step_setup_push_chain_sdk() {
   fi
 
   log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
+
+  if [[ ! -f "$sdk_account_file" ]]; then
+    log_err "SDK account file not found: $sdk_account_file"
+    exit 1
+  fi
+
+  perl -0pi -e 's/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$sdk_account_file"
+  log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET in $sdk_account_file"
 
   log_info "Installing push-chain-sdk dependencies"
   (

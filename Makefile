@@ -155,6 +155,10 @@ draw-deps:
 clean:
 	rm -rf snapcraft-local.yaml build/
 
+.PHONY: replace-addresses
+replace-addresses:
+	bash scripts/replace_addresses.sh
+
 distclean: clean
 	rm -rf vendor/
 

@@ -17,3 +17,5 @@ universalClient/coverage.out
 # TSS data directory
 tss-data/
 local-native/data/
+e2e-tests/.pchain/
+e2e-tests/genesis_accounts.json

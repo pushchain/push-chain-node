@@ -136,6 +136,44 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
+# After initialization and before event start from overrides
+# Force Arbitrum Sepolia RPC URL to tenderly endpoint
+ARBITRUM_CHAIN_ID="eip155:421614"
+ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
+BSC_TESTNET_CHAIN_ID="eip155:97"
+BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
+
+jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+jq --arg chain "$BSC_TESTNET_CHAIN_ID" --arg url "$BSC_TESTNET_RPC_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+# Optionally override chain event start heights (set by ./devnet start)
+set_chain_event_start_from() {
+  local chain_id="$1"
+  local chain_label="$2"
+  local start_height="$3"
+
+  [ -n "$start_height" ] || return 0
+
+  echo "📍 Setting ${chain_label} event_start_from: $start_height"
+  jq --arg chain "$chain_id" --argjson height "$start_height" \
+    '.chain_configs[$chain].event_start_from = $height' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+}
+
+set_chain_event_start_from "eip155:11155111" "Sepolia" "${SEPOLIA_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:84532" "Base Sepolia" "${BASE_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:421614" "Arbitrum Sepolia" "${ARBITRUM_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:97" "BSC testnet" "${BSC_EVENT_START_FROM:-}"
+set_chain_event_start_from "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "Solana devnet" "${SOLANA_EVENT_START_FROM:-}"
+
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===
 # ---------------------------

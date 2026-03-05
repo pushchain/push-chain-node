@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
     go mod tidy
 
 # Replace admin addresses for local-multi-validator setup
-RUN sed -i 's/push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a/push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20/g' \
+RUN sed -i 's/push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20/push1gjaw568e35hjc8udhat0xnsxxmkm2snrexxz20/g' \
     ./x/uregistry/types/params.go \
     ./x/utss/types/params.go \
     ./x/uvalidator/types/params.go

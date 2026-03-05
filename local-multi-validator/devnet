@@ -15,6 +15,17 @@ cd "$SCRIPT_DIR"
 # ═══════════════════════════════════════════════════════════════════════════════
 GCR_REGISTRY="${GCR_REGISTRY:-gcr.io/push-chain-testnet}"
 CACHE_TAG="${CACHE_TAG:-latest}"
+SEPOLIA_CHAIN_ID="eip155:11155111"
+ARBITRUM_SEPOLIA_CHAIN_ID="eip155:421614"
+BASE_SEPOLIA_CHAIN_ID="eip155:84532"
+BSC_TESTNET_CHAIN_ID="eip155:97"
+SOLANA_DEVNET_CHAIN_ID="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+
+SEPOLIA_DEFAULT_RPC_URL="${SEPOLIA_DEFAULT_RPC_URL:-https://sepolia.drpc.org}"
+ARBITRUM_SEPOLIA_DEFAULT_RPC_URL="${ARBITRUM_SEPOLIA_DEFAULT_RPC_URL:-https://arbitrum-sepolia.gateway.tenderly.co}"
+BASE_SEPOLIA_DEFAULT_RPC_URL="${BASE_SEPOLIA_DEFAULT_RPC_URL:-https://sepolia.base.org}"
+BSC_TESTNET_DEFAULT_RPC_URL="${BSC_TESTNET_DEFAULT_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
+SOLANA_DEVNET_DEFAULT_RPC_URL="${SOLANA_DEVNET_DEFAULT_RPC_URL:-https://api.devnet.solana.com}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COLORS
@@ -66,6 +77,40 @@ require_docker() {
 
 has_buildx() {
     docker buildx version >/dev/null 2>&1
+}
+
+fetch_evm_height() {
+    local rpc_url="$1"
+    local response
+    response=$(curl -sS -X POST "$rpc_url" \
+        -H "Content-Type: application/json" \
+        --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
+
+    local hex_height
+    hex_height=$(echo "$response" | jq -r '.result // empty')
+
+    if [ -z "$hex_height" ] || [ "$hex_height" = "null" ] || [[ ! "$hex_height" =~ ^0x[0-9a-fA-F]+$ ]]; then
+        return 1
+    fi
+
+    echo "$((16#${hex_height#0x}))"
+}
+
+fetch_solana_slot() {
+    local rpc_url="$1"
+    local response
+    response=$(curl -sS -X POST "$rpc_url" \
+        -H "Content-Type: application/json" \
+        --data '{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[{"commitment":"processed"}]}')
+
+    local slot
+    slot=$(echo "$response" | jq -r '.result // empty')
+
+    if [ -z "$slot" ] || [ "$slot" = "null" ] || [[ ! "$slot" =~ ^[0-9]+$ ]]; then
+        return 1
+    fi
+
+    echo "$slot"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -413,6 +458,77 @@ cmd_up() {
         fi
     fi
 
+    local sepolia_start_height="${SEPOLIA_EVENT_START_FROM:-}"
+    local base_start_height="${BASE_EVENT_START_FROM:-}"
+    local arbitrum_start_height="${ARBITRUM_EVENT_START_FROM:-}"
+    local bsc_start_height="${BSC_EVENT_START_FROM:-}"
+    local solana_start_height="${SOLANA_EVENT_START_FROM:-}"
+
+    if [ -z "$sepolia_start_height" ]; then
+        if sepolia_start_height=$(fetch_evm_height "$SEPOLIA_DEFAULT_RPC_URL"); then
+            print_status "Using Sepolia event_start_from: $sepolia_start_height"
+        else
+            print_warning "Could not fetch Sepolia latest block from $SEPOLIA_DEFAULT_RPC_URL"
+            print_warning "Sepolia will use default event_start_from from pushuv config"
+            sepolia_start_height=""
+        fi
+    else
+        print_status "Using provided SEPOLIA_EVENT_START_FROM: $sepolia_start_height"
+    fi
+
+    if [ -z "$base_start_height" ]; then
+        if base_start_height=$(fetch_evm_height "$BASE_SEPOLIA_DEFAULT_RPC_URL"); then
+            print_status "Using Base Sepolia event_start_from: $base_start_height"
+        else
+            print_warning "Could not fetch Base Sepolia latest block from $BASE_SEPOLIA_DEFAULT_RPC_URL"
+            print_warning "Base Sepolia will use default event_start_from from pushuv config"
+            base_start_height=""
+        fi
+    else
+        print_status "Using provided BASE_EVENT_START_FROM: $base_start_height"
+    fi
+
+    if [ -z "$arbitrum_start_height" ]; then
+        if arbitrum_start_height=$(fetch_evm_height "$ARBITRUM_SEPOLIA_DEFAULT_RPC_URL"); then
+            print_status "Using Arbitrum Sepolia event_start_from: $arbitrum_start_height"
+        else
+            print_warning "Could not fetch Arbitrum Sepolia latest block from $ARBITRUM_SEPOLIA_DEFAULT_RPC_URL"
+            print_warning "Arbitrum Sepolia will use default event_start_from from pushuv config"
+            arbitrum_start_height=""
+        fi
+    else
+        print_status "Using provided ARBITRUM_EVENT_START_FROM: $arbitrum_start_height"
+    fi
+
+    if [ -z "$bsc_start_height" ]; then
+        if bsc_start_height=$(fetch_evm_height "$BSC_TESTNET_DEFAULT_RPC_URL"); then
+            print_status "Using BSC testnet event_start_from: $bsc_start_height"
+        else
+            print_warning "Could not fetch BSC testnet latest block from $BSC_TESTNET_DEFAULT_RPC_URL"
+            print_warning "BSC testnet will use default event_start_from from pushuv config"
+            bsc_start_height=""
+        fi
+    else
+        print_status "Using provided BSC_EVENT_START_FROM: $bsc_start_height"
+    fi
+
+    if [ -z "$solana_start_height" ]; then
+        if solana_start_height=$(fetch_solana_slot "$SOLANA_DEVNET_DEFAULT_RPC_URL"); then
+            print_status "Using Solana devnet event_start_from: $solana_start_height"
+        else
+            print_warning "Could not fetch Solana devnet latest slot from $SOLANA_DEVNET_DEFAULT_RPC_URL"
+            print_warning "Solana devnet will use default event_start_from from pushuv config"
+            solana_start_height=""
+        fi
+    else
+        print_status "Using provided SOLANA_EVENT_START_FROM: $solana_start_height"
+    fi
+
+    SEPOLIA_EVENT_START_FROM="$sepolia_start_height" \
+    BASE_EVENT_START_FROM="$base_start_height" \
+    ARBITRUM_EVENT_START_FROM="$arbitrum_start_height" \
+    BSC_EVENT_START_FROM="$bsc_start_height" \
+    SOLANA_EVENT_START_FROM="$solana_start_height" \
     docker compose up -d
 
     # Auto-push to cache if we built locally (populate cache for team)

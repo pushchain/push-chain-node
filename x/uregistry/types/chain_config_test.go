@@ -14,6 +14,12 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 		EventIdentifier:  "7f1f6cffbb134644",
 		ConfirmationType: types.ConfirmationType_CONFIRMATION_TYPE_STANDARD,
 	}
+	validVaultMethod := &types.VaultMethods{
+		Name:             "deposit",
+		Identifier:       "0xb6b55f25",
+		EventIdentifier:  "0x3c4e6c56cc5f2c26c92b91ee2f8bdc4e844b407bd1402b34ac1ef1f875d3c4b5",
+		ConfirmationType: types.ConfirmationType_CONFIRMATION_TYPE_STANDARD,
+	}
 	validBlockConfirmation := &types.BlockConfirmation{
 		FastInbound:     3,
 		StandardInbound: 10,
@@ -121,7 +127,7 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			errMsg:    "invalid vm_type",
 		},
 		{
-			name: "invalid - empty gateway methods",
+			name: "valid - empty gateway methods",
 			config: types.ChainConfig{
 				Chain:             "solana:devnet",
 				VmType:            types.VmType_SVM,
@@ -129,9 +135,9 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 				GatewayAddress:    "addr",
 				BlockConfirmation: validBlockConfirmation,
 				GatewayMethods:    []*types.GatewayMethods{},
+				GasOracleFetchInterval: 30,
 			},
-			expectErr: true,
-			errMsg:    "gateway_methods cannot be empty",
+			expectErr: false,
 		},
 		{
 			name: "invalid - bad method inside gateway_methods",
@@ -151,6 +157,95 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 			},
 			expectErr: true,
 			errMsg:    "invalid method in gateway_methods",
+		},
+		{
+			name: "valid - with vault address and vault methods",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "https://api.devnet.solana.com",
+				GatewayAddress:    "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				VaultAddress:      "VaultAddr123",
+				VaultMethods:      []*types.VaultMethods{validVaultMethod},
+				Enabled: &types.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
+				GasOracleFetchInterval: 30,
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid - no vault address and no vault methods",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "https://api.devnet.solana.com",
+				GatewayAddress:    "3zrWaMknHTRQpZSxY4BvQxw9TStSXiHcmcp3NMPTFkke",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				Enabled: &types.ChainEnabled{
+					IsInboundEnabled:  true,
+					IsOutboundEnabled: true,
+				},
+				GasOracleFetchInterval: 30,
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid - vault_address set but vault_methods empty",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "url",
+				GatewayAddress:    "addr",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				VaultAddress:      "VaultAddr123",
+				VaultMethods:      []*types.VaultMethods{},
+				GasOracleFetchInterval: 30,
+			},
+			expectErr: false,
+		},
+		{
+			name: "invalid - vault_methods set but vault_address empty",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "url",
+				GatewayAddress:    "addr",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				VaultAddress:      "",
+				VaultMethods:      []*types.VaultMethods{validVaultMethod},
+				GasOracleFetchInterval: 30,
+			},
+			expectErr: true,
+			errMsg:    "vault_address must be set when vault_methods are provided",
+		},
+		{
+			name: "invalid - bad vault method inside vault_methods",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "url",
+				GatewayAddress:    "addr",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				VaultAddress:      "VaultAddr123",
+				VaultMethods: []*types.VaultMethods{
+					{
+						Name:            "bad_vault_method",
+						Identifier:      "zzznothex", // invalid
+						EventIdentifier: "7f1f6cffbb134644",
+					},
+				},
+				GasOracleFetchInterval: 30,
+			},
+			expectErr: true,
+			errMsg:    "invalid method in vault_methods",
 		},
 	}
 

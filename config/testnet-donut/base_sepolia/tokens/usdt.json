@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:84532",
+  "address": "0x9FF5a186f53F6E6964B00320Da1D2024DE11E0cB",
+  "name": "USDT.base",
+  "symbol": "USDT.base",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1,
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0x2C455189D2af6643B924A981a9080CcC63d5a567"
+  }
+}

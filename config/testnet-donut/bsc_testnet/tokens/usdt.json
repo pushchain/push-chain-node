@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:97",
+  "address": "0xbc14f348bc9667be46b35edc9b68653d86013dc5",
+  "name": "USDT.bsc",
+  "symbol": "USDT.bsc",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1,
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0x2f98B4235FD2BA0173a2B056D722879360B12E7b"
+  }
+}

@@ -55,6 +55,11 @@ func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) 
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
+func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+	args := m.Called(ctx, txID)
+	return args.Bool(0), args.Error(1)
+}
+
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                          { return nil }
@@ -284,55 +289,15 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 // SVM Tests
 // ---------------------------------------------------------------------------
 
-func TestSVM_NonceAlreadyConsumed_MarksBroadcasted(t *testing.T) {
-	// Event nonce (3) < on-chain nonce (5) → mark BROADCASTED without broadcasting.
+func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
+	// Broadcast succeeds → BROADCASTED with tx hash.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 3)
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
 
-	builder.On("GetNextNonce", mock.Anything, "", false).Return(uint64(5), nil)
-
-	b := newBroadcaster(evtStore, ch, "")
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
-	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash)
-	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestSVM_NonceNotReady_StaysSigned(t *testing.T) {
-	// Event nonce (5) > on-chain nonce (3) → skip, waiting for earlier nonce.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 5)
-
-	builder.On("GetNextNonce", mock.Anything, "", false).Return(uint64(3), nil)
-
-	b := newBroadcaster(evtStore, ch, "")
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
-	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestSVM_NonceMatch_BroadcastSuccess(t *testing.T) {
-	// Event nonce == on-chain nonce → broadcast succeeds → BROADCASTED.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 7)
-
-	builder.On("GetNextNonce", mock.Anything, "", false).Return(uint64(7), nil)
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("solTxSig123", nil)
 
@@ -344,67 +309,66 @@ func TestSVM_NonceMatch_BroadcastSuccess(t *testing.T) {
 	require.Equal(t, "solana:mainnet:solTxSig123", ev.BroadcastedTxHash)
 }
 
-func TestSVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T) {
-	// Broadcast fails, but re-check shows nonce consumed → BROADCASTED.
+func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
+	// Broadcast fails, but ExecutedTx PDA exists → another relayer processed it → BROADCASTED.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 7)
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
 
-	// First call: nonce matches. Second call (re-check): nonce advanced.
-	builder.On("GetNextNonce", mock.Anything, "", false).
-		Return(uint64(7), nil).Once()
-	builder.On("GetNextNonce", mock.Anything, "", false).
-		Return(uint64(8), nil).Once()
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return("", fmt.Errorf("tx simulation failed"))
+		Return("", fmt.Errorf("tx simulation failed: account already exists"))
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, nil)
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
 }
 
-func TestSVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
-	// Broadcast fails, nonce unchanged → keep SIGNED for retry.
+func TestSVM_BroadcastFails_PDANotFound_MarksBroadcasted(t *testing.T) {
+	// Broadcast fails, PDA not found → permanent failure (bad payload) → BROADCASTED for resolver to REVERT.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 7)
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
 
-	builder.On("GetNextNonce", mock.Anything, "", false).Return(uint64(7), nil)
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("", fmt.Errorf("simulation failed: invalid instruction"))
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
+}
+
+func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
+	// Broadcast fails, PDA check also fails (RPC truly down) → stays SIGNED for retry.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("RPC timeout"))
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, fmt.Errorf("RPC down"))
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
-}
-
-func TestSVM_GetNonceFails_StaysSigned(t *testing.T) {
-	// GetNextNonce fails entirely → skip, stay SIGNED.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 7)
-
-	builder.On("GetNextNonce", mock.Anything, "", false).Return(uint64(0), fmt.Errorf("RPC down"))
-
-	b := newBroadcaster(evtStore, ch, "")
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusSigned, ev.Status)
-	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 // ---------------------------------------------------------------------------

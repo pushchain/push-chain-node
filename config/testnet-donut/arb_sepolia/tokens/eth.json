@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:421614",
+  "address": "0x0000000000000000000000000000000000000000",
+  "name": "pETH.arb",
+  "symbol": "pETH.arb",
+  "decimals": 18,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1,
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0xc0a821a1AfEd1322c5e15f1F4586C0B8cE65400e"
+  }
+}

@@ -56,11 +56,6 @@ func (p ChainConfig) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_oracle_fetch_interval must be positive")
 	}
 
-	// Validate vault fields: vault_methods can only be set if vault_address is set.
-	// vault_methods can be empty regardless of whether vault_address is set or not.
-	if strings.TrimSpace(p.VaultAddress) == "" && len(p.VaultMethods) > 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "vault_address must be set when vault_methods are provided")
-	}
 	for _, method := range p.VaultMethods {
 		if err := method.ValidateBasic(); err != nil {
 			return errors.Wrapf(err, "invalid method in vault_methods: %s", method.Name)

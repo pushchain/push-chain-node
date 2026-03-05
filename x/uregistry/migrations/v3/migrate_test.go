@@ -29,7 +29,7 @@ import (
 )
 
 // legacyChainConfig mirrors ChainConfig as it existed before v3 —
-// fields 9 (vault_address) and 10 (vault_methods) are absent.
+// field 9 (vault_methods) is absent.
 // The proto field tags are identical to the generated types.pb.go so that
 // marshaling produces the exact binary encoding an old node would have written.
 type legacyChainConfig struct {
@@ -41,7 +41,7 @@ type legacyChainConfig struct {
 	GatewayMethods         []*types.GatewayMethods   `protobuf:"bytes,6,rep,name=gateway_methods,json=gatewayMethods,proto3" json:"gateway_methods,omitempty"`
 	Enabled                *types.ChainEnabled       `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	GasOracleFetchInterval time.Duration             `protobuf:"bytes,8,opt,name=gas_oracle_fetch_interval,json=gasOracleFetchInterval,proto3,stdduration" json:"gas_oracle_fetch_interval"`
-	// fields 9 (vault_address) and 10 (vault_methods) deliberately absent
+	// field 9 (vault_methods) deliberately absent
 }
 
 func (m *legacyChainConfig) Reset()         {}
@@ -98,10 +98,10 @@ func seedLegacyConfigs(t *testing.T, ctx sdk.Context, k *keeper.Keeper, cdc code
 }
 
 // TestMigrateChainConfigs_V3_OldData seeds chain configs encoded in the pre-v3
-// binary format (no vault fields) and verifies that:
+// binary format (no vault_methods) and verifies that:
 //  1. The migration completes without error.
 //  2. All pre-existing fields survive unchanged.
-//  3. vault_address and vault_methods are empty after migration.
+//  3. vault_methods is empty after migration.
 func TestMigrateChainConfigs_V3_OldData(t *testing.T) {
 	ctx, k, encCfg := setupKeeper(t)
 	logger := log.NewTestLogger(t)
@@ -180,8 +180,7 @@ func TestMigrateChainConfigs_V3_OldData(t *testing.T) {
 			require.Equal(t, gm.ConfirmationType, got.GatewayMethods[i].ConfirmationType)
 		}
 
-		// vault fields must be zero-value — they were never in the old encoding.
-		require.Empty(t, got.VaultAddress, "vault_address should be empty for pre-v3 data")
+		// vault_methods must be zero-value — it was never in the old encoding.
 		require.Empty(t, got.VaultMethods, "vault_methods should be empty for pre-v3 data")
 	}
 }
@@ -203,7 +202,7 @@ func TestMigrateChainConfigs_V3_EmptyStore(t *testing.T) {
 }
 
 // TestMigrateChainConfigs_V3_PreservesNewFields verifies that a config already
-// written with the new schema (vault fields present) is not corrupted by the migration.
+// written with the new schema (vault_methods present) is not corrupted by the migration.
 func TestMigrateChainConfigs_V3_PreservesNewFields(t *testing.T) {
 	ctx, k, encCfg := setupKeeper(t)
 	logger := log.NewTestLogger(t)
@@ -218,7 +217,6 @@ func TestMigrateChainConfigs_V3_PreservesNewFields(t *testing.T) {
 			StandardInbound: 1,
 		},
 		GasOracleFetchInterval: 30 * time.Second,
-		VaultAddress:           "0xVaultAddr",
 		VaultMethods: []*types.VaultMethods{
 			{
 				Name:             "deposit",
@@ -236,7 +234,6 @@ func TestMigrateChainConfigs_V3_PreservesNewFields(t *testing.T) {
 	got, err := k.ChainConfigs.Get(ctx, cfg.Chain)
 	require.NoError(t, err)
 
-	require.Equal(t, cfg.VaultAddress, got.VaultAddress)
 	require.Len(t, got.VaultMethods, 1)
 	require.Equal(t, cfg.VaultMethods[0].Name, got.VaultMethods[0].Name)
 	require.Equal(t, cfg.VaultMethods[0].Identifier, got.VaultMethods[0].Identifier)

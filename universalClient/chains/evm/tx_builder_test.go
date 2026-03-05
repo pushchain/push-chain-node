@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -32,9 +31,8 @@ func newTestTxBuilder(t *testing.T) *TxBuilder {
 		chainID:        "eth_sepolia",
 		chainIDInt:     11155111,
 		gatewayAddress: gwAddr,
-		vaultAddress:   vAddr,
-		vaultFetchedAt: time.Now(),
-		logger:         logger.With().Str("component", "evm_tx_builder").Logger(),
+		vaultAddress: vAddr,
+		logger:       logger.With().Str("component", "evm_tx_builder").Logger(),
 	}
 }
 
@@ -586,60 +584,6 @@ func TestFinalizeUniversalTxUnifiedEncoding(t *testing.T) {
 			})
 		}
 	}
-}
-
-func TestGetVaultAddressReturnsCached(t *testing.T) {
-	builder := newTestTxBuilder(t)
-
-	// Vault was set at construction with time.Now(), so it's fresh
-	addr, err := builder.getVaultAddress()
-	require.NoError(t, err)
-	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
-}
-
-func TestGetVaultAddressStaleTriggersRefresh(t *testing.T) {
-	builder := newTestTxBuilder(t)
-
-	// Make the cache stale
-	builder.vaultFetchedAt = time.Now().Add(-2 * vaultRefreshInterval)
-
-	// Should still return the cached address (refresh is async, and will fail
-	// since we have no real RPC — that's fine, stale address is kept)
-	addr, err := builder.getVaultAddress()
-	require.NoError(t, err)
-	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
-
-	// Give the goroutine a moment to attempt and fail refresh
-	time.Sleep(50 * time.Millisecond)
-
-	// Address should still be the same (failed refresh keeps stale)
-	addr, err = builder.getVaultAddress()
-	require.NoError(t, err)
-	assert.Equal(t, ethcommon.HexToAddress(testVaultAddress), addr)
-}
-
-func TestGetVaultAddressFailsWhenNeverFetched(t *testing.T) {
-	logger := zerolog.Nop()
-	// Create builder with zero vault address (simulates failed init fetch)
-	builder := &TxBuilder{
-		rpcClient:      &RPCClient{},
-		chainID:        "eth_sepolia",
-		chainIDInt:     11155111,
-		gatewayAddress: ethcommon.HexToAddress("0x1234567890123456789012345678901234567890"),
-		logger:         logger.With().Str("component", "evm_tx_builder").Logger(),
-	}
-
-	// Should fail since vault was never fetched and RPC is not real
-	_, err := builder.getVaultAddress()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "vault address not available")
-}
-
-func TestVaultCallSelector(t *testing.T) {
-	// Verify the VAULT() selector is correct
-	expected := crypto.Keccak256([]byte("VAULT()"))[:4]
-	assert.Equal(t, expected, vaultCallSelector)
-	t.Logf("VAULT() selector: 0x%x", vaultCallSelector)
 }
 
 // =============================================================================

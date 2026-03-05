@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -23,13 +21,6 @@ import (
 // DefaultGasLimit is used when gas limit is not provided in the outbound event data
 const DefaultGasLimit = 500000
 
-// vaultRefreshInterval is how often we re-fetch the vault address from the gateway
-const vaultRefreshInterval = 10 * time.Minute
-
-// vaultCallSelector is the 4-byte selector for VAULT() public getter
-// keccak256("VAULT()") = 0x71e99dc2...
-var vaultCallSelector = crypto.Keccak256([]byte("VAULT()"))[:4]
-
 // RevertInstructions represents the struct for revert instruction in contracts
 // Matches: struct RevertInstructions { address revertRecipient; bytes revertMsg; }
 type RevertInstructions struct {
@@ -38,8 +29,6 @@ type RevertInstructions struct {
 }
 
 // TxBuilder implements OutboundTxBuilder for EVM chains using Vault + Gateway contracts.
-// The vault address is fetched from the gateway's VAULT() public variable and refreshed
-// periodically so that vault upgrades are picked up automatically.
 //
 // Routing:
 //   - FUNDS, FUNDS_AND_PAYLOAD, PAYLOAD → Vault.finalizeUniversalTx
@@ -50,23 +39,18 @@ type TxBuilder struct {
 	chainID        string
 	chainIDInt     int64
 	gatewayAddress ethcommon.Address
-	logger         zerolog.Logger
-
-	// vault address cache
-	vaultMu        sync.RWMutex
 	vaultAddress   ethcommon.Address
-	vaultFetchedAt time.Time
+	logger         zerolog.Logger
 }
 
 // NewTxBuilder creates a new EVM transaction builder for Vault + Gateway.
-// It attempts to fetch the vault address from the gateway contract's VAULT() public variable.
-// If the initial fetch fails, the builder is still created — individual requests will fail
-// until the vault address is successfully fetched on the next refresh attempt.
+// The vault address is provided by the caller (fetched from the gateway by the client).
 func NewTxBuilder(
 	rpcClient *RPCClient,
 	chainID string,
 	chainIDInt int64,
 	gatewayAddress string,
+	vaultAddress ethcommon.Address,
 	logger zerolog.Logger,
 ) (*TxBuilder, error) {
 	if rpcClient == nil {
@@ -89,111 +73,18 @@ func NewTxBuilder(
 		chainID:        chainID,
 		chainIDInt:     chainIDInt,
 		gatewayAddress: gwAddr,
+		vaultAddress:   vaultAddress,
 		logger:         logger.With().Str("component", "evm_tx_builder").Str("chain", chainID).Logger(),
 	}
 
-	// Best-effort fetch of vault address from gateway at startup
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	vaultAddr, err := tb.fetchVaultAddress(ctx)
-	if err != nil {
-		tb.logger.Warn().Err(err).
-			Str("gateway", gwAddr.Hex()).
-			Msg("failed to fetch vault address from gateway on init, will retry on first request")
-	} else {
-		tb.vaultAddress = vaultAddr
-		tb.vaultFetchedAt = time.Now()
-		tb.logger.Info().
-			Str("vault", vaultAddr.Hex()).
-			Str("gateway", gwAddr.Hex()).
-			Msg("vault address fetched from gateway")
-	}
+	tb.logger.Info().
+		Str("vault", vaultAddress.Hex()).
+		Str("gateway", gwAddr.Hex()).
+		Msg("tx builder initialized")
 
 	return tb, nil
 }
 
-// getVaultAddress returns the cached vault address, refreshing in the background if stale.
-// Returns an error if the vault address has never been successfully fetched.
-// If stale, triggers an async refresh but returns the last known good address.
-func (tb *TxBuilder) getVaultAddress() (ethcommon.Address, error) {
-	tb.vaultMu.RLock()
-	addr := tb.vaultAddress
-	fetchedAt := tb.vaultFetchedAt
-	tb.vaultMu.RUnlock()
-
-	// Never fetched successfully
-	if addr == (ethcommon.Address{}) {
-		// Try a synchronous fetch before failing
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		newAddr, err := tb.fetchVaultAddress(ctx)
-		if err != nil {
-			return ethcommon.Address{}, fmt.Errorf("vault address not available: %w", err)
-		}
-
-		tb.vaultMu.Lock()
-		tb.vaultAddress = newAddr
-		tb.vaultFetchedAt = time.Now()
-		tb.vaultMu.Unlock()
-
-		tb.logger.Info().Str("vault", newAddr.Hex()).Msg("vault address fetched from gateway (deferred)")
-		return newAddr, nil
-	}
-
-	// Stale — refresh in background, return current
-	if time.Since(fetchedAt) > vaultRefreshInterval {
-		go tb.tryRefreshVaultAddress()
-	}
-
-	return addr, nil
-}
-
-// tryRefreshVaultAddress attempts to refresh the vault address from the gateway.
-// On failure, the stale address continues to be used.
-func (tb *TxBuilder) tryRefreshVaultAddress() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	newAddr, err := tb.fetchVaultAddress(ctx)
-	if err != nil {
-		tb.logger.Warn().Err(err).Msg("failed to refresh vault address from gateway, using stale")
-		return
-	}
-
-	tb.vaultMu.Lock()
-	oldAddr := tb.vaultAddress
-	tb.vaultAddress = newAddr
-	tb.vaultFetchedAt = time.Now()
-	tb.vaultMu.Unlock()
-
-	if oldAddr != newAddr {
-		tb.logger.Info().
-			Str("old_vault", oldAddr.Hex()).
-			Str("new_vault", newAddr.Hex()).
-			Msg("vault address updated from gateway")
-	}
-}
-
-// fetchVaultAddress calls the gateway's VAULT() public getter to retrieve the vault address.
-func (tb *TxBuilder) fetchVaultAddress(ctx context.Context) (ethcommon.Address, error) {
-	result, err := tb.rpcClient.CallContract(ctx, tb.gatewayAddress, vaultCallSelector, nil)
-	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() call failed: %w", err)
-	}
-
-	if len(result) < 32 {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() returned invalid data (len=%d)", len(result))
-	}
-
-	addr := ethcommon.BytesToAddress(result[12:32])
-	if addr == (ethcommon.Address{}) {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() returned zero address")
-	}
-
-	return addr, nil
-}
 
 // GetOutboundSigningRequest creates a signing request from outbound event data
 func (tb *TxBuilder) GetOutboundSigningRequest(
@@ -380,28 +271,16 @@ func (tb *TxBuilder) resolveTxParams(funcName string, assetAddr ethcommon.Addres
 		return amount, tb.gatewayAddress, nil
 
 	case "finalizeUniversalTx":
-		vaultAddr, err := tb.getVaultAddress()
-		if err != nil {
-			return nil, ethcommon.Address{}, fmt.Errorf("cannot route to vault: %w", err)
-		}
 		if isNative {
-			return amount, vaultAddr, nil
+			return amount, tb.vaultAddress, nil
 		}
-		return big.NewInt(0), vaultAddr, nil
+		return big.NewInt(0), tb.vaultAddress, nil
 
 	case "revertUniversalTxToken":
-		vaultAddr, err := tb.getVaultAddress()
-		if err != nil {
-			return nil, ethcommon.Address{}, fmt.Errorf("cannot route to vault: %w", err)
-		}
-		return big.NewInt(0), vaultAddr, nil
+		return big.NewInt(0), tb.vaultAddress, nil
 
 	default:
-		vaultAddr, err := tb.getVaultAddress()
-		if err != nil {
-			return nil, ethcommon.Address{}, fmt.Errorf("cannot route to vault: %w", err)
-		}
-		return big.NewInt(0), vaultAddr, nil
+		return big.NewInt(0), tb.vaultAddress, nil
 	}
 }
 

@@ -44,7 +44,7 @@ func GetDefaultAddresses() Addresses {
 		ExternalUSDCAddr:       common.HexToAddress("0x0000000000000000000000000000000000000e07"),
 		UniversalGatewayPCAddr: common.HexToAddress("0x00000000000000000000000000000000000000C1"),
 		MigratedUEAAddr:        common.HexToAddress("0x0000000000000000000000000000000000000d08"),
-		DefaultTestAddr:        "0xa96caa79eb2312dbeb0b8e93c1ce84c98b67bf11",
+		DefaultTestAddr:        "0x778d3206374f8ac265728e18e3fe2ae6b93e4ce4",
 		CosmosTestAddr:         "cosmos18pjnzwr9xdnx2vnpv5mxywfnv56xxef5cludl5",
 		TargetAddr:             "\x86i\xbe\xd1!\xfe\xfa=\x9c\xf2\x82\x12s\xf4\x89\xe7\x17̩]",
 		TargetAddr2:            "0x527F3692F5C53CfA83F7689885995606F93b6164",

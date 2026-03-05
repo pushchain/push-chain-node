@@ -21,12 +21,13 @@ import (
 
 	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	v2 "github.com/pushchain/push-chain-node/x/uregistry/migrations/v2"
+	v3 "github.com/pushchain/push-chain-node/x/uregistry/migrations/v3"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/uregistry module consensus version.
-	ConsensusVersion = 2
+	ConsensusVersion = 3
 )
 
 var (
@@ -144,17 +145,30 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
 
-	// Register UExecutor custom migration for v2 (from version 1 → 2)
+	// Register uregistry migration for v2 (from version 1 → 2)
 	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
 		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
+	}
+
+	// Register uregistry migration for v3 (from version 2 → 3)
+	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
 	}
 }
 
 func (a AppModule) migrateToV2() module.MigrationHandler {
 	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uexecutor module migration: v1 → v2")
+		ctx.Logger().Info("🔧 Running uregistry module migration: v1 → v2")
 
 		return v2.MigrateChainConfigs(ctx, &a.keeper, a.AppModuleBasic.cdc, a.keeper.Logger())
+	}
+}
+
+func (a AppModule) migrateToV3() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uregistry module migration: v2 → v3 (vault fields)")
+
+		return v3.MigrateChainConfigs(ctx, &a.keeper, a.AppModuleBasic.cdc, a.keeper.Logger())
 	}
 }
 

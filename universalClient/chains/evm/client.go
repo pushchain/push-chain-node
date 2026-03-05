@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -195,11 +197,26 @@ func (c *Client) initializeComponents() error {
 			eventStartFrom = c.chainConfig.EventStartFrom
 		}
 
+		// Fetch vault address from gateway contract
+		var vaultAddress string
+		var vaultAddr ethcommon.Address
+		fetchCtx, fetchCancel := context.WithTimeout(c.ctx, 15*time.Second)
+		vaultAddr, err := FetchVaultAddress(fetchCtx, c.rpcClient, ethcommon.HexToAddress(c.registryConfig.GatewayAddress))
+		fetchCancel()
+		if err != nil {
+			c.logger.Warn().Err(err).Msg("failed to fetch vault address from gateway, vault events will not be monitored")
+		} else {
+			vaultAddress = vaultAddr.Hex()
+			c.logger.Info().Str("vault_address", vaultAddress).Msg("vault address fetched from gateway")
+		}
+
 		eventListener, err := NewEventListener(
 			c.rpcClient,
 			c.registryConfig.GatewayAddress,
+			vaultAddress,
 			c.registryConfig.Chain,
 			c.registryConfig.GatewayMethods,
+			c.registryConfig.VaultMethods,
 			c.database,
 			eventPollingSeconds,
 			eventStartFrom,
@@ -209,6 +226,25 @@ func (c *Client) initializeComponents() error {
 			return fmt.Errorf("failed to create event listener: %w", err)
 		}
 		c.eventListener = eventListener
+
+		// Create txBuilder
+		chainIDInt, err := parseEVMChainID(c.chainIDStr)
+		if err != nil {
+			return fmt.Errorf("failed to parse chain ID for txBuilder: %w", err)
+		}
+
+		txBuilder, err := NewTxBuilder(
+			c.rpcClient,
+			c.chainIDStr,
+			chainIDInt,
+			c.registryConfig.GatewayAddress,
+			vaultAddr,
+			c.logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create txBuilder: %w", err)
+		}
+		c.txBuilder = txBuilder
 	}
 
 	// Apply defaults for all configuration values
@@ -234,27 +270,6 @@ func (c *Client) initializeComponents() error {
 			config.gasPriceInterval,
 			c.logger,
 		)
-	}
-
-	// Create txBuilder if gateway is configured
-	if c.registryConfig != nil && c.registryConfig.GatewayAddress != "" {
-		// Parse chain ID to integer
-		chainIDInt, err := parseEVMChainID(c.chainIDStr)
-		if err != nil {
-			return fmt.Errorf("failed to parse chain ID for txBuilder: %w", err)
-		}
-
-		txBuilder, err := NewTxBuilder(
-			c.rpcClient,
-			c.chainIDStr,
-			chainIDInt,
-			c.registryConfig.GatewayAddress,
-			c.logger,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create txBuilder: %w", err)
-		}
-		c.txBuilder = txBuilder
 	}
 
 	return nil
@@ -362,4 +377,26 @@ func parseEVMChainID(caip2 string) (int64, error) {
 	}
 
 	return chainID, nil
+}
+
+// FetchVaultAddress calls the gateway's VAULT() public getter to retrieve the vault address.
+func FetchVaultAddress(ctx context.Context, rpcClient *RPCClient, gatewayAddress ethcommon.Address) (ethcommon.Address, error) {
+	// vaultCallSelector is the 4-byte selector for VAULT() public getter
+	vaultCallSelector := crypto.Keccak256([]byte("VAULT()"))[:4]
+
+	result, err := rpcClient.CallContract(ctx, gatewayAddress, vaultCallSelector, nil)
+	if err != nil {
+		return ethcommon.Address{}, fmt.Errorf("VAULT() call failed: %w", err)
+	}
+
+	if len(result) < 32 {
+		return ethcommon.Address{}, fmt.Errorf("VAULT() returned invalid data (len=%d)", len(result))
+	}
+
+	addr := ethcommon.BytesToAddress(result[12:32])
+	if addr == (ethcommon.Address{}) {
+		return ethcommon.Address{}, fmt.Errorf("VAULT() returned zero address")
+	}
+
+	return addr, nil
 }

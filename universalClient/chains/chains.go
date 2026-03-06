@@ -515,6 +515,7 @@ func gatewayMethodsEqual(a, b []*uregistrytypes.GatewayMethods) bool {
 	}
 	for i := range a {
 		if a[i].Name != b[i].Name ||
+			a[i].Identifier != b[i].Identifier ||
 			a[i].EventIdentifier != b[i].EventIdentifier ||
 			a[i].ConfirmationType != b[i].ConfirmationType {
 			return false
@@ -529,6 +530,7 @@ func vaultMethodsEqual(a, b []*uregistrytypes.VaultMethods) bool {
 	}
 	for i := range a {
 		if a[i].Name != b[i].Name ||
+			a[i].Identifier != b[i].Identifier ||
 			a[i].EventIdentifier != b[i].EventIdentifier ||
 			a[i].ConfirmationType != b[i].ConfirmationType {
 			return false

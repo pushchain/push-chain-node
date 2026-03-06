@@ -147,11 +147,25 @@ func TestClientStartStop(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 
 	t.Run("Start with mock server", func(t *testing.T) {
+		// Mock vault address: 0x000...abc (left-padded to 32 bytes)
+		mockVaultResult := "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 		// Create a mock HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Mock eth_chainId response
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+
+			// Parse the JSON-RPC method
+			body := make([]byte, r.ContentLength)
+			r.Body.Read(body)
+			bodyStr := string(body)
+
+			if strings.Contains(bodyStr, "eth_call") {
+				// Return a mock vault address for VAULT() call
+				w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"` + mockVaultResult + `"}`))
+			} else {
+				// Default: eth_chainId response
+				w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+			}
 		}))
 		defer server.Close()
 

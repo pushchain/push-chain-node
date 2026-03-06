@@ -16,7 +16,7 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
-// EventListener listens for gateway events on EVM chains and stores them in the database
+// EventListener listens for gateway and vault events on EVM chains and stores them in the database
 type EventListener struct {
 	// Core dependencies
 	rpcClient  *RPCClient
@@ -25,6 +25,7 @@ type EventListener struct {
 
 	// Configuration
 	gatewayAddress      string
+	vaultAddress        string
 	chainID             string
 	eventTopics         []ethcommon.Hash
 	topicToEventType    map[ethcommon.Hash]string
@@ -42,8 +43,10 @@ type EventListener struct {
 func NewEventListener(
 	rpcClient *RPCClient,
 	gatewayAddress string,
+	vaultAddress string,
 	chainID string,
 	gatewayMethods []*uregistrytypes.GatewayMethods,
+	vaultMethods []*uregistrytypes.VaultMethods,
 	database *db.DB,
 	eventPollingSeconds int,
 	eventStartFrom *int64,
@@ -58,16 +61,30 @@ func NewEventListener(
 	}
 
 	// Build event topics for filtering
-	eventTopics := make([]ethcommon.Hash, 0, 3)
+	eventTopics := make([]ethcommon.Hash, 0, 4)
 	topicToEventType := make(map[ethcommon.Hash]string)
+
+	// Gateway event topics
 	for _, method := range gatewayMethods {
 		if method.EventIdentifier == "" {
 			continue
 		}
 		switch method.Name {
 		case EventTypeSendFunds,
-			EventTypeExecuteUniversalTx,
 			EventTypeRevertUniversalTx:
+			topic := ethcommon.HexToHash(method.EventIdentifier)
+			eventTopics = append(eventTopics, topic)
+			topicToEventType[topic] = method.Name
+		}
+	}
+
+	// Vault event topics
+	for _, method := range vaultMethods {
+		if method.EventIdentifier == "" {
+			continue
+		}
+		switch method.Name {
+		case EventTypeVaultUniversalTxFinalized:
 			topic := ethcommon.HexToHash(method.EventIdentifier)
 			eventTopics = append(eventTopics, topic)
 			topicToEventType[topic] = method.Name
@@ -79,6 +96,7 @@ func NewEventListener(
 		chainStore:          common.NewChainStore(database),
 		database:            database,
 		gatewayAddress:      gatewayAddress,
+		vaultAddress:        vaultAddress,
 		chainID:             chainID,
 		eventTopics:         eventTopics,
 		topicToEventType:    topicToEventType,
@@ -251,14 +269,14 @@ func (el *EventListener) processBlockChunk(
 	fromBlock, toBlock uint64,
 	topics []ethcommon.Hash,
 ) error {
-	// Parse gateway address
-	gatewayAddr := ethcommon.HexToAddress(el.gatewayAddress)
+	// Build address filter: gateway + vault
+	addresses := []ethcommon.Address{ethcommon.HexToAddress(el.gatewayAddress), ethcommon.HexToAddress(el.vaultAddress)}
 
 	// Create filter query
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(fromBlock)),
 		ToBlock:   big.NewInt(int64(toBlock)),
-		Addresses: []ethcommon.Address{gatewayAddr},
+		Addresses: addresses,
 		Topics:    [][]ethcommon.Hash{topics},
 	}
 
@@ -274,8 +292,7 @@ func (el *EventListener) processBlockChunk(
 			Uint64("from_block", fromBlock).
 			Uint64("to_block", toBlock).
 			Int("logs_found", len(logs)).
-			Str("gateway_address", el.gatewayAddress).
-			Msg("found gateway events")
+			Msg("found contract events")
 	}
 
 	// Process each log

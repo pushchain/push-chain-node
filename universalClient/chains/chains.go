@@ -228,12 +228,6 @@ const (
 func (c *Chains) determineChainAction(cfg *uregistrytypes.ChainConfig) chainAction {
 	chainID := cfg.Chain
 
-	// Skip disabled chains
-	if cfg.Enabled == nil || (!cfg.Enabled.IsInboundEnabled && !cfg.Enabled.IsOutboundEnabled) {
-		c.logger.Debug().Str("chain", chainID).Msg("chain is disabled, skipping")
-		return chainActionSkip
-	}
-
 	// Check if chain exists
 	c.chainsMu.RLock()
 	_, exists := c.chains[chainID]
@@ -485,24 +479,71 @@ func sanitizeChainID(chainID string) string {
 	return result
 }
 
-// configsEqual compares two chain configurations
+// configsEqual compares two chain configurations for fields relevant to the universal client
 func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
 
-	// Handle Enabled field comparison
-	enabledEqual := false
-	if a.Enabled == nil && b.Enabled == nil {
-		enabledEqual = true
-	} else if a.Enabled != nil && b.Enabled != nil {
-		enabledEqual = a.Enabled.IsInboundEnabled == b.Enabled.IsInboundEnabled &&
-			a.Enabled.IsOutboundEnabled == b.Enabled.IsOutboundEnabled
+	if a.Chain != b.Chain ||
+		a.VmType != b.VmType ||
+		a.GatewayAddress != b.GatewayAddress {
+		return false
 	}
 
-	// Compare relevant fields
-	return a.Chain == b.Chain &&
-		a.VmType == b.VmType &&
-		a.GatewayAddress == b.GatewayAddress &&
-		enabledEqual
+	// Compare gateway methods
+	if !gatewayMethodsEqual(a.GatewayMethods, b.GatewayMethods) {
+		return false
+	}
+
+	// Compare vault methods
+	if !vaultMethodsEqual(a.VaultMethods, b.VaultMethods) {
+		return false
+	}
+
+	// Compare block confirmation
+	if !blockConfirmationEqual(a.BlockConfirmation, b.BlockConfirmation) {
+		return false
+	}
+
+	return true
+}
+
+func gatewayMethodsEqual(a, b []*uregistrytypes.GatewayMethods) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name ||
+			a[i].EventIdentifier != b[i].EventIdentifier ||
+			a[i].ConfirmationType != b[i].ConfirmationType {
+			return false
+		}
+	}
+	return true
+}
+
+func vaultMethodsEqual(a, b []*uregistrytypes.VaultMethods) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name ||
+			a[i].EventIdentifier != b[i].EventIdentifier ||
+			a[i].ConfirmationType != b[i].ConfirmationType {
+			return false
+		}
+	}
+	return true
+}
+
+func blockConfirmationEqual(a, b *uregistrytypes.BlockConfirmation) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.FastInbound == b.FastInbound &&
+		a.StandardInbound == b.StandardInbound
 }

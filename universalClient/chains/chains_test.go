@@ -163,51 +163,70 @@ func TestConfigsEqual(t *testing.T) {
 		assert.False(t, configsEqual(cfg1, cfg2))
 	})
 
-	t.Run("different enabled state returns false", func(t *testing.T) {
+	t.Run("different gateway methods returns false", func(t *testing.T) {
 		cfg1 := &uregistrytypes.ChainConfig{
 			Chain: "chain1",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
+			GatewayMethods: []*uregistrytypes.GatewayMethods{
+				{Name: "method1", Identifier: "0xabc"},
 			},
 		}
 		cfg2 := &uregistrytypes.ChainConfig{
 			Chain: "chain1",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  false,
-				IsOutboundEnabled: true,
+			GatewayMethods: []*uregistrytypes.GatewayMethods{
+				{Name: "method1", Identifier: "0xdef"},
 			},
 		}
 
 		assert.False(t, configsEqual(cfg1, cfg2))
 	})
 
-	t.Run("both enabled nil returns true", func(t *testing.T) {
+	t.Run("different vault methods returns false", func(t *testing.T) {
 		cfg1 := &uregistrytypes.ChainConfig{
-			Chain:   "chain1",
-			Enabled: nil,
+			Chain: "chain1",
+			VaultMethods: []*uregistrytypes.VaultMethods{
+				{Name: "vault1", Identifier: "0xabc"},
+			},
 		}
 		cfg2 := &uregistrytypes.ChainConfig{
-			Chain:   "chain1",
-			Enabled: nil,
+			Chain:        "chain1",
+			VaultMethods: nil,
+		}
+
+		assert.False(t, configsEqual(cfg1, cfg2))
+	})
+
+	t.Run("different block confirmation returns false", func(t *testing.T) {
+		cfg1 := &uregistrytypes.ChainConfig{
+			Chain:             "chain1",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{FastInbound: 2, StandardInbound: 12},
+		}
+		cfg2 := &uregistrytypes.ChainConfig{
+			Chain:             "chain1",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{FastInbound: 5, StandardInbound: 12},
+		}
+
+		assert.False(t, configsEqual(cfg1, cfg2))
+	})
+
+	t.Run("same full config returns true", func(t *testing.T) {
+		cfg1 := &uregistrytypes.ChainConfig{
+			Chain:          "chain1",
+			GatewayAddress: "0x123",
+			GatewayMethods: []*uregistrytypes.GatewayMethods{
+				{Name: "m1", Identifier: "0xabc"},
+			},
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{FastInbound: 2, StandardInbound: 12},
+		}
+		cfg2 := &uregistrytypes.ChainConfig{
+			Chain:          "chain1",
+			GatewayAddress: "0x123",
+			GatewayMethods: []*uregistrytypes.GatewayMethods{
+				{Name: "m1", Identifier: "0xabc"},
+			},
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{FastInbound: 2, StandardInbound: 12},
 		}
 
 		assert.True(t, configsEqual(cfg1, cfg2))
-	})
-
-	t.Run("one enabled nil returns false", func(t *testing.T) {
-		cfg1 := &uregistrytypes.ChainConfig{
-			Chain: "chain1",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled: true,
-			},
-		}
-		cfg2 := &uregistrytypes.ChainConfig{
-			Chain:   "chain1",
-			Enabled: nil,
-		}
-
-		assert.False(t, configsEqual(cfg1, cfg2))
 	})
 }
 
@@ -240,36 +259,10 @@ func TestDetermineChainAction(t *testing.T) {
 	}
 	chains := NewChains(nil, nil, cfg, logger)
 
-	t.Run("disabled chain returns skip", func(t *testing.T) {
+	t.Run("new chain returns add", func(t *testing.T) {
 		chainCfg := &uregistrytypes.ChainConfig{
-			Chain:   "eip155:1",
-			Enabled: nil,
-		}
-
-		action := chains.determineChainAction(chainCfg)
-		assert.Equal(t, chainActionSkip, action)
-	})
-
-	t.Run("disabled inbound and outbound returns skip", func(t *testing.T) {
-		chainCfg := &uregistrytypes.ChainConfig{
-			Chain: "eip155:1",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  false,
-				IsOutboundEnabled: false,
-			},
-		}
-
-		action := chains.determineChainAction(chainCfg)
-		assert.Equal(t, chainActionSkip, action)
-	})
-
-	t.Run("new enabled chain returns add", func(t *testing.T) {
-		chainCfg := &uregistrytypes.ChainConfig{
-			Chain: "eip155:1",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: false,
-			},
+			Chain:  "eip155:1",
+			VmType: uregistrytypes.VmType_EVM,
 		}
 
 		action := chains.determineChainAction(chainCfg)
@@ -281,10 +274,6 @@ func TestDetermineChainAction(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
 		}
 
 		// Add the chain first
@@ -308,20 +297,12 @@ func TestDetermineChainAction(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123",
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
 		}
 
 		newCfg := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x456", // Different address
-			Enabled: &uregistrytypes.ChainEnabled{
-				IsInboundEnabled:  true,
-				IsOutboundEnabled: true,
-			},
 		}
 
 		// Add the chain first

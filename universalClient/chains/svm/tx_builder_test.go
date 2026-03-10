@@ -367,7 +367,7 @@ func TestAnchorDiscriminator(t *testing.T) {
 	tests := []struct {
 		methodName string
 	}{
-		{"withdraw_and_execute"},
+		{"finalize_universal_tx"},
 		{"revert_universal_tx"},
 		{"revert_universal_tx_token"},
 	}
@@ -761,7 +761,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		)
 
 		// Check discriminator
-		expectedDisc := anchorDiscriminator("withdraw_and_execute")
+		expectedDisc := anchorDiscriminator("finalize_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8], "discriminator")
 
 		// Check instruction_id
@@ -816,7 +816,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		)
 
 		// Discriminator should be same function
-		expectedDisc := anchorDiscriminator("withdraw_and_execute")
+		expectedDisc := anchorDiscriminator("finalize_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8])
 		assert.Equal(t, byte(2), data[8])
 
@@ -1229,7 +1229,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 
 func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 	// Verify discriminator values are deterministic and can be independently computed
-	for _, method := range []string{"withdraw_and_execute", "revert_universal_tx", "revert_universal_tx_token"} {
+	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "revert_universal_tx_token"} {
 		disc := anchorDiscriminator(method)
 		h := sha256.Sum256([]byte("global:" + method))
 		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
@@ -1364,7 +1364,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 // ============================================================
 
 const (
-	devnetGatewayAddress = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
+	devnetGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
 	devnetRPCURL         = "https://api.devnet.solana.com"
 	devnetGenesisHash    = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
 	devnetSPLMint        = "EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"

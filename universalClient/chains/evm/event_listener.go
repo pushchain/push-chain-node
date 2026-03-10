@@ -71,6 +71,7 @@ func NewEventListener(
 		}
 		switch method.Name {
 		case EventTypeSendFunds,
+			EventTypeExecuteUniversalTx,
 			EventTypeRevertUniversalTx:
 			topic := ethcommon.HexToHash(method.EventIdentifier)
 			eventTopics = append(eventTopics, topic)
@@ -84,7 +85,7 @@ func NewEventListener(
 			continue
 		}
 		switch method.Name {
-		case EventTypeVaultUniversalTxFinalized:
+		case EventTypeFinalizeUniversalTx:
 			topic := ethcommon.HexToHash(method.EventIdentifier)
 			eventTopics = append(eventTopics, topic)
 			topicToEventType[topic] = method.Name

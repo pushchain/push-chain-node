@@ -21,13 +21,14 @@ import (
 
 // Event type constants matching gateway method names in chain config.
 const (
-	EventTypeSendFunds         = "sendFunds"
-	EventTypeRevertUniversalTx = "revertUniversalTx" // RevertUniversalTx on-chain event
+	EventTypeSendFunds           = "sendFunds"
+	EventTypeExecuteUniversalTx  = "executeUniversalTx"
+	EventTypeRevertUniversalTx   = "revertUniversalTx"
 )
 
 // Vault event type constants matching vault method names in chain config.
 const (
-	EventTypeVaultUniversalTxFinalized = "vaultUniversalTxFinalized" // VaultUniversalTxFinalized on-chain event
+	EventTypeFinalizeUniversalTx = "finalizeUniversalTx"
 )
 
 // ParseEvent parses a log into a store.Event based on the event type.
@@ -40,8 +41,8 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
-	case EventTypeRevertUniversalTx, EventTypeVaultUniversalTxFinalized:
-		// Both events share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
+	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx:
+		// All share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
 		return parseOutboundObservationEvent(log, chainID, logger)
 	default:
 		logger.Debug().

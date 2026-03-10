@@ -29,7 +29,7 @@
 //
 // The gateway is an Anchor program deployed on Solana with these main entry points:
 //
-//   - withdraw_and_execute (instruction_id=1 for withdraw, 2 for execute):
+//   - finalize_universal_tx (instruction_id=1 for withdraw, 2 for execute):
 //     Unified function that handles both simple fund transfers and arbitrary program execution.
 //     For withdraw: transfers SOL/SPL from the vault to a recipient.
 //     For execute: calls an arbitrary Solana program via CPI with provided accounts and data.
@@ -410,7 +410,7 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	var txIDArr [32]byte
 	copy(txIDArr[:], txIDBytes)
 
-	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_tx"), txIDArr[:]}, tb.gatewayAddress)
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txIDArr[:]}, tb.gatewayAddress)
 	if err != nil {
 		return false, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
@@ -645,7 +645,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
 
-	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_tx"), txID[:]}, tb.gatewayAddress)
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txID[:]}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
@@ -656,7 +656,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 	switch {
 	case instructionID == 1 || instructionID == 2:
-		// ---- withdraw_and_execute (unified function) ----
+		// ---- finalize_universal_tx (unified function) ----
 		var targetProgram solana.PublicKey
 		var writableFlags []byte
 
@@ -882,8 +882,8 @@ func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKe
 // The gateway contract uses these IDs in the TSS message and the instruction data:
 //
 //	ID  Function                     When
-//	1   withdraw_and_execute         FUNDS (withdraw mode): send SOL or SPL tokens to a recipient
-//	2   withdraw_and_execute         FUNDS_AND_PAYLOAD or GAS_AND_PAYLOAD (execute mode): call a program
+//	1   finalize_universal_tx         FUNDS (withdraw mode): send SOL or SPL tokens to a recipient
+//	2   finalize_universal_tx         FUNDS_AND_PAYLOAD or GAS_AND_PAYLOAD (execute mode): call a program
 //	3   revert_universal_tx          INBOUND_REVERT + native SOL: refund SOL for a failed cross-chain tx
 //	4   revert_universal_tx_token    INBOUND_REVERT + SPL token: refund SPL tokens for a failed tx
 func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool) (uint8, error) {
@@ -1203,13 +1203,13 @@ func anchorDiscriminator(methodName string) []byte {
 // =============================================================================
 
 // buildWithdrawAndExecuteData constructs the Borsh-serialized instruction data for
-// the withdraw_and_execute gateway function.
+// the finalize_universal_tx gateway function.
 //
 // This is the exact byte layout that the Anchor deserializer expects on-chain.
 // The field order MUST match the Rust function signature in withdraw_execute.rs:
 //
 //	Offset  Size     Field                  Borsh Type
-//	0       8        discriminator          sha256("global:withdraw_and_execute")[:8]
+//	0       8        discriminator          sha256("global:finalize_universal_tx")[:8]
 //	8       1        instruction_id         u8
 //	9       32       tx_id                  [u8; 32]
 //	41      32       universal_tx_id        [u8; 32]
@@ -1236,7 +1236,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	recoveryID byte,
 	messageHash []byte,
 ) []byte {
-	discriminator := anchorDiscriminator("withdraw_and_execute")
+	discriminator := anchorDiscriminator("finalize_universal_tx")
 
 	data := make([]byte, 0, 256)
 	data = append(data, discriminator...)
@@ -1349,7 +1349,7 @@ func (tb *TxBuilder) buildRevertData(
 // =============================================================================
 
 // buildWithdrawAndExecuteAccounts builds the ordered accounts list for the
-// withdraw_and_execute instruction.
+// finalize_universal_tx instruction.
 //
 // Must match the WithdrawAndExecute struct in withdraw_execute.rs:
 //

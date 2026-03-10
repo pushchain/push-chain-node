@@ -19,6 +19,18 @@
       "identifier": "54f7d3283f6a0f3b",
       "event_identifier": "6c9ad829b5ea1d7c",
       "confirmation_type": 1
+    },
+    {
+      "name": "finalize_universal_tx",
+      "identifier": "0x",
+      "event_identifier": "b3409670758c9c25",
+      "confirmation_type": 1
+    },
+    {
+      "name": "revert_universal_tx",
+      "identifier": "0x",
+      "event_identifier": "f94a27cb953630ba",
+      "confirmation_type": 1
     }
   ],
   "enabled": {

@@ -21,9 +21,10 @@ import (
 
 // Event type constants
 const (
-	EventTypeSendFunds          = "send_funds"
-	EventTypeExecuteUniversalTx = "execute_universal_tx"
-	EventTypeRevertUniversalTx  = "revert_universal_tx"
+	EventTypeSendFunds = "send_funds"
+	// Outbound observation events (emitted by gateway on SVM since there's no vault)
+	EventTypeFinalizeUniversalTx = "finalize_universal_tx"
+	EventTypeRevertUniversalTx   = "revert_universal_tx"
 )
 
 // base58ToHex converts a base58 encoded string to hex format (0x...)
@@ -48,7 +49,7 @@ func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventT
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
-	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx:
+	case EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx:
 		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
 	default:
 		logger.Debug().
@@ -103,8 +104,8 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 // parseOutboundObservationEvent parses an outboundObservation event
 // Event structure (Borsh serialized):
 // - discriminator (8 bytes)
-// - txID (32 bytes - bytes32)
-// - universalTxID (32 bytes - bytes32)
+// - sub_tx_id (32 bytes - bytes32)
+// - universal_tx_id (32 bytes - bytes32)
 func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil

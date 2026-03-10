@@ -65,7 +65,7 @@ func NewEventListener(
 		}
 		switch method.Name {
 		case EventTypeSendFunds,
-			EventTypeExecuteUniversalTx,
+			EventTypeFinalizeUniversalTx,
 			EventTypeRevertUniversalTx:
 			discriminator := strings.ToLower(method.EventIdentifier)
 			discriminatorToEventType[discriminator] = method.Name

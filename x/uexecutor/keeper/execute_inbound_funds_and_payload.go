@@ -70,32 +70,54 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			}
 		}
 	} else {
-		// Original logic: check factory for UEA
+		// Original logic: check factory for UEA, deploy if not deployed
 		// --- Step 1: check factory for UEA
 		ueaAddrRes, isDeployed, err := k.CallFactoryToGetUEAAddressForOrigin(sdkCtx, ueModuleAccAddress, factoryAddress, &universalAccountId)
 		if err != nil {
 			execErr = fmt.Errorf("factory lookup failed: %w", err)
 			shouldRevert = true
 			revertReason = execErr.Error()
-		} else if !isDeployed {
-			execErr = fmt.Errorf("UEA is not deployed")
-			shouldRevert = true
-			revertReason = execErr.Error()
 		} else {
 			ueaAddr = ueaAddrRes
 
-			// --- Step 2: deposit PRC20 into UEA
-			receipt, err = k.depositPRC20(
-				sdkCtx,
-				utx.InboundTx.SourceChain,
-				utx.InboundTx.AssetAddr,
-				ueaAddr,
-				utx.InboundTx.Amount,
-			)
-			if err != nil {
-				execErr = fmt.Errorf("depositPRC20 failed: %w", err)
-				shouldRevert = true
-				revertReason = execErr.Error()
+			// deploy UEA if not yet deployed
+			if !isDeployed {
+				deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+				if dErr != nil {
+					execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
+					shouldRevert = true
+					revertReason = execErr.Error()
+				} else {
+					ueaAddr = common.BytesToAddress(deployReceipt.Ret)
+
+					deployPcTx := types.PCTx{
+						TxHash:      deployReceipt.Hash,
+						Sender:      ueModuleAddressStr,
+						BlockHeight: uint64(sdkCtx.BlockHeight()),
+						GasUsed:     deployReceipt.GasUsed,
+						Status:      "SUCCESS",
+					}
+					_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+						utx.PcTx = append(utx.PcTx, &deployPcTx)
+						return nil
+					})
+				}
+			}
+
+			if execErr == nil {
+				// --- Step 2: deposit PRC20 into UEA
+				receipt, err = k.depositPRC20(
+					sdkCtx,
+					utx.InboundTx.SourceChain,
+					utx.InboundTx.AssetAddr,
+					ueaAddr,
+					utx.InboundTx.Amount,
+				)
+				if err != nil {
+					execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+					shouldRevert = true
+					revertReason = execErr.Error()
+				}
 			}
 		}
 	}

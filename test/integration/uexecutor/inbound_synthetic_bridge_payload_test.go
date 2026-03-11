@@ -179,7 +179,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		require.False(t, isPending, "inbound should be executed after quorum")
 	})
 
-	t.Run("quorum reached executes inbound and payload fails if UEA is not deployed", func(t *testing.T) {
+	t.Run("quorum reached auto-deploys UEA if not deployed and proceeds with deposit and payload", func(t *testing.T) {
 		app, ctx, vals, _, coreVals, _ := setupInboundBridgePayloadTest(t, 4)
 
 		validUP := &uexecutortypes.UniversalPayload{
@@ -194,7 +194,8 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(1),
 		}
 
-		invalidInbound := &uexecutortypes.Inbound{
+		// TargetAddr2 has no pre-deployed UEA — the handler must auto-deploy it
+		inboundNoDeploy := &uexecutortypes.Inbound{
 			SourceChain:      "eip155:11155111",
 			TxHash:           "0xabcd",
 			Sender:           utils.GetDefaultAddresses().TargetAddr2,
@@ -212,7 +213,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 			require.NoError(t, err)
 			coreValAcc := sdk.AccAddress(valAddr).String()
 
-			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, invalidInbound)
+			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inboundNoDeploy)
 			require.NoError(t, err)
 		}
 
@@ -220,22 +221,29 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		require.NoError(t, err)
 		coreValAcc := sdk.AccAddress(valAddr).String()
 
-		err = utils.ExecVoteInbound(t, ctx, app, vals[2], coreValAcc, invalidInbound)
+		err = utils.ExecVoteInbound(t, ctx, app, vals[2], coreValAcc, inboundNoDeploy)
 		require.NoError(t, err)
 
-		// Now check UniversalTx state
-		utxKey := uexecutortypes.GetInboundUniversalTxKey(*invalidInbound)
+		// Inbound should be executed (no longer pending)
+		isPending, err := app.UexecutorKeeper.IsPendingInbound(ctx, *inboundNoDeploy)
+		require.NoError(t, err)
+		require.False(t, isPending, "inbound should be executed after quorum")
+
+		// Check UniversalTx state
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inboundNoDeploy)
 		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
 		require.NoError(t, err)
 		require.True(t, found, "universal tx should exist after quorum is reached")
 
-		// Check last PcTx for error
+		// Verify a deploy PCTx was recorded with SUCCESS
 		require.NotEmpty(t, utx.PcTx, "PcTx should not be empty")
-		lastPcTx := utx.PcTx[len(utx.PcTx)-1]
-		require.Contains(t, lastPcTx.ErrorMsg, "UEA is not deployed")
+		deployPcTx := utx.PcTx[0]
+		require.Equal(t, "SUCCESS", deployPcTx.Status, "UEA deploy PCTx should succeed")
 
-		// Universal status should reflect failure
-		require.Equal(t, uexecutortypes.UniversalTxStatus_PC_EXECUTED_FAILED, utx.UniversalStatus)
+		// No PCTx should contain "UEA is not deployed" error
+		for _, pcTx := range utx.PcTx {
+			require.NotContains(t, pcTx.ErrorMsg, "UEA is not deployed")
+		}
 	})
 
 	t.Run("vote after quorum fails", func(t *testing.T) {

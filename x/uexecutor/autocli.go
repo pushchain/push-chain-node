@@ -17,6 +17,32 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current gov gated parameters",
 				},
+				{
+					RpcMethod: "GasPrice",
+					Use:       "gas-price [chain-id]",
+					Short:     "Query the median gas price for a specific chain (reads from ChainMeta store)",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "chain_id"},
+					},
+				},
+				{
+					RpcMethod: "AllGasPrices",
+					Use:       "all-gas-prices",
+					Short:     "Query gas prices for all chains (reads from ChainMeta store)",
+				},
+				{
+					RpcMethod: "ChainMeta",
+					Use:       "chain-meta [chain-id]",
+					Short:     "Query aggregated chain metadata (gas price + block height) for a specific chain",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "chain_id"},
+					},
+				},
+				{
+					RpcMethod: "AllChainMetas",
+					Use:       "all-chain-metas",
+					Short:     "Query chain metadata for all chains",
+				},
 			},
 			SubCommands: map[string]*autocliv1.ServiceCommandDescriptor{
 				"v2": {

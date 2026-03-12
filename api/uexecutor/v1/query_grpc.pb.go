@@ -25,6 +25,8 @@ const (
 	Query_AllUniversalTx_FullMethodName     = "/uexecutor.v1.Query/AllUniversalTx"
 	Query_GasPrice_FullMethodName           = "/uexecutor.v1.Query/GasPrice"
 	Query_AllGasPrices_FullMethodName       = "/uexecutor.v1.Query/AllGasPrices"
+	Query_ChainMeta_FullMethodName          = "/uexecutor.v1.Query/ChainMeta"
+	Query_AllChainMetas_FullMethodName      = "/uexecutor.v1.Query/AllChainMetas"
 )
 
 // QueryClient is the client API for Query service.
@@ -43,6 +45,10 @@ type QueryClient interface {
 	GasPrice(ctx context.Context, in *QueryGasPriceRequest, opts ...grpc.CallOption) (*QueryGasPriceResponse, error)
 	// 🔹 Queries all gas prices across chains
 	AllGasPrices(ctx context.Context, in *QueryAllGasPricesRequest, opts ...grpc.CallOption) (*QueryAllGasPricesResponse, error)
+	// 🔹 Queries chain meta for a specific chain
+	ChainMeta(ctx context.Context, in *QueryChainMetaRequest, opts ...grpc.CallOption) (*QueryChainMetaResponse, error)
+	// 🔹 Queries all chain metas across chains
+	AllChainMetas(ctx context.Context, in *QueryAllChainMetasRequest, opts ...grpc.CallOption) (*QueryAllChainMetasResponse, error)
 }
 
 type queryClient struct {
@@ -107,6 +113,24 @@ func (c *queryClient) AllGasPrices(ctx context.Context, in *QueryAllGasPricesReq
 	return out, nil
 }
 
+func (c *queryClient) ChainMeta(ctx context.Context, in *QueryChainMetaRequest, opts ...grpc.CallOption) (*QueryChainMetaResponse, error) {
+	out := new(QueryChainMetaResponse)
+	err := c.cc.Invoke(ctx, Query_ChainMeta_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllChainMetas(ctx context.Context, in *QueryAllChainMetasRequest, opts ...grpc.CallOption) (*QueryAllChainMetasResponse, error) {
+	out := new(QueryAllChainMetasResponse)
+	err := c.cc.Invoke(ctx, Query_AllChainMetas_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -123,6 +147,10 @@ type QueryServer interface {
 	GasPrice(context.Context, *QueryGasPriceRequest) (*QueryGasPriceResponse, error)
 	// 🔹 Queries all gas prices across chains
 	AllGasPrices(context.Context, *QueryAllGasPricesRequest) (*QueryAllGasPricesResponse, error)
+	// 🔹 Queries chain meta for a specific chain
+	ChainMeta(context.Context, *QueryChainMetaRequest) (*QueryChainMetaResponse, error)
+	// 🔹 Queries all chain metas across chains
+	AllChainMetas(context.Context, *QueryAllChainMetasRequest) (*QueryAllChainMetasResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -147,6 +175,12 @@ func (UnimplementedQueryServer) GasPrice(context.Context, *QueryGasPriceRequest)
 }
 func (UnimplementedQueryServer) AllGasPrices(context.Context, *QueryAllGasPricesRequest) (*QueryAllGasPricesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllGasPrices not implemented")
+}
+func (UnimplementedQueryServer) ChainMeta(context.Context, *QueryChainMetaRequest) (*QueryChainMetaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ChainMeta not implemented")
+}
+func (UnimplementedQueryServer) AllChainMetas(context.Context, *QueryAllChainMetasRequest) (*QueryAllChainMetasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllChainMetas not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -269,6 +303,42 @@ func _Query_AllGasPrices_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_ChainMeta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryChainMetaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ChainMeta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ChainMeta_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ChainMeta(ctx, req.(*QueryChainMetaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllChainMetas_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllChainMetasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllChainMetas(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllChainMetas_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllChainMetas(ctx, req.(*QueryAllChainMetasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -299,6 +369,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllGasPrices",
 			Handler:    _Query_AllGasPrices_Handler,
+		},
+		{
+			MethodName: "ChainMeta",
+			Handler:    _Query_ChainMeta_Handler,
+		},
+		{
+			MethodName: "AllChainMetas",
+			Handler:    _Query_AllChainMetas_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

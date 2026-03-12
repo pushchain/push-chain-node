@@ -299,6 +299,39 @@ const UNIVERSAL_CORE_ABI = `[
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setChainMeta",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "price", "type": "uint256", "internalType": "uint256" },
+        { "name": "chainHeight", "type": "uint256", "internalType": "uint256" },
+        { "name": "observedAt", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "gasPriceByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "chainHeightByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "timestampObservedAtByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
     }
 ]`
 

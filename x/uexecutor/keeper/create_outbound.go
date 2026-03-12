@@ -43,6 +43,15 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			return nil, fmt.Errorf("failed to decode UniversalTxWithdraw: %w", err)
 		}
 
+		// Check if outbound is enabled for the destination chain
+		outboundEnabled, err := k.uregistryKeeper.IsChainOutboundEnabled(ctx, event.ChainId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check outbound enabled for chain %s: %w", event.ChainId, err)
+		}
+		if !outboundEnabled {
+			return nil, fmt.Errorf("outbound is disabled for chain %s", event.ChainId)
+		}
+
 		// Get the external asset addr
 		tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
 			ctx,

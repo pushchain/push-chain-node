@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -16,15 +15,6 @@ func (k Keeper) VoteOnInboundBallot(
 ) (isFinalized bool,
 	isNew bool,
 	err error) {
-	// Step 1: Check if the inbound is enabled
-	chainEnabled, err := k.uregistryKeeper.IsChainInboundEnabled(ctx, inbound.SourceChain)
-	if err != nil {
-		return false, false, err
-	}
-	if !chainEnabled {
-		return false, false, fmt.Errorf("inbound tx is not enabled")
-	}
-
 	ballotKey, err := types.GetInboundBallotKey(inbound)
 	if err != nil {
 		return false, false, err

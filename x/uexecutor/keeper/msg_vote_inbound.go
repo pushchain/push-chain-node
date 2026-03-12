@@ -12,6 +12,15 @@ import (
 
 // voteInbound is for uvalidators for voting on synthetic asset inbound bridging
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
+	// Check inbound enabled before any state changes
+	enabled, err := k.uregistryKeeper.IsChainInboundEnabled(ctx, inbound.SourceChain)
+	if err != nil {
+		return errors.Wrap(err, "failed to check inbound enabled")
+	}
+	if !enabled {
+		return fmt.Errorf("inbound is disabled for chain %s", inbound.SourceChain)
+	}
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Step 1: Check if inbound synthetic is there in the UTX
 	universalTxKey := types.GetInboundUniversalTxKey(inbound)

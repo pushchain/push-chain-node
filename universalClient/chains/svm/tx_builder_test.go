@@ -504,9 +504,9 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 500000)
 		msg = append(msg, amountBE...)
-		// additional: utx_id, tx_id, recipient, gas_fee
-		msg = append(msg, utxID[:]...)
+		// additional: tx_id, utx_id, recipient, gas_fee
 		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)
 		msg = append(msg, gasBE...)
@@ -532,9 +532,9 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 750000)
 		msg = append(msg, amountBE...)
-		// additional: utx_id, tx_id, mint, recipient, gas_fee
-		msg = append(msg, utxID[:]...)
+		// additional: tx_id, utx_id, mint, recipient, gas_fee
 		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertMint[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)

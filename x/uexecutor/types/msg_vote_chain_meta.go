@@ -2,6 +2,7 @@ package types
 
 import (
 	"cosmossdk.io/errors"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -45,6 +46,15 @@ func (msg *MsgVoteChainMeta) GetSigners() []sdk.AccAddress {
 func (msg *MsgVoteChainMeta) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
+	}
+	if msg.ObservedChainId == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_chain_id cannot be empty")
+	}
+	if msg.Price == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "price must be greater than 0")
+	}
+	if msg.ChainHeight == 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "chain_height must be greater than 0")
 	}
 	return nil
 }

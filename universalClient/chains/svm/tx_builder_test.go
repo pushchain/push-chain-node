@@ -1364,7 +1364,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 // ============================================================
 
 const (
-	devnetGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
+	devnetGatewayAddress = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
 	devnetRPCURL         = "https://api.devnet.solana.com"
 	devnetGenesisHash    = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
 	devnetSPLMint        = "EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"

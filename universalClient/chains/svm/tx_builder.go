@@ -929,8 +929,8 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 //	2 (execute):  [tx_id(32), utx_id(32), sender(20), token(32), gas_fee(8 BE), target(32),
 //	               accounts_buf(4 BE count + [pubkey(32) + writable(1)] per account),
 //	               ix_data_buf(4 BE len + data), rent_fee(8 BE)]
-//	3 (revert SOL): [utx_id(32), tx_id(32), recipient(32), gas_fee(8 BE)]
-//	4 (revert SPL): [utx_id(32), tx_id(32), mint(32), recipient(32), gas_fee(8 BE)]
+//	3 (revert SOL): [tx_id(32), utx_id(32), recipient(32), gas_fee(8 BE)]
+//	4 (revert SPL): [tx_id(32), utx_id(32), mint(32), recipient(32), gas_fee(8 BE)]
 //
 // The final message is hashed with keccak256 (Solana's keccak::hash = Ethereum's keccak256).
 func (tb *TxBuilder) constructTSSMessage(
@@ -1000,15 +1000,15 @@ func (tb *TxBuilder) constructTSSMessage(
 		binary.BigEndian.PutUint64(rentFeeBytes, rentFee)
 		message = append(message, rentFeeBytes...)
 
-	case 3: // revert SOL — note: utx_id comes before tx_id (matches Rust)
-		message = append(message, universalTxID[:]...)
+	case 3: // revert SOL — tx_id before utx_id (same order as finalize)
 		message = append(message, txID[:]...)
+		message = append(message, universalTxID[:]...)
 		message = append(message, revertRecipient[:]...)
 		message = append(message, gasFeeBytes...)
 
-	case 4: // revert SPL — note: includes the mint address for token identification
-		message = append(message, universalTxID[:]...)
+	case 4: // revert SPL — tx_id before utx_id, includes mint for token identification
 		message = append(message, txID[:]...)
+		message = append(message, universalTxID[:]...)
 		message = append(message, revertMint[:]...)
 		message = append(message, revertRecipient[:]...)
 		message = append(message, gasFeeBytes...)

@@ -106,3 +106,35 @@ func ExecVoteGasPrice(
 	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
 	return err
 }
+
+// ExecVoteChainMeta executes a MsgVoteChainMeta on behalf of the core validator
+// through the universal validator using authz Exec.
+func ExecVoteChainMeta(
+	t *testing.T,
+	ctx sdk.Context,
+	app *app.ChainApp,
+	universalAddr string,
+	coreValAddr string,
+	chainID string,
+	price uint64,
+	blockNumber uint64,
+	observedAt uint64,
+) error {
+	t.Helper()
+
+	msg := &uexecutortypes.MsgVoteChainMeta{
+		Signer:          coreValAddr,
+		ObservedChainId: chainID,
+		Price:           price,
+		ChainHeight:     blockNumber,
+		ObservedAt:      observedAt,
+	}
+
+	execMsg := authz.NewMsgExec(
+		sdk.MustAccAddressFromBech32(universalAddr),
+		[]sdk.Msg{msg},
+	)
+
+	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
+	return err
+}

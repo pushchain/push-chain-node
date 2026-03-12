@@ -316,6 +316,51 @@ func (k Keeper) CallUniversalCoreSetGasPrice(
 	)
 }
 
+// Calls UniversalCore Contract to set chain metadata (gas price + chain height + observed timestamp)
+func (k Keeper) CallUniversalCoreSetChainMeta(
+	ctx sdk.Context,
+	chainNamespace string,
+	price *big.Int,
+	chainHeight *big.Int,
+	observedAt *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Handler Contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress,
+		handlerAddr,
+		big.NewInt(0),
+		nil,
+		true,
+		false,
+		true,
+		&nonce,
+		"setChainMeta",
+		chainNamespace,
+		price,
+		chainHeight,
+		observedAt,
+	)
+}
+
 // Calls Handler Contract to deposit prc20 tokens
 func (k Keeper) CallPRC20DepositAutoSwap(
 	ctx sdk.Context,

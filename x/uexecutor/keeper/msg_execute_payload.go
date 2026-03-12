@@ -37,7 +37,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !chainConfig.Enabled.IsInboundEnabled {
-		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
+		return fmt.Errorf("inbound is disabled for chain %s", caip2Identifier)
 	}
 
 	factoryAddress := common.HexToAddress(types.FACTORY_PROXY_ADDRESS_HEX)

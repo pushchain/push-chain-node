@@ -240,7 +240,7 @@ func TestExecutePayload_ChainEnabled(t *testing.T) {
 		})
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "is not enabled")
+		require.Contains(t, err.Error(), "inbound is disabled for chain eip155:11155111")
 	})
 }
 

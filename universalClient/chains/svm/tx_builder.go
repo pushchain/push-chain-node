@@ -1372,8 +1372,8 @@ func (tb *TxBuilder) buildRevertData(
 //	15  associated_token_prog  read/None   ATA program
 //	16  recipient_ata          mut/None    Recipient's token account (withdraw SPL only)
 //	--- Optional rate limit accounts (17-18) ---
-//	17  rate_limit_config      read/None   Rate limit configuration (CEA path only)
-//	18  token_rate_limit       mut/None    Per-token rate limit state (CEA path only)
+//	17  rate_limit_config      read/None   Rate limit config PDA ["rate_limit_config"] (required when destination=gateway ie CEA path only))
+//	18  token_rate_limit       mut/None    Token rate limit PDA ["rate_limit", mint] (required when destination=gateway ie CEA path only)
 //	--- Execute-only remaining accounts ---
 //	19+ remaining_accounts     varies      Accounts that the target program needs
 //
@@ -1456,10 +1456,27 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 		}
 	}
 
-	// rateLimitConfig: null (CEA withdrawal path only)
-	accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
-	// tokenRateLimit: null (CEA withdrawal path only)
-	accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	// Rate limiting accounts (#17-18):
+	// When destination is the gateway itself (CEA→UEA), pass real rate limit PDAs.
+	// Otherwise, pass None (gateway program ID sentinel).
+	if destinationProgram.Equals(tb.gatewayAddress) {
+		rateLimitConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("rate_limit_config")}, tb.gatewayAddress)
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: rateLimitConfigPDA, IsWritable: false, IsSigner: false})
+
+		// token_rate_limit PDA: seeds = ["rate_limit", token_mint]
+		// For native SOL, use Pubkey::default() (all zeros) as token_mint
+		var rateLimitMint solana.PublicKey
+		if !isNative {
+			rateLimitMint = mintPubkey
+		}
+		// rateLimitMint is zero-value (Pubkey::default()) for native SOL
+		tokenRateLimitPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("rate_limit"), rateLimitMint.Bytes()}, tb.gatewayAddress)
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: tokenRateLimitPDA, IsWritable: true, IsSigner: false})
+	} else {
+		// Not a CEA→UEA flow: rate limit accounts are None
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	}
 
 	// For execute mode: append the target program's accounts as "remaining_accounts".
 	// These are the accounts that the gateway will pass through via CPI to the target program.

@@ -29,8 +29,8 @@ import (
 // ============================================================
 
 // testGatewayAddress is a valid base58 Solana public key used for unit tests.
-// It is NOT a real deployed gateway — only used for PDA derivations in offline tests.
-const testGatewayAddress = "11111111111111111111111111111111" // system program, valid base58
+// Must NOT be SystemProgramID to avoid collisions with destinationProgram sentinel values.
+const testGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
 
 func newTestBuilder(t *testing.T) *TxBuilder {
 	t.Helper()

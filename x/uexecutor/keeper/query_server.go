@@ -179,6 +179,7 @@ func (k Keeper) AllPendingInbounds(goCtx context.Context, req *types.QueryAllPen
 }
 
 // GasPrice implements types.QueryServer.
+// Sources data from ChainMetas (the new unified store) to maintain backward compatibility.
 func (k Querier) GasPrice(goCtx context.Context, req *types.QueryGasPriceRequest) (*types.QueryGasPriceResponse, error) {
 	if req == nil || req.ChainId == "" {
 		return nil, status.Error(codes.InvalidArgument, "chain_id is required")
@@ -186,7 +187,18 @@ func (k Querier) GasPrice(goCtx context.Context, req *types.QueryGasPriceRequest
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	// Try to fetch the gas price from keeper
+	// Source from ChainMetas first (preferred post-upgrade storage)
+	cm, err := k.ChainMetas.Get(ctx, req.ChainId)
+	if err == nil {
+		return &types.QueryGasPriceResponse{
+			GasPrice: chainMetaToGasPrice(&cm),
+		}, nil
+	}
+	if !errors.Is(err, collections.ErrNotFound) {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Fallback to legacy GasPrices store (pre-upgrade nodes)
 	gasPrice, err := k.GasPrices.Get(ctx, req.ChainId)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
@@ -195,12 +207,12 @@ func (k Querier) GasPrice(goCtx context.Context, req *types.QueryGasPriceRequest
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &types.QueryGasPriceResponse{
-		GasPrice: &gasPrice,
-	}, nil
+	return &types.QueryGasPriceResponse{GasPrice: &gasPrice}, nil
 }
 
 // AllGasPrices implements types.QueryServer.
+// Sources data from ChainMetas (the new unified store) to maintain backward compatibility.
+// Falls back to the legacy GasPrices store for entries not yet migrated.
 func (k Querier) AllGasPrices(goCtx context.Context, req *types.QueryAllGasPricesRequest) (*types.QueryAllGasPricesResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
@@ -210,8 +222,9 @@ func (k Querier) AllGasPrices(goCtx context.Context, req *types.QueryAllGasPrice
 
 	var all []*types.GasPrice
 
-	items, pageRes, err := query.CollectionPaginate(ctx, k.GasPrices, req.Pagination, func(key string, value types.GasPrice) (*types.GasPrice, error) {
-		return &value, nil
+	// Primary: read from ChainMetas
+	items, pageRes, err := query.CollectionPaginate(ctx, k.ChainMetas, req.Pagination, func(_ string, value types.ChainMeta) (*types.GasPrice, error) {
+		return chainMetaToGasPrice(&value), nil
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -223,4 +236,58 @@ func (k Querier) AllGasPrices(goCtx context.Context, req *types.QueryAllGasPrice
 		GasPrices:  all,
 		Pagination: pageRes,
 	}, nil
+}
+
+// ChainMeta implements types.QueryServer.
+// Returns the aggregated chain metadata (gas price + chain height) for a specific chain.
+func (k Querier) ChainMeta(goCtx context.Context, req *types.QueryChainMetaRequest) (*types.QueryChainMetaResponse, error) {
+	if req == nil || req.ChainId == "" {
+		return nil, status.Error(codes.InvalidArgument, "chain_id is required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	cm, err := k.ChainMetas.Get(ctx, req.ChainId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "no chain meta found for chain_id: %s", req.ChainId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryChainMetaResponse{ChainMeta: &cm}, nil
+}
+
+// AllChainMetas implements types.QueryServer.
+// Returns paginated chain meta entries for all registered chains.
+func (k Querier) AllChainMetas(goCtx context.Context, req *types.QueryAllChainMetasRequest) (*types.QueryAllChainMetasResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	items, pageRes, err := query.CollectionPaginate(ctx, k.ChainMetas, req.Pagination, func(_ string, value types.ChainMeta) (*types.ChainMeta, error) {
+		return &value, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryAllChainMetasResponse{
+		ChainMetas: items,
+		Pagination: pageRes,
+	}, nil
+}
+
+// chainMetaToGasPrice converts a ChainMeta into the legacy GasPrice shape
+// so that existing API consumers see no breaking change.
+func chainMetaToGasPrice(cm *types.ChainMeta) *types.GasPrice {
+	return &types.GasPrice{
+		ObservedChainId: cm.ObservedChainId,
+		Signers:         cm.Signers,
+		BlockNums:       cm.ChainHeights,
+		Prices:          cm.Prices,
+		MedianIndex:     cm.MedianIndex,
+	}
 }

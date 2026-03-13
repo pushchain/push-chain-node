@@ -73,6 +73,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			GasFee:            event.GasFee.String(),
 			GasLimit:          event.GasLimit.String(),
 			GasPrice:          event.GasPrice.String(),
+			GasToken:          event.GasToken,
 			TxType:            event.TxType,
 			PcTx: &types.OriginatingPcTx{
 				TxHash:   receipt.Hash,
@@ -206,6 +207,7 @@ func (k Keeper) attachOutboundsToUtx(
 				GasFee:           outbound.GasFee,
 				GasLimit:         outbound.GasLimit,
 				GasPrice:         outbound.GasPrice,
+				GasToken:         outbound.GasToken,
 				TxType:           outbound.TxType.String(),
 				PcTxHash:         pcTxHash,
 				LogIndex:         logIndex,

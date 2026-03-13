@@ -107,7 +107,13 @@ func (r *Resolver) processBroadcasted(ctx context.Context) {
 }
 
 func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
+	// Extract chain ID early to check outbound flag
 	chainID, rawTxHash, err := parseCAIPTxHash(event.BroadcastedTxHash)
+	if err == nil && !r.chains.IsChainOutboundEnabled(chainID) {
+		r.logger.Warn().Str("chain", chainID).Str("event_id", event.EventID).
+			Msg("outbound disabled for destination chain, skipping resolution")
+		return
+	}
 	if err != nil {
 		txID, utxID, extractErr := extractOutboundIDs(event)
 		if extractErr != nil {

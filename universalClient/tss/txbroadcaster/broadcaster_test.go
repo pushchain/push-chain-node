@@ -92,7 +92,14 @@ func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, c
 
 	configsField := v.FieldByName("chainConfigs")
 	configsMap := *(*map[string]*uregistrytypes.ChainConfig)(unsafe.Pointer(configsField.UnsafeAddr()))
-	configsMap[chainID] = &uregistrytypes.ChainConfig{Chain: chainID, VmType: vmType}
+	configsMap[chainID] = &uregistrytypes.ChainConfig{
+		Chain:  chainID,
+		VmType: vmType,
+		Enabled: &uregistrytypes.ChainEnabled{
+			IsInboundEnabled:  true,
+			IsOutboundEnabled: true,
+		},
+	}
 
 	return c
 }

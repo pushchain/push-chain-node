@@ -117,6 +117,14 @@ func (b *Broadcaster) broadcastEvent(ctx context.Context, event *store.Event) {
 	}
 
 	chainID := data.DestinationChain
+
+	// Skip if outbound is disabled for destination chain
+	if !b.chains.IsChainOutboundEnabled(chainID) {
+		b.logger.Warn().Str("chain", chainID).Str("event_id", event.EventID).
+			Msg("outbound disabled for destination chain, skipping broadcast")
+		return
+	}
+
 	if b.chains.IsEVMChain(chainID) {
 		b.broadcastEVM(ctx, event, data, chainID)
 	} else {

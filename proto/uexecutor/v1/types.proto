@@ -167,6 +167,8 @@ message OutboundTx {
   Status outbound_status = 13; // status of outbound tx
   RevertInstructions revert_instructions = 14;
   PCTx pc_revert_execution = 15;
+  string gas_price = 16; // gas price on destination chain at time of outbound
+  string gas_fee = 17;   // gas fee paid to relayer on destination chain
 }
 
 message UniversalTx {

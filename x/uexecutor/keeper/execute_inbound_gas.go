@@ -87,11 +87,55 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 				}
 
 				if execErr == nil {
-					// --- step 4: deposit + swap
-					receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount)
+					// --- step 4: fetch swap quote and compute minPCOut with 5% slippage
+					var (
+						quoterAddr common.Address
+						wpcAddr    common.Address
+						fee        *big.Int
+						quote      *big.Int
+					)
+
+					quoterAddr, execErr = k.GetUniversalCoreQuoterAddress(sdkCtx)
 					if execErr != nil {
 						shouldRevert = true
 						revertReason = execErr.Error()
+					}
+
+					if execErr == nil {
+						wpcAddr, execErr = k.GetUniversalCoreWPCAddress(sdkCtx)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						fee, execErr = k.GetDefaultFeeTierForToken(sdkCtx, prc20AddressHex)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						quote, execErr = k.GetSwapQuote(sdkCtx, quoterAddr, prc20AddressHex, wpcAddr, fee, amount)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						// 5% slippage: minPCOut = quote * 95 / 100
+						minPCOut := new(big.Int).Mul(quote, big.NewInt(95))
+						minPCOut.Div(minPCOut, big.NewInt(100))
+
+						// --- step 5: deposit + swap
+						receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount, fee, minPCOut)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
 					}
 				}
 			}

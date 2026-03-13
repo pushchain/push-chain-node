@@ -270,7 +270,10 @@ record_token() {
     --arg source "$source" \
     '
       .tokens = (
-        ([.tokens[]? | select((.address | ascii_downcase) != ($address | ascii_downcase))])
+        ([.tokens[]? | select(
+          ((.address | ascii_downcase) != ($address | ascii_downcase))
+          and ((.symbol | ascii_downcase) != ($symbol | ascii_downcase))
+        )])
         + [{name:$name, symbol:$symbol, address:$address, source:$source}]
       )
     ' "$DEPLOY_ADDRESSES_FILE" >"$tmp"
@@ -1357,7 +1360,14 @@ step_create_all_wpc_pools() {
       cd "$SWAP_AMM_DIR"
       node scripts/pool-manager.js create-pool "$token_addr" "$wpc_addr" 4 500 true 1 4
     )
-  done < <(jq -r '.tokens[]? | [.symbol, .address] | @tsv' "$DEPLOY_ADDRESSES_FILE")
+  done < <(
+    jq -r '
+      reduce .tokens[]? as $t ({}; .[($t.symbol | ascii_downcase)] = $t)
+      | to_entries[]
+      | [.value.symbol, .value.address]
+      | @tsv
+    ' "$DEPLOY_ADDRESSES_FILE"
+  )
 
   log_ok "All token/WPC pool creation commands completed"
 }

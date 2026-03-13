@@ -24,6 +24,7 @@ type OutboundCreatedEvent struct {
 	GasFee           string `json:"gas_fee"`
 	GasLimit         string `json:"gas_limit"`
 	GasPrice         string `json:"gas_price"`
+	GasToken         string `json:"gas_token"`
 	TxType           string `json:"tx_type"`
 	PcTxHash         string `json:"pc_tx_hash"`
 	LogIndex         string `json:"log_index"`
@@ -54,6 +55,7 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 		sdk.NewAttribute("gas_fee", e.GasFee),
 		sdk.NewAttribute("gas_limit", e.GasLimit),
 		sdk.NewAttribute("gas_price", e.GasPrice),
+		sdk.NewAttribute("gas_token", e.GasToken),
 		sdk.NewAttribute("tx_type", e.TxType),
 		sdk.NewAttribute("pc_tx_hash", e.PcTxHash),
 		sdk.NewAttribute("log_index", e.LogIndex),

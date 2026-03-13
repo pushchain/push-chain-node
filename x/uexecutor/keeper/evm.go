@@ -430,13 +430,13 @@ func (k Keeper) GetDefaultFeeTierForToken(ctx sdk.Context, prc20Address common.A
 		return nil, errors.Wrap(err, "failed to unpack defaultFeeTier result")
 	}
 
-	// go-ethereum unpacks uint24 as uint32
-	fee, ok := results[0].(uint32)
+	// go-ethereum unpacks uint24 as *big.Int (non-standard widths always map to *big.Int)
+	fee, ok := results[0].(*big.Int)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for defaultFeeTier: %T", results[0])
 	}
 
-	return new(big.Int).SetUint64(uint64(fee)), nil
+	return fee, nil
 }
 
 // GetSwapQuote calls QuoterV2.quoteExactInputSingle (commit=false) to get the expected
@@ -524,5 +524,56 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 		fee,
 		minPCOut,
 		big.NewInt(0), // deadline = 0 → contract uses its default
+	)
+}
+
+// CallUniversalCoreRefundUnusedGas calls refundUnusedGas on UniversalCore to return excess gas fee
+// to the recipient. withSwap=true swaps the gas token back to PC; withSwap=false deposits PRC20 directly.
+func (k Keeper) CallUniversalCoreRefundUnusedGas(
+	ctx sdk.Context,
+	gasToken common.Address,
+	amount *big.Int,
+	recipient common.Address,
+	withSwap bool,
+	fee *big.Int,
+	minPCOut *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	// fee is uint24 in Solidity — pass as *big.Int (go-ethereum ABI packs non-standard widths as *big.Int)
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress,
+		handlerAddr,
+		big.NewInt(0),
+		nil,
+		true,
+		false,
+		true,
+		&nonce,
+		"refundUnusedGas",
+		gasToken,
+		amount,
+		recipient,
+		withSwap,
+		fee,
+		minPCOut,
 	)
 }

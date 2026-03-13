@@ -353,6 +353,20 @@ const UNIVERSAL_CORE_ABI = `[
       "inputs": [{ "name": "", "type": "address", "internalType": "address" }],
       "outputs": [{ "name": "", "type": "uint24", "internalType": "uint24" }],
       "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "refundUnusedGas",
+      "inputs": [
+        { "name": "gasToken",  "type": "address", "internalType": "address" },
+        { "name": "amount",    "type": "uint256", "internalType": "uint256" },
+        { "name": "recipient", "type": "address", "internalType": "address" },
+        { "name": "withSwap",  "type": "bool",    "internalType": "bool"    },
+        { "name": "fee",       "type": "uint24",  "internalType": "uint24"  },
+        { "name": "minPCOut",  "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     }
 ]`
 

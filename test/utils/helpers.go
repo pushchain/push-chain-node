@@ -48,6 +48,7 @@ func ExecVoteOutbound(
 	outbound *uexecutortypes.OutboundTx,
 	success bool,
 	errorMsg string,
+	gasFeeUsed string, // actual gas fee consumed on destination chain; "" means no refund
 ) error {
 	t.Helper()
 
@@ -56,6 +57,7 @@ func ExecVoteOutbound(
 		ErrorMsg:    errorMsg,
 		TxHash:      fmt.Sprintf("0xobserved-%s", outbound.Id),
 		BlockHeight: 1,
+		GasFeeUsed:  gasFeeUsed,
 	}
 
 	msg := &uexecutortypes.MsgVoteOutbound{

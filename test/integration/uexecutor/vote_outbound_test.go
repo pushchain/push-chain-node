@@ -94,6 +94,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
+			"",
 		)
 		require.NoError(t, err)
 
@@ -125,6 +126,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				true,
 				"",
+				"",
 			)
 			require.NoError(t, err)
 		}
@@ -155,6 +157,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
+			"",
 		)
 		require.NoError(t, err)
 
@@ -167,6 +170,7 @@ func TestOutboundVoting(t *testing.T) {
 			utxId,
 			outbound,
 			true,
+			"",
 			"",
 		)
 		require.Error(t, err)
@@ -192,6 +196,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				true,
 				"",
+				"",
 			)
 			require.NoError(t, err)
 		}
@@ -209,6 +214,7 @@ func TestOutboundVoting(t *testing.T) {
 			utxId,
 			outbound,
 			true,
+			"",
 			"",
 		)
 		require.Error(t, err)
@@ -234,6 +240,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				false,
 				"execution reverted", // revert reason
+				"",
 			)
 			require.NoError(t, err)
 		}
@@ -274,6 +281,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				false,
 				"failed",
+				"",
 			)
 			require.NoError(t, err)
 		}
@@ -312,6 +320,7 @@ func TestOutboundVoting(t *testing.T) {
 				&prefixedOutbound,
 				true,
 				"",
+				"",
 			)
 			require.NoError(t, err)
 		}
@@ -342,6 +351,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
+			"",
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")
@@ -366,6 +376,7 @@ func TestOutboundVoting(t *testing.T) {
 			utxId,
 			&badOutbound,
 			true,
+			"",
 			"",
 		)
 		require.Error(t, err)

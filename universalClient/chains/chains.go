@@ -175,7 +175,6 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 
 		switch action {
 		case chainActionSkip:
-			// Disabled or no change - skip
 			continue
 
 		case chainActionAdd:
@@ -190,6 +189,11 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 			}
 			if err := c.addChain(parent, cfg); err != nil {
 				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to add updated chain")
+			}
+
+		case chainActionRemove:
+			if err := c.removeChain(chainID); err != nil {
+				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove disabled chain")
 			}
 		}
 	}
@@ -228,17 +232,29 @@ const (
 func (c *Chains) determineChainAction(cfg *uregistrytypes.ChainConfig) chainAction {
 	chainID := cfg.Chain
 
-	// Check if chain exists
+	// Check if chain is fully disabled (both flags off)
+	bothDisabled := cfg.Enabled == nil ||
+		(!cfg.Enabled.IsInboundEnabled && !cfg.Enabled.IsOutboundEnabled)
+
 	c.chainsMu.RLock()
 	_, exists := c.chains[chainID]
 	existingConfig := c.chainConfigs[chainID]
 	c.chainsMu.RUnlock()
 
+	if bothDisabled {
+		if exists {
+			c.logger.Info().Str("chain", chainID).Msg("chain fully disabled (inbound+outbound off), removing")
+			return chainActionRemove
+		}
+		c.logger.Debug().Str("chain", chainID).Msg("chain fully disabled, skipping")
+		return chainActionSkip
+	}
+
 	if !exists {
 		return chainActionAdd
 	}
 
-	// Check if config changed
+	// Check if config changed (includes enabled flag changes)
 	if existingConfig != nil && !configsEqual(existingConfig, cfg) {
 		return chainActionUpdate
 	}
@@ -362,6 +378,22 @@ func (c *Chains) IsEVMChain(chainID string) bool {
 	cfg := c.chainConfigs[chainID]
 	c.chainsMu.RUnlock()
 	return cfg != nil && cfg.VmType == uregistrytypes.VmType_EVM
+}
+
+// IsChainInboundEnabled returns whether inbound is enabled for the given chain
+func (c *Chains) IsChainInboundEnabled(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.Enabled != nil && cfg.Enabled.IsInboundEnabled
+}
+
+// IsChainOutboundEnabled returns whether outbound is enabled for the given chain
+func (c *Chains) IsChainOutboundEnabled(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.Enabled != nil && cfg.Enabled.IsOutboundEnabled
 }
 
 // GetStandardConfirmations returns the chain's standard block confirmations from registry config (BlockConfirmation.StandardInbound). Used for outbound tx completion. Returns 12 if not set.
@@ -506,6 +538,11 @@ func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
 		return false
 	}
 
+	// Compare enabled flags
+	if !chainEnabledEqual(a.Enabled, b.Enabled) {
+		return false
+	}
+
 	return true
 }
 
@@ -537,6 +574,17 @@ func vaultMethodsEqual(a, b []*uregistrytypes.VaultMethods) bool {
 		}
 	}
 	return true
+}
+
+func chainEnabledEqual(a, b *uregistrytypes.ChainEnabled) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.IsInboundEnabled == b.IsInboundEnabled &&
+		a.IsOutboundEnabled == b.IsOutboundEnabled
 }
 
 func blockConfirmationEqual(a, b *uregistrytypes.BlockConfirmation) bool {

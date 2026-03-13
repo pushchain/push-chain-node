@@ -259,14 +259,56 @@ func TestDetermineChainAction(t *testing.T) {
 	}
 	chains := NewChains(nil, nil, cfg, logger)
 
+	enabled := &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: true}
+
 	t.Run("new chain returns add", func(t *testing.T) {
 		chainCfg := &uregistrytypes.ChainConfig{
-			Chain:  "eip155:1",
-			VmType: uregistrytypes.VmType_EVM,
+			Chain:   "eip155:1",
+			VmType:  uregistrytypes.VmType_EVM,
+			Enabled: enabled,
 		}
 
 		action := chains.determineChainAction(chainCfg)
 		assert.Equal(t, chainActionAdd, action)
+	})
+
+	t.Run("both flags off returns skip for new chain", func(t *testing.T) {
+		chainCfg := &uregistrytypes.ChainConfig{
+			Chain:   "eip155:99",
+			VmType:  uregistrytypes.VmType_EVM,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false},
+		}
+		action := chains.determineChainAction(chainCfg)
+		assert.Equal(t, chainActionSkip, action)
+	})
+
+	t.Run("both flags off returns remove for existing chain", func(t *testing.T) {
+		chains.chainsMu.Lock()
+		chains.chains["eip155:99"] = nil
+		chains.chainConfigs["eip155:99"] = &uregistrytypes.ChainConfig{Chain: "eip155:99", Enabled: enabled}
+		chains.chainsMu.Unlock()
+
+		chainCfg := &uregistrytypes.ChainConfig{
+			Chain:   "eip155:99",
+			VmType:  uregistrytypes.VmType_EVM,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: false, IsOutboundEnabled: false},
+		}
+		action := chains.determineChainAction(chainCfg)
+		assert.Equal(t, chainActionRemove, action)
+
+		chains.chainsMu.Lock()
+		delete(chains.chains, "eip155:99")
+		delete(chains.chainConfigs, "eip155:99")
+		chains.chainsMu.Unlock()
+	})
+
+	t.Run("nil enabled returns skip for new chain", func(t *testing.T) {
+		chainCfg := &uregistrytypes.ChainConfig{
+			Chain:  "eip155:98",
+			VmType: uregistrytypes.VmType_EVM,
+		}
+		action := chains.determineChainAction(chainCfg)
+		assert.Equal(t, chainActionSkip, action)
 	})
 
 	t.Run("existing chain with same config returns skip", func(t *testing.T) {
@@ -274,6 +316,7 @@ func TestDetermineChainAction(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123",
+			Enabled:        enabled,
 		}
 
 		// Add the chain first
@@ -297,12 +340,14 @@ func TestDetermineChainAction(t *testing.T) {
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x123",
+			Enabled:        enabled,
 		}
 
 		newCfg := &uregistrytypes.ChainConfig{
 			Chain:          "eip155:1",
 			VmType:         uregistrytypes.VmType_EVM,
 			GatewayAddress: "0x456", // Different address
+			Enabled:        enabled,
 		}
 
 		// Add the chain first
@@ -315,6 +360,33 @@ func TestDetermineChainAction(t *testing.T) {
 		assert.Equal(t, chainActionUpdate, action)
 
 		// Cleanup
+		chains.chainsMu.Lock()
+		delete(chains.chains, "eip155:1")
+		delete(chains.chainConfigs, "eip155:1")
+		chains.chainsMu.Unlock()
+	})
+
+	t.Run("enabled flag change triggers update", func(t *testing.T) {
+		oldCfg := &uregistrytypes.ChainConfig{
+			Chain:   "eip155:1",
+			VmType:  uregistrytypes.VmType_EVM,
+			Enabled: enabled,
+		}
+
+		newCfg := &uregistrytypes.ChainConfig{
+			Chain:   "eip155:1",
+			VmType:  uregistrytypes.VmType_EVM,
+			Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true, IsOutboundEnabled: false},
+		}
+
+		chains.chainsMu.Lock()
+		chains.chains["eip155:1"] = nil
+		chains.chainConfigs["eip155:1"] = oldCfg
+		chains.chainsMu.Unlock()
+
+		action := chains.determineChainAction(newCfg)
+		assert.Equal(t, chainActionUpdate, action)
+
 		chains.chainsMu.Lock()
 		delete(chains.chains, "eip155:1")
 		delete(chains.chainConfigs, "eip155:1")

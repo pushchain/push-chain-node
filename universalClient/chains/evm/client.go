@@ -77,10 +77,14 @@ func NewClient(
 
 	// Initialize components that don't require RPC client
 	if pushSigner != nil {
+		inboundEnabled := config.Enabled != nil && config.Enabled.IsInboundEnabled
+		outboundEnabled := config.Enabled != nil && config.Enabled.IsOutboundEnabled
 		client.eventProcessor = common.NewEventProcessor(
 			pushSigner,
 			database,
 			chainIDStr,
+			inboundEnabled,
+			outboundEnabled,
 			log,
 		)
 	}

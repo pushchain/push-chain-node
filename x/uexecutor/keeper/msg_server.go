@@ -176,3 +176,35 @@ func (ms msgServer) VoteOutbound(ctx context.Context, msg *types.MsgVoteOutbound
 
 	return &types.MsgVoteOutboundResponse{}, nil
 }
+
+// VoteChainMeta implements types.MsgServer.
+func (ms msgServer) VoteChainMeta(ctx context.Context, msg *types.MsgVoteChainMeta) (*types.MsgVoteChainMetaResponse, error) {
+	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	signerValAddr := sdk.ValAddress(signerAccAddr)
+
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
+	}
+	if !isBonded {
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
+	}
+
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
+	}
+	if isTombstoned {
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
+	}
+
+	err = ms.k.VoteChainMeta(ctx, signerValAddr, msg.ObservedChainId, msg.Price, msg.ChainHeight, msg.ObservedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgVoteChainMetaResponse{}, nil
+}

@@ -24,6 +24,7 @@ type UniversalTxOutboundEvent struct {
 	ProtocolFee     *big.Int // fee kept by protocol
 	RevertRecipient string   // where funds go on full revert
 	TxType          TxType   // ← single source of truth from proto
+	GasPrice        *big.Int // gas price on destination chain at time of outbound
 }
 
 func DecodeUniversalTxOutboundFromLog(log *evmtypes.Log) (*UniversalTxOutboundEvent, error) {
@@ -58,6 +59,7 @@ func DecodeUniversalTxOutboundFromLog(log *evmtypes.Log) (*UniversalTxOutboundEv
 		{Type: uint256Type}, // protocolFee
 		{Type: addressType}, // revertRecipient
 		{Type: uint8Type},   // txType
+		{Type: uint256Type}, // gasPrice
 	}
 
 	values, err := arguments.Unpack(log.Data)
@@ -65,7 +67,7 @@ func DecodeUniversalTxOutboundFromLog(log *evmtypes.Log) (*UniversalTxOutboundEv
 		return nil, fmt.Errorf("failed to unpack UniversalTxOutbound: %w", err)
 	}
 
-	if len(values) != 10 {
+	if len(values) != 11 {
 		return nil, fmt.Errorf("unexpected number of unpacked values: %d", len(values))
 	}
 
@@ -89,6 +91,8 @@ func DecodeUniversalTxOutboundFromLog(log *evmtypes.Log) (*UniversalTxOutboundEv
 	event.RevertRecipient = values[i].(common.Address).Hex()
 	i++
 	event.TxType = SolidityTxTypeToProto(values[i].(uint8))
+	i++
+	event.GasPrice = values[i].(*big.Int)
 
 	return event, nil
 }

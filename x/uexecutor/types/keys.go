@@ -30,6 +30,9 @@ var (
 
 	GasPricesKey  = collections.NewPrefix(5)
 	GasPricesName = "gas_prices"
+
+	ChainMetaKey   = collections.NewPrefix(6)
+	ChainMetasName = "chain_metas"
 )
 
 const (

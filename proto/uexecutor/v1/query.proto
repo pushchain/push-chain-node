@@ -4,6 +4,7 @@ package uexecutor.v1;
 import "google/api/annotations.proto";
 import "uexecutor/v1/types.proto";
 import "uexecutor/v1/gas_price.proto";
+import "uexecutor/v1/chain_meta.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
@@ -39,6 +40,16 @@ service Query {
   rpc AllGasPrices(QueryAllGasPricesRequest) returns (QueryAllGasPricesResponse) {
     option (google.api.http).get = "/uexecutor/v1/gas_prices";
   }
+
+  // 🔹 Queries chain meta for a specific chain
+  rpc ChainMeta(QueryChainMetaRequest) returns (QueryChainMetaResponse) {
+    option (google.api.http).get = "/uexecutor/v1/chain_meta/{chain_id}";
+  }
+
+  // 🔹 Queries all chain metas across chains
+  rpc AllChainMetas(QueryAllChainMetasRequest) returns (QueryAllChainMetasResponse) {
+    option (google.api.http).get = "/uexecutor/v1/chain_metas";
+  }
 }
 
 // ==========================
@@ -61,6 +72,25 @@ message QueryAllGasPricesRequest {
 
 message QueryAllGasPricesResponse {
   repeated GasPrice gas_prices = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// Single chain meta
+message QueryChainMetaRequest {
+  string chain_id = 1;
+}
+
+message QueryChainMetaResponse {
+  ChainMeta chain_meta = 1;
+}
+
+// All chain metas
+message QueryAllChainMetasRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllChainMetasResponse {
+  repeated ChainMeta chain_metas = 1;
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 

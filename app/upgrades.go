@@ -6,6 +6,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -14,10 +15,10 @@ import (
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
-	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
-	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
+	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
+	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
@@ -43,6 +44,7 @@ var Upgrades = []upgrades.Upgrade{
 	proxybytecodefix.NewUpgrade(),
 	supplyslash.NewUpgrade(),
 	supplyburn.NewUpgrade(),
+	chainmeta.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

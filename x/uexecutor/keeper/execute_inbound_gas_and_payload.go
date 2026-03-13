@@ -84,19 +84,59 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 				}
 
 				if execErr == nil {
-					// --- Step 4: deposit + autoswap
+					// --- Step 4: fetch swap quote and compute minPCOut with 5% slippage
 					prc20AddressHex := common.HexToAddress(
 						tokenConfig.NativeRepresentation.ContractAddress,
 					)
-					receipt, execErr = k.CallPRC20DepositAutoSwap(
-						sdkCtx,
-						prc20AddressHex,
-						ueaAddr,
-						amount,
+
+					var (
+						quoterAddr common.Address
+						wpcAddr    common.Address
+						fee        *big.Int
+						quote      *big.Int
 					)
+
+					quoterAddr, execErr = k.GetUniversalCoreQuoterAddress(sdkCtx)
 					if execErr != nil {
 						shouldRevert = true
 						revertReason = execErr.Error()
+					}
+
+					if execErr == nil {
+						wpcAddr, execErr = k.GetUniversalCoreWPCAddress(sdkCtx)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						fee, execErr = k.GetDefaultFeeTierForToken(sdkCtx, prc20AddressHex)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						quote, execErr = k.GetSwapQuote(sdkCtx, quoterAddr, prc20AddressHex, wpcAddr, fee, amount)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
+					}
+
+					if execErr == nil {
+						// 5% slippage: minPCOut = quote * 95 / 100
+						minPCOut := new(big.Int).Mul(quote, big.NewInt(95))
+						minPCOut.Div(minPCOut, big.NewInt(100))
+
+						// --- Step 5: deposit + autoswap
+						receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount, fee, minPCOut)
+						if execErr != nil {
+							shouldRevert = true
+							revertReason = execErr.Error()
+						}
 					}
 				}
 			}
@@ -160,7 +200,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
-	// --- Step 5: payload hash
+	// --- Step 6: payload hash
 	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr)
 	if payloadHashErr != nil {
 		errorPcTx := types.PCTx{
@@ -177,7 +217,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		return nil
 	}
 
-	// --- Step 6: execute payload
+	// --- Step 7: execute payload
 	// ueaAddr is already resolved and validated in step 3
 	receipt, err = k.ExecutePayloadV2(
 		ctx,

@@ -361,11 +361,130 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 	)
 }
 
-// Calls Handler Contract to deposit prc20 tokens
+// GetUniversalCoreQuoterAddress reads the uniswapV3Quoter address stored in UniversalCore.
+func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "uniswapV3Quoter")
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to call uniswapV3Quoter")
+	}
+
+	results, err := abi.Methods["uniswapV3Quoter"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to unpack uniswapV3Quoter result")
+	}
+
+	return results[0].(common.Address), nil
+}
+
+// GetUniversalCoreWPCAddress reads the WPC (wrapped PC) address stored in UniversalCore.
+func (k Keeper) GetUniversalCoreWPCAddress(ctx sdk.Context) (common.Address, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "WPC")
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to call WPC")
+	}
+
+	results, err := abi.Methods["WPC"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to unpack WPC result")
+	}
+
+	return results[0].(common.Address), nil
+}
+
+// GetDefaultFeeTierForToken reads defaultFeeTier[prc20] from UniversalCore.
+func (k Keeper) GetDefaultFeeTierForToken(ctx sdk.Context, prc20Address common.Address) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "defaultFeeTier", prc20Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call defaultFeeTier")
+	}
+
+	results, err := abi.Methods["defaultFeeTier"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack defaultFeeTier result")
+	}
+
+	// go-ethereum unpacks uint24 as uint32
+	fee, ok := results[0].(uint32)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for defaultFeeTier: %T", results[0])
+	}
+
+	return new(big.Int).SetUint64(uint64(fee)), nil
+}
+
+// GetSwapQuote calls QuoterV2.quoteExactInputSingle (commit=false) to get the expected
+// output amount for swapping prc20 → wpc.
+func (k Keeper) GetSwapQuote(
+	ctx sdk.Context,
+	quoterAddr, prc20Address, wpcAddress common.Address,
+	fee, amount *big.Int,
+) (*big.Int, error) {
+	quoterABI, err := types.ParseUniswapQuoterV2ABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse QuoterV2 ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	params := types.AbiQuoteExactInputSingleParams{
+		TokenIn:           prc20Address,
+		TokenOut:          wpcAddress,
+		AmountIn:          amount,
+		Fee:               fee,
+		SqrtPriceLimitX96: big.NewInt(0),
+	}
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, quoterABI, ueModuleAccAddress, quoterAddr, false, "quoteExactInputSingle", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "QuoterV2 quoteExactInputSingle failed")
+	}
+
+	results, err := quoterABI.Methods["quoteExactInputSingle"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack quoteExactInputSingle result")
+	}
+
+	amountOut, ok := results[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for amountOut: %T", results[0])
+	}
+
+	return amountOut, nil
+}
+
+// Calls Handler Contract to deposit prc20 tokens with auto-swap.
+// fee and minPCOut must be pre-computed by the caller (see GetDefaultFeeTierForToken / GetSwapQuote).
 func (k Keeper) CallPRC20DepositAutoSwap(
 	ctx sdk.Context,
 	prc20Address, to common.Address,
-	amount *big.Int,
+	amount, fee, minPCOut *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 
@@ -402,8 +521,8 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 		prc20Address,
 		amount,
 		to,
-		big.NewInt(0),
-		big.NewInt(0),
-		big.NewInt(0),
+		fee,
+		minPCOut,
+		big.NewInt(0), // deadline = 0 → contract uses its default
 	)
 }

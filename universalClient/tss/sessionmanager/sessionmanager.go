@@ -747,6 +747,11 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 		return errors.New("destination chain is missing")
 	}
 
+	// Reject signing if outbound is disabled for the destination chain
+	if sm.chains != nil && !sm.chains.IsChainOutboundEnabled(chainID) {
+		return errors.Errorf("outbound disabled for chain %s, refusing to sign", chainID)
+	}
+
 	if err := sm.validateGasPrice(ctx, chainID, req.GasPrice); err != nil {
 		return errors.Wrap(err, "gas price validation failed")
 	}

@@ -20,13 +20,15 @@ import (
 
 // EventProcessor processes events from the chain's database and votes on them
 type EventProcessor struct {
-	signer     *pushsigner.Signer
-	chainStore *ChainStore
-	logger     zerolog.Logger
-	chainID    string
-	running    bool
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
+	signer          *pushsigner.Signer
+	chainStore      *ChainStore
+	logger          zerolog.Logger
+	chainID         string
+	inboundEnabled  bool
+	outboundEnabled bool
+	running         bool
+	stopCh          chan struct{}
+	wg              sync.WaitGroup
 }
 
 // NewEventProcessor creates a new event processor
@@ -34,14 +36,18 @@ func NewEventProcessor(
 	signer *pushsigner.Signer,
 	database *db.DB,
 	chainID string,
+	inboundEnabled bool,
+	outboundEnabled bool,
 	logger zerolog.Logger,
 ) *EventProcessor {
 	return &EventProcessor{
-		signer:     signer,
-		chainStore: NewChainStore(database),
-		chainID:    chainID,
-		logger:     logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
-		stopCh:     make(chan struct{}),
+		signer:          signer,
+		chainStore:      NewChainStore(database),
+		chainID:         chainID,
+		inboundEnabled:  inboundEnabled,
+		outboundEnabled: outboundEnabled,
+		logger:          logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
+		stopCh:          make(chan struct{}),
 	}
 }
 
@@ -114,6 +120,10 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 	for _, event := range events {
 		if event.Type == EventTypeInbound {
+			if !ep.inboundEnabled {
+				ep.logger.Warn().Str("event_id", event.EventID).Msg("inbound disabled, skipping inbound event processing")
+				continue
+			}
 			if err := ep.processInboundEvent(ctx, &event); err != nil {
 				ep.logger.Error().
 					Err(err).
@@ -122,6 +132,10 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 		} else if event.Type == EventTypeOutbound {
+			if !ep.outboundEnabled {
+				ep.logger.Warn().Str("event_id", event.EventID).Msg("outbound disabled, skipping outbound event processing")
+				continue
+			}
 			if err := ep.processOutboundEvent(ctx, &event); err != nil {
 				ep.logger.Error().
 					Err(err).

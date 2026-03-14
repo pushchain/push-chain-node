@@ -402,6 +402,15 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 
+			// Skip if outbound is disabled for destination chain
+			if !c.chains.IsChainOutboundEnabled(chain) {
+				c.logger.Warn().
+					Str("chain", chain).
+					Str("event_id", event.EventID).
+					Msg("outbound disabled for destination chain, skipping TSS signing")
+				continue
+			}
+
 			nonce, ok := c.assignSignNonce(ctx, event, chain, inFlightPerChain, nonceByChain, skippedChains)
 			if !ok {
 				continue

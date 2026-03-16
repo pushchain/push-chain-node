@@ -3,7 +3,6 @@ package txresolver
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -31,8 +30,8 @@ import (
 
 type mockTxBuilder struct{ mock.Mock }
 
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
-	args := m.Called(ctx, data, gasPrice, nonce)
+func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
+	args := m.Called(ctx, data, nonce)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

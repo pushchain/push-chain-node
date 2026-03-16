@@ -743,12 +743,6 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 		return nil, errors.New("chains manager not configured")
 	}
 
-	// Get gas price from pushcore oracle
-	gasPrice, err := c.pushCore.GetGasPrice(ctx, data.DestinationChain)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get gas price for chain %s", data.DestinationChain)
-	}
-
 	// Get the client for the destination chain
 	client, err := c.chains.GetClient(data.DestinationChain)
 	if err != nil {
@@ -761,11 +755,11 @@ func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte
 		return nil, errors.Wrapf(err, "failed to get tx builder for chain %s", data.DestinationChain)
 	}
 
-	// Get the signing request with the gas price from oracle (nonce is required for SIGN)
+	// Get the signing request (nonce is required for SIGN)
 	if assignedNonce == nil {
 		return nil, errors.New("assigned nonce is required for sign transaction")
 	}
-	signingReq, err := builder.GetOutboundSigningRequest(ctx, &data, gasPrice, *assignedNonce)
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &data, *assignedNonce)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get outbound signing request")
 	}

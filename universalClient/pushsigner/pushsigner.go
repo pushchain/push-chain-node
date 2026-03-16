@@ -104,9 +104,9 @@ func (s *Signer) VoteInbound(ctx context.Context, inbound *uexecutortypes.Inboun
 	return voteInbound(ctx, s, s.log, s.granter, inbound)
 }
 
-// VoteGasPrice votes on a gas price observation.
-func (s *Signer) VoteGasPrice(ctx context.Context, chainID string, price uint64, blockNumber uint64) (string, error) {
-	return voteGasPrice(ctx, s, s.log, s.granter, chainID, price, blockNumber)
+// VoteChainMeta votes on chain metadata (gas price, block height, observation timestamp).
+func (s *Signer) VoteChainMeta(ctx context.Context, chainID string, price uint64, chainHeight uint64, observedAt uint64) (string, error) {
+	return voteChainMeta(ctx, s, s.log, s.granter, chainID, price, chainHeight, observedAt)
 }
 
 // VoteOutbound votes on an outbound transaction observation.

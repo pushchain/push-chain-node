@@ -21,7 +21,7 @@ func TestVerifyGrants(t *testing.T) {
 	t.Run("all required grants present and valid", func(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
@@ -39,7 +39,7 @@ func TestVerifyGrants(t *testing.T) {
 	t.Run("grants with nil expiration are valid", func(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: nil},
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: nil},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: nil},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: nil},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: nil},
 		}
@@ -64,7 +64,7 @@ func TestVerifyGrants(t *testing.T) {
 	t.Run("expired grants are ignored", func(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &pastTime}, // Expired
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
@@ -80,7 +80,7 @@ func TestVerifyGrants(t *testing.T) {
 		wrongGranter := "push1wronggranter"
 		grants := []grantInfo{
 			{Granter: wrongGranter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
@@ -104,7 +104,7 @@ func TestVerifyGrants(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime}, // Duplicate
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 		}
@@ -117,7 +117,7 @@ func TestVerifyGrants(t *testing.T) {
 	t.Run("extra non-required grants are ignored", func(t *testing.T) {
 		grants := []grantInfo{
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteInbound", Expiration: &futureTime},
-			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteGasPrice", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/some.other.v1.MsgNotRequired", Expiration: &futureTime}, // Extra grant
@@ -209,7 +209,7 @@ func TestExtractGrantInfo(t *testing.T) {
 		ga1Any, err := codectypes.NewAnyWithValue(ga1)
 		require.NoError(t, err)
 
-		ga2 := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteGasPrice"}
+		ga2 := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteChainMeta"}
 		ga2Any, err := codectypes.NewAnyWithValue(ga2)
 		require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func TestExtractGrantInfo(t *testing.T) {
 		grants := extractGrantInfo(resp, cdc)
 		require.Len(t, grants, 2)
 		assert.Equal(t, "/uexecutor.v1.MsgVoteInbound", grants[0].MessageType)
-		assert.Equal(t, "/uexecutor.v1.MsgVoteGasPrice", grants[1].MessageType)
+		assert.Equal(t, "/uexecutor.v1.MsgVoteChainMeta", grants[1].MessageType)
 	})
 }
 
@@ -303,7 +303,7 @@ func TestValidationResult(t *testing.T) {
 			KeyName:  "test-key",
 			KeyAddr:  "push1keyaddr123",
 			Granter:  "push1granter123",
-			Messages: []string{"/uexecutor.v1.MsgVoteInbound", "/uexecutor.v1.MsgVoteGasPrice"},
+			Messages: []string{"/uexecutor.v1.MsgVoteInbound", "/uexecutor.v1.MsgVoteChainMeta"},
 		}
 
 		assert.Equal(t, "test-key", result.KeyName)

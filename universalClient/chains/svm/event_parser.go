@@ -301,10 +301,7 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 		offset += int(dataLen)
 	}
 
-	// Parse revert_cfg (RevertConfig struct)
-	// RevertConfig: { recipient: Pubkey, message: Vec<u8> }
-
-	// Parse revert recipient (Pubkey)
+	// Parse revert_recipient (Pubkey)
 	if len(data) < offset+32 {
 		logger.Warn().Msg("not enough data for revert recipient")
 		return payload, nil
@@ -312,36 +309,6 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 	revertRecipient := solana.PublicKey(data[offset : offset+32])
 	payload.RevertFundRecipient = revertRecipient.String()
 	offset += 32
-
-	// Parse revert message (Vec<u8>)
-	if len(data) < offset+4 {
-		logger.Warn().Msg("not enough data for revert message length")
-		return payload, nil
-	}
-	revertMsgLen := binary.LittleEndian.Uint32(data[offset : offset+4])
-	offset += 4
-
-	remainingForRevert := len(data) - offset
-	revertLenValid := int(revertMsgLen) <= remainingForRevert
-	if !revertLenValid {
-		logger.Warn().
-			Uint32("revert_msg_len", revertMsgLen).
-			Int("available", remainingForRevert).
-			Msg("revert message length invalid, skipping revert message parsing")
-	}
-
-	if revertLenValid && revertMsgLen > 0 {
-		if len(data) < offset+int(revertMsgLen) {
-			logger.Warn().
-				Uint32("expected_len", revertMsgLen).
-				Int("available", len(data)-offset).
-				Msg("not enough data for revert message")
-			return payload, nil
-		}
-		revertMsg := data[offset : offset+int(revertMsgLen)]
-		payload.RevertMsg = "0x" + hex.EncodeToString(revertMsg)
-		offset += int(revertMsgLen)
-	}
 
 	// Parse tx_type (TxType enum)
 	if len(data) <= offset {
@@ -376,6 +343,12 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 		offset += int(sigLen)
 	}
 
+	// Parse fromCEA (bool, 1 byte) - if not present, defaults to false
+	if len(data) > offset {
+		payload.FromCEA = data[offset] != 0
+		offset++
+	}
+
 	logger.Debug().
 		Str("sender", payload.Sender).
 		Str("recipient", payload.Recipient).
@@ -384,8 +357,8 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 		Str("universal_payload", fmt.Sprintf("%+v", payload.Payload)).
 		Str("verification_data", payload.VerificationData).
 		Str("revert_recipient", payload.RevertFundRecipient).
-		Str("revert_message", payload.RevertMsg).
 		Uint("tx_type", payload.TxType).
+		Bool("from_cea", payload.FromCEA).
 		Int("total_bytes_parsed", offset).
 		Msg("decoded UniversalTx event")
 

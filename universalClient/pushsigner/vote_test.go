@@ -59,35 +59,40 @@ func TestMsgVoteInboundConstruction(t *testing.T) {
 	})
 }
 
-func TestMsgVoteGasPriceConstruction(t *testing.T) {
-	t.Run("construct valid MsgVoteGasPrice", func(t *testing.T) {
+func TestMsgVoteChainMetaConstruction(t *testing.T) {
+	t.Run("construct valid MsgVoteChainMeta", func(t *testing.T) {
 		granter := "push1granter123"
 		chainID := "eip155:1"
 		price := uint64(20000000000)
-		blockNumber := uint64(18500000)
+		chainHeight := uint64(18500000)
+		observedAt := uint64(1700000001)
 
-		msg := &uexecutortypes.MsgVoteGasPrice{
+		msg := &uexecutortypes.MsgVoteChainMeta{
 			Signer:          granter,
 			ObservedChainId: chainID,
 			Price:           price,
-			BlockNumber:     blockNumber,
+			ChainHeight:     chainHeight,
+			ObservedAt:      observedAt,
 		}
 
 		assert.Equal(t, granter, msg.Signer)
 		assert.Equal(t, chainID, msg.ObservedChainId)
 		assert.Equal(t, price, msg.Price)
-		assert.Equal(t, blockNumber, msg.BlockNumber)
+		assert.Equal(t, chainHeight, msg.ChainHeight)
+		assert.Equal(t, observedAt, msg.ObservedAt)
 	})
 
-	t.Run("MsgVoteGasPrice with zero values", func(t *testing.T) {
-		msg := &uexecutortypes.MsgVoteGasPrice{
+	t.Run("MsgVoteChainMeta with zero values", func(t *testing.T) {
+		msg := &uexecutortypes.MsgVoteChainMeta{
 			Signer:          "push1granter123",
 			ObservedChainId: "eip155:1",
 			Price:           0,
-			BlockNumber:     0,
+			ChainHeight:     0,
+			ObservedAt:      0,
 		}
 		assert.Equal(t, uint64(0), msg.Price)
-		assert.Equal(t, uint64(0), msg.BlockNumber)
+		assert.Equal(t, uint64(0), msg.ChainHeight)
+		assert.Equal(t, uint64(0), msg.ObservedAt)
 	})
 }
 
@@ -251,11 +256,10 @@ func TestVoteMemoFormats(t *testing.T) {
 		assert.Equal(t, expectedMemo, actualMemo)
 	})
 
-	t.Run("gas price vote memo format", func(t *testing.T) {
+	t.Run("chain meta vote memo format", func(t *testing.T) {
 		chainID := "eip155:1"
-		price := "25000000000"
-		expectedMemo := "Vote gas price: eip155:1 @ 25000000000"
-		actualMemo := "Vote gas price: " + chainID + " @ " + price
+		expectedMemo := "Vote chain meta: eip155:1 @ price=25000000000 height=18500000"
+		actualMemo := "Vote chain meta: " + chainID + " @ price=25000000000 height=18500000"
 		assert.Equal(t, expectedMemo, actualMemo)
 	})
 

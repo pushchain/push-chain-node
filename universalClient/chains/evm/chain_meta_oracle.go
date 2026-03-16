@@ -9,8 +9,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// GasOracle handles fetching and reporting gas prices
-type GasOracle struct {
+// ChainMetaOracle handles fetching and reporting gas prices
+type ChainMetaOracle struct {
 	rpcClient               *RPCClient
 	pushSigner              *pushsigner.Signer
 	chainID                 string
@@ -20,15 +20,15 @@ type GasOracle struct {
 	wg                      sync.WaitGroup
 }
 
-// NewGasOracle creates a new gas oracle
-func NewGasOracle(
+// NewChainMetaOracle creates a new gas oracle
+func NewChainMetaOracle(
 	rpcClient *RPCClient,
 	pushSigner *pushsigner.Signer,
 	chainID string,
 	gasPriceIntervalSeconds int,
 	logger zerolog.Logger,
-) *GasOracle {
-	return &GasOracle{
+) *ChainMetaOracle {
+	return &ChainMetaOracle{
 		rpcClient:               rpcClient,
 		pushSigner:              pushSigner,
 		chainID:                 chainID,
@@ -39,24 +39,24 @@ func NewGasOracle(
 }
 
 // Start begins fetching and voting on gas prices
-func (g *GasOracle) Start(ctx context.Context) error {
+func (g *ChainMetaOracle) Start(ctx context.Context) error {
 	g.wg.Add(1)
-	go g.fetchAndVoteGasPrice(ctx)
+	go g.fetchAndVoteChainMeta(ctx)
 	return nil
 }
 
 // Stop stops the gas oracle
-func (g *GasOracle) Stop() {
+func (g *ChainMetaOracle) Stop() {
 	close(g.stopCh)
 	g.wg.Wait()
 }
 
-// fetchAndVoteGasPrice periodically fetches gas price and votes on it
-func (g *GasOracle) fetchAndVoteGasPrice(ctx context.Context) {
+// fetchAndVoteChainMeta periodically fetches gas price and votes on it
+func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 	defer g.wg.Done()
 
 	// Get gas oracle fetch interval from config
-	interval := g.getGasOracleFetchInterval()
+	interval := g.getChainMetaOracleFetchInterval()
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
@@ -97,15 +97,17 @@ func (g *GasOracle) fetchAndVoteGasPrice(ctx context.Context) {
 				continue
 			}
 
-			// Vote on gas price
+			// Vote on chain meta (gas price + block height + observation timestamp)
 			priceUint64 := gasPrice.Uint64()
-			voteTxHash, err := g.pushSigner.VoteGasPrice(ctx, g.chainID, priceUint64, blockNumber)
+			observedAt := uint64(time.Now().Unix())
+			voteTxHash, err := g.pushSigner.VoteChainMeta(ctx, g.chainID, priceUint64, blockNumber, observedAt)
 			if err != nil {
 				g.logger.Error().
 					Err(err).
 					Uint64("price", priceUint64).
 					Uint64("block", blockNumber).
-					Msg("failed to vote on gas price")
+					Uint64("observed_at", observedAt).
+					Msg("failed to vote on chain meta")
 				continue
 			}
 
@@ -113,13 +115,14 @@ func (g *GasOracle) fetchAndVoteGasPrice(ctx context.Context) {
 				Str("vote_tx_hash", voteTxHash).
 				Uint64("price", priceUint64).
 				Uint64("block", blockNumber).
-				Msg("successfully voted on gas price")
+				Uint64("observed_at", observedAt).
+				Msg("successfully voted on chain meta")
 		}
 	}
 }
 
-// getGasOracleFetchInterval returns the gas oracle fetch interval
-func (g *GasOracle) getGasOracleFetchInterval() time.Duration {
+// getChainMetaOracleFetchInterval returns the gas oracle fetch interval
+func (g *ChainMetaOracle) getChainMetaOracleFetchInterval() time.Duration {
 	if g.gasPriceIntervalSeconds <= 0 {
 		return 30 * time.Second
 	}

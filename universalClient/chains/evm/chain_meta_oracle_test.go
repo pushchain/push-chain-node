@@ -1,4 +1,4 @@
-package svm
+package evm
 
 import (
 	"testing"
@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewGasOracle(t *testing.T) {
+func TestNewChainMetaOracle(t *testing.T) {
 	t.Run("creates gas oracle with valid params", func(t *testing.T) {
 		logger := zerolog.Nop()
-		chainID := "solana:mainnet"
+		chainID := "eip155:1"
 		interval := 30
 
-		oracle := NewGasOracle(nil, nil, chainID, interval, logger)
+		oracle := NewChainMetaOracle(nil, nil, chainID, interval, logger)
 
 		require.NotNil(t, oracle)
 		assert.Equal(t, chainID, oracle.chainID)
@@ -29,36 +29,37 @@ func TestNewGasOracle(t *testing.T) {
 		logger := zerolog.Nop()
 
 		testCases := []string{
-			"solana:mainnet",
-			"solana:devnet",
-			"solana:testnet",
+			"eip155:1",
+			"eip155:97",
+			"eip155:137",
+			"eip155:42161",
 		}
 
 		for _, chainID := range testCases {
-			oracle := NewGasOracle(nil, nil, chainID, 30, logger)
+			oracle := NewChainMetaOracle(nil, nil, chainID, 30, logger)
 			assert.Equal(t, chainID, oracle.chainID)
 		}
 	})
 }
 
-func TestGasOracleGetGasOracleFetchInterval(t *testing.T) {
+func TestChainMetaOracleGetChainMetaOracleFetchInterval(t *testing.T) {
 	logger := zerolog.Nop()
 
 	t.Run("returns configured interval", func(t *testing.T) {
-		oracle := NewGasOracle(nil, nil, "solana:mainnet", 60, logger)
-		interval := oracle.getGasOracleFetchInterval()
+		oracle := NewChainMetaOracle(nil, nil, "eip155:1", 60, logger)
+		interval := oracle.getChainMetaOracleFetchInterval()
 		assert.Equal(t, 60*time.Second, interval)
 	})
 
 	t.Run("returns default for zero interval", func(t *testing.T) {
-		oracle := NewGasOracle(nil, nil, "solana:mainnet", 0, logger)
-		interval := oracle.getGasOracleFetchInterval()
+		oracle := NewChainMetaOracle(nil, nil, "eip155:1", 0, logger)
+		interval := oracle.getChainMetaOracleFetchInterval()
 		assert.Equal(t, 30*time.Second, interval)
 	})
 
 	t.Run("returns default for negative interval", func(t *testing.T) {
-		oracle := NewGasOracle(nil, nil, "solana:mainnet", -10, logger)
-		interval := oracle.getGasOracleFetchInterval()
+		oracle := NewChainMetaOracle(nil, nil, "eip155:1", -10, logger)
+		interval := oracle.getChainMetaOracleFetchInterval()
 		assert.Equal(t, 30*time.Second, interval)
 	})
 
@@ -74,26 +75,26 @@ func TestGasOracleGetGasOracleFetchInterval(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			oracle := NewGasOracle(nil, nil, "solana:mainnet", tc.input, logger)
-			interval := oracle.getGasOracleFetchInterval()
+			oracle := NewChainMetaOracle(nil, nil, "eip155:1", tc.input, logger)
+			interval := oracle.getChainMetaOracleFetchInterval()
 			assert.Equal(t, tc.expected, interval, "interval %d should result in %v", tc.input, tc.expected)
 		}
 	})
 }
 
-func TestGasOracleStop(t *testing.T) {
+func TestChainMetaOracleStop(t *testing.T) {
 	t.Run("stop waits for goroutine", func(t *testing.T) {
 		logger := zerolog.Nop()
-		oracle := NewGasOracle(nil, nil, "solana:mainnet", 30, logger)
+		oracle := NewChainMetaOracle(nil, nil, "eip155:1", 30, logger)
 
 		// Should not panic or hang
 		oracle.Stop()
 	})
 }
 
-func TestGasOracleStruct(t *testing.T) {
+func TestChainMetaOracleStruct(t *testing.T) {
 	t.Run("struct has expected fields", func(t *testing.T) {
-		oracle := &GasOracle{}
+		oracle := &ChainMetaOracle{}
 		assert.Nil(t, oracle.rpcClient)
 		assert.Nil(t, oracle.pushSigner)
 		assert.Empty(t, oracle.chainID)

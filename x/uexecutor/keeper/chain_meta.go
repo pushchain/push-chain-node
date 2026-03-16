@@ -51,14 +51,11 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 			return sdkerrors.Wrap(err, "failed to set initial chain meta entry")
 		}
 
-		// EVM call with single price
 		priceBig := math.NewUint(price).BigInt()
 		chainHeightBig := math.NewUint(blockNumber).BigInt()
 		observedAtBig := math.NewUint(observedAt).BigInt()
 		if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, priceBig, chainHeightBig, observedAtBig); evmErr != nil {
-			// Non-fatal: log the error. The EVM call may fail if the contract hasn't been upgraded yet
-			// (old bytecode only has setGasPrice). State is still persisted.
-			sdkCtx.Logger().Error("VoteChainMeta: EVM setChainMeta call failed", "chain", observedChainId, "error", evmErr)
+			return sdkerrors.Wrap(evmErr, "failed to call EVM setChainMeta")
 		}
 
 		return nil
@@ -83,20 +80,24 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 		entry.ObservedAts = append(entry.ObservedAts, observedAt)
 	}
 
-	// Recompute median on price
-	medianIdx := computeMedianIndex(entry.Prices)
+	// Recompute median: filter out stale validators first, then median on price.
+	// Staleness is measured by observedAt (Unix seconds) — chain-agnostic.
+	// See computeMedianIndexFiltered for the two-step algorithm.
+	medianIdx := computeMedianIndexFiltered(entry.Prices, entry.ObservedAts)
 	entry.MedianIndex = uint64(medianIdx)
 
 	if err := k.SetChainMeta(ctx, observedChainId, entry); err != nil {
 		return sdkerrors.Wrap(err, "failed to set updated chain meta entry")
 	}
 
+	// Use the full observation tuple from the median-price validator.
+	// chainHeight and observedAt are NOT independent medians — they are the
+	// co-indexed values from whichever validator submitted the median price.
 	medianPrice := math.NewUint(entry.Prices[medianIdx]).BigInt()
-	medianChainHeight := math.NewUint(entry.ChainHeights[medianIdx]).BigInt()
-	medianObservedAt := math.NewUint(entry.ObservedAts[medianIdx]).BigInt()
-	if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, medianPrice, medianChainHeight, medianObservedAt); evmErr != nil {
-		// Non-fatal: log. Same forward-compat reason as above.
-		sdkCtx.Logger().Error("VoteChainMeta: EVM setChainMeta call failed", "chain", observedChainId, "error", evmErr)
+	coChainHeight := math.NewUint(entry.ChainHeights[medianIdx]).BigInt()
+	coObservedAt := math.NewUint(entry.ObservedAts[medianIdx]).BigInt()
+	if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, medianPrice, coChainHeight, coObservedAt); evmErr != nil {
+		return sdkerrors.Wrap(evmErr, "failed to call EVM setChainMeta")
 	}
 
 	return nil

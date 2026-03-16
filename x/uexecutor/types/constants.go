@@ -40,6 +40,11 @@ const (
 
 	// Default number of blocks after which ballot expires
 	DefaultExpiryAfterBlocks = 10000
+
+	// ObservedAtStalenessThresholdSeconds is the maximum number of seconds a
+	// validator's observedAt timestamp may deviate from the median observedAt before
+	// its price vote is excluded from the median price computation in VoteChainMeta.
+	ObservedAtStalenessThresholdSeconds uint64 = 300
 )
 
 var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(

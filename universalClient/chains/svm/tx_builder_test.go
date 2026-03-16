@@ -29,8 +29,8 @@ import (
 // ============================================================
 
 // testGatewayAddress is a valid base58 Solana public key used for unit tests.
-// It is NOT a real deployed gateway — only used for PDA derivations in offline tests.
-const testGatewayAddress = "11111111111111111111111111111111" // system program, valid base58
+// Must NOT be SystemProgramID to avoid collisions with destinationProgram sentinel values.
+const testGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
 
 func newTestBuilder(t *testing.T) *TxBuilder {
 	t.Helper()
@@ -504,9 +504,9 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 500000)
 		msg = append(msg, amountBE...)
-		// additional: utx_id, tx_id, recipient, gas_fee
-		msg = append(msg, utxID[:]...)
+		// additional: tx_id, utx_id, recipient, gas_fee
 		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)
 		msg = append(msg, gasBE...)
@@ -532,9 +532,9 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 750000)
 		msg = append(msg, amountBE...)
-		// additional: utx_id, tx_id, mint, recipient, gas_fee
-		msg = append(msg, utxID[:]...)
+		// additional: tx_id, utx_id, mint, recipient, gas_fee
 		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertMint[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)
@@ -1364,7 +1364,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 // ============================================================
 
 const (
-	devnetGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
+	devnetGatewayAddress = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
 	devnetRPCURL         = "https://api.devnet.solana.com"
 	devnetGenesisHash    = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
 	devnetSPLMint        = "EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"

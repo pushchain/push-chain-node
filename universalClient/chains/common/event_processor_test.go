@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	ucdb "github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -17,7 +19,7 @@ func TestNewEventProcessor(t *testing.T) {
 		logger := zerolog.Nop()
 		chainID := "eip155:1"
 
-		processor := NewEventProcessor(nil, nil, chainID, logger)
+		processor := NewEventProcessor(nil, nil, chainID, true, true, logger)
 
 		require.NotNil(t, processor)
 		assert.Equal(t, chainID, processor.chainID)
@@ -49,7 +51,7 @@ func TestEventProcessorStop(t *testing.T) {
 
 func TestEventProcessorBase58ToHex(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "test-chain", logger)
+	processor := NewEventProcessor(nil, nil, "test-chain", true, true, logger)
 
 	t.Run("empty string returns 0x", func(t *testing.T) {
 		result, err := processor.base58ToHex("")
@@ -83,7 +85,7 @@ func TestEventProcessorBase58ToHex(t *testing.T) {
 
 func TestEventProcessorConstructInbound(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
 		inbound, err := processor.constructInbound(nil)
@@ -172,7 +174,7 @@ func TestEventProcessorConstructInbound(t *testing.T) {
 
 func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
 		txID, utxID, err := processor.extractOutboundIDs(nil)
@@ -253,7 +255,7 @@ func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 
 func TestEventProcessorExtractOutboundObservation(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
 		obs, err := processor.extractOutboundObservation(nil)
@@ -300,5 +302,148 @@ func TestEventProcessorStruct(t *testing.T) {
 		assert.Empty(t, ep.chainID)
 		assert.False(t, ep.running)
 		assert.Nil(t, ep.stopCh)
+	})
+}
+
+func TestNewEventProcessorEnabledFlags(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("both enabled", func(t *testing.T) {
+		ep := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
+		assert.True(t, ep.inboundEnabled)
+		assert.True(t, ep.outboundEnabled)
+	})
+
+	t.Run("inbound only", func(t *testing.T) {
+		ep := NewEventProcessor(nil, nil, "eip155:1", true, false, logger)
+		assert.True(t, ep.inboundEnabled)
+		assert.False(t, ep.outboundEnabled)
+	})
+
+	t.Run("outbound only", func(t *testing.T) {
+		ep := NewEventProcessor(nil, nil, "eip155:1", false, true, logger)
+		assert.False(t, ep.inboundEnabled)
+		assert.True(t, ep.outboundEnabled)
+	})
+
+	t.Run("both disabled", func(t *testing.T) {
+		ep := NewEventProcessor(nil, nil, "eip155:1", false, false, logger)
+		assert.False(t, ep.inboundEnabled)
+		assert.False(t, ep.outboundEnabled)
+	})
+}
+
+func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	// Helper to create an in-memory DB and seed confirmed events
+	setupDB := func(t *testing.T, events []store.Event) *ucdb.DB {
+		t.Helper()
+		database, err := ucdb.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		for _, e := range events {
+			result := database.Client().Create(&e)
+			require.NoError(t, result.Error)
+		}
+		return database
+	}
+
+	inboundEventData, _ := json.Marshal(UniversalTx{
+		SourceChain: "eip155:1",
+		Sender:      "0xsender",
+		Amount:      "1000",
+		TxType:      2,
+	})
+
+	outboundEventData, _ := json.Marshal(OutboundEvent{
+		TxID:          "0xtxid",
+		UniversalTxID: "0xutxid",
+	})
+
+	makeEvents := func() []store.Event {
+		return []store.Event{
+			{
+				EventID:   "0xaaa:0",
+				Status:    "CONFIRMED",
+				Type:      EventTypeInbound,
+				EventData: inboundEventData,
+			},
+			{
+				EventID:   "0xbbb:0",
+				Status:    "CONFIRMED",
+				Type:      EventTypeOutbound,
+				EventData: outboundEventData,
+			},
+		}
+	}
+
+	t.Run("inbound disabled skips inbound events, leaves them CONFIRMED", func(t *testing.T) {
+		database := setupDB(t, makeEvents())
+		// inbound=false, outbound=false (no signer so outbound will also fail to vote, but that's ok)
+		ep := NewEventProcessor(nil, database, "eip155:1", false, false, logger)
+
+		err := ep.processConfirmedEvents(ctx)
+		require.NoError(t, err)
+
+		// Inbound event should still be CONFIRMED (skipped, not processed)
+		var inboundEvt store.Event
+		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
+		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
+	})
+
+	t.Run("outbound disabled skips outbound events, leaves them CONFIRMED", func(t *testing.T) {
+		database := setupDB(t, makeEvents())
+		ep := NewEventProcessor(nil, database, "eip155:1", false, false, logger)
+
+		err := ep.processConfirmedEvents(ctx)
+		require.NoError(t, err)
+
+		// Outbound event should still be CONFIRMED (skipped, not processed)
+		var outboundEvt store.Event
+		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
+		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+	})
+
+	t.Run("inbound enabled but outbound disabled skips only outbound", func(t *testing.T) {
+		// Seed only outbound events so we don't hit nil signer panic on inbound
+		database := setupDB(t, []store.Event{
+			{
+				EventID:   "0xbbb:0",
+				Status:    "CONFIRMED",
+				Type:      EventTypeOutbound,
+				EventData: outboundEventData,
+			},
+		})
+		ep := NewEventProcessor(nil, database, "eip155:1", true, false, logger)
+
+		err := ep.processConfirmedEvents(ctx)
+		require.NoError(t, err)
+
+		// Outbound event should still be CONFIRMED (skipped due to outbound disabled)
+		var outboundEvt store.Event
+		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
+		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+	})
+
+	t.Run("outbound enabled but inbound disabled skips only inbound", func(t *testing.T) {
+		// Seed only inbound events so we don't hit nil signer panic on outbound
+		database := setupDB(t, []store.Event{
+			{
+				EventID:   "0xaaa:0",
+				Status:    "CONFIRMED",
+				Type:      EventTypeInbound,
+				EventData: inboundEventData,
+			},
+		})
+		ep := NewEventProcessor(nil, database, "eip155:1", false, true, logger)
+
+		err := ep.processConfirmedEvents(ctx)
+		require.NoError(t, err)
+
+		// Inbound event should still be CONFIRMED (skipped due to inbound disabled)
+		var inboundEvt store.Event
+		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
+		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
 	})
 }

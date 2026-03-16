@@ -79,11 +79,6 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// DefaultComputeUnitLimit is the fallback compute budget when the event doesn't specify a gas limit.
-// Solana charges based on "compute units" (similar to EVM gas). 200k is a safe default for most
-// gateway operations. The actual cost depends on how many accounts are touched, CPI depth, etc.
-const DefaultComputeUnitLimit = 200000
-
 // GatewayAccountMeta represents a single account that a target program needs when executing
 // an arbitrary cross-chain call (instruction_id=2). The payload from Push Chain includes a list
 // of these — each with the account's public key and whether it needs write access.
@@ -162,7 +157,6 @@ func NewTxBuilder(
 func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
-	gasPrice *big.Int,
 	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
@@ -173,9 +167,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	if data.DestinationChain == "" {
 		return nil, fmt.Errorf("destinationChain is required")
-	}
-	if gasPrice == nil {
-		return nil, fmt.Errorf("gasPrice is required")
 	}
 
 	// --- Parse all fields from the outbound event ---
@@ -267,9 +258,11 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 	// For native SOL, token stays all-zeros (Pubkey::default() in Rust)
 
-	// Gas fee from event. TODO: OutboundCreatedEvent doesn't include GasFee field yet.
-	// When the event pipeline threads gas_fee through, parse it here.
+	// Parse gas fee from event data
 	var gasFee uint64
+	if data.GasFee != "" {
+		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
+	}
 
 	// recipient/target: Solana pubkey of the destination. Used differently depending on instruction:
 	//   - Withdraw (id=1): the wallet that receives the funds (target = recipient)
@@ -381,12 +374,9 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("failed to construct TSS message: %w", err)
 	}
 
-	prioritizationFee := gasPrice.Uint64()
-
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: messageHash, // This is the keccak256 hash to be signed by TSS
 		Nonce:       nonce,
-		GasPrice:    big.NewInt(int64(prioritizationFee)),
 	}, nil
 }
 
@@ -567,8 +557,11 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		copy(token[:], mintPubkey.Bytes())
 	}
 
-	// Gas fee from event. TODO: OutboundCreatedEvent doesn't include GasFee field yet.
+	// Parse gas fee from event data
 	var gasFee uint64
+	if data.GasFee != "" {
+		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
+	}
 
 	recipientPubkey, err := solana.PublicKeyFromBase58(data.Recipient)
 	if err != nil {
@@ -747,23 +740,19 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData,
 	)
 
-	var computeUnitLimit uint32
 	if data.GasLimit == "" || data.GasLimit == "0" {
-		computeUnitLimit = DefaultComputeUnitLimit
-	} else {
-		parsedLimit, parseErr := strconv.ParseUint(data.GasLimit, 10, 32)
-		if parseErr != nil {
-			computeUnitLimit = DefaultComputeUnitLimit
-		} else {
-			computeUnitLimit = uint32(parsedLimit)
-		}
+		return nil, 0, fmt.Errorf("gas limit is required in outbound event")
 	}
+	parsedLimit, parseErr := strconv.ParseUint(data.GasLimit, 10, 32)
+	if parseErr != nil {
+		return nil, 0, fmt.Errorf("invalid gas limit: %s", data.GasLimit)
+	}
+	computeUnitLimit := uint32(parsedLimit)
 
-	computeBudgetInstruction := tb.buildSetComputeUnitLimitInstruction(computeUnitLimit)
+	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(computeUnitLimit)
 
-	// Build the instruction list. For SPL flows that need a recipient ATA
-	// (withdraw SPL or revert SPL), prepend a CreateIdempotent ATA instruction.
-	instructions := []solana.Instruction{computeBudgetInstruction}
+	// Build the instruction list.
+	instructions := []solana.Instruction{computeLimitIx}
 
 	needsRecipientATA := (instructionID == 1 && !isNative) || instructionID == 4
 	if needsRecipientATA {

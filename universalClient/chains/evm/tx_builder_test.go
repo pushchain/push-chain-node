@@ -36,9 +36,6 @@ func newTestTxBuilder(t *testing.T) *TxBuilder {
 	}
 }
 
-func TestDefaultGasLimit(t *testing.T) {
-	assert.Equal(t, int64(500000), int64(DefaultGasLimit))
-}
 
 func TestRevertInstructionsStruct(t *testing.T) {
 	recipient := ethcommon.HexToAddress("0x1234567890123456789012345678901234567890")
@@ -519,24 +516,28 @@ func TestParseTxType(t *testing.T) {
 }
 
 func TestParseGasLimit(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected int64
-	}{
-		{"empty uses default", "", DefaultGasLimit},
-		{"zero uses default", "0", DefaultGasLimit},
-		{"valid gas limit", "100000", 100000},
-		{"large gas limit", "1000000", 1000000},
-		{"invalid uses default", "not-a-number", DefaultGasLimit},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := parseGasLimit(tt.input)
-			assert.Equal(t, tt.expected, result.Int64())
-		})
-	}
+	t.Run("empty returns error", func(t *testing.T) {
+		_, err := parseGasLimit("")
+		assert.Error(t, err)
+	})
+	t.Run("zero returns error", func(t *testing.T) {
+		_, err := parseGasLimit("0")
+		assert.Error(t, err)
+	})
+	t.Run("valid gas limit", func(t *testing.T) {
+		result, err := parseGasLimit("100000")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(100000), result.Int64())
+	})
+	t.Run("large gas limit", func(t *testing.T) {
+		result, err := parseGasLimit("1000000")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1000000), result.Int64())
+	})
+	t.Run("invalid returns error", func(t *testing.T) {
+		_, err := parseGasLimit("not-a-number")
+		assert.Error(t, err)
+	})
 }
 
 // TestFinalizeUniversalTxUnifiedEncoding verifies that finalizeUniversalTx is used

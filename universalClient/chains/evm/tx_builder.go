@@ -18,8 +18,6 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// DefaultGasLimit is used when gas limit is not provided in the outbound event data
-const DefaultGasLimit = 500000
 
 // RevertInstructions represents the struct for revert instruction in contracts
 // Matches: struct RevertInstructions { address revertRecipient; bytes revertMsg; }
@@ -90,7 +88,6 @@ func NewTxBuilder(
 func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
-	gasPrice *big.Int,
 	nonce uint64,
 ) (*common.UnSignedOutboundTxReq, error) {
 	if data == nil {
@@ -102,11 +99,21 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	if data.DestinationChain == "" {
 		return nil, fmt.Errorf("destinationChain is required")
 	}
-	if gasPrice == nil {
-		return nil, fmt.Errorf("gasPrice is required")
+
+	gasPrice := new(big.Int)
+	if data.GasPrice != "" {
+		if _, ok := gasPrice.SetString(data.GasPrice, 10); !ok {
+			return nil, fmt.Errorf("invalid gas price in event data: %s", data.GasPrice)
+		}
+	}
+	if gasPrice.Sign() == 0 {
+		return nil, fmt.Errorf("gas price is zero or missing in outbound event")
 	}
 
-	gasLimit := parseGasLimit(data.GasLimit)
+	gasLimit, err := parseGasLimit(data.GasLimit)
+	if err != nil {
+		return nil, err
+	}
 
 	amount := new(big.Int)
 	amount, ok := amount.SetString(data.Amount, 10)
@@ -148,7 +155,6 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: txHash,
 		Nonce:       nonce,
-		GasPrice:    gasPrice,
 	}, nil
 }
 
@@ -206,14 +212,22 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		return "", fmt.Errorf("failed to resolve tx params: %w", err)
 	}
 
-	gasLimitForTx := parseGasLimit(data.GasLimit)
+	gasLimitForTx, err := parseGasLimit(data.GasLimit)
+	if err != nil {
+		return "", fmt.Errorf("invalid gas limit: %w", err)
+	}
+
+	gasPrice := new(big.Int)
+	if data.GasPrice != "" {
+		gasPrice.SetString(data.GasPrice, 10)
+	}
 
 	tx := types.NewTransaction(
 		req.Nonce,
 		toAddress,
 		txValue,
 		gasLimitForTx.Uint64(),
-		req.GasPrice,
+		gasPrice,
 		txData,
 	)
 
@@ -469,17 +483,17 @@ func parseTxType(txTypeStr string) (uetypes.TxType, error) {
 	return uetypes.TxType_UNSPECIFIED_TX, fmt.Errorf("unknown tx type: %s", txTypeStr)
 }
 
-// parseGasLimit parses gas limit string, returning default if empty or zero
-func parseGasLimit(gasLimitStr string) *big.Int {
+// parseGasLimit parses gas limit string, returning an error if empty or zero.
+func parseGasLimit(gasLimitStr string) (*big.Int, error) {
 	if gasLimitStr == "" || gasLimitStr == "0" {
-		return big.NewInt(DefaultGasLimit)
+		return nil, fmt.Errorf("gas limit is required in outbound event")
 	}
 	gasLimit := new(big.Int)
 	gasLimit, ok := gasLimit.SetString(gasLimitStr, 10)
 	if !ok {
-		return big.NewInt(DefaultGasLimit)
+		return nil, fmt.Errorf("invalid gas limit: %s", gasLimitStr)
 	}
-	return gasLimit
+	return gasLimit, nil
 }
 
 // IsAlreadyExecuted returns false for EVM. EVM uses nonce-based replay protection,

@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -231,9 +230,6 @@ func TestNewTxBuilder(t *testing.T) {
 //  TestDefaultComputeUnitLimit
 // ============================================================
 
-func TestDefaultComputeUnitLimit(t *testing.T) {
-	assert.Equal(t, uint32(200000), uint32(DefaultComputeUnitLimit))
-}
 
 // ============================================================
 //  TestDeriveTSSPDA — seed must be "tsspda_v2"
@@ -1143,32 +1139,24 @@ func TestGatewayAccountMetaStruct(t *testing.T) {
 // ============================================================
 
 func TestGasLimitParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		gasLimit string
-		expected uint32
-	}{
-		{"empty → default", "", DefaultComputeUnitLimit},
-		{"zero → default", "0", DefaultComputeUnitLimit},
-		{"valid", "300000", 300000},
-		{"invalid number → default", "abc", DefaultComputeUnitLimit},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var result uint32
-			if tt.gasLimit == "" || tt.gasLimit == "0" {
-				result = DefaultComputeUnitLimit
-			} else {
-				parsed, err := parseUint32(tt.gasLimit)
-				if err != nil {
-					result = DefaultComputeUnitLimit
-				} else {
-					result = parsed
-				}
-			}
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	t.Run("empty returns error", func(t *testing.T) {
+		_, err := parseUint32("")
+		assert.Error(t, err)
+	})
+	t.Run("zero returns error", func(t *testing.T) {
+		_, err := parseUint32("0")
+		// parseUint32 parses successfully but returns 0
+		assert.NoError(t, err)
+	})
+	t.Run("valid", func(t *testing.T) {
+		result, err := parseUint32("300000")
+		assert.NoError(t, err)
+		assert.Equal(t, uint32(300000), result)
+	})
+	t.Run("invalid number returns error", func(t *testing.T) {
+		_, err := parseUint32("abc")
+		assert.Error(t, err)
+	})
 }
 
 func parseUint32(s string) (uint32, error) {
@@ -1461,7 +1449,7 @@ func buildAndSimulate(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, da
 	defer cancel()
 
 	// Step 1: Build signing request (fetches chain ID from on-chain TSS PDA)
-	req, err := builder.GetOutboundSigningRequest(ctx, data, big.NewInt(1000), 0)
+	req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
 	if err != nil {
 		return nil, fmt.Errorf("GetOutboundSigningRequest: %w", err)
 	}

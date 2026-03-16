@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"math/big"
 
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -25,15 +24,14 @@ type ChainClient interface {
 
 // UnSignedOutboundTxReq contains the request for signing an outbound transaction
 type UnSignedOutboundTxReq struct {
-	SigningHash []byte   // Hash to be signed by TSS
-	Nonce       uint64   // evm - TSS Address nonce | svm - PDA nonce
-	GasPrice    *big.Int // evm - Gas price used | svm - Prioritization fee
+	SigningHash []byte // Hash to be signed by TSS
+	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
 }
 
 // OutboundTxBuilder builds and broadcasts transactions for outbound transfers
 type OutboundTxBuilder interface {
 	// GetOutboundSigningRequest creates a signing request from outbound event data
-	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*UnSignedOutboundTxReq, error)
+	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnSignedOutboundTxReq, error)
 
 	// GetNextNonce returns the next nonce for the given signer on this chain (for seeding local nonce).
 	// useFinalized: for EVM, if true use finalized block nonce (aggressive/replace stuck); if false use pending. SVM ignores this.

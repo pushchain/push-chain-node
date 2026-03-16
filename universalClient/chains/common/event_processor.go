@@ -288,6 +288,7 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 		AssetAddr:   eventData.Token,
 		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
+		IsCEA:       eventData.FromCEA,
 	}
 
 	if txType == uexecutortypes.TxType_FUNDS_AND_PAYLOAD || txType == uexecutortypes.TxType_GAS_AND_PAYLOAD {
@@ -297,6 +298,13 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 	// Set recipient for transactions that involve funds
 	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS {
 		inboundMsg.Recipient = eventData.Recipient
+	}
+
+	// Set revert instructions if revert fund recipient is present
+	if eventData.RevertFundRecipient != "" {
+		inboundMsg.RevertInstructions = &uexecutortypes.RevertInstructions{
+			FundRecipient: eventData.RevertFundRecipient,
+		}
 	}
 
 	// Check if VerificationData is 0x and replace with TxHash

@@ -69,8 +69,8 @@ type UniversalTx struct {
 	Payload             uetypes.UniversalPayload `json:"universalPayload"`
 	VerificationData    string                   `json:"verificationData"`
 	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
-	RevertMsg           string                   `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
+	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
 }
 
 // OutboundEvent represents an outbound observation event from the gateway contract

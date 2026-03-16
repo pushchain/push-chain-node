@@ -15,12 +15,18 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"math/big"
+
+	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -384,4 +390,47 @@ func TestSessionManager_Integration(t *testing.T) {
 	assert.True(t,
 		containsAny(err.Error(), []string{"failed to create session", "DKLS", "dkls", "session", "no endpoints"}),
 		"error should be about session creation or endpoints, got: %s", err.Error())
+}
+
+func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
+	sm, _, _, _, _, _ := setupTestSessionManager(t)
+	ctx := context.Background()
+
+	// Create a Chains manager with empty maps — IsChainOutboundEnabled returns false for all chains
+	chainsManager := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	sm.chains = chainsManager
+
+	outboundData := uexecutortypes.OutboundCreatedEvent{
+		DestinationChain: "eip155:1",
+	}
+	eventDataBytes, _ := json.Marshal(outboundData)
+
+	event := &store.Event{
+		EventID:   "sign-event-1",
+		Type:      "SIGN",
+		Status:    eventstore.StatusConfirmed,
+		EventData: eventDataBytes,
+	}
+
+	req := &common.UnSignedOutboundTxReq{
+		SigningHash: []byte{0x01, 0x02, 0x03},
+		GasPrice:   big.NewInt(1000000000),
+	}
+
+	t.Run("rejects signing when outbound disabled for destination chain", func(t *testing.T) {
+		err := sm.verifySigningRequest(ctx, event, req)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "outbound disabled")
+		assert.Contains(t, err.Error(), "eip155:1")
+	})
+
+	t.Run("nil chains skips outbound check", func(t *testing.T) {
+		sm.chains = nil
+		err := sm.verifySigningRequest(ctx, event, req)
+		// Should pass the outbound check (skipped) and fail later on gas price validation
+		// or hash verification — but NOT on "outbound disabled"
+		if err != nil {
+			assert.NotContains(t, err.Error(), "outbound disabled")
+		}
+	})
 }

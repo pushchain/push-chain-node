@@ -415,3 +415,79 @@ func TestVoteChainMetaContractState(t *testing.T) {
 		require.Equal(t, new(big.Int).SetUint64(observedAt), got)
 	})
 }
+
+// TestVoteChainMetaAbsoluteStaleness verifies that when all validators' observedAt timestamps
+// are older than ObservedAtStalenessThresholdSeconds relative to the current block time,
+// the EVM contract is NOT updated (it retains its previous value).
+//
+// These tests call VoteChainMeta directly on the keeper (bypassing authz) so that
+// block time can be freely manipulated without hitting authz grant expiry.
+func TestVoteChainMetaAbsoluteStaleness(t *testing.T) {
+	chainId := "eip155:11155111"
+	threshold := uexecutortypes.ObservedAtStalenessThresholdSeconds // 300
+
+	universalCoreAddr := utils.GetDefaultAddresses().HandlerAddr
+
+	readGasPrice := func(t *testing.T, testApp *app.ChainApp, ctx sdk.Context) *big.Int {
+		t.Helper()
+		ucABI, err := uexecutortypes.ParseUniversalCoreABI()
+		require.NoError(t, err)
+		caller, _ := testApp.UexecutorKeeper.GetUeModuleAddress(ctx)
+		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, "gasPriceByChainNamespace", chainId)
+		require.NoError(t, err)
+		return new(big.Int).SetBytes(res.Ret)
+	}
+
+	t.Run("stale single vote does not update contract", func(t *testing.T) {
+		testApp, ctx, _, vals := setupVoteChainMetaTest(t, 1)
+
+		staleObservedAt := uint64(1_700_000_000)
+		// Block time is far past the staleness window
+		staleCtx := ctx.WithBlockTime(time.Unix(int64(staleObservedAt+threshold+60), 0))
+
+		valAddr, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
+		require.NoError(t, err)
+
+		require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(staleCtx, valAddr, chainId,
+			100_000_000_000, 12345, staleObservedAt))
+
+		// Vote was stored in state
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(staleCtx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, uint64(100_000_000_000), stored.Prices[0])
+
+		// Contract must NOT have been updated — should still be 0
+		require.Zero(t, readGasPrice(t, testApp, staleCtx).Sign(),
+			"contract must not be updated when all validators are stale")
+	})
+
+	t.Run("all validators stale does not update contract", func(t *testing.T) {
+		testApp, ctx, _, vals := setupVoteChainMetaTest(t, 3)
+
+		freshObservedAt := uint64(1_700_000_000)
+
+		// First vote with fresh block time → contract gets updated
+		freshCtx := ctx.WithBlockTime(time.Unix(int64(freshObservedAt), 0))
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			require.NoError(t, err)
+			require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(freshCtx, valAddr, chainId,
+				200_000_000_000, uint64(12345+i), freshObservedAt+uint64(i)))
+		}
+		require.Equal(t, new(big.Int).SetUint64(200_000_000_000), readGasPrice(t, testApp, freshCtx))
+
+		// Re-vote with same old timestamps but block time past staleness window
+		futureCtx := ctx.WithBlockTime(time.Unix(int64(freshObservedAt+threshold+60), 0))
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			require.NoError(t, err)
+			require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(futureCtx, valAddr, chainId,
+				999_000_000_000, uint64(99999+i), freshObservedAt+uint64(i)))
+		}
+
+		// Contract must retain the old fresh value — stale votes must not overwrite it
+		require.Equal(t, new(big.Int).SetUint64(200_000_000_000), readGasPrice(t, testApp, futureCtx),
+			"contract must retain last good value when all validators report stale data")
+	})
+}

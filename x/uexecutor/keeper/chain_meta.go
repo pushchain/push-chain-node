@@ -26,8 +26,26 @@ func (k Keeper) SetChainMeta(ctx context.Context, chainID string, chainMeta type
 	return k.ChainMetas.Set(ctx, chainID, chainMeta)
 }
 
+// isObservedAtStale returns true if observedAt (Unix seconds) is older than
+// ObservedAtStalenessThresholdSeconds relative to the current block time.
+// When true the data should not be pushed to the UniversalCore contract.
+// Returns false when block time is zero or negative (not yet configured).
+func isObservedAtStale(sdkCtx sdk.Context, observedAt uint64) bool {
+	blockTimeUnix := sdkCtx.BlockTime().Unix()
+	if blockTimeUnix <= 0 {
+		// Block time not configured (e.g. genesis or test setup) — skip staleness check.
+		return false
+	}
+	blockTimeSec := uint64(blockTimeUnix)
+	return blockTimeSec > observedAt &&
+		blockTimeSec-observedAt > types.ObservedAtStalenessThresholdSeconds
+}
+
 // VoteChainMeta processes a universal validator's vote on chain metadata (gas price + chain height + observed timestamp).
 // It accumulates votes, computes the median price, and calls setChainMeta on the UniversalCore contract.
+// If the median observedAt is older than ObservedAtStalenessThresholdSeconds relative to the current
+// block time, the EVM contract is NOT updated — all validators are considered stale and retaining
+// the last good contract state is preferred over pushing stale data.
 func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAddress, observedChainId string, price, blockNumber, observedAt uint64) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -49,6 +67,12 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 
 		if err := k.SetChainMeta(ctx, observedChainId, newEntry); err != nil {
 			return sdkerrors.Wrap(err, "failed to set initial chain meta entry")
+		}
+
+		if isObservedAtStale(sdkCtx, observedAt) {
+			sdkCtx.Logger().Info("VoteChainMeta: skipping EVM update — single vote is stale",
+				"chain", observedChainId, "observedAt", observedAt)
+			return nil
 		}
 
 		priceBig := math.NewUint(price).BigInt()
@@ -90,12 +114,23 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 		return sdkerrors.Wrap(err, "failed to set updated chain meta entry")
 	}
 
+	// If the median observedAt is stale relative to the current block time, all
+	// validators are considered offline/lagging. Skip the EVM update so the
+	// contract retains its last known good value rather than being overwritten
+	// with stale data.
+	medianObservedAt := entry.ObservedAts[medianIdx]
+	if isObservedAtStale(sdkCtx, medianObservedAt) {
+		sdkCtx.Logger().Info("VoteChainMeta: skipping EVM update — all validators stale",
+			"chain", observedChainId, "medianObservedAt", medianObservedAt)
+		return nil
+	}
+
 	// Use the full observation tuple from the median-price validator.
 	// chainHeight and observedAt are NOT independent medians — they are the
 	// co-indexed values from whichever validator submitted the median price.
 	medianPrice := math.NewUint(entry.Prices[medianIdx]).BigInt()
 	coChainHeight := math.NewUint(entry.ChainHeights[medianIdx]).BigInt()
-	coObservedAt := math.NewUint(entry.ObservedAts[medianIdx]).BigInt()
+	coObservedAt := math.NewUint(medianObservedAt).BigInt()
 	if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, medianPrice, coChainHeight, coObservedAt); evmErr != nil {
 		return sdkerrors.Wrap(evmErr, "failed to call EVM setChainMeta")
 	}

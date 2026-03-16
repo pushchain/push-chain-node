@@ -13,39 +13,28 @@ import (
 
 func TestGasFeeRefund(t *testing.T) {
 
-	t.Run("no refund when gasFeeUsed is empty", func(t *testing.T) {
+	t.Run("success vote with empty gasFeeUsed is rejected", func(t *testing.T) {
 		app, ctx, vals, utxId, outbound, coreVals :=
 			setupOutboundVotingTest(t, 4)
 
-		for i := 0; i < 3; i++ {
-			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
-			require.NoError(t, err)
-			coreAcc := sdk.AccAddress(valAddr).String()
-
-			err = utils.ExecVoteOutbound(
-				t,
-				ctx,
-				app,
-				vals[i],
-				coreAcc,
-				utxId,
-				outbound,
-				true,
-				"",
-				"", // gasFeeUsed empty → no refund
-			)
-			require.NoError(t, err)
-		}
-
-		utx, _, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
 		require.NoError(t, err)
+		coreAcc := sdk.AccAddress(valAddr).String()
 
-		ob := utx.OutboundTx[0]
-		require.Equal(t, uexecutortypes.Status_OBSERVED, ob.OutboundStatus)
-		require.True(t, ob.ObservedTx.Success)
-		// No refund should be triggered
-		require.Nil(t, ob.PcRefundExecution, "no refund expected when gasFeeUsed is empty")
-		require.Empty(t, ob.RefundSwapError)
+		err = utils.ExecVoteOutbound(
+			t,
+			ctx,
+			app,
+			vals[0],
+			coreAcc,
+			utxId,
+			outbound,
+			true,
+			"",
+			"", // gas_fee_used required when success=true → must be rejected
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "gas_fee_used required when success=true")
 	})
 
 	t.Run("no refund when gasFeeUsed equals gasFee", func(t *testing.T) {

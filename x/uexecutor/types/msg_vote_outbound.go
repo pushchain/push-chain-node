@@ -69,7 +69,7 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 	obs := msg.ObservedTx
 
 	if obs.Success {
-		// Success requires tx_hash AND block_height > 0
+		// Success requires tx_hash AND block_height > 0 AND gas_fee_used
 		if strings.TrimSpace(obs.TxHash) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest,
 				"observed_tx.tx_hash required when success=true")
@@ -77,6 +77,10 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 		if obs.BlockHeight == 0 {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest,
 				"observed_tx.block_height must be > 0 when success=true")
+		}
+		if strings.TrimSpace(obs.GasFeeUsed) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidRequest,
+				"observed_tx.gas_fee_used required when success=true")
 		}
 
 	} else {

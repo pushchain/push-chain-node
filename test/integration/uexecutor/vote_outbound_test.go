@@ -94,7 +94,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.NoError(t, err)
 
@@ -126,7 +126,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				true,
 				"",
-				"",
+				outbound.GasFee,
 			)
 			require.NoError(t, err)
 		}
@@ -157,7 +157,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.NoError(t, err)
 
@@ -171,7 +171,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already voted")
@@ -196,7 +196,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				true,
 				"",
-				"",
+				outbound.GasFee,
 			)
 			require.NoError(t, err)
 		}
@@ -215,7 +215,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already finalized")
@@ -320,7 +320,7 @@ func TestOutboundVoting(t *testing.T) {
 				&prefixedOutbound,
 				true,
 				"",
-				"",
+				outbound.GasFee,
 			)
 			require.NoError(t, err)
 		}
@@ -351,7 +351,7 @@ func TestOutboundVoting(t *testing.T) {
 			outbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")
@@ -377,7 +377,7 @@ func TestOutboundVoting(t *testing.T) {
 			&badOutbound,
 			true,
 			"",
-			"",
+			outbound.GasFee,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")

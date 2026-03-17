@@ -301,7 +301,9 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 		lastPcTx := utx.PcTx[len(utx.PcTx)-1]
 		require.Contains(t, lastPcTx.ErrorMsg, "recipient is not a valid UEA")
 		require.Equal(t, "FAILED", lastPcTx.Status)
-		require.Equal(t, uexecutortypes.UniversalTxStatus_PC_EXECUTED_FAILED, utx.UniversalStatus)
+		// PC failed → revert outbound created → outbound is pending
+		require.NotEmpty(t, utx.OutboundTx, "revert outbound should be created after PC failure")
+		require.Equal(t, uexecutortypes.Status_PENDING, utx.OutboundTx[0].OutboundStatus)
 	})
 
 	t.Run("creates revert outbound when isCEA is true and recipient is not a UEA", func(t *testing.T) {

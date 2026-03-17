@@ -170,7 +170,7 @@ func TestGetUniversalTxV2(t *testing.T) {
 			"v1 OutboundTx should be the legacy single-entry type")
 	})
 
-	t.Run("v2 universal_status matches underlying store", func(t *testing.T) {
+	t.Run("v2 does not expose universal_status, v1 computes and returns it", func(t *testing.T) {
 		chainApp, ctx, vals, inbound, coreVals := setupInboundBridgeTest(t, 4)
 
 		for i := 0; i < 3; i++ {
@@ -183,22 +183,27 @@ func TestGetUniversalTxV2(t *testing.T) {
 
 		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
 
-		// Fetch directly from keeper store
-		directUtx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
-		require.NoError(t, err)
-		require.True(t, found)
-
-		// Fetch via v2 query
-		q := uexecutorkeeper.QuerierV2{Keeper: chainApp.UexecutorKeeper}
-		resp, err := q.GetUniversalTx(sdk.WrapSDKContext(ctx), &typesv2.QueryGetUniversalTxRequest{
+		// v2: UniversalTx has no universal_status field — confirmed at compile time by proto removal
+		qV2 := uexecutorkeeper.QuerierV2{Keeper: chainApp.UexecutorKeeper}
+		respV2, err := qV2.GetUniversalTx(sdk.WrapSDKContext(ctx), &typesv2.QueryGetUniversalTxRequest{
 			Id: utxKey,
 		})
 		require.NoError(t, err)
+		require.NotNil(t, respV2.UniversalTx)
+		require.NotEmpty(t, respV2.UniversalTx.PcTx, "v2 should have pc_tx after execution")
 
-		require.Equal(t, directUtx.UniversalStatus, resp.UniversalTx.UniversalStatus,
-			"v2 universal_status should match what is stored in the keeper")
-		require.Equal(t, directUtx.Id, resp.UniversalTx.Id,
-			"v2 ID should match what is stored in the keeper")
+		// v1: UniversalTxLegacy still carries universal_status computed on-the-fly
+		qV1 := uexecutorkeeper.Querier{Keeper: chainApp.UexecutorKeeper}
+		respV1, err := qV1.GetUniversalTx(sdk.WrapSDKContext(ctx), &uexecutortypes.QueryGetUniversalTxRequest{
+			Id: utxKey,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, respV1.UniversalTx)
+		require.Equal(t,
+			uexecutortypes.UniversalTxStatus_PC_EXECUTED_SUCCESS,
+			respV1.UniversalTx.UniversalStatus,
+			"v1 should return computed universal_status from pc_tx state",
+		)
 	})
 
 	t.Run("v2 TxType preserves native enum, v1 maps to legacy enum", func(t *testing.T) {

@@ -246,15 +246,15 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 			"UEA should have received the deposited PRC20 amount")
 	})
 
-	t.Run("fails with PC_EXECUTED_FAILED when isCEA is true and recipient is not a deployed UEA", func(t *testing.T) {
+	t.Run("deposit and executeUniversalTx called for EOA recipient when isCEA is true", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEAPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
-		// Use a valid hex address that has never been deployed as a UEA
-		nonUEARecipient := utils.GetDefaultAddresses().TargetAddr2
+		// Use a valid hex address that is a plain EOA (no code deployed)
+		eoaRecipient := utils.GetDefaultAddresses().TargetAddr2
 
 		validUP := &uexecutortypes.UniversalPayload{
-			To:                   nonUEARecipient,
+			To:                   eoaRecipient,
 			Value:                "1000000",
 			Data:                 "0xa9059cbb000000000000000000000000527f3692f5c53cfa83f7689885995606f93b616400000000000000000000000000000000000000000000000000000000000f4240",
 			GasLimit:             "21000000",
@@ -265,11 +265,11 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(1),
 		}
 
-		inboundWithNonUEA := &uexecutortypes.Inbound{
+		inboundWithEOA := &uexecutortypes.Inbound{
 			SourceChain:      "eip155:11155111",
 			TxHash:           "0xcea02",
 			Sender:           utils.GetDefaultAddresses().DefaultTestAddr,
-			Recipient:        nonUEARecipient,
+			Recipient:        eoaRecipient,
 			Amount:           "1000000",
 			AssetAddr:        usdcAddress.String(),
 			LogIndex:         "1",
@@ -287,34 +287,32 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 			require.NoError(t, err)
 			coreValAcc := sdk.AccAddress(valAddr).String()
 
-			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inboundWithNonUEA)
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inboundWithEOA)
 			require.NoError(t, err)
 		}
 
-		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inboundWithNonUEA)
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inboundWithEOA)
 		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
 		require.NoError(t, err)
 		require.True(t, found, "universal tx should exist after quorum is reached")
-		require.NotEmpty(t, utx.PcTx)
 
-		// Deposit step should fail with the expected error
-		lastPcTx := utx.PcTx[len(utx.PcTx)-1]
-		require.Contains(t, lastPcTx.ErrorMsg, "recipient is not a valid UEA")
-		require.Equal(t, "FAILED", lastPcTx.Status)
-		// PC failed → revert outbound created → outbound is pending
-		require.NotEmpty(t, utx.OutboundTx, "revert outbound should be created after PC failure")
-		require.Equal(t, uexecutortypes.Status_PENDING, utx.OutboundTx[0].OutboundStatus)
+		// Expect 2 PCTxs: deposit + executeUniversalTx (calling to EOA succeeds in EVM)
+		require.GreaterOrEqual(t, len(utx.PcTx), 2, "should have deposit and executeUniversalTx PCTxs")
+		require.Equal(t, "SUCCESS", utx.PcTx[0].Status, "deposit should succeed for EOA recipient")
+		// isCEA path never creates a revert outbound
+		require.Empty(t, utx.OutboundTx, "no revert outbound should be created for isCEA inbounds")
 	})
 
-	t.Run("creates revert outbound when isCEA is true and recipient is not a UEA", func(t *testing.T) {
+	t.Run("no revert outbound created when isCEA is true regardless of recipient type", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEAPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
 
-		nonUEARecipient := utils.GetDefaultAddresses().TargetAddr2
+		// Plain EOA recipient — deposit + executeUniversalTx called, no INBOUND_REVERT
+		eoaRecipient := utils.GetDefaultAddresses().TargetAddr2
 
 		validUP := &uexecutortypes.UniversalPayload{
-			To:                   nonUEARecipient,
+			To:                   eoaRecipient,
 			Value:                "1000000",
 			Data:                 "0xa9059cbb000000000000000000000000527f3692f5c53cfa83f7689885995606f93b616400000000000000000000000000000000000000000000000000000000000f4240",
 			GasLimit:             "21000000",
@@ -325,11 +323,11 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(1),
 		}
 
-		inboundWithNonUEA := &uexecutortypes.Inbound{
+		inboundWithEOA := &uexecutortypes.Inbound{
 			SourceChain:      "eip155:11155111",
 			TxHash:           "0xcea03",
 			Sender:           testAddress,
-			Recipient:        nonUEARecipient,
+			Recipient:        eoaRecipient,
 			Amount:           "1000000",
 			AssetAddr:        usdcAddress.String(),
 			LogIndex:         "1",
@@ -347,28 +345,20 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 			require.NoError(t, err)
 			coreValAcc := sdk.AccAddress(valAddr).String()
 
-			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inboundWithNonUEA)
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inboundWithEOA)
 			require.NoError(t, err)
 		}
 
-		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inboundWithNonUEA)
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inboundWithEOA)
 		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
 		require.NoError(t, err)
 		require.True(t, found)
 
-		// A revert outbound should be created for the failed CEA inbound
-		foundRevert := false
+		// isCEA path never creates a revert outbound
 		for _, ob := range utx.OutboundTx {
-			if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
-				foundRevert = true
-				require.Equal(t, inboundWithNonUEA.SourceChain, ob.DestinationChain)
-				require.Equal(t, inboundWithNonUEA.Amount, ob.Amount)
-				require.Equal(t, inboundWithNonUEA.AssetAddr, ob.ExternalAssetAddr)
-				require.Equal(t, inboundWithNonUEA.RevertInstructions.FundRecipient, ob.Recipient)
-				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
-			}
+			require.NotEqual(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType,
+				"no INBOUND_REVERT outbound should be created for isCEA inbounds")
 		}
-		require.True(t, foundRevert, "expected INBOUND_REVERT outbound to be created when recipient is not a UEA")
 	})
 
 	t.Run("vote fails at ValidateBasic when isCEA is true but recipient has no 0x prefix", func(t *testing.T) {

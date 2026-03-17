@@ -70,8 +70,8 @@ func buildRescueFundsLog(
 	}
 }
 
-// setupRescueFundsTest creates a CEA inbound whose deposit will fail (recipient is not
-// a registered UEA), drives it to quorum, and returns the UTX key of the failed UTX.
+// setupRescueFundsTest creates a CEA inbound whose deposit will fail (asset address has
+// no registered token config), drives it to quorum, and returns the UTX key of the failed UTX.
 // The returned UTX has at least one FAILED PCTx and is ready for a rescue outbound.
 func setupRescueFundsTest(
 	t *testing.T,
@@ -88,22 +88,22 @@ func setupRescueFundsTest(
 	// Reuse the CEA environment (validators, chain/token config, authz for inbound voting).
 	chainApp, ctx, vals, _, coreVals, _ := setupInboundCEAPayloadTest(t, numVals)
 
-	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
-	// TargetAddr2 is a plain address — not a deployed UEA — so the deposit will fail.
-	nonUEARecipient := utils.GetDefaultAddresses().TargetAddr2
+	recipient := utils.GetDefaultAddresses().TargetAddr2
+	// Use an asset address that has no registered token config — depositPRC20 will fail.
+	unregisteredAsset := common.HexToAddress("0x000000000000000000000000000000000000DEAD")
 
 	inbound := &uexecutortypes.Inbound{
 		SourceChain: "eip155:11155111",
 		TxHash:      "0xrescue01",
 		Sender:      testAddress,
-		Recipient:   nonUEARecipient,
+		Recipient:   recipient,
 		Amount:      "1000000",
-		AssetAddr:   usdcAddress.String(),
+		AssetAddr:   unregisteredAsset.String(),
 		LogIndex:    "1",
 		TxType:      uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
 		UniversalPayload: &uexecutortypes.UniversalPayload{
-			To:                   nonUEARecipient,
+			To:                   recipient,
 			Value:                "1000000",
 			Data:                 "0x",
 			GasLimit:             "21000000",
@@ -133,7 +133,7 @@ func setupRescueFundsTest(
 	require.True(t, found, "UTX must exist after quorum")
 
 	require.NotEmpty(t, utx.PcTx, "setup: at least one PCTx must exist")
-	require.Equal(t, "FAILED", utx.PcTx[0].Status, "setup: deposit (first PCTx) must fail for non-UEA recipient")
+	require.Equal(t, "FAILED", utx.PcTx[0].Status, "setup: deposit must fail for unregistered asset")
 
 	return chainApp, ctx, vals, utxId, coreVals
 }

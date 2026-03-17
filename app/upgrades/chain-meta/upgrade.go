@@ -56,8 +56,7 @@ func CreateUpgradeHandler(
 		// uexecutor module consensus version bumped 4 → 5.
 		// RunMigrations below triggers MigrateGasPricesToChainMeta which seeds
 		// ChainMetas from existing GasPrices entries (preserving signers, prices,
-		// block heights and median index; observedAt is set to 0 as it was not
-		// tracked previously).
+		// block heights and median index).
 		logger.Info("Feature: MsgVoteChainMeta added; migrating GasPrices → ChainMetas store (v4 → v5)")
 
 		// ── Feature 4 ───────────────────────────────────────────────────────────

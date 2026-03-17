@@ -202,7 +202,7 @@ func (ms msgServer) VoteChainMeta(ctx context.Context, msg *types.MsgVoteChainMe
 		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
-	err = ms.k.VoteChainMeta(ctx, signerValAddr, msg.ObservedChainId, msg.Price, msg.ChainHeight, msg.ObservedAt)
+	err = ms.k.VoteChainMeta(ctx, signerValAddr, msg.ObservedChainId, msg.Price, msg.ChainHeight)
 	if err != nil {
 		return nil, err
 	}

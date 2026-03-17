@@ -316,13 +316,13 @@ func (k Keeper) CallUniversalCoreSetGasPrice(
 	)
 }
 
-// Calls UniversalCore Contract to set chain metadata (gas price + chain height + observed timestamp)
+// Calls UniversalCore Contract to set chain metadata (gas price + chain height).
+// The contract uses block.timestamp for the observed-at value.
 func (k Keeper) CallUniversalCoreSetChainMeta(
 	ctx sdk.Context,
 	chainNamespace string,
 	price *big.Int,
 	chainHeight *big.Int,
-	observedAt *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 
@@ -357,7 +357,6 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 		chainNamespace,
 		price,
 		chainHeight,
-		observedAt,
 	)
 }
 

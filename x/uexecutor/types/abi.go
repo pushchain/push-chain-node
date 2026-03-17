@@ -306,8 +306,7 @@ const UNIVERSAL_CORE_ABI = `[
       "inputs": [
         { "name": "chainNamespace", "type": "string", "internalType": "string" },
         { "name": "price", "type": "uint256", "internalType": "uint256" },
-        { "name": "chainHeight", "type": "uint256", "internalType": "uint256" },
-        { "name": "observedAt", "type": "uint256", "internalType": "uint256" }
+        { "name": "chainHeight", "type": "uint256", "internalType": "uint256" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"

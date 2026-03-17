@@ -3,6 +3,7 @@ package txresolver
 import (
 	"context"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
@@ -44,8 +45,8 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 
 		if count >= maxNotFoundRetries {
 			delete(r.notFoundCounts, event.EventID)
-			// Protocol issue: tx dropped/not found — no txHash, no height
-			_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "tx not found on destination chain after max retries")
+			// Protocol issue: tx dropped/not found — no txHash, no height, no gas used
+			_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not found on destination chain after max retries")
 		}
 		return
 	}
@@ -60,8 +61,14 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 
 	// Enough confirmations: finalize based on status
 	if status == 0 {
-		// Destination chain revert — attach receipt block height and tx hash
-		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, "tx execution reverted on destination chain")
+		// Destination chain revert — fetch gas used and attach receipt info
+		gasFeeUsed := "0"
+		if builder, err := r.getBuilder(chainID); err == nil {
+			if fee, err := builder.GetGasFeeUsed(ctx, rawTxHash); err == nil {
+				gasFeeUsed = fee
+			}
+		}
+		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, gasFeeUsed, "tx execution reverted on destination chain")
 		return
 	}
 
@@ -76,13 +83,17 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 }
 
 func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {
-	client, err := r.chains.GetClient(chainID)
-	if err != nil {
-		return false, 0, 0, 0, err
-	}
-	builder, err := client.GetTxBuilder()
+	builder, err := r.getBuilder(chainID)
 	if err != nil {
 		return false, 0, 0, 0, err
 	}
 	return builder.VerifyBroadcastedTx(ctx, txHash)
+}
+
+func (r *Resolver) getBuilder(chainID string) (common.OutboundTxBuilder, error) {
+	client, err := r.chains.GetClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+	return client.GetTxBuilder()
 }

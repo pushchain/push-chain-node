@@ -87,7 +87,7 @@ func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword
 	// Verify grants against the specified granter
 	authorizedMsgs, err := verifyGrants(grants, granter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w (grantee: %s)", err, keyAddrStr)
 	}
 
 	return &validationResult{

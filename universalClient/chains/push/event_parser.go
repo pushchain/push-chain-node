@@ -45,7 +45,10 @@ const (
 	AttrKeyAssetAddr        = "asset_addr"
 	AttrKeySender           = "sender"
 	AttrKeyPayload          = "payload"
+	AttrKeyGasFee           = "gas_fee"
 	AttrKeyGasLimit         = "gas_limit"
+	AttrKeyGasPrice         = "gas_price"
+	AttrKeyGasToken         = "gas_token"
 	AttrKeyTxType           = "tx_type"
 	AttrKeyPcTxHash         = "pc_tx_hash"
 	AttrKeyLogIndex         = "log_index"
@@ -177,7 +180,10 @@ func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 		AssetAddr:        attrs[AttrKeyAssetAddr],
 		Sender:           attrs[AttrKeySender],
 		Payload:          attrs[AttrKeyPayload],
+		GasFee:           attrs[AttrKeyGasFee],
 		GasLimit:         attrs[AttrKeyGasLimit],
+		GasPrice:         attrs[AttrKeyGasPrice],
+		GasToken:         attrs[AttrKeyGasToken],
 		TxType:           attrs[AttrKeyTxType],
 		PcTxHash:         attrs[AttrKeyPcTxHash],
 		LogIndex:         attrs[AttrKeyLogIndex],

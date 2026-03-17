@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -32,8 +31,8 @@ import (
 
 type mockTxBuilder struct{ mock.Mock }
 
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
-	args := m.Called(ctx, data, gasPrice, nonce)
+func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
+	args := m.Called(ctx, data, nonce)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -58,6 +57,11 @@ func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) 
 func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
 	args := m.Called(ctx, txID)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
+	args := m.Called(ctx, txHash)
+	return args.String(0), args.Error(1)
 }
 
 type mockChainClient struct{ builder *mockTxBuilder }
@@ -120,7 +124,6 @@ func makeSignedEventData(t *testing.T, destChain string, nonce uint64) []byte {
 			Signature:   sig,
 			SigningHash: hash,
 			Nonce:       nonce,
-			GasPrice:    "1000000000",
 		},
 	}
 	b, err := json.Marshal(data)

@@ -299,7 +299,102 @@ const UNIVERSAL_CORE_ABI = `[
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setChainMeta",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "price", "type": "uint256", "internalType": "uint256" },
+        { "name": "chainHeight", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "gasPriceByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "chainHeightByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "timestampObservedAtByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "uniswapV3Quoter",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "WPC",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "defaultFeeTier",
+      "inputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "outputs": [{ "name": "", "type": "uint24", "internalType": "uint24" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "refundUnusedGas",
+      "inputs": [
+        { "name": "gasToken",  "type": "address", "internalType": "address" },
+        { "name": "amount",    "type": "uint256", "internalType": "uint256" },
+        { "name": "recipient", "type": "address", "internalType": "address" },
+        { "name": "withSwap",  "type": "bool",    "internalType": "bool"    },
+        { "name": "fee",       "type": "uint24",  "internalType": "uint24"  },
+        { "name": "minPCOut",  "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     }
+]`
+
+const UNISWAP_QUOTER_V2_ABI = `[
+  {
+    "type": "function",
+    "name": "quoteExactInputSingle",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IQuoterV2.QuoteExactInputSingleParams",
+        "components": [
+          { "name": "tokenIn",           "type": "address", "internalType": "address" },
+          { "name": "tokenOut",          "type": "address", "internalType": "address" },
+          { "name": "amountIn",          "type": "uint256", "internalType": "uint256" },
+          { "name": "fee",               "type": "uint24",  "internalType": "uint24"  },
+          { "name": "sqrtPriceLimitX96", "type": "uint160", "internalType": "uint160" }
+        ]
+      }
+    ],
+    "outputs": [
+      { "name": "amountOut",                "type": "uint256", "internalType": "uint256" },
+      { "name": "sqrtPriceX96After",        "type": "uint160", "internalType": "uint160" },
+      { "name": "initializedTicksCrossed",  "type": "uint32",  "internalType": "uint32"  },
+      { "name": "gasEstimate",              "type": "uint256", "internalType": "uint256" }
+    ],
+    "stateMutability": "nonpayable"
+  }
 ]`
 
 const PRC20ABI = `[
@@ -691,6 +786,10 @@ func ParseFactoryABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(FactoryV1ABI))
 }
 
+func ParseUniswapQuoterV2ABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(UNISWAP_QUOTER_V2_ABI))
+}
+
 func ParseUeaABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(UeaV1ABI))
 }
@@ -701,6 +800,28 @@ func ParsePRC20ABI() (abi.ABI, error) {
 
 func ParseUniversalCoreABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(UNIVERSAL_CORE_ABI))
+}
+
+// RecipientContractABI is the ABI for smart-contract recipients that implement executeUniversalTx.
+const RecipientContractABI = `[
+  {
+    "type": "function",
+    "name": "executeUniversalTx",
+    "inputs": [
+      { "name": "sourceChain",    "type": "string"  },
+      { "name": "ceaAddress",     "type": "bytes"   },
+      { "name": "payload",        "type": "bytes"   },
+      { "name": "amount",         "type": "uint256" },
+      { "name": "prc20AssetAddr", "type": "address" },
+      { "name": "txId",           "type": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]`
+
+func ParseRecipientContractABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(RecipientContractABI))
 }
 
 type AbiUniversalPayload struct {
@@ -767,4 +888,13 @@ func NewAbiUniversalAccountId(proto *UniversalAccountId) (AbiUniversalAccountId,
 		ChainId:        proto.ChainId,
 		Owner:          owner,
 	}, nil
+}
+
+// AbiQuoteExactInputSingleParams matches IQuoterV2.QuoteExactInputSingleParams
+type AbiQuoteExactInputSingleParams struct {
+	TokenIn           common.Address
+	TokenOut          common.Address
+	AmountIn          *big.Int
+	Fee               *big.Int // uint24
+	SqrtPriceLimitX96 *big.Int // uint160, 0 = no limit
 }

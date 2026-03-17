@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -58,15 +57,6 @@ func makeSender(fill byte) [20]byte {
 	return s
 }
 
-// makeToken returns a 32-byte token (Pubkey). Zero for native SOL.
-func makeToken(fill byte) [32]byte {
-	var t [32]byte
-	for i := range t {
-		t[i] = fill
-	}
-	return t
-}
-
 // buildMockTSSPDAData builds a raw byte slice simulating a TssPda account.
 // Layout: discriminator(8) + tss_eth_address(20) + chain_id(Borsh String: 4 LE len + bytes) + authority(32) + bump(1)
 func buildMockTSSPDAData(tssAddr [20]byte, chainID string, authority [32]byte, bump byte) []byte {
@@ -111,9 +101,9 @@ func signMessageHash(t *testing.T, key *ecdsa.PrivateKey, hash []byte) ([]byte, 
 	return sig[:64], sig[64] // signature (r||s), recovery_id (v)
 }
 
-// buildMockExecutePayload builds a pre-encoded execute payload.
-// Format: [u32 BE accounts_count][33 bytes per account (32 pubkey + 1 writable)][u32 BE ix_data_len][ix_data][u64 BE rent_fee]
-func buildMockPayload(accounts []GatewayAccountMeta, ixData []byte, rentFee uint64, instructionID uint8) []byte {
+// buildMockPayload builds a pre-encoded payload.
+// Format: [u32 BE accounts_count][33 bytes per account (32 pubkey + 1 writable)][u32 BE ix_data_len][ix_data][instruction_id (u8)][target_program (32 bytes)]
+func buildMockPayload(accounts []GatewayAccountMeta, ixData []byte, instructionID uint8, targetProgram [32]byte) []byte {
 	payload := make([]byte, 0, 256)
 	// accounts count (u32 BE)
 	countBytes := make([]byte, 4)
@@ -134,23 +124,21 @@ func buildMockPayload(accounts []GatewayAccountMeta, ixData []byte, rentFee uint
 	payload = append(payload, ixLenBytes...)
 	// ix_data
 	payload = append(payload, ixData...)
-	// rent_fee (u64 BE)
-	rentFeeBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(rentFeeBytes, rentFee)
-	payload = append(payload, rentFeeBytes...)
 	// instruction_id (u8)
 	payload = append(payload, instructionID)
+	// target_program (32 bytes)
+	payload = append(payload, targetProgram[:]...)
 	return payload
 }
 
 // buildMockExecutePayload is a convenience wrapper for execute payloads (instruction_id=2)
-func buildMockExecutePayload(accounts []GatewayAccountMeta, ixData []byte, rentFee uint64) []byte {
-	return buildMockPayload(accounts, ixData, rentFee, 2)
+func buildMockExecutePayload(accounts []GatewayAccountMeta, ixData []byte) []byte {
+	return buildMockPayload(accounts, ixData, 2, [32]byte{})
 }
 
 // buildMockWithdrawPayload builds a withdraw payload (instruction_id=1, no accounts/ixData)
 func buildMockWithdrawPayload() []byte {
-	return buildMockPayload(nil, nil, 0, 1)
+	return buildMockPayload(nil, nil, 1, [32]byte{})
 }
 
 // ============================================================
@@ -230,10 +218,6 @@ func TestNewTxBuilder(t *testing.T) {
 // ============================================================
 //  TestDefaultComputeUnitLimit
 // ============================================================
-
-func TestDefaultComputeUnitLimit(t *testing.T) {
-	assert.Equal(t, uint32(200000), uint32(DefaultComputeUnitLimit))
-}
 
 // ============================================================
 //  TestDeriveTSSPDA — seed must be "tsspda_v2"
@@ -340,7 +324,9 @@ func TestDetermineInstructionID(t *testing.T) {
 		{"FUNDS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_FUNDS_AND_PAYLOAD, true, 2, false},
 		{"GAS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_GAS_AND_PAYLOAD, false, 2, false},
 		{"INBOUND_REVERT native → 3", uetypes.TxType_INBOUND_REVERT, true, 3, false},
-		{"INBOUND_REVERT SPL → 4", uetypes.TxType_INBOUND_REVERT, false, 4, false},
+		{"INBOUND_REVERT SPL → 3", uetypes.TxType_INBOUND_REVERT, false, 3, false},
+		{"RESCUE_FUNDS native → 4", uetypes.TxType_RESCUE_FUNDS, true, 4, false},
+		{"RESCUE_FUNDS SPL → 4", uetypes.TxType_RESCUE_FUNDS, false, 4, false},
 		{"UNSPECIFIED → error", uetypes.TxType_UNSPECIFIED_TX, true, 0, true},
 		{"GAS → error", uetypes.TxType_GAS, true, 0, true},
 		{"PAYLOAD → error", uetypes.TxType_PAYLOAD, true, 0, true},
@@ -369,7 +355,7 @@ func TestAnchorDiscriminator(t *testing.T) {
 	}{
 		{"finalize_universal_tx"},
 		{"revert_universal_tx"},
-		{"revert_universal_tx_token"},
+		{"rescue_funds"},
 	}
 
 	for _, tt := range tests {
@@ -398,7 +384,7 @@ func TestConstructTSSMessage(t *testing.T) {
 	txID := makeTxID(0xAA)
 	utxID := makeTxID(0xBB)
 	sender := makeSender(0xCC)
-	token := makeToken(0x00) // native SOL = zero
+	token := [32]byte{} // native SOL = zero
 	target := makeTxID(0xDD)
 
 	t.Run("withdraw (id=1) message format", func(t *testing.T) {
@@ -406,7 +392,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			1, "devnet", 1000000,
 			txID, utxID, sender, token,
 			0, // gasFee
-			target, nil, nil, 0,
+			target, nil, nil,
 			[32]byte{}, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -442,8 +428,8 @@ func TestConstructTSSMessage(t *testing.T) {
 		hash, err := builder.constructTSSMessage(
 			2, "devnet", 2000000,
 			txID, utxID, sender, token,
-			100,                       // gasFee
-			target, accs, ixData, 500, // rentFee
+			100, // gasFee
+			target, accs, ixData,
 			[32]byte{}, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -479,10 +465,6 @@ func TestConstructTSSMessage(t *testing.T) {
 		binary.BigEndian.PutUint32(ixLenBE, 4)
 		msg = append(msg, ixLenBE...)
 		msg = append(msg, 0xDE, 0xAD, 0xBE, 0xEF)
-		// rent_fee
-		rentBE := make([]byte, 8)
-		binary.BigEndian.PutUint64(rentBE, 500)
-		msg = append(msg, rentBE...)
 
 		expected := crypto.Keccak256(msg)
 		assert.Equal(t, expected, hash, "execute message hash mismatch")
@@ -493,7 +475,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		hash, err := builder.constructTSSMessage(
 			3, "devnet", 500000,
 			txID, utxID, sender, token,
-			0, [32]byte{}, nil, nil, 0,
+			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -515,19 +497,19 @@ func TestConstructTSSMessage(t *testing.T) {
 		assert.Equal(t, expected, hash, "revert SOL message hash mismatch")
 	})
 
-	t.Run("revert SPL (id=4) message format", func(t *testing.T) {
+	t.Run("revert SPL (id=3 with mint) message format", func(t *testing.T) {
 		revertRecipient := makeTxID(0xEE)
 		revertMint := makeTxID(0xFF)
 		hash, err := builder.constructTSSMessage(
-			4, "devnet", 750000,
+			3, "devnet", 750000,
 			txID, utxID, sender, token,
-			0, [32]byte{}, nil, nil, 0,
+			0, [32]byte{}, nil, nil,
 			revertRecipient, revertMint,
 		)
 		require.NoError(t, err)
 
 		msg := []byte("PUSH_CHAIN_SVM")
-		msg = append(msg, 4)
+		msg = append(msg, 3)
 		msg = append(msg, []byte("devnet")...)
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 750000)
@@ -544,13 +526,69 @@ func TestConstructTSSMessage(t *testing.T) {
 		assert.Equal(t, expected, hash, "revert SPL message hash mismatch")
 	})
 
+	t.Run("rescue SOL (id=4) message format", func(t *testing.T) {
+		rescueRecipient := makeTxID(0xEE)
+		hash, err := builder.constructTSSMessage(
+			4, "devnet", 300000,
+			txID, utxID, sender, token,
+			50, [32]byte{}, nil, nil,
+			rescueRecipient, [32]byte{},
+		)
+		require.NoError(t, err)
+
+		msg := []byte("PUSH_CHAIN_SVM")
+		msg = append(msg, 4)
+		msg = append(msg, []byte("devnet")...)
+		amountBE := make([]byte, 8)
+		binary.BigEndian.PutUint64(amountBE, 300000)
+		msg = append(msg, amountBE...)
+		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
+		msg = append(msg, rescueRecipient[:]...)
+		gasBE := make([]byte, 8)
+		binary.BigEndian.PutUint64(gasBE, 50)
+		msg = append(msg, gasBE...)
+
+		expected := crypto.Keccak256(msg)
+		assert.Equal(t, expected, hash, "rescue SOL message hash mismatch")
+	})
+
+	t.Run("rescue SPL (id=4 with mint) message format", func(t *testing.T) {
+		rescueRecipient := makeTxID(0xEE)
+		rescueMint := makeTxID(0xFF)
+		hash, err := builder.constructTSSMessage(
+			4, "devnet", 400000,
+			txID, utxID, sender, token,
+			75, [32]byte{}, nil, nil,
+			rescueRecipient, rescueMint,
+		)
+		require.NoError(t, err)
+
+		msg := []byte("PUSH_CHAIN_SVM")
+		msg = append(msg, 4)
+		msg = append(msg, []byte("devnet")...)
+		amountBE := make([]byte, 8)
+		binary.BigEndian.PutUint64(amountBE, 400000)
+		msg = append(msg, amountBE...)
+		msg = append(msg, txID[:]...)
+		msg = append(msg, utxID[:]...)
+		msg = append(msg, rescueMint[:]...)
+		msg = append(msg, rescueRecipient[:]...)
+		gasBE := make([]byte, 8)
+		binary.BigEndian.PutUint64(gasBE, 75)
+		msg = append(msg, gasBE...)
+
+		expected := crypto.Keccak256(msg)
+		assert.Equal(t, expected, hash, "rescue SPL message hash mismatch")
+	})
+
 	t.Run("chain_id bytes go directly into message (no length prefix)", func(t *testing.T) {
 		// Verify that the chain_id in the message is raw UTF-8, not Borsh-encoded
 		chainID := "test_chain"
 		hash1, err := builder.constructTSSMessage(
 			1, chainID, 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
-			0, [32]byte{}, nil, nil, 0,
+			0, [32]byte{}, nil, nil,
 			[32]byte{}, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -575,7 +613,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		_, err := builder.constructTSSMessage(
 			99, "devnet", 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
-			0, [32]byte{}, nil, nil, 0,
+			0, [32]byte{}, nil, nil,
 			[32]byte{}, [32]byte{},
 		)
 		assert.Error(t, err)
@@ -594,7 +632,7 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 	hash, err := builder.constructTSSMessage(
 		1, "x", 0,
 		[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
-		0, [32]byte{}, nil, nil, 0,
+		0, [32]byte{}, nil, nil,
 		[32]byte{}, [32]byte{},
 	)
 	require.NoError(t, err)
@@ -623,10 +661,10 @@ func TestDecodePayload(t *testing.T) {
 			{Pubkey: makeTxID(0x22), IsWritable: false},
 		}
 		expectedIxData := []byte{0xAA, 0xBB, 0xCC}
-		expectedRentFee := uint64(12345)
+		expectedTarget := makeTxID(0xDD)
 
-		payload := buildMockPayload(expectedAccounts, expectedIxData, expectedRentFee, 2)
-		accounts, ixData, rentFee, instructionID, err := decodePayload(payload)
+		payload := buildMockPayload(expectedAccounts, expectedIxData, 2, expectedTarget)
+		accounts, ixData, instructionID, targetProgram, err := decodePayload(payload)
 
 		require.NoError(t, err)
 		assert.Equal(t, uint8(2), instructionID)
@@ -636,28 +674,28 @@ func TestDecodePayload(t *testing.T) {
 		assert.Equal(t, expectedAccounts[1].Pubkey, accounts[1].Pubkey)
 		assert.False(t, accounts[1].IsWritable)
 		assert.Equal(t, expectedIxData, ixData)
-		assert.Equal(t, expectedRentFee, rentFee)
+		assert.Equal(t, expectedTarget, targetProgram)
 	})
 
 	t.Run("decodes withdraw payload (0 accounts)", func(t *testing.T) {
 		payload := buildMockWithdrawPayload()
-		accounts, ixData, rentFee, instructionID, err := decodePayload(payload)
+		accounts, ixData, instructionID, _, err := decodePayload(payload)
 		require.NoError(t, err)
 		assert.Equal(t, uint8(1), instructionID)
 		assert.Len(t, accounts, 0)
 		assert.Len(t, ixData, 0)
-		assert.Equal(t, uint64(0), rentFee)
 	})
 
 	t.Run("decodes payload with empty ix_data", func(t *testing.T) {
 		accs := []GatewayAccountMeta{{Pubkey: makeTxID(0x33), IsWritable: true}}
-		payload := buildMockPayload(accs, nil, 999, 2)
-		accounts, ixData, rentFee, instructionID, err := decodePayload(payload)
+		expectedTarget := makeTxID(0xEE)
+		payload := buildMockPayload(accs, nil, 2, expectedTarget)
+		accounts, ixData, instructionID, targetProgram, err := decodePayload(payload)
 		require.NoError(t, err)
 		assert.Equal(t, uint8(2), instructionID)
 		assert.Len(t, accounts, 1)
 		assert.Len(t, ixData, 0)
-		assert.Equal(t, uint64(999), rentFee)
+		assert.Equal(t, expectedTarget, targetProgram)
 	})
 
 	t.Run("rejects too-short payload", func(t *testing.T) {
@@ -756,7 +794,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		data := builder.buildWithdrawAndExecuteData(
 			1, txID, utxID, 1000000, sender,
 			[]byte{}, []byte{}, // empty writable_flags and ix_data for withdraw
-			0, 0, // gasFee, rentFee
+			0, // gasFee
 			sig, 2, msgHash,
 		)
 
@@ -788,20 +826,18 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		// Check gas_fee (u64 LE)
 		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[109:117]), "gas_fee")
 
-		// Check rent_fee (u64 LE)
-		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[117:125]), "rent_fee")
-
-		// Check signature
-		assert.Equal(t, sig, data[125:189], "signature")
+		// Check signature (no more rent_fee — directly after gas_fee)
+		assert.Equal(t, sig, data[117:181], "signature")
 
 		// Check recovery_id
-		assert.Equal(t, byte(2), data[189], "recovery_id")
+		assert.Equal(t, byte(2), data[181], "recovery_id")
 
 		// Check message_hash
-		assert.Equal(t, msgHash, data[190:222], "message_hash")
+		assert.Equal(t, msgHash, data[182:214], "message_hash")
 
-		// Total length (no nonce at end)
-		assert.Len(t, data, 222)
+		// Total length: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
+		//             + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 64(sig) + 1(recov) + 32(hash) = 214
+		assert.Len(t, data, 214)
 	})
 
 	t.Run("execute (id=2) with accounts and ix_data", func(t *testing.T) {
@@ -811,7 +847,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		data := builder.buildWithdrawAndExecuteData(
 			2, txID, utxID, 500, sender,
 			wf, ixData,
-			100, 50, // gasFee, rentFee
+			100, // gasFee
 			sig, 0, msgHash,
 		)
 
@@ -837,11 +873,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		assert.Equal(t, uint64(100), binary.LittleEndian.Uint64(data[offset:offset+8]))
 		offset += 8
 
-		// rent_fee
-		assert.Equal(t, uint64(50), binary.LittleEndian.Uint64(data[offset:offset+8]))
-		offset += 8
-
-		// signature + recovery_id + message_hash
+		// signature + recovery_id + message_hash (no more rent_fee)
 		assert.Equal(t, sig, data[offset:offset+64])
 		offset += 64
 		assert.Equal(t, byte(0), data[offset])
@@ -863,28 +895,65 @@ func TestBuildRevertData(t *testing.T) {
 	sig := make([]byte, 64)
 	msgHash := make([]byte, 32)
 
-	t.Run("revert SOL (id=3) uses correct discriminator", func(t *testing.T) {
-		data := builder.buildRevertData(3, txID, utxID, 1000, recipient, revertMsg, 0, sig, 1, msgHash)
+	t.Run("revert uses correct discriminator (revert_universal_tx)", func(t *testing.T) {
+		data := builder.buildRevertData(txID, utxID, 1000, recipient, revertMsg, 0, sig, 1, msgHash)
 
 		expectedDisc := anchorDiscriminator("revert_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8])
 		assert.Equal(t, txID[:], data[8:40])
 		assert.Equal(t, utxID[:], data[40:72])
 		assert.Equal(t, uint64(1000), binary.LittleEndian.Uint64(data[72:80]))
-		// revert_instruction: fund_recipient(32) + revert_msg Vec(4+N)
+		// revert_instruction: revert_recipient(32) + revert_msg Vec(4+N)
 		assert.Equal(t, recipient.Bytes(), data[80:112])
 		assert.Equal(t, uint32(len(revertMsg)), binary.LittleEndian.Uint32(data[112:116]))
 		assert.Equal(t, revertMsg, data[116:116+len(revertMsg)])
 	})
 
-	t.Run("revert SPL (id=4) uses correct discriminator", func(t *testing.T) {
-		data := builder.buildRevertData(4, txID, utxID, 2000, recipient, nil, 0, sig, 0, msgHash)
+	t.Run("revert with empty revert_msg", func(t *testing.T) {
+		data := builder.buildRevertData(txID, utxID, 2000, recipient, nil, 0, sig, 0, msgHash)
 
-		expectedDisc := anchorDiscriminator("revert_universal_tx_token")
+		expectedDisc := anchorDiscriminator("revert_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8])
 		// revert_msg should be empty Vec (len=0)
-		offset := 112 // after tx_id(32) + utx_id(32) + amount(8) + fund_recipient(32)
+		offset := 112 // after tx_id(32) + utx_id(32) + amount(8) + revert_recipient(32)
 		assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(data[offset:offset+4]))
+	})
+}
+
+// ============================================================
+//  TestBuildRescueData
+// ============================================================
+
+func TestBuildRescueData(t *testing.T) {
+	builder := newTestBuilder(t)
+	txID := makeTxID(0x01)
+	utxID := makeTxID(0x02)
+	sig := make([]byte, 64)
+	msgHash := make([]byte, 32)
+
+	t.Run("rescue uses correct discriminator", func(t *testing.T) {
+		data := builder.buildRescueData(txID, utxID, 5000, 100, sig, 1, msgHash)
+
+		expectedDisc := anchorDiscriminator("rescue_funds")
+		assert.Equal(t, expectedDisc, data[:8], "discriminator")
+		assert.Equal(t, txID[:], data[8:40], "tx_id")
+		assert.Equal(t, utxID[:], data[40:72], "universal_tx_id")
+		assert.Equal(t, uint64(5000), binary.LittleEndian.Uint64(data[72:80]), "amount")
+		assert.Equal(t, uint64(100), binary.LittleEndian.Uint64(data[80:88]), "gas_fee")
+		assert.Equal(t, sig, data[88:152], "signature")
+		assert.Equal(t, byte(1), data[152], "recovery_id")
+		assert.Equal(t, msgHash, data[153:185], "message_hash")
+		// Total: 8(disc) + 32(txid) + 32(utxid) + 8(amount) + 8(gasFee) + 64(sig) + 1(recov) + 32(hash) = 185
+		assert.Len(t, data, 185)
+	})
+
+	t.Run("rescue has no revert instructions (unlike revert)", func(t *testing.T) {
+		rescueData := builder.buildRescueData(txID, utxID, 1000, 50, sig, 0, msgHash)
+		revertRecipient := solana.MustPublicKeyFromBase58(testGatewayAddress)
+		revertData := builder.buildRevertData(txID, utxID, 1000, revertRecipient, nil, 50, sig, 0, msgHash)
+
+		// Rescue should be shorter than revert (no recipient + revert_msg fields)
+		assert.Less(t, len(rescueData), len(revertData), "rescue data should be shorter than revert data")
 	})
 }
 
@@ -994,61 +1063,101 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 //  TestBuildRevertAccounts
 // ============================================================
 
-func TestBuildRevertSOLAccounts(t *testing.T) {
+func TestBuildRevertAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 
 	config := solana.NewWallet().PublicKey()
 	vault := solana.NewWallet().PublicKey()
+	feeVault := solana.NewWallet().PublicKey()
 	tss := solana.NewWallet().PublicKey()
 	recipient := solana.NewWallet().PublicKey()
 	executed := solana.NewWallet().PublicKey()
 	caller := solana.NewWallet().PublicKey()
+	tokenMint := solana.NewWallet().PublicKey()
 
-	accounts := builder.buildRevertSOLAccounts(config, vault, tss, recipient, executed, caller)
+	t.Run("SOL revert has 12 accounts (8 required + 4 None sentinels)", func(t *testing.T) {
+		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
 
-	assert.Len(t, accounts, 7)
-	assert.Equal(t, config, accounts[0].PublicKey, "config")
-	assert.Equal(t, vault, accounts[1].PublicKey, "vault")
-	assert.True(t, accounts[1].IsWritable)
-	assert.Equal(t, tss, accounts[2].PublicKey, "tss_pda")
-	assert.True(t, accounts[2].IsWritable)
-	assert.Equal(t, recipient, accounts[3].PublicKey, "recipient")
-	assert.True(t, accounts[3].IsWritable)
-	assert.Equal(t, executed, accounts[4].PublicKey, "executed_tx")
-	assert.True(t, accounts[4].IsWritable)
-	assert.Equal(t, caller, accounts[5].PublicKey, "caller")
-	assert.True(t, accounts[5].IsSigner)
-	assert.Equal(t, solana.SystemProgramID, accounts[6].PublicKey, "system_program")
+		assert.Len(t, accounts, 12)
+		assert.Equal(t, config, accounts[0].PublicKey, "config")
+		assert.False(t, accounts[0].IsWritable)
+		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
+		assert.True(t, accounts[1].IsWritable)
+		assert.Equal(t, feeVault, accounts[2].PublicKey, "fee_vault")
+		assert.True(t, accounts[2].IsWritable)
+		assert.Equal(t, tss, accounts[3].PublicKey, "tss_pda")
+		assert.True(t, accounts[3].IsWritable)
+		assert.Equal(t, recipient, accounts[4].PublicKey, "recipient")
+		assert.True(t, accounts[4].IsWritable)
+		assert.Equal(t, executed, accounts[5].PublicKey, "executed_tx")
+		assert.True(t, accounts[5].IsWritable)
+		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
+		assert.True(t, accounts[6].IsSigner)
+		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
+		// SOL: 4 optional SPL accounts are gateway sentinel (None)
+		for i := 8; i < 12; i++ {
+			assert.Equal(t, builder.gatewayAddress, accounts[i].PublicKey, "SOL sentinel account %d", i)
+		}
+	})
+
+	t.Run("SPL revert has 12 accounts (8 required + 4 SPL accounts)", func(t *testing.T) {
+		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
+
+		assert.Len(t, accounts, 12)
+		// First 8 same as SOL
+		assert.Equal(t, config, accounts[0].PublicKey, "config")
+		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
+		assert.Equal(t, feeVault, accounts[2].PublicKey, "fee_vault")
+		assert.Equal(t, tss, accounts[3].PublicKey, "tss_pda")
+		assert.Equal(t, recipient, accounts[4].PublicKey, "recipient")
+		assert.Equal(t, executed, accounts[5].PublicKey, "executed_tx")
+		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
+		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
+		// SPL: token_vault, recipient_token_account, token_mint, token_program
+		assert.True(t, accounts[8].IsWritable, "token_vault should be writable")
+		assert.True(t, accounts[9].IsWritable, "recipient_token_account should be writable")
+		assert.Equal(t, tokenMint, accounts[10].PublicKey, "token_mint")
+		assert.Equal(t, solana.TokenProgramID, accounts[11].PublicKey, "token_program")
+	})
 }
 
-func TestBuildRevertSPLAccounts(t *testing.T) {
+// ============================================================
+//  TestBuildRescueAccounts
+// ============================================================
+
+func TestBuildRescueAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 
 	config := solana.NewWallet().PublicKey()
 	vault := solana.NewWallet().PublicKey()
-	tokenVault := solana.NewWallet().PublicKey()
+	feeVault := solana.NewWallet().PublicKey()
 	tss := solana.NewWallet().PublicKey()
-	recipientATA := solana.NewWallet().PublicKey()
-	tokenMint := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
 	executed := solana.NewWallet().PublicKey()
 	caller := solana.NewWallet().PublicKey()
+	tokenMint := solana.NewWallet().PublicKey()
 
-	accounts := builder.buildRevertSPLAccounts(config, vault, tokenVault, tss, recipientATA, tokenMint, executed, caller)
+	t.Run("rescue delegates to buildRevertAccounts (same layout)", func(t *testing.T) {
+		rescueAccounts := builder.buildRescueAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
+		revertAccounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
 
-	assert.Len(t, accounts, 11)
-	assert.Equal(t, config, accounts[0].PublicKey, "config")
-	assert.Equal(t, vault, accounts[1].PublicKey, "vault")
-	assert.Equal(t, tokenVault, accounts[2].PublicKey, "token_vault")
-	assert.True(t, accounts[2].IsWritable)
-	assert.Equal(t, tss, accounts[3].PublicKey, "tss_pda")
-	assert.Equal(t, recipientATA, accounts[4].PublicKey, "recipient_token_account")
-	assert.Equal(t, tokenMint, accounts[5].PublicKey, "token_mint")
-	assert.Equal(t, executed, accounts[6].PublicKey, "executed_tx")
-	assert.Equal(t, caller, accounts[7].PublicKey, "caller")
-	assert.True(t, accounts[7].IsSigner)
-	assert.Equal(t, vault, accounts[8].PublicKey, "vault_sol (same as vault)")
-	assert.Equal(t, solana.TokenProgramID, accounts[9].PublicKey, "token_program")
-	assert.Equal(t, solana.SystemProgramID, accounts[10].PublicKey, "system_program")
+		assert.Len(t, rescueAccounts, len(revertAccounts))
+		for i := range rescueAccounts {
+			assert.Equal(t, revertAccounts[i].PublicKey, rescueAccounts[i].PublicKey, "account %d pubkey", i)
+			assert.Equal(t, revertAccounts[i].IsWritable, rescueAccounts[i].IsWritable, "account %d writable", i)
+			assert.Equal(t, revertAccounts[i].IsSigner, rescueAccounts[i].IsSigner, "account %d signer", i)
+		}
+	})
+
+	t.Run("rescue SPL matches revert SPL layout", func(t *testing.T) {
+		rescueAccounts := builder.buildRescueAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
+		revertAccounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
+
+		assert.Len(t, rescueAccounts, len(revertAccounts))
+		for i := range rescueAccounts {
+			assert.Equal(t, revertAccounts[i].PublicKey, rescueAccounts[i].PublicKey, "account %d pubkey", i)
+		}
+	})
 }
 
 // ============================================================
@@ -1087,6 +1196,7 @@ func TestParseTxType(t *testing.T) {
 		{"FUNDS_AND_PAYLOAD", uetypes.TxType_FUNDS_AND_PAYLOAD, false},
 		{"GAS_AND_PAYLOAD", uetypes.TxType_GAS_AND_PAYLOAD, false},
 		{"INBOUND_REVERT", uetypes.TxType_INBOUND_REVERT, false},
+		{"RESCUE_FUNDS", uetypes.TxType_RESCUE_FUNDS, false},
 		{"1", uetypes.TxType(1), false},
 		{"3", uetypes.TxType(3), false},
 		{"invalid", uetypes.TxType_UNSPECIFIED_TX, true},
@@ -1139,53 +1249,6 @@ func TestGatewayAccountMetaStruct(t *testing.T) {
 }
 
 // ============================================================
-//  TestGasLimitParsing
-// ============================================================
-
-func TestGasLimitParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		gasLimit string
-		expected uint32
-	}{
-		{"empty → default", "", DefaultComputeUnitLimit},
-		{"zero → default", "0", DefaultComputeUnitLimit},
-		{"valid", "300000", 300000},
-		{"invalid number → default", "abc", DefaultComputeUnitLimit},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var result uint32
-			if tt.gasLimit == "" || tt.gasLimit == "0" {
-				result = DefaultComputeUnitLimit
-			} else {
-				parsed, err := parseUint32(tt.gasLimit)
-				if err != nil {
-					result = DefaultComputeUnitLimit
-				} else {
-					result = parsed
-				}
-			}
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func parseUint32(s string) (uint32, error) {
-	val, err := parseUint64(s)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(val), nil
-}
-
-func parseUint64(s string) (uint64, error) {
-	var val uint64
-	_, err := fmt.Sscanf(s, "%d", &val)
-	return val, err
-}
-
-// ============================================================
 //  TestEndToEndMessageAndDataConsistency
 // ============================================================
 
@@ -1203,7 +1266,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	msgHash, err := builder.constructTSSMessage(
 		1, "devnet", 1000000,
 		txID, utxID, sender, token,
-		0, target, nil, nil, 0,
+		0, target, nil, nil,
 		[32]byte{}, [32]byte{},
 	)
 	require.NoError(t, err)
@@ -1211,15 +1274,15 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	sig := make([]byte, 64)
 	instrData := builder.buildWithdrawAndExecuteData(
 		1, txID, utxID, 1000000, sender,
-		[]byte{}, []byte{}, 0, 0,
+		[]byte{}, []byte{}, 0,
 		sig, 0, msgHash,
 	)
 
 	// Extract message_hash from instruction data
 	// Offset: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amount) + 20(sender)
-	//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 8(rent) + 64(sig) + 1(recov)
-	//       = 190
-	msgHashFromData := instrData[190:222]
+	//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 64(sig) + 1(recov)
+	//       = 182
+	msgHashFromData := instrData[182:214]
 	assert.Equal(t, msgHash, msgHashFromData, "message_hash in instruction data must match TSS message hash")
 }
 
@@ -1229,7 +1292,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 
 func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 	// Verify discriminator values are deterministic and can be independently computed
-	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "revert_universal_tx_token"} {
+	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "rescue_funds"} {
 		disc := anchorDiscriminator(method)
 		h := sha256.Sum256([]byte("global:" + method))
 		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
@@ -1263,7 +1326,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		msgHash, err := builder.constructTSSMessage(
 			1, "devnet", amount,
 			txID, utxID, sender, token,
-			0, target, nil, nil, 0,
+			0, target, nil, nil,
 			[32]byte{}, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -1274,14 +1337,16 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		// 3. Build instruction data with real signature
 		instrData := builder.buildWithdrawAndExecuteData(
 			1, txID, utxID, amount, sender,
-			[]byte{}, []byte{}, 0, 0,
+			[]byte{}, []byte{}, 0,
 			sig, recoveryID, msgHash,
 		)
 
 		// 4. Verify the instruction data contains the real signature
-		assert.Equal(t, sig, instrData[125:189], "real signature in instruction data")
-		assert.Equal(t, recoveryID, instrData[189], "recovery ID in instruction data")
-		assert.Equal(t, msgHash, instrData[190:222], "message hash in instruction data")
+		// Offset: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
+		//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) = 117
+		assert.Equal(t, sig, instrData[117:181], "real signature in instruction data")
+		assert.Equal(t, recoveryID, instrData[181], "recovery ID in instruction data")
+		assert.Equal(t, msgHash, instrData[182:214], "message hash in instruction data")
 	})
 
 	t.Run("execute flow with real signature", func(t *testing.T) {
@@ -1290,12 +1355,11 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 			{Pubkey: makeTxID(0x11), IsWritable: true},
 		}
 		ixData := []byte{0xDE, 0xAD}
-		rentFee := uint64(5000)
 
 		msgHash, err := builder.constructTSSMessage(
 			2, "devnet", amount,
 			txID, utxID, sender, token,
-			0, target, accs, ixData, rentFee,
+			0, target, accs, ixData,
 			[32]byte{}, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -1306,14 +1370,14 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		instrData := builder.buildWithdrawAndExecuteData(
 			2, txID, utxID, amount, sender,
 			wf, ixData,
-			0, rentFee,
+			0,
 			sig, recoveryID, msgHash,
 		)
 
 		// Verify instruction data length includes variable-length fields
 		// 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
-		// + 4+1(wf) + 4+2(ix) + 8(gas) + 8(rent) + 64(sig) + 1(recov) + 32(hash)
-		expectedLen := 8 + 1 + 32 + 32 + 8 + 20 + 5 + 6 + 8 + 8 + 64 + 1 + 32
+		// + 4+1(wf) + 4+2(ix) + 8(gas) + 64(sig) + 1(recov) + 32(hash)
+		expectedLen := 8 + 1 + 32 + 32 + 8 + 20 + 5 + 6 + 8 + 64 + 1 + 32
 		assert.Len(t, instrData, expectedLen)
 	})
 
@@ -1324,7 +1388,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		msgHash, err := builder.constructTSSMessage(
 			3, "devnet", amount,
 			txID, utxID, sender, token,
-			0, [32]byte{}, nil, nil, 0,
+			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{},
 		)
 		require.NoError(t, err)
@@ -1333,7 +1397,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 
 		recipient := solana.PublicKeyFromBytes(revertRecipient[:])
 		instrData := builder.buildRevertData(
-			3, txID, utxID, amount, recipient,
+			txID, utxID, amount, recipient,
 			[]byte("revert msg"), 0,
 			sig, recoveryID, msgHash,
 		)
@@ -1341,6 +1405,33 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		// Verify discriminator is for revert_universal_tx
 		expectedDisc := anchorDiscriminator("revert_universal_tx")
 		assert.Equal(t, expectedDisc, instrData[:8])
+	})
+
+	t.Run("rescue SOL flow with real signature", func(t *testing.T) {
+		amount := uint64(200000)
+		rescueRecipient := makeTxID(0xEE)
+
+		msgHash, err := builder.constructTSSMessage(
+			4, "devnet", amount,
+			txID, utxID, sender, token,
+			50, [32]byte{}, nil, nil,
+			rescueRecipient, [32]byte{},
+		)
+		require.NoError(t, err)
+
+		sig, recoveryID := signMessageHash(t, evmKey, msgHash)
+
+		instrData := builder.buildRescueData(
+			txID, utxID, amount, 50,
+			sig, recoveryID, msgHash,
+		)
+
+		// Verify discriminator is for rescue_funds
+		expectedDisc := anchorDiscriminator("rescue_funds")
+		assert.Equal(t, expectedDisc, instrData[:8])
+
+		// Verify total length: 8(disc) + 32(txid) + 32(utxid) + 8(amt) + 8(gas) + 64(sig) + 1(recov) + 32(hash) = 185
+		assert.Len(t, instrData, 185)
 	})
 }
 
@@ -1461,7 +1552,7 @@ func buildAndSimulate(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, da
 	defer cancel()
 
 	// Step 1: Build signing request (fetches chain ID from on-chain TSS PDA)
-	req, err := builder.GetOutboundSigningRequest(ctx, data, big.NewInt(1000), 0)
+	req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
 	if err != nil {
 		return nil, fmt.Errorf("GetOutboundSigningRequest: %w", err)
 	}
@@ -1539,7 +1630,7 @@ func TestSimulate_Execute_NativeSOL(t *testing.T) {
 	// It accepts any UTF-8 data with no required accounts, making it ideal for
 	// CPI testing without needing initialized state on devnet.
 	ixData := []byte("hello from push chain")
-	payload := buildMockExecutePayload(nil, ixData, 0)
+	payload := buildMockExecutePayload(nil, ixData)
 	payloadHex := "0x" + hex.EncodeToString(payload)
 
 	// Recipient = Memo program (becomes destination_program in execute mode)
@@ -1557,7 +1648,7 @@ func TestSimulate_Execute_SPLToken(t *testing.T) {
 
 	// Use the SPL Memo program as the execute destination (same as SOL test above).
 	ixData := []byte("spl execute memo")
-	payload := buildMockExecutePayload(nil, ixData, 0)
+	payload := buildMockExecutePayload(nil, ixData)
 	payloadHex := "0x" + hex.EncodeToString(payload)
 
 	// Recipient = Memo program (becomes destination_program in execute mode)
@@ -1590,5 +1681,146 @@ func TestSimulate_Revert_SPLToken(t *testing.T) {
 
 	result, err := buildAndSimulate(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
+	requireSimulationSuccess(t, result)
+}
+
+// ---- Rescue ----
+
+// buildAndSimulateRescue constructs a rescue_funds transaction and simulates it on devnet.
+func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, evmKey *ecdsa.PrivateKey, amount uint64, assetAddr string) *rpc.SimulateTransactionResult {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, ethAddrHex := loadTestEVMKey(t)
+	recipientWallet := solana.NewWallet()
+
+	txIDBytes := make([]byte, 32)
+	utxIDBytes := make([]byte, 32)
+	_, err := crand.Read(txIDBytes)
+	require.NoError(t, err)
+	_, err = crand.Read(utxIDBytes)
+	require.NoError(t, err)
+
+	var txID, universalTxID [32]byte
+	copy(txID[:], txIDBytes)
+	copy(universalTxID[:], utxIDBytes)
+
+	var sender [20]byte
+	senderBytes, err := hex.DecodeString(ethAddrHex)
+	require.NoError(t, err)
+	copy(sender[:], senderBytes)
+
+	isNative := assetAddr == ""
+	var token [32]byte
+	var mintPubkey solana.PublicKey
+	if !isNative {
+		mintPubkey, err = solana.PublicKeyFromBase58(assetAddr)
+		require.NoError(t, err)
+		copy(token[:], mintPubkey.Bytes())
+	}
+
+	recipientPubkey := recipientWallet.PublicKey()
+
+	// Fetch chain ID from TSS PDA
+	tssPDA, err := builder.deriveTSSPDA()
+	require.NoError(t, err)
+	chainID, err := builder.fetchTSSChainID(ctx, tssPDA)
+	require.NoError(t, err)
+
+	// Construct TSS message for rescue (id=4)
+	var revertRecipient [32]byte
+	copy(revertRecipient[:], recipientPubkey.Bytes())
+	var revertMint [32]byte
+	if !isNative {
+		copy(revertMint[:], token[:])
+	}
+
+	gasFee := uint64(0)
+	messageHash, err := builder.constructTSSMessage(
+		4, chainID, amount,
+		txID, universalTxID, sender, token, gasFee,
+		[32]byte{}, nil, nil,
+		revertRecipient, revertMint,
+	)
+	require.NoError(t, err)
+
+	sig, recoveryID := signMessageHash(t, evmKey, messageHash)
+
+	instructionData := builder.buildRescueData(txID, universalTxID, amount, gasFee, sig, recoveryID, messageHash)
+
+	// Derive PDAs
+	configPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("config")}, builder.gatewayAddress)
+	require.NoError(t, err)
+	vaultPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("vault")}, builder.gatewayAddress)
+	require.NoError(t, err)
+	feeVaultPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("fee_vault")}, builder.gatewayAddress)
+	require.NoError(t, err)
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txID[:]}, builder.gatewayAddress)
+	require.NoError(t, err)
+
+	relayerKeypair, err := builder.loadRelayerKeypair()
+	require.NoError(t, err)
+
+	accounts := builder.buildRescueAccounts(
+		configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
+		executedTxPDA, relayerKeypair.PublicKey(),
+		isNative, mintPubkey,
+	)
+
+	gatewayIx := solana.NewInstruction(builder.gatewayAddress, accounts, instructionData)
+	computeLimitIx := builder.buildSetComputeUnitLimitInstruction(400000)
+
+	instructions := []solana.Instruction{computeLimitIx}
+	if !isNative {
+		createATAIx := builder.buildCreateATAIdempotentInstruction(
+			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
+		)
+		instructions = append(instructions, createATAIx)
+	}
+	instructions = append(instructions, gatewayIx)
+
+	recentBlockhash, err := rpcClient.GetRecentBlockhash(ctx)
+	require.NoError(t, err)
+
+	tx, err := solana.NewTransaction(
+		instructions, recentBlockhash,
+		solana.TransactionPayer(relayerKeypair.PublicKey()),
+	)
+	require.NoError(t, err)
+
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayerKeypair.PublicKey()) {
+			privKey := relayerKeypair
+			return &privKey
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	result, err := rpcClient.SimulateTransaction(ctx, tx)
+	require.NoError(t, err, "SimulateTransaction RPC call failed")
+
+	return result
+}
+
+func TestSimulate_Rescue_NativeSOL(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	evmKey, _ := loadTestEVMKey(t)
+
+	result := buildAndSimulateRescue(t, rpcClient, builder, evmKey, 10000000, "")
+	requireSimulationSuccess(t, result)
+}
+
+func TestSimulate_Rescue_SPLToken(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	evmKey, _ := loadTestEVMKey(t)
+
+	result := buildAndSimulateRescue(t, rpcClient, builder, evmKey, 500000, devnetSPLMint)
 	requireSimulationSuccess(t, result)
 }

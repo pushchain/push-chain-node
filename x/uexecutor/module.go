@@ -25,11 +25,12 @@ import (
 
 	v2 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v2"
 	v4 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v4"
+	v5 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v5"
 )
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	ConsensusVersion = 4
+	ConsensusVersion = 5
 )
 
 var (
@@ -180,7 +181,14 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 
 	// Register UExecutor custom migration for v2 (from version 3 -> 4)
 	if err := cfg.RegisterMigration(types.ModuleName, 3, a.migrateToV4()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
+		panic(fmt.Sprintf("failed to migrate %s from version 3 to 4: %v", types.ModuleName, err))
+	}
+
+	// Register UExecutor migration from version 4 -> 5 (chain-meta upgrade)
+	// GasPrices → ChainMetas migration is handled explicitly in the upgrade handler
+	// before RunMigrations is called, so this is a no-op.
+	if err := cfg.RegisterMigration(types.ModuleName, 4, a.migrateToV5()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 4 to 5: %v", types.ModuleName, err))
 	}
 }
 
@@ -205,6 +213,13 @@ func (a AppModule) migrateToV4() module.MigrationHandler {
 		ctx.Logger().Info("🔧 Running uexecutor module migration: v3 → v4")
 
 		return v4.MigrateUniversalTx(ctx, &a.keeper, a.AppModuleBasic.cdc)
+	}
+}
+
+func (a AppModule) migrateToV5() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uexecutor module migration: v4 → v5 (chain-meta)")
+		return v5.MigrateGasPricesToChainMeta(ctx, &a.keeper)
 	}
 }
 

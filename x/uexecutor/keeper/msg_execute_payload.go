@@ -72,6 +72,9 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	if err := k.CreateUniversalTxFromReceiptIfOutbound(sdkCtx, receipt, pcTx); err != nil {
 		return err
 	}
+	if err := k.AttachRescueOutboundFromReceipt(sdkCtx, receipt, pcTx); err != nil {
+		return err
+	}
 
 	gasUnitsUsed := receipt.GasUsed
 	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)

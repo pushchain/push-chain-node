@@ -182,7 +182,8 @@ func TestVoteInbound_ChainEnabled(t *testing.T) {
 		utx, found, err := testApp.UexecutorKeeper.GetUniversalTx(ctx, uexecutortypes.GetInboundUniversalTxKey(*inbound))
 		require.NoError(t, err)
 		require.True(t, found, "UTX should be created when inbound is enabled and quorum reached")
-		require.Equal(t, uexecutortypes.UniversalTxStatus_PC_EXECUTED_SUCCESS, utx.UniversalStatus)
+		require.NotEmpty(t, utx.PcTx, "PC tx should be recorded after inbound execution")
+		require.Equal(t, "SUCCESS", utx.PcTx[len(utx.PcTx)-1].Status)
 	})
 }
 

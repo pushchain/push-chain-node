@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
@@ -23,7 +22,6 @@ type SigningData struct {
 	Signature   string `json:"signature"`    // hex-encoded 64/65 byte signature
 	SigningHash string `json:"signing_hash"` // hex-encoded signing hash
 	Nonce       uint64 `json:"nonce"`
-	GasPrice    string `json:"gas_price"` // string for big.Int
 }
 
 // SignedEventData wraps OutboundCreatedEvent with signing data appended by sessionManager.
@@ -165,16 +163,8 @@ func reconstructSigningReq(sd *SigningData) (*common.UnSignedOutboundTxReq, erro
 		return nil, errors.Wrap(err, "failed to decode signing hash")
 	}
 
-	gasPrice := new(big.Int)
-	if sd.GasPrice != "" {
-		if _, ok := gasPrice.SetString(sd.GasPrice, 10); !ok {
-			return nil, errors.Errorf("invalid gas_price: %s", sd.GasPrice)
-		}
-	}
-
 	return &common.UnSignedOutboundTxReq{
 		SigningHash: signingHash,
-		Nonce:      sd.Nonce,
-		GasPrice:   gasPrice,
+		Nonce:       sd.Nonce,
 	}, nil
 }

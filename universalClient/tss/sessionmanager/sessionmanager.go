@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -719,17 +718,10 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 	}
 }
 
-// GasPriceTolerancePercent defines the acceptable deviation from oracle gas price (e.g., 10 = 10%)
-const GasPriceTolerancePercent = 10
-
-// verifySigningRequest validates the coordinator's signing request: gas price and hash (coordinator nonce is source of truth).
+// verifySigningRequest validates the coordinator's signing request: hash verification (coordinator nonce is source of truth).
 func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store.Event, req *common.UnSignedOutboundTxReq) error {
 	if req == nil {
 		return errors.New("unsigned transaction request is required for SIGN events")
-	}
-
-	if req.GasPrice == nil {
-		return errors.New("gas price is missing in request")
 	}
 
 	if len(req.SigningHash) == 0 {
@@ -750,10 +742,6 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 	// Reject signing if outbound is disabled for the destination chain
 	if sm.chains != nil && !sm.chains.IsChainOutboundEnabled(chainID) {
 		return errors.Errorf("outbound disabled for chain %s, refusing to sign", chainID)
-	}
-
-	if err := sm.validateGasPrice(ctx, chainID, req.GasPrice); err != nil {
-		return errors.Wrap(err, "gas price validation failed")
 	}
 
 	// Build with coordinator's nonce and compare hash
@@ -787,7 +775,7 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 	}
 
 	// Use coordinator's nonce so our computed hash matches
-	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, req.GasPrice, req.Nonce)
+	signingReq, err := builder.GetOutboundSigningRequest(ctx, &outboundData, req.Nonce)
 	if err != nil {
 		return errors.Wrap(err, "failed to get signing request for verification")
 	}
@@ -804,7 +792,6 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 
 	sm.logger.Debug().
 		Str("event_id", event.EventID).
-		Str("gas_price", req.GasPrice.String()).
 		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
 		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
@@ -812,38 +799,6 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 	return nil
 }
 
-// validateGasPrice checks that the provided gas price is within acceptable bounds of the oracle price.
-func (sm *SessionManager) validateGasPrice(ctx context.Context, chainID string, gasPrice *big.Int) error {
-	if sm.pushCore == nil {
-		sm.logger.Warn().Msg("pushCore not configured, skipping gas price validation")
-		return nil
-	}
-
-	if gasPrice == nil {
-		return errors.New("gas price is nil")
-	}
-
-	// Get the current oracle gas price
-	oraclePrice, err := sm.pushCore.GetGasPrice(ctx, chainID)
-	if err != nil {
-		return errors.Wrap(err, "failed to get oracle gas price")
-	}
-
-	// Check if gas price is within tolerance
-	// Allow coordinator's price to be within ±GasPriceTolerancePercent of oracle price
-	tolerance := new(big.Int).Div(oraclePrice, big.NewInt(100/GasPriceTolerancePercent))
-	minPrice := new(big.Int).Sub(oraclePrice, tolerance)
-	maxPrice := new(big.Int).Add(oraclePrice, tolerance)
-
-	if gasPrice.Cmp(minPrice) < 0 {
-		return errors.Errorf("gas price %s is too low (min: %s, oracle: %s)", gasPrice.String(), minPrice.String(), oraclePrice.String())
-	}
-	if gasPrice.Cmp(maxPrice) > 0 {
-		return errors.Errorf("gas price %s is too high (max: %s, oracle: %s)", gasPrice.String(), maxPrice.String(), oraclePrice.String())
-	}
-
-	return nil
-}
 
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key
@@ -866,10 +821,6 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		"signature":    hex.EncodeToString(signature),
 		"signing_hash": hex.EncodeToString(signingReq.SigningHash),
 		"nonce":        signingReq.Nonce,
-		"gas_price":    "0",
-	}
-	if signingReq.GasPrice != nil {
-		signingData["gas_price"] = signingReq.GasPrice.String()
 	}
 
 	// Unmarshal original event data, add signing_data, re-marshal

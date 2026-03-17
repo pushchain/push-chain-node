@@ -48,7 +48,6 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 				OutboundStatus: types.Status_PENDING,
 			},
 		},
-		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,
 	}
 
 	tests := []struct {
@@ -95,16 +94,6 @@ func TestUniversalTx_ValidateBasic(t *testing.T) {
 			}(),
 			expectError: true,
 			errContains: "invalid outbound_tx",
-		},
-		{
-			name: "invalid universal_status",
-			universal: func() types.UniversalTx {
-				utx := validUniversal
-				utx.UniversalStatus = types.UniversalTxStatus(99) // not in enum
-				return utx
-			}(),
-			expectError: true,
-			errContains: "invalid universal_status",
 		},
 	}
 

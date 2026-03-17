@@ -48,6 +48,7 @@ func ExecVoteOutbound(
 	outbound *uexecutortypes.OutboundTx,
 	success bool,
 	errorMsg string,
+	gasFeeUsed string, // actual gas fee consumed on destination chain; "" means no refund
 ) error {
 	t.Helper()
 
@@ -56,6 +57,7 @@ func ExecVoteOutbound(
 		ErrorMsg:    errorMsg,
 		TxHash:      fmt.Sprintf("0xobserved-%s", outbound.Id),
 		BlockHeight: 1,
+		GasFeeUsed:  gasFeeUsed,
 	}
 
 	msg := &uexecutortypes.MsgVoteOutbound{
@@ -103,6 +105,36 @@ func ExecVoteGasPrice(
 	)
 
 	// Execute the authorization
+	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
+	return err
+}
+
+// ExecVoteChainMeta executes a MsgVoteChainMeta on behalf of the core validator
+// through the universal validator using authz Exec.
+func ExecVoteChainMeta(
+	t *testing.T,
+	ctx sdk.Context,
+	app *app.ChainApp,
+	universalAddr string,
+	coreValAddr string,
+	chainID string,
+	price uint64,
+	blockNumber uint64,
+) error {
+	t.Helper()
+
+	msg := &uexecutortypes.MsgVoteChainMeta{
+		Signer:          coreValAddr,
+		ObservedChainId: chainID,
+		Price:           price,
+		ChainHeight:     blockNumber,
+	}
+
+	execMsg := authz.NewMsgExec(
+		sdk.MustAccAddressFromBech32(universalAddr),
+		[]sdk.Msg{msg},
+	)
+
 	_, err := app.AuthzKeeper.Exec(ctx, &execMsg)
 	return err
 }

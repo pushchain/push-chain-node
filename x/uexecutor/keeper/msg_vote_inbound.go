@@ -59,7 +59,6 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 		InboundTx:       &inbound,
 		PcTx:            nil,
 		OutboundTx:      nil,
-		UniversalStatus: types.UniversalTxStatus_PENDING_INBOUND_EXECUTION,
 	}
 
 	// Step 4: If finalized, create the UniversalTx

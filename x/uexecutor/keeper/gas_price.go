@@ -11,6 +11,7 @@ import (
 	sdkerrors "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -108,3 +109,4 @@ func computeMedianIndex(values []uint64) int {
 	sort.SliceStable(arr, func(i, j int) bool { return arr[i].Val < arr[j].Val })
 	return arr[len(arr)/2].Idx
 }
+

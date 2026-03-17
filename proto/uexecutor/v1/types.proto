@@ -88,6 +88,7 @@ enum TxType {
   FUNDS_AND_PAYLOAD = 4;
   PAYLOAD           = 5;
   INBOUND_REVERT    = 6;
+  RESCUE_FUNDS      = 7;
 }
 
 message RevertInstructions {
@@ -137,6 +138,7 @@ message OutboundObservation {
   uint64 block_height = 2;      // block height on external chain
   string tx_hash = 3;           // external chain tx hash
   string error_msg = 4;
+  string gas_fee_used = 5;      // actual gas fee consumed on destination chain; used to compute excess refund
 }
 
 message OriginatingPcTx {
@@ -167,6 +169,11 @@ message OutboundTx {
   Status outbound_status = 13; // status of outbound tx
   RevertInstructions revert_instructions = 14;
   PCTx pc_revert_execution = 15;
+  string gas_price = 16; // gas price on destination chain at time of outbound
+  string gas_fee = 17;   // gas fee paid to relayer on destination chain
+  PCTx   pc_refund_execution = 18; // PC tx that executed the gas refund (non-nil if refund ran)
+  string refund_swap_error   = 19; // non-empty if swap-refund failed and we fell back to no-swap
+  string gas_token           = 20; // gas token PRC20 address used to pay relayer fee
 }
 
 message UniversalTx {
@@ -178,7 +185,6 @@ message UniversalTx {
   Inbound inbound_tx = 2;    // Full inbound tx data
   repeated PCTx pc_tx = 3;               // Execution details on Push Chain
   repeated OutboundTx outbound_tx = 4;    // Outbound tx triggered by this tx
-  UniversalTxStatus universal_status = 5;       // Current status
 }
 
 // LEGACY TYPES

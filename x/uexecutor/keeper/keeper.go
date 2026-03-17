@@ -49,6 +49,9 @@ type Keeper struct {
 
 	// GasPrices collection stores aggregated gas price data for each chain
 	GasPrices collections.Map[string, types.GasPrice]
+
+	// ChainMetas collection stores aggregated chain metadata (gas price + block height) for each chain
+	ChainMetas collections.Map[string, types.ChainMeta]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -117,6 +120,14 @@ func NewKeeper(
 			types.GasPricesName,
 			collections.StringKey,
 			codec.CollValue[types.GasPrice](cdc),
+		),
+
+		ChainMetas: collections.NewMap(
+			sb,
+			types.ChainMetaKey,
+			types.ChainMetasName,
+			collections.StringKey,
+			codec.CollValue[types.ChainMeta](cdc),
 		),
 	}
 

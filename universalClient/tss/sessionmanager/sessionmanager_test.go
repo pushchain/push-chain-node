@@ -15,8 +15,6 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"math/big"
-
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
@@ -414,7 +412,6 @@ func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
 
 	req := &common.UnSignedOutboundTxReq{
 		SigningHash: []byte{0x01, 0x02, 0x03},
-		GasPrice:   big.NewInt(1000000000),
 	}
 
 	t.Run("rejects signing when outbound disabled for destination chain", func(t *testing.T) {

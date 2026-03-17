@@ -50,12 +50,13 @@ func (h EVMHooks) PostTxProcessing(
 		Status:      "SUCCESS",
 	}
 
-	// This will:
-	// - check if outbound exists
-	// - create universal tx if needed
-	// - attach outbounds
-	// - emit events
-	return h.k.CreateUniversalTxFromReceiptIfOutbound(ctx, protoReceipt, pcTx)
+	// Handle normal outbounds (UniversalTxOutbound events → new UTX + outbounds).
+	if err := h.k.CreateUniversalTxFromReceiptIfOutbound(ctx, protoReceipt, pcTx); err != nil {
+		return err
+	}
+
+	// Handle rescue outbounds (RescueFundsOnSourceChain events → attach to original UTX).
+	return h.k.AttachRescueOutboundFromReceipt(ctx, protoReceipt, pcTx)
 }
 
 func convertReceiptLogs(logs []*ethtypes.Log) []*evmtypes.Log {

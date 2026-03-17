@@ -2,6 +2,7 @@ package svm
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -19,12 +20,15 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	chainID := "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 	signature := "5wHu1qwD7q5xMkZxq6z2S3r4y5N7m8P9kL0jH1gF2dE3cB4aA5b6C7d8E9f0G1h2"
 
-	// Helper to create base64-encoded log data
-	createLogData := func(discriminator []byte, txID []byte, universalTxID []byte) string {
-		data := make([]byte, 0, 72)
+	// Helper to create base64-encoded log data with gas_fee
+	createLogData := func(discriminator []byte, txID []byte, universalTxID []byte, gasFee uint64) string {
+		data := make([]byte, 0, 80)
 		data = append(data, discriminator...)
 		data = append(data, txID...)
 		data = append(data, universalTxID...)
+		gasFeeBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
+		data = append(data, gasFeeBytes...)
 		return "Program data: " + base64.StdEncoding.EncodeToString(data)
 	}
 
@@ -54,7 +58,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	}{
 		{
 			name:      "parses valid outbound observation event",
-			log:       createLogData(discriminator, txID, universalTxID),
+			log:       createLogData(discriminator, txID, universalTxID, 5000),
 			wantEvent: true,
 			validate: func(t *testing.T, event *store.Event) {
 				assert.Contains(t, event.EventID, signature)
@@ -63,7 +67,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 				assert.Equal(t, "PENDING", event.Status)
 				assert.Equal(t, "STANDARD", event.ConfirmationType)
 
-				// Verify event data contains tx_id and universal_tx_id
+				// Verify event data contains tx_id, universal_tx_id, and gas_fee_used
 				assert.NotNil(t, event.EventData)
 				var outboundData map[string]any
 				err := json.Unmarshal(event.EventData, &outboundData)
@@ -74,6 +78,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 
 				assert.Equal(t, expectedTxID, outboundData["tx_id"])
 				assert.Equal(t, expectedUniversalTxID, outboundData["universal_tx_id"])
+				assert.Equal(t, "5000", outboundData["gas_fee_used"])
 			},
 		},
 		{
@@ -92,20 +97,21 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 			wantEvent: false,
 		},
 		{
-			name: "returns nil for data too short (less than 72 bytes)",
+			name: "returns nil for data too short (less than 80 bytes)",
 			log: func() string {
-				// Only 64 bytes (8 discriminator + 32 txID, missing universalTxID)
-				shortData := make([]byte, 64)
+				// Only 72 bytes (8 discriminator + 32 txID + 32 universalTxID, missing gas_fee)
+				shortData := make([]byte, 72)
 				copy(shortData[:8], discriminator)
 				copy(shortData[8:40], txID)
+				copy(shortData[40:72], universalTxID)
 				return "Program data: " + base64.StdEncoding.EncodeToString(shortData)
 			}(),
 			wantEvent: false,
 		},
 		{
-			name: "correctly parses minimum valid data (exactly 72 bytes)",
+			name: "correctly parses minimum valid data (exactly 80 bytes)",
 			log: func() string {
-				exactData := make([]byte, 72)
+				exactData := make([]byte, 80)
 				copy(exactData[:8], discriminator)
 				for i := 8; i < 40; i++ {
 					exactData[i] = 0x11 // txID
@@ -113,6 +119,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 				for i := 40; i < 72; i++ {
 					exactData[i] = 0x22 // universalTxID
 				}
+				binary.LittleEndian.PutUint64(exactData[72:80], 12345) // gas_fee
 				return "Program data: " + base64.StdEncoding.EncodeToString(exactData)
 			}(),
 			wantEvent: true,
@@ -121,21 +128,22 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 				err := json.Unmarshal(event.EventData, &outboundData)
 				require.NoError(t, err)
 
-				// Verify the values are correctly parsed
 				assert.Contains(t, outboundData["tx_id"], "0x1111")
 				assert.Contains(t, outboundData["universal_tx_id"], "0x2222")
+				assert.Equal(t, "12345", outboundData["gas_fee_used"])
 			},
 		},
 		{
-			name: "handles data longer than 72 bytes",
+			name: "handles data longer than 80 bytes",
 			log: func() string {
-				// 100 bytes - extra data after the required fields should be ignored
-				longData := make([]byte, 100)
+				// 120 bytes - extra data after the required fields should be ignored
+				longData := make([]byte, 120)
 				copy(longData[:8], discriminator)
 				copy(longData[8:40], txID)
 				copy(longData[40:72], universalTxID)
+				binary.LittleEndian.PutUint64(longData[72:80], 9999) // gas_fee
 				// Extra bytes at the end
-				for i := 72; i < 100; i++ {
+				for i := 80; i < 120; i++ {
 					longData[i] = 0xFF
 				}
 				return "Program data: " + base64.StdEncoding.EncodeToString(longData)
@@ -151,6 +159,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 
 				assert.Equal(t, expectedTxID, outboundData["tx_id"])
 				assert.Equal(t, expectedUniversalTxID, outboundData["universal_tx_id"])
+				assert.Equal(t, "9999", outboundData["gas_fee_used"])
 			},
 		},
 	}
@@ -193,14 +202,15 @@ func TestParseOutboundObservationEvent_EventIDFormat(t *testing.T) {
 	logger := zerolog.New(nil).Level(zerolog.Disabled)
 	chainID := "solana:devnet"
 
-	// Create valid outbound data
-	data := make([]byte, 72)
+	// Create valid outbound data (80 bytes minimum: 8 disc + 32 txID + 32 utxID + 8 gas_fee)
+	data := make([]byte, 80)
 	for i := 0; i < 8; i++ {
 		data[i] = byte(i) // discriminator
 	}
 	for i := 8; i < 72; i++ {
 		data[i] = byte(i % 256) // txID and universalTxID
 	}
+	binary.LittleEndian.PutUint64(data[72:80], 0) // gas_fee
 	log := "Program data: " + base64.StdEncoding.EncodeToString(data)
 
 	tests := []struct {

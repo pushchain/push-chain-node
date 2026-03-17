@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"math/big"
 
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -25,15 +24,14 @@ type ChainClient interface {
 
 // UnSignedOutboundTxReq contains the request for signing an outbound transaction
 type UnSignedOutboundTxReq struct {
-	SigningHash []byte   // Hash to be signed by TSS
-	Nonce       uint64   // evm - TSS Address nonce | svm - PDA nonce
-	GasPrice    *big.Int // evm - Gas price used | svm - Prioritization fee
+	SigningHash []byte // Hash to be signed by TSS
+	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
 }
 
 // OutboundTxBuilder builds and broadcasts transactions for outbound transfers
 type OutboundTxBuilder interface {
 	// GetOutboundSigningRequest creates a signing request from outbound event data
-	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, gasPrice *big.Int, nonce uint64) (*UnSignedOutboundTxReq, error)
+	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnSignedOutboundTxReq, error)
 
 	// GetNextNonce returns the next nonce for the given signer on this chain (for seeding local nonce).
 	// useFinalized: for EVM, if true use finalized block nonce (aggressive/replace stuck); if false use pending. SVM ignores this.
@@ -56,6 +54,12 @@ type OutboundTxBuilder interface {
 	// For SVM: checks if the ExecutedTx PDA exists on-chain.
 	// For EVM: returns false (EVM uses nonce-based replay protection).
 	IsAlreadyExecuted(ctx context.Context, txID string) (bool, error)
+
+	// GetGasFeeUsed returns the gas fee used by a transaction on the destination chain.
+	// EVM: fetches receipt and returns gasUsed * effectiveGasPrice as decimal string.
+	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
+	// Returns "0" if the transaction is not found.
+	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
 }
 
 // UniversalTx Payload
@@ -69,8 +73,8 @@ type UniversalTx struct {
 	Payload             uetypes.UniversalPayload `json:"universalPayload"`
 	VerificationData    string                   `json:"verificationData"`
 	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
-	RevertMsg           string                   `json:"revertMsg,omitempty"` // hex-encoded bytes (0x…)
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
+	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
 }
 
 // OutboundEvent represents an outbound observation event from the gateway contract
@@ -78,8 +82,9 @@ type UniversalTx struct {
 // - txID at 1st indexed position (bytes32)
 // - universalTxID at 2nd indexed position (bytes32)
 type OutboundEvent struct {
-	TxID          string `json:"tx_id"`           // bytes32 hex-encoded (0x...)
-	UniversalTxID string `json:"universal_tx_id"` // bytes32 hex-encoded (0x...)
+	TxID          string `json:"tx_id"`                      // bytes32 hex-encoded (0x...)
+	UniversalTxID string `json:"universal_tx_id"`            // bytes32 hex-encoded (0x...)
+	GasFeeUsed    string `json:"gas_fee_used,omitempty"`     // gas fee used in wei (decimal string)
 }
 
 // Event type enum values for event classification.

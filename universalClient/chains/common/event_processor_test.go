@@ -172,15 +172,14 @@ func TestEventProcessorConstructInbound(t *testing.T) {
 	})
 }
 
-func TestEventProcessorExtractOutboundIDs(t *testing.T) {
+func TestEventProcessorParseOutboundEventData(t *testing.T) {
 	logger := zerolog.Nop()
 	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
-		txID, utxID, err := processor.extractOutboundIDs(nil)
+		data, err := processor.parseOutboundEventData(nil)
 		require.Error(t, err)
-		assert.Empty(t, txID)
-		assert.Empty(t, utxID)
+		assert.Nil(t, data)
 		assert.Contains(t, err.Error(), "event is nil")
 	})
 
@@ -189,17 +188,17 @@ func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 			EventID:   "test",
 			EventData: []byte{},
 		}
-		txID, utxID, err := processor.extractOutboundIDs(event)
+		data, err := processor.parseOutboundEventData(event)
 		require.Error(t, err)
-		assert.Empty(t, txID)
-		assert.Empty(t, utxID)
+		assert.Nil(t, data)
 		assert.Contains(t, err.Error(), "event data is empty")
 	})
 
-	t.Run("valid outbound event extracts IDs", func(t *testing.T) {
+	t.Run("valid outbound event extracts IDs and gas fee", func(t *testing.T) {
 		eventData := OutboundEvent{
 			TxID:          "0x1234",
 			UniversalTxID: "0xabcd",
+			GasFeeUsed:    "42000000000000",
 		}
 		eventDataBytes, _ := json.Marshal(eventData)
 
@@ -208,10 +207,11 @@ func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 			EventData: eventDataBytes,
 		}
 
-		txID, utxID, err := processor.extractOutboundIDs(event)
+		data, err := processor.parseOutboundEventData(event)
 		require.NoError(t, err)
-		assert.Equal(t, "0x1234", txID)
-		assert.Equal(t, "0xabcd", utxID)
+		assert.Equal(t, "0x1234", data.TxID)
+		assert.Equal(t, "0xabcd", data.UniversalTxID)
+		assert.Equal(t, "42000000000000", data.GasFeeUsed)
 	})
 
 	t.Run("missing tx_id returns error", func(t *testing.T) {
@@ -226,10 +226,9 @@ func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 			EventData: eventDataBytes,
 		}
 
-		txID, utxID, err := processor.extractOutboundIDs(event)
+		data, err := processor.parseOutboundEventData(event)
 		require.Error(t, err)
-		assert.Empty(t, txID)
-		assert.Empty(t, utxID)
+		assert.Nil(t, data)
 		assert.Contains(t, err.Error(), "tx_id not found")
 	})
 
@@ -245,51 +244,69 @@ func TestEventProcessorExtractOutboundIDs(t *testing.T) {
 			EventData: eventDataBytes,
 		}
 
-		txID, utxID, err := processor.extractOutboundIDs(event)
+		data, err := processor.parseOutboundEventData(event)
 		require.Error(t, err)
-		assert.Empty(t, txID)
-		assert.Empty(t, utxID)
+		assert.Nil(t, data)
 		assert.Contains(t, err.Error(), "universal_tx_id not found")
 	})
 }
 
-func TestEventProcessorExtractOutboundObservation(t *testing.T) {
+func TestEventProcessorBuildOutboundObservation(t *testing.T) {
 	logger := zerolog.Nop()
 	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
 
-	t.Run("nil event returns error", func(t *testing.T) {
-		obs, err := processor.extractOutboundObservation(nil)
-		require.Error(t, err)
-		assert.Nil(t, obs)
-		assert.Contains(t, err.Error(), "event is nil")
-	})
+	t.Run("builds observation with gas fee from parsed data", func(t *testing.T) {
+		outboundData := &OutboundEvent{
+			TxID:          "0x1234",
+			UniversalTxID: "0xabcd",
+			GasFeeUsed:    "42000000000000",
+		}
 
-	t.Run("valid event extracts observation", func(t *testing.T) {
 		event := &store.Event{
 			EventID:     "0xabc123:5",
 			BlockHeight: 12345,
-			EventData:   []byte("{}"),
 		}
 
-		obs, err := processor.extractOutboundObservation(event)
+		obs, err := processor.buildOutboundObservation(event, outboundData)
 		require.NoError(t, err)
 		require.NotNil(t, obs)
 		assert.True(t, obs.Success)
 		assert.Equal(t, uint64(12345), obs.BlockHeight)
 		assert.Equal(t, "0xabc123", obs.TxHash)
+		assert.Equal(t, "42000000000000", obs.GasFeeUsed)
+	})
+
+	t.Run("missing gas fee defaults to 0", func(t *testing.T) {
+		outboundData := &OutboundEvent{
+			TxID:          "0x1234",
+			UniversalTxID: "0xabcd",
+		}
+
+		event := &store.Event{
+			EventID:     "0xabc123:5",
+			BlockHeight: 12345,
+		}
+
+		obs, err := processor.buildOutboundObservation(event, outboundData)
+		require.NoError(t, err)
+		require.NotNil(t, obs)
+		assert.Equal(t, "0", obs.GasFeeUsed)
 	})
 
 	t.Run("handles base58 tx hash", func(t *testing.T) {
+		outboundData := &OutboundEvent{
+			TxID:          "0x1234",
+			UniversalTxID: "0xabcd",
+		}
+
 		event := &store.Event{
 			EventID:     "2VfUX:0", // Base58 encoded
 			BlockHeight: 100,
-			EventData:   []byte("{}"),
 		}
 
-		obs, err := processor.extractOutboundObservation(event)
+		obs, err := processor.buildOutboundObservation(event, outboundData)
 		require.NoError(t, err)
 		require.NotNil(t, obs)
-		// Should be converted to hex
 		assert.True(t, len(obs.TxHash) >= 2)
 	})
 }
@@ -302,6 +319,8 @@ func TestEventProcessorStruct(t *testing.T) {
 		assert.Empty(t, ep.chainID)
 		assert.False(t, ep.running)
 		assert.Nil(t, ep.stopCh)
+		assert.False(t, ep.inboundEnabled)
+		assert.False(t, ep.outboundEnabled)
 	})
 }
 

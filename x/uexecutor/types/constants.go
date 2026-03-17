@@ -43,5 +43,9 @@ const (
 )
 
 var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(
-	"UniversalTxOutbound(bytes32,address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8)",
+	"UniversalTxOutbound(bytes32,address,string,address,bytes,uint256,address,uint256,uint256,bytes,uint256,address,uint8,uint256)",
+)).Hex()
+
+var RescueFundsOnSourceChainEventSig = crypto.Keccak256Hash([]byte(
+	"RescueFundsOnSourceChain(bytes32,address,string,address,uint8,uint256,uint256,uint256)",
 )).Hex()

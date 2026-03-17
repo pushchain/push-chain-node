@@ -169,7 +169,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		confirmations := latestSlot - txSlot + 1
 
 		if confirmations >= requiredConfirmations {
-			// Update event status to CONFIRMED
+			// GasFeeUsed for outbound events is already set by the event parser from the on-chain event data
 			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
 			if err != nil {
 				ec.logger.Error().

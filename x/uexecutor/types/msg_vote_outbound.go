@@ -68,8 +68,15 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 	// Validate observed_tx content
 	obs := msg.ObservedTx
 
+	// gas_fee_used is always required — the external chain consumes gas regardless
+	// of success or failure, and excess gas must be refundable in both cases.
+	if strings.TrimSpace(obs.GasFeeUsed) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest,
+			"observed_tx.gas_fee_used is required")
+	}
+
 	if obs.Success {
-		// Success requires tx_hash AND block_height > 0
+		// Success additionally requires tx_hash and block_height.
 		if strings.TrimSpace(obs.TxHash) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest,
 				"observed_tx.tx_hash required when success=true")
@@ -78,10 +85,8 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest,
 				"observed_tx.block_height must be > 0 when success=true")
 		}
-
 	} else {
-		// Failure case:
-		// tx_hash MAY be empty.
+		// Failure case: tx_hash MAY be empty.
 		// BUT if tx_hash is present, block_height must be > 0.
 		if strings.TrimSpace(obs.TxHash) != "" && obs.BlockHeight == 0 {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest,

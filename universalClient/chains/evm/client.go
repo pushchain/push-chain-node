@@ -32,11 +32,11 @@ type Client struct {
 	cancel    context.CancelFunc
 
 	// Components
-	eventListener  *EventListener
-	eventProcessor *common.EventProcessor
-	eventConfirmer *EventConfirmer
-	gasOracle      *GasOracle
-	txBuilder      *TxBuilder
+	eventListener   *EventListener
+	eventProcessor  *common.EventProcessor
+	eventConfirmer  *EventConfirmer
+	chainMetaOracle *ChainMetaOracle
+	txBuilder       *TxBuilder
 
 	// Dependencies
 	pushSigner *pushsigner.Signer
@@ -143,8 +143,8 @@ func (c *Client) Stop() error {
 		}
 	}
 
-	if c.gasOracle != nil {
-		c.gasOracle.Stop()
+	if c.chainMetaOracle != nil {
+		c.chainMetaOracle.Stop()
 	}
 
 	// Close RPC client last
@@ -270,7 +270,7 @@ func (c *Client) initializeComponents() error {
 
 	// Create gas oracle if pushSigner is available
 	if c.pushSigner != nil {
-		c.gasOracle = NewGasOracle(
+		c.chainMetaOracle = NewChainMetaOracle(
 			c.rpcClient,
 			c.pushSigner,
 			c.chainIDStr,
@@ -302,8 +302,8 @@ func (c *Client) startComponents() error {
 		}
 	}
 
-	if c.gasOracle != nil {
-		if err := c.gasOracle.Start(c.ctx); err != nil {
+	if c.chainMetaOracle != nil {
+		if err := c.chainMetaOracle.Start(c.ctx); err != nil {
 			return fmt.Errorf("failed to start gas oracle: %w", err)
 		}
 	}

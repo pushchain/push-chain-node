@@ -54,6 +54,6 @@ func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID s
 		return
 	}
 
-	// PDA not found — tx was not executed on destination chain
-	_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "tx not executed on destination chain")
+	// PDA not found — tx was not executed on destination chain, no gas consumed
+	_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not executed on destination chain")
 }

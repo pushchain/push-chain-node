@@ -17,7 +17,7 @@ replace (
 	cosmossdk.io/x/upgrade => cosmossdk.io/x/upgrade v0.1.4
 	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0 // Keep v0.55.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.10 // Use stable v0.50.10
-	github.com/cosmos/evm => github.com/pushchain/evm v0.2.1-0.20260218064719-823606aa137a
+	github.com/cosmos/evm => github.com/pushchain/evm v0.2.1-0.20260317061609-b8c20d3d631b
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.10.26-evmos-rc4.0.20250402013457-cf9d288f0147
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
 	github.com/strangelove-ventures/tokenfactory => github.com/strangelove-ventures/tokenfactory v0.50.7-wasmvm2
@@ -111,13 +111,16 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/dgraph-io/ristretto/v2 v2.1.0 // indirect
+	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/dop251/goja v0.0.0-20220405120441-9037c2b61cbf // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect

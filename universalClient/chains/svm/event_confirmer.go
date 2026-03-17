@@ -2,7 +2,6 @@ package svm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -170,34 +169,8 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		confirmations := latestSlot - txSlot + 1
 
 		if confirmations >= requiredConfirmations {
-			var rowsAffected int64
-
-			// For outbound events, enrich with gas fee from tx metadata
-			if event.Type == chaincommon.EventTypeOutbound {
-				var outboundEvent chaincommon.OutboundEvent
-				if unmarshalErr := json.Unmarshal(event.EventData, &outboundEvent); unmarshalErr != nil {
-					ec.logger.Error().
-						Err(unmarshalErr).
-						Str("event_id", event.EventID).
-						Msg("failed to unmarshal outbound event data")
-					continue
-				}
-				outboundEvent.GasFeeUsed = "0"
-
-				updatedData, marshalErr := json.Marshal(outboundEvent)
-				if marshalErr != nil {
-					ec.logger.Error().
-						Err(marshalErr).
-						Str("event_id", event.EventID).
-						Msg("failed to marshal enriched outbound event data")
-					continue
-				}
-
-				rowsAffected, err = ec.chainStore.UpdateStatusAndEventData(event.EventID, "PENDING", "CONFIRMED", updatedData)
-			} else {
-				rowsAffected, err = ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
-			}
-
+			// GasFeeUsed for outbound events is already set by the event parser from the on-chain event data
+			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
 			if err != nil {
 				ec.logger.Error().
 					Err(err).

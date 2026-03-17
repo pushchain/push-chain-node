@@ -101,11 +101,17 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 	return event
 }
 
-// parseOutboundObservationEvent parses an outboundObservation event
+// parseOutboundObservationEvent parses an outboundObservation event (UniversalTxFinalized)
 // Event structure (Borsh serialized):
 // - discriminator (8 bytes)
-// - sub_tx_id (32 bytes - bytes32)
-// - universal_tx_id (32 bytes - bytes32)
+// - sub_tx_id (32 bytes)
+// - universal_tx_id (32 bytes)
+// - gas_fee (8 bytes, u64 lamports)
+// - push_account (20 bytes)
+// - target (32 bytes, Pubkey)
+// - token (32 bytes, Pubkey)
+// - amount (8 bytes, u64)
+// - payload (4 bytes length + data, Vec<u8>)
 func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
@@ -117,11 +123,11 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		return nil
 	}
 
-	// Need at least: 8 bytes discriminator + 32 bytes txID + 32 bytes universalTxID = 72 bytes
-	if len(decoded) < 72 {
+	// Minimum: 8 disc + 32 sub_tx_id + 32 universal_tx_id + 8 gas_fee = 80 bytes
+	if len(decoded) < 80 {
 		logger.Warn().
 			Int("data_len", len(decoded)).
-			Msg("data too short for outboundObservation event; need at least 72 bytes")
+			Msg("data too short for outboundObservation event; need at least 80 bytes")
 		return nil
 	}
 
@@ -144,11 +150,16 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 
 	// Extract universalTxID (32 bytes)
 	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
+	offset += 32
+
+	// Extract gas_fee (8 bytes, u64 little-endian lamports)
+	gasFee := binary.LittleEndian.Uint64(decoded[offset : offset+8])
 
 	// Create OutboundEvent payload
 	payload := common.OutboundEvent{
 		TxID:          txID,
 		UniversalTxID: universalTxID,
+		GasFeeUsed:    fmt.Sprintf("%d", gasFee),
 	}
 
 	// Marshal payload to JSON
@@ -176,6 +187,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Str("event_id", eventID).
 		Str("tx_id", txID).
 		Str("universal_tx_id", universalTxID).
+		Str("gas_fee", fmt.Sprintf("%d", gasFee)).
 		Msg("parsed outboundObservation event")
 
 	return event

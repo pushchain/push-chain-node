@@ -802,6 +802,28 @@ func ParseUniversalCoreABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(UNIVERSAL_CORE_ABI))
 }
 
+// RecipientContractABI is the ABI for smart-contract recipients that implement executeUniversalTx.
+const RecipientContractABI = `[
+  {
+    "type": "function",
+    "name": "executeUniversalTx",
+    "inputs": [
+      { "name": "sourceChain",    "type": "string"  },
+      { "name": "ceaAddress",     "type": "bytes"   },
+      { "name": "payload",        "type": "bytes"   },
+      { "name": "amount",         "type": "uint256" },
+      { "name": "prc20AssetAddr", "type": "address" },
+      { "name": "txId",           "type": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]`
+
+func ParseRecipientContractABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(RecipientContractABI))
+}
+
 type AbiUniversalPayload struct {
 	To                   common.Address
 	Value                *big.Int

@@ -576,3 +576,52 @@ func (k Keeper) CallUniversalCoreRefundUnusedGas(
 		minPCOut,
 	)
 }
+
+// CallExecuteUniversalTx calls executeUniversalTx on a smart-contract recipient.
+// This is used for isCEA inbounds whose recipient is a deployed contract (not a UEA).
+func (k Keeper) CallExecuteUniversalTx(
+	ctx sdk.Context,
+	recipientAddr common.Address,
+	sourceChain string,
+	ceaAddress []byte,
+	payload []byte,
+	amount *big.Int,
+	prc20AssetAddr common.Address,
+	txId [32]byte,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	recipientABI, err := types.ParseRecipientContractABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse recipient contract ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		recipientABI,
+		ueModuleAccAddress,
+		recipientAddr,
+		big.NewInt(0),
+		nil,
+		true,
+		false,
+		true,
+		&nonce,
+		"executeUniversalTx",
+		sourceChain,
+		ceaAddress,
+		payload,
+		amount,
+		prc20AssetAddr,
+		txId,
+	)
+}
+

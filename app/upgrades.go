@@ -7,6 +7,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
+	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -45,6 +46,7 @@ var Upgrades = []upgrades.Upgrade{
 	supplyslash.NewUpgrade(),
 	supplyburn.NewUpgrade(),
 	chainmeta.NewUpgrade(),
+	chainmetavotegasless.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

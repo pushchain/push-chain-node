@@ -12,10 +12,11 @@ message ChainMeta {
   option (gogoproto.equal) = true;
   option (gogoproto.goproto_stringer) = false;
 
-  string observed_chain_id = 1;          // chain ID of observed external chain (e.g. "eip155:1" for ethereum mainnet)
-  repeated string signers = 2;           // Validators who submitted votes
-  repeated uint64 prices = 3;            // Submitted gas prices
-  repeated uint64 chain_heights = 4;     // Block heights corresponding to each price observation
-  repeated uint64 observed_ats = 5;      // Timestamps when each observation was made
-  uint64 median_index = 6;              // Index of the median price in 'prices'
+  string observed_chain_id = 1;           // chain ID of observed external chain (e.g. "eip155:1" for ethereum mainnet)
+  repeated string signers = 2;            // Validators who submitted votes
+  repeated uint64 prices = 3;             // Submitted gas prices
+  repeated uint64 chain_heights = 4;      // Block heights corresponding to each price observation
+  repeated uint64 stored_ats = 5;         // Block time (unix seconds) when each vote was last stored/updated
+  uint64 median_index = 6;               // Index of the median price in 'prices'
+  uint64 last_applied_chain_height = 7;  // Chain height of last successful EVM setChainMeta call
 }

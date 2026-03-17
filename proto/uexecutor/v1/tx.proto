@@ -153,7 +153,6 @@ message MsgVoteChainMeta {
   string observed_chain_id = 2;  // CAIP-2 chain ID of observed external chain (e.g. "eip155:1")
   uint64 price = 3;              // Observed gas price in wei
   uint64 chain_height = 4;       // Block height from which observation was made
-  uint64 observed_at = 5;        // Timestamp when the observation was made (unix seconds)
 }
 
 // MsgVoteChainMetaResponse defines the response for MsgVoteChainMeta

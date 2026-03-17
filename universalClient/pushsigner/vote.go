@@ -86,7 +86,7 @@ func voteInbound(
 	return vote(ctx, signer, log, msg, memo)
 }
 
-// voteChainMeta votes on chain metadata (gas price, block height, observation timestamp)
+// voteChainMeta votes on chain metadata (gas price, block height)
 func voteChainMeta(
 	ctx context.Context,
 	signer *Signer,
@@ -95,14 +95,12 @@ func voteChainMeta(
 	chainID string,
 	price uint64,
 	chainHeight uint64,
-	observedAt uint64,
 ) (string, error) {
 	msg := &uexecutortypes.MsgVoteChainMeta{
 		Signer:          granter,
 		ObservedChainId: chainID,
 		Price:           price,
 		ChainHeight:     chainHeight,
-		ObservedAt:      observedAt,
 	}
 	memo := fmt.Sprintf("Vote chain meta: %s @ price=%d height=%d", chainID, price, chainHeight)
 	return vote(ctx, signer, log, msg, memo)

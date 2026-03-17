@@ -97,16 +97,14 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 				continue
 			}
 
-			// Vote on chain meta (gas price + slot height + observation timestamp)
+			// Vote on chain meta (gas price + slot height)
 			priceUint64 := gasPrice.Uint64()
-			observedAt := uint64(time.Now().Unix())
-			voteTxHash, err := g.pushSigner.VoteChainMeta(ctx, g.chainID, priceUint64, slotNumber, observedAt)
+			voteTxHash, err := g.pushSigner.VoteChainMeta(ctx, g.chainID, priceUint64, slotNumber)
 			if err != nil {
 				g.logger.Error().
 					Err(err).
 					Uint64("price", priceUint64).
 					Uint64("slot", slotNumber).
-					Uint64("observed_at", observedAt).
 					Msg("failed to vote on chain meta")
 				continue
 			}
@@ -115,7 +113,6 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 				Str("vote_tx_hash", voteTxHash).
 				Uint64("price", priceUint64).
 				Uint64("slot", slotNumber).
-				Uint64("observed_at", observedAt).
 				Msg("successfully voted on chain meta")
 		}
 	}

@@ -14,14 +14,13 @@ var (
 func NewMsgVoteChainMeta(
 	sender sdk.Address,
 	observedChainId string,
-	price, chainHeight, observedAt uint64,
+	price, chainHeight uint64,
 ) *MsgVoteChainMeta {
 	return &MsgVoteChainMeta{
 		Signer:          sender.String(),
 		ObservedChainId: observedChainId,
 		Price:           price,
 		ChainHeight:     chainHeight,
-		ObservedAt:      observedAt,
 	}
 }
 

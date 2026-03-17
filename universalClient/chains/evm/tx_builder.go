@@ -18,7 +18,6 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-
 // RevertInstructions represents the struct for revert instruction in contracts
 // Matches: struct RevertInstructions { address revertRecipient; bytes revertMsg; }
 type RevertInstructions struct {
@@ -26,12 +25,7 @@ type RevertInstructions struct {
 	RevertMsg       []byte
 }
 
-// TxBuilder implements OutboundTxBuilder for EVM chains using Vault + Gateway contracts.
-//
-// Routing:
-//   - FUNDS, FUNDS_AND_PAYLOAD, PAYLOAD → Vault.finalizeUniversalTx
-//   - INBOUND_REVERT (native)           → Gateway.revertUniversalTx
-//   - INBOUND_REVERT (ERC20)            → Vault.revertUniversalTxToken
+// TxBuilder implements OutboundTxBuilder for EVM chains using the Vault contract.
 type TxBuilder struct {
 	rpcClient      *RPCClient
 	chainID        string
@@ -82,7 +76,6 @@ func NewTxBuilder(
 
 	return tb, nil
 }
-
 
 // GetOutboundSigningRequest creates a signing request from outbound event data
 func (tb *TxBuilder) GetOutboundSigningRequest(
@@ -135,14 +128,14 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("failed to encode function call: %w", err)
 	}
 
-	txValue, toAddress, err := tb.resolveTxParams(funcName, assetAddr, amount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve tx params: %w", err)
+	txValue := big.NewInt(0)
+	if assetAddr == (ethcommon.Address{}) {
+		txValue = amount
 	}
 
 	tx := types.NewTransaction(
 		nonce,
-		toAddress,
+		tb.vaultAddress,
 		txValue,
 		gasLimit.Uint64(),
 		gasPrice,
@@ -207,9 +200,9 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		return "", fmt.Errorf("failed to encode function call: %w", err)
 	}
 
-	txValue, toAddress, err := tb.resolveTxParams(funcName, assetAddr, amount)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve tx params: %w", err)
+	txValue := big.NewInt(0)
+	if assetAddr == (ethcommon.Address{}) {
+		txValue = amount
 	}
 
 	gasLimitForTx, err := parseGasLimit(data.GasLimit)
@@ -224,7 +217,7 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 
 	tx := types.NewTransaction(
 		req.Nonce,
-		toAddress,
+		tb.vaultAddress,
 		txValue,
 		gasLimitForTx.Uint64(),
 		gasPrice,
@@ -270,52 +263,22 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 	return true, receiptBlock, confs, uint8(receipt.Status), nil
 }
 
-// resolveTxParams determines the transaction value and destination address.
+// determineFunctionName determines the Vault function name based on TxType.
 //
-// Routing:
-//   - finalizeUniversalTx → vault (value = amount for native)
-//   - revertUniversalTxToken → vault (value = 0, ERC20 only)
-//   - revertUniversalTx → gateway (value = amount, native only)
-func (tb *TxBuilder) resolveTxParams(funcName string, assetAddr ethcommon.Address, amount *big.Int) (txValue *big.Int, toAddress ethcommon.Address, err error) {
-	isNative := assetAddr == (ethcommon.Address{})
-
-	switch funcName {
-	case "revertUniversalTx":
-		// Native revert goes to gateway — no vault needed
-		return amount, tb.gatewayAddress, nil
-
-	case "finalizeUniversalTx":
-		if isNative {
-			return amount, tb.vaultAddress, nil
-		}
-		return big.NewInt(0), tb.vaultAddress, nil
-
-	case "revertUniversalTxToken":
-		return big.NewInt(0), tb.vaultAddress, nil
-
-	default:
-		return big.NewInt(0), tb.vaultAddress, nil
-	}
-}
-
-// determineFunctionName determines the function name based on TxType and asset type.
-//
-// Routing:
+// Routing (all on Vault):
 //   - FUNDS, FUNDS_AND_PAYLOAD, PAYLOAD → Vault.finalizeUniversalTx
-//   - INBOUND_REVERT (native)           → Gateway.revertUniversalTx
-//   - INBOUND_REVERT (ERC20)            → Vault.revertUniversalTxToken
+//   - INBOUND_REVERT                    → Vault.revertUniversalTx
+//   - RESCUE_FUNDS                      → Vault.rescueFunds
 func (tb *TxBuilder) determineFunctionName(txType uetypes.TxType, assetAddr ethcommon.Address) string {
-	isNative := assetAddr == (ethcommon.Address{})
-
 	switch txType {
 	case uetypes.TxType_FUNDS, uetypes.TxType_FUNDS_AND_PAYLOAD, uetypes.TxType_PAYLOAD:
 		return "finalizeUniversalTx"
 
 	case uetypes.TxType_INBOUND_REVERT:
-		if isNative {
-			return "revertUniversalTx"
-		}
-		return "revertUniversalTxToken"
+		return "revertUniversalTx"
+
+	case uetypes.TxType_RESCUE_FUNDS:
+		return "rescueFunds"
 
 	default:
 		return "finalizeUniversalTx"
@@ -371,20 +334,21 @@ func (tb *TxBuilder) encodeFunctionCall(
 
 	switch funcName {
 	case "finalizeUniversalTx":
-		// finalizeUniversalTx(bytes32 txId, bytes32 universalTxId, address pushAccount, address token, address target, uint256 amount, bytes data)
+		// Vault: finalizeUniversalTx(bytes32 subTxId, bytes32 universalTxId, address pushAccount, address recipient, address token, uint256 amount, bytes data)
 		arguments = abi.Arguments{
-			{Type: bytes32Type}, // txId
+			{Type: bytes32Type}, // subTxId
 			{Type: bytes32Type}, // universalTxId
 			{Type: addressType}, // pushAccount
+			{Type: addressType}, // recipient
 			{Type: addressType}, // token
-			{Type: addressType}, // target
 			{Type: uint256Type}, // amount
 			{Type: bytesType},   // data
 		}
-		values = []interface{}{txID32, universalTxID, pushAccount, assetAddr, target, amount, payloadBytes}
+		values = []interface{}{txID32, universalTxID, pushAccount, target, assetAddr, amount, payloadBytes}
 
-	case "revertUniversalTx":
-		// Gateway: revertUniversalTx(bytes32 txId, bytes32 universalTxId, uint256 amount, RevertInstructions revertInstruction)
+	case "revertUniversalTx", "rescueFunds":
+		// Vault: revertUniversalTx(bytes32 subTxId, bytes32 universalTxId, address token, uint256 amount, RevertInstructions revertInstruction)
+		// Vault: rescueFunds(bytes32 subTxId, bytes32 universalTxId, address token, uint256 amount, RevertInstructions revertInstruction)
 		revertMsgBytes, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
 		if err != nil {
 			revertMsgBytes = []byte{}
@@ -394,28 +358,7 @@ func (tb *TxBuilder) encodeFunctionCall(
 			{Name: "revertMsg", Type: "bytes"},
 		})
 		arguments = abi.Arguments{
-			{Type: bytes32Type},           // txId
-			{Type: bytes32Type},           // universalTxId
-			{Type: uint256Type},           // amount
-			{Type: revertInstructionType}, // revertInstruction
-		}
-		values = []interface{}{txID32, universalTxID, amount, RevertInstructions{
-			RevertRecipient: target,
-			RevertMsg:       revertMsgBytes,
-		}}
-
-	case "revertUniversalTxToken":
-		// Vault: revertUniversalTxToken(bytes32 txId, bytes32 universalTxId, address token, uint256 amount, RevertInstructions revertInstruction)
-		revertMsgBytesToken, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
-		if err != nil {
-			revertMsgBytesToken = []byte{}
-		}
-		revertInstructionType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-			{Name: "revertRecipient", Type: "address"},
-			{Name: "revertMsg", Type: "bytes"},
-		})
-		arguments = abi.Arguments{
-			{Type: bytes32Type},           // txId
+			{Type: bytes32Type},           // subTxId
 			{Type: bytes32Type},           // universalTxId
 			{Type: addressType},           // token
 			{Type: uint256Type},           // amount
@@ -423,7 +366,7 @@ func (tb *TxBuilder) encodeFunctionCall(
 		}
 		values = []interface{}{txID32, universalTxID, assetAddr, amount, RevertInstructions{
 			RevertRecipient: target,
-			RevertMsg:       revertMsgBytesToken,
+			RevertMsg:       revertMsgBytes,
 		}}
 
 	default:
@@ -448,12 +391,12 @@ func (tb *TxBuilder) getFunctionSignature(funcName string, _ bool) string {
 		return "finalizeUniversalTx(bytes32,bytes32,address,address,address,uint256,bytes)"
 
 	case "revertUniversalTx":
-		// Gateway: revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))
-		return "revertUniversalTx(bytes32,bytes32,uint256,(address,bytes))"
+		// Vault: revertUniversalTx(bytes32,bytes32,address,uint256,(address,bytes))
+		return "revertUniversalTx(bytes32,bytes32,address,uint256,(address,bytes))"
 
-	case "revertUniversalTxToken":
-		// Vault: revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes))
-		return "revertUniversalTxToken(bytes32,bytes32,address,uint256,(address,bytes))"
+	case "rescueFunds":
+		// Vault: rescueFunds(bytes32,bytes32,address,uint256,(address,bytes))
+		return "rescueFunds(bytes32,bytes32,address,uint256,(address,bytes))"
 
 	default:
 		return ""

@@ -280,34 +280,29 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 	// --- Determine instruction ID and decode payload ---
 	// For non-revert flows: decode payload to get instruction_id (1=withdraw, 2=execute),
-	// accounts, ixData, and rentFee. The instruction_id in the payload is authoritative.
-	// For revert flows: instruction_id is determined from TxType + asset type.
+	// accounts, and ixData. The instruction_id in the payload is authoritative.
+	// For revert flows: instruction_id is always 3 (unified for SOL and SPL).
+	// For rescue flows: instruction_id is 4 (when proto is ready).
 	var instructionID uint8
 	var targetProgram [32]byte
 	var accounts []GatewayAccountMeta
 	var ixData []byte
-	var rentFee uint64
 	var revertRecipient [32]byte
 	var revertMint [32]byte
 
-	if txType == uetypes.TxType_INBOUND_REVERT {
-		// Revert flows: instruction_id from TxType (no payload-based instruction_id)
-		if isNative {
-			instructionID = 3
-		} else {
-			instructionID = 4
+	if txType == uetypes.TxType_INBOUND_REVERT || txType == uetypes.TxType_RESCUE_FUNDS {
+		// Revert (id=3) and rescue (id=4): instruction_id determined by TxType, no payload decode
+		instructionID, err = tb.determineInstructionID(txType, isNative)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine instruction ID: %w", err)
 		}
-
-		switch instructionID {
-		case 3: // Revert SOL: recipient gets their SOL back
-			copy(revertRecipient[:], recipientPubkey.Bytes())
-		case 4: // Revert SPL: recipient gets their SPL tokens back
-			copy(revertRecipient[:], recipientPubkey.Bytes())
+		copy(revertRecipient[:], recipientPubkey.Bytes())
+		if !isNative {
 			copy(revertMint[:], token[:])
 		}
 	} else {
 		// Non-revert flows: decode payload to get instruction_id.
-		// Payload format: [accounts][ixData][rentFee][instruction_id]
+		// Payload format: [accounts][ixData][instruction_id][target_program]
 		// For simple withdraw, payload may be empty — fall back to TxType.
 		payloadHex := removeHexPrefix(data.Payload)
 		if payloadHex != "" {
@@ -318,11 +313,15 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 			if len(payloadBytes) > 0 {
 				var payloadInstructionID uint8
-				accounts, ixData, rentFee, payloadInstructionID, err = decodePayload(payloadBytes)
+				var payloadTargetProgram [32]byte
+				accounts, ixData, payloadInstructionID, payloadTargetProgram, err = decodePayload(payloadBytes)
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode payload: %w", err)
 				}
 				instructionID = payloadInstructionID
+				if payloadTargetProgram != ([32]byte{}) {
+					targetProgram = payloadTargetProgram
+				}
 			}
 		}
 
@@ -340,24 +339,23 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 			return nil, fmt.Errorf("invalid instruction_id: %d (expected 1=withdraw or 2=execute)", instructionID)
 		}
 
-		// Validate rent_fee <= gas_fee (contract requires this)
-		if rentFee > gasFee {
-			return nil, fmt.Errorf("rent_fee (%d) exceeds gas_fee (%d)", rentFee, gasFee)
-		}
-
 		// Validate mode-specific constraints per integration guide
 		switch instructionID {
 		case 1: // Withdraw mode
-			if len(accounts) > 0 || len(ixData) > 0 || rentFee > 0 {
-				return nil, fmt.Errorf("withdraw mode: accounts, ixData, and rentFee must be empty/zero")
+			if len(accounts) > 0 || len(ixData) > 0 {
+				return nil, fmt.Errorf("withdraw mode: accounts and ixData must be empty")
 			}
 			if amount.Uint64() == 0 {
 				return nil, fmt.Errorf("withdraw mode: amount must be > 0")
 			}
-			copy(targetProgram[:], recipientPubkey.Bytes())
+			if targetProgram == ([32]byte{}) {
+				copy(targetProgram[:], recipientPubkey.Bytes())
+			}
 
 		case 2: // Execute mode
-			copy(targetProgram[:], recipientPubkey.Bytes())
+			if targetProgram == ([32]byte{}) {
+				copy(targetProgram[:], recipientPubkey.Bytes())
+			}
 		}
 	}
 
@@ -367,7 +365,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	messageHash, err := tb.constructTSSMessage(
 		instructionID, chainID, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
-		targetProgram, accounts, ixData, rentFee,
+		targetProgram, accounts, ixData,
 		revertRecipient, revertMint,
 	)
 	if err != nil {
@@ -588,13 +586,13 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	var instructionID uint8
 	var execAccounts []GatewayAccountMeta
 	var ixData []byte
-	var rentFee uint64
 
-	if txType == uetypes.TxType_INBOUND_REVERT {
-		if isNative {
-			instructionID = 3
-		} else {
-			instructionID = 4
+	if txType == uetypes.TxType_INBOUND_REVERT || txType == uetypes.TxType_RESCUE_FUNDS {
+		// Revert (id=3) and rescue (id=4): instruction_id determined by TxType, no payload decode
+		var idErr error
+		instructionID, idErr = tb.determineInstructionID(txType, isNative)
+		if idErr != nil {
+			return nil, 0, fmt.Errorf("failed to determine instruction ID: %w", idErr)
 		}
 	} else {
 		// Non-revert: decode payload to get instruction_id
@@ -605,7 +603,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 				return nil, 0, fmt.Errorf("failed to decode payload hex: %w", decErr)
 			}
 			if len(payloadBytes) > 0 {
-				execAccounts, ixData, rentFee, instructionID, err = decodePayload(payloadBytes)
+				execAccounts, ixData, instructionID, _, err = decodePayload(payloadBytes)
 				if err != nil {
 					return nil, 0, fmt.Errorf("failed to decode payload: %w", err)
 				}
@@ -623,9 +621,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 		if instructionID != 1 && instructionID != 2 {
 			return nil, 0, fmt.Errorf("invalid instruction_id: %d", instructionID)
-		}
-		if rentFee > gasFee {
-			return nil, 0, fmt.Errorf("rent_fee (%d) exceeds gas_fee (%d)", rentFee, gasFee)
 		}
 	}
 
@@ -648,6 +643,12 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txID[:]}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+	}
+
+	// --- Derive fee_vault PDA (needed for revert and rescue) ---
+	feeVaultPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("fee_vault")}, tb.gatewayAddress)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to derive fee_vault PDA: %w", err)
 	}
 
 	// --- Build instruction data and accounts list ---
@@ -678,7 +679,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 		instructionData = tb.buildWithdrawAndExecuteData(
 			instructionID, txID, universalTxID, amount.Uint64(), sender,
-			writableFlags, ixData, gasFee, rentFee,
+			writableFlags, ixData, gasFee,
 			signature, recoveryID, req.SigningHash,
 		)
 
@@ -692,46 +693,28 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		)
 
 	case instructionID == 3:
-		// ---- revert_universal_tx (native SOL refund) ----
+		// ---- revert_universal_tx (unified for SOL and SPL) ----
 		instructionData = tb.buildRevertData(
-			instructionID, txID, universalTxID, amount.Uint64(),
+			txID, universalTxID, amount.Uint64(),
 			recipientPubkey, revertMsgBytes, gasFee,
 			signature, recoveryID, req.SigningHash,
 		)
-		accounts = tb.buildRevertSOLAccounts(
-			configPDA, vaultPDA, tssPDA, recipientPubkey,
+		accounts = tb.buildRevertAccounts(
+			configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
 			executedTxPDA, relayerKeypair.PublicKey(),
+			isNative, mintPubkey,
 		)
 
 	case instructionID == 4:
-		// ---- revert_universal_tx_token (SPL token refund) ----
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-
-		tokenVaultATA, _, ataErr := solana.FindProgramAddress(
-			[][]byte{vaultPDA.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
-		)
-		if ataErr != nil {
-			return nil, 0, fmt.Errorf("failed to derive token vault ATA: %w", ataErr)
-		}
-
-		recipientATA, _, ataErr := solana.FindProgramAddress(
-			[][]byte{recipientPubkey.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
-		)
-		if ataErr != nil {
-			return nil, 0, fmt.Errorf("failed to derive recipient ATA: %w", ataErr)
-		}
-
-		instructionData = tb.buildRevertData(
-			instructionID, txID, universalTxID, amount.Uint64(),
-			recipientPubkey, revertMsgBytes, gasFee,
+		// ---- rescue_funds ----
+		instructionData = tb.buildRescueData(
+			txID, universalTxID, amount.Uint64(), gasFee,
 			signature, recoveryID, req.SigningHash,
 		)
-		accounts = tb.buildRevertSPLAccounts(
-			configPDA, vaultPDA, tokenVaultATA, tssPDA,
-			recipientATA, mintPubkey,
+		accounts = tb.buildRescueAccounts(
+			configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
 			executedTxPDA, relayerKeypair.PublicKey(),
+			isNative, mintPubkey,
 		)
 	}
 
@@ -761,7 +744,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	// Build the instruction list.
 	instructions := []solana.Instruction{computeLimitIx}
 
-	needsRecipientATA := (instructionID == 1 && !isNative) || instructionID == 4
+	needsRecipientATA := (instructionID == 1 && !isNative) || ((instructionID == 3 || instructionID == 4) && !isNative)
 	if needsRecipientATA {
 		createATAInstruction := tb.buildCreateATAIdempotentInstruction(
 			relayerKeypair.PublicKey(),
@@ -880,8 +863,8 @@ func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKe
 //	ID  Function                     When
 //	1   finalize_universal_tx         FUNDS (withdraw mode): send SOL or SPL tokens to a recipient
 //	2   finalize_universal_tx         FUNDS_AND_PAYLOAD or GAS_AND_PAYLOAD (execute mode): call a program
-//	3   revert_universal_tx          INBOUND_REVERT + native SOL: refund SOL for a failed cross-chain tx
-//	4   revert_universal_tx_token    INBOUND_REVERT + SPL token: refund SPL tokens for a failed tx
+//	3   revert_universal_tx          INBOUND_REVERT: unified revert for both SOL and SPL
+//	4   rescue_funds                 RESCUE_FUNDS: emergency rescue of locked funds
 func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool) (uint8, error) {
 	switch txType {
 	case uetypes.TxType_FUNDS:
@@ -891,9 +874,9 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 		return 2, nil
 
 	case uetypes.TxType_INBOUND_REVERT:
-		if isNative {
-			return 3, nil
-		}
+		return 3, nil
+
+	case uetypes.TxType_RESCUE_FUNDS:
 		return 4, nil
 
 	default:
@@ -913,7 +896,7 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 // Message format:
 //
 //	"PUSH_CHAIN_SVM"              — 14-byte ASCII prefix (prevents cross-protocol replay)
-//	instruction_id                — 1 byte (1=withdraw, 2=execute, 3=revert SOL, 4=revert SPL)
+//	instruction_id                — 1 byte (1=withdraw, 2=execute, 3=revert, 4=rescue)
 //	chain_id                      — N bytes UTF-8 (prevents cross-chain replay, e.g., "devnet")
 //	                                NOTE: raw UTF-8 bytes, NOT Borsh-encoded (no length prefix)
 //	amount                        — 8 bytes big-endian
@@ -924,9 +907,11 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 //	1 (withdraw): [tx_id(32), utx_id(32), sender(20), token(32), gas_fee(8 BE), target(32)]
 //	2 (execute):  [tx_id(32), utx_id(32), sender(20), token(32), gas_fee(8 BE), target(32),
 //	               accounts_buf(4 BE count + [pubkey(32) + writable(1)] per account),
-//	               ix_data_buf(4 BE len + data), rent_fee(8 BE)]
-//	3 (revert SOL): [tx_id(32), utx_id(32), recipient(32), gas_fee(8 BE)]
-//	4 (revert SPL): [tx_id(32), utx_id(32), mint(32), recipient(32), gas_fee(8 BE)]
+//	               ix_data_buf(4 BE len + data)]
+//	3 (revert):   SOL: [tx_id(32), utx_id(32), recipient(32), gas_fee(8 BE)]
+//	              SPL: [tx_id(32), utx_id(32), mint(32), recipient(32), gas_fee(8 BE)]
+//	4 (rescue):   SOL: [tx_id(32), utx_id(32), recipient(32), gas_fee(8 BE)]
+//	              SPL: [tx_id(32), utx_id(32), mint(32), recipient(32), gas_fee(8 BE)]
 //
 // The final message is hashed with keccak256 (Solana's keccak::hash = Ethereum's keccak256).
 func (tb *TxBuilder) constructTSSMessage(
@@ -941,7 +926,6 @@ func (tb *TxBuilder) constructTSSMessage(
 	targetProgram [32]byte,
 	execAccounts []GatewayAccountMeta,
 	ixData []byte,
-	rentFee uint64,
 	revertRecipient [32]byte,
 	revertMint [32]byte,
 ) ([]byte, error) {
@@ -992,20 +976,13 @@ func (tb *TxBuilder) constructTSSMessage(
 		message = append(message, ixDataLen...)
 		message = append(message, ixData...)
 
-		rentFeeBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(rentFeeBytes, rentFee)
-		message = append(message, rentFeeBytes...)
-
-	case 3: // revert SOL — tx_id before utx_id (same order as finalize)
+	case 3, 4: // revert (id=3) or rescue (id=4) — same message format
 		message = append(message, txID[:]...)
 		message = append(message, universalTxID[:]...)
-		message = append(message, revertRecipient[:]...)
-		message = append(message, gasFeeBytes...)
-
-	case 4: // revert SPL — tx_id before utx_id, includes mint for token identification
-		message = append(message, txID[:]...)
-		message = append(message, universalTxID[:]...)
-		message = append(message, revertMint[:]...)
+		if revertMint != ([32]byte{}) {
+			// SPL: include mint before recipient
+			message = append(message, revertMint[:]...)
+		}
 		message = append(message, revertRecipient[:]...)
 		message = append(message, gasFeeBytes...)
 
@@ -1096,15 +1073,17 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 //	[33 bytes] × N   accounts — each is [pubkey(32) + is_writable(1)]
 //	[u32 BE]         ix_data_len — length of the instruction data for the target program
 //	[N bytes]        ix_data — the raw instruction data to pass to the target program
-//	[u64 BE]         rent_fee — SOL to cover rent for any new accounts created
 //	[u8]             instruction_id — 1=withdraw, 2=execute
+//	[32 bytes]       target_program — the Solana program to invoke
 //
-// For withdraw (instruction_id=1): accounts_count=0, ix_data_len=0, rent_fee=0
+// For withdraw (instruction_id=1): accounts_count=0, ix_data_len=0
 // For execute (instruction_id=2): accounts and ix_data contain CPI data
-func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint64, uint8, error) {
-	// Minimum payload: accounts_count(4) + ix_data_len(4) + rent_fee(8) + instruction_id(1) = 17
-	if len(payload) < 17 {
-		return nil, nil, 0, 0, fmt.Errorf("payload too short: %d bytes (minimum 17)", len(payload))
+func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint8, [32]byte, error) {
+	var targetProgram [32]byte
+
+	// Minimum payload: accounts_count(4) + ix_data_len(4) + instruction_id(1) + target_program(32) = 41
+	if len(payload) < 41 {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: %d bytes (minimum 41)", len(payload))
 	}
 
 	offset := 0
@@ -1115,7 +1094,7 @@ func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint64, uint8,
 	accounts := make([]GatewayAccountMeta, accountsCount)
 	for i := uint32(0); i < accountsCount; i++ {
 		if offset+33 > len(payload) {
-			return nil, nil, 0, 0, fmt.Errorf("payload too short for account %d", i)
+			return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for account %d", i)
 		}
 		var pubkey [32]byte
 		copy(pubkey[:], payload[offset:offset+32])
@@ -1125,30 +1104,30 @@ func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint64, uint8,
 	}
 
 	if offset+4 > len(payload) {
-		return nil, nil, 0, 0, fmt.Errorf("payload too short for ix_data length")
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data length")
 	}
 	ixDataLen := binary.BigEndian.Uint32(payload[offset : offset+4])
 	offset += 4
 
 	if offset+int(ixDataLen) > len(payload) {
-		return nil, nil, 0, 0, fmt.Errorf("payload too short for ix_data")
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data")
 	}
 	ixData := make([]byte, ixDataLen)
 	copy(ixData, payload[offset:offset+int(ixDataLen)])
 	offset += int(ixDataLen)
 
-	if offset+8 > len(payload) {
-		return nil, nil, 0, 0, fmt.Errorf("payload too short for rent_fee")
-	}
-	rentFee := binary.BigEndian.Uint64(payload[offset : offset+8])
-	offset += 8
-
 	if offset >= len(payload) {
-		return nil, nil, 0, 0, fmt.Errorf("payload too short for instruction_id")
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for instruction_id")
 	}
 	instructionID := payload[offset]
+	offset++
 
-	return accounts, ixData, rentFee, instructionID, nil
+	if offset+32 > len(payload) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for target_program")
+	}
+	copy(targetProgram[:], payload[offset:offset+32])
+
+	return accounts, ixData, instructionID, targetProgram, nil
 }
 
 // accountsToWritableFlags bitpacks the writable flags for execute accounts into a compact byte array.
@@ -1202,7 +1181,7 @@ func anchorDiscriminator(methodName string) []byte {
 // the finalize_universal_tx gateway function.
 //
 // This is the exact byte layout that the Anchor deserializer expects on-chain.
-// The field order MUST match the Rust function signature in withdraw_execute.rs:
+// The field order MUST match the Rust function signature:
 //
 //	Offset  Size     Field                  Borsh Type
 //	0       8        discriminator          sha256("global:finalize_universal_tx")[:8]
@@ -1214,7 +1193,6 @@ func anchorDiscriminator(methodName string) []byte {
 //	101     4+N      writable_flags         Vec<u8> (4-byte LE length + data)
 //	...     4+M      ix_data                Vec<u8> (4-byte LE length + data)
 //	...     8        gas_fee                u64 (little-endian)
-//	...     8        rent_fee               u64 (little-endian)
 //	...     64       signature              [u8; 64] (TSS secp256k1 r||s)
 //	...     1        recovery_id            u8 (ECDSA v value, 0-3)
 //	...     32       message_hash           [u8; 32] (keccak256 of TSS message)
@@ -1227,7 +1205,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	writableFlags []byte,
 	ixData []byte,
 	gasFee uint64,
-	rentFee uint64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1261,10 +1238,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
-	rentFeeBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(rentFeeBytes, rentFee)
-	data = append(data, rentFeeBytes...)
-
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1273,39 +1246,31 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 }
 
 // buildRevertData constructs the Borsh-serialized instruction data for
-// revert_universal_tx (id=3, native SOL) or revert_universal_tx_token (id=4, SPL).
-//
-// Both revert functions share the same parameter layout — only the discriminator differs.
+// revert_universal_tx (unified for both SOL and SPL).
 //
 //	Offset  Size     Field
-//	0       8        discriminator          (different for SOL vs SPL)
-//	8       32       tx_id                  [u8; 32]
+//	0       8        discriminator          sha256("global:revert_universal_tx")[:8]
+//	8       32       sub_tx_id              [u8; 32]
 //	40      32       universal_tx_id        [u8; 32]
 //	72      8        amount                 u64 (LE)
-//	80      32       fund_recipient         Pubkey — who gets the refund
+//	80      32       revert_recipient       Pubkey — who gets the refund
 //	112     4+N      revert_msg             Vec<u8> — human-readable revert reason
 //	...     8        gas_fee                u64 (LE)
 //	...     64       signature              [u8; 64]
 //	...     1        recovery_id            u8
 //	...     32       message_hash           [u8; 32]
 func (tb *TxBuilder) buildRevertData(
-	instructionID uint8,
 	txID [32]byte,
 	universalTxID [32]byte,
 	amount uint64,
-	fundRecipient solana.PublicKey,
+	revertRecipient solana.PublicKey,
 	revertMsg []byte,
 	gasFee uint64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
 ) []byte {
-	var discriminator []byte
-	if instructionID == 3 {
-		discriminator = anchorDiscriminator("revert_universal_tx")
-	} else {
-		discriminator = anchorDiscriminator("revert_universal_tx_token")
-	}
+	discriminator := anchorDiscriminator("revert_universal_tx")
 
 	data := make([]byte, 0, 256)
 	data = append(data, discriminator...)
@@ -1316,12 +1281,55 @@ func (tb *TxBuilder) buildRevertData(
 	binary.LittleEndian.PutUint64(amountBytes, amount)
 	data = append(data, amountBytes...)
 
-	// RevertInstructions struct: { fund_recipient: Pubkey, revert_msg: Vec<u8> }
-	data = append(data, fundRecipient.Bytes()...)
+	// RevertInstructions struct: { revert_recipient: Pubkey, revert_msg: Vec<u8> }
+	data = append(data, revertRecipient.Bytes()...)
 	revertMsgLen := make([]byte, 4)
 	binary.LittleEndian.PutUint32(revertMsgLen, uint32(len(revertMsg)))
 	data = append(data, revertMsgLen...)
 	data = append(data, revertMsg...)
+
+	gasFeeBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
+	data = append(data, gasFeeBytes...)
+
+	data = append(data, signature...)
+	data = append(data, recoveryID)
+	data = append(data, messageHash...)
+
+	return data
+}
+
+// buildRescueData constructs the Borsh-serialized instruction data for rescue_funds.
+// Unlike revert, rescue does NOT include RevertInstructions — the recipient comes from accounts.
+//
+//	Offset  Size     Field
+//	0       8        discriminator          sha256("global:rescue_funds")[:8]
+//	8       32       sub_tx_id              [u8; 32]
+//	40      32       universal_tx_id        [u8; 32]
+//	72      8        amount                 u64 (LE)
+//	80      8        gas_fee                u64 (LE)
+//	88      64       signature              [u8; 64]
+//	152     1        recovery_id            u8
+//	153     32       message_hash           [u8; 32]
+func (tb *TxBuilder) buildRescueData(
+	txID [32]byte,
+	universalTxID [32]byte,
+	amount uint64,
+	gasFee uint64,
+	signature []byte,
+	recoveryID byte,
+	messageHash []byte,
+) []byte {
+	discriminator := anchorDiscriminator("rescue_funds")
+
+	data := make([]byte, 0, 192)
+	data = append(data, discriminator...)
+	data = append(data, txID[:]...)
+	data = append(data, universalTxID[:]...)
+
+	amountBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(amountBytes, amount)
+	data = append(data, amountBytes...)
 
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
@@ -1530,76 +1538,92 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 
 // buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program
 // Instruction format: [1-byte instruction type (2 = SetComputeUnitLimit)] + [4-byte u32 units]
-// buildRevertSOLAccounts builds the accounts list for revert_universal_tx (native SOL refund).
+// buildRevertAccounts builds the unified accounts list for revert_universal_tx
+// (handles both SOL and SPL).
 //
-// Must match the RevertUniversalTx struct in revert.rs:
+// Must match the RevertUniversalTx struct in the gateway IDL:
 //
-//	#  Account          Flags
-//	1  config           read-only
-//	2  vault            mut         SOL vault (source of refund)
-//	3  tss_pda          mut         TSS state
-//	4  recipient        mut         Gets the SOL refund
-//	5  executed_tx       mut         Replay protection (gets created)
-//	6  caller           signer,mut  Relayer
-//	7  system_program   read-only
-func (tb *TxBuilder) buildRevertSOLAccounts(
+//	#   Account                  Flags       Notes
+//	1   config                   read-only   Gateway config PDA
+//	2   vault                    mut         SOL vault PDA
+//	3   fee_vault                mut         Fee vault PDA (relayer reimbursement)
+//	4   tss_pda                  mut         TSS state
+//	5   recipient                mut         Gets the refund
+//	6   executed_sub_tx          mut         Replay protection (gets created)
+//	7   caller                   signer,mut  Relayer
+//	8   system_program           read-only
+//	--- Optional SPL accounts (9-12) ---
+//	9   token_vault              mut/None    Vault's ATA for the token
+//	10  recipient_token_account  mut/None    Recipient's ATA
+//	11  token_mint               read/None   The SPL token mint
+//	12  token_program            read/None   SPL Token program
+func (tb *TxBuilder) buildRevertAccounts(
 	configPDA solana.PublicKey,
 	vaultPDA solana.PublicKey,
+	feeVaultPDA solana.PublicKey,
 	tssPDA solana.PublicKey,
 	recipient solana.PublicKey,
 	executedTxPDA solana.PublicKey,
 	caller solana.PublicKey,
+	isNative bool,
+	mintPubkey solana.PublicKey,
 ) []*solana.AccountMeta {
-	return []*solana.AccountMeta{
+	accounts := []*solana.AccountMeta{
 		{PublicKey: configPDA, IsWritable: false, IsSigner: false},
 		{PublicKey: vaultPDA, IsWritable: true, IsSigner: false},
+		{PublicKey: feeVaultPDA, IsWritable: true, IsSigner: false},
 		{PublicKey: tssPDA, IsWritable: true, IsSigner: false},
 		{PublicKey: recipient, IsWritable: true, IsSigner: false},
 		{PublicKey: executedTxPDA, IsWritable: true, IsSigner: false},
 		{PublicKey: caller, IsWritable: true, IsSigner: true},
 		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
 	}
+
+	if isNative {
+		// SOL: optional SPL accounts are None (gateway program ID sentinel)
+		for i := 0; i < 4; i++ {
+			accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+		}
+	} else {
+		// SPL: derive and pass real ATAs
+		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+		tokenVaultATA, _, _ := solana.FindProgramAddress(
+			[][]byte{vaultPDA.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
+			ataProgramID,
+		)
+		recipientATA, _, _ := solana.FindProgramAddress(
+			[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
+			ataProgramID,
+		)
+		accounts = append(accounts,
+			&solana.AccountMeta{PublicKey: tokenVaultATA, IsWritable: true, IsSigner: false},
+			&solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
+			&solana.AccountMeta{PublicKey: mintPubkey, IsWritable: false, IsSigner: false},
+			&solana.AccountMeta{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
+		)
+	}
+
+	return accounts
 }
 
-// buildRevertSPLAccounts builds the accounts list for revert_universal_tx_token (SPL token refund).
-//
-// Must match the RevertUniversalTxToken struct in revert.rs:
-//
-//	#   Account                  Flags
-//	1   config                   read-only
-//	2   vault                    mut         SOL vault PDA (authority for token transfers)
-//	3   token_vault              mut         Vault's ATA for the token (source of refund)
-//	4   tss_pda                  mut         TSS state
-//	5   recipient_token_account  mut         Recipient's ATA (destination of refund)
-//	6   token_mint               read-only   The SPL token mint
-//	7   executed_tx              mut         Replay protection
-//	8   caller                   signer,mut  Relayer
-//	9   vault_sol                mut         Same as vault, needed for gas_fee transfer
-//	10  token_program            read-only   SPL Token program
-//	11  system_program           read-only
-func (tb *TxBuilder) buildRevertSPLAccounts(
+// buildRescueAccounts builds the accounts list for rescue_funds.
+// Same layout as revert_universal_tx accounts.
+func (tb *TxBuilder) buildRescueAccounts(
 	configPDA solana.PublicKey,
 	vaultPDA solana.PublicKey,
-	tokenVaultATA solana.PublicKey,
+	feeVaultPDA solana.PublicKey,
 	tssPDA solana.PublicKey,
-	recipientATA solana.PublicKey,
-	tokenMint solana.PublicKey,
+	recipient solana.PublicKey,
 	executedTxPDA solana.PublicKey,
 	caller solana.PublicKey,
+	isNative bool,
+	mintPubkey solana.PublicKey,
 ) []*solana.AccountMeta {
-	return []*solana.AccountMeta{
-		{PublicKey: configPDA, IsWritable: false, IsSigner: false},
-		{PublicKey: vaultPDA, IsWritable: true, IsSigner: false},
-		{PublicKey: tokenVaultATA, IsWritable: true, IsSigner: false},
-		{PublicKey: tssPDA, IsWritable: true, IsSigner: false},
-		{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
-		{PublicKey: tokenMint, IsWritable: false, IsSigner: false},
-		{PublicKey: executedTxPDA, IsWritable: true, IsSigner: false},
-		{PublicKey: caller, IsWritable: true, IsSigner: true},
-		{PublicKey: vaultPDA, IsWritable: true, IsSigner: false}, // vault_sol = same PDA, needed for gas_fee
-		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
-	}
+	// Rescue uses the same account layout as revert
+	return tb.buildRevertAccounts(
+		configPDA, vaultPDA, feeVaultPDA, tssPDA, recipient,
+		executedTxPDA, caller, isNative, mintPubkey,
+	)
 }
 
 // =============================================================================

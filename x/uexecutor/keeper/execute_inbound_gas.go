@@ -156,9 +156,9 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &pcTx)
 		if execErr != nil {
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		
 		} else {
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS
+		
 		}
 		return nil
 	})

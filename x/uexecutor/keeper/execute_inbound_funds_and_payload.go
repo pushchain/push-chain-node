@@ -138,7 +138,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &depositPcTx)
 		if execErr != nil {
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		
 		}
 		return nil
 	})
@@ -190,7 +190,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		}
 		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &errorPcTx)
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		
 			return nil
 		})
 		return nil
@@ -221,9 +221,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
 		if payloadErr != nil {
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		
 		} else {
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS
+		
 		}
 		return nil
 	})

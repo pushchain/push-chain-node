@@ -34,13 +34,13 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 		if err != nil {
 			pcTx.Status = "FAILED" // or "PENDING_REVERT"
 			pcTx.ErrorMsg = err.Error()
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_FAILED
+		
 		} else {
 			pcTx.TxHash = receipt.Hash
 			pcTx.GasUsed = receipt.GasUsed
 			pcTx.Status = "SUCCESS"
 			pcTx.ErrorMsg = ""
-			utx.UniversalStatus = types.UniversalTxStatus_PC_EXECUTED_SUCCESS
+		
 		}
 
 		utx.PcTx = append(utx.PcTx, &pcTx)

@@ -58,6 +58,50 @@ func (k Querier) GetUniversalTx(goCtx context.Context, req *types.QueryGetUniver
 	}, nil
 }
 
+// computeUniversalStatus derives a UniversalTxStatus from the actual state of the
+// UTX's components instead of reading a stored field that can go stale.
+//
+// Priority: outbounds > PC txs > inbound presence.
+func computeUniversalStatus(utx *types.UniversalTx) types.UniversalTxStatus {
+	if len(utx.OutboundTx) > 0 {
+		anyPending := false
+		anyReverted := false
+		for _, ob := range utx.OutboundTx {
+			if ob == nil {
+				continue
+			}
+			switch ob.OutboundStatus {
+			case types.Status_PENDING:
+				anyPending = true
+			case types.Status_REVERTED:
+				anyReverted = true
+			}
+		}
+		if anyPending {
+			return types.UniversalTxStatus_OUTBOUND_PENDING
+		}
+		if anyReverted {
+			return types.UniversalTxStatus_OUTBOUND_FAILED
+		}
+		return types.UniversalTxStatus_OUTBOUND_SUCCESS
+	}
+
+	if len(utx.PcTx) > 0 {
+		for _, pc := range utx.PcTx {
+			if pc != nil && pc.Status == "FAILED" {
+				return types.UniversalTxStatus_PC_EXECUTED_FAILED
+			}
+		}
+		return types.UniversalTxStatus_PC_EXECUTED_SUCCESS
+	}
+
+	if utx.InboundTx != nil {
+		return types.UniversalTxStatus_PENDING_INBOUND_EXECUTION
+	}
+
+	return types.UniversalTxStatus_UNIVERSAL_TX_STATUS_UNSPECIFIED
+}
+
 // convertToUniversalTxLegacy maps the current (post-upgrade) UniversalTx to the legacy shape
 func convertToUniversalTxLegacy(current *types.UniversalTx) *types.UniversalTxLegacy {
 	if current == nil {
@@ -108,7 +152,7 @@ func convertToUniversalTxLegacy(current *types.UniversalTx) *types.UniversalTxLe
 		InboundTx:       legacyInbound,
 		PcTx:            pcTxs,
 		OutboundTx:      legacyOutbound,
-		UniversalStatus: current.UniversalStatus,
+		UniversalStatus: computeUniversalStatus(current),
 	}
 }
 

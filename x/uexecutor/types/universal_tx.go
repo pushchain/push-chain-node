@@ -52,10 +52,5 @@ func (p UniversalTx) ValidateBasic() error {
 		}
 	}
 
-	// Validate universal_status (must be a valid enum)
-	if _, ok := UniversalTxStatus_name[int32(p.UniversalStatus)]; !ok {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid universal_status: %v", p.UniversalStatus)
-	}
-
 	return nil
 }

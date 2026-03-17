@@ -115,7 +115,6 @@ func (k Keeper) CreateUniversalTxFromPCTx(
 		InboundTx:       nil,                  // no inbound
 		PcTx:            []*types.PCTx{&pcTx}, // origin is PC
 		OutboundTx:      nil,
-		UniversalStatus: types.UniversalTxStatus_PC_EXECUTED_SUCCESS,
 	}
 
 	if err := k.CreateUniversalTx(ctx, universalTxKey, utx); err != nil {

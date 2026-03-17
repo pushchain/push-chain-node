@@ -45,11 +45,10 @@ func MigrateUniversalTx(ctx sdk.Context, k *keeper.Keeper, cdc codec.BinaryCodec
 
 		// Build new UniversalTx using old key as new .Id
 		newTx := uexecutortypes.UniversalTx{
-			Id:              oldKey,
-			InboundTx:       mapInbound(oldTx.InboundTx),
-			PcTx:            oldTx.PcTx,
-			OutboundTx:      mapOutbound(oldTx.OutboundTx),
-			UniversalStatus: oldTx.UniversalStatus,
+			Id:         oldKey,
+			InboundTx:  mapInbound(oldTx.InboundTx),
+			PcTx:       oldTx.PcTx,
+			OutboundTx: mapOutbound(oldTx.OutboundTx),
 		}
 
 		if err := k.UniversalTx.Set(ctx, newTx.Id, newTx); err != nil {

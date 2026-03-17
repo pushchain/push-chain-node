@@ -149,6 +149,159 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 	})
 }
 
+// TestVoteChainMetaStalenessFilter verifies that validators whose observedAt timestamp
+// deviates from the median by more than ObservedAtStalenessThresholdSeconds are excluded
+// from the price median computation.
+// Using wall-clock seconds (observedAt) is chain-agnostic: it works identically for
+// Solana (0.4 s/block) and Bitcoin (600 s/block) without per-chain configuration.
+func TestVoteChainMetaStalenessFilter(t *testing.T) {
+	t.Parallel()
+	chainId := "eip155:11155111"
+	// threshold in seconds (300s = 5 minutes)
+	threshold := uexecutortypes.ObservedAtStalenessThresholdSeconds
+
+	t.Run("stale validator excluded when observedAt beyond staleness threshold", func(t *testing.T) {
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 3)
+
+		// Base timestamp for "current" validators.
+		baseTs := uint64(1_700_000_000)
+		// val0: current (ts=baseTs,       price=200, height=1000)
+		// val1: stale   (ts=baseTs-threshold-5, price=250, height=900) → must be excluded
+		// val2: current (ts=baseTs+1,     price=300, height=1001)
+		//
+		// Median observedAt = baseTs.
+		// val1 diff = baseTs - (baseTs-threshold-5) = threshold+5 > threshold → excluded.
+		//
+		// Without filtering: sorted prices [200, 250, 300] → median=250 (stale val1)
+		// With filtering:    val1 excluded  sorted [200, 300] → median=300 (val2)
+		staleTs := baseTs - threshold - 5
+		votes := []struct {
+			price      uint64
+			height     uint64
+			observedAt uint64
+		}{
+			{200, 1000, baseTs},
+			{250, 900, staleTs},  // stale
+			{300, 1001, baseTs + 1},
+		}
+
+		for i, v := range votes {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAcc := sdk.AccAddress(coreVal).String()
+			require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[i], coreAcc, chainId, v.price, v.height, v.observedAt))
+		}
+
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		// The chosen validator must NOT be the stale one.
+		// With filtering the median price is 300 (val2, height=1001).
+		require.Equal(t, uint64(300), stored.Prices[stored.MedianIndex],
+			"median price should come from a current validator, not the stale one")
+		require.Equal(t, uint64(1001), stored.ChainHeights[stored.MedianIndex],
+			"co-indexed height must be from a current validator")
+	})
+
+	t.Run("validator exactly at threshold boundary is included", func(t *testing.T) {
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 3)
+
+		baseTs := uint64(1_700_000_000)
+		// val1 is exactly threshold seconds behind the median → diff == threshold → included (<=)
+		exactBoundaryTs := baseTs - threshold
+		votes := []struct {
+			price      uint64
+			height     uint64
+			observedAt uint64
+		}{
+			{200, 1000, baseTs},
+			{250, 990, exactBoundaryTs}, // diff == threshold → still included
+			{300, 1001, baseTs + 1},
+		}
+
+		for i, v := range votes {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAcc := sdk.AccAddress(coreVal).String()
+			require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[i], coreAcc, chainId, v.price, v.height, v.observedAt))
+		}
+
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		// All three included → sorted prices [200, 250, 300] → median = 250 (val1)
+		require.Equal(t, uint64(250), stored.Prices[stored.MedianIndex],
+			"boundary validator should be included in median computation")
+	})
+
+	t.Run("all validators current: filtering does not change median", func(t *testing.T) {
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 4)
+
+		// All timestamps are close together (within threshold).
+		// Result must match an unfiltered median.
+		baseTs := uint64(1_700_000_000)
+		votes := []struct {
+			price      uint64
+			height     uint64
+			observedAt uint64
+		}{
+			{300, 1000, baseTs},
+			{200, 1001, baseTs + 1},
+			{400, 1002, baseTs + 2},
+			{250, 999, baseTs - 1},
+		}
+
+		for i, v := range votes {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAcc := sdk.AccAddress(coreVal).String()
+			require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[i], coreAcc, chainId, v.price, v.height, v.observedAt))
+		}
+
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		// All current → sorted [200, 250, 300, 400] → upper-median (index 2) = 300
+		require.Equal(t, uint64(300), stored.Prices[stored.MedianIndex])
+		// Co-indexed height must belong to the same validator (height=1000)
+		require.Equal(t, uint64(1000), stored.ChainHeights[stored.MedianIndex])
+	})
+
+	t.Run("multiple stale validators excluded, median from current set", func(t *testing.T) {
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 5)
+
+		// 3 current validators, 2 stale (observedAt > threshold seconds behind)
+		baseTs := uint64(1_700_000_000)
+		staleTs := baseTs - threshold - 10
+		votes := []struct {
+			price      uint64
+			height     uint64
+			observedAt uint64
+		}{
+			{500, 1000, baseTs},     // current
+			{100, 800, staleTs},     // stale → excluded
+			{300, 1001, baseTs + 1}, // current
+			{150, 810, staleTs},     // stale → excluded
+			{200, 1002, baseTs + 2}, // current
+		}
+
+		for i, v := range votes {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAcc := sdk.AccAddress(coreVal).String()
+			require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[i], coreAcc, chainId, v.price, v.height, v.observedAt))
+		}
+
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		// After excluding the two stale validators, current set prices: [500, 300, 200]
+		// Sorted: [200, 300, 500] → upper-median (index 1) = 300 (val with height=1001)
+		require.Equal(t, uint64(300), stored.Prices[stored.MedianIndex])
+		require.Equal(t, uint64(1001), stored.ChainHeights[stored.MedianIndex])
+	})
+}
+
 func TestMigrateGasPricesToChainMeta(t *testing.T) {
 	chainId := "eip155:11155111"
 
@@ -260,5 +413,81 @@ func TestVoteChainMetaContractState(t *testing.T) {
 		require.NoError(t, err)
 		got := new(big.Int).SetBytes(res.Ret)
 		require.Equal(t, new(big.Int).SetUint64(observedAt), got)
+	})
+}
+
+// TestVoteChainMetaAbsoluteStaleness verifies that when all validators' observedAt timestamps
+// are older than ObservedAtStalenessThresholdSeconds relative to the current block time,
+// the EVM contract is NOT updated (it retains its previous value).
+//
+// These tests call VoteChainMeta directly on the keeper (bypassing authz) so that
+// block time can be freely manipulated without hitting authz grant expiry.
+func TestVoteChainMetaAbsoluteStaleness(t *testing.T) {
+	chainId := "eip155:11155111"
+	threshold := uexecutortypes.ObservedAtStalenessThresholdSeconds // 300
+
+	universalCoreAddr := utils.GetDefaultAddresses().HandlerAddr
+
+	readGasPrice := func(t *testing.T, testApp *app.ChainApp, ctx sdk.Context) *big.Int {
+		t.Helper()
+		ucABI, err := uexecutortypes.ParseUniversalCoreABI()
+		require.NoError(t, err)
+		caller, _ := testApp.UexecutorKeeper.GetUeModuleAddress(ctx)
+		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, "gasPriceByChainNamespace", chainId)
+		require.NoError(t, err)
+		return new(big.Int).SetBytes(res.Ret)
+	}
+
+	t.Run("stale single vote does not update contract", func(t *testing.T) {
+		testApp, ctx, _, vals := setupVoteChainMetaTest(t, 1)
+
+		staleObservedAt := uint64(1_700_000_000)
+		// Block time is far past the staleness window
+		staleCtx := ctx.WithBlockTime(time.Unix(int64(staleObservedAt+threshold+60), 0))
+
+		valAddr, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
+		require.NoError(t, err)
+
+		require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(staleCtx, valAddr, chainId,
+			100_000_000_000, 12345, staleObservedAt))
+
+		// Vote was stored in state
+		stored, found, err := testApp.UexecutorKeeper.GetChainMeta(staleCtx, chainId)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, uint64(100_000_000_000), stored.Prices[0])
+
+		// Contract must NOT have been updated — should still be 0
+		require.Zero(t, readGasPrice(t, testApp, staleCtx).Sign(),
+			"contract must not be updated when all validators are stale")
+	})
+
+	t.Run("all validators stale does not update contract", func(t *testing.T) {
+		testApp, ctx, _, vals := setupVoteChainMetaTest(t, 3)
+
+		freshObservedAt := uint64(1_700_000_000)
+
+		// First vote with fresh block time → contract gets updated
+		freshCtx := ctx.WithBlockTime(time.Unix(int64(freshObservedAt), 0))
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			require.NoError(t, err)
+			require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(freshCtx, valAddr, chainId,
+				200_000_000_000, uint64(12345+i), freshObservedAt+uint64(i)))
+		}
+		require.Equal(t, new(big.Int).SetUint64(200_000_000_000), readGasPrice(t, testApp, freshCtx))
+
+		// Re-vote with same old timestamps but block time past staleness window
+		futureCtx := ctx.WithBlockTime(time.Unix(int64(freshObservedAt+threshold+60), 0))
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			require.NoError(t, err)
+			require.NoError(t, testApp.UexecutorKeeper.VoteChainMeta(futureCtx, valAddr, chainId,
+				999_000_000_000, uint64(99999+i), freshObservedAt+uint64(i)))
+		}
+
+		// Contract must retain the old fresh value — stale votes must not overwrite it
+		require.Equal(t, new(big.Int).SetUint64(200_000_000_000), readGasPrice(t, testApp, futureCtx),
+			"contract must retain last good value when all validators report stale data")
 	})
 }

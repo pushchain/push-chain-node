@@ -51,79 +51,86 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	if !obs.Success {
-		return k.handleFailedOutbound(sdkCtx, utxId, outbound)
+		return k.handleFailedOutbound(sdkCtx, utxId, outbound, obs)
 	}
 
 	return k.handleSuccessfulOutbound(sdkCtx, utxId, outbound, obs)
 }
 
-// handleFailedOutbound mints back the bridged tokens to the revert recipient.
-func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx) error {
-	// Only refund for funds-related tx types
-	if outbound.TxType != types.TxType_FUNDS && outbound.TxType != types.TxType_GAS_AND_PAYLOAD &&
-		outbound.TxType != types.TxType_FUNDS_AND_PAYLOAD {
-		return nil
+// handleFailedOutbound mints back the bridged tokens to the revert recipient,
+// then attempts to refund any excess gas (gasFee - gasFeeUsed) just like a
+// successful outbound would. Both operations are recorded on the outbound.
+func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
+	// Only revert bridged funds for funds-related tx types
+	if outbound.TxType == types.TxType_FUNDS || outbound.TxType == types.TxType_GAS_AND_PAYLOAD ||
+		outbound.TxType == types.TxType_FUNDS_AND_PAYLOAD {
+
+		// Decide revert recipient safely
+		recipient := outbound.Sender
+		if outbound.RevertInstructions != nil &&
+			outbound.RevertInstructions.FundRecipient != "" {
+			recipient = outbound.RevertInstructions.FundRecipient
+		}
+
+		amount := new(big.Int)
+		amount, ok := amount.SetString(outbound.Amount, 10)
+		if !ok {
+			return fmt.Errorf("invalid amount: %s", outbound.Amount)
+		}
+		receipt, err := k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
+
+		pcTx := types.PCTx{
+			Sender:      outbound.Sender,
+			BlockHeight: uint64(ctx.BlockHeight()),
+		}
+		if err != nil {
+			pcTx.Status = "FAILED"
+			pcTx.ErrorMsg = err.Error()
+		} else {
+			pcTx.TxHash = receipt.Hash
+			pcTx.GasUsed = receipt.GasUsed
+			pcTx.Status = "SUCCESS"
+		}
+		outbound.PcRevertExecution = &pcTx
 	}
 
-	// Decide refund recipient safely
-	recipient := outbound.Sender
-	if outbound.RevertInstructions != nil &&
-		outbound.RevertInstructions.FundRecipient != "" {
-		recipient = outbound.RevertInstructions.FundRecipient
-	}
-
-	// Mint tokens back
-	amount := new(big.Int)
-	amount, ok := amount.SetString(outbound.Amount, 10)
-	if !ok {
-		return fmt.Errorf("invalid amount: %s", outbound.Amount)
-	}
-	receipt, err := k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
-
-	// Update outbound status
 	outbound.OutboundStatus = types.Status_REVERTED
 
-	pcTx := types.PCTx{
-		TxHash:      "",
-		Sender:      outbound.Sender,
-		GasUsed:     0,
-		BlockHeight: uint64(ctx.BlockHeight()),
-	}
-
-	if err != nil {
-		pcTx.Status = "FAILED"
-		pcTx.ErrorMsg = err.Error()
-	} else {
-		pcTx.TxHash = receipt.Hash
-		pcTx.GasUsed = receipt.GasUsed
-		pcTx.Status = "SUCCESS"
-	}
-
-	outbound.PcRevertExecution = &pcTx
+	// Refund excess gas regardless of tx type — gas was consumed on the external
+	// chain whether the execution succeeded or failed.
+	k.applyGasRefund(ctx, &outbound, obs)
 
 	return k.UpdateOutbound(ctx, utxId, outbound)
 }
 
 // handleSuccessfulOutbound refunds unused gas fee when gasFee > gasFeeUsed.
 func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
-	// Only attempt refund if gas_fee_used is populated and gas token is known
+	k.applyGasRefund(ctx, &outbound, obs)
+	return k.UpdateOutbound(ctx, utxId, outbound)
+}
+
+// applyGasRefund computes the excess gas (gasFee - gasFeeUsed) and, if positive,
+// calls UniversalCore refundUnusedGas. The result is recorded in outbound.PcRefundExecution.
+// It is called for both successful and failed outbounds — gas is consumed on the
+// external chain regardless of execution outcome.
+func (k Keeper) applyGasRefund(ctx sdk.Context, outbound *types.OutboundTx, obs *types.OutboundObservation) {
 	if obs.GasFeeUsed == "" || outbound.GasFee == "" || outbound.GasToken == "" {
-		return k.UpdateOutbound(ctx, utxId, outbound)
+		return
 	}
 
 	gasFee := new(big.Int)
 	if _, ok := gasFee.SetString(outbound.GasFee, 10); !ok {
-		return k.UpdateOutbound(ctx, utxId, outbound)
+		return
 	}
 
 	gasFeeUsed := new(big.Int)
 	if _, ok := gasFeeUsed.SetString(obs.GasFeeUsed, 10); !ok {
-		return k.UpdateOutbound(ctx, utxId, outbound)
+		return
 	}
 
-	// No refund needed
+	// No excess gas to refund
 	if gasFee.Cmp(gasFeeUsed) <= 0 {
-		return k.UpdateOutbound(ctx, utxId, outbound)
+		return
 	}
 
 	refundAmount := new(big.Int).Sub(gasFee, gasFeeUsed)
@@ -144,7 +151,6 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 	// Step 1: try refund with swap (gasToken → PC native)
 	fee, swapErr := k.GetDefaultFeeTierForToken(ctx, gasToken)
 	var swapFallbackReason string
-	var receipt interface{ GetHash() string }
 
 	if swapErr == nil {
 		quote, quoteErr := k.getSwapQuoteForRefund(ctx, gasToken, fee, refundAmount)
@@ -158,7 +164,7 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 				refundPcTx.GasUsed = resp.GasUsed
 				refundPcTx.Status = "SUCCESS"
 				outbound.PcRefundExecution = refundPcTx
-				return k.UpdateOutbound(ctx, utxId, outbound)
+				return
 			}
 			swapFallbackReason = fmt.Sprintf("swap refund failed: %s", err.Error())
 		} else {
@@ -168,10 +174,8 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 		swapFallbackReason = fmt.Sprintf("fee tier fetch failed: %s", swapErr.Error())
 	}
 
-	_ = receipt
-
 	// Step 2: fallback — refund without swap (deposit PRC20 directly to recipient)
-	ctx.Logger().Error("FinalizeOutbound: swap refund failed, falling back to no-swap",
+	ctx.Logger().Error("applyGasRefund: swap refund failed, falling back to no-swap",
 		"outbound_id", outbound.Id,
 		"reason", swapFallbackReason,
 	)
@@ -188,8 +192,6 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 
 	outbound.PcRefundExecution = refundPcTx
 	outbound.RefundSwapError = swapFallbackReason
-
-	return k.UpdateOutbound(ctx, utxId, outbound)
 }
 
 // getSwapQuoteForRefund fetches a Uniswap quote for the gas token refund swap.

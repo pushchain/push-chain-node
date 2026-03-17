@@ -13,28 +13,28 @@ import (
 
 func TestGasFeeRefund(t *testing.T) {
 
-	t.Run("success vote with empty gasFeeUsed is rejected", func(t *testing.T) {
-		app, ctx, vals, utxId, outbound, coreVals :=
-			setupOutboundVotingTest(t, 4)
+	t.Run("vote with empty gasFeeUsed is always rejected", func(t *testing.T) {
+		// gas_fee_used is mandatory for both success and failure votes.
+		for _, success := range []bool{true, false} {
+			app, ctx, vals, utxId, outbound, coreVals :=
+				setupOutboundVotingTest(t, 4)
 
-		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreAcc := sdk.AccAddress(valAddr).String()
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
+			require.NoError(t, err)
+			coreAcc := sdk.AccAddress(valAddr).String()
 
-		err = utils.ExecVoteOutbound(
-			t,
-			ctx,
-			app,
-			vals[0],
-			coreAcc,
-			utxId,
-			outbound,
-			true,
-			"",
-			"", // gas_fee_used required when success=true → must be rejected
-		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "gas_fee_used required when success=true")
+			revertReason := ""
+			if !success {
+				revertReason = "execution failed"
+			}
+
+			err = utils.ExecVoteOutbound(
+				t, ctx, app, vals[0], coreAcc, utxId, outbound,
+				success, revertReason, "", // empty gas_fee_used → must be rejected
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "observed_tx.gas_fee_used is required")
+		}
 	})
 
 	t.Run("no refund when gasFeeUsed equals gasFee", func(t *testing.T) {
@@ -196,11 +196,12 @@ func TestGasFeeRefund(t *testing.T) {
 		require.Equal(t, uexecutortypes.Status_OBSERVED, ob.OutboundStatus)
 	})
 
-	t.Run("failed outbound still performs revert not refund", func(t *testing.T) {
+	t.Run("failed outbound performs both revert and gas refund", func(t *testing.T) {
 		app, ctx, vals, utxId, outbound, coreVals :=
 			setupOutboundVotingTest(t, 4)
 
-		// Vote as FAILED with gasFeeUsed set — refund should NOT run for failed outbounds
+		// gasFee = 111 (mock), gasFeeUsed = 50 → 61 excess to refund.
+		// Both the bridged funds revert AND the excess gas refund must happen.
 		for i := 0; i < 3; i++ {
 			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
 			require.NoError(t, err)
@@ -216,7 +217,7 @@ func TestGasFeeRefund(t *testing.T) {
 				outbound,
 				false,
 				"execution failed",
-				"50", // gasFeeUsed provided but shouldn't trigger refund on failure
+				"50", // gasFeeUsed=50 < gasFee=111 → 61 excess
 			)
 			require.NoError(t, err)
 		}
@@ -227,12 +228,13 @@ func TestGasFeeRefund(t *testing.T) {
 		ob := utx.OutboundTx[0]
 		require.Equal(t, uexecutortypes.Status_REVERTED, ob.OutboundStatus)
 
-		// Revert was executed (funds minted back)
+		// Revert: bridged funds minted back
 		require.NotNil(t, ob.PcRevertExecution)
 		require.Equal(t, "SUCCESS", ob.PcRevertExecution.Status)
 
-		// Gas refund must NOT run for failed outbounds
-		require.Nil(t, ob.PcRefundExecution,
-			"gas refund must not run when outbound failed")
+		// Gas refund: excess gas must also be returned on failure
+		require.NotNil(t, ob.PcRefundExecution,
+			"excess gas must be refunded even when outbound failed")
+		require.NotEmpty(t, ob.PcRefundExecution.Status)
 	})
 }

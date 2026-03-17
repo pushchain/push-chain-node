@@ -240,7 +240,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				false,
 				"execution reverted", // revert reason
-				"",
+				outbound.GasFee,      // gas_fee_used required; use full fee → no excess refund
 			)
 			require.NoError(t, err)
 		}
@@ -281,7 +281,7 @@ func TestOutboundVoting(t *testing.T) {
 				outbound,
 				false,
 				"failed",
-				"",
+				outbound.GasFee, // gas_fee_used required; use full fee → no excess refund
 			)
 			require.NoError(t, err)
 		}

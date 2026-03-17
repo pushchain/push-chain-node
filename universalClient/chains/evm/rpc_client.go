@@ -190,6 +190,18 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 	return receipt, err
 }
 
+// GetTransactionByHash returns a transaction by its hash.
+func (rc *RPCClient) GetTransactionByHash(ctx context.Context, txHash ethcommon.Hash) (*types.Transaction, bool, error) {
+	var tx *types.Transaction
+	var isPending bool
+	err := rc.executeWithFailover(ctx, "get_transaction_by_hash", func(client *ethclient.Client) error {
+		var innerErr error
+		tx, isPending, innerErr = client.TransactionByHash(ctx, txHash)
+		return innerErr
+	})
+	return tx, isPending, err
+}
+
 // GetPendingNonce returns the pending nonce (next nonce the chain will accept for this account).
 func (rc *RPCClient) GetPendingNonce(ctx context.Context, address ethcommon.Address) (uint64, error) {
 	var nonce uint64

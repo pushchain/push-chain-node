@@ -59,6 +59,11 @@ func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (boo
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
+	args := m.Called(ctx, txHash)
+	return args.String(0), args.Error(1)
+}
+
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                          { return nil }

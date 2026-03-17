@@ -501,3 +501,28 @@ func parseGasLimit(gasLimitStr string) (*big.Int, error) {
 func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
 	return false, nil
 }
+
+// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
+// Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
+// gasUsed * gasPrice as a decimal string. Returns "0" if not found.
+func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
+	hash := ethcommon.HexToHash(txHash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
+	if err != nil {
+		return "0", nil
+	}
+
+	tx, _, err := tb.rpcClient.GetTransactionByHash(ctx, hash)
+	if err != nil {
+		return "0", nil
+	}
+
+	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
+	gasPrice := tx.GasPrice()
+	if gasPrice == nil || gasPrice.Sign() == 0 {
+		return "0", nil
+	}
+
+	gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice)
+	return gasFeeUsed.String(), nil
+}

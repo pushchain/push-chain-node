@@ -58,6 +58,11 @@ func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (boo
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
+	args := m.Called(ctx, txHash)
+	return args.String(0), args.Error(1)
+}
+
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                     { return nil }
@@ -417,7 +422,7 @@ func TestVoteFailureAndMarkReverted(t *testing.T) {
 		})
 
 		event := &store.Event{EventID: "ev-1"}
-		err := resolver.voteFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", 12345, "some error")
+		err := resolver.voteFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", 12345, "0", "some error")
 		assert.NoError(t, err)
 	})
 }

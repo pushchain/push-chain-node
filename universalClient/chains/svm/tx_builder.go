@@ -415,6 +415,13 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	return len(data) > 0, nil
 }
 
+// GetGasFeeUsed returns "0" for SVM. SVM gas accounting is handled via vault
+// gasFee reimbursement — the actual gas cost is the base fee + PDA rent paid
+// by the relayer, which is reimbursed from the gasFee baked into the signed message.
+func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
+	return "0", nil
+}
+
 // =============================================================================
 //  STEP 2: BroadcastOutboundSigningRequest
 //

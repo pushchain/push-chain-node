@@ -130,9 +130,10 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
 	} else {
 		observation := &uexecutortypes.OutboundObservation{
-			Success:  false,
-			TxHash:   "",
-			ErrorMsg: errorMsg,
+			Success:    false,
+			TxHash:     "",
+			ErrorMsg:   errorMsg,
+			GasFeeUsed: "0",
 		}
 		voteTxHash, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation)
 		if err != nil {

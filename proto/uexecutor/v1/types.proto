@@ -88,6 +88,7 @@ enum TxType {
   FUNDS_AND_PAYLOAD = 4;
   PAYLOAD           = 5;
   INBOUND_REVERT    = 6;
+  RESCUE_FUNDS      = 7;
 }
 
 message RevertInstructions {

@@ -151,16 +151,19 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 // processOutboundEvent processes an outbound event by voting on it
 func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
-	// Extract observation from event data
-	observation, err := ep.extractOutboundObservation(event)
+	// Parse outbound event data once
+	outboundData, err := ep.parseOutboundEventData(event)
 	if err != nil {
-		return fmt.Errorf("failed to extract outbound observation: %w", err)
+		return fmt.Errorf("failed to parse outbound event data: %w", err)
 	}
 
-	// Extract txID and universalTxID from event data
-	txID, utxID, err := ep.extractOutboundIDs(event)
+	txID := outboundData.TxID
+	utxID := outboundData.UniversalTxID
+
+	// Build observation from parsed data
+	observation, err := ep.buildOutboundObservation(event, outboundData)
 	if err != nil {
-		return fmt.Errorf("failed to extract outbound IDs: %w", err)
+		return fmt.Errorf("failed to build outbound observation: %w", err)
 	}
 
 	// Vote on outbound
@@ -338,39 +341,34 @@ func (ep *EventProcessor) base58ToHex(base58Str string) (string, error) {
 	return "0x" + hex.EncodeToString(decoded), nil
 }
 
-// extractOutboundIDs extracts both txID and universalTxID from an outbound Event's event data
-func (ep *EventProcessor) extractOutboundIDs(event *store.Event) (txID string, utxID string, err error) {
-	if event == nil {
-		return "", "", fmt.Errorf("event is nil")
-	}
-
-	if len(event.EventData) == 0 {
-		return "", "", fmt.Errorf("event data is empty")
-	}
-
-	// Parse event data JSON to extract tx_id and universal_tx_id
-	var eventData OutboundEvent
-	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
-		return "", "", fmt.Errorf("failed to unmarshal event data: %w", err)
-	}
-
-	if eventData.TxID == "" {
-		return "", "", fmt.Errorf("tx_id not found in event data")
-	}
-
-	if eventData.UniversalTxID == "" {
-		return "", "", fmt.Errorf("universal_tx_id not found in event data")
-	}
-
-	return eventData.TxID, eventData.UniversalTxID, nil
-}
-
-// extractOutboundObservation extracts an OutboundObservation from event data
-func (ep *EventProcessor) extractOutboundObservation(event *store.Event) (*uexecutortypes.OutboundObservation, error) {
+// parseOutboundEventData unmarshals event data into an OutboundEvent struct
+func (ep *EventProcessor) parseOutboundEventData(event *store.Event) (*OutboundEvent, error) {
 	if event == nil {
 		return nil, fmt.Errorf("event is nil")
 	}
 
+	if len(event.EventData) == 0 {
+		return nil, fmt.Errorf("event data is empty")
+	}
+
+	var eventData OutboundEvent
+	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event data: %w", err)
+	}
+
+	if eventData.TxID == "" {
+		return nil, fmt.Errorf("tx_id not found in event data")
+	}
+
+	if eventData.UniversalTxID == "" {
+		return nil, fmt.Errorf("universal_tx_id not found in event data")
+	}
+
+	return &eventData, nil
+}
+
+// buildOutboundObservation builds an OutboundObservation from event metadata and parsed outbound data
+func (ep *EventProcessor) buildOutboundObservation(event *store.Event, outboundData *OutboundEvent) (*uexecutortypes.OutboundObservation, error) {
 	// Extract txHash from EventID (format: "txHash:logIndex" or "signature:logIndex")
 	txHash := ""
 	parts := strings.Split(event.EventID, ":")
@@ -388,11 +386,17 @@ func (ep *EventProcessor) extractOutboundObservation(event *store.Event) (*uexec
 		txHashHex = txHash
 	}
 
+	gasFeeUsed := "0"
+	if outboundData.GasFeeUsed != "" {
+		gasFeeUsed = outboundData.GasFeeUsed
+	}
+
 	observation := &uexecutortypes.OutboundObservation{
-		Success:     true, // Since event is confirmed, success is always true
+		Success:     true,
 		BlockHeight: event.BlockHeight,
 		TxHash:      txHashHex,
 		ErrorMsg:    "",
+		GasFeeUsed:  gasFeeUsed,
 	}
 
 	return observation, nil

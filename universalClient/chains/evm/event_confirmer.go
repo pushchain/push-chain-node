@@ -2,7 +2,9 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -147,8 +149,48 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		confirmations := latestBlock - receipt.BlockNumber.Uint64() + 1
 
 		if confirmations >= requiredConfirmations {
-			// Update event status to CONFIRMED
-			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
+			var rowsAffected int64
+
+			// For outbound events, enrich with gas fee before confirming
+			if event.Type == chaincommon.EventTypeOutbound {
+				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
+				if txErr != nil {
+					ec.logger.Warn().
+						Err(txErr).
+						Str("event_id", event.EventID).
+						Str("tx_hash", txHash).
+						Msg("failed to fetch transaction for gas fee, skipping confirmation")
+					continue
+				}
+				gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
+				gasPrice := tx.GasPrice()
+				gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice).String()
+
+				// Unmarshal, set GasFeeUsed, re-marshal
+				var outboundEvent chaincommon.OutboundEvent
+				if unmarshalErr := json.Unmarshal(event.EventData, &outboundEvent); unmarshalErr != nil {
+					ec.logger.Error().
+						Err(unmarshalErr).
+						Str("event_id", event.EventID).
+						Msg("failed to unmarshal outbound event data")
+					continue
+				}
+				outboundEvent.GasFeeUsed = gasFeeUsed
+
+				updatedData, marshalErr := json.Marshal(outboundEvent)
+				if marshalErr != nil {
+					ec.logger.Error().
+						Err(marshalErr).
+						Str("event_id", event.EventID).
+						Msg("failed to marshal enriched outbound event data")
+					continue
+				}
+
+				rowsAffected, err = ec.chainStore.UpdateStatusAndEventData(event.EventID, "PENDING", "CONFIRMED", updatedData)
+			} else {
+				rowsAffected, err = ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
+			}
+
 			if err != nil {
 				ec.logger.Error().
 					Err(err).

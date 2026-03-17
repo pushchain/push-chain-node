@@ -65,21 +65,18 @@ func TestMsgVoteChainMetaConstruction(t *testing.T) {
 		chainID := "eip155:1"
 		price := uint64(20000000000)
 		chainHeight := uint64(18500000)
-		observedAt := uint64(1700000001)
 
 		msg := &uexecutortypes.MsgVoteChainMeta{
 			Signer:          granter,
 			ObservedChainId: chainID,
 			Price:           price,
 			ChainHeight:     chainHeight,
-			ObservedAt:      observedAt,
 		}
 
 		assert.Equal(t, granter, msg.Signer)
 		assert.Equal(t, chainID, msg.ObservedChainId)
 		assert.Equal(t, price, msg.Price)
 		assert.Equal(t, chainHeight, msg.ChainHeight)
-		assert.Equal(t, observedAt, msg.ObservedAt)
 	})
 
 	t.Run("MsgVoteChainMeta with zero values", func(t *testing.T) {
@@ -88,11 +85,9 @@ func TestMsgVoteChainMetaConstruction(t *testing.T) {
 			ObservedChainId: "eip155:1",
 			Price:           0,
 			ChainHeight:     0,
-			ObservedAt:      0,
 		}
 		assert.Equal(t, uint64(0), msg.Price)
 		assert.Equal(t, uint64(0), msg.ChainHeight)
-		assert.Equal(t, uint64(0), msg.ObservedAt)
 	})
 }
 

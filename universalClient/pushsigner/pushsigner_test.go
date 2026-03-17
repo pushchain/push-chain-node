@@ -147,7 +147,7 @@ func TestSigner_VoteInbound(t *testing.T) {
 // TestSigner_VoteChainMeta tests the VoteChainMeta method signature.
 func TestSigner_VoteChainMeta(t *testing.T) {
 	t.Run("method exists", func(t *testing.T) {
-		// Method signature: VoteChainMeta(ctx context.Context, chainID string, price uint64, chainHeight uint64, observedAt uint64) (string, error)
+		// Method signature: VoteChainMeta(ctx context.Context, chainID string, price uint64, chainHeight uint64) (string, error)
 		assert.True(t, true)
 	})
 }

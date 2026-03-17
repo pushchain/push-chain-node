@@ -120,7 +120,6 @@ func ExecVoteChainMeta(
 	chainID string,
 	price uint64,
 	blockNumber uint64,
-	observedAt uint64,
 ) error {
 	t.Helper()
 
@@ -129,7 +128,6 @@ func ExecVoteChainMeta(
 		ObservedChainId: chainID,
 		Price:           price,
 		ChainHeight:     blockNumber,
-		ObservedAt:      observedAt,
 	}
 
 	execMsg := authz.NewMsgExec(

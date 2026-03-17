@@ -42,8 +42,8 @@ func TestQueryChainMeta(t *testing.T) {
 		coreVal0, _ := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
 		coreVal1, _ := sdk.ValAddressFromBech32(vals[1].OperatorAddress)
 
-		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], sdk.AccAddress(coreVal0).String(), chainId, 100_000_000_000, 12345, 1700000000))
-		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[1], sdk.AccAddress(coreVal1).String(), chainId, 200_000_000_000, 12346, 1700000001))
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], sdk.AccAddress(coreVal0).String(), chainId, 100_000_000_000, 12345))
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[1], sdk.AccAddress(coreVal1).String(), chainId, 200_000_000_000, 12346))
 
 		querier := uexecutorkeeper.NewQuerier(testApp.UexecutorKeeper)
 		resp, err := querier.ChainMeta(ctx, &uexecutortypes.QueryChainMetaRequest{ChainId: chainId})
@@ -52,7 +52,7 @@ func TestQueryChainMeta(t *testing.T) {
 		require.Equal(t, chainId, resp.ChainMeta.ObservedChainId)
 		require.Len(t, resp.ChainMeta.Prices, 2)
 		require.Len(t, resp.ChainMeta.ChainHeights, 2)
-		require.Len(t, resp.ChainMeta.ObservedAts, 2)
+		require.Len(t, resp.ChainMeta.ChainHeights, 2)
 	})
 
 	t.Run("all chain metas returns empty when nothing stored", func(t *testing.T) {
@@ -72,7 +72,6 @@ func TestQueryChainMeta(t *testing.T) {
 			Signers:         []string{"cosmos1abc"},
 			Prices:          []uint64{100},
 			ChainHeights:    []uint64{1},
-			ObservedAts:     []uint64{0},
 			MedianIndex:     0,
 		}))
 		require.NoError(t, testApp.UexecutorKeeper.SetChainMeta(ctx, chainId2, uexecutortypes.ChainMeta{
@@ -80,7 +79,6 @@ func TestQueryChainMeta(t *testing.T) {
 			Signers:         []string{"cosmos1def"},
 			Prices:          []uint64{200},
 			ChainHeights:    []uint64{2},
-			ObservedAts:     []uint64{0},
 			MedianIndex:     0,
 		}))
 
@@ -103,7 +101,6 @@ func TestQueryGasPriceFromChainMeta(t *testing.T) {
 			Signers:         []string{"cosmos1abc", "cosmos1def"},
 			Prices:          []uint64{100_000_000_000, 200_000_000_000},
 			ChainHeights:    []uint64{12345, 12346},
-			ObservedAts:     []uint64{17000000, 17000001},
 			MedianIndex:     1,
 		}))
 
@@ -143,7 +140,6 @@ func TestQueryGasPriceFromChainMeta(t *testing.T) {
 			ObservedChainId: chainId,
 			Prices:          []uint64{100},
 			ChainHeights:    []uint64{1},
-			ObservedAts:     []uint64{0},
 			MedianIndex:     0,
 		}))
 

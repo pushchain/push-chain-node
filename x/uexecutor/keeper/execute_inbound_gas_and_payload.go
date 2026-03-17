@@ -183,7 +183,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			Sender:            utx.InboundTx.Sender,
 			TxType:            types.TxType_INBOUND_REVERT,
 			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(utx.InboundTx.TxHash),
+			Id:                types.GetOutboundRevertId(utx.InboundTx.SourceChain, utx.InboundTx.TxHash),
 		}
 
 		_ = k.attachOutboundsToUtx(

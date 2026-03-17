@@ -12,7 +12,7 @@ func SolidityTxTypeToProto(txTypeUint8 uint8) TxType {
 	case 3:
 		return TxType_FUNDS_AND_PAYLOAD
 	case 4:
-		return TxType_PAYLOAD
+		return TxType_RESCUE_FUNDS
 	case 5:
 		return TxType_INBOUND_REVERT
 	default:

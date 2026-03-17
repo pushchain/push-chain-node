@@ -182,7 +182,7 @@ func (x *_ChainMeta_5_list) Append(value protoreflect.Value) {
 }
 
 func (x *_ChainMeta_5_list) AppendMutable() protoreflect.Value {
-	panic(fmt.Errorf("AppendMutable can not be called on message ChainMeta at list field ObservedAts as it is not of Message kind"))
+	panic(fmt.Errorf("AppendMutable can not be called on message ChainMeta at list field StoredAts as it is not of Message kind"))
 }
 
 func (x *_ChainMeta_5_list) Truncate(n int) {
@@ -199,13 +199,14 @@ func (x *_ChainMeta_5_list) IsValid() bool {
 }
 
 var (
-	md_ChainMeta                   protoreflect.MessageDescriptor
-	fd_ChainMeta_observed_chain_id protoreflect.FieldDescriptor
-	fd_ChainMeta_signers           protoreflect.FieldDescriptor
-	fd_ChainMeta_prices            protoreflect.FieldDescriptor
-	fd_ChainMeta_chain_heights     protoreflect.FieldDescriptor
-	fd_ChainMeta_observed_ats      protoreflect.FieldDescriptor
-	fd_ChainMeta_median_index      protoreflect.FieldDescriptor
+	md_ChainMeta                           protoreflect.MessageDescriptor
+	fd_ChainMeta_observed_chain_id         protoreflect.FieldDescriptor
+	fd_ChainMeta_signers                   protoreflect.FieldDescriptor
+	fd_ChainMeta_prices                    protoreflect.FieldDescriptor
+	fd_ChainMeta_chain_heights             protoreflect.FieldDescriptor
+	fd_ChainMeta_stored_ats                protoreflect.FieldDescriptor
+	fd_ChainMeta_median_index              protoreflect.FieldDescriptor
+	fd_ChainMeta_last_applied_chain_height protoreflect.FieldDescriptor
 )
 
 func init() {
@@ -215,8 +216,9 @@ func init() {
 	fd_ChainMeta_signers = md_ChainMeta.Fields().ByName("signers")
 	fd_ChainMeta_prices = md_ChainMeta.Fields().ByName("prices")
 	fd_ChainMeta_chain_heights = md_ChainMeta.Fields().ByName("chain_heights")
-	fd_ChainMeta_observed_ats = md_ChainMeta.Fields().ByName("observed_ats")
+	fd_ChainMeta_stored_ats = md_ChainMeta.Fields().ByName("stored_ats")
 	fd_ChainMeta_median_index = md_ChainMeta.Fields().ByName("median_index")
+	fd_ChainMeta_last_applied_chain_height = md_ChainMeta.Fields().ByName("last_applied_chain_height")
 }
 
 var _ protoreflect.Message = (*fastReflection_ChainMeta)(nil)
@@ -308,15 +310,21 @@ func (x *fastReflection_ChainMeta) Range(f func(protoreflect.FieldDescriptor, pr
 			return
 		}
 	}
-	if len(x.ObservedAts) != 0 {
-		value := protoreflect.ValueOfList(&_ChainMeta_5_list{list: &x.ObservedAts})
-		if !f(fd_ChainMeta_observed_ats, value) {
+	if len(x.StoredAts) != 0 {
+		value := protoreflect.ValueOfList(&_ChainMeta_5_list{list: &x.StoredAts})
+		if !f(fd_ChainMeta_stored_ats, value) {
 			return
 		}
 	}
 	if x.MedianIndex != uint64(0) {
 		value := protoreflect.ValueOfUint64(x.MedianIndex)
 		if !f(fd_ChainMeta_median_index, value) {
+			return
+		}
+	}
+	if x.LastAppliedChainHeight != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.LastAppliedChainHeight)
+		if !f(fd_ChainMeta_last_applied_chain_height, value) {
 			return
 		}
 	}
@@ -343,10 +351,12 @@ func (x *fastReflection_ChainMeta) Has(fd protoreflect.FieldDescriptor) bool {
 		return len(x.Prices) != 0
 	case "uexecutor.v1.ChainMeta.chain_heights":
 		return len(x.ChainHeights) != 0
-	case "uexecutor.v1.ChainMeta.observed_ats":
-		return len(x.ObservedAts) != 0
+	case "uexecutor.v1.ChainMeta.stored_ats":
+		return len(x.StoredAts) != 0
 	case "uexecutor.v1.ChainMeta.median_index":
 		return x.MedianIndex != uint64(0)
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
+		return x.LastAppliedChainHeight != uint64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.ChainMeta"))
@@ -371,10 +381,12 @@ func (x *fastReflection_ChainMeta) Clear(fd protoreflect.FieldDescriptor) {
 		x.Prices = nil
 	case "uexecutor.v1.ChainMeta.chain_heights":
 		x.ChainHeights = nil
-	case "uexecutor.v1.ChainMeta.observed_ats":
-		x.ObservedAts = nil
+	case "uexecutor.v1.ChainMeta.stored_ats":
+		x.StoredAts = nil
 	case "uexecutor.v1.ChainMeta.median_index":
 		x.MedianIndex = uint64(0)
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
+		x.LastAppliedChainHeight = uint64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.ChainMeta"))
@@ -412,14 +424,17 @@ func (x *fastReflection_ChainMeta) Get(descriptor protoreflect.FieldDescriptor) 
 		}
 		listValue := &_ChainMeta_4_list{list: &x.ChainHeights}
 		return protoreflect.ValueOfList(listValue)
-	case "uexecutor.v1.ChainMeta.observed_ats":
-		if len(x.ObservedAts) == 0 {
+	case "uexecutor.v1.ChainMeta.stored_ats":
+		if len(x.StoredAts) == 0 {
 			return protoreflect.ValueOfList(&_ChainMeta_5_list{})
 		}
-		listValue := &_ChainMeta_5_list{list: &x.ObservedAts}
+		listValue := &_ChainMeta_5_list{list: &x.StoredAts}
 		return protoreflect.ValueOfList(listValue)
 	case "uexecutor.v1.ChainMeta.median_index":
 		value := x.MedianIndex
+		return protoreflect.ValueOfUint64(value)
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
+		value := x.LastAppliedChainHeight
 		return protoreflect.ValueOfUint64(value)
 	default:
 		if descriptor.IsExtension() {
@@ -455,12 +470,14 @@ func (x *fastReflection_ChainMeta) Set(fd protoreflect.FieldDescriptor, value pr
 		lv := value.List()
 		clv := lv.(*_ChainMeta_4_list)
 		x.ChainHeights = *clv.list
-	case "uexecutor.v1.ChainMeta.observed_ats":
+	case "uexecutor.v1.ChainMeta.stored_ats":
 		lv := value.List()
 		clv := lv.(*_ChainMeta_5_list)
-		x.ObservedAts = *clv.list
+		x.StoredAts = *clv.list
 	case "uexecutor.v1.ChainMeta.median_index":
 		x.MedianIndex = value.Uint()
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
+		x.LastAppliedChainHeight = value.Uint()
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.ChainMeta"))
@@ -499,16 +516,18 @@ func (x *fastReflection_ChainMeta) Mutable(fd protoreflect.FieldDescriptor) prot
 		}
 		value := &_ChainMeta_4_list{list: &x.ChainHeights}
 		return protoreflect.ValueOfList(value)
-	case "uexecutor.v1.ChainMeta.observed_ats":
-		if x.ObservedAts == nil {
-			x.ObservedAts = []uint64{}
+	case "uexecutor.v1.ChainMeta.stored_ats":
+		if x.StoredAts == nil {
+			x.StoredAts = []uint64{}
 		}
-		value := &_ChainMeta_5_list{list: &x.ObservedAts}
+		value := &_ChainMeta_5_list{list: &x.StoredAts}
 		return protoreflect.ValueOfList(value)
 	case "uexecutor.v1.ChainMeta.observed_chain_id":
 		panic(fmt.Errorf("field observed_chain_id of message uexecutor.v1.ChainMeta is not mutable"))
 	case "uexecutor.v1.ChainMeta.median_index":
 		panic(fmt.Errorf("field median_index of message uexecutor.v1.ChainMeta is not mutable"))
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
+		panic(fmt.Errorf("field last_applied_chain_height of message uexecutor.v1.ChainMeta is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: uexecutor.v1.ChainMeta"))
@@ -533,10 +552,12 @@ func (x *fastReflection_ChainMeta) NewField(fd protoreflect.FieldDescriptor) pro
 	case "uexecutor.v1.ChainMeta.chain_heights":
 		list := []uint64{}
 		return protoreflect.ValueOfList(&_ChainMeta_4_list{list: &list})
-	case "uexecutor.v1.ChainMeta.observed_ats":
+	case "uexecutor.v1.ChainMeta.stored_ats":
 		list := []uint64{}
 		return protoreflect.ValueOfList(&_ChainMeta_5_list{list: &list})
 	case "uexecutor.v1.ChainMeta.median_index":
+		return protoreflect.ValueOfUint64(uint64(0))
+	case "uexecutor.v1.ChainMeta.last_applied_chain_height":
 		return protoreflect.ValueOfUint64(uint64(0))
 	default:
 		if fd.IsExtension() {
@@ -631,15 +652,18 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 			}
 			n += 1 + runtime.Sov(uint64(l)) + l
 		}
-		if len(x.ObservedAts) > 0 {
+		if len(x.StoredAts) > 0 {
 			l = 0
-			for _, e := range x.ObservedAts {
+			for _, e := range x.StoredAts {
 				l += runtime.Sov(uint64(e))
 			}
 			n += 1 + runtime.Sov(uint64(l)) + l
 		}
 		if x.MedianIndex != 0 {
 			n += 1 + runtime.Sov(uint64(x.MedianIndex))
+		}
+		if x.LastAppliedChainHeight != 0 {
+			n += 1 + runtime.Sov(uint64(x.LastAppliedChainHeight))
 		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
@@ -670,19 +694,24 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
 		}
+		if x.LastAppliedChainHeight != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.LastAppliedChainHeight))
+			i--
+			dAtA[i] = 0x38
+		}
 		if x.MedianIndex != 0 {
 			i = runtime.EncodeVarint(dAtA, i, uint64(x.MedianIndex))
 			i--
 			dAtA[i] = 0x30
 		}
-		if len(x.ObservedAts) > 0 {
+		if len(x.StoredAts) > 0 {
 			var pksize2 int
-			for _, num := range x.ObservedAts {
+			for _, num := range x.StoredAts {
 				pksize2 += runtime.Sov(uint64(num))
 			}
 			i -= pksize2
 			j1 := i
-			for _, num := range x.ObservedAts {
+			for _, num := range x.StoredAts {
 				for num >= 1<<7 {
 					dAtA[j1] = uint8(uint64(num)&0x7f | 0x80)
 					num >>= 7
@@ -1033,7 +1062,7 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 							break
 						}
 					}
-					x.ObservedAts = append(x.ObservedAts, v)
+					x.StoredAts = append(x.StoredAts, v)
 				} else if wireType == 2 {
 					var packedLen int
 					for shift := uint(0); ; shift += 7 {
@@ -1068,8 +1097,8 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 						}
 					}
 					elementCount = count
-					if elementCount != 0 && len(x.ObservedAts) == 0 {
-						x.ObservedAts = make([]uint64, 0, elementCount)
+					if elementCount != 0 && len(x.StoredAts) == 0 {
+						x.StoredAts = make([]uint64, 0, elementCount)
 					}
 					for iNdEx < postIndex {
 						var v uint64
@@ -1087,10 +1116,10 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 								break
 							}
 						}
-						x.ObservedAts = append(x.ObservedAts, v)
+						x.StoredAts = append(x.StoredAts, v)
 					}
 				} else {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ObservedAts", wireType)
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field StoredAts", wireType)
 				}
 			case 6:
 				if wireType != 0 {
@@ -1107,6 +1136,25 @@ func (x *fastReflection_ChainMeta) ProtoMethods() *protoiface.Methods {
 					b := dAtA[iNdEx]
 					iNdEx++
 					x.MedianIndex |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 7:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field LastAppliedChainHeight", wireType)
+				}
+				x.LastAppliedChainHeight = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.LastAppliedChainHeight |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1165,12 +1213,13 @@ type ChainMeta struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ObservedChainId string   `protobuf:"bytes,1,opt,name=observed_chain_id,json=observedChainId,proto3" json:"observed_chain_id,omitempty"` // chain ID of observed external chain (e.g. "eip155:1" for ethereum mainnet)
-	Signers         []string `protobuf:"bytes,2,rep,name=signers,proto3" json:"signers,omitempty"`                                          // Validators who submitted votes
-	Prices          []uint64 `protobuf:"varint,3,rep,packed,name=prices,proto3" json:"prices,omitempty"`                                    // Submitted gas prices
-	ChainHeights    []uint64 `protobuf:"varint,4,rep,packed,name=chain_heights,json=chainHeights,proto3" json:"chain_heights,omitempty"`    // Block heights corresponding to each price observation
-	ObservedAts     []uint64 `protobuf:"varint,5,rep,packed,name=observed_ats,json=observedAts,proto3" json:"observed_ats,omitempty"`       // Timestamps when each observation was made
-	MedianIndex     uint64   `protobuf:"varint,6,opt,name=median_index,json=medianIndex,proto3" json:"median_index,omitempty"`              // Index of the median price in 'prices'
+	ObservedChainId        string   `protobuf:"bytes,1,opt,name=observed_chain_id,json=observedChainId,proto3" json:"observed_chain_id,omitempty"`                         // chain ID of observed external chain (e.g. "eip155:1" for ethereum mainnet)
+	Signers                []string `protobuf:"bytes,2,rep,name=signers,proto3" json:"signers,omitempty"`                                                                  // Validators who submitted votes
+	Prices                 []uint64 `protobuf:"varint,3,rep,packed,name=prices,proto3" json:"prices,omitempty"`                                                            // Submitted gas prices
+	ChainHeights           []uint64 `protobuf:"varint,4,rep,packed,name=chain_heights,json=chainHeights,proto3" json:"chain_heights,omitempty"`                            // Block heights corresponding to each price observation
+	StoredAts              []uint64 `protobuf:"varint,5,rep,packed,name=stored_ats,json=storedAts,proto3" json:"stored_ats,omitempty"`                                     // Block time (unix seconds) when each vote was last stored/updated
+	MedianIndex            uint64   `protobuf:"varint,6,opt,name=median_index,json=medianIndex,proto3" json:"median_index,omitempty"`                                      // Index of the median price in 'prices'
+	LastAppliedChainHeight uint64   `protobuf:"varint,7,opt,name=last_applied_chain_height,json=lastAppliedChainHeight,proto3" json:"last_applied_chain_height,omitempty"` // Chain height of last successful EVM setChainMeta call
 }
 
 func (x *ChainMeta) Reset() {
@@ -1221,9 +1270,9 @@ func (x *ChainMeta) GetChainHeights() []uint64 {
 	return nil
 }
 
-func (x *ChainMeta) GetObservedAts() []uint64 {
+func (x *ChainMeta) GetStoredAts() []uint64 {
 	if x != nil {
-		return x.ObservedAts
+		return x.StoredAts
 	}
 	return nil
 }
@@ -1231,6 +1280,13 @@ func (x *ChainMeta) GetObservedAts() []uint64 {
 func (x *ChainMeta) GetMedianIndex() uint64 {
 	if x != nil {
 		return x.MedianIndex
+	}
+	return 0
+}
+
+func (x *ChainMeta) GetLastAppliedChainHeight() uint64 {
+	if x != nil {
+		return x.LastAppliedChainHeight
 	}
 	return 0
 }
@@ -1243,7 +1299,7 @@ var file_uexecutor_v1_chain_meta_proto_rawDesc = []byte{
 	0x0c, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x1a, 0x14, 0x67,
 	0x6f, 0x67, 0x6f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x1a, 0x11, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2f, 0x61, 0x6d, 0x69, 0x6e, 0x6f,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xf7, 0x01, 0x0a, 0x09, 0x43, 0x68, 0x61, 0x69, 0x6e,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xae, 0x02, 0x0a, 0x09, 0x43, 0x68, 0x61, 0x69, 0x6e,
 	0x4d, 0x65, 0x74, 0x61, 0x12, 0x2a, 0x0a, 0x11, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64,
 	0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x0f, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x49, 0x64,
@@ -1252,26 +1308,29 @@ var file_uexecutor_v1_chain_meta_proto_rawDesc = []byte{
 	0x69, 0x63, 0x65, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x04, 0x52, 0x06, 0x70, 0x72, 0x69, 0x63,
 	0x65, 0x73, 0x12, 0x23, 0x0a, 0x0d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x68, 0x65, 0x69, 0x67,
 	0x68, 0x74, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x04, 0x52, 0x0c, 0x63, 0x68, 0x61, 0x69, 0x6e,
-	0x48, 0x65, 0x69, 0x67, 0x68, 0x74, 0x73, 0x12, 0x21, 0x0a, 0x0c, 0x6f, 0x62, 0x73, 0x65, 0x72,
-	0x76, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28, 0x04, 0x52, 0x0b, 0x6f,
-	0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x64, 0x41, 0x74, 0x73, 0x12, 0x21, 0x0a, 0x0c, 0x6d, 0x65,
-	0x64, 0x69, 0x61, 0x6e, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04,
-	0x52, 0x0b, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x6e, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x3a, 0x21, 0x98,
-	0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x14, 0x75, 0x65, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f, 0x6d, 0x65, 0x74, 0x61,
-	0x42, 0xb6, 0x01, 0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
-	0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x0e, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x4d, 0x65, 0x74, 0x61,
-	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75,
-	0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70,
-	0x69, 0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75,
-	0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58,
-	0xaa, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31, 0xca,
-	0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02,
-	0x18, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50,
-	0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d, 0x55, 0x65, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x48, 0x65, 0x69, 0x67, 0x68, 0x74, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x74, 0x6f, 0x72, 0x65,
+	0x64, 0x5f, 0x61, 0x74, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28, 0x04, 0x52, 0x09, 0x73, 0x74, 0x6f,
+	0x72, 0x65, 0x64, 0x41, 0x74, 0x73, 0x12, 0x21, 0x0a, 0x0c, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x6e,
+	0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0b, 0x6d, 0x65,
+	0x64, 0x69, 0x61, 0x6e, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x39, 0x0a, 0x19, 0x6c, 0x61, 0x73,
+	0x74, 0x5f, 0x61, 0x70, 0x70, 0x6c, 0x69, 0x65, 0x64, 0x5f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x5f,
+	0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x18, 0x07, 0x20, 0x01, 0x28, 0x04, 0x52, 0x16, 0x6c, 0x61,
+	0x73, 0x74, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x65, 0x64, 0x43, 0x68, 0x61, 0x69, 0x6e, 0x48, 0x65,
+	0x69, 0x67, 0x68, 0x74, 0x3a, 0x21, 0x98, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7,
+	0xb0, 0x2a, 0x14, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2f, 0x63, 0x68, 0x61,
+	0x69, 0x6e, 0x5f, 0x6d, 0x65, 0x74, 0x61, 0x42, 0xb6, 0x01, 0x0a, 0x10, 0x63, 0x6f, 0x6d, 0x2e,
+	0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x0e, 0x43, 0x68,
+	0x61, 0x69, 0x6e, 0x4d, 0x65, 0x74, 0x61, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x41,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63,
+	0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d,
+	0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x6f, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x76,
+	0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75,
+	0x74, 0x6f, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0c, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x6f, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x18, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
+	0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61,
+	0xea, 0x02, 0x0d, 0x55, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x3a, 0x3a, 0x56, 0x31,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

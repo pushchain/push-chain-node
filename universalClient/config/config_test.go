@@ -6,211 +6,151 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test constants for TSS config (required fields)
 const (
 	testTSSPrivateKeyHex = "0101010101010101010101010101010101010101010101010101010101010101"
 	testTSSPassword      = "testpassword"
 )
 
-func TestConfigValidation(t *testing.T) {
-	// Test default settings
-	cfg := &Config{
-		LogLevel:            1,
-		LogFormat:           "console",
-		TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-		TSSPassword:         testTSSPassword,
-	}
+func applyDefaultsAndValidate(t *testing.T, cfg *Config) error {
+	t.Helper()
+	defaults, err := LoadDefaultConfig()
+	require.NoError(t, err)
+	applyDefaults(cfg, &defaults)
+	return validate(cfg)
+}
 
-	// Load default config for validation
-	defaultCfg, _ := LoadDefaultConfig()
-
-	// This should set defaults and validate
-	err := validateConfig(cfg, &defaultCfg)
-	assert.NoError(t, err)
-
-	// Check that defaults were set
+func TestLoadDefaultConfig(t *testing.T) {
+	cfg, err := LoadDefaultConfig()
+	require.NoError(t, err)
 	assert.NotZero(t, cfg.ConfigRefreshIntervalSeconds)
 	assert.NotZero(t, cfg.MaxRetries)
 	assert.NotZero(t, cfg.QueryServerPort)
-	assert.Equal(t, KeyringBackendTest, cfg.KeyringBackend) // Defaults to test when empty
 	assert.NotEmpty(t, cfg.PushChainGRPCURLs)
+	assert.Equal(t, "console", cfg.LogFormat)
 }
 
-func TestValidConfigScenarios(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   Config
-		validate func(t *testing.T, cfg *Config)
-	}{
-		{
-			name: "Valid config with all fields",
-			config: Config{
-				LogLevel:                     2,
-				LogFormat:                    "json",
-				ConfigRefreshIntervalSeconds: 30,
-				MaxRetries:                   5,
-				PushChainGRPCURLs:            []string{"localhost:9090"},
-				QueryServerPort:              8080,
-				TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
-				TSSPassword:                  testTSSPassword,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 2, cfg.LogLevel)
-				assert.Equal(t, "json", cfg.LogFormat)
-			},
-		},
-		{
-			name: "Valid config with console log format",
-			config: Config{
-				LogLevel:            1,
-				LogFormat:           "console",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 1, cfg.LogLevel)
-				assert.Equal(t, "console", cfg.LogFormat)
-			},
-		},
-		{
-			name: "Config with defaults applied",
-			config: Config{
-				LogLevel:            2,
-				LogFormat:           "json",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				// These should match the default config values
-				assert.Equal(t, 60, cfg.ConfigRefreshIntervalSeconds) // Default is 60
-				assert.Equal(t, 3, cfg.MaxRetries)
-				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
-				assert.Equal(t, 8080, cfg.QueryServerPort)
-			},
-		},
-		{
-			name: "Empty PushChainGRPCURLs gets default",
-			config: Config{
-				LogLevel:            2,
-				LogFormat:           "json",
-				PushChainGRPCURLs:   []string{},
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, []string{"localhost:9090"}, cfg.PushChainGRPCURLs)
-			},
-		},
-		{
-			name: "Zero QueryServerPort gets default",
-			config: Config{
-				LogLevel:            2,
-				LogFormat:           "json",
-				QueryServerPort:     0,
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 8080, cfg.QueryServerPort)
-			},
-		},
-	}
+func TestApplyDefaults(t *testing.T) {
+	t.Run("fills zero-valued fields", func(t *testing.T) {
+		cfg := &Config{
+			LogLevel:            2,
+			LogFormat:           "json",
+			TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+			TSSPassword:         testTSSPassword,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defaultCfg, _ := LoadDefaultConfig()
-			cfg := tt.config
-			err := validateConfig(&cfg, &defaultCfg)
-			assert.NoError(t, err)
-			if tt.validate != nil {
-				tt.validate(t, &cfg)
-			}
-		})
-	}
+		err := applyDefaultsAndValidate(t, cfg)
+		require.NoError(t, err)
+
+		defaults, _ := LoadDefaultConfig()
+		assert.Equal(t, defaults.ConfigRefreshIntervalSeconds, cfg.ConfigRefreshIntervalSeconds)
+		assert.Equal(t, defaults.MaxRetries, cfg.MaxRetries)
+		assert.Equal(t, defaults.PushChainGRPCURLs, cfg.PushChainGRPCURLs)
+		assert.Equal(t, defaults.QueryServerPort, cfg.QueryServerPort)
+		assert.Equal(t, defaults.KeyringBackend, cfg.KeyringBackend)
+		assert.NotEmpty(t, cfg.NodeHome)
+		assert.NotEmpty(t, cfg.TSSP2PListen)
+	})
+
+	t.Run("preserves explicit values", func(t *testing.T) {
+		cfg := &Config{
+			LogLevel:                     2,
+			LogFormat:                    "json",
+			ConfigRefreshIntervalSeconds: 30,
+			MaxRetries:                   5,
+			PushChainGRPCURLs:            []string{"custom:9090"},
+			QueryServerPort:              9999,
+			KeyringBackend:               KeyringBackendFile,
+			TSSP2PPrivateKeyHex:          testTSSPrivateKeyHex,
+			TSSPassword:                  testTSSPassword,
+		}
+
+		err := applyDefaultsAndValidate(t, cfg)
+		require.NoError(t, err)
+
+		assert.Equal(t, 30, cfg.ConfigRefreshIntervalSeconds)
+		assert.Equal(t, 5, cfg.MaxRetries)
+		assert.Equal(t, []string{"custom:9090"}, cfg.PushChainGRPCURLs)
+		assert.Equal(t, 9999, cfg.QueryServerPort)
+		assert.Equal(t, KeyringBackendFile, cfg.KeyringBackend)
+	})
+
+	t.Run("empty slice gets default", func(t *testing.T) {
+		cfg := &Config{
+			LogLevel:            2,
+			LogFormat:           "json",
+			PushChainGRPCURLs:   []string{},
+			TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
+			TSSPassword:         testTSSPassword,
+		}
+
+		err := applyDefaultsAndValidate(t, cfg)
+		require.NoError(t, err)
+
+		defaults, _ := LoadDefaultConfig()
+		assert.Equal(t, defaults.PushChainGRPCURLs, cfg.PushChainGRPCURLs)
+	})
 }
 
-func TestInvalidConfigValidation(t *testing.T) {
+func TestValidate(t *testing.T) {
 	tests := []struct {
 		name   string
 		config Config
 		errMsg string
 	}{
 		{
-			name: "invalid log format",
-			config: Config{
-				LogLevel:            1,
-				LogFormat:           "invalid",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
+			name:   "valid minimal config",
+			config: Config{LogLevel: 1, LogFormat: "console"},
+		},
+		{
+			name:   "valid json format",
+			config: Config{LogLevel: 0, LogFormat: "json"},
+		},
+		{
+			name:   "valid file backend",
+			config: Config{LogLevel: 1, LogFormat: "console", KeyringBackend: KeyringBackendFile},
+		},
+		{
+			name:   "log level too high",
+			config: Config{LogLevel: 6, LogFormat: "json"},
+			errMsg: "log level must be between 0 and 5",
+		},
+		{
+			name:   "log level negative",
+			config: Config{LogLevel: -1, LogFormat: "json"},
+			errMsg: "log level must be between 0 and 5",
+		},
+		{
+			name:   "invalid log format",
+			config: Config{LogLevel: 1, LogFormat: "xml"},
 			errMsg: "log format must be 'json' or 'console'",
 		},
 		{
-			name: "invalid keyring backend",
-			config: Config{
-				LogLevel:            1,
-				LogFormat:           "console",
-				KeyringBackend:      "invalid",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
+			name:   "invalid keyring backend",
+			config: Config{LogLevel: 1, LogFormat: "console", KeyringBackend: "invalid"},
 			errMsg: "keyring backend must be 'file' or 'test'",
-		},
-		{
-			name: "Invalid log level (too high)",
-			config: Config{
-				LogLevel:            6,
-				LogFormat:           "json",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			errMsg: "log level must be between 0 and 5",
-		},
-		{
-			name: "Invalid log level (negative)",
-			config: Config{
-				LogLevel:            -1,
-				LogFormat:           "json",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			errMsg: "log level must be between 0 and 5",
-		},
-		{
-			name: "Invalid log format xml",
-			config: Config{
-				LogLevel:            2,
-				LogFormat:           "xml",
-				TSSP2PPrivateKeyHex: testTSSPrivateKeyHex,
-				TSSPassword:         testTSSPassword,
-			},
-			errMsg: "log format must be 'json' or 'console'",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defaultCfg, _ := LoadDefaultConfig()
-			cfg := tt.config
-			err := validateConfig(&cfg, &defaultCfg)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.errMsg)
+			err := validate(&tt.config)
+			if tt.errMsg != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
 
 func TestSaveAndLoad(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "config_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	t.Run("Save and load valid config", func(t *testing.T) {
+	t.Run("round trip", func(t *testing.T) {
+		dir := t.TempDir()
 		cfg := &Config{
 			LogLevel:                     3,
 			LogFormat:                    "json",
@@ -222,64 +162,47 @@ func TestSaveAndLoad(t *testing.T) {
 			TSSPassword:                  testTSSPassword,
 		}
 
-		// Save config
-		err := Save(cfg, tempDir)
+		err := Save(cfg, dir)
 		require.NoError(t, err)
 
-		// Verify file exists
-		configPath := filepath.Join(tempDir, constant.ConfigSubdir, constant.ConfigFileName)
-		_, err = os.Stat(configPath)
-		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(dir, ConfigSubdir, ConfigFileName))
 
-		// Load config
-		loadedCfg, err := Load(tempDir)
+		loaded, err := Load(dir)
 		require.NoError(t, err)
 
-		// Verify loaded config matches saved config
-		assert.Equal(t, cfg.LogLevel, loadedCfg.LogLevel)
-		assert.Equal(t, cfg.LogFormat, loadedCfg.LogFormat)
-		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, loadedCfg.ConfigRefreshIntervalSeconds)
-		assert.Equal(t, cfg.MaxRetries, loadedCfg.MaxRetries)
-		assert.Equal(t, cfg.PushChainGRPCURLs, loadedCfg.PushChainGRPCURLs)
-		assert.Equal(t, cfg.QueryServerPort, loadedCfg.QueryServerPort)
+		assert.Equal(t, cfg.LogLevel, loaded.LogLevel)
+		assert.Equal(t, cfg.LogFormat, loaded.LogFormat)
+		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, loaded.ConfigRefreshIntervalSeconds)
+		assert.Equal(t, cfg.MaxRetries, loaded.MaxRetries)
+		assert.Equal(t, cfg.PushChainGRPCURLs, loaded.PushChainGRPCURLs)
+		assert.Equal(t, cfg.QueryServerPort, loaded.QueryServerPort)
 	})
 
-	t.Run("Save invalid config", func(t *testing.T) {
-		cfg := &Config{
-			LogLevel:  -1, // Invalid
-			LogFormat: "json",
-		}
-
-		err := Save(cfg, tempDir)
-		assert.Error(t, err)
+	t.Run("save invalid config fails", func(t *testing.T) {
+		err := Save(&Config{LogLevel: -1, LogFormat: "json"}, t.TempDir())
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid config")
 	})
 
-	t.Run("Load from non-existent file", func(t *testing.T) {
-		nonExistentDir := filepath.Join(tempDir, "non_existent")
-		_, err := Load(nonExistentDir)
-		assert.Error(t, err)
+	t.Run("load non-existent file fails", func(t *testing.T) {
+		_, err := Load(filepath.Join(t.TempDir(), "nope"))
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read config file")
 	})
 
-	t.Run("Load invalid JSON", func(t *testing.T) {
-		// Create config directory
-		configDir := filepath.Join(tempDir, "invalid", constant.ConfigSubdir)
-		err := os.MkdirAll(configDir, 0o750)
-		require.NoError(t, err)
+	t.Run("load invalid JSON fails", func(t *testing.T) {
+		dir := t.TempDir()
+		configDir := filepath.Join(dir, ConfigSubdir)
+		require.NoError(t, os.MkdirAll(configDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, ConfigFileName), []byte("{bad}"), 0o600))
 
-		// Write invalid JSON
-		configPath := filepath.Join(configDir, constant.ConfigFileName)
-		err = os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
-		require.NoError(t, err)
-
-		_, err = Load(filepath.Join(tempDir, "invalid"))
-		assert.Error(t, err)
+		_, err := Load(dir)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to unmarshal config")
 	})
 
-	t.Run("Save with directory creation", func(t *testing.T) {
-		newDir := filepath.Join(tempDir, "new_dir")
+	t.Run("save creates directory", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "nested")
 		cfg := &Config{
 			LogLevel:            2,
 			LogFormat:           "json",
@@ -287,42 +210,62 @@ func TestSaveAndLoad(t *testing.T) {
 			TSSPassword:         testTSSPassword,
 		}
 
-		err := Save(cfg, newDir)
-		require.NoError(t, err)
-
-		// Verify directory was created
-		configDir := filepath.Join(newDir, constant.ConfigSubdir)
-		_, err = os.Stat(configDir)
-		assert.NoError(t, err)
+		require.NoError(t, Save(cfg, dir))
+		assert.DirExists(t, filepath.Join(dir, ConfigSubdir))
 	})
 }
 
-func TestConfigJSONMarshaling(t *testing.T) {
-	t.Run("Marshal and unmarshal config", func(t *testing.T) {
+func TestConfigJSONRoundTrip(t *testing.T) {
+	cfg := &Config{
+		LogLevel:                     2,
+		LogFormat:                    "console",
+		ConfigRefreshIntervalSeconds: 15,
+		MaxRetries:                   3,
+		PushChainGRPCURLs:            []string{"host1:9090", "host2:9090"},
+		QueryServerPort:              8080,
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+
+	var loaded Config
+	require.NoError(t, json.Unmarshal(data, &loaded))
+
+	assert.Equal(t, cfg.LogLevel, loaded.LogLevel)
+	assert.Equal(t, cfg.LogFormat, loaded.LogFormat)
+	assert.Equal(t, cfg.PushChainGRPCURLs, loaded.PushChainGRPCURLs)
+}
+
+func TestGetChainCleanupSettings(t *testing.T) {
+	cleanup := 1800
+	retention := 43200
+
+	t.Run("returns settings", func(t *testing.T) {
 		cfg := &Config{
-			LogLevel:                     2,
-			LogFormat:                    "console",
-			ConfigRefreshIntervalSeconds: 15,
-			MaxRetries:                   3,
-			PushChainGRPCURLs:            []string{"host1:9090", "host2:9090"},
-			QueryServerPort:              8080,
+			ChainConfigs: map[string]ChainSpecificConfig{
+				"eip155:1": {CleanupIntervalSeconds: &cleanup, RetentionPeriodSeconds: &retention},
+			},
 		}
-
-		// Marshal to JSON
-		data, err := json.MarshalIndent(cfg, "", "  ")
+		c, r, err := cfg.GetChainCleanupSettings("eip155:1")
 		require.NoError(t, err)
+		assert.Equal(t, 1800, c)
+		assert.Equal(t, 43200, r)
+	})
 
-		// Unmarshal back
-		var unmarshaledCfg Config
-		err = json.Unmarshal(data, &unmarshaledCfg)
-		require.NoError(t, err)
+	t.Run("missing chain", func(t *testing.T) {
+		cfg := &Config{ChainConfigs: map[string]ChainSpecificConfig{}}
+		_, _, err := cfg.GetChainCleanupSettings("eip155:1")
+		require.Error(t, err)
+	})
 
-		// Compare
-		assert.Equal(t, cfg.LogLevel, unmarshaledCfg.LogLevel)
-		assert.Equal(t, cfg.LogFormat, unmarshaledCfg.LogFormat)
-		assert.Equal(t, cfg.ConfigRefreshIntervalSeconds, unmarshaledCfg.ConfigRefreshIntervalSeconds)
-		assert.Equal(t, cfg.MaxRetries, unmarshaledCfg.MaxRetries)
-		assert.Equal(t, cfg.PushChainGRPCURLs, unmarshaledCfg.PushChainGRPCURLs)
-		assert.Equal(t, cfg.QueryServerPort, unmarshaledCfg.QueryServerPort)
+	t.Run("missing cleanup interval", func(t *testing.T) {
+		cfg := &Config{
+			ChainConfigs: map[string]ChainSpecificConfig{
+				"eip155:1": {RetentionPeriodSeconds: &retention},
+			},
+		}
+		_, _, err := cfg.GetChainCleanupSettings("eip155:1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cleanup_interval_seconds")
 	})
 }

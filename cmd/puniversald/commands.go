@@ -12,8 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	sdkversion "github.com/cosmos/cosmos-sdk/version"
-	"github.com/pushchain/push-chain-node/universalClient/config"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	uvconfig "github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/core"
 	"github.com/spf13/cobra"
 
@@ -24,7 +23,7 @@ func InitRootCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(startCmd())
 	rootCmd.AddCommand(initCmd())
-	rootCmd.AddCommand(cosmosevmcmd.KeyCommands(constant.DefaultNodeHome, true))
+	rootCmd.AddCommand(cosmosevmcmd.KeyCommands(uvconfig.DefaultNodeHome(), true))
 	rootCmd.AddCommand(tssPeerIDCmd())
 }
 
@@ -54,17 +53,17 @@ This command creates a default configuration file at:
 You can edit this file to customize your universal validator settings.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load default config
-			defaultCfg, err := config.LoadDefaultConfig()
+			defaultCfg, err := uvconfig.LoadDefaultConfig()
 			if err != nil {
 				return fmt.Errorf("failed to load default config: %w", err)
 			}
 
 			// Save to config directory
-			if err := config.Save(&defaultCfg, constant.DefaultNodeHome); err != nil {
+			if err := uvconfig.Save(&defaultCfg, uvconfig.DefaultNodeHome()); err != nil {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 
-			configPath := fmt.Sprintf("%s/%s/%s", constant.DefaultNodeHome, constant.ConfigSubdir, constant.ConfigFileName)
+			configPath := fmt.Sprintf("%s/%s/%s", uvconfig.DefaultNodeHome(), uvconfig.ConfigSubdir, uvconfig.ConfigFileName)
 			fmt.Printf("✅ Configuration file initialized at: %s\n", configPath)
 			fmt.Println("You can now edit this file to customize your settings.")
 			return nil
@@ -79,7 +78,7 @@ func startCmd() *cobra.Command {
 		Short: "Start the universal message handler",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// --- Step 1: Load config ---
-			loadedCfg, err := config.Load(constant.DefaultNodeHome)
+			loadedCfg, err := uvconfig.Load(uvconfig.DefaultNodeHome())
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}

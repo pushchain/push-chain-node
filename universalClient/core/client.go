@@ -9,7 +9,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/api"
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/config"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/logger"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
@@ -88,7 +87,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		sanitizedChainID := cfg.PushChainID
 		// Replace colons and other special chars with underscores for filename
 		dbFilename := sanitizedChainID + ".db"
-		baseDir := filepath.Join(cfg.NodeHome, constant.DatabasesSubdir)
+		baseDir := filepath.Join(cfg.NodeHome, config.DatabasesSubdir)
 		pushDB, err := db.OpenFileDB(baseDir, dbFilename, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Push database: %w", err)

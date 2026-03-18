@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	cosmoskeyring "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -22,15 +23,23 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	keysv2 "github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
+// chainClient defines the subset of pushcore.Client methods used by Signer.
+// Defined here (consumer-side) so tests can provide mock implementations.
+type chainClient interface {
+	BroadcastTx(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error)
+	GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error)
+	GetGranteeGrants(ctx context.Context, granteeAddr string) (*cosmosauthz.QueryGranteeGrantsResponse, error)
+}
+
 // Signer provides the main public API for signing and voting operations.
 type Signer struct {
-	keys          keysv2.UniversalValidatorKeys
+	keys          *keys.Keys
 	clientCtx     client.Context
-	pushCore      *pushcore.Client
+	pushCore      chainClient
 	granter       string
 	log           zerolog.Logger
 	sequenceMutex sync.Mutex // Mutex to synchronize transaction signing
@@ -60,10 +69,9 @@ func New(
 		return nil, fmt.Errorf("failed to parse key address: %w", err)
 	}
 
-	universalKeys := keysv2.NewKeys(
+	universalKeys := keys.NewKeys(
 		validationResult.Keyring,
 		validationResult.KeyName,
-		"",
 	)
 
 	derivedAddr, err := universalKeys.GetAddress()
@@ -79,10 +87,7 @@ func New(
 		return nil, fmt.Errorf("failed to validate keyring: %w", err)
 	}
 
-	clientCtx, err := createClientContext(validationResult.Keyring, chainID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client context: %w", err)
-	}
+	clientCtx := createClientContext(validationResult.Keyring, chainID)
 
 	log.Info().
 		Str("key_name", validationResult.KeyName).
@@ -172,15 +177,12 @@ func (s *Signer) signAndBroadcastAuthZTx(
 					Uint64("current_sequence", s.lastSequence).
 					Int("attempt", attempt).
 					Msg("Sequence mismatch detected, forcing refresh and retrying")
-				// Force refresh sequence on next attempt
-				s.lastSequence = 0 // This will force a refresh from chain
-				continue           // Retry
+				s.lastSequence = 0
+				continue
 			}
-			// For other errors or final attempt, increment and return error
-			s.lastSequence++
-			s.log.Debug().
-				Uint64("new_sequence", s.lastSequence).
-				Msg("Incremented sequence after broadcast error")
+			// Network/transport errors: sequence was NOT consumed, don't increment.
+			// Force refresh from chain on next use to reconcile.
+			s.lastSequence = 0
 			return nil, fmt.Errorf("failed to broadcast transaction: %w", err)
 		}
 
@@ -192,25 +194,19 @@ func (s *Signer) signAndBroadcastAuthZTx(
 
 		// If chain responded with error code, handle sequence-mismatch specially
 		if txResp != nil && txResp.Code != 0 {
-			// Retry immediately for account sequence mismatch responses
 			if strings.Contains(strings.ToLower(txResp.RawLog), "account sequence mismatch") && attempt < maxAttempts {
 				s.log.Warn().
 					Uint64("current_sequence", s.lastSequence).
 					Int("attempt", attempt).
 					Str("raw_log", txResp.RawLog).
 					Msg("Sequence mismatch in response, refreshing and retrying")
-				// Force refresh from chain on next attempt
 				s.lastSequence = 0
 				continue
 			}
 
-			// Conservatively increment sequence since the sequence may have been consumed
+			// Chain accepted the tx into mempool but it failed — sequence was consumed
 			s.lastSequence++
-			s.log.Debug().
-				Uint64("new_sequence", s.lastSequence).
-				Msg("Incremented sequence after on-chain error response")
 
-			// Log and return error
 			s.log.Error().
 				Str("tx_hash", txResp.TxHash).
 				Uint32("code", txResp.Code).
@@ -220,18 +216,13 @@ func (s *Signer) signAndBroadcastAuthZTx(
 			return txResp, fmt.Errorf("transaction failed with code %d: %s", txResp.Code, txResp.RawLog)
 		}
 
-		// Success: increment sequence once and return
+		// Success: sequence was consumed
 		s.lastSequence++
-		s.log.Debug().
-			Uint64("new_sequence", s.lastSequence).
-			Str("tx_hash", txResp.TxHash).
-			Msg("Incremented sequence after successful broadcast")
-
 		s.log.Debug().
 			Str("tx_hash", txResp.TxHash).
 			Int64("gas_used", txResp.GasUsed).
 			Uint64("sequence_used", s.lastSequence-1).
-			Msg("Transaction broadcasted and executed successfully")
+			Msg("Transaction broadcasted successfully")
 
 		return txResp, nil
 	}
@@ -404,8 +395,8 @@ func (s *Signer) getAccountInfo(ctx context.Context) (client.Account, error) {
 	return account, nil
 }
 
-func createClientContext(kr cosmoskeyring.Keyring, chainID string) (client.Context, error) {
-	interfaceRegistry := keysv2.CreateInterfaceRegistryWithEVMSupport()
+func createClientContext(kr cosmoskeyring.Keyring, chainID string) client.Context {
+	interfaceRegistry := keys.NewInterfaceRegistryWithEVMSupport()
 	cosmosauthz.RegisterInterfaces(interfaceRegistry)
 	authtypes.RegisterInterfaces(interfaceRegistry)
 	banktypes.RegisterInterfaces(interfaceRegistry)
@@ -416,12 +407,10 @@ func createClientContext(kr cosmoskeyring.Keyring, chainID string) (client.Conte
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	txConfig := authtx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
 
-	clientCtx := client.Context{}.
+	return client.Context{}.
 		WithCodec(cdc).
 		WithInterfaceRegistry(interfaceRegistry).
 		WithChainID(chainID).
 		WithKeyring(kr).
 		WithTxConfig(txConfig)
-
-	return clientCtx, nil
 }

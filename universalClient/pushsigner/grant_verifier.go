@@ -14,11 +14,18 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/authz"
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
-	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	keysv2 "github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
+
+// requiredMsgGrants contains all the AuthZ message type URLs
+// that must be granted for the Universal Validator to function.
+var requiredMsgGrants = []string{
+	"/uexecutor.v1.MsgVoteInbound",
+	"/uexecutor.v1.MsgVoteChainMeta",
+	"/uexecutor.v1.MsgVoteOutbound",
+	"/utss.v1.MsgVoteTssKeyProcess",
+}
 
 // GrantInfo represents information about a single AuthZ grant.
 type grantInfo struct {
@@ -37,8 +44,8 @@ type validationResult struct {
 }
 
 // ValidateKeysAndGrants validates hotkey and AuthZ grants against the specified granter.
-func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword string, nodeHome string, pushCore *pushcore.Client, granter string) (*validationResult, error) {
-	interfaceRegistry := keysv2.CreateInterfaceRegistryWithEVMSupport()
+func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword string, nodeHome string, pushCore chainClient, granter string) (*validationResult, error) {
+	interfaceRegistry := keys.NewInterfaceRegistryWithEVMSupport()
 	authz.RegisterInterfaces(interfaceRegistry)
 	uetypes.RegisterInterfaces(interfaceRegistry)
 	cdc := codec.NewProtoCodec(interfaceRegistry)
@@ -54,7 +61,7 @@ func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword
 		reader = strings.NewReader(passwordInput)
 	}
 
-	kr, err := keysv2.CreateKeyringFromConfig(nodeHome, reader, keyringBackend)
+	kr, err := keys.CreateKeyring(nodeHome, reader, keyringBackend)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create keyring: %w", err)
 	}
@@ -116,14 +123,14 @@ func verifyGrants(grants []grantInfo, granter string) ([]string, error) {
 		}
 
 		// Check if this grant is for a required message type
-		if slices.Contains(constant.RequiredMsgGrants, grant.MessageType) {
+		if slices.Contains(requiredMsgGrants, grant.MessageType) {
 			authorized[grant.MessageType] = true
 		}
 	}
 
 	// Verify all required grants are present
 	var missing []string
-	for _, req := range constant.RequiredMsgGrants {
+	for _, req := range requiredMsgGrants {
 		if !authorized[req] {
 			missing = append(missing, req)
 		}

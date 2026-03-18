@@ -11,6 +11,11 @@ import (
 // New creates a new zerolog logger with the specified configuration.
 // Supports console/json format, level filtering, and optional sampling.
 func New(logLevel int, logFormat string, logSampler bool) zerolog.Logger {
+	level := zerolog.Level(logLevel)
+	if level < zerolog.TraceLevel || level > zerolog.Disabled {
+		level = zerolog.InfoLevel
+	}
+
 	var writer io.Writer = os.Stdout
 	if logFormat != "json" {
 		writer = zerolog.ConsoleWriter{
@@ -20,7 +25,7 @@ func New(logLevel int, logFormat string, logSampler bool) zerolog.Logger {
 	}
 
 	logger := zerolog.New(writer).
-		Level(zerolog.Level(logLevel)).
+		Level(level).
 		With().
 		Timestamp().
 		Logger()

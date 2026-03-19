@@ -396,7 +396,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 
 	for _, event := range events {
 		var assignedNonce *uint64
-		if event.Type == string(ProtocolSign) {
+		if event.Type == store.EventTypeSign {
 			chain := extractDestinationChain(event.EventData)
 			if chain == "" {
 				continue
@@ -427,7 +427,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		// A threshold subset suffices for signing and is more resilient when some nodes are offline.
 		// For all other protocols (keygen, keyrefresh, quorum_change), all eligible must participate.
 		var participants []*types.UniversalValidator
-		if event.Type == string(ProtocolSign) {
+		if event.Type == store.EventTypeSign {
 			participants = getSignParticipants(allValidators)
 		} else {
 			participants = getEligibleForProtocol(event.Type, allValidators)
@@ -487,12 +487,12 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	var unsignedTxReq *common.UnSignedOutboundTxReq
 	var err error
 	switch event.Type {
-	case string(ProtocolKeygen), string(ProtocolKeyrefresh):
+	case store.EventTypeKeygen, store.EventTypeKeyrefresh:
 		// Keygen and keyrefresh use the same setup structure
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
-	case string(ProtocolQuorumChange):
+	case store.EventTypeQuorumChange:
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-	case string(ProtocolSign):
+	case store.EventTypeSign:
 		setupData, unsignedTxReq, err = c.createSignSetup(ctx, event.EventData, partyIDs, assignedNonce)
 	default:
 		err = errors.Errorf("unknown protocol type: %s", event.Type)
@@ -842,13 +842,13 @@ func (c *Coordinator) createQcSetup(ctx context.Context, threshold int, partyIDs
 // For SIGN coordinator setup, use getSignParticipants instead (random threshold subset).
 func getEligibleForProtocol(protocolType string, allValidators []*types.UniversalValidator) []*types.UniversalValidator {
 	switch protocolType {
-	case string(ProtocolKeygen), string(ProtocolQuorumChange):
+	case store.EventTypeKeygen, store.EventTypeQuorumChange:
 		// Active + Pending Join
 		return getQuorumChangeParticipants(allValidators)
-	case string(ProtocolKeyrefresh):
+	case store.EventTypeKeyrefresh:
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
-	case string(ProtocolSign):
+	case store.EventTypeSign:
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
 	default:

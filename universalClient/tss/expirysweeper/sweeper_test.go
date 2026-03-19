@@ -54,10 +54,10 @@ func runSweepBatch(t *testing.T, s *Sweeper, currentBlock uint64) {
 	require.NoError(t, err)
 	for _, event := range events {
 		ev := event
-		if ev.Type == statusSign {
+		if ev.Type == store.EventTypeSign {
 			require.NoError(t, s.voteFailureAndMarkReverted(ctx, &ev, "event expired before TSS could start"))
 		} else {
-			require.NoError(t, s.eventStore.Update(ev.EventID, map[string]any{"status": eventstore.StatusReverted}))
+			require.NoError(t, s.eventStore.Update(ev.EventID, map[string]any{"status": store.StatusReverted}))
 		}
 	}
 }

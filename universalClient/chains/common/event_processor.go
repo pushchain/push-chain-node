@@ -119,7 +119,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 	}
 
 	for _, event := range events {
-		if event.Type == EventTypeInbound {
+		if event.Type == store.EventTypeInbound {
 			if !ep.inboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("inbound disabled, skipping inbound event processing")
 				continue
@@ -131,7 +131,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 					Msg("failed to vote on inbound event")
 				continue
 			}
-		} else if event.Type == EventTypeOutbound {
+		} else if event.Type == store.EventTypeOutbound {
 			if !ep.outboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("outbound disabled, skipping outbound event processing")
 				continue
@@ -299,7 +299,8 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 	}
 
 	// Set recipient for transactions that involve funds
-	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS {
+	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS ||
+		(txType == uexecutortypes.TxType_FUNDS_AND_PAYLOAD && eventData.FromCEA) {
 		inboundMsg.Recipient = eventData.Recipient
 	}
 

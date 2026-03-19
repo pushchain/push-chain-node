@@ -32,11 +32,11 @@ type SignedEventData struct {
 
 // Config holds configuration for the broadcaster.
 type Config struct {
-	EventStore     *eventstore.Store
-	Chains         *chains.Chains
-	CheckInterval  time.Duration
-	Logger         zerolog.Logger
-	GetTSSAddress  func(ctx context.Context) (string, error)
+	EventStore    *eventstore.Store
+	Chains        *chains.Chains
+	CheckInterval time.Duration
+	Logger        zerolog.Logger
+	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
 // Broadcaster polls SIGNED events and broadcasts them to external chains.
@@ -147,7 +147,7 @@ func (b *Broadcaster) markBroadcasted(event *store.Event, chainID, txHash string
 	caipTxHash := chainID + ":" + txHash
 	if err := b.eventStore.Update(event.EventID, map[string]any{
 		"broadcasted_tx_hash": caipTxHash,
-		"status":              eventstore.StatusBroadcasted,
+		"status":              store.StatusBroadcasted,
 	}); err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to update event to BROADCASTED")
 		return

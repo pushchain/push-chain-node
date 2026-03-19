@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -197,7 +196,7 @@ func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 
 	return &store.Event{
 		EventID:   txID,
-		Type:      common.EventTypeSign,
+		Type:      store.EventTypeSign,
 		EventData: eventData,
 	}, nil
 }
@@ -229,11 +228,11 @@ func buildTSSEventData(processID uint64, participants []string) ([]byte, error) 
 func convertProcessType(chainType string) string {
 	switch chainType {
 	case ChainProcessTypeKeygen:
-		return common.EventTypeKeygen
+		return store.EventTypeKeygen
 	case ChainProcessTypeRefresh:
-		return common.EventTypeKeyrefresh
+		return store.EventTypeKeyrefresh
 	case ChainProcessTypeQuorumChange:
-		return common.EventTypeQuorumChange
+		return store.EventTypeQuorumChange
 	default:
 		// Return as-is for unknown types to maintain forward compatibility
 		return chainType

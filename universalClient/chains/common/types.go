@@ -87,13 +87,3 @@ type OutboundEvent struct {
 	GasFeeUsed    string `json:"gas_fee_used,omitempty"`     // gas fee used in wei (decimal string)
 }
 
-// Event type enum values for event classification.
-// These constants define the types of events that can be processed.
-const (
-	EventTypeKeygen       = "KEYGEN"
-	EventTypeKeyrefresh   = "KEYREFRESH"
-	EventTypeQuorumChange = "QUORUM_CHANGE"
-	EventTypeSign         = "SIGN"
-	EventTypeInbound      = "INBOUND"
-	EventTypeOutbound     = "OUTBOUND"
-)

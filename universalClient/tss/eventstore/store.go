@@ -8,20 +8,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
-// Event statuses for TSS operations.
-//
-// Lifecycle: CONFIRMED → IN_PROGRESS → SIGNED → BROADCASTED → COMPLETED
-//
-//	                                  ↘ REVERTED (on expiry, receipt failed, or key vote failed)
-const (
-	StatusConfirmed   = "CONFIRMED"   // Event confirmed on Push chain, ready for processing
-	StatusInProgress  = "IN_PROGRESS" // TSS signing is in progress
-	StatusSigned      = "SIGNED"      // TSS signing done, tx not yet broadcast (sign events only)
-	StatusBroadcasted = "BROADCASTED" // Transaction sent to external chain (sign events only)
-	StatusReverted    = "REVERTED"    // Reverted (failure vote sent for sign events, or key vote failed)
-	StatusCompleted   = "COMPLETED"   // Successfully completed
-)
-
 // Store provides database access for TSS events.
 type Store struct {
 	db     *gorm.DB
@@ -50,8 +36,8 @@ func (s *Store) GetEvent(eventID string) (*store.Event, error) {
 //
 // Example usage:
 //
-//	s.Update(id, map[string]any{"status": StatusInProgress})
-//	s.Update(id, map[string]any{"status": StatusConfirmed, "block_height": newHeight})
+//	s.Update(id, map[string]any{"status": store.StatusInProgress})
+//	s.Update(id, map[string]any{"status": store.StatusConfirmed, "block_height": newHeight})
 //	s.Update(id, map[string]any{"broadcasted_tx_hash": txHash})
 func (s *Store) Update(eventID string, fields map[string]any) error {
 	result := s.db.Model(&store.Event{}).
@@ -70,7 +56,7 @@ func (s *Store) Update(eventID string, fields map[string]any) error {
 // Used by the coordinator to cap how many new events to fetch.
 func (s *Store) CountInProgress() (int64, error) {
 	var count int64
-	if err := s.db.Model(&store.Event{}).Where("status = ?", StatusInProgress).Count(&count).Error; err != nil {
+	if err := s.db.Model(&store.Event{}).Where("status = ?", store.StatusInProgress).Count(&count).Error; err != nil {
 		return 0, errors.Wrap(err, "failed to count IN_PROGRESS events")
 	}
 	return count, nil
@@ -80,8 +66,8 @@ func (s *Store) CountInProgress() (int64, error) {
 // Called on node startup to recover from crashes mid-session.
 func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
 	result := s.db.Model(&store.Event{}).
-		Where("status = ?", StatusInProgress).
-		Update("status", StatusConfirmed)
+		Where("status = ?", store.StatusInProgress).
+		Update("status", store.StatusConfirmed)
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to CONFIRMED")
 	}
@@ -97,7 +83,7 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 	}
 
 	query := s.db.Where("status = ? AND block_height <= ? AND expiry_block_height > ?",
-		StatusConfirmed, minBlock, currentBlock).
+		store.StatusConfirmed, minBlock, currentBlock).
 		Order("block_height ASC, created_at ASC")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -117,7 +103,7 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 func (s *Store) GetInFlightSignEvents() ([]store.Event, error) {
 	var events []store.Event
 	if err := s.db.Where("type = ? AND status IN (?, ?)",
-		"SIGN", StatusInProgress, StatusSigned).
+		store.EventTypeSign, store.StatusInProgress, store.StatusSigned).
 		Find(&events).Error; err != nil {
 		return nil, errors.Wrap(err, "failed to query in-flight sign events")
 	}
@@ -130,7 +116,7 @@ func (s *Store) GetSignedSignEvents(limit int) ([]store.Event, error) {
 		limit = 50
 	}
 	var events []store.Event
-	if err := s.db.Where("type = ? AND status = ?", "SIGN", StatusSigned).
+	if err := s.db.Where("type = ? AND status = ?", store.EventTypeSign, store.StatusSigned).
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
@@ -145,7 +131,7 @@ func (s *Store) GetBroadcastedSignEvents(limit int) ([]store.Event, error) {
 		limit = 50
 	}
 	var events []store.Event
-	if err := s.db.Where("type = ? AND status = ? AND broadcasted_tx_hash != ?", "SIGN", StatusBroadcasted, "").
+	if err := s.db.Where("type = ? AND status = ? AND broadcasted_tx_hash != ?", store.EventTypeSign, store.StatusBroadcasted, "").
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
@@ -157,7 +143,7 @@ func (s *Store) GetBroadcastedSignEvents(limit int) ([]store.Event, error) {
 // GetExpiredConfirmedEvents returns CONFIRMED events past their expiry block.
 func (s *Store) GetExpiredConfirmedEvents(currentBlock uint64, limit int) ([]store.Event, error) {
 	query := s.db.Where("status = ? AND expiry_block_height <= ?",
-		StatusConfirmed, currentBlock).
+		store.StatusConfirmed, currentBlock).
 		Order("block_height ASC, created_at ASC")
 	if limit > 0 {
 		query = query.Limit(limit)

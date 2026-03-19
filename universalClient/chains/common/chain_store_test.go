@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storemodels "github.com/pushchain/push-chain-node/universalClient/store"
 )
 
 func TestNewChainStore(t *testing.T) {
@@ -46,7 +48,7 @@ func TestChainStoreNilDatabase(t *testing.T) {
 	})
 
 	t.Run("UpdateEventStatus returns error for nil database", func(t *testing.T) {
-		rowsAffected, err := store.UpdateEventStatus("event-1", "PENDING", "CONFIRMED")
+		rowsAffected, err := store.UpdateEventStatus("event-1", storemodels.StatusPending, storemodels.StatusConfirmed)
 		require.Error(t, err)
 		assert.Equal(t, int64(0), rowsAffected)
 		assert.Contains(t, err.Error(), "database is nil")

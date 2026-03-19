@@ -144,7 +144,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 3. Validate event is CONFIRMED and not expired
-	if event.Status != eventstore.StatusConfirmed {
+	if event.Status != store.StatusConfirmed {
 		return errors.Errorf("event %s is not in confirmed status (got %s)", msg.EventID, event.Status)
 	}
 	currentBlock, err := sm.coordinator.GetLatestBlockNum(ctx)
@@ -170,7 +170,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 6. For SIGN events, verify the signing hash independently
-	if event.Type == string(coordinator.ProtocolSign) {
+	if event.Type == store.EventTypeSign {
 		if err := sm.verifySigningRequest(ctx, event, msg.UnSignedOutboundTxReq); err != nil {
 			return errors.Wrap(err, "signing request verification failed")
 		}
@@ -195,7 +195,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	sm.mu.Unlock()
 
 	// 9. Update event status to IN_PROGRESS
-	if err := sm.eventStore.Update(msg.EventID, map[string]any{"status": eventstore.StatusInProgress}); err != nil {
+	if err := sm.eventStore.Update(msg.EventID, map[string]any{"status": store.StatusInProgress}); err != nil {
 		sm.logger.Warn().Err(err).Str("event_id", msg.EventID).Msg("failed to update event status")
 	}
 
@@ -403,7 +403,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 	}
 
 	// SIGN sessions: broadcast the signed tx, then done (status managed by handleSigningComplete)
-	if state.protocolType == string(coordinator.ProtocolSign) {
+	if state.protocolType == store.EventTypeSign {
 		return sm.handleSignFinished(ctx, eventID, result, state.signingReq)
 	}
 
@@ -467,7 +467,7 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		voteTxHash, err = sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, processID)
 		if err != nil {
 			// Vote failed after TSS signing — mark REVERTED directly (no RevertHandler needed for key events)
-			if updateErr := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusReverted}); updateErr != nil {
+			if updateErr := sm.eventStore.Update(eventID, map[string]any{"status": store.StatusReverted}); updateErr != nil {
 				sm.logger.Error().Err(updateErr).Str("event_id", eventID).Msg("failed to mark event as REVERTED")
 			}
 			return errors.Wrapf(err, "TSS vote failed for event %s — marked REVERTED", eventID)
@@ -476,7 +476,7 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		sm.logger.Info().Str("vote_tx_hash", voteTxHash).Str("event_id", eventID).Msg("TSS vote succeeded")
 	}
 
-	if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
+	if err := sm.eventStore.Update(eventID, map[string]any{"status": store.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
 		return errors.Wrapf(err, "failed to update event status to completed")
 	}
 
@@ -489,7 +489,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 	threshold := coordinator.CalculateThreshold(len(msg.Participants))
 
 	switch event.Type {
-	case string(coordinator.ProtocolKeygen):
+	case store.EventTypeKeygen:
 		return dkls.NewKeygenSession(
 			msg.Payload, // setupData
 			msg.EventID, // sessionID
@@ -498,7 +498,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			threshold,
 		)
 
-	case string(coordinator.ProtocolKeyrefresh):
+	case store.EventTypeKeyrefresh:
 		// Get current keyID
 		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
@@ -520,7 +520,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			oldKeyshare,
 		)
 
-	case string(coordinator.ProtocolQuorumChange):
+	case store.EventTypeQuorumChange:
 		// Get current keyID
 		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
@@ -554,7 +554,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			oldKeyshare,
 		)
 
-	case string(coordinator.ProtocolSign):
+	case store.EventTypeSign:
 		// Get current keyID
 		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
@@ -614,7 +614,7 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 
 	// Protocol-specific validation
 	switch event.Type {
-	case string(coordinator.ProtocolKeygen), string(coordinator.ProtocolKeyrefresh), string(coordinator.ProtocolQuorumChange):
+	case store.EventTypeKeygen, store.EventTypeKeyrefresh, store.EventTypeQuorumChange:
 		// For keygen, keyrefresh, and quorumchange: participants must match exactly with eligible participants
 		if len(participants) != len(eligibleList) {
 			return errors.Errorf("participants count %d does not match eligible count %d for %s", len(participants), len(eligibleList), event.Type)
@@ -626,7 +626,7 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case string(coordinator.ProtocolSign):
+	case store.EventTypeSign:
 		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible) rather than
 		// all eligible validators. Accept any subset as long as it meets the threshold minimum;
 		// all participants are already verified eligible by the eligibleSet check above.
@@ -703,7 +703,7 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 
 			// Update event: mark as confimed and set new block height (current + delay)
 			newBlockHeight := currentBlock + blockDelay
-			if err := sm.eventStore.Update(eventID, map[string]any{"status": eventstore.StatusConfirmed, "block_height": newBlockHeight}); err != nil {
+			if err := sm.eventStore.Update(eventID, map[string]any{"status": store.StatusConfirmed, "block_height": newBlockHeight}); err != nil {
 				sm.logger.Warn().
 					Err(err).
 					Str("event_id", eventID).
@@ -799,7 +799,6 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 	return nil
 }
 
-
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key
 func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
@@ -838,7 +837,7 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 	// Persist enriched event data + mark SIGNED; txBroadcaster will pick it up
 	if err := sm.eventStore.Update(eventID, map[string]any{
 		"event_data": newEventData,
-		"status":     eventstore.StatusSigned,
+		"status":     store.StatusSigned,
 	}); err != nil {
 		return errors.Wrap(err, "failed to update event with signing data")
 	}

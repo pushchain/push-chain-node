@@ -3,6 +3,7 @@ package evm
 import (
 	"testing"
 
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,13 +86,13 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 
 	t.Run("FAST confirmation type", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "eip155:1", 5, 5, 12, logger)
-		confirmations := confirmer.getRequiredConfirmations("FAST")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(5), confirmations)
 	})
 
 	t.Run("STANDARD confirmation type", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "eip155:1", 5, 5, 12, logger)
-		confirmations := confirmer.getRequiredConfirmations("STANDARD")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(12), confirmations)
 	})
 
@@ -109,13 +110,13 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 
 	t.Run("uses custom fast confirmations", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "eip155:1", 5, 3, 20, logger)
-		confirmations := confirmer.getRequiredConfirmations("FAST")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(3), confirmations)
 	})
 
 	t.Run("uses custom standard confirmations", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "eip155:1", 5, 3, 20, logger)
-		confirmations := confirmer.getRequiredConfirmations("STANDARD")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(20), confirmations)
 	})
 }

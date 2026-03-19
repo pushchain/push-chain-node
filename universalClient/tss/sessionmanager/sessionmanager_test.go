@@ -145,7 +145,7 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		nil, // chains - nil for testing
 		sendFn,
 		"validator1",
-		3*time.Minute, // sessionExpiryTime
+		3*time.Minute,  // sessionExpiryTime
 		30*time.Second, // sessionExpiryCheckInterval
 		60,             // sessionExpiryBlockDelay
 		zerolog.Nop(),
@@ -186,7 +186,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 		EventID:     "event1",
 		BlockHeight: 100,
 		Type:        "KEYGEN",
-		Status:      eventstore.StatusConfirmed,
+		Status:      store.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 
@@ -365,7 +365,7 @@ func TestSessionManager_Integration(t *testing.T) {
 		EventID:     "keygen-event",
 		BlockHeight: 100,
 		Type:        "KEYGEN",
-		Status:      eventstore.StatusConfirmed,
+		Status:      store.StatusConfirmed,
 	}
 	require.NoError(t, testDB.Create(&event).Error)
 
@@ -406,7 +406,7 @@ func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
 	event := &store.Event{
 		EventID:   "sign-event-1",
 		Type:      "SIGN",
-		Status:    eventstore.StatusConfirmed,
+		Status:    store.StatusConfirmed,
 		EventData: eventDataBytes,
 	}
 

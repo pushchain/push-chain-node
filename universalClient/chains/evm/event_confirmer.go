@@ -14,6 +14,7 @@ import (
 
 	chaincommon "github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
 // EventConfirmer periodically checks pending events and marks them as CONFIRMED
@@ -152,7 +153,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			var rowsAffected int64
 
 			// For outbound events, enrich with gas fee before confirming
-			if event.Type == chaincommon.EventTypeOutbound {
+			if event.Type == store.EventTypeOutbound {
 				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
 				if txErr != nil {
 					ec.logger.Warn().

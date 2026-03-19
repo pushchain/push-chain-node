@@ -3,6 +3,7 @@ package svm
 import (
 	"testing"
 
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,25 +86,25 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 
 	t.Run("FAST confirmation type with custom value", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 5, 12, logger)
-		confirmations := confirmer.getRequiredConfirmations("FAST")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(5), confirmations)
 	})
 
 	t.Run("FAST confirmation type with zero uses default", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 12, logger)
-		confirmations := confirmer.getRequiredConfirmations("FAST")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(5), confirmations) // Default is 5
 	})
 
 	t.Run("STANDARD confirmation type with custom value", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 5, 20, logger)
-		confirmations := confirmer.getRequiredConfirmations("STANDARD")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(20), confirmations)
 	})
 
 	t.Run("STANDARD confirmation type with zero uses default", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 5, 0, logger)
-		confirmations := confirmer.getRequiredConfirmations("STANDARD")
+		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(12), confirmations) // Default is 12
 	})
 

@@ -1,15 +1,40 @@
-// Package store contains GORM-backed SQLite models used by the Universal Validator.
+// Package store contains data models and enum constants for the Universal Validator.
+// All event status, type, and confirmation type constants are defined here
+// as the single source of truth — import from here, not from individual packages.
 package store
 
 import (
 	"gorm.io/gorm"
 )
 
-// Database Structure:
-//
-//	{CHAIN_CAIP2_FORMAT}.db (e.g., "eip155:1.db")
-//	├── states
-//	└── events
+// Event status values.
+const (
+	StatusPending     = "PENDING"     // Observed on external chain, awaiting confirmations
+	StatusConfirmed   = "CONFIRMED"   // Confirmed (ready for processing or voting)
+	StatusInProgress  = "IN_PROGRESS" // TSS signing in progress
+	StatusSigned      = "SIGNED"      // TSS signing done, tx not yet broadcast
+	StatusBroadcasted = "BROADCASTED" // Transaction sent to external chain
+	StatusCompleted   = "COMPLETED"   // Successfully completed
+	StatusReverted    = "REVERTED"    // Failed (expiry, receipt failed, or vote failed)
+	StatusReorged     = "REORGED"     // Removed due to chain reorganization
+)
+
+// Event type values.
+const (
+	EventTypeKeygen       = "KEYGEN"
+	EventTypeKeyrefresh   = "KEYREFRESH"
+	EventTypeQuorumChange = "QUORUM_CHANGE"
+	EventTypeSign         = "SIGN"
+	EventTypeInbound      = "INBOUND"
+	EventTypeOutbound     = "OUTBOUND"
+)
+
+// Confirmation type values.
+const (
+	ConfirmationStandard = "STANDARD" // Standard finality (multiple block confirmations)
+	ConfirmationFast     = "FAST"     // Fast finality (fewer confirmations)
+	ConfirmationInstant  = "INSTANT"  // Instant finality (Push Chain)
+)
 
 // State tracks synchronization state for a chain.
 // There is exactly one State record per chain database, storing the last processed block height.

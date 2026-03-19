@@ -299,7 +299,8 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 	}
 
 	// Set recipient for transactions that involve funds
-	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS {
+	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS ||
+		(txType == uexecutortypes.TxType_FUNDS_AND_PAYLOAD && eventData.FromCEA) {
 		inboundMsg.Recipient = eventData.Recipient
 	}
 

@@ -44,7 +44,7 @@ type validationResult struct {
 }
 
 // ValidateKeysAndGrants validates hotkey and AuthZ grants against the specified granter.
-func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword string, nodeHome string, pushCore chainClient, granter string) (*validationResult, error) {
+func validateKeysAndGrants(ctx context.Context, keyringBackend config.KeyringBackend, keyringPassword string, nodeHome string, pushCore chainClient, granter string) (*validationResult, error) {
 	interfaceRegistry := keys.NewInterfaceRegistryWithEVMSupport()
 	authz.RegisterInterfaces(interfaceRegistry)
 	uetypes.RegisterInterfaces(interfaceRegistry)
@@ -81,7 +81,7 @@ func validateKeysAndGrants(keyringBackend config.KeyringBackend, keyringPassword
 	}
 	keyAddrStr := keyAddr.String()
 
-	grantResp, err := pushCore.GetGranteeGrants(context.Background(), keyAddrStr)
+	grantResp, err := pushCore.GetGranteeGrants(ctx, keyAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query grants: %w", err)
 	}

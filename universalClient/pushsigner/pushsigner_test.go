@@ -126,7 +126,7 @@ func TestNew(t *testing.T) {
 
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, config.KeyringBackendTest, "", "", mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendTest, "", "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "PushSigner validation failed")
@@ -135,7 +135,7 @@ func TestNew(t *testing.T) {
 	t.Run("validation failure - keyring creation fails", func(t *testing.T) {
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, config.KeyringBackendFile, "", "", mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendFile, "", "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "keyring_password is required for file backend")
@@ -154,7 +154,7 @@ func TestNew(t *testing.T) {
 
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, config.KeyringBackendTest, "", tempDir, mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendTest, "", tempDir, mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 	})

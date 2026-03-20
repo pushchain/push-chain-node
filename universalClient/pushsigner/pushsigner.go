@@ -48,6 +48,7 @@ type Signer struct {
 
 // New creates a new Signer instance with validation.
 func New(
+	ctx context.Context,
 	log zerolog.Logger,
 	keyringBackend config.KeyringBackend,
 	keyringPassword string,
@@ -58,7 +59,7 @@ func New(
 ) (*Signer, error) {
 	log.Info().Msg("Validating hotkey and AuthZ permissions...")
 
-	validationResult, err := validateKeysAndGrants(keyringBackend, keyringPassword, nodeHome, pushCore, granter)
+	validationResult, err := validateKeysAndGrants(ctx, keyringBackend, keyringPassword, nodeHome, pushCore, granter)
 	if err != nil {
 		log.Error().Err(err).Msg("PushSigner validation failed")
 		return nil, fmt.Errorf("PushSigner validation failed: %w", err)

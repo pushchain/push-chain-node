@@ -53,6 +53,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 	}
 
 	pushSigner, err := pushsigner.New(
+		ctx,
 		log,
 		cfg.KeyringBackend,
 		cfg.KeyringPassword,

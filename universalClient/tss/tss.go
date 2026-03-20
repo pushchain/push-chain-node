@@ -122,6 +122,7 @@ type Node struct {
 	pushSigner *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Internal state
+	ctx          context.Context
 	mu           sync.RWMutex
 	running      bool
 	stopCh       chan struct{}
@@ -277,6 +278,7 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("node is already running")
 	}
 	n.running = true
+	n.ctx = ctx
 	n.mu.Unlock()
 
 	n.logger.Info().Msg("starting TSS node")
@@ -469,7 +471,7 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 // onReceive handles incoming messages from p2p network.
 // It passes raw data directly to sessionManager.
 func (n *Node) onReceive(peerID string, data []byte) {
-	ctx := context.Background()
+	ctx := n.ctx
 
 	// Unmarshal to check message type
 	var msg coordinator.Message

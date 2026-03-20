@@ -87,6 +87,33 @@ func TestDB_PragmaOptimizations(t *testing.T) {
 	assert.Equal(t, 1, fkEnabled)
 }
 
+func TestDB_OpenWithoutMigration(t *testing.T) {
+	db, err := OpenInMemoryDB(false)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	assert.NoError(t, db.Close())
+}
+
+func TestDB_FileDBExistingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	// Open twice — second time directory already exists
+	db1, err := OpenFileDB(dir, "test1.db", true)
+	require.NoError(t, err)
+	db1.Close()
+
+	db2, err := OpenFileDB(dir, "test2.db", true)
+	require.NoError(t, err)
+	db2.Close()
+}
+
+func TestDB_ClientReturnsGorm(t *testing.T) {
+	db, err := OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer db.Close()
+
+	assert.NotNil(t, db.Client())
+}
+
 func TestDB_SchemaModels(t *testing.T) {
 	models := schemaModels()
 	assert.Len(t, models, 2)

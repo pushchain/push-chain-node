@@ -990,13 +990,10 @@ func (c *Coordinator) assignSignNonce(
 	if inFlightPerChain[chain] > 0 {
 		c.chainWaitMu.Lock()
 		consecutiveWait := c.consecutiveWaitPerChain[chain]
-		c.chainWaitMu.Unlock()
-
 		if consecutiveWait < ConsecutiveWaitThreshold {
-			// Still within patience — skip chain, let in-flight events clear
-			c.chainWaitMu.Lock()
 			c.consecutiveWaitPerChain[chain]++
 			c.chainWaitMu.Unlock()
+
 			skippedChains[chain] = true
 			c.logger.Debug().
 				Str("chain", chain).
@@ -1005,6 +1002,7 @@ func (c *Coordinator) assignSignNonce(
 				Msg("skipping chain — waiting for in-flight to clear")
 			return 0, false
 		}
+		c.chainWaitMu.Unlock()
 
 		// Patience exhausted — recover with finalized nonce.
 		// Cap is intentionally bypassed: stuck events have stale nonces and will

@@ -18,6 +18,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 func TestMain(m *testing.M) {
@@ -520,4 +521,101 @@ func TestSequenceReconciliation(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, uint64(9), signer.lastSequence)
 	})
+}
+
+// --- Vote tests ---
+
+func successMock(t *testing.T) *mockChainClient {
+	return &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 0, TxHash: "VOTE_OK"},
+			}, nil
+		},
+	}
+}
+
+func failMock(t *testing.T) *mockChainClient {
+	return &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return nil, fmt.Errorf("connection refused")
+		},
+	}
+}
+
+func TestVoteInbound(t *testing.T) {
+	t.Run("successful vote", func(t *testing.T) {
+		signer := createTestSigner(t, successMock(t))
+		inbound := &uexecutortypes.Inbound{TxHash: "0xabc"}
+
+		txHash, err := signer.VoteInbound(context.Background(), inbound)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
+	})
+
+	t.Run("broadcast failure", func(t *testing.T) {
+		signer := createTestSigner(t, failMock(t))
+		inbound := &uexecutortypes.Inbound{TxHash: "0xabc"}
+
+		_, err := signer.VoteInbound(context.Background(), inbound)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to broadcast vote")
+	})
+}
+
+func TestVoteChainMeta(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteChainMeta(context.Background(), "eip155:1", 20000000000, 18500000)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteOutbound(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+	obs := &uexecutortypes.OutboundObservation{
+		Success:     true,
+		BlockHeight: 12345,
+		TxHash:      "0xdef",
+	}
+
+	txHash, err := signer.VoteOutbound(context.Background(), "tx-1", "utx-1", obs)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteTssKeyProcess(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteTssKeyProcess(context.Background(), "tsspub1abc", "key-001", 42)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteOnChainRejection(t *testing.T) {
+	mock := &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 5, RawLog: "unauthorized"},
+			}, nil
+		},
+	}
+
+	signer := createTestSigner(t, mock)
+
+	_, err := signer.VoteInbound(context.Background(), &uexecutortypes.Inbound{TxHash: "0x1"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "transaction failed with code 5")
 }

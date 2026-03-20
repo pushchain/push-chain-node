@@ -187,9 +187,9 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 					continue
 				}
 
-				rowsAffected, err = ec.chainStore.UpdateStatusAndEventData(event.EventID, "PENDING", "CONFIRMED", updatedData)
+				rowsAffected, err = ec.chainStore.UpdateStatusAndEventData(event.EventID, store.StatusPending, store.StatusConfirmed, updatedData)
 			} else {
-				rowsAffected, err = ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
+				rowsAffected, err = ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusConfirmed)
 			}
 
 			if err != nil {
@@ -237,12 +237,12 @@ func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
 // getRequiredConfirmations returns the required number of confirmations based on confirmation type
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
-	case "FAST":
+	case store.ConfirmationFast:
 		if ec.fastConfirmations >= 0 {
 			return ec.fastConfirmations
 		}
 		return 5
-	case "STANDARD":
+	case store.ConfirmationStandard:
 		if ec.standardConfirmations >= 0 {
 			return ec.standardConfirmations
 		}

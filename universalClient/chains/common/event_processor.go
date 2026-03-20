@@ -173,7 +173,7 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
 	}
@@ -218,7 +218,7 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}

@@ -96,8 +96,8 @@ func ParseEvent(event abci.Event, blockHeight uint64) (*store.Event, error) {
 
 	// Set common fields
 	parsed.BlockHeight = blockHeight
-	parsed.ConfirmationType = "INSTANT" // push chain is a cosmos chain ie instant finality
-	parsed.Status = "CONFIRMED"         // push chain is a cosmos chain ie instant finality
+	parsed.ConfirmationType = store.ConfirmationInstant // push chain is a cosmos chain ie instant finality
+	parsed.Status = store.StatusConfirmed               // push chain is a cosmos chain ie instant finality
 
 	// Set expiry for outbound events (block seen + 400)
 	if event.Type == EventTypeOutboundCreated {

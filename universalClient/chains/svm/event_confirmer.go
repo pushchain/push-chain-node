@@ -12,6 +12,7 @@ import (
 
 	chaincommon "github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
 // EventConfirmer periodically checks pending events and marks them as CONFIRMED
@@ -170,7 +171,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		if confirmations >= requiredConfirmations {
 			// GasFeeUsed for outbound events is already set by the event parser from the on-chain event data
-			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, "PENDING", "CONFIRMED")
+			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusConfirmed)
 			if err != nil {
 				ec.logger.Error().
 					Err(err).
@@ -216,12 +217,12 @@ func (ec *EventConfirmer) getTxSignatureFromEventID(eventID string) string {
 // getRequiredConfirmations returns the required number of confirmations based on confirmation type
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
-	case "FAST":
+	case store.ConfirmationFast:
 		if ec.fastConfirmations > 0 {
 			return ec.fastConfirmations
 		}
 		return 5
-	case "STANDARD":
+	case store.ConfirmationStandard:
 		if ec.standardConfirmations > 0 {
 			return ec.standardConfirmations
 		}

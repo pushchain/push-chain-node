@@ -26,6 +26,14 @@ ARBITRUM_SEPOLIA_DEFAULT_RPC_URL="${ARBITRUM_SEPOLIA_DEFAULT_RPC_URL:-https://ar
 BASE_SEPOLIA_DEFAULT_RPC_URL="${BASE_SEPOLIA_DEFAULT_RPC_URL:-https://sepolia.base.org}"
 BSC_TESTNET_DEFAULT_RPC_URL="${BSC_TESTNET_DEFAULT_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
 SOLANA_DEVNET_DEFAULT_RPC_URL="${SOLANA_DEVNET_DEFAULT_RPC_URL:-https://api.devnet.solana.com}"
+LOCAL_SEPOLIA_SOURCE_RPC_URL="${LOCAL_SEPOLIA_SOURCE_RPC_URL:-http://localhost:9545}"
+LOCAL_SEPOLIA_UV_RPC_URL="${LOCAL_SEPOLIA_UV_RPC_URL:-http://host.docker.internal:9545}"
+LOCAL_ARBITRUM_SOURCE_RPC_URL="${LOCAL_ARBITRUM_SOURCE_RPC_URL:-http://localhost:9546}"
+LOCAL_ARBITRUM_UV_RPC_URL="${LOCAL_ARBITRUM_UV_RPC_URL:-http://host.docker.internal:9546}"
+LOCAL_BASE_SOURCE_RPC_URL="${LOCAL_BASE_SOURCE_RPC_URL:-http://localhost:9547}"
+LOCAL_BASE_UV_RPC_URL="${LOCAL_BASE_UV_RPC_URL:-http://host.docker.internal:9547}"
+LOCAL_BSC_SOURCE_RPC_URL="${LOCAL_BSC_SOURCE_RPC_URL:-http://localhost:9548}"
+LOCAL_BSC_UV_RPC_URL="${LOCAL_BSC_UV_RPC_URL:-http://host.docker.internal:9548}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COLORS
@@ -465,7 +473,15 @@ cmd_up() {
     local solana_start_height="${SOLANA_EVENT_START_FROM:-}"
 
     if [ -z "$sepolia_start_height" ]; then
-        if sepolia_start_height=$(fetch_evm_height "$SEPOLIA_DEFAULT_RPC_URL"); then
+        if [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+            if sepolia_start_height=$(fetch_evm_height "$LOCAL_SEPOLIA_SOURCE_RPC_URL"); then
+                print_status "Using LOCAL Sepolia event_start_from from $LOCAL_SEPOLIA_SOURCE_RPC_URL: $sepolia_start_height"
+            else
+                print_warning "Could not fetch LOCAL Sepolia latest block from $LOCAL_SEPOLIA_SOURCE_RPC_URL"
+                print_warning "Sepolia will use default event_start_from from pushuv config"
+                sepolia_start_height=""
+            fi
+        elif sepolia_start_height=$(fetch_evm_height "$SEPOLIA_DEFAULT_RPC_URL"); then
             print_status "Using Sepolia event_start_from: $sepolia_start_height"
         else
             print_warning "Could not fetch Sepolia latest block from $SEPOLIA_DEFAULT_RPC_URL"
@@ -477,7 +493,15 @@ cmd_up() {
     fi
 
     if [ -z "$base_start_height" ]; then
-        if base_start_height=$(fetch_evm_height "$BASE_SEPOLIA_DEFAULT_RPC_URL"); then
+        if [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+            if base_start_height=$(fetch_evm_height "$LOCAL_BASE_SOURCE_RPC_URL"); then
+                print_status "Using LOCAL Base Sepolia event_start_from from $LOCAL_BASE_SOURCE_RPC_URL: $base_start_height"
+            else
+                print_warning "Could not fetch LOCAL Base Sepolia latest block from $LOCAL_BASE_SOURCE_RPC_URL"
+                print_warning "Base Sepolia will use default event_start_from from pushuv config"
+                base_start_height=""
+            fi
+        elif base_start_height=$(fetch_evm_height "$BASE_SEPOLIA_DEFAULT_RPC_URL"); then
             print_status "Using Base Sepolia event_start_from: $base_start_height"
         else
             print_warning "Could not fetch Base Sepolia latest block from $BASE_SEPOLIA_DEFAULT_RPC_URL"
@@ -489,7 +513,15 @@ cmd_up() {
     fi
 
     if [ -z "$arbitrum_start_height" ]; then
-        if arbitrum_start_height=$(fetch_evm_height "$ARBITRUM_SEPOLIA_DEFAULT_RPC_URL"); then
+        if [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+            if arbitrum_start_height=$(fetch_evm_height "$LOCAL_ARBITRUM_SOURCE_RPC_URL"); then
+                print_status "Using LOCAL Arbitrum Sepolia event_start_from from $LOCAL_ARBITRUM_SOURCE_RPC_URL: $arbitrum_start_height"
+            else
+                print_warning "Could not fetch LOCAL Arbitrum Sepolia latest block from $LOCAL_ARBITRUM_SOURCE_RPC_URL"
+                print_warning "Arbitrum Sepolia will use default event_start_from from pushuv config"
+                arbitrum_start_height=""
+            fi
+        elif arbitrum_start_height=$(fetch_evm_height "$ARBITRUM_SEPOLIA_DEFAULT_RPC_URL"); then
             print_status "Using Arbitrum Sepolia event_start_from: $arbitrum_start_height"
         else
             print_warning "Could not fetch Arbitrum Sepolia latest block from $ARBITRUM_SEPOLIA_DEFAULT_RPC_URL"
@@ -501,7 +533,15 @@ cmd_up() {
     fi
 
     if [ -z "$bsc_start_height" ]; then
-        if bsc_start_height=$(fetch_evm_height "$BSC_TESTNET_DEFAULT_RPC_URL"); then
+        if [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+            if bsc_start_height=$(fetch_evm_height "$LOCAL_BSC_SOURCE_RPC_URL"); then
+                print_status "Using LOCAL BSC testnet event_start_from from $LOCAL_BSC_SOURCE_RPC_URL: $bsc_start_height"
+            else
+                print_warning "Could not fetch LOCAL BSC testnet latest block from $LOCAL_BSC_SOURCE_RPC_URL"
+                print_warning "BSC testnet will use default event_start_from from pushuv config"
+                bsc_start_height=""
+            fi
+        elif bsc_start_height=$(fetch_evm_height "$BSC_TESTNET_DEFAULT_RPC_URL"); then
             print_status "Using BSC testnet event_start_from: $bsc_start_height"
         else
             print_warning "Could not fetch BSC testnet latest block from $BSC_TESTNET_DEFAULT_RPC_URL"
@@ -524,6 +564,11 @@ cmd_up() {
         print_status "Using provided SOLANA_EVENT_START_FROM: $solana_start_height"
     fi
 
+    TESTING_ENV="${TESTING_ENV:-}" \
+    SEPOLIA_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_SEPOLIA_UV_RPC_URL" || echo "${SEPOLIA_RPC_URL_OVERRIDE:-}")" \
+    ARBITRUM_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_ARBITRUM_UV_RPC_URL" || echo "${ARBITRUM_RPC_URL_OVERRIDE:-}")" \
+    BASE_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_BASE_UV_RPC_URL" || echo "${BASE_RPC_URL_OVERRIDE:-}")" \
+    BSC_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_BSC_UV_RPC_URL" || echo "${BSC_RPC_URL_OVERRIDE:-}")" \
     SEPOLIA_EVENT_START_FROM="$sepolia_start_height" \
     BASE_EVENT_START_FROM="$base_start_height" \
     ARBITRUM_EVENT_START_FROM="$arbitrum_start_height" \

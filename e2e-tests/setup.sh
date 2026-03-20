@@ -16,6 +16,7 @@ fi
 : "${PUSH_CHAIN_DIR:=$PUSH_CHAIN_DIR_DEFAULT}"
 : "${PUSH_RPC_URL:=http://localhost:8545}"
 : "${CHAIN_ID:=localchain_9000-1}"
+: "${TESTING_ENV:=}"
 : "${KEYRING_BACKEND:=test}"
 : "${GENESIS_KEY_NAME:=genesis-acc-1}"
 : "${GENESIS_KEY_HOME:=./e2e-tests/.pchain}"
@@ -88,6 +89,23 @@ log_info() { printf "%b\n" "${cyan}==>${nc} $*"; }
 log_ok() { printf "%b\n" "${green}✓${nc} $*"; }
 log_warn() { printf "%b\n" "${yellow}!${nc} $*"; }
 log_err() { printf "%b\n" "${red}x${nc} $*"; }
+
+ensure_testing_env_var_in_env_file() {
+  mkdir -p "$(dirname "$ENV_FILE")"
+
+  if [[ ! -f "$ENV_FILE" ]]; then
+    printf "TESTING_ENV=\n" >"$ENV_FILE"
+    return
+  fi
+
+  if ! grep -Eq '^TESTING_ENV=' "$ENV_FILE"; then
+    printf "\nTESTING_ENV=\n" >>"$ENV_FILE"
+  fi
+}
+
+is_local_testing_env() {
+  [[ "${TESTING_ENV:-}" == "LOCAL" ]]
+}
 
 get_genesis_accounts_json() {
   if [[ -f "$GENESIS_ACCOUNTS_JSON" ]]; then
@@ -521,6 +539,123 @@ step_devnet() {
     ./devnet setup-uvalidators
   )
   log_ok "Devnet is up"
+}
+
+step_setup_environment() {
+  if ! is_local_testing_env; then
+    log_info "TESTING_ENV is not LOCAL, skipping setup-environment"
+    return 0
+  fi
+
+  require_cmd anvil cast docker jq
+
+  local sepolia_host_rpc="${ANVIL_SEPOLIA_HOST_RPC_URL:-http://localhost:9545}"
+  local arbitrum_host_rpc="${ANVIL_ARBITRUM_HOST_RPC_URL:-http://localhost:9546}"
+  local base_host_rpc="${ANVIL_BASE_HOST_RPC_URL:-http://localhost:9547}"
+  local bsc_host_rpc="${ANVIL_BSC_HOST_RPC_URL:-http://localhost:9548}"
+
+  local uv_sepolia_rpc_url="${LOCAL_SEPOLIA_UV_RPC_URL:-http://host.docker.internal:9545}"
+  local uv_arbitrum_rpc_url="${LOCAL_ARBITRUM_UV_RPC_URL:-http://host.docker.internal:9546}"
+  local uv_base_rpc_url="${LOCAL_BASE_UV_RPC_URL:-http://host.docker.internal:9547}"
+  local uv_bsc_rpc_url="${LOCAL_BSC_UV_RPC_URL:-http://host.docker.internal:9548}"
+
+  start_anvil_fork() {
+    local label="$1"
+    local port="$2"
+    local chain_id="$3"
+    local fork_url="$4"
+
+    if pgrep -f "anvil --port $port --chain-id $chain_id" >/dev/null 2>&1; then
+      log_ok "Anvil $label already running on port $port"
+      return 0
+    fi
+
+    log_info "Starting anvil $label on port $port"
+    nohup anvil --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1 \
+      >"$LOG_DIR/anvil_${label}.log" 2>&1 &
+  }
+
+  wait_for_block_number() {
+    local label="$1"
+    local rpc_url="$2"
+    local latest=""
+    local i
+    for i in {1..30}; do
+      latest="$(cast block-number --rpc-url "$rpc_url" 2>/dev/null || true)"
+      latest="$(echo "$latest" | tr -d '[:space:]')"
+      if [[ "$latest" =~ ^[0-9]+$ ]]; then
+        printf "%s" "$latest"
+        return 0
+      fi
+      sleep 1
+    done
+
+    log_err "Could not read latest block number from $label anvil at $rpc_url"
+    return 1
+  }
+
+  start_anvil_fork "sepolia" "9545" "11155111" "https://ethereum-sepolia-rpc.publicnode.com"
+  start_anvil_fork "arbitrum" "9546" "421614" "https://arbitrum-sepolia.gateway.tenderly.co"
+  start_anvil_fork "base" "9547" "84532" "https://sepolia.base.org"
+  start_anvil_fork "bsc" "9548" "97" "https://bsc-testnet-rpc.publicnode.com"
+
+  local sepolia_latest_block arbitrum_latest_block base_latest_block bsc_latest_block
+  sepolia_latest_block="$(wait_for_block_number "sepolia" "$sepolia_host_rpc")"
+  arbitrum_latest_block="$(wait_for_block_number "arbitrum" "$arbitrum_host_rpc")"
+  base_latest_block="$(wait_for_block_number "base" "$base_host_rpc")"
+  bsc_latest_block="$(wait_for_block_number "bsc" "$bsc_host_rpc")"
+
+  local patched_count=0
+  local config_path="/root/.puniversal/config/pushuv_config.json"
+  local uv_container
+  for uv_container in universal-validator-1 universal-validator-2 universal-validator-3 universal-validator-4; do
+    if ! docker ps --format '{{.Names}}' | grep -qx "$uv_container"; then
+      continue
+    fi
+
+    local tmp_in tmp_out
+    tmp_in="$(mktemp)"
+    tmp_out="$(mktemp)"
+
+    if ! docker exec "$uv_container" cat "$config_path" >"$tmp_in"; then
+      rm -f "$tmp_in" "$tmp_out"
+      log_warn "Failed to read $config_path from $uv_container"
+      continue
+    fi
+
+    jq \
+      --arg sepolia_rpc "$uv_sepolia_rpc_url" \
+      --arg arbitrum_rpc "$uv_arbitrum_rpc_url" \
+      --arg base_rpc "$uv_base_rpc_url" \
+      --arg bsc_rpc "$uv_bsc_rpc_url" \
+      --argjson sepolia_start "$sepolia_latest_block" \
+      --argjson arbitrum_start "$arbitrum_latest_block" \
+      --argjson base_start "$base_latest_block" \
+      --argjson bsc_start "$bsc_latest_block" \
+      '
+        .chain_configs["eip155:11155111"].rpc_urls = [$sepolia_rpc]
+        | .chain_configs["eip155:11155111"].event_start_from = $sepolia_start
+        | .chain_configs["eip155:421614"].rpc_urls = [$arbitrum_rpc]
+        | .chain_configs["eip155:421614"].event_start_from = $arbitrum_start
+        | .chain_configs["eip155:84532"].rpc_urls = [$base_rpc]
+        | .chain_configs["eip155:84532"].event_start_from = $base_start
+        | .chain_configs["eip155:97"].rpc_urls = [$bsc_rpc]
+        | .chain_configs["eip155:97"].event_start_from = $bsc_start
+      ' "$tmp_in" >"$tmp_out"
+
+    docker cp "$tmp_out" "$uv_container":"$config_path"
+    rm -f "$tmp_in" "$tmp_out"
+
+    patched_count=$((patched_count + 1))
+    log_ok "Updated $uv_container config for Sepolia/Arbitrum/Base/BSC local forks"
+  done
+
+  if [[ "$patched_count" -eq 0 ]]; then
+    log_warn "No universal-validator containers are running yet; skipped pushuv_config.json patch"
+    return 0
+  fi
+
+  log_ok "Patched $patched_count universal validator config(s) with local fork RPC/event_start_from"
 }
 
 step_stop_running_nodes() {
@@ -1419,11 +1554,17 @@ step_configure_universal_core() {
 }
 
 cmd_all() {
+  if is_local_testing_env; then
+    step_setup_environment
+  fi
   (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
   (cd "$PUSH_CHAIN_DIR" && make build)
   step_update_env_fund_to_address
   step_stop_running_nodes
   step_devnet
+  if is_local_testing_env; then
+    step_setup_environment
+  fi
   step_recover_genesis_key
   step_fund_account
   step_setup_core_contracts
@@ -1443,6 +1584,7 @@ cmd_show_help() {
 Usage: $(basename "$0") <command>
 
 Commands:
+  setup-environment      For TESTING_ENV=LOCAL: start anvil + patch universal-validator Sepolia chain config
   devnet                 Build/start local-multi-validator devnet + uvalidators
   print-genesis          Print first genesis account + mnemonic
   recover-genesis-key    Recover genesis key into local keyring
@@ -1473,12 +1615,26 @@ Commands:
 Primary files:
   Env:     $ENV_FILE
   Address: $DEPLOY_ADDRESSES_FILE
+
+Important env:
+  TESTING_ENV=LOCAL      Enables local anvil setup and config rewrites for Sepolia chain in setup-environment/all
+  ANVIL_SEPOLIA_HOST_RPC_URL=http://localhost:9545
+  ANVIL_ARBITRUM_HOST_RPC_URL=http://localhost:9546
+  ANVIL_BASE_HOST_RPC_URL=http://localhost:9547
+  ANVIL_BSC_HOST_RPC_URL=http://localhost:9548
+  LOCAL_SEPOLIA_UV_RPC_URL=http://host.docker.internal:9545
+  LOCAL_ARBITRUM_UV_RPC_URL=http://host.docker.internal:9546
+  LOCAL_BASE_UV_RPC_URL=http://host.docker.internal:9547
+  LOCAL_BSC_UV_RPC_URL=http://host.docker.internal:9548
 EOF
 }
 
 main() {
+  ensure_testing_env_var_in_env_file
+
   local cmd="${1:-help}"
   case "$cmd" in
+    setup-environment) step_setup_environment ;;
     devnet) step_devnet ;;
     print-genesis) step_print_genesis ;;
     recover-genesis-key) step_recover_genesis_key ;;

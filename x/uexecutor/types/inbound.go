@@ -45,8 +45,13 @@ func (p Inbound) ValidateBasic() error {
 	if strings.TrimSpace(p.Amount) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty")
 	}
-	if bi, ok := new(big.Int).SetString(p.Amount, 10); !ok || bi.Sign() <= 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid positive uint256")
+	bi, ok := new(big.Int).SetString(p.Amount, 10)
+	if !ok || bi.Sign() < 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid non-negative uint256")
+	}
+	// Only GAS_AND_PAYLOAD and FUNDS_AND_PAYLOAD allow zero amount (skip deposit, still execute payload)
+	if bi.Sign() == 0 && p.TxType != TxType_GAS_AND_PAYLOAD && p.TxType != TxType_FUNDS_AND_PAYLOAD {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be positive for this tx type")
 	}
 
 	// Validate asset_addr
@@ -64,9 +69,9 @@ func (p Inbound) ValidateBasic() error {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid tx_type: %v", p.TxType)
 	}
 
-	// isCEA is only supported for FUNDS and FUNDS_AND_PAYLOAD
-	if p.IsCEA && p.TxType != TxType_FUNDS && p.TxType != TxType_FUNDS_AND_PAYLOAD {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "isCEA is only supported for FUNDS and FUNDS_AND_PAYLOAD tx types, got: %v", p.TxType)
+	// isCEA is only supported for FUNDS, FUNDS_AND_PAYLOAD, and GAS_AND_PAYLOAD
+	if p.IsCEA && p.TxType != TxType_FUNDS && p.TxType != TxType_FUNDS_AND_PAYLOAD && p.TxType != TxType_GAS_AND_PAYLOAD {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "isCEA is only supported for FUNDS, FUNDS_AND_PAYLOAD, and GAS_AND_PAYLOAD tx types, got: %v", p.TxType)
 	}
 
 	// Validate payload only if tx_type requires it

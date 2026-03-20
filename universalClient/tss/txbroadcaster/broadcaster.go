@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -134,10 +134,10 @@ func (b *Broadcaster) broadcastEvent(ctx context.Context, event *store.Event) {
 func parseSignedEventData(eventData []byte) (*SignedEventData, error) {
 	var data SignedEventData
 	if err := json.Unmarshal(eventData, &data); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal signed event data")
+		return nil, fmt.Errorf("failed to unmarshal signed event data: %w", err)
 	}
 	if data.SigningData == nil {
-		return nil, errors.New("signing_data missing from event data")
+		return nil, fmt.Errorf("signing_data missing from event data")
 	}
 	return &data, nil
 }
@@ -160,7 +160,7 @@ func (b *Broadcaster) markBroadcasted(event *store.Event, chainID, txHash string
 func reconstructSigningReq(sd *SigningData) (*common.UnSignedOutboundTxReq, error) {
 	signingHash, err := hex.DecodeString(sd.SigningHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode signing hash")
+		return nil, fmt.Errorf("failed to decode signing hash: %w", err)
 	}
 
 	return &common.UnSignedOutboundTxReq{

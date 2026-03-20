@@ -1,7 +1,8 @@
 package eventstore
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 
@@ -44,10 +45,10 @@ func (s *Store) Update(eventID string, fields map[string]any) error {
 		Where("event_id = ?", eventID).
 		Updates(fields)
 	if result.Error != nil {
-		return errors.Wrapf(result.Error, "failed to update event %s", eventID)
+		return fmt.Errorf("failed to update event %s: %w", eventID, result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return errors.Errorf("event %s not found", eventID)
+		return fmt.Errorf("event %s not found", eventID)
 	}
 	return nil
 }
@@ -57,7 +58,7 @@ func (s *Store) Update(eventID string, fields map[string]any) error {
 func (s *Store) CountInProgress() (int64, error) {
 	var count int64
 	if err := s.db.Model(&store.Event{}).Where("status = ?", store.StatusInProgress).Count(&count).Error; err != nil {
-		return 0, errors.Wrap(err, "failed to count IN_PROGRESS events")
+		return 0, fmt.Errorf("failed to count IN_PROGRESS events: %w", err)
 	}
 	return count, nil
 }
@@ -69,7 +70,7 @@ func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
 		Where("status = ?", store.StatusInProgress).
 		Update("status", store.StatusConfirmed)
 	if result.Error != nil {
-		return 0, errors.Wrap(result.Error, "failed to reset IN_PROGRESS events to CONFIRMED")
+		return 0, fmt.Errorf("failed to reset IN_PROGRESS events to CONFIRMED: %w", result.Error)
 	}
 	return result.RowsAffected, nil
 }
@@ -91,7 +92,7 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 
 	var events []store.Event
 	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query confirmed events")
+		return nil, fmt.Errorf("failed to query confirmed events: %w", err)
 	}
 	return events, nil
 }
@@ -105,7 +106,7 @@ func (s *Store) GetInFlightSignEvents() ([]store.Event, error) {
 	if err := s.db.Where("type = ? AND status IN (?, ?)",
 		store.EventTypeSign, store.StatusInProgress, store.StatusSigned).
 		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query in-flight sign events")
+		return nil, fmt.Errorf("failed to query in-flight sign events: %w", err)
 	}
 	return events, nil
 }
@@ -120,7 +121,7 @@ func (s *Store) GetSignedSignEvents(limit int) ([]store.Event, error) {
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query signed sign events")
+		return nil, fmt.Errorf("failed to query signed sign events: %w", err)
 	}
 	return events, nil
 }
@@ -135,7 +136,7 @@ func (s *Store) GetBroadcastedSignEvents(limit int) ([]store.Event, error) {
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query broadcasted sign events")
+		return nil, fmt.Errorf("failed to query broadcasted sign events: %w", err)
 	}
 	return events, nil
 }
@@ -151,7 +152,7 @@ func (s *Store) GetExpiredConfirmedEvents(currentBlock uint64, limit int) ([]sto
 
 	var events []store.Event
 	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.Wrap(err, "failed to query expired confirmed events")
+		return nil, fmt.Errorf("failed to query expired confirmed events: %w", err)
 	}
 	return events, nil
 }

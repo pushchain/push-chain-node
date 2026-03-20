@@ -3,9 +3,9 @@ package expirysweeper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -119,7 +119,7 @@ func (s *Sweeper) sweep(ctx context.Context) {
 func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
 	var data uexecutortypes.OutboundCreatedEvent
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return errors.Wrapf(err, "failed to parse outbound event data for event %s", event.EventID)
+		return fmt.Errorf("failed to parse outbound event data for event %s: %w", event.EventID, err)
 	}
 
 	fields := map[string]any{"status": store.StatusReverted}
@@ -135,13 +135,13 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 		}
 		voteTxHash, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation)
 		if err != nil {
-			return errors.Wrapf(err, "failed to vote failure for event %s", event.EventID)
+			return fmt.Errorf("failed to vote failure for event %s: %w", event.EventID, err)
 		}
 		fields["vote_tx_hash"] = voteTxHash
 	}
 
 	if err := s.eventStore.Update(event.EventID, fields); err != nil {
-		return errors.Wrapf(err, "failed to mark event %s as reverted", event.EventID)
+		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
 	}
 	s.logger.Info().
 		Str("event_id", event.EventID).

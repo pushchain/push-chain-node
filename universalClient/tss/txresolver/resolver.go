@@ -3,10 +3,10 @@ package txresolver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -154,7 +154,7 @@ func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.
 		return err
 	}
 	if err := r.eventStore.Update(event.EventID, map[string]any{"status": store.StatusReverted, "vote_tx_hash": voteTxHash}); err != nil {
-		return errors.Wrapf(err, "failed to mark event %s as reverted", event.EventID)
+		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
 	}
 	r.logger.Info().
 		Str("event_id", event.EventID).Str("tx_id", txID).
@@ -165,7 +165,7 @@ func (r *Resolver) voteFailureAndMarkReverted(ctx context.Context, event *store.
 func extractOutboundIDs(event *store.Event) (txID, utxID string, err error) {
 	var data uexecutortypes.OutboundCreatedEvent
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return "", "", errors.Wrap(err, "failed to parse outbound event data")
+		return "", "", fmt.Errorf("failed to parse outbound event data: %w", err)
 	}
 	return data.TxID, data.UniversalTxId, nil
 }
@@ -173,7 +173,7 @@ func extractOutboundIDs(event *store.Event) (txID, utxID string, err error) {
 func parseCAIPTxHash(caipTxHash string) (chainID, txHash string, err error) {
 	lastColon := strings.LastIndex(caipTxHash, ":")
 	if lastColon <= 0 || lastColon == len(caipTxHash)-1 {
-		return "", "", errors.Errorf("invalid CAIP tx hash format: %s", caipTxHash)
+		return "", "", fmt.Errorf("invalid CAIP tx hash format: %s", caipTxHash)
 	}
 	return caipTxHash[:lastColon], caipTxHash[lastColon+1:], nil
 }

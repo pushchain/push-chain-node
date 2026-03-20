@@ -495,3 +495,113 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 		}
 	})
 }
+
+func TestGetInFlightSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	createTestEventWithType(t, s, "sign-inprogress", 10, store.StatusInProgress, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "sign-signed", 11, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "sign-broadcasted", 12, store.StatusBroadcasted, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "keygen-inprogress", 13, store.StatusInProgress, 200, store.EventTypeKeygen)
+
+	events, err := s.GetInFlightSignEvents()
+	if err != nil {
+		t.Fatalf("GetInFlightSignEvents() error = %v", err)
+	}
+	// Should return IN_PROGRESS + SIGNED sign events, NOT broadcasted, NOT keygen
+	if len(events) != 2 {
+		t.Fatalf("GetInFlightSignEvents() returned %d events, want 2", len(events))
+	}
+}
+
+func TestGetSignedSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	createTestEventWithType(t, s, "signed-1", 10, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "signed-2", 11, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "inprogress-1", 12, store.StatusInProgress, 200, store.EventTypeSign)
+
+	t.Run("returns only signed events", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(10)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents() error = %v", err)
+		}
+		if len(events) != 2 {
+			t.Errorf("GetSignedSignEvents() returned %d events, want 2", len(events))
+		}
+	})
+
+	t.Run("respects limit", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(1)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents() error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("GetSignedSignEvents(1) returned %d events, want 1", len(events))
+		}
+	})
+
+	t.Run("zero limit defaults to 50", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(0)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents(0) error = %v", err)
+		}
+		if len(events) != 2 {
+			t.Errorf("GetSignedSignEvents(0) returned %d events, want 2", len(events))
+		}
+	})
+}
+
+func TestGetBroadcastedSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	// Create broadcasted event with tx hash
+	evt := store.Event{
+		EventID:           "bc-1",
+		BlockHeight:       10,
+		ExpiryBlockHeight: 200,
+		Type:              store.EventTypeSign,
+		Status:            store.StatusBroadcasted,
+		BroadcastedTxHash: "0xhash123",
+	}
+	if err := s.db.Create(&evt).Error; err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	// Create broadcasted event without tx hash — should be excluded
+	evt2 := store.Event{
+		EventID:           "bc-2",
+		BlockHeight:       11,
+		ExpiryBlockHeight: 200,
+		Type:              store.EventTypeSign,
+		Status:            store.StatusBroadcasted,
+		BroadcastedTxHash: "",
+	}
+	if err := s.db.Create(&evt2).Error; err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	t.Run("returns only events with tx hash", func(t *testing.T) {
+		events, err := s.GetBroadcastedSignEvents(10)
+		if err != nil {
+			t.Fatalf("GetBroadcastedSignEvents() error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("got %d events, want 1", len(events))
+		}
+		if events[0].EventID != "bc-1" {
+			t.Errorf("got event %s, want bc-1", events[0].EventID)
+		}
+	})
+
+	t.Run("zero limit defaults to 50", func(t *testing.T) {
+		events, err := s.GetBroadcastedSignEvents(0)
+		if err != nil {
+			t.Fatalf("error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("got %d events, want 1", len(events))
+		}
+	})
+}
+

@@ -215,6 +215,58 @@ func TestSaveAndLoad(t *testing.T) {
 	})
 }
 
+func TestGetChainConfig(t *testing.T) {
+	polling := 5
+	cfg := &Config{
+		ChainConfigs: map[string]ChainSpecificConfig{
+			"eip155:1": {EventPollingIntervalSeconds: &polling},
+		},
+	}
+
+	t.Run("existing chain", func(t *testing.T) {
+		cc := cfg.GetChainConfig("eip155:1")
+		require.NotNil(t, cc.EventPollingIntervalSeconds)
+		assert.Equal(t, 5, *cc.EventPollingIntervalSeconds)
+	})
+
+	t.Run("missing chain returns empty", func(t *testing.T) {
+		cc := cfg.GetChainConfig("eip155:999")
+		assert.Nil(t, cc.EventPollingIntervalSeconds)
+	})
+}
+
+func TestLoadAppliesDefaults(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, ConfigSubdir)
+	require.NoError(t, os.MkdirAll(configDir, 0o750))
+
+	// Write a minimal valid config with empty node_home
+	minimalCfg := `{"log_level": 1, "log_format": "console"}`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, ConfigFileName), []byte(minimalCfg), 0o600))
+
+	loaded, err := Load(dir)
+	require.NoError(t, err)
+
+	// Defaults should have been applied
+	assert.NotEmpty(t, loaded.NodeHome)
+	assert.NotEmpty(t, loaded.PushChainGRPCURLs)
+	assert.NotZero(t, loaded.QueryServerPort)
+}
+
+func TestLoadInvalidConfigFails(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, ConfigSubdir)
+	require.NoError(t, os.MkdirAll(configDir, 0o750))
+
+	// Valid JSON but invalid log level
+	badCfg := `{"log_level": 99, "log_format": "console"}`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, ConfigFileName), []byte(badCfg), 0o600))
+
+	_, err := Load(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "log level must be between 0 and 5")
+}
+
 func TestConfigJSONRoundTrip(t *testing.T) {
 	cfg := &Config{
 		LogLevel:                     2,

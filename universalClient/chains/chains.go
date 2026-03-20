@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	pkgerrors "github.com/pkg/errors"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/chains/evm"
 	"github.com/pushchain/push-chain-node/universalClient/chains/push"
@@ -418,7 +417,7 @@ func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 
 	database, err := db.OpenFileDB(baseDir, dbFilename, true)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to create database for chain %s", chainID)
+		return nil, fmt.Errorf("failed to create database for chain %s: %w", chainID, err)
 	}
 
 	c.logger.Info().

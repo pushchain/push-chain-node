@@ -35,6 +35,10 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	var ueaAddr common.Address
 	var isSmartContract bool
 
+	// Parse amount to check for zero-amount path
+	inboundAmount := new(big.Int)
+	inboundAmount.SetString(utx.InboundTx.Amount, 10)
+
 	if utx.InboundTx.IsCEA {
 		// isCEA path: recipient is explicitly specified.
 		// Three-way check:
@@ -50,29 +54,33 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			if ueaCheckErr != nil {
 				execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
 			} else if isUEA {
-				// UEA path: deposit PRC20 into the UEA, then execute payload via UEA
-				receipt, execErr = k.depositPRC20(
-					sdkCtx,
-					utx.InboundTx.SourceChain,
-					utx.InboundTx.AssetAddr,
-					ueaAddr,
-					utx.InboundTx.Amount,
-				)
-				if execErr != nil {
-					execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+				// UEA path: deposit PRC20 into the UEA (if amount > 0), then execute payload via UEA
+				if inboundAmount.Sign() > 0 {
+					receipt, execErr = k.depositPRC20(
+						sdkCtx,
+						utx.InboundTx.SourceChain,
+						utx.InboundTx.AssetAddr,
+						ueaAddr,
+						utx.InboundTx.Amount,
+					)
+					if execErr != nil {
+						execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+					}
 				}
 			} else {
 				// Non-UEA path (smart contract or EOA): deposit PRC20 and call executeUniversalTx
 				isSmartContract = true
-				receipt, execErr = k.depositPRC20(
-					sdkCtx,
-					utx.InboundTx.SourceChain,
-					utx.InboundTx.AssetAddr,
-					ueaAddr,
-					utx.InboundTx.Amount,
-				)
-				if execErr != nil {
-					execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+				if inboundAmount.Sign() > 0 {
+					receipt, execErr = k.depositPRC20(
+						sdkCtx,
+						utx.InboundTx.SourceChain,
+						utx.InboundTx.AssetAddr,
+						ueaAddr,
+						utx.InboundTx.Amount,
+					)
+					if execErr != nil {
+						execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+					}
 				}
 			}
 		}
@@ -110,7 +118,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				}
 			}
 
-			if execErr == nil {
+			if execErr == nil && inboundAmount.Sign() > 0 {
 				receipt, err = k.depositPRC20(
 					sdkCtx,
 					utx.InboundTx.SourceChain,
@@ -127,25 +135,27 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		}
 	}
 
-	// --- record deposit attempt
-	depositPcTx := types.PCTx{
-		Sender:      ueModuleAddressStr,
-		BlockHeight: uint64(sdkCtx.BlockHeight()),
-		Status:      "FAILED",
-	}
-	if execErr != nil {
-		depositPcTx.ErrorMsg = execErr.Error()
-	} else {
-		depositPcTx.TxHash = receipt.Hash
-		depositPcTx.GasUsed = receipt.GasUsed
-		depositPcTx.Status = "SUCCESS"
-	}
-	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-		utx.PcTx = append(utx.PcTx, &depositPcTx)
-		return nil
-	})
-	if updateErr != nil {
-		return updateErr
+	// --- record deposit attempt (only if amount > 0 or there was an error)
+	if inboundAmount.Sign() > 0 || execErr != nil {
+		depositPcTx := types.PCTx{
+			Sender:      ueModuleAddressStr,
+			BlockHeight: uint64(sdkCtx.BlockHeight()),
+			Status:      "FAILED",
+		}
+		if execErr != nil {
+			depositPcTx.ErrorMsg = execErr.Error()
+		} else {
+			depositPcTx.TxHash = receipt.Hash
+			depositPcTx.GasUsed = receipt.GasUsed
+			depositPcTx.Status = "SUCCESS"
+		}
+		updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+			utx.PcTx = append(utx.PcTx, &depositPcTx)
+			return nil
+		})
+		if updateErr != nil {
+			return updateErr
+		}
 	}
 
 	// If deposit failed, stop here.
@@ -271,12 +281,12 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		}
 	}
 
-	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+	updateErr2 := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
 		return nil
 	})
-	if updateErr != nil {
-		return updateErr
+	if updateErr2 != nil {
+		return updateErr2
 	}
 
 	return nil

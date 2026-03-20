@@ -671,6 +671,96 @@ func TestClient_GetAccount(t *testing.T) {
 	})
 }
 
+func TestClient_BroadcastTx(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("successful broadcast", func(t *testing.T) {
+		mockClient := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xabc", Code: 0},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{mockClient},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xabc", resp.TxResponse.TxHash)
+	})
+
+	t.Run("failover on first endpoint failure", func(t *testing.T) {
+		failing := &mockTxServiceClient{err: assert.AnError}
+		success := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xdef"},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing, success},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xdef", resp.TxResponse.TxHash)
+	})
+}
+
+func TestClient_GetTxsByEvents_MismatchedLengths(t *testing.T) {
+	logger := zerolog.Nop()
+	mockClient := &mockTxServiceClient{
+		getTxsEventResp: &tx.GetTxsEventResponse{
+			Txs:         []*tx.Tx{},
+			TxResponses: []*sdktypes.TxResponse{{TxHash: "0x1"}},
+		},
+	}
+
+	client := &Client{
+		logger:    logger,
+		txClients: []tx.ServiceClient{mockClient},
+	}
+
+	_, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "mismatched Txs")
+}
+
+func TestClient_GetGasPrice_NilResponse(t *testing.T) {
+	logger := zerolog.Nop()
+	mockClient := &mockUExecutorQueryClient{
+		gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+			GasPrice: nil,
+		},
+	}
+
+	client := &Client{
+		logger:           logger,
+		uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+	}
+
+	price, err := client.GetGasPrice(context.Background(), "eip155:1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GasPrice response is nil")
+	assert.Nil(t, price)
+}
+
 // Mock implementations
 
 type mockRegistryQueryClient struct {
@@ -744,6 +834,7 @@ func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryK
 type mockTxServiceClient struct {
 	tx.ServiceClient
 	getTxsEventResp *tx.GetTxsEventResponse
+	broadcastResp   *tx.BroadcastTxResponse
 	err             error
 }
 
@@ -752,6 +843,13 @@ func (m *mockTxServiceClient) GetTxsEvent(ctx context.Context, req *tx.GetTxsEve
 		return nil, m.err
 	}
 	return m.getTxsEventResp, nil
+}
+
+func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.BroadcastTxRequest, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.broadcastResp, nil
 }
 
 func (m *mockTxServiceClient) GetTx(ctx context.Context, req *tx.GetTxRequest, opts ...grpc.CallOption) (*tx.GetTxResponse, error) {

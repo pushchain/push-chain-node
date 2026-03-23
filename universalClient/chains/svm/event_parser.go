@@ -90,8 +90,8 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       slot,
-		Type:              common.EventTypeInbound, // Gateway events from external chains are INBOUND
-		Status:            "PENDING",
+		Type:              store.EventTypeInbound, // Gateway events from external chains are INBOUND
+		Status:            store.StatusPending,
 		ExpiryBlockHeight: 0, // Will be set based on confirmation type if needed
 	}
 
@@ -176,10 +176,10 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       slot,
-		Type:              common.EventTypeOutbound, // Outbound observation events
-		Status:            "PENDING",
-		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
-		ExpiryBlockHeight: 0,          // 0 means no expiry
+		Type:              store.EventTypeOutbound, // Outbound observation events
+		Status:            store.StatusPending,
+		ConfirmationType:  store.ConfirmationStandard, // Use STANDARD confirmation for outbound events
+		ExpiryBlockHeight: 0,                          // 0 means no expiry
 		EventData:         payloadData,
 	}
 
@@ -221,9 +221,9 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
 	if payload.TxType == 0 || payload.TxType == 1 {
-		event.ConfirmationType = "FAST"
+		event.ConfirmationType = store.ConfirmationFast
 	} else {
-		event.ConfirmationType = "STANDARD"
+		event.ConfirmationType = store.ConfirmationStandard
 	}
 }
 

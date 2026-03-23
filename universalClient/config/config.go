@@ -1,3 +1,16 @@
+// Package config provides configuration loading, validation, and persistence
+// for the Push Universal Validator.
+//
+// Directory layout:
+//
+//	<NodeHome>/                        (default: ~/.puniversal)
+//	├── config/
+//	│   └── pushuv_config.json
+//	├── databases/
+//	│   ├── eip155_1.db
+//	│   └── eip155_97.db
+//	└── relayer/
+//	    └── <namespace>.json
 package config
 
 import (
@@ -6,142 +19,41 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
+
+const (
+	NodeDir         = ".puniversal"
+	ConfigSubdir    = "config"
+	ConfigFileName  = "pushuv_config.json"
+	DatabasesSubdir = "databases"
+	RelayerSubdir   = "relayer"
+)
+
+// DefaultNodeHome returns the default node home directory (~/.puniversal).
+func DefaultNodeHome() string {
+	return os.ExpandEnv("$HOME/") + NodeDir
+}
 
 //go:embed default_config.json
 var defaultConfigJSON []byte
 
-// LoadDefaultConfig loads the default configuration from the embedded JSON
+// LoadDefaultConfig loads the embedded default configuration.
 func LoadDefaultConfig() (Config, error) {
 	var cfg Config
 	if err := json.Unmarshal(defaultConfigJSON, &cfg); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
-
-	// Validate the config (default config validates against itself)
-	if err := validateConfig(&cfg, nil); err != nil {
+	if err := validate(&cfg); err != nil {
 		return Config{}, fmt.Errorf("invalid default config: %w", err)
 	}
-
 	return cfg, nil
 }
 
-func validateConfig(cfg *Config, defaultCfg *Config) error {
-	// Validate log level
-	if cfg.LogLevel < 0 || cfg.LogLevel > 5 {
-		return fmt.Errorf("log level must be between 0 and 5")
-	}
-
-	// Validate log format
-	if cfg.LogFormat != "json" && cfg.LogFormat != "console" {
-		return fmt.Errorf("log format must be 'json' or 'console'")
-	}
-
-	// Set defaults for registry config from default config
-	if cfg.ConfigRefreshIntervalSeconds == 0 && defaultCfg != nil {
-		cfg.ConfigRefreshIntervalSeconds = defaultCfg.ConfigRefreshIntervalSeconds
-	}
-	if cfg.MaxRetries == 0 && defaultCfg != nil {
-		cfg.MaxRetries = defaultCfg.MaxRetries
-	}
-
-	// Set defaults for registry config from default config
-	if len(cfg.PushChainGRPCURLs) == 0 && defaultCfg != nil {
-		cfg.PushChainGRPCURLs = defaultCfg.PushChainGRPCURLs
-	}
-
-	// Set defaults for query server from default config
-	if cfg.QueryServerPort == 0 && defaultCfg != nil {
-		cfg.QueryServerPort = defaultCfg.QueryServerPort
-	}
-
-	// Set defaults and validate hot key management config
-	// Don't override if already set, just validate
-	if cfg.KeyringBackend != "" {
-		// Validate keyring backend
-		if cfg.KeyringBackend != KeyringBackendFile && cfg.KeyringBackend != KeyringBackendTest {
-			// Try to fix common case issues
-			if cfg.KeyringBackend == "test" || cfg.KeyringBackend == KeyringBackend("test") {
-				cfg.KeyringBackend = KeyringBackendTest
-			} else if cfg.KeyringBackend == "file" || cfg.KeyringBackend == KeyringBackend("file") {
-				cfg.KeyringBackend = KeyringBackendFile
-			} else {
-				return fmt.Errorf("keyring backend must be 'file' or 'test', got: %s", cfg.KeyringBackend)
-			}
-		}
-	} else if defaultCfg != nil {
-		cfg.KeyringBackend = defaultCfg.KeyringBackend
-	}
-
-	// Initialize ChainConfigs if empty
-	if len(cfg.ChainConfigs) == 0 && defaultCfg != nil {
-		cfg.ChainConfigs = defaultCfg.ChainConfigs
-	}
-
-	// Set NodeHome default
-	if cfg.NodeHome == "" {
-		cfg.NodeHome = constant.DefaultNodeHome
-	}
-
-	// Set TSS defaults
-	if cfg.TSSP2PListen == "" {
-		cfg.TSSP2PListen = "/ip4/0.0.0.0/tcp/39000"
-	}
-
-	// Validate TSS config (TSS is always enabled)
-	// Skip TSS validation when defaultCfg is nil (validating default config itself)
-	if defaultCfg != nil {
-		// Set TSS defaults from default config if available
-		if cfg.TSSP2PPrivateKeyHex == "" && defaultCfg.TSSP2PPrivateKeyHex != "" {
-			cfg.TSSP2PPrivateKeyHex = defaultCfg.TSSP2PPrivateKeyHex
-		}
-		if cfg.TSSPassword == "" && defaultCfg.TSSPassword != "" {
-			cfg.TSSPassword = defaultCfg.TSSPassword
-		}
-
-		// Validate required TSS fields
-		if cfg.TSSP2PPrivateKeyHex == "" {
-			return fmt.Errorf("tss_p2p_private_key_hex is required for TSS")
-		}
-		if cfg.TSSPassword == "" {
-			return fmt.Errorf("tss_password is required for TSS")
-		}
-	}
-
-	return nil
-}
-
-// Save writes the given config to <NodeDir>/config/pushuv_config.json.
-func Save(cfg *Config, basePath string) error {
-	// Load default config for validation
-	defaultCfg, _ := LoadDefaultConfig()
-	if err := validateConfig(cfg, &defaultCfg); err != nil {
-		return fmt.Errorf("invalid config: %w", err)
-	}
-
-	configDir := filepath.Join(basePath, constant.ConfigSubdir)
-	if err := os.MkdirAll(configDir, 0o750); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	configFile := filepath.Join(configDir, constant.ConfigFileName)
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	if err := os.WriteFile(configFile, data, 0o600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-	return nil
-}
-
-// Load reads and returns the config from <BasePath>/config/pushuv_config.json.
+// Load reads the config from <basePath>/config/pushuv_config.json,
+// applies defaults for any missing fields, and validates.
 func Load(basePath string) (Config, error) {
-	configFile := filepath.Join(basePath, constant.ConfigSubdir, constant.ConfigFileName)
-	data, err := os.ReadFile(filepath.Clean(configFile))
+	path := filepath.Join(basePath, ConfigSubdir, ConfigFileName)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -151,10 +63,90 @@ func Load(basePath string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Don't validate for now - let the config file values pass through
-	// if err := validateConfig(&cfg); err != nil {
-	//	return Config{}, fmt.Errorf("invalid config: %w", err)
-	// }
+	defaults, _ := LoadDefaultConfig()
+	applyDefaults(&cfg, &defaults)
+
+	if err := validate(&cfg); err != nil {
+		return Config{}, fmt.Errorf("invalid config: %w", err)
+	}
 
 	return cfg, nil
+}
+
+// Save validates the config and writes it to <basePath>/config/pushuv_config.json.
+func Save(cfg *Config, basePath string) error {
+	defaults, _ := LoadDefaultConfig()
+	applyDefaults(cfg, &defaults)
+
+	if err := validate(cfg); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	dir := filepath.Join(basePath, ConfigSubdir)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), data, 0o600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	return nil
+}
+
+// applyDefaults fills zero-valued fields in cfg from defaults.
+func applyDefaults(cfg *Config, defaults *Config) {
+	if defaults == nil {
+		return
+	}
+
+	if cfg.NodeHome == "" {
+		cfg.NodeHome = DefaultNodeHome()
+	}
+	if cfg.ConfigRefreshIntervalSeconds == 0 {
+		cfg.ConfigRefreshIntervalSeconds = defaults.ConfigRefreshIntervalSeconds
+	}
+	if cfg.MaxRetries == 0 {
+		cfg.MaxRetries = defaults.MaxRetries
+	}
+	if len(cfg.PushChainGRPCURLs) == 0 {
+		cfg.PushChainGRPCURLs = defaults.PushChainGRPCURLs
+	}
+	if cfg.QueryServerPort == 0 {
+		cfg.QueryServerPort = defaults.QueryServerPort
+	}
+	if cfg.KeyringBackend == "" {
+		cfg.KeyringBackend = defaults.KeyringBackend
+	}
+	if len(cfg.ChainConfigs) == 0 {
+		cfg.ChainConfigs = defaults.ChainConfigs
+	}
+	if cfg.TSSP2PListen == "" {
+		cfg.TSSP2PListen = "/ip4/0.0.0.0/tcp/39000"
+	}
+	if cfg.TSSP2PPrivateKeyHex == "" {
+		cfg.TSSP2PPrivateKeyHex = defaults.TSSP2PPrivateKeyHex
+	}
+	if cfg.TSSPassword == "" {
+		cfg.TSSPassword = defaults.TSSPassword
+	}
+}
+
+// validate checks that all config values are within acceptable ranges.
+// It does NOT apply defaults — call applyDefaults first if needed.
+func validate(cfg *Config) error {
+	if cfg.LogLevel < 0 || cfg.LogLevel > 5 {
+		return fmt.Errorf("log level must be between 0 and 5")
+	}
+	if cfg.LogFormat != "json" && cfg.LogFormat != "console" {
+		return fmt.Errorf("log format must be 'json' or 'console'")
+	}
+	if cfg.KeyringBackend != "" && cfg.KeyringBackend != KeyringBackendFile && cfg.KeyringBackend != KeyringBackendTest {
+		return fmt.Errorf("keyring backend must be 'file' or 'test', got: %s", cfg.KeyringBackend)
+	}
+	return nil
 }

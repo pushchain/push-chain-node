@@ -75,7 +75,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -1039,7 +1039,7 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 		return nil, fmt.Errorf("empty namespace in chain ID: %s", tb.chainID)
 	}
 
-	keyPath := filepath.Join(tb.nodeHome, constant.RelayerSubdir, namespace+".json")
+	keyPath := filepath.Join(tb.nodeHome, config.RelayerSubdir, namespace+".json")
 
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {

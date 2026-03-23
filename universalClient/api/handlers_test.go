@@ -23,5 +23,6 @@ func TestHandleHealth(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "OK", w.Body.String())
+		assert.Equal(t, "text/plain", w.Header().Get("Content-Type"))
 	})
 }

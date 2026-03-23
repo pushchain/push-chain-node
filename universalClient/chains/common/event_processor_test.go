@@ -384,14 +384,14 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		return []store.Event{
 			{
 				EventID:   "0xaaa:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeInbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeInbound,
 				EventData: inboundEventData,
 			},
 			{
 				EventID:   "0xbbb:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeOutbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeOutbound,
 				EventData: outboundEventData,
 			},
 		}
@@ -408,7 +408,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Inbound event should still be CONFIRMED (skipped, not processed)
 		var inboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
-		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, inboundEvt.Status)
 	})
 
 	t.Run("outbound disabled skips outbound events, leaves them CONFIRMED", func(t *testing.T) {
@@ -421,7 +421,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Outbound event should still be CONFIRMED (skipped, not processed)
 		var outboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
-		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, outboundEvt.Status)
 	})
 
 	t.Run("inbound enabled but outbound disabled skips only outbound", func(t *testing.T) {
@@ -429,8 +429,8 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		database := setupDB(t, []store.Event{
 			{
 				EventID:   "0xbbb:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeOutbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeOutbound,
 				EventData: outboundEventData,
 			},
 		})
@@ -442,7 +442,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Outbound event should still be CONFIRMED (skipped due to outbound disabled)
 		var outboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
-		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, outboundEvt.Status)
 	})
 
 	t.Run("outbound enabled but inbound disabled skips only inbound", func(t *testing.T) {
@@ -450,8 +450,8 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		database := setupDB(t, []store.Event{
 			{
 				EventID:   "0xaaa:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeInbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeInbound,
 				EventData: inboundEventData,
 			},
 		})
@@ -463,6 +463,6 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Inbound event should still be CONFIRMED (skipped due to inbound disabled)
 		var inboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
-		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, inboundEvt.Status)
 	})
 }

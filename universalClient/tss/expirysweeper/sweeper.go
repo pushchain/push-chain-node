@@ -3,9 +3,9 @@ package expirysweeper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -19,8 +19,6 @@ import (
 const (
 	defaultCheckInterval = 30 * time.Second
 	sweepBatchSize       = 100
-
-	statusSign = "SIGN"
 )
 
 // Config holds configuration for the expiry sweeper.
@@ -96,13 +94,13 @@ func (s *Sweeper) sweep(ctx context.Context) {
 
 	swept := 0
 	for _, event := range events {
-		if event.Type == statusSign {
+		if event.Type == store.EventTypeSign {
 			if err := s.voteFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
 				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN event")
 				continue
 			}
 		} else {
-			if err := s.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusReverted}); err != nil {
+			if err := s.eventStore.Update(event.EventID, map[string]any{"status": store.StatusReverted}); err != nil {
 				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to revert expired key event")
 				continue
 			}
@@ -121,10 +119,10 @@ func (s *Sweeper) sweep(ctx context.Context) {
 func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
 	var data uexecutortypes.OutboundCreatedEvent
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return errors.Wrapf(err, "failed to parse outbound event data for event %s", event.EventID)
+		return fmt.Errorf("failed to parse outbound event data for event %s: %w", event.EventID, err)
 	}
 
-	fields := map[string]any{"status": eventstore.StatusReverted}
+	fields := map[string]any{"status": store.StatusReverted}
 
 	if s.pushSigner == nil {
 		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
@@ -137,13 +135,13 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 		}
 		voteTxHash, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation)
 		if err != nil {
-			return errors.Wrapf(err, "failed to vote failure for event %s", event.EventID)
+			return fmt.Errorf("failed to vote failure for event %s: %w", event.EventID, err)
 		}
 		fields["vote_tx_hash"] = voteTxHash
 	}
 
 	if err := s.eventStore.Update(event.EventID, fields); err != nil {
-		return errors.Wrapf(err, "failed to mark event %s as reverted", event.EventID)
+		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
 	}
 	s.logger.Info().
 		Str("event_id", event.EventID).

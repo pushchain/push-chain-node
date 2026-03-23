@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -36,7 +36,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 500,
 			wantEventID: "123",
-			wantType:    common.EventTypeKeygen,
+			wantType:    store.EventTypeKeygen,
 			wantExpiry:  1000,
 			wantErr:     false,
 		},
@@ -51,7 +51,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 600,
 			wantEventID: "456",
-			wantType:    common.EventTypeKeyrefresh,
+			wantType:    store.EventTypeKeyrefresh,
 			wantExpiry:  0,
 			wantErr:     false,
 		},
@@ -67,7 +67,7 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			},
 			blockHeight: 700,
 			wantEventID: "789",
-			wantType:    common.EventTypeQuorumChange,
+			wantType:    store.EventTypeQuorumChange,
 			wantExpiry:  2000,
 			wantErr:     false,
 		},
@@ -157,8 +157,8 @@ func TestParseEvent_TSSEvent(t *testing.T) {
 			assert.Equal(t, tt.wantType, result.Type)
 			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
 			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, "CONFIRMED", result.Status)
-			assert.Equal(t, "INSTANT", result.ConfirmationType)
+			assert.Equal(t, store.StatusConfirmed, result.Status)
+			assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 		})
 	}
 }
@@ -242,11 +242,11 @@ func TestParseEvent_OutboundEvent(t *testing.T) {
 			require.NotNil(t, result)
 
 			assert.Equal(t, tt.wantEventID, result.EventID)
-			assert.Equal(t, common.EventTypeSign, result.Type)
+			assert.Equal(t, store.EventTypeSign, result.Type)
 			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
 			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, "CONFIRMED", result.Status)
-			assert.Equal(t, "INSTANT", result.ConfirmationType)
+			assert.Equal(t, store.StatusConfirmed, result.Status)
+			assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 		})
 	}
 }
@@ -314,9 +314,9 @@ func TestConvertProcessType(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{ChainProcessTypeKeygen, common.EventTypeKeygen},
-		{ChainProcessTypeRefresh, common.EventTypeKeyrefresh},
-		{ChainProcessTypeQuorumChange, common.EventTypeQuorumChange},
+		{ChainProcessTypeKeygen, store.EventTypeKeygen},
+		{ChainProcessTypeRefresh, store.EventTypeKeyrefresh},
+		{ChainProcessTypeQuorumChange, store.EventTypeQuorumChange},
 		{"UNKNOWN_TYPE", "UNKNOWN_TYPE"}, // Unknown types returned as-is
 		{"", ""},
 	}

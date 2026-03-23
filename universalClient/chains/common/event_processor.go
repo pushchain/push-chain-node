@@ -119,7 +119,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 	}
 
 	for _, event := range events {
-		if event.Type == EventTypeInbound {
+		if event.Type == store.EventTypeInbound {
 			if !ep.inboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("inbound disabled, skipping inbound event processing")
 				continue
@@ -131,7 +131,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 					Msg("failed to vote on inbound event")
 				continue
 			}
-		} else if event.Type == EventTypeOutbound {
+		} else if event.Type == store.EventTypeOutbound {
 			if !ep.outboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("outbound disabled, skipping outbound event processing")
 				continue
@@ -173,7 +173,7 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
 	}
@@ -218,7 +218,7 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}

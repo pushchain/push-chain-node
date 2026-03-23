@@ -124,7 +124,7 @@ func insertBroadcastedEvent(t *testing.T, db *gorm.DB, eventID, destChain, broad
 		ExpiryBlockHeight: 99999,
 		Type:              "SIGN",
 		ConfirmationType:  "STANDARD",
-		Status:            eventstore.StatusBroadcasted,
+		Status:            store.StatusBroadcasted,
 		EventData:         eventData,
 		BroadcastedTxHash: broadcastedTxHash,
 	}
@@ -247,7 +247,7 @@ func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusCompleted, updated.Status)
+	require.Equal(t, store.StatusCompleted, updated.Status)
 }
 
 func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
@@ -271,7 +271,7 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	// With no push signer, voteFailureAndMarkReverted returns nil early (logs warning).
 	// The event stays BROADCASTED because the vote+revert is skipped.
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, updated.Status)
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
 }
 
 func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
@@ -291,7 +291,7 @@ func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, updated.Status) // stays BROADCASTED
+	require.Equal(t, store.StatusBroadcasted, updated.Status) // stays BROADCASTED
 }
 
 func TestSVM_InvalidEventData_Skips(t *testing.T) {
@@ -308,7 +308,7 @@ func TestSVM_InvalidEventData_Skips(t *testing.T) {
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, updated.Status) // stays BROADCASTED
+	require.Equal(t, store.StatusBroadcasted, updated.Status) // stays BROADCASTED
 	builder.AssertNotCalled(t, "IsAlreadyExecuted", mock.Anything, mock.Anything)
 }
 

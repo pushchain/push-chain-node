@@ -9,6 +9,7 @@ import (
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -89,6 +90,9 @@ func TestNew(t *testing.T) {
 				} else {
 					require.NotNil(t, client)
 					assert.NotNil(t, client.logger)
+					// Verify authz and auth clients are initialized
+					assert.Equal(t, len(client.conns), len(client.authzClients))
+					assert.Equal(t, len(client.conns), len(client.authClients))
 					_ = client.Close()
 				}
 			}
@@ -571,8 +575,8 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 
 	t.Run("no endpoints configured", func(t *testing.T) {
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:       logger,
+			authzClients: []authz.QueryClient{},
 		}
 
 		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
@@ -582,17 +586,41 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 	})
 
 	t.Run("successful query with mock", func(t *testing.T) {
-		// Note: This test requires actual gRPC connections, so we'll test the error case
-		// For a full mock test, we'd need to set up a gRPC server
+		mockClient := &mockAuthzQueryClient{
+			granteeGrantsResp: &authz.QueryGranteeGrantsResponse{
+				Grants: []*authz.GrantAuthorization{
+					{Granter: "push1granter"},
+				},
+			},
+		}
+
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:       logger,
+			authzClients: []authz.QueryClient{mockClient},
 		}
 
 		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints configured")
-		assert.Nil(t, grants)
+		require.NoError(t, err)
+		require.Len(t, grants.Grants, 1)
+		assert.Equal(t, "push1granter", grants.Grants[0].Granter)
+	})
+
+	t.Run("round robin failover", func(t *testing.T) {
+		failingClient := &mockAuthzQueryClient{err: assert.AnError}
+		successClient := &mockAuthzQueryClient{
+			granteeGrantsResp: &authz.QueryGranteeGrantsResponse{
+				Grants: []*authz.GrantAuthorization{},
+			},
+		}
+
+		client := &Client{
+			logger:       logger,
+			authzClients: []authz.QueryClient{failingClient, successClient},
+		}
+
+		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
+		require.NoError(t, err)
+		assert.NotNil(t, grants)
 	})
 }
 
@@ -602,8 +630,8 @@ func TestClient_GetAccount(t *testing.T) {
 
 	t.Run("no endpoints configured", func(t *testing.T) {
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:      logger,
+			authClients: []authtypes.QueryClient{},
 		}
 
 		account, err := client.GetAccount(ctx, "cosmos1abc123")
@@ -612,17 +640,125 @@ func TestClient_GetAccount(t *testing.T) {
 		assert.Nil(t, account)
 	})
 
-	t.Run("empty address", func(t *testing.T) {
-		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockAuthAccountQueryClient{
+			accountResp: &authtypes.QueryAccountResponse{},
 		}
 
-		account, err := client.GetAccount(ctx, "")
+		client := &Client{
+			logger:      logger,
+			authClients: []authtypes.QueryClient{mockClient},
+		}
+
+		account, err := client.GetAccount(ctx, "cosmos1abc123")
+		require.NoError(t, err)
+		assert.NotNil(t, account)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			authClients: []authtypes.QueryClient{
+				&mockAuthAccountQueryClient{err: assert.AnError},
+				&mockAuthAccountQueryClient{err: assert.AnError},
+			},
+		}
+
+		account, err := client.GetAccount(ctx, "cosmos1abc123")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Contains(t, err.Error(), "failed on all 2 endpoints")
 		assert.Nil(t, account)
 	})
+}
+
+func TestClient_BroadcastTx(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("successful broadcast", func(t *testing.T) {
+		mockClient := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xabc", Code: 0},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{mockClient},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xabc", resp.TxResponse.TxHash)
+	})
+
+	t.Run("failover on first endpoint failure", func(t *testing.T) {
+		failing := &mockTxServiceClient{err: assert.AnError}
+		success := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xdef"},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing, success},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xdef", resp.TxResponse.TxHash)
+	})
+}
+
+func TestClient_GetTxsByEvents_MismatchedLengths(t *testing.T) {
+	logger := zerolog.Nop()
+	mockClient := &mockTxServiceClient{
+		getTxsEventResp: &tx.GetTxsEventResponse{
+			Txs:         []*tx.Tx{},
+			TxResponses: []*sdktypes.TxResponse{{TxHash: "0x1"}},
+		},
+	}
+
+	client := &Client{
+		logger:    logger,
+		txClients: []tx.ServiceClient{mockClient},
+	}
+
+	_, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "mismatched Txs")
+}
+
+func TestClient_GetGasPrice_NilResponse(t *testing.T) {
+	logger := zerolog.Nop()
+	mockClient := &mockUExecutorQueryClient{
+		gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+			GasPrice: nil,
+		},
+	}
+
+	client := &Client{
+		logger:           logger,
+		uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+	}
+
+	price, err := client.GetGasPrice(context.Background(), "eip155:1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GasPrice response is nil")
+	assert.Nil(t, price)
 }
 
 // Mock implementations
@@ -698,6 +834,7 @@ func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryK
 type mockTxServiceClient struct {
 	tx.ServiceClient
 	getTxsEventResp *tx.GetTxsEventResponse
+	broadcastResp   *tx.BroadcastTxResponse
 	err             error
 }
 
@@ -706,6 +843,13 @@ func (m *mockTxServiceClient) GetTxsEvent(ctx context.Context, req *tx.GetTxsEve
 		return nil, m.err
 	}
 	return m.getTxsEventResp, nil
+}
+
+func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.BroadcastTxRequest, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.broadcastResp, nil
 }
 
 func (m *mockTxServiceClient) GetTx(ctx context.Context, req *tx.GetTxRequest, opts ...grpc.CallOption) (*tx.GetTxResponse, error) {
@@ -745,13 +889,26 @@ func (m *mockUExecutorQueryClient) AllGasPrices(ctx context.Context, req *uexecu
 	return nil, nil
 }
 
-type mockAuthQueryClient struct {
+type mockAuthzQueryClient struct {
+	authz.QueryClient
+	granteeGrantsResp *authz.QueryGranteeGrantsResponse
+	err               error
+}
+
+func (m *mockAuthzQueryClient) GranteeGrants(ctx context.Context, req *authz.QueryGranteeGrantsRequest, opts ...grpc.CallOption) (*authz.QueryGranteeGrantsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.granteeGrantsResp, nil
+}
+
+type mockAuthAccountQueryClient struct {
 	authtypes.QueryClient
 	accountResp *authtypes.QueryAccountResponse
 	err         error
 }
 
-func (m *mockAuthQueryClient) Account(ctx context.Context, req *authtypes.QueryAccountRequest, opts ...grpc.CallOption) (*authtypes.QueryAccountResponse, error) {
+func (m *mockAuthAccountQueryClient) Account(ctx context.Context, req *authtypes.QueryAccountRequest, opts ...grpc.CallOption) (*authtypes.QueryAccountResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

@@ -464,12 +464,43 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			"UEA should have received tokens via GAS_AND_PAYLOAD CEA deposit")
 	})
 
-	t.Run("verified payload hash stores UEA owner as sender when isCEA is true for GAS_AND_PAYLOAD", func(t *testing.T) {
+	t.Run("verified payload hash stored under UEA origin chain with UEA owner as sender for CEA GAS_AND_PAYLOAD", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, ueaAddrHex := setupInboundCEAGasAndPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
+		prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
 		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
 
-		// person B — a different sender that is NOT the UEA owner
+		// Register a second chain (eip155:97) so we can send a CEA inbound from a different chain
+		chainApp.UregistryKeeper.AddChainConfig(ctx, &uregistrytypes.ChainConfig{
+			Chain:          "eip155:97",
+			VmType:         uregistrytypes.VmType_EVM,
+			PublicRpcUrl:    "https://data-seed-prebsc-1-s1.binance.org:8545",
+			GatewayAddress: "0x0000000000000000000000000000000000000000",
+			BlockConfirmation: &uregistrytypes.BlockConfirmation{
+				FastInbound:     5,
+				StandardInbound: 12,
+			},
+			Enabled: &uregistrytypes.ChainEnabled{
+				IsInboundEnabled:  true,
+				IsOutboundEnabled: true,
+			},
+		})
+		chainApp.UregistryKeeper.AddTokenConfig(ctx, &uregistrytypes.TokenConfig{
+			Chain:        "eip155:97",
+			Address:      usdcAddress.String(),
+			Name:         "USD Coin",
+			Symbol:       "USDC",
+			Decimals:     6,
+			Enabled:      true,
+			LiquidityCap: "1000000000000000000000000",
+			TokenType:    1,
+			NativeRepresentation: &uregistrytypes.NativeRepresentation{
+				Denom:           "",
+				ContractAddress: prc20Address.String(),
+			},
+		})
+
+		// person B — a different sender on a different chain
 		personBSender := utils.GetDefaultAddresses().TargetAddr2
 
 		validUP := &uexecutortypes.UniversalPayload{
@@ -484,8 +515,9 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			VType:                uexecutortypes.VerificationType(1),
 		}
 
+		// CEA inbound from eip155:97, but UEA origin is eip155:11155111
 		ceaInbound := &uexecutortypes.Inbound{
-			SourceChain:      "eip155:11155111",
+			SourceChain:      "eip155:97",
 			TxHash:           "0xceagas07",
 			Sender:           personBSender,
 			Recipient:        ueaAddrHex.String(),
@@ -510,11 +542,17 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// Verify the stored sender in VerifiedTxMetadata is the UEA owner, not personBSender
-		verified, found, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ceaInbound.SourceChain, ceaInbound.TxHash)
+		// Payload hash should be stored under UEA origin chain (eip155:11155111), NOT source chain (eip155:97)
+		ueaOriginChain := "eip155:11155111"
+		verified, found, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ueaOriginChain, ceaInbound.TxHash)
 		require.NoError(t, err)
-		require.True(t, found, "verified tx metadata should exist after execution")
+		require.True(t, found, "verified tx metadata should be stored under UEA origin chain")
 		require.NotEmpty(t, verified.PayloadHashes, "payload hashes should be stored")
+
+		// Should NOT be found under source chain
+		_, foundUnderSource, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ceaInbound.SourceChain, ceaInbound.TxHash)
+		require.NoError(t, err)
+		require.False(t, foundUnderSource, "verified tx metadata should NOT be stored under inbound source chain for CEA")
 
 		// The sender should be the UEA owner (testAddress), NOT personBSender
 		require.NotEqual(t, personBSender, verified.Sender,

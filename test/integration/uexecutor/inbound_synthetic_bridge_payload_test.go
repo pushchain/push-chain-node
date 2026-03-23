@@ -317,7 +317,7 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 
 		// Call your function to compute and store payload hash
 		ueModuleAddr, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
-		err = app.UexecutorKeeper.StoreVerifiedPayloadHash(ctx, utx, ueaAddrHex, ueModuleAddr, utx.InboundTx.Sender)
+		err = app.UexecutorKeeper.StoreVerifiedPayloadHash(ctx, utx, ueaAddrHex, ueModuleAddr, utx.InboundTx.Sender, utx.InboundTx.SourceChain)
 		require.NoError(t, err)
 
 		// Verify payload hash stored in utxverifier

@@ -8,6 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
+	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
@@ -49,6 +50,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmeta.NewUpgrade(),
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
+	ceapayloadverificationfix.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -463,4 +463,63 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 		require.True(t, balance.Sign() >= 0,
 			"UEA should have received tokens via GAS_AND_PAYLOAD CEA deposit")
 	})
+
+	t.Run("verified payload hash stores UEA owner as sender when isCEA is true for GAS_AND_PAYLOAD", func(t *testing.T) {
+		chainApp, ctx, vals, _, coreVals, ueaAddrHex := setupInboundCEAGasAndPayloadTest(t, 4)
+		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
+		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+
+		// person B — a different sender that is NOT the UEA owner
+		personBSender := utils.GetDefaultAddresses().TargetAddr2
+
+		validUP := &uexecutortypes.UniversalPayload{
+			To:                   ueaAddrHex.String(),
+			Value:                "1000000",
+			Data:                 "0xa9059cbb000000000000000000000000527f3692f5c53cfa83f7689885995606f93b616400000000000000000000000000000000000000000000000000000000000f4240",
+			GasLimit:             "21000000",
+			MaxFeePerGas:         "1000000000",
+			MaxPriorityFeePerGas: "200000000",
+			Nonce:                "1",
+			Deadline:             "9999999999",
+			VType:                uexecutortypes.VerificationType(1),
+		}
+
+		ceaInbound := &uexecutortypes.Inbound{
+			SourceChain:      "eip155:11155111",
+			TxHash:           "0xceagas07",
+			Sender:           personBSender,
+			Recipient:        ueaAddrHex.String(),
+			Amount:           "0",
+			AssetAddr:        usdcAddress.String(),
+			LogIndex:         "1",
+			TxType:           uexecutortypes.TxType_GAS_AND_PAYLOAD,
+			UniversalPayload: validUP,
+			VerificationData: "",
+			IsCEA:            true,
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: personBSender,
+			},
+		}
+
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, ceaInbound)
+			require.NoError(t, err)
+		}
+
+		// Verify the stored sender in VerifiedTxMetadata is the UEA owner, not personBSender
+		verified, found, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ceaInbound.SourceChain, ceaInbound.TxHash)
+		require.NoError(t, err)
+		require.True(t, found, "verified tx metadata should exist after execution")
+		require.NotEmpty(t, verified.PayloadHashes, "payload hashes should be stored")
+
+		// The sender should be the UEA owner (testAddress), NOT personBSender
+		require.NotEqual(t, personBSender, verified.Sender,
+			"stored sender should NOT be the CEA executor")
+		require.Equal(t, common.HexToAddress(testAddress).Hex(), common.HexToAddress(verified.Sender).Hex(),
+			"stored sender should be the UEA owner for CEA inbounds")
+	})
 }

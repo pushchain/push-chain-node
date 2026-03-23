@@ -28,6 +28,8 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	var execErr error
 	var receipt *evmtypes.MsgEthereumTxResponse
 	var ueaAddr common.Address
+	var isSmartContract bool
+	payloadSender := utx.InboundTx.Sender // default: inbound sender; overridden to UEA owner for CEA
 
 	shouldRevert := false
 	var revertReason string
@@ -46,93 +48,86 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			shouldRevert = true
 			revertReason = execErr.Error()
 		} else {
-			// --- Step 3: resolve / deploy UEA
-			ueaAddrRes, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(
-				sdkCtx,
-				ueModuleAccAddress,
-				factoryAddress,
-				&universalAccountId,
-			)
-			if fErr != nil {
-				execErr = fmt.Errorf("factory lookup failed: %w", fErr)
-				shouldRevert = true
-				revertReason = execErr.Error()
-			} else {
-				ueaAddr = ueaAddrRes
+			if utx.InboundTx.IsCEA {
+				// isCEA path: recipient is explicitly specified.
+				// Three-way check:
+				//   1. Recipient is a UEA  → deposit + autoswap + ExecutePayloadV2
+				//   2. Recipient is a deployed smart contract (not UEA) → deposit + autoswap + executeUniversalTx
+				//   3. Neither → record FAILED PCTx, no INBOUND_REVERT
+				if !strings.HasPrefix(strings.ToLower(utx.InboundTx.Recipient), "0x") {
+					execErr = fmt.Errorf("recipient must be a valid hex address when isCEA is true")
+				} else {
+					ueaAddr = common.HexToAddress(utx.InboundTx.Recipient)
 
-				if !isDeployed {
-					deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
-					if dErr != nil {
-						execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
-						shouldRevert = true
-						revertReason = execErr.Error()
-					} else {
-						ueaAddr = common.BytesToAddress(deployReceipt.Ret)
-
-						deployPcTx := types.PCTx{
-							TxHash:      deployReceipt.Hash,
-							Sender:      ueModuleAddressStr,
-							BlockHeight: uint64(sdkCtx.BlockHeight()),
-							GasUsed:     deployReceipt.GasUsed,
-							Status:      "SUCCESS",
+					origin, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
+					if ueaCheckErr != nil {
+						execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
+					} else if isUEA {
+						// Use UEA owner as sender for payload hash verification
+						payloadSender = origin.Owner
+						// UEA path: deposit + autoswap into the UEA (if amount > 0), then execute payload via UEA
+						if amount.Sign() > 0 {
+							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+							receipt, execErr = k.gasAndPayloadDepositAutoSwap(sdkCtx, prc20AddrHex, ueaAddr, amount)
+							if execErr != nil {
+								execErr = fmt.Errorf("depositAutoSwap failed: %w", execErr)
+							}
 						}
-						_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-							utx.PcTx = append(utx.PcTx, &deployPcTx)
-							return nil
-						})
+					} else {
+						// Non-UEA path (smart contract or EOA): deposit + autoswap and call executeUniversalTx
+						isSmartContract = true
+						if amount.Sign() > 0 {
+							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+							receipt, execErr = k.gasAndPayloadDepositAutoSwap(sdkCtx, prc20AddrHex, ueaAddr, amount)
+							if execErr != nil {
+								execErr = fmt.Errorf("depositAutoSwap failed: %w", execErr)
+							}
+						}
 					}
 				}
+				// isCEA failures never create an INBOUND_REVERT outbound.
+			} else {
+				// --- Step 3: resolve / deploy UEA
+				ueaAddrRes, isDeployed, fErr := k.CallFactoryToGetUEAAddressForOrigin(
+					sdkCtx,
+					ueModuleAccAddress,
+					factoryAddress,
+					&universalAccountId,
+				)
+				if fErr != nil {
+					execErr = fmt.Errorf("factory lookup failed: %w", fErr)
+					shouldRevert = true
+					revertReason = execErr.Error()
+				} else {
+					ueaAddr = ueaAddrRes
 
-				if execErr == nil {
-					// --- Step 4: fetch swap quote and compute minPCOut with 5% slippage
-					prc20AddressHex := common.HexToAddress(
-						tokenConfig.NativeRepresentation.ContractAddress,
-					)
-
-					var (
-						quoterAddr common.Address
-						wpcAddr    common.Address
-						fee        *big.Int
-						quote      *big.Int
-					)
-
-					quoterAddr, execErr = k.GetUniversalCoreQuoterAddress(sdkCtx)
-					if execErr != nil {
-						shouldRevert = true
-						revertReason = execErr.Error()
-					}
-
-					if execErr == nil {
-						wpcAddr, execErr = k.GetUniversalCoreWPCAddress(sdkCtx)
-						if execErr != nil {
+					if !isDeployed {
+						deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
+						if dErr != nil {
+							execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
 							shouldRevert = true
 							revertReason = execErr.Error()
+						} else {
+							ueaAddr = common.BytesToAddress(deployReceipt.Ret)
+
+							deployPcTx := types.PCTx{
+								TxHash:      deployReceipt.Hash,
+								Sender:      ueModuleAddressStr,
+								BlockHeight: uint64(sdkCtx.BlockHeight()),
+								GasUsed:     deployReceipt.GasUsed,
+								Status:      "SUCCESS",
+							}
+							_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+								utx.PcTx = append(utx.PcTx, &deployPcTx)
+								return nil
+							})
 						}
 					}
 
-					if execErr == nil {
-						fee, execErr = k.GetDefaultFeeTierForToken(sdkCtx, prc20AddressHex)
-						if execErr != nil {
-							shouldRevert = true
-							revertReason = execErr.Error()
-						}
-					}
-
-					if execErr == nil {
-						quote, execErr = k.GetSwapQuote(sdkCtx, quoterAddr, prc20AddressHex, wpcAddr, fee, amount)
-						if execErr != nil {
-							shouldRevert = true
-							revertReason = execErr.Error()
-						}
-					}
-
-					if execErr == nil {
-						// 5% slippage: minPCOut = quote * 95 / 100
-						minPCOut := new(big.Int).Mul(quote, big.NewInt(95))
-						minPCOut.Div(minPCOut, big.NewInt(100))
-
-						// --- Step 5: deposit + autoswap
-						receipt, execErr = k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount, fee, minPCOut)
+					if execErr == nil && amount.Sign() > 0 {
+						// --- Step 4 & 5: deposit + autoswap (only when amount > 0)
+						prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+						receipt, execErr = k.gasAndPayloadDepositAutoSwap(sdkCtx, prc20AddrHex, ueaAddr, amount)
 						if execErr != nil {
 							shouldRevert = true
 							revertReason = execErr.Error()
@@ -143,32 +138,36 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		}
 	}
 
-	// --- record deposit attempt
-	depositPcTx := types.PCTx{
-		Sender:      ueModuleAddressStr,
-		BlockHeight: uint64(sdkCtx.BlockHeight()),
-		Status:      "FAILED",
-	}
-	if execErr != nil {
-		depositPcTx.ErrorMsg = execErr.Error()
-	} else {
-		depositPcTx.TxHash = receipt.Hash
-		depositPcTx.GasUsed = receipt.GasUsed
-		depositPcTx.Status = "SUCCESS"
-	}
-
-	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-		utx.PcTx = append(utx.PcTx, &depositPcTx)
-		if execErr != nil {
-		
+	// --- record deposit attempt (only if amount > 0 or there was an error)
+	depositAmount := new(big.Int)
+	depositAmount.SetString(utx.InboundTx.Amount, 10)
+	if depositAmount.Sign() > 0 || execErr != nil {
+		depositPcTx := types.PCTx{
+			Sender:      ueModuleAddressStr,
+			BlockHeight: uint64(sdkCtx.BlockHeight()),
+			Status:      "FAILED",
 		}
-		return nil
-	})
-	if updateErr != nil {
-		return updateErr
+		if execErr != nil {
+			depositPcTx.ErrorMsg = execErr.Error()
+		} else {
+			depositPcTx.TxHash = receipt.Hash
+			depositPcTx.GasUsed = receipt.GasUsed
+			depositPcTx.Status = "SUCCESS"
+		}
+
+		updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+			utx.PcTx = append(utx.PcTx, &depositPcTx)
+			if execErr != nil {
+
+			}
+			return nil
+		})
+		if updateErr != nil {
+			return updateErr
+		}
 	}
 
-	// --- create revert ONLY for pre-deposit / deposit failures
+	// --- create revert ONLY for pre-deposit / deposit failures (non-isCEA path)
 	if execErr != nil && shouldRevert {
 		revertOutbound := &types.OutboundTx{
 			DestinationChain: utx.InboundTx.SourceChain,
@@ -196,12 +195,64 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		return nil
 	}
 
-	// --- funds deposited successfully → continue with payload
+	// isCEA failures: record FAILED PCTx but no revert
+	if execErr != nil && utx.InboundTx.IsCEA {
+		return nil
+	}
+
+	// Smart contract path (isCEA): call executeUniversalTx and return
+	if isSmartContract {
+		prc20Addr := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+
+		scAmount := new(big.Int)
+		scAmount, ok := scAmount.SetString(utx.InboundTx.Amount, 10)
+		if !ok {
+			return fmt.Errorf("invalid amount: %s", utx.InboundTx.Amount)
+		}
+
+		txId := common.HexToHash(utx.Id)
+
+		var payload []byte
+		if utx.InboundTx.UniversalPayload != nil && utx.InboundTx.UniversalPayload.Data != "" {
+			payload = common.FromHex(utx.InboundTx.UniversalPayload.Data)
+		}
+
+		contractReceipt, contractErr := k.CallExecuteUniversalTx(
+			sdkCtx,
+			ueaAddr,
+			utx.InboundTx.SourceChain,
+			[]byte(utx.InboundTx.Sender),
+			payload,
+			scAmount,
+			prc20Addr,
+			txId,
+		)
+
+		callPcTx := types.PCTx{
+			Sender:      ueModuleAddressStr,
+			BlockHeight: uint64(sdkCtx.BlockHeight()),
+			Status:      "FAILED",
+		}
+		if contractErr != nil {
+			callPcTx.ErrorMsg = contractErr.Error()
+		} else {
+			callPcTx.TxHash = contractReceipt.Hash
+			callPcTx.GasUsed = contractReceipt.GasUsed
+			callPcTx.Status = "SUCCESS"
+		}
+		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+			utx.PcTx = append(utx.PcTx, &callPcTx)
+			return nil
+		})
+		return nil
+	}
+
+	// --- deposit successful (or skipped for zero amount) → continue with payload
 
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
 	// --- Step 6: payload hash
-	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr)
+	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr, payloadSender)
 	if payloadHashErr != nil {
 		errorPcTx := types.PCTx{
 			Sender:      ueModuleAddressStr,
@@ -211,14 +262,13 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		}
 		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &errorPcTx)
-		
+
 			return nil
 		})
 		return nil
 	}
 
 	// --- Step 7: execute payload
-	// ueaAddr is already resolved and validated in step 3
 	receipt, err = k.ExecutePayloadV2(
 		ctx,
 		ueModuleAddr,
@@ -244,12 +294,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		}
 	}
 
-	updateErr = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
 		if err != nil {
-		
+
 		} else {
-		
+
 		}
 		return nil
 	})
@@ -258,4 +308,38 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 
 	return nil
+}
+
+// gasAndPayloadDepositAutoSwap handles the swap quote + deposit autoswap for GAS_AND_PAYLOAD.
+func (k Keeper) gasAndPayloadDepositAutoSwap(
+	sdkCtx sdk.Context,
+	prc20AddressHex common.Address,
+	ueaAddr common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	quoterAddr, err := k.GetUniversalCoreQuoterAddress(sdkCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	wpcAddr, err := k.GetUniversalCoreWPCAddress(sdkCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	fee, err := k.GetDefaultFeeTierForToken(sdkCtx, prc20AddressHex)
+	if err != nil {
+		return nil, err
+	}
+
+	quote, err := k.GetSwapQuote(sdkCtx, quoterAddr, prc20AddressHex, wpcAddr, fee, amount)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5% slippage: minPCOut = quote * 95 / 100
+	minPCOut := new(big.Int).Mul(quote, big.NewInt(95))
+	minPCOut.Div(minPCOut, big.NewInt(100))
+
+	return k.CallPRC20DepositAutoSwap(sdkCtx, prc20AddressHex, ueaAddr, amount, fee, minPCOut)
 }

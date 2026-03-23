@@ -86,7 +86,28 @@ func (k Keeper) CallFactoryGetOriginForUEA(
 	// The second return value is bool (isUEA)
 	isUEA := results[1].(bool)
 
-	return nil, isUEA, nil
+	if !isUEA {
+		return nil, false, nil
+	}
+
+	// Parse the UniversalAccountId struct from the first result
+	// go-ethereum ABI unpacker generates structs with json tags matching the ABI names
+	raw, ok := results[0].(struct {
+		ChainNamespace string `json:"chainNamespace"`
+		ChainId        string `json:"chainId"`
+		Owner          []byte `json:"owner"`
+	})
+	if !ok {
+		return nil, true, fmt.Errorf("failed to cast UniversalAccountId from factory result, got type %T", results[0])
+	}
+
+	origin := &types.UniversalAccountId{
+		ChainNamespace: raw.ChainNamespace,
+		ChainId:        raw.ChainId,
+		Owner:          fmt.Sprintf("0x%x", raw.Owner),
+	}
+
+	return origin, true, nil
 }
 
 // CallFactoryToDeployUEA deploys a new UEA using factory contract

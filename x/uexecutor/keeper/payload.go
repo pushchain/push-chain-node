@@ -55,12 +55,14 @@ func (k Keeper) GetPayloadHashEVM(
 	return crypto.Keccak256Hash(finalBytes), nil
 }
 
-// StoreVerifiedPayloadHash stores one payload hash for a given inbound tx
+// StoreVerifiedPayloadHash stores one payload hash for a given inbound tx.
+// sender is the address to record as the verified sender (UEA owner for CEA, inbound sender otherwise).
 func (k Keeper) StoreVerifiedPayloadHash(
 	ctx sdk.Context,
 	utx types.UniversalTx, // struct containing InboundTx
 	ueaAddr common.Address,
 	ueModuleAccAddress common.Address,
+	sender string,
 ) error {
 	// Convert to AbiUniversalPayload
 	abiPayload, err := types.NewAbiUniversalPayload(utx.InboundTx.UniversalPayload)
@@ -84,7 +86,7 @@ func (k Keeper) StoreVerifiedPayloadHash(
 			Amount:   "0",
 			Decimals: 0,
 		},
-		Sender: utx.InboundTx.Sender,
+		Sender: sender,
 	}
 
 	// Store in utxverifierKeeper

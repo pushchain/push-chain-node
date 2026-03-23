@@ -19,6 +19,18 @@ func TestInbound_ValidateBasic(t *testing.T) {
 		TxType:      types.TxType_FUNDS,
 	}
 
+	validPayload := &types.UniversalPayload{
+		To:                   "0x000000000000000000000000000000000000beef",
+		Value:                "1000",
+		Data:                 "0x",
+		GasLimit:             "21000",
+		MaxFeePerGas:         "1000000000",
+		MaxPriorityFeePerGas: "200000000",
+		Nonce:                "1",
+		Deadline:             "9999999999",
+		VType:                types.VerificationType(1),
+	}
+
 	tests := []struct {
 		name        string
 		inbound     types.Inbound
@@ -108,7 +120,53 @@ func TestInbound_ValidateBasic(t *testing.T) {
 				return ib
 			}(),
 			expectError: true,
-			errContains: "amount must be a valid positive uint256",
+			errContains: "amount must be a valid non-negative uint256",
+		},
+		{
+			name: "zero amount rejected for FUNDS type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.Amount = "0"
+				ib.TxType = types.TxType_FUNDS
+				return ib
+			}(),
+			expectError: true,
+			errContains: "amount must be positive for this tx type",
+		},
+		{
+			name: "zero amount rejected for GAS type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.Amount = "0"
+				ib.TxType = types.TxType_GAS
+				return ib
+			}(),
+			expectError: true,
+			errContains: "amount must be positive for this tx type",
+		},
+		{
+			name: "zero amount allowed for FUNDS_AND_PAYLOAD type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.Amount = "0"
+				ib.TxType = types.TxType_FUNDS_AND_PAYLOAD
+				ib.Recipient = ""
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: false,
+		},
+		{
+			name: "zero amount allowed for GAS_AND_PAYLOAD type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.Amount = "0"
+				ib.TxType = types.TxType_GAS_AND_PAYLOAD
+				ib.Recipient = ""
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: false,
 		},
 		{
 			name: "empty asset_addr",
@@ -149,6 +207,78 @@ func TestInbound_ValidateBasic(t *testing.T) {
 			}(),
 			expectError: true,
 			errContains: "invalid tx_type",
+		},
+		// isCEA validation tests
+		{
+			name: "isCEA rejected for GAS type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_GAS
+				return ib
+			}(),
+			expectError: true,
+			errContains: "isCEA is only supported for FUNDS, FUNDS_AND_PAYLOAD, and GAS_AND_PAYLOAD",
+		},
+		{
+			name: "isCEA allowed for FUNDS type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_FUNDS
+				return ib
+			}(),
+			expectError: false,
+		},
+		{
+			name: "isCEA allowed for FUNDS_AND_PAYLOAD type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_FUNDS_AND_PAYLOAD
+				ib.Recipient = "0x000000000000000000000000000000000000beef"
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: false,
+		},
+		{
+			name: "isCEA allowed for GAS_AND_PAYLOAD type",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_GAS_AND_PAYLOAD
+				ib.Recipient = "0x000000000000000000000000000000000000beef"
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: false,
+		},
+		{
+			name: "isCEA=true requires recipient for GAS_AND_PAYLOAD",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_GAS_AND_PAYLOAD
+				ib.Recipient = ""
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: true,
+			errContains: "recipient cannot be empty when isCEA is true",
+		},
+		{
+			name: "isCEA=true with invalid recipient for GAS_AND_PAYLOAD",
+			inbound: func() types.Inbound {
+				ib := validInbound
+				ib.IsCEA = true
+				ib.TxType = types.TxType_GAS_AND_PAYLOAD
+				ib.Recipient = "not-a-hex-address"
+				ib.UniversalPayload = validPayload
+				return ib
+			}(),
+			expectError: true,
+			errContains: "invalid recipient address when isCEA is true",
 		},
 	}
 

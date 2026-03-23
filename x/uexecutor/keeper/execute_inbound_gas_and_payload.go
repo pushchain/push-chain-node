@@ -29,6 +29,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	var receipt *evmtypes.MsgEthereumTxResponse
 	var ueaAddr common.Address
 	var isSmartContract bool
+	payloadSender := utx.InboundTx.Sender // default: inbound sender; overridden to UEA owner for CEA
 
 	shouldRevert := false
 	var revertReason string
@@ -58,10 +59,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 				} else {
 					ueaAddr = common.HexToAddress(utx.InboundTx.Recipient)
 
-					_, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
+					origin, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
 					if ueaCheckErr != nil {
 						execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
 					} else if isUEA {
+						// Use UEA owner as sender for payload hash verification
+						payloadSender = origin.Owner
 						// UEA path: deposit + autoswap into the UEA (if amount > 0), then execute payload via UEA
 						if amount.Sign() > 0 {
 							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
@@ -249,7 +252,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
 	// --- Step 6: payload hash
-	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr)
+	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr, payloadSender)
 	if payloadHashErr != nil {
 		errorPcTx := types.PCTx{
 			Sender:      ueModuleAddressStr,

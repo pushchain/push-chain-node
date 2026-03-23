@@ -57,12 +57,14 @@ func (k Keeper) GetPayloadHashEVM(
 
 // StoreVerifiedPayloadHash stores one payload hash for a given inbound tx.
 // sender is the address to record as the verified sender (UEA owner for CEA, inbound sender otherwise).
+// chain is the CAIP-2 chain identifier to store under (UEA origin chain for CEA, inbound source chain otherwise).
 func (k Keeper) StoreVerifiedPayloadHash(
 	ctx sdk.Context,
 	utx types.UniversalTx, // struct containing InboundTx
 	ueaAddr common.Address,
 	ueModuleAccAddress common.Address,
 	sender string,
+	chain string,
 ) error {
 	// Convert to AbiUniversalPayload
 	abiPayload, err := types.NewAbiUniversalPayload(utx.InboundTx.UniversalPayload)
@@ -90,7 +92,7 @@ func (k Keeper) StoreVerifiedPayloadHash(
 	}
 
 	// Store in utxverifierKeeper
-	err = k.utxverifierKeeper.StoreVerifiedInboundTx(ctx, utx.InboundTx.SourceChain, utx.InboundTx.TxHash, verified)
+	err = k.utxverifierKeeper.StoreVerifiedInboundTx(ctx, chain, utx.InboundTx.TxHash, verified)
 	if err != nil {
 		return fmt.Errorf("failed to store verified tx: %w", err)
 	}

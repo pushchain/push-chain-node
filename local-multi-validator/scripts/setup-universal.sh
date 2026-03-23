@@ -217,7 +217,7 @@ fi
 
 echo "🔐 Waiting for AuthZ grants to be created by core validator..."
 echo "📝 Core validators create AuthZ grants after UV registration completes"
-echo "📋 Required grants: MsgVoteInbound, MsgVoteGasPrice, MsgVoteOutbound, MsgVoteTssKeyProcess"
+echo "📋 Required grants: MsgVoteInbound, MsgVoteChainMeta, MsgVoteOutbound, MsgVoteTssKeyProcess"
 
 # Get the hotkey address
 HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")

@@ -447,7 +447,7 @@ if [ -f "$HOTKEYS_FILE" ]; then
     # Grant all 4 message types for this validator
     for MSG_TYPE in \
       "/uexecutor.v1.MsgVoteInbound" \
-      "/uexecutor.v1.MsgVoteGasPrice" \
+      "/uexecutor.v1.MsgVoteChainMeta" \
       "/uexecutor.v1.MsgVoteOutbound" \
       "/utss.v1.MsgVoteTssKeyProcess"
     do

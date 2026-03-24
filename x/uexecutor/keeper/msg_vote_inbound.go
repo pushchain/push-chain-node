@@ -61,9 +61,19 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 
 	// --- Ballot finalized: always create UTX from here on ---
 
-	// Normalize inbound after finalization: strip fields irrelevant for this TxType
-	// before persisting, so the stored UTX only contains fields used during execution.
-	inbound.NormalizeForTxType()
+	// Normalize inbound after finalization: strip irrelevant fields, decode raw_payload.
+	// If normalization/decode fails, create UTX with failed PCTx + revert.
+	if normalizeErr := inbound.NormalizeForTxType(); normalizeErr != nil {
+		utx := types.UniversalTx{Id: universalTxKey, InboundTx: &inbound}
+		if createErr := k.CreateUniversalTx(ctx, universalTxKey, utx); createErr != nil {
+			return createErr
+		}
+		if removeErr := k.RemovePendingInbound(ctx, inbound); removeErr != nil {
+			return removeErr
+		}
+		k.handleFailedInboundValidation(sdkCtx, utx, normalizeErr)
+		return nil
+	}
 
 	utx := types.UniversalTx{
 		Id:         universalTxKey,

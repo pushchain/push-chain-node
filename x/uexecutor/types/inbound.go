@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,21 +13,40 @@ import (
 
 const EvmZeroAddress = "0x0000000000000000000000000000000000000000"
 
-// NormalizeForTxType zeroes out fields that are irrelevant for the given TxType.
-// This should be called by the core module before storing, so that the persisted
-// UniversalTx only contains fields that were actually used during execution.
-func (p *Inbound) NormalizeForTxType() {
+// NormalizeForTxType zeroes out fields that are irrelevant for the given TxType,
+// and decodes raw_payload into universal_payload for payload types.
+// This should be called by the core module after ballot finalization.
+// Returns an error if raw_payload decoding fails.
+func (p *Inbound) NormalizeForTxType() error {
 	switch p.TxType {
 	case TxType_FUNDS_AND_PAYLOAD, TxType_GAS_AND_PAYLOAD:
 		// Payload types: recipient is only meaningful when isCEA
 		if !p.IsCEA {
 			p.Recipient = EvmZeroAddress
 		}
+		// Always clear universal_payload — whatever the UV sends is ignored.
+		// Core validator decodes from raw_payload.
+		p.UniversalPayload = nil
+
+		// Decode raw_payload → universal_payload
+		if p.RawPayload != "" {
+			decoded, err := DecodeRawPayload(p.RawPayload, p.SourceChain)
+			if err != nil {
+				return fmt.Errorf("failed to decode raw payload: %w", err)
+			}
+			if decoded == nil {
+				return fmt.Errorf("raw_payload decoded to nil for payload tx type")
+			}
+			p.UniversalPayload = decoded
+			p.RawPayload = "" // clear after successful decode to save storage
+		}
 	default:
 		// Non-payload types: payload is not used
 		p.UniversalPayload = nil
 		p.VerificationData = ""
+		p.RawPayload = ""
 	}
+	return nil
 }
 
 // Stringer method for Params.

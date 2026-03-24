@@ -10,7 +10,11 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// voteInbound is for uvalidators for voting on synthetic asset inbound bridging
+// VoteInbound is for uvalidators for voting on synthetic asset inbound bridging.
+// After ballot finalization, a UniversalTx is always created on-chain regardless of
+// whether the inbound passes execution validation. This ensures the user can always
+// query what happened to their cross-chain tx instead of having funds silently stuck
+// in the gateway contract.
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
 	// Check inbound enabled before any state changes
 	enabled, err := k.uregistryKeeper.IsChainInboundEnabled(ctx, inbound.SourceChain)
@@ -22,7 +26,8 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	// Step 1: Check if inbound synthetic is there in the UTX
+
+	// Step 1: Derive UTX key from the original inbound data (source_chain:tx_hash:log_index)
 	universalTxKey := types.GetInboundUniversalTxKey(inbound)
 	found, err := k.HasUniversalTx(ctx, universalTxKey)
 	if err != nil {
@@ -40,7 +45,8 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 		return err
 	}
 
-	// Step 3: Vote on inbound ballot
+	// Step 3: Vote on inbound ballot (uses the original inbound data as-is for the ballot key,
+	// so UVs that observe different field data will correctly produce different votes)
 	isFinalized, _, err := k.VoteOnInboundBallot(tmpCtx, universalValidator, inbound)
 	if err != nil {
 		return errors.Wrap(err, "failed to vote on inbound ballot")
@@ -53,25 +59,38 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 		return nil
 	}
 
-	// Voting is finalized
+	// --- Ballot finalized: always create UTX from here on ---
+
+	// Normalize inbound after finalization: strip fields irrelevant for this TxType
+	// before persisting, so the stored UTX only contains fields used during execution.
+	inbound.NormalizeForTxType()
+
 	utx := types.UniversalTx{
-		Id:              universalTxKey,
-		InboundTx:       &inbound,
-		PcTx:            nil,
-		OutboundTx:      nil,
+		Id:         universalTxKey,
+		InboundTx:  &inbound,
+		PcTx:       nil,
+		OutboundTx: nil,
 	}
 
-	// Step 4: If finalized, create the UniversalTx
+	// Step 5: Create the UniversalTx — this must succeed for any further processing
 	if err := k.CreateUniversalTx(ctx, universalTxKey, utx); err != nil {
 		return err
 	}
 
-	// Step 5: Remove from pending inbound set
+	// Step 6: Remove from pending inbound set
 	if err := k.RemovePendingInbound(ctx, inbound); err != nil {
 		return err
 	}
 
-	// Step 6: Execution
+	// Step 7: Validate execution prerequisites.
+	// If validation fails, record a failed PCTx and schedule revert (for non-isCEA)
+	// instead of failing the vote — so the UTX is always visible on-chain.
+	if validationErr := inbound.ValidateForExecution(); validationErr != nil {
+		k.handleFailedInboundValidation(sdkCtx, utx, validationErr)
+		return nil
+	}
+
+	// Step 8: Execute the inbound
 	if err := k.ExecuteInbound(ctx, utx); err != nil {
 		return err
 	}

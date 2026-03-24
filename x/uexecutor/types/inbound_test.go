@@ -1,8 +1,10 @@
 package types_test
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/stretchr/testify/require"
 )
@@ -390,44 +392,64 @@ func TestInbound_ValidateForExecution(t *testing.T) {
 }
 
 func TestInbound_NormalizeForTxType(t *testing.T) {
-	t.Run("payload type without isCEA sets recipient to zero address", func(t *testing.T) {
+	t.Run("payload type without isCEA: zeros recipient, wipes UV-sent universal_payload, no raw_payload → nil payload", func(t *testing.T) {
 		ib := types.Inbound{
-			TxType:    types.TxType_FUNDS_AND_PAYLOAD,
-			Recipient: "0x000000000000000000000000000000000000beef",
+			TxType:       types.TxType_FUNDS_AND_PAYLOAD,
+			SourceChain:  "eip155:11155111",
+			Recipient:    "0x000000000000000000000000000000000000beef",
 			UniversalPayload: &types.UniversalPayload{
 				Data: "0x1234",
 				To:   "0x000000000000000000000000000000000000abcd",
 			},
 		}
-		ib.NormalizeForTxType()
+		err := ib.NormalizeForTxType()
+		require.NoError(t, err)
 		require.Equal(t, types.EvmZeroAddress, ib.Recipient)
-		require.NotNil(t, ib.UniversalPayload)
+		require.Nil(t, ib.UniversalPayload, "UV-sent universal_payload should be wiped; no raw_payload to decode")
 	})
 
-	t.Run("payload type with isCEA keeps recipient", func(t *testing.T) {
+	t.Run("payload type with isCEA keeps recipient, wipes universal_payload", func(t *testing.T) {
 		ib := types.Inbound{
-			TxType:    types.TxType_FUNDS_AND_PAYLOAD,
-			IsCEA:     true,
-			Recipient: "0x000000000000000000000000000000000000beef",
+			TxType:       types.TxType_FUNDS_AND_PAYLOAD,
+			SourceChain:  "eip155:11155111",
+			IsCEA:        true,
+			Recipient:    "0x000000000000000000000000000000000000beef",
 			UniversalPayload: &types.UniversalPayload{
 				Data: "0x1234",
 				To:   "0x000000000000000000000000000000000000abcd",
 			},
 		}
-		ib.NormalizeForTxType()
+		err := ib.NormalizeForTxType()
+		require.NoError(t, err)
 		require.Equal(t, "0x000000000000000000000000000000000000beef", ib.Recipient)
+		require.Nil(t, ib.UniversalPayload, "UV-sent universal_payload should be wiped")
 	})
 
-	t.Run("non-payload type strips payload", func(t *testing.T) {
+	t.Run("payload type with invalid raw_payload returns decode error", func(t *testing.T) {
+		ib := types.Inbound{
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			SourceChain: "eip155:11155111",
+			RawPayload:  "0xdeadbeef", // too short to be valid ABI
+		}
+		err := ib.NormalizeForTxType()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "decode")
+	})
+
+	t.Run("non-payload type strips payload and raw_payload", func(t *testing.T) {
 		ib := types.Inbound{
 			TxType:           types.TxType_FUNDS,
+			SourceChain:      "eip155:11155111",
 			Recipient:        "0x000000000000000000000000000000000000beef",
 			UniversalPayload: &types.UniversalPayload{Data: "0x1234"},
 			VerificationData: "some_data",
+			RawPayload:       "0xdeadbeef",
 		}
-		ib.NormalizeForTxType()
+		err := ib.NormalizeForTxType()
+		require.NoError(t, err)
 		require.Nil(t, ib.UniversalPayload)
 		require.Empty(t, ib.VerificationData)
+		require.Empty(t, ib.RawPayload)
 		require.Equal(t, "0x000000000000000000000000000000000000beef", ib.Recipient)
 	})
 }
@@ -450,14 +472,24 @@ func TestInbound_VoteInboundValidationPipeline(t *testing.T) {
 		Deadline:             "9999999999",
 		VType:                types.VerificationType(1),
 	}
+	// ABI-encoded version of validPayload for use as raw_payload
+	validRawPayload, err := abiEncodeUniversalPayload(
+		common.HexToAddress("0x000000000000000000000000000000000000beef"),
+		big.NewInt(1000), []byte{}, big.NewInt(21000),
+		big.NewInt(1000000000), big.NewInt(200000000), big.NewInt(1), big.NewInt(9999999999), 1,
+	)
+	require.NoError(t, err)
+	_ = validPayload // still used in some tests that verify UV-sent payload is wiped
 
-	// runPipeline simulates VoteInbound: ValidateBasic → NormalizeForTxType → ValidateForExecution
+	// runPipeline simulates VoteInbound: ValidateBasic → NormalizeForTxType (includes decode) → ValidateForExecution
 	runPipeline := func(ib types.Inbound) (basicErr, execErr error, normalized types.Inbound) {
 		basicErr = ib.ValidateBasic()
 		if basicErr != nil {
 			return basicErr, nil, ib
 		}
-		ib.NormalizeForTxType()
+		if normalizeErr := ib.NormalizeForTxType(); normalizeErr != nil {
+			return nil, normalizeErr, ib
+		}
 		execErr = ib.ValidateForExecution()
 		return nil, execErr, ib
 	}
@@ -485,35 +517,35 @@ func TestInbound_VoteInboundValidationPipeline(t *testing.T) {
 
 	t.Run("FUNDS_AND_PAYLOAD non-isCEA with extra recipient: passes basic, normalization zeros recipient", func(t *testing.T) {
 		ib := types.Inbound{
-			SourceChain:      "eip155:11155111",
-			TxHash:           "0xabc",
-			Sender:           "0x000000000000000000000000000000000000dead",
-			Recipient:        "0x000000000000000000000000000000000000beef",
-			Amount:           "1000",
-			AssetAddr:        "0x000000000000000000000000000000000000cafe",
-			LogIndex:         "1",
-			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
-			UniversalPayload: validPayload,
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xabc",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Recipient:   "0x000000000000000000000000000000000000beef",
+			Amount:      "1000",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  validRawPayload,
 		}
 		basicErr, execErr, norm := runPipeline(ib)
 		require.NoError(t, basicErr)
 		require.NoError(t, execErr)
 		require.Equal(t, types.EvmZeroAddress, norm.Recipient, "recipient should be zero address for non-isCEA payload type")
-		require.NotNil(t, norm.UniversalPayload, "payload should be preserved")
+		require.NotNil(t, norm.UniversalPayload, "payload should be decoded from raw_payload")
 	})
 
 	t.Run("FUNDS_AND_PAYLOAD isCEA with recipient: passes everything, recipient preserved", func(t *testing.T) {
 		ib := types.Inbound{
-			SourceChain:      "eip155:11155111",
-			TxHash:           "0xabc",
-			Sender:           "0x000000000000000000000000000000000000dead",
-			Recipient:        "0x000000000000000000000000000000000000beef",
-			Amount:           "1000",
-			AssetAddr:        "0x000000000000000000000000000000000000cafe",
-			LogIndex:         "1",
-			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
-			IsCEA:            true,
-			UniversalPayload: validPayload,
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xabc",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Recipient:   "0x000000000000000000000000000000000000beef",
+			Amount:      "1000",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			IsCEA:       true,
+			RawPayload:  validRawPayload,
 		}
 		basicErr, execErr, norm := runPipeline(ib)
 		require.NoError(t, basicErr)
@@ -651,14 +683,14 @@ func TestInbound_VoteInboundValidationPipeline(t *testing.T) {
 
 	t.Run("GAS_AND_PAYLOAD zero amount: passes full pipeline (payload-only execution)", func(t *testing.T) {
 		ib := types.Inbound{
-			SourceChain:      "eip155:11155111",
-			TxHash:           "0xabc",
-			Sender:           "0x000000000000000000000000000000000000dead",
-			Amount:           "0",
-			AssetAddr:        "0x000000000000000000000000000000000000cafe",
-			LogIndex:         "1",
-			TxType:           types.TxType_GAS_AND_PAYLOAD,
-			UniversalPayload: validPayload,
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xabc",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Amount:      "0",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_GAS_AND_PAYLOAD,
+			RawPayload:  validRawPayload,
 		}
 		basicErr, execErr, norm := runPipeline(ib)
 		require.NoError(t, basicErr)
@@ -681,5 +713,112 @@ func TestInbound_VoteInboundValidationPipeline(t *testing.T) {
 		require.NoError(t, basicErr)
 		require.Error(t, execErr)
 		require.Contains(t, execErr.Error(), "amount must be positive")
+	})
+
+	// --- raw_payload tests (new UV format) ---
+
+	t.Run("FUNDS_AND_PAYLOAD with raw_payload: decoded into universal_payload, passes execution", func(t *testing.T) {
+		rawPayload, err := abiEncodeUniversalPayload(
+			common.HexToAddress("0x000000000000000000000000000000000000beef"),
+			big.NewInt(1000), []byte{0xde, 0xad}, big.NewInt(21000),
+			big.NewInt(1e9), big.NewInt(2e8), big.NewInt(1), big.NewInt(9999999999), 1,
+		)
+		require.NoError(t, err)
+
+		ib := types.Inbound{
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xraw01",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Amount:      "1000",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  rawPayload,
+		}
+		basicErr, execErr, norm := runPipeline(ib)
+		require.NoError(t, basicErr)
+		require.NoError(t, execErr)
+		require.NotNil(t, norm.UniversalPayload, "raw_payload should be decoded into universal_payload")
+		require.Equal(t, "1000", norm.UniversalPayload.Value)
+		require.Equal(t, "0xdead", norm.UniversalPayload.Data)
+		require.Empty(t, norm.RawPayload, "raw_payload should be cleared after decode")
+	})
+
+	t.Run("FUNDS_AND_PAYLOAD with invalid raw_payload: decode fails", func(t *testing.T) {
+		ib := types.Inbound{
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xraw02",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Amount:      "1000",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  "0xdeadbeef", // too short to be valid ABI
+		}
+		basicErr, execErr, _ := runPipeline(ib)
+		require.NoError(t, basicErr)
+		require.Error(t, execErr, "invalid raw_payload should fail at decode step")
+		require.Contains(t, execErr.Error(), "decode")
+	})
+
+	t.Run("FUNDS_AND_PAYLOAD with both raw_payload and universal_payload: raw takes precedence", func(t *testing.T) {
+		rawPayload, err := abiEncodeUniversalPayload(
+			common.HexToAddress("0x000000000000000000000000000000000000abcd"),
+			big.NewInt(9999), []byte{}, big.NewInt(21000),
+			big.NewInt(1e9), big.NewInt(2e8), big.NewInt(0), big.NewInt(0), 0,
+		)
+		require.NoError(t, err)
+
+		ib := types.Inbound{
+			SourceChain:      "eip155:11155111",
+			TxHash:           "0xraw03",
+			Sender:           "0x000000000000000000000000000000000000dead",
+			Amount:           "1000",
+			AssetAddr:        "0x000000000000000000000000000000000000cafe",
+			LogIndex:         "1",
+			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+			UniversalPayload: validPayload,                   // old format (will be cleared by normalize)
+			RawPayload:       rawPayload,                     // new format (takes precedence)
+		}
+		basicErr, execErr, norm := runPipeline(ib)
+		require.NoError(t, basicErr)
+		require.NoError(t, execErr)
+		require.NotNil(t, norm.UniversalPayload)
+		require.Equal(t, "9999", norm.UniversalPayload.Value, "raw_payload value should take precedence")
+	})
+
+	t.Run("FUNDS_AND_PAYLOAD with only universal_payload (no raw_payload): UV payload is wiped, fails execution", func(t *testing.T) {
+		ib := types.Inbound{
+			SourceChain:      "eip155:11155111",
+			TxHash:           "0xraw04",
+			Sender:           "0x000000000000000000000000000000000000dead",
+			Amount:           "1000",
+			AssetAddr:        "0x000000000000000000000000000000000000cafe",
+			LogIndex:         "1",
+			TxType:           types.TxType_FUNDS_AND_PAYLOAD,
+			UniversalPayload: validPayload, // UV sends decoded payload directly — will be wiped
+		}
+		basicErr, execErr, _ := runPipeline(ib)
+		require.NoError(t, basicErr)
+		require.Error(t, execErr, "UV-sent universal_payload is wiped; raw_payload is required")
+		require.Contains(t, execErr.Error(), "payload is required")
+	})
+
+	t.Run("FUNDS with raw_payload: normalization strips it (non-payload type)", func(t *testing.T) {
+		ib := types.Inbound{
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xraw05",
+			Sender:      "0x000000000000000000000000000000000000dead",
+			Recipient:   "0x000000000000000000000000000000000000beef",
+			Amount:      "1000",
+			AssetAddr:   "0x000000000000000000000000000000000000cafe",
+			LogIndex:    "1",
+			TxType:      types.TxType_FUNDS,
+			RawPayload:  "0xdeadbeef",
+		}
+		basicErr, execErr, norm := runPipeline(ib)
+		require.NoError(t, basicErr)
+		require.NoError(t, execErr)
+		require.Empty(t, norm.RawPayload, "raw_payload should be cleared for non-payload type")
 	})
 }

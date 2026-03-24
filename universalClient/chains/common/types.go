@@ -69,9 +69,9 @@ type UniversalTx struct {
 	Sender              string                   `json:"sender"`
 	Recipient           string                   `json:"recipient"`
 	Token               string                   `json:"bridgeToken"`
-	Amount              string                   `json:"bridgeAmount"` // uint256 as decimal string
-	Payload             uetypes.UniversalPayload `json:"universalPayload"`
-	VerificationData    string                   `json:"verificationData"`
+	Amount              string `json:"bridgeAmount"` // uint256 as decimal string
+	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
+	VerificationData    string `json:"verificationData"`
 	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA

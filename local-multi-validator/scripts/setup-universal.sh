@@ -142,6 +142,7 @@ ARBITRUM_CHAIN_ID="eip155:421614"
 ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
 BASE_CHAIN_ID="eip155:84532"
 BSC_CHAIN_ID="eip155:97"
+SOLANA_CHAIN_ID="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
 BSC_TESTNET_CHAIN_ID="eip155:97"
 BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
 SEPOLIA_CHAIN_ID="eip155:11155111"
@@ -158,6 +159,9 @@ if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BASE_RPC_URL_OVERRIDE:-}" ]; then
 fi
 if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BSC_RPC_URL_OVERRIDE:-}" ]; then
   BSC_RPC_URL_OVERRIDE="http://host.docker.internal:9548"
+fi
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
+  SOLANA_RPC_URL_OVERRIDE="http://host.docker.internal:8899"
 fi
 
 jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
@@ -197,6 +201,14 @@ fi
 if [ -n "${BSC_RPC_URL_OVERRIDE:-}" ]; then
   echo "🌐 Overriding BSC testnet rpc_urls to: $BSC_RPC_URL_OVERRIDE"
   jq --arg chain "$BSC_CHAIN_ID" --arg url "$BSC_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+if [ -n "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding Solana rpc_urls to: $SOLANA_RPC_URL_OVERRIDE"
+  jq --arg chain "$SOLANA_CHAIN_ID" --arg url "$SOLANA_RPC_URL_OVERRIDE" \
     '.chain_configs[$chain].rpc_urls = [$url]' \
     "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"

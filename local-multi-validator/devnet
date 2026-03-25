@@ -34,6 +34,8 @@ LOCAL_BASE_SOURCE_RPC_URL="${LOCAL_BASE_SOURCE_RPC_URL:-http://localhost:9547}"
 LOCAL_BASE_UV_RPC_URL="${LOCAL_BASE_UV_RPC_URL:-http://host.docker.internal:9547}"
 LOCAL_BSC_SOURCE_RPC_URL="${LOCAL_BSC_SOURCE_RPC_URL:-http://localhost:9548}"
 LOCAL_BSC_UV_RPC_URL="${LOCAL_BSC_UV_RPC_URL:-http://host.docker.internal:9548}"
+LOCAL_SOLANA_SOURCE_RPC_URL="${LOCAL_SOLANA_SOURCE_RPC_URL:-http://localhost:8899}"
+LOCAL_SOLANA_UV_RPC_URL="${LOCAL_SOLANA_UV_RPC_URL:-http://host.docker.internal:8899}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COLORS
@@ -553,7 +555,15 @@ cmd_up() {
     fi
 
     if [ -z "$solana_start_height" ]; then
-        if solana_start_height=$(fetch_solana_slot "$SOLANA_DEVNET_DEFAULT_RPC_URL"); then
+        if [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+            if solana_start_height=$(fetch_solana_slot "$LOCAL_SOLANA_SOURCE_RPC_URL"); then
+                print_status "Using LOCAL Solana event_start_from from $LOCAL_SOLANA_SOURCE_RPC_URL: $solana_start_height"
+            else
+                print_warning "Could not fetch LOCAL Solana latest slot from $LOCAL_SOLANA_SOURCE_RPC_URL"
+                print_warning "Solana will use default event_start_from from pushuv config"
+                solana_start_height=""
+            fi
+        elif solana_start_height=$(fetch_solana_slot "$SOLANA_DEVNET_DEFAULT_RPC_URL"); then
             print_status "Using Solana devnet event_start_from: $solana_start_height"
         else
             print_warning "Could not fetch Solana devnet latest slot from $SOLANA_DEVNET_DEFAULT_RPC_URL"
@@ -569,6 +579,7 @@ cmd_up() {
     ARBITRUM_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_ARBITRUM_UV_RPC_URL" || echo "${ARBITRUM_RPC_URL_OVERRIDE:-}")" \
     BASE_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_BASE_UV_RPC_URL" || echo "${BASE_RPC_URL_OVERRIDE:-}")" \
     BSC_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_BSC_UV_RPC_URL" || echo "${BSC_RPC_URL_OVERRIDE:-}")" \
+    SOLANA_RPC_URL_OVERRIDE="$([ "${TESTING_ENV:-}" = "LOCAL" ] && echo "$LOCAL_SOLANA_UV_RPC_URL" || echo "${SOLANA_RPC_URL_OVERRIDE:-}")" \
     SEPOLIA_EVENT_START_FROM="$sepolia_start_height" \
     BASE_EVENT_START_FROM="$base_start_height" \
     ARBITRUM_EVENT_START_FROM="$arbitrum_start_height" \

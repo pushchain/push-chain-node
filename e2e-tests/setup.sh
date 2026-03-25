@@ -34,14 +34,14 @@ fi
 : "${GATEWAY_REPO:=https://github.com/pushchain/push-chain-gateway-contracts.git}"
 : "${GATEWAY_BRANCH:=e2e-push-node}"
 : "${PUSH_CHAIN_SDK_REPO:=https://github.com/pushchain/push-chain-sdk.git}"
-: "${PUSH_CHAIN_SDK_BRANCH:=feb-11-2026-alpha-publish}"
+: "${PUSH_CHAIN_SDK_BRANCH:=outbound_changes}"
 
 : "${E2E_PARENT_DIR:=../}"
 : "${CORE_CONTRACTS_DIR:=$E2E_PARENT_DIR/push-chain-core-contracts}"
 : "${SWAP_AMM_DIR:=$E2E_PARENT_DIR/push-chain-swap-internal-amm-contracts}"
 : "${GATEWAY_DIR:=$E2E_PARENT_DIR/push-chain-gateway-contracts}"
 : "${PUSH_CHAIN_SDK_DIR:=$E2E_PARENT_DIR/push-chain-sdk}"
-: "${PUSH_CHAIN_SDK_E2E_DIR:=packages/core/__e2e__}"
+: "${PUSH_CHAIN_SDK_E2E_DIR:=packages/core/__e2e__/evm/inbound}"
 : "${PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH:=packages/core/src/lib/constants/chain.ts}"
 : "${PUSH_CHAIN_SDK_ACCOUNT_TS_PATH:=packages/core/src/lib/universal/account/account.ts}"
 : "${PUSH_CHAIN_SDK_CORE_ENV_PATH:=packages/core/.env}"
@@ -547,7 +547,7 @@ step_setup_environment() {
     return 0
   fi
 
-  require_cmd anvil cast docker jq
+  require_cmd anvil cast docker jq surfpool curl
 
   local sepolia_host_rpc="${ANVIL_SEPOLIA_HOST_RPC_URL:-http://localhost:9545}"
   local arbitrum_host_rpc="${ANVIL_ARBITRUM_HOST_RPC_URL:-http://localhost:9546}"
@@ -558,20 +558,49 @@ step_setup_environment() {
   local uv_arbitrum_rpc_url="${LOCAL_ARBITRUM_UV_RPC_URL:-http://host.docker.internal:9546}"
   local uv_base_rpc_url="${LOCAL_BASE_UV_RPC_URL:-http://host.docker.internal:9547}"
   local uv_bsc_rpc_url="${LOCAL_BSC_UV_RPC_URL:-http://host.docker.internal:9548}"
+  local solana_host_rpc="${SURFPOOL_SOLANA_HOST_RPC_URL:-http://localhost:8899}"
+  local uv_solana_rpc_url="${LOCAL_SOLANA_UV_RPC_URL:-http://host.docker.internal:8899}"
+
+  patch_chain_config_public_rpc() {
+    local file_path="$1"
+    local rpc_url="$2"
+    local label="$3"
+    local tmp
+
+    if [[ ! -f "$file_path" ]]; then
+      log_warn "Chain config file not found for $label: $file_path"
+      return 0
+    fi
+
+    tmp="$(mktemp)"
+    jq --arg rpc "$rpc_url" '.public_rpc_url = $rpc' "$file_path" >"$tmp"
+    mv "$tmp" "$file_path"
+    log_ok "Patched $label chain config public_rpc_url => $rpc_url"
+  }
+
+  patch_local_testnet_donut_chain_configs() {
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/eth_sepolia/chain.json" "$sepolia_host_rpc" "eth_sepolia"
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/arb_sepolia/chain.json" "$arbitrum_host_rpc" "arb_sepolia"
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/base_sepolia/chain.json" "$base_host_rpc" "base_sepolia"
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/bsc_testnet/chain.json" "$bsc_host_rpc" "bsc_testnet"
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/solana_devnet/chain.json" "$solana_host_rpc" "solana_devnet"
+  }
 
   start_anvil_fork() {
     local label="$1"
     local port="$2"
     local chain_id="$3"
     local fork_url="$4"
+    local anvil_pattern="anvil --port $port"
 
-    if pgrep -f "anvil --port $port --chain-id $chain_id" >/dev/null 2>&1; then
-      log_ok "Anvil $label already running on port $port"
-      return 0
+    if pgrep -f "$anvil_pattern" >/dev/null 2>&1; then
+      log_info "Stopping existing anvil $label on port $port"
+      pkill -f "$anvil_pattern" >/dev/null 2>&1 || true
+      sleep 1
     fi
 
-    log_info "Starting anvil $label on port $port"
-    nohup anvil --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1 \
+    log_info "Starting anvil $label on port $port (chain-id: $chain_id)"
+    nohup anvil --host 0.0.0.0 --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1 \
       >"$LOG_DIR/anvil_${label}.log" 2>&1 &
   }
 
@@ -594,16 +623,52 @@ step_setup_environment() {
     return 1
   }
 
+  start_surfpool() {
+    local surfpool_pattern="surfpool start --port 8899 --network devnet"
+
+    if pgrep -f "$surfpool_pattern" >/dev/null 2>&1; then
+      log_info "Stopping existing surfpool on port 8899"
+      pkill -f "$surfpool_pattern" >/dev/null 2>&1 || true
+      sleep 1
+    fi
+
+    log_info "Starting surfpool for local Solana testing on port 8899"
+    nohup surfpool start --port 8899 --network devnet >"$LOG_DIR/surfpool.log" 2>&1 &
+  }
+
+  wait_for_solana_slot() {
+    local rpc_url="$1"
+    local slot=""
+    local response
+    local i
+    for i in {1..30}; do
+      response="$(curl -sS -X POST "$rpc_url" -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[{"commitment":"processed"}]}' || true)"
+      slot="$(echo "$response" | jq -r '.result // empty' 2>/dev/null || true)"
+      slot="$(echo "$slot" | tr -d '[:space:]')"
+      if [[ "$slot" =~ ^[0-9]+$ ]]; then
+        printf "%s" "$slot"
+        return 0
+      fi
+      sleep 1
+    done
+
+    log_err "Could not read latest Solana slot from surfpool at $rpc_url"
+    return 1
+  }
+
   start_anvil_fork "sepolia" "9545" "11155111" "https://ethereum-sepolia-rpc.publicnode.com"
   start_anvil_fork "arbitrum" "9546" "421614" "https://arbitrum-sepolia.gateway.tenderly.co"
   start_anvil_fork "base" "9547" "84532" "https://sepolia.base.org"
   start_anvil_fork "bsc" "9548" "97" "https://bsc-testnet-rpc.publicnode.com"
+  start_surfpool
+  patch_local_testnet_donut_chain_configs
 
-  local sepolia_latest_block arbitrum_latest_block base_latest_block bsc_latest_block
+  local sepolia_latest_block arbitrum_latest_block base_latest_block bsc_latest_block solana_latest_slot
   sepolia_latest_block="$(wait_for_block_number "sepolia" "$sepolia_host_rpc")"
   arbitrum_latest_block="$(wait_for_block_number "arbitrum" "$arbitrum_host_rpc")"
   base_latest_block="$(wait_for_block_number "base" "$base_host_rpc")"
   bsc_latest_block="$(wait_for_block_number "bsc" "$bsc_host_rpc")"
+  solana_latest_slot="$(wait_for_solana_slot "$solana_host_rpc")"
 
   local patched_count=0
   local config_path="/root/.puniversal/config/pushuv_config.json"
@@ -628,10 +693,12 @@ step_setup_environment() {
       --arg arbitrum_rpc "$uv_arbitrum_rpc_url" \
       --arg base_rpc "$uv_base_rpc_url" \
       --arg bsc_rpc "$uv_bsc_rpc_url" \
+      --arg solana_rpc "$uv_solana_rpc_url" \
       --argjson sepolia_start "$sepolia_latest_block" \
       --argjson arbitrum_start "$arbitrum_latest_block" \
       --argjson base_start "$base_latest_block" \
       --argjson bsc_start "$bsc_latest_block" \
+      --argjson solana_start "$solana_latest_slot" \
       '
         .chain_configs["eip155:11155111"].rpc_urls = [$sepolia_rpc]
         | .chain_configs["eip155:11155111"].event_start_from = $sepolia_start
@@ -641,13 +708,15 @@ step_setup_environment() {
         | .chain_configs["eip155:84532"].event_start_from = $base_start
         | .chain_configs["eip155:97"].rpc_urls = [$bsc_rpc]
         | .chain_configs["eip155:97"].event_start_from = $bsc_start
+        | .chain_configs["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"].rpc_urls = [$solana_rpc]
+        | .chain_configs["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"].event_start_from = $solana_start
       ' "$tmp_in" >"$tmp_out"
 
     docker cp "$tmp_out" "$uv_container":"$config_path"
     rm -f "$tmp_in" "$tmp_out"
 
     patched_count=$((patched_count + 1))
-    log_ok "Updated $uv_container config for Sepolia/Arbitrum/Base/BSC local forks"
+    log_ok "Updated $uv_container config for Sepolia/Arbitrum/Base/BSC/Solana local forks"
   done
 
   if [[ "$patched_count" -eq 0 ]]; then
@@ -655,7 +724,7 @@ step_setup_environment() {
     return 0
   fi
 
-  log_ok "Patched $patched_count universal validator config(s) with local fork RPC/event_start_from"
+  log_ok "Patched $patched_count universal validator config(s) with local fork RPC/event_start_from (including Solana)"
 }
 
 step_stop_running_nodes() {
@@ -1584,7 +1653,7 @@ cmd_show_help() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  setup-environment      For TESTING_ENV=LOCAL: start anvil + patch universal-validator Sepolia chain config
+  setup-environment      For TESTING_ENV=LOCAL: start anvil/surfpool + patch validator and testnet-donut chain RPC configs
   devnet                 Build/start local-multi-validator devnet + uvalidators
   print-genesis          Print first genesis account + mnemonic
   recover-genesis-key    Recover genesis key into local keyring
@@ -1617,7 +1686,7 @@ Primary files:
   Address: $DEPLOY_ADDRESSES_FILE
 
 Important env:
-  TESTING_ENV=LOCAL      Enables local anvil setup and config rewrites for Sepolia chain in setup-environment/all
+  TESTING_ENV=LOCAL      Enables local anvil setup and config rewrites for testnet-donut chain.json and universal validator RPCs in setup-environment/all
   ANVIL_SEPOLIA_HOST_RPC_URL=http://localhost:9545
   ANVIL_ARBITRUM_HOST_RPC_URL=http://localhost:9546
   ANVIL_BASE_HOST_RPC_URL=http://localhost:9547
@@ -1626,6 +1695,8 @@ Important env:
   LOCAL_ARBITRUM_UV_RPC_URL=http://host.docker.internal:9546
   LOCAL_BASE_UV_RPC_URL=http://host.docker.internal:9547
   LOCAL_BSC_UV_RPC_URL=http://host.docker.internal:9548
+  SURFPOOL_SOLANA_HOST_RPC_URL=http://localhost:8899
+  LOCAL_SOLANA_UV_RPC_URL=http://host.docker.internal:8899
 EOF
 }
 

@@ -60,13 +60,34 @@ cp e2e-tests/.env.example e2e-tests/.env
 Important variables in `.env`:
 
 - `PUSH_RPC_URL` (default `http://localhost:8545`)
+- `TESTING_ENV` (`LOCAL` enables anvil/surfpool + local RPC rewrites)
 - `PRIVATE_KEY`
 - `FUND_TO_ADDRESS`
 - `POOL_CREATION_TOPUP_AMOUNT` (funding for deployer before pool creation)
 - `CORE_CONTRACTS_BRANCH`
 - `SWAP_AMM_BRANCH`
 - `GATEWAY_BRANCH` (currently `e2e-push-node`)
-- `PUSH_CHAIN_SDK_BRANCH` (default `feb-11-2026-alpha-publish`)
+- `PUSH_CHAIN_SDK_BRANCH` (default `outbound_changes`)
+- `PUSH_CHAIN_SDK_E2E_DIR` (default `packages/core/__e2e__/evm/inbound`)
+
+### TESTING_ENV=LOCAL behavior
+
+Set this in `e2e-tests/.env` when running local fork-based E2E:
+
+```bash
+TESTING_ENV=LOCAL
+```
+
+When `TESTING_ENV=LOCAL`, `setup-environment` (and `all`) now does both:
+
+1. starts local fork nodes (`anvil` for Sepolia/Arbitrum/Base/BSC and `surfpool` for Solana)
+2. rewrites `public_rpc_url` in `config/testnet-donut/*/chain.json` to your configured local RPC URLs:
+  - `ANVIL_SEPOLIA_HOST_RPC_URL` (default `http://localhost:9545`)
+  - `ANVIL_ARBITRUM_HOST_RPC_URL` (default `http://localhost:9546`)
+  - `ANVIL_BASE_HOST_RPC_URL` (default `http://localhost:9547`)
+  - `ANVIL_BSC_HOST_RPC_URL` (default `http://localhost:9548`)
+  - `SURFPOOL_SOLANA_HOST_RPC_URL` (default `http://localhost:8899`)
+3. patches universal-validator container RPC endpoints (`pushuv_config.json`) to the corresponding local endpoints
 
 Genesis account source:
 
@@ -150,6 +171,10 @@ Then it updates both:
 
 - `e2e-tests/deploy_addresses.json` as `contracts.UEA_PROXY_IMPLEMENTATION`
 - `push-chain-sdk/packages/core/src/lib/constants/chain.ts` at `[PUSH_NETWORK.LOCALNET]`
+
+SDK tests are discovered from:
+
+- `push-chain-sdk/packages/core/__e2e__/evm/inbound`
 
 Run all configured SDK E2E files:
 

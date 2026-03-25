@@ -37,6 +37,29 @@ func (k Keeper) UpdateOutbound(ctx context.Context, utxId string, outbound types
 	})
 }
 
+// AbortOutbound marks an outbound as ABORTED with a reason.
+// This signals that automatic processing has failed and manual intervention is needed.
+func (k Keeper) AbortOutbound(ctx context.Context, utxId string, outbound types.OutboundTx, reason string) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	outbound.OutboundStatus = types.Status_ABORTED
+	outbound.AbortReason = reason
+
+	if err := k.UpdateOutbound(ctx, utxId, outbound); err != nil {
+		return err
+	}
+
+	// Emit event for monitoring/alerting
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"outbound_aborted",
+		sdk.NewAttribute("utx_id", utxId),
+		sdk.NewAttribute("outbound_id", outbound.Id),
+		sdk.NewAttribute("abort_reason", reason),
+	))
+
+	return nil
+}
+
 func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound types.OutboundTx) error {
 	// If not observed yet, do nothing
 	if outbound.OutboundStatus != types.Status_OBSERVED {
@@ -86,11 +109,14 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 		if err != nil {
 			pcTx.Status = "FAILED"
 			pcTx.ErrorMsg = err.Error()
-		} else {
-			pcTx.TxHash = receipt.Hash
-			pcTx.GasUsed = receipt.GasUsed
-			pcTx.Status = "SUCCESS"
+			outbound.PcRevertExecution = &pcTx
+			// Re-mint failed — mark as ABORTED for manual intervention
+			return k.AbortOutbound(ctx, utxId, outbound,
+				fmt.Sprintf("failed to re-mint tokens for revert: %s", err.Error()))
 		}
+		pcTx.TxHash = receipt.Hash
+		pcTx.GasUsed = receipt.GasUsed
+		pcTx.Status = "SUCCESS"
 		outbound.PcRevertExecution = &pcTx
 	}
 

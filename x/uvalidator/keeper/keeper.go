@@ -121,7 +121,50 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	return k.Params.Set(ctx, data.Params)
+	if err := k.Params.Set(ctx, data.Params); err != nil {
+		return err
+	}
+
+	// Restore UniversalValidatorSet
+	for _, entry := range data.UniversalValidators {
+		valAddr, err := sdk.ValAddressFromBech32(entry.Key)
+		if err != nil {
+			return err
+		}
+		if err := k.UniversalValidatorSet.Set(ctx, valAddr, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore Ballots
+	for _, ballot := range data.Ballots {
+		if err := k.Ballots.Set(ctx, ballot.Id, ballot); err != nil {
+			return err
+		}
+	}
+
+	// Restore ActiveBallotIDs
+	for _, id := range data.ActiveBallotIDs {
+		if err := k.ActiveBallotIDs.Set(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	// Restore ExpiredBallotIDs
+	for _, id := range data.ExpiredBallotIDs {
+		if err := k.ExpiredBallotIDs.Set(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	// Restore FinalizedBallotIDs
+	for _, id := range data.FinalizedBallotIDs {
+		if err := k.FinalizedBallotIDs.Set(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExportGenesis exports the module's state to a genesis state.
@@ -131,8 +174,66 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export UniversalValidatorSet
+	var universalValidators []types.UniversalValidatorEntry
+	err = k.UniversalValidatorSet.Walk(ctx, nil, func(key sdk.ValAddress, value types.UniversalValidator) (bool, error) {
+		universalValidators = append(universalValidators, types.UniversalValidatorEntry{
+			Key:   key.String(),
+			Value: value,
+		})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export Ballots
+	var ballots []types.Ballot
+	err = k.Ballots.Walk(ctx, nil, func(key string, value types.Ballot) (bool, error) {
+		ballots = append(ballots, value)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ActiveBallotIDs
+	var activeBallotIDs []string
+	err = k.ActiveBallotIDs.Walk(ctx, nil, func(key string) (bool, error) {
+		activeBallotIDs = append(activeBallotIDs, key)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ExpiredBallotIDs
+	var expiredBallotIDs []string
+	err = k.ExpiredBallotIDs.Walk(ctx, nil, func(key string) (bool, error) {
+		expiredBallotIDs = append(expiredBallotIDs, key)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export FinalizedBallotIDs
+	var finalizedBallotIDs []string
+	err = k.FinalizedBallotIDs.Walk(ctx, nil, func(key string) (bool, error) {
+		finalizedBallotIDs = append(finalizedBallotIDs, key)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params: params,
+		Params:              params,
+		UniversalValidators: universalValidators,
+		Ballots:             ballots,
+		ActiveBallotIDs:     activeBallotIDs,
+		ExpiredBallotIDs:    expiredBallotIDs,
+		FinalizedBallotIDs:  finalizedBallotIDs,
 	}
 }
 

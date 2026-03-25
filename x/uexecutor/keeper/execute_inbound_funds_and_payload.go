@@ -181,12 +181,17 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				OutboundStatus:    types.Status_PENDING,
 				Id:                types.GetOutboundRevertId(utx.InboundTx.SourceChain, utx.InboundTx.TxHash),
 			}
-			_ = k.attachOutboundsToUtx(
+			if attachErr := k.attachOutboundsToUtx(
 				sdkCtx,
 				universalTxKey,
 				[]*types.OutboundTx{revertOutbound},
 				revertReason,
-			)
+			); attachErr != nil {
+				sdkCtx.Logger().Error("CRITICAL: failed to attach revert outbound",
+					"utx_id", universalTxKey,
+					"error", attachErr,
+				)
+			}
 		}
 		return nil
 	}

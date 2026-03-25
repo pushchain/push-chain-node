@@ -184,12 +184,17 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
 		}
 
-		_ = k.attachOutboundsToUtx(
+		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,
 			universalTxKey,
 			[]*types.OutboundTx{revertOutbound},
 			revertReason,
-		)
+		); attachErr != nil {
+			sdkCtx.Logger().Error("CRITICAL: failed to attach revert outbound",
+				"utx_id", universalTxKey,
+				"error", attachErr,
+			)
+		}
 	}
 
 	// Never return execErr, only nil

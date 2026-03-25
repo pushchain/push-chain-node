@@ -56,3 +56,30 @@ message TssKey {
   int64 keygen_block_height = 5;
   uint64 process_id = 6;
 }
+
+// TSS Event types
+enum TssEventType {
+  TSS_EVENT_PROCESS_INITIATED = 0;
+  TSS_EVENT_KEY_FINALIZED     = 1;
+}
+
+// TSS Event statuses
+enum TssEventStatus {
+  TSS_EVENT_ACTIVE    = 0;
+  TSS_EVENT_COMPLETED = 1;
+  TSS_EVENT_EXPIRED   = 2;
+}
+
+// Persistent TSS event for queryable lifecycle tracking
+message TssEvent {
+  uint64          id            = 1;
+  TssEventType    event_type    = 2;
+  TssEventStatus  status        = 3;
+  uint64          process_id    = 4;
+  string          process_type  = 5;
+  repeated string participants  = 6;
+  int64           expiry_height = 7;
+  int64           block_height  = 8;
+  string          key_id        = 9;
+  string          tss_pubkey    = 10;
+}

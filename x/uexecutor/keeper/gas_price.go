@@ -3,8 +3,6 @@ package keeper
 import (
 	"context"
 	"errors"
-	"fmt"
-
 	"sort"
 
 	"cosmossdk.io/collections"
@@ -88,8 +86,7 @@ func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddr
 	}
 
 	medianPrice := math.NewUint(gasPriceEntry.Prices[medianIdx]).BigInt()
-	if receipt, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, medianPrice); err != nil {
-		fmt.Println(receipt)
+	if _, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, medianPrice); err != nil {
 		return sdkerrors.Wrap(err, "failed to call EVM setGasPrice")
 	}
 

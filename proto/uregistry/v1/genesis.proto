@@ -7,8 +7,30 @@ import "uregistry/v1/types.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uregistry/types";
 
+// ChainConfigEntry is a key-value pair for exporting ChainConfigs map state.
+message ChainConfigEntry {
+  string key = 1;
+  ChainConfig value = 2 [(gogoproto.nullable) = false];
+}
+
+// TokenConfigEntry is a key-value pair for exporting TokenConfigs map state.
+message TokenConfigEntry {
+  string key = 1;
+  TokenConfig value = 2 [(gogoproto.nullable) = false];
+}
+
 // GenesisState defines the module genesis state
 message GenesisState {
   // Params defines all the parameters of the module.
   Params params = 1 [(gogoproto.nullable) = false];
+
+  // chain_configs are key-value pairs from the ChainConfigs Map.
+  repeated ChainConfigEntry chain_configs = 2 [(gogoproto.nullable) = false];
+
+  // token_configs are key-value pairs from the TokenConfigs Map.
+  repeated TokenConfigEntry token_configs = 3 [(gogoproto.nullable) = false];
+
+  // exported indicates whether this genesis state was produced by an export (true)
+  // or is a fresh genesis (false). When true, contract deployments are skipped.
+  bool exported = 4;
 }

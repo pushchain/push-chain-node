@@ -16,6 +16,21 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current consensus parameters",
 				},
+				{
+					RpcMethod: "GetTssEvent",
+					Use:       "event [event_id]",
+					Short:     "Query a single TSS event by ID",
+				},
+				{
+					RpcMethod: "ActiveTssEvents",
+					Use:       "active-events",
+					Short:     "Query all active TSS events (paginated)",
+				},
+				{
+					RpcMethod: "AllTssEvents",
+					Use:       "all-events",
+					Short:     "Query all TSS events (paginated, includes all statuses)",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

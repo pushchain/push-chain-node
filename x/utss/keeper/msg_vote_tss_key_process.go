@@ -122,7 +122,38 @@ func (k Keeper) VoteTssKeyProcess(
 		}
 	}
 
-	// Step 7: Emit finalized event
+	// Step 7: TSS Events - update initiated event and create finalized event
+
+	// Find and update the initiated event for this process → COMPLETED
+	if err := k.updateTssEventStatusByProcessId(ctx, processId, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_COMPLETED); err != nil {
+		k.logger.Error("failed to update initiated tss event status", "process_id", processId, "err", err)
+	}
+
+	// Find previous finalized event (if any) → COMPLETED
+	if err := k.completePreviousActiveFinalizedEvent(ctx); err != nil {
+		k.logger.Error("failed to complete previous finalized tss event", "err", err)
+	}
+
+	// Create new finalized event
+	eventId, err := k.NextTssEventId.Next(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to generate tss event id: %w", err)
+	}
+	if err := k.TssEvents.Set(ctx, eventId, types.TssEvent{
+		Id:           eventId,
+		EventType:    types.TssEventType_TSS_EVENT_KEY_FINALIZED,
+		Status:       types.TssEventStatus_TSS_EVENT_ACTIVE,
+		ProcessId:    processId,
+		ProcessType:  process.ProcessType.String(),
+		Participants: process.Participants,
+		KeyId:        keyId,
+		TssPubkey:    tssPubKey,
+		BlockHeight:  sdkCtx.BlockHeight(),
+	}); err != nil {
+		return fmt.Errorf("failed to store tss finalized event: %w", err)
+	}
+
+	// Step 8: Emit finalized event
 	event, _ := types.NewTssKeyFinalizedEvent(types.TssKeyFinalizedEvent{
 		ProcessID: processId,
 		KeyID:     keyId,

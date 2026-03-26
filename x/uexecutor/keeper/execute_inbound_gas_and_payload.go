@@ -17,9 +17,13 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	chainNamespace, chainId, err := types.ParseCAIP2(utx.InboundTx.SourceChain)
+	if err != nil {
+		return fmt.Errorf("invalid SourceChain: %w", err)
+	}
 	universalAccountId := types.UniversalAccountId{
-		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
-		ChainId:        strings.Split(utx.InboundTx.SourceChain, ":")[1],
+		ChainNamespace: chainNamespace,
+		ChainId:        chainId,
 		Owner:          utx.InboundTx.Sender,
 	}
 

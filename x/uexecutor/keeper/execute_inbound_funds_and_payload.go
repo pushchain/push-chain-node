@@ -21,9 +21,13 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	var revertReason string
 
 	// Build universalAccountId
+	chainNamespace, chainId, err := types.ParseCAIP2(utx.InboundTx.SourceChain)
+	if err != nil {
+		return fmt.Errorf("invalid SourceChain: %w", err)
+	}
 	universalAccountId := types.UniversalAccountId{
-		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
-		ChainId:        strings.Split(utx.InboundTx.SourceChain, ":")[1],
+		ChainNamespace: chainNamespace,
+		ChainId:        chainId,
 		Owner:          utx.InboundTx.Sender,
 	}
 

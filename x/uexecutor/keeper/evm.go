@@ -127,8 +127,6 @@ func (k Keeper) CallFactoryToDeployUEA(
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
 
-	fmt.Println("FROM: ", from)
-
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
@@ -645,4 +643,3 @@ func (k Keeper) CallExecuteUniversalTx(
 		txId,
 	)
 }
-

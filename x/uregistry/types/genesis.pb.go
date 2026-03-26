@@ -28,6 +28,25 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// ChainConfigs are key-value pairs from the ChainConfigs Map.
+	ChainConfigs []ChainConfigEntry `protobuf:"bytes,2,rep,name=chain_configs,json=chainConfigs,proto3" json:"chain_configs"`
+	// TokenConfigs are key-value pairs from the TokenConfigs Map.
+	TokenConfigs []TokenConfigEntry `protobuf:"bytes,3,rep,name=token_configs,json=tokenConfigs,proto3" json:"token_configs"`
+	// Exported indicates whether this genesis state was produced by an export.
+	// When true, contract deployments are skipped during InitGenesis.
+	Exported bool `protobuf:"varint,4,opt,name=exported,proto3" json:"exported,omitempty"`
+}
+
+// ChainConfigEntry is a key-value pair for exporting ChainConfigs map state.
+type ChainConfigEntry struct {
+	Key   string      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value ChainConfig `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+// TokenConfigEntry is a key-value pair for exporting TokenConfigs map state.
+type TokenConfigEntry struct {
+	Key   string      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value TokenConfig `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }

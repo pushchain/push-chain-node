@@ -27,6 +27,7 @@ import (
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
+	pendingoutboundsindex "github.com/pushchain/push-chain-node/app/upgrades/pending-outbounds-index"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
 )
 
@@ -53,6 +54,7 @@ var Upgrades = []upgrades.Upgrade{
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
 	tsseventsstore.NewUpgrade(),
+	pendingoutboundsindex.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

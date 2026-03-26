@@ -28,6 +28,23 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// UniversalValidators are key-value pairs from the UniversalValidatorSet Map.
+	UniversalValidators []UniversalValidatorEntry `protobuf:"bytes,2,rep,name=universal_validators,json=universalValidators,proto3" json:"universal_validators"`
+	// Ballots are key-value pairs from the Ballots Map.
+	Ballots []Ballot `protobuf:"bytes,3,rep,name=ballots,proto3" json:"ballots"`
+	// ActiveBallotIDs are keys from the ActiveBallotIDs KeySet.
+	ActiveBallotIDs []string `protobuf:"bytes,4,rep,name=active_ballot_ids,json=activeBallotIds,proto3" json:"active_ballot_ids,omitempty"`
+	// ExpiredBallotIDs are keys from the ExpiredBallotIDs KeySet.
+	ExpiredBallotIDs []string `protobuf:"bytes,5,rep,name=expired_ballot_ids,json=expiredBallotIds,proto3" json:"expired_ballot_ids,omitempty"`
+	// FinalizedBallotIDs are keys from the FinalizedBallotIDs KeySet.
+	FinalizedBallotIDs []string `protobuf:"bytes,6,rep,name=finalized_ballot_ids,json=finalizedBallotIds,proto3" json:"finalized_ballot_ids,omitempty"`
+}
+
+// UniversalValidatorEntry is a key-value pair for exporting UniversalValidatorSet map state.
+// The key is the bech32 string representation of the validator address.
+type UniversalValidatorEntry struct {
+	Key   string             `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value UniversalValidator `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }

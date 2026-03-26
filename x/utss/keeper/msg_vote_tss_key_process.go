@@ -38,17 +38,17 @@ func (k Keeper) VoteTssKeyProcess(
 	}
 
 	// Step 2: Vote on the ballot (using a cache context so we don’t mutate state on failure)
+	// The entire vote + finalization is wrapped in a single CacheContext so that
+	// if any post-finalization step fails, the vote itself is also rolled back.
 	tmpCtx, commit := sdkCtx.CacheContext()
 	isFinalized, _, err := k.VoteOnTssBallot(tmpCtx, universalValidator, processId, tssPubKey, keyId)
 	if err != nil {
 		return errors.Wrap(err, "failed to vote on TSS ballot")
 	}
 
-	// Commit the vote
-	commit()
-
-	// Step 3: If not finalized yet, do nothing
+	// Step 3: If not finalized yet, commit only the vote and return
 	if !isFinalized {
+		commit()
 		return nil
 	}
 
@@ -64,14 +64,14 @@ func (k Keeper) VoteTssKeyProcess(
 		ProcessId:            processId,
 	}
 
-	// Step 6: Store updates
-	if err := k.CurrentTssKey.Set(ctx, tssKey); err != nil {
+	// Step 6: Store updates — all against tmpCtx so they are atomic with the vote
+	if err := k.CurrentTssKey.Set(tmpCtx, tssKey); err != nil {
 		return errors.Wrap(err, "failed to set current TSS key")
 	}
-	if err := k.TssKeyHistory.Set(ctx, keyId, tssKey); err != nil {
+	if err := k.TssKeyHistory.Set(tmpCtx, keyId, tssKey); err != nil {
 		return errors.Wrap(err, "failed to store TSS key history")
 	}
-	if err := k.FinalizeTssKeyProcess(ctx, processId, types.TssKeyProcessStatus_TSS_KEY_PROCESS_SUCCESS); err != nil {
+	if err := k.FinalizeTssKeyProcess(tmpCtx, processId, types.TssKeyProcessStatus_TSS_KEY_PROCESS_SUCCESS); err != nil {
 		return errors.Wrap(err, "failed to finalise TSS process")
 	}
 
@@ -79,7 +79,7 @@ func (k Keeper) VoteTssKeyProcess(
 	if process.ProcessType == types.TssProcessType_TSS_PROCESS_KEYGEN ||
 		process.ProcessType == types.TssProcessType_TSS_PROCESS_QUORUM_CHANGE {
 
-		universalValidatorSet, err := k.uvalidatorKeeper.GetAllUniversalValidators(ctx)
+		universalValidatorSet, err := k.uvalidatorKeeper.GetAllUniversalValidators(tmpCtx)
 		if err != nil {
 			return err
 		}
@@ -106,40 +106,40 @@ func (k Keeper) VoteTssKeyProcess(
 			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
 				if foundInParticipants {
 					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
-					if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
-						k.logger.Error("failed to activate universal validator", "valAddr", coreValidatorAddress, "err", err)
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
+						return fmt.Errorf("failed to activate universal validator %s: %w", coreValidatorAddress, err)
 					}
 				}
 			// update pending_leave validator to inactive
 			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
 				if !foundInParticipants {
 					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
-					if err := k.uvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
-						k.logger.Error("failed to inactivate universal validator", "valAddr", coreValidatorAddress, "err", err)
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
+						return fmt.Errorf("failed to inactivate universal validator %s: %w", coreValidatorAddress, err)
 					}
 				}
 			}
 		}
 	}
 
-	// Step 7: TSS Events - update initiated event and create finalized event
+	// Step 7: TSS Events — update initiated event and create finalized event
 
 	// Find and update the initiated event for this process → COMPLETED
-	if err := k.updateTssEventStatusByProcessId(ctx, processId, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_COMPLETED); err != nil {
+	if err := k.updateTssEventStatusByProcessId(tmpCtx, processId, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_COMPLETED); err != nil {
 		k.logger.Error("failed to update initiated tss event status", "process_id", processId, "err", err)
 	}
 
 	// Find previous finalized event (if any) → COMPLETED
-	if err := k.completePreviousActiveFinalizedEvent(ctx); err != nil {
+	if err := k.completePreviousActiveFinalizedEvent(tmpCtx); err != nil {
 		k.logger.Error("failed to complete previous finalized tss event", "err", err)
 	}
 
 	// Create new finalized event
-	eventId, err := k.NextTssEventId.Next(ctx)
+	eventId, err := k.NextTssEventId.Next(tmpCtx)
 	if err != nil {
 		return fmt.Errorf("failed to generate tss event id: %w", err)
 	}
-	if err := k.TssEvents.Set(ctx, eventId, types.TssEvent{
+	if err := k.TssEvents.Set(tmpCtx, eventId, types.TssEvent{
 		Id:           eventId,
 		EventType:    types.TssEventType_TSS_EVENT_KEY_FINALIZED,
 		Status:       types.TssEventStatus_TSS_EVENT_ACTIVE,
@@ -152,6 +152,9 @@ func (k Keeper) VoteTssKeyProcess(
 	}); err != nil {
 		return fmt.Errorf("failed to store tss finalized event: %w", err)
 	}
+
+	// Commit the vote and all finalization steps atomically
+	commit()
 
 	// Step 8: Emit finalized event
 	event, _ := types.NewTssKeyFinalizedEvent(types.TssKeyFinalizedEvent{

@@ -1,0 +1,56 @@
+package keeper
+
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+)
+
+// handleFailedInboundValidation records a failed PCTx on the UTX and, for non-isCEA
+// inbounds, schedules an INBOUND_REVERT outbound so the user's funds can be returned
+// on the source chain. This is called when ValidateForExecution fails after the ballot
+// has already been finalized and the UTX created.
+func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.UniversalTx, validationErr error) {
+	inbound := utx.InboundTx
+	_, ueModuleAddressStr := k.GetUeModuleAddress(sdkCtx)
+	universalTxKey := utx.Id
+
+	// Record the failed PCTx
+	failedPcTx := types.PCTx{
+		Sender:      ueModuleAddressStr,
+		BlockHeight: uint64(sdkCtx.BlockHeight()),
+		Status:      "FAILED",
+		ErrorMsg:    validationErr.Error(),
+	}
+
+	_ = k.UpdateUniversalTx(sdkCtx, universalTxKey, func(utx *types.UniversalTx) error {
+		utx.PcTx = append(utx.PcTx, &failedPcTx)
+		return nil
+	})
+
+	// For non-isCEA inbounds, schedule a revert outbound to return funds on source chain.
+	// isCEA failures never create an INBOUND_REVERT outbound (consistent with execute_inbound_funds_and_payload.go).
+	if !inbound.IsCEA {
+		revertRecipient := inbound.Sender
+		if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
+			revertRecipient = inbound.RevertInstructions.FundRecipient
+		}
+
+		revertOutbound := &types.OutboundTx{
+			DestinationChain: inbound.SourceChain,
+			Recipient:        revertRecipient,
+			Amount:           inbound.Amount,
+			ExternalAssetAddr: inbound.AssetAddr,
+			Sender:           inbound.Sender,
+			TxType:           types.TxType_INBOUND_REVERT,
+			OutboundStatus:   types.Status_PENDING,
+			Id:               types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
+		}
+
+		_ = k.attachOutboundsToUtx(
+			sdkCtx,
+			universalTxKey,
+			[]*types.OutboundTx{revertOutbound},
+			validationErr.Error(),
+		)
+	}
+}

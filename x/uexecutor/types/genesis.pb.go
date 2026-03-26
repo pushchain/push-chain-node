@@ -28,6 +28,37 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// PendingInbounds are the keys from the PendingInbounds KeySet.
+	PendingInbounds []string `protobuf:"bytes,2,rep,name=pending_inbounds,json=pendingInbounds,proto3" json:"pending_inbounds,omitempty"`
+	// UniversalTxs are key-value pairs from the UniversalTx Map.
+	UniversalTxs []UniversalTxEntry `protobuf:"bytes,3,rep,name=universal_txs,json=universalTxs,proto3" json:"universal_txs"`
+	// ModuleAccountNonce is the value from the ModuleAccountNonce Item.
+	ModuleAccountNonce uint64 `protobuf:"varint,4,opt,name=module_account_nonce,json=moduleAccountNonce,proto3" json:"module_account_nonce,omitempty"`
+	// GasPrices are key-value pairs from the GasPrices Map.
+	GasPrices []GasPriceEntry `protobuf:"bytes,5,rep,name=gas_prices,json=gasPrices,proto3" json:"gas_prices"`
+	// ChainMetas are key-value pairs from the ChainMetas Map.
+	ChainMetas []ChainMetaEntry `protobuf:"bytes,6,rep,name=chain_metas,json=chainMetas,proto3" json:"chain_metas"`
+	// Exported indicates whether this genesis state was produced by an export.
+	// When true, contract deployments are skipped during InitGenesis.
+	Exported bool `protobuf:"varint,7,opt,name=exported,proto3" json:"exported,omitempty"`
+}
+
+// UniversalTxEntry is a key-value pair for exporting UniversalTx map state.
+type UniversalTxEntry struct {
+	Key   string      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value UniversalTx `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+// GasPriceEntry is a key-value pair for exporting GasPrices map state.
+type GasPriceEntry struct {
+	Key   string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value GasPrice `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+// ChainMetaEntry is a key-value pair for exporting ChainMetas map state.
+type ChainMetaEntry struct {
+	Key   string    `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value ChainMeta `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }

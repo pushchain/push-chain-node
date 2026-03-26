@@ -78,6 +78,7 @@ enum Status {
   PENDING = 1;
   OBSERVED = 2;
   REVERTED = 3;
+  ABORTED = 4;    // finalization or revert attachment failed — requires manual intervention
 }
 
 enum TxType {
@@ -115,6 +116,7 @@ message Inbound {
   string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
   RevertInstructions revert_instructions = 11; // revert config
   bool isCEA = 12; // isCEA is the boolean indicating this inbound is initiated by a CEA
+  string raw_payload = 13; // hex-encoded raw payload bytes from source chain event; decoded into universal_payload by the core validator
 }
 
 message PCTx {
@@ -174,6 +176,7 @@ message OutboundTx {
   PCTx   pc_refund_execution = 18; // PC tx that executed the gas refund (non-nil if refund ran)
   string refund_swap_error   = 19; // non-empty if swap-refund failed and we fell back to no-swap
   string gas_token           = 20; // gas token PRC20 address used to pay relayer fee
+  string abort_reason        = 21; // Human-readable reason why the outbound was aborted
 }
 
 message UniversalTx {

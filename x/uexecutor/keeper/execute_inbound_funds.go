@@ -23,7 +23,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*inbound)
-	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+	if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
 			TxHash:      "", // no hash if depositPRC20 failed
 			Sender:      ueModuleAddressStr,
@@ -45,9 +45,8 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 
 		utx.PcTx = append(utx.PcTx, &pcTx)
 		return nil
-	})
-	if updateErr != nil {
-		return updateErr
+	}); updateErr != nil {
+		k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
 	}
 
 	if err != nil {
@@ -66,7 +65,12 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 			OutboundStatus:    types.Status_PENDING,
 			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
 		}
-		_ = k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error())
+		if attachErr := k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error()); attachErr != nil {
+			sdkCtx.Logger().Error("CRITICAL: failed to attach revert outbound",
+				"utx_id", utx.Id,
+				"error", attachErr,
+			)
+		}
 	}
 
 	return nil

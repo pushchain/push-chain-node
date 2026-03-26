@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,9 +26,7 @@ func (k Keeper) DeployUEA(ctx context.Context, evmFrom common.Address, universal
 		return nil, err
 	}
 
-	fmt.Println("DeployUEA receipt:", receipt)
-	returnedBytesHex := common.Bytes2Hex(receipt.Ret)
-	fmt.Println("Returned Bytes Hex:", returnedBytesHex)
+	k.Logger().Debug("DeployUEA completed", "ret_len", len(receipt.Ret))
 
 	return receipt.Ret, nil
 }

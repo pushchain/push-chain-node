@@ -84,10 +84,12 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 								GasUsed:     deployReceipt.GasUsed,
 								Status:      "SUCCESS",
 							}
-							_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-								utx.PcTx = append(utx.PcTx, &deployPcTx)
-								return nil
-							})
+							if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							utx.PcTx = append(utx.PcTx, &deployPcTx)
+							return nil
+						}); updateErr != nil {
+							k.logger.Error("failed to record deployment PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+						}
 						}
 					}
 

@@ -123,10 +123,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 								GasUsed:     deployReceipt.GasUsed,
 								Status:      "SUCCESS",
 							}
-							_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 								utx.PcTx = append(utx.PcTx, &deployPcTx)
 								return nil
-							})
+							}); updateErr != nil {
+								k.logger.Error("failed to record deployment PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+							}
 						}
 					}
 
@@ -246,10 +248,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			callPcTx.GasUsed = contractReceipt.GasUsed
 			callPcTx.Status = "SUCCESS"
 		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)
 			return nil
-		})
+		}); updateErr != nil {
+			k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+		}
 		return nil
 	}
 
@@ -266,11 +270,13 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			Status:      "FAILED",
 			ErrorMsg:    fmt.Sprintf("payload hash failed: %v", payloadHashErr),
 		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &errorPcTx)
 
 			return nil
-		})
+		}); updateErr != nil {
+			k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+		}
 		return nil
 	}
 
@@ -296,7 +302,9 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		payloadPcTx.Status = "SUCCESS"
 
 		if receipt != nil {
-			_ = k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx)
+			if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
+				k.logger.Error("failed to attach outbounds to UniversalTx", "id", utx.Id, "err", attachErr)
+			}
 		}
 	}
 

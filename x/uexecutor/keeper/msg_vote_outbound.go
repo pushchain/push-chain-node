@@ -80,6 +80,11 @@ func (k Keeper) VoteOutbound(
 		return err
 	}
 
+	// Remove from pending outbounds index now that status is OBSERVED
+	if err := k.PendingOutbounds.Remove(ctx, outboundId); err != nil {
+		return fmt.Errorf("failed to remove pending outbound index for %s: %w", outboundId, err)
+	}
+
 	// Step 6: Finalize outbound (refund if failed) - Don't return error
 	_ = k.FinalizeOutbound(ctx, utxId, outbound)
 

@@ -330,6 +330,15 @@ func (k Keeper) attachOutboundsToUtx(
 
 			utx.OutboundTx = append(utx.OutboundTx, outbound)
 
+			// Write to pending outbounds index (inside UpdateUniversalTx closure for atomicity)
+			if err := k.PendingOutbounds.Set(ctx, outbound.Id, types.PendingOutboundEntry{
+				OutboundId:    outbound.Id,
+				UniversalTxId: utxId,
+				CreatedAt:     ctx.BlockHeight(),
+			}); err != nil {
+				return fmt.Errorf("failed to set pending outbound index for %s: %w", outbound.Id, err)
+			}
+
 			var pcTxHash string
 			var logIndex string
 

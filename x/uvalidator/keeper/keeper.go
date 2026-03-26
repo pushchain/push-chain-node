@@ -144,21 +144,21 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 	}
 
 	// Restore ActiveBallotIDs
-	for _, id := range data.ActiveBallotIDs {
+	for _, id := range data.ActiveBallotIds {
 		if err := k.ActiveBallotIDs.Set(ctx, id); err != nil {
 			return err
 		}
 	}
 
 	// Restore ExpiredBallotIDs
-	for _, id := range data.ExpiredBallotIDs {
+	for _, id := range data.ExpiredBallotIds {
 		if err := k.ExpiredBallotIDs.Set(ctx, id); err != nil {
 			return err
 		}
 	}
 
 	// Restore FinalizedBallotIDs
-	for _, id := range data.FinalizedBallotIDs {
+	for _, id := range data.FinalizedBallotIds {
 		if err := k.FinalizedBallotIDs.Set(ctx, id); err != nil {
 			return err
 		}
@@ -231,9 +231,9 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		Params:              params,
 		UniversalValidators: universalValidators,
 		Ballots:             ballots,
-		ActiveBallotIDs:     activeBallotIDs,
-		ExpiredBallotIDs:    expiredBallotIDs,
-		FinalizedBallotIDs:  finalizedBallotIDs,
+		ActiveBallotIds:     activeBallotIDs,
+		ExpiredBallotIds:    expiredBallotIDs,
+		FinalizedBallotIds:  finalizedBallotIDs,
 	}
 }
 

@@ -132,6 +132,20 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		}
 	}
 
+	// Restore TssEvents
+	for _, event := range data.TssEvents {
+		if err := k.TssEvents.Set(ctx, event.Id, event); err != nil {
+			return err
+		}
+	}
+
+	// Restore NextTssEventId
+	if data.NextTssEventId > 0 {
+		if err := k.NextTssEventId.Set(ctx, data.NextTssEventId); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -186,6 +200,22 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export TssEvents
+	var tssEvents []types.TssEvent
+	err = k.TssEvents.Walk(ctx, nil, func(id uint64, event types.TssEvent) (bool, error) {
+		tssEvents = append(tssEvents, event)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export NextTssEventId
+	nextTssEventId, err := k.NextTssEventId.Peek(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
 		Params:            params,
 		CurrentTssProcess: currentTssProcess,
@@ -193,6 +223,8 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		CurrentTssKey:     currentTssKey,
 		TssKeyHistory:     tssKeyHistory,
 		NextProcessId:     nextProcessId,
+		TssEvents:         tssEvents,
+		NextTssEventId:    nextTssEventId,
 	}
 }
 

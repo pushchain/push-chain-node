@@ -202,6 +202,13 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		}
 	}
 
+	// Restore PendingOutbounds
+	for _, entry := range data.PendingOutbounds {
+		if err := k.PendingOutbounds.Set(ctx, entry.OutboundId, entry); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -261,6 +268,16 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export PendingOutbounds
+	var pendingOutbounds []types.PendingOutboundEntry
+	err = k.PendingOutbounds.Walk(ctx, nil, func(key string, value types.PendingOutboundEntry) (bool, error) {
+		pendingOutbounds = append(pendingOutbounds, value)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
 		Params:             params,
 		PendingInbounds:    pendingInbounds,
@@ -268,6 +285,7 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		ModuleAccountNonce: moduleAccountNonce,
 		GasPrices:          gasPrices,
 		ChainMetas:         chainMetas,
+		PendingOutbounds:   pendingOutbounds,
 		Exported:           true,
 	}
 }

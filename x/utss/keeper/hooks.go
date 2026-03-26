@@ -32,7 +32,8 @@ func (h Hooks) AfterValidatorStatusChanged(ctx sdk.Context, valAddr sdk.ValAddre
 	h.k.Logger().Info("TSS Hook: Universal validator status changed",
 		"address", valAddr.String(),
 		"old_status", oldStatus.String(),
-		"new_status", newStatus)
+		"new_status", newStatus.String(),
+	)
 }
 
 // handleEligibleValidatorSetChange evaluates the current validator set

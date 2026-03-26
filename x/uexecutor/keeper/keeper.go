@@ -52,6 +52,10 @@ type Keeper struct {
 
 	// ChainMetas collection stores aggregated chain metadata (gas price + block height) for each chain
 	ChainMetas collections.Map[string, types.ChainMeta]
+
+	// PendingOutbounds is a secondary index of outbounds with PENDING status.
+	// Key: outbound ID -> Value: PendingOutboundEntry
+	PendingOutbounds collections.Map[string, types.PendingOutboundEntry]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -128,6 +132,14 @@ func NewKeeper(
 			types.ChainMetasName,
 			collections.StringKey,
 			codec.CollValue[types.ChainMeta](cdc),
+		),
+
+		PendingOutbounds: collections.NewMap(
+			sb,
+			types.PendingOutboundsKey,
+			types.PendingOutboundsName,
+			collections.StringKey,
+			codec.CollValue[types.PendingOutboundEntry](cdc),
 		),
 	}
 

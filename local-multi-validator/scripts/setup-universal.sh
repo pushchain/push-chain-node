@@ -136,6 +136,105 @@ if [ "$QUERY_PORT" != "8080" ]; then
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
 
+# After initialization and before event start from overrides
+# Force Arbitrum Sepolia RPC URL to tenderly endpoint
+ARBITRUM_CHAIN_ID="eip155:421614"
+ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
+BASE_CHAIN_ID="eip155:84532"
+BSC_CHAIN_ID="eip155:97"
+SOLANA_CHAIN_ID="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+BSC_TESTNET_CHAIN_ID="eip155:97"
+BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
+SEPOLIA_CHAIN_ID="eip155:11155111"
+
+# In LOCAL testing, universal-validator containers must not use localhost for host services.
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${SEPOLIA_RPC_URL_OVERRIDE:-}" ]; then
+  SEPOLIA_RPC_URL_OVERRIDE="http://host.docker.internal:9545"
+fi
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${ARBITRUM_RPC_URL_OVERRIDE:-}" ]; then
+  ARBITRUM_RPC_URL_OVERRIDE="http://host.docker.internal:9546"
+fi
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BASE_RPC_URL_OVERRIDE:-}" ]; then
+  BASE_RPC_URL_OVERRIDE="http://host.docker.internal:9547"
+fi
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BSC_RPC_URL_OVERRIDE:-}" ]; then
+  BSC_RPC_URL_OVERRIDE="http://host.docker.internal:9548"
+fi
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
+  SOLANA_RPC_URL_OVERRIDE="http://host.docker.internal:8899"
+fi
+
+jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+jq --arg chain "$BSC_TESTNET_CHAIN_ID" --arg url "$BSC_TESTNET_RPC_URL" \
+  '.chain_configs[$chain].rpc_urls = [$url]' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
+if [ -n "${SEPOLIA_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding Sepolia rpc_urls to: $SEPOLIA_RPC_URL_OVERRIDE"
+  jq --arg chain "$SEPOLIA_CHAIN_ID" --arg url "$SEPOLIA_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+if [ -n "${ARBITRUM_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding Arbitrum Sepolia rpc_urls to: $ARBITRUM_RPC_URL_OVERRIDE"
+  jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+if [ -n "${BASE_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding Base Sepolia rpc_urls to: $BASE_RPC_URL_OVERRIDE"
+  jq --arg chain "$BASE_CHAIN_ID" --arg url "$BASE_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+if [ -n "${BSC_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding BSC testnet rpc_urls to: $BSC_RPC_URL_OVERRIDE"
+  jq --arg chain "$BSC_CHAIN_ID" --arg url "$BSC_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+if [ -n "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
+  echo "🌐 Overriding Solana rpc_urls to: $SOLANA_RPC_URL_OVERRIDE"
+  jq --arg chain "$SOLANA_CHAIN_ID" --arg url "$SOLANA_RPC_URL_OVERRIDE" \
+    '.chain_configs[$chain].rpc_urls = [$url]' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+# Optionally override chain event start heights (set by ./devnet start)
+set_chain_event_start_from() {
+  local chain_id="$1"
+  local chain_label="$2"
+  local start_height="$3"
+
+  [ -n "$start_height" ] || return 0
+
+  echo "📍 Setting ${chain_label} event_start_from: $start_height"
+  jq --arg chain "$chain_id" --argjson height "$start_height" \
+    '.chain_configs[$chain].event_start_from = $height' \
+    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+}
+
+set_chain_event_start_from "eip155:11155111" "Sepolia" "${SEPOLIA_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:84532" "Base Sepolia" "${BASE_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:421614" "Arbitrum Sepolia" "${ARBITRUM_EVENT_START_FROM:-}"
+set_chain_event_start_from "eip155:97" "BSC testnet" "${BSC_EVENT_START_FROM:-}"
+set_chain_event_start_from "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "Solana devnet" "${SOLANA_EVENT_START_FROM:-}"
+
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===
 # ---------------------------

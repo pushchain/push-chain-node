@@ -973,6 +973,10 @@ type QueryServer interface {
 	ChainMeta(context.Context, *QueryChainMetaRequest) (*QueryChainMetaResponse, error)
 	// 🔹 Queries all chain metas across chains
 	AllChainMetas(context.Context, *QueryAllChainMetasRequest) (*QueryAllChainMetasResponse, error)
+	// Get a single pending outbound by ID
+	GetPendingOutbound(context.Context, *QueryGetPendingOutboundRequest) (*QueryGetPendingOutboundResponse, error)
+	// Get all pending outbounds (paginated)
+	AllPendingOutbounds(context.Context, *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -1002,6 +1006,12 @@ func (*UnimplementedQueryServer) ChainMeta(ctx context.Context, req *QueryChainM
 }
 func (*UnimplementedQueryServer) AllChainMetas(ctx context.Context, req *QueryAllChainMetasRequest) (*QueryAllChainMetasResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllChainMetas not implemented")
+}
+func (*UnimplementedQueryServer) GetPendingOutbound(ctx context.Context, req *QueryGetPendingOutboundRequest) (*QueryGetPendingOutboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPendingOutbound not implemented")
+}
+func (*UnimplementedQueryServer) AllPendingOutbounds(ctx context.Context, req *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllPendingOutbounds not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -1152,6 +1162,42 @@ func _Query_AllChainMetas_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_GetPendingOutbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetPendingOutboundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GetPendingOutbound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uexecutor.v1.Query/GetPendingOutbound",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GetPendingOutbound(ctx, req.(*QueryGetPendingOutboundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllPendingOutbounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllPendingOutboundsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllPendingOutbounds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uexecutor.v1.Query/AllPendingOutbounds",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllPendingOutbounds(ctx, req.(*QueryAllPendingOutboundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "uexecutor.v1.Query",
 	HandlerType: (*QueryServer)(nil),
@@ -1187,6 +1233,14 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllChainMetas",
 			Handler:    _Query_AllChainMetas_Handler,
+		},
+		{
+			MethodName: "GetPendingOutbound",
+			Handler:    _Query_GetPendingOutbound_Handler,
+		},
+		{
+			MethodName: "AllPendingOutbounds",
+			Handler:    _Query_AllPendingOutbounds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -19,16 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName          = "/utss.v1.Query/Params"
-	Query_CurrentProcess_FullMethodName  = "/utss.v1.Query/CurrentProcess"
-	Query_ProcessById_FullMethodName     = "/utss.v1.Query/ProcessById"
-	Query_AllProcesses_FullMethodName    = "/utss.v1.Query/AllProcesses"
-	Query_CurrentKey_FullMethodName      = "/utss.v1.Query/CurrentKey"
-	Query_KeyById_FullMethodName         = "/utss.v1.Query/KeyById"
-	Query_AllKeys_FullMethodName         = "/utss.v1.Query/AllKeys"
-	Query_GetTssEvent_FullMethodName     = "/utss.v1.Query/GetTssEvent"
-	Query_ActiveTssEvents_FullMethodName = "/utss.v1.Query/ActiveTssEvents"
-	Query_AllTssEvents_FullMethodName    = "/utss.v1.Query/AllTssEvents"
+	Query_Params_FullMethodName              = "/utss.v1.Query/Params"
+	Query_CurrentProcess_FullMethodName      = "/utss.v1.Query/CurrentProcess"
+	Query_ProcessById_FullMethodName         = "/utss.v1.Query/ProcessById"
+	Query_AllProcesses_FullMethodName        = "/utss.v1.Query/AllProcesses"
+	Query_CurrentKey_FullMethodName          = "/utss.v1.Query/CurrentKey"
+	Query_KeyById_FullMethodName             = "/utss.v1.Query/KeyById"
+	Query_AllKeys_FullMethodName             = "/utss.v1.Query/AllKeys"
+	Query_GetTssEvent_FullMethodName         = "/utss.v1.Query/GetTssEvent"
+	Query_GetPendingTssEvent_FullMethodName  = "/utss.v1.Query/GetPendingTssEvent"
+	Query_AllPendingTssEvents_FullMethodName = "/utss.v1.Query/AllPendingTssEvents"
+	Query_AllTssEvents_FullMethodName        = "/utss.v1.Query/AllTssEvents"
 )
 
 // QueryClient is the client API for Query service.
@@ -49,10 +50,12 @@ type QueryClient interface {
 	KeyById(ctx context.Context, in *QueryKeyByIdRequest, opts ...grpc.CallOption) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts ...grpc.CallOption) (*QueryAllKeysResponse, error)
-	// Get a single TSS event by ID
+	// Get a single TSS event by auto-increment ID
 	GetTssEvent(ctx context.Context, in *QueryGetTssEventRequest, opts ...grpc.CallOption) (*QueryGetTssEventResponse, error)
-	// List active TSS events (paginated)
-	ActiveTssEvents(ctx context.Context, in *QueryActiveTssEventsRequest, opts ...grpc.CallOption) (*QueryActiveTssEventsResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error)
 	// List all TSS events (paginated)
 	AllTssEvents(ctx context.Context, in *QueryAllTssEventsRequest, opts ...grpc.CallOption) (*QueryAllTssEventsResponse, error)
 }
@@ -137,9 +140,18 @@ func (c *queryClient) GetTssEvent(ctx context.Context, in *QueryGetTssEventReque
 	return out, nil
 }
 
-func (c *queryClient) ActiveTssEvents(ctx context.Context, in *QueryActiveTssEventsRequest, opts ...grpc.CallOption) (*QueryActiveTssEventsResponse, error) {
-	out := new(QueryActiveTssEventsResponse)
-	err := c.cc.Invoke(ctx, Query_ActiveTssEvents_FullMethodName, in, out, opts...)
+func (c *queryClient) GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error) {
+	out := new(QueryGetPendingTssEventResponse)
+	err := c.cc.Invoke(ctx, Query_GetPendingTssEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error) {
+	out := new(QueryAllPendingTssEventsResponse)
+	err := c.cc.Invoke(ctx, Query_AllPendingTssEvents_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -173,10 +185,12 @@ type QueryServer interface {
 	KeyById(context.Context, *QueryKeyByIdRequest) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error)
-	// Get a single TSS event by ID
+	// Get a single TSS event by auto-increment ID
 	GetTssEvent(context.Context, *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error)
-	// List active TSS events (paginated)
-	ActiveTssEvents(context.Context, *QueryActiveTssEventsRequest) (*QueryActiveTssEventsResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(context.Context, *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(context.Context, *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error)
 	// List all TSS events (paginated)
 	AllTssEvents(context.Context, *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error)
 	mustEmbedUnimplementedQueryServer()
@@ -210,8 +224,11 @@ func (UnimplementedQueryServer) AllKeys(context.Context, *QueryAllKeysRequest) (
 func (UnimplementedQueryServer) GetTssEvent(context.Context, *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTssEvent not implemented")
 }
-func (UnimplementedQueryServer) ActiveTssEvents(context.Context, *QueryActiveTssEventsRequest) (*QueryActiveTssEventsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ActiveTssEvents not implemented")
+func (UnimplementedQueryServer) GetPendingTssEvent(context.Context, *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPendingTssEvent not implemented")
+}
+func (UnimplementedQueryServer) AllPendingTssEvents(context.Context, *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllPendingTssEvents not implemented")
 }
 func (UnimplementedQueryServer) AllTssEvents(context.Context, *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllTssEvents not implemented")
@@ -373,20 +390,38 @@ func _Query_GetTssEvent_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ActiveTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryActiveTssEventsRequest)
+func _Query_GetPendingTssEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetPendingTssEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).ActiveTssEvents(ctx, in)
+		return srv.(QueryServer).GetPendingTssEvent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Query_ActiveTssEvents_FullMethodName,
+		FullMethod: Query_GetPendingTssEvent_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ActiveTssEvents(ctx, req.(*QueryActiveTssEventsRequest))
+		return srv.(QueryServer).GetPendingTssEvent(ctx, req.(*QueryGetPendingTssEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllPendingTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllPendingTssEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllPendingTssEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, req.(*QueryAllPendingTssEventsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -449,8 +484,12 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Query_GetTssEvent_Handler,
 		},
 		{
-			MethodName: "ActiveTssEvents",
-			Handler:    _Query_ActiveTssEvents_Handler,
+			MethodName: "GetPendingTssEvent",
+			Handler:    _Query_GetPendingTssEvent_Handler,
+		},
+		{
+			MethodName: "AllPendingTssEvents",
+			Handler:    _Query_AllPendingTssEvents_Handler,
 		},
 		{
 			MethodName: "AllTssEvents",

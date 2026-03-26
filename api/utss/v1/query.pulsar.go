@@ -6937,25 +6937,25 @@ func (x *fastReflection_QueryGetTssEventResponse) ProtoMethods() *protoiface.Met
 }
 
 var (
-	md_QueryActiveTssEventsRequest            protoreflect.MessageDescriptor
-	fd_QueryActiveTssEventsRequest_pagination protoreflect.FieldDescriptor
+	md_QueryGetPendingTssEventRequest            protoreflect.MessageDescriptor
+	fd_QueryGetPendingTssEventRequest_process_id protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_utss_v1_query_proto_init()
-	md_QueryActiveTssEventsRequest = File_utss_v1_query_proto.Messages().ByName("QueryActiveTssEventsRequest")
-	fd_QueryActiveTssEventsRequest_pagination = md_QueryActiveTssEventsRequest.Fields().ByName("pagination")
+	md_QueryGetPendingTssEventRequest = File_utss_v1_query_proto.Messages().ByName("QueryGetPendingTssEventRequest")
+	fd_QueryGetPendingTssEventRequest_process_id = md_QueryGetPendingTssEventRequest.Fields().ByName("process_id")
 }
 
-var _ protoreflect.Message = (*fastReflection_QueryActiveTssEventsRequest)(nil)
+var _ protoreflect.Message = (*fastReflection_QueryGetPendingTssEventRequest)(nil)
 
-type fastReflection_QueryActiveTssEventsRequest QueryActiveTssEventsRequest
+type fastReflection_QueryGetPendingTssEventRequest QueryGetPendingTssEventRequest
 
-func (x *QueryActiveTssEventsRequest) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_QueryActiveTssEventsRequest)(x)
+func (x *QueryGetPendingTssEventRequest) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryGetPendingTssEventRequest)(x)
 }
 
-func (x *QueryActiveTssEventsRequest) slowProtoReflect() protoreflect.Message {
+func (x *QueryGetPendingTssEventRequest) slowProtoReflect() protoreflect.Message {
 	mi := &file_utss_v1_query_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -6967,43 +6967,43 @@ func (x *QueryActiveTssEventsRequest) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_QueryActiveTssEventsRequest_messageType fastReflection_QueryActiveTssEventsRequest_messageType
-var _ protoreflect.MessageType = fastReflection_QueryActiveTssEventsRequest_messageType{}
+var _fastReflection_QueryGetPendingTssEventRequest_messageType fastReflection_QueryGetPendingTssEventRequest_messageType
+var _ protoreflect.MessageType = fastReflection_QueryGetPendingTssEventRequest_messageType{}
 
-type fastReflection_QueryActiveTssEventsRequest_messageType struct{}
+type fastReflection_QueryGetPendingTssEventRequest_messageType struct{}
 
-func (x fastReflection_QueryActiveTssEventsRequest_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_QueryActiveTssEventsRequest)(nil)
+func (x fastReflection_QueryGetPendingTssEventRequest_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryGetPendingTssEventRequest)(nil)
 }
-func (x fastReflection_QueryActiveTssEventsRequest_messageType) New() protoreflect.Message {
-	return new(fastReflection_QueryActiveTssEventsRequest)
+func (x fastReflection_QueryGetPendingTssEventRequest_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryGetPendingTssEventRequest)
 }
-func (x fastReflection_QueryActiveTssEventsRequest_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_QueryActiveTssEventsRequest
+func (x fastReflection_QueryGetPendingTssEventRequest_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryGetPendingTssEventRequest
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_QueryActiveTssEventsRequest) Descriptor() protoreflect.MessageDescriptor {
-	return md_QueryActiveTssEventsRequest
+func (x *fastReflection_QueryGetPendingTssEventRequest) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryGetPendingTssEventRequest
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_QueryActiveTssEventsRequest) Type() protoreflect.MessageType {
-	return _fastReflection_QueryActiveTssEventsRequest_messageType
+func (x *fastReflection_QueryGetPendingTssEventRequest) Type() protoreflect.MessageType {
+	return _fastReflection_QueryGetPendingTssEventRequest_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_QueryActiveTssEventsRequest) New() protoreflect.Message {
-	return new(fastReflection_QueryActiveTssEventsRequest)
+func (x *fastReflection_QueryGetPendingTssEventRequest) New() protoreflect.Message {
+	return new(fastReflection_QueryGetPendingTssEventRequest)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_QueryActiveTssEventsRequest) Interface() protoreflect.ProtoMessage {
-	return (*QueryActiveTssEventsRequest)(x)
+func (x *fastReflection_QueryGetPendingTssEventRequest) Interface() protoreflect.ProtoMessage {
+	return (*QueryGetPendingTssEventRequest)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -7011,10 +7011,10 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Interface() protoreflect.Pr
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_QueryActiveTssEventsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
-	if x.Pagination != nil {
-		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
-		if !f(fd_QueryActiveTssEventsRequest_pagination, value) {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.ProcessId != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.ProcessId)
+		if !f(fd_QueryGetPendingTssEventRequest_process_id, value) {
 			return
 		}
 	}
@@ -7031,15 +7031,15 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Range(f func(protoreflect.F
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_QueryActiveTssEventsRequest) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		return x.Pagination != nil
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		return x.ProcessId != uint64(0)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7049,15 +7049,15 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Has(fd protoreflect.FieldDe
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsRequest) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		x.Pagination = nil
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		x.ProcessId = uint64(0)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7067,16 +7067,16 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Clear(fd protoreflect.Field
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_QueryActiveTssEventsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		value := x.Pagination
-		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		value := x.ProcessId
+		return protoreflect.ValueOfUint64(value)
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -7090,15 +7090,15 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Get(descriptor protoreflect
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		x.ProcessId = value.Uint()
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7112,44 +7112,40 @@ func (x *fastReflection_QueryActiveTssEventsRequest) Set(fd protoreflect.FieldDe
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryGetPendingTssEventRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		if x.Pagination == nil {
-			x.Pagination = new(v1beta1.PageRequest)
-		}
-		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		panic(fmt.Errorf("field process_id of message utss.v1.QueryGetPendingTssEventRequest is not mutable"))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_QueryActiveTssEventsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryGetPendingTssEventRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsRequest.pagination":
-		m := new(v1beta1.PageRequest)
-		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	case "utss.v1.QueryGetPendingTssEventRequest.process_id":
+		return protoreflect.ValueOfUint64(uint64(0))
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsRequest"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventRequest"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsRequest does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventRequest does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_QueryActiveTssEventsRequest) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_QueryGetPendingTssEventRequest) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryActiveTssEventsRequest", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryGetPendingTssEventRequest", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -7157,7 +7153,7 @@ func (x *fastReflection_QueryActiveTssEventsRequest) WhichOneof(d protoreflect.O
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_QueryActiveTssEventsRequest) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_QueryGetPendingTssEventRequest) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -7168,7 +7164,7 @@ func (x *fastReflection_QueryActiveTssEventsRequest) GetUnknown() protoreflect.R
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsRequest) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_QueryGetPendingTssEventRequest) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -7180,7 +7176,7 @@ func (x *fastReflection_QueryActiveTssEventsRequest) SetUnknown(fields protorefl
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_QueryActiveTssEventsRequest) IsValid() bool {
+func (x *fastReflection_QueryGetPendingTssEventRequest) IsValid() bool {
 	return x != nil
 }
 
@@ -7190,9 +7186,852 @@ func (x *fastReflection_QueryActiveTssEventsRequest) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_QueryActiveTssEventsRequest) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_QueryGetPendingTssEventRequest) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*QueryActiveTssEventsRequest)
+		x := input.Message.Interface().(*QueryGetPendingTssEventRequest)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.ProcessId != 0 {
+			n += 1 + runtime.Sov(uint64(x.ProcessId))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryGetPendingTssEventRequest)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.ProcessId != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.ProcessId))
+			i--
+			dAtA[i] = 0x8
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryGetPendingTssEventRequest)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryGetPendingTssEventRequest: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryGetPendingTssEventRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
+				}
+				x.ProcessId = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.ProcessId |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_QueryGetPendingTssEventResponse       protoreflect.MessageDescriptor
+	fd_QueryGetPendingTssEventResponse_event protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_utss_v1_query_proto_init()
+	md_QueryGetPendingTssEventResponse = File_utss_v1_query_proto.Messages().ByName("QueryGetPendingTssEventResponse")
+	fd_QueryGetPendingTssEventResponse_event = md_QueryGetPendingTssEventResponse.Fields().ByName("event")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryGetPendingTssEventResponse)(nil)
+
+type fastReflection_QueryGetPendingTssEventResponse QueryGetPendingTssEventResponse
+
+func (x *QueryGetPendingTssEventResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryGetPendingTssEventResponse)(x)
+}
+
+func (x *QueryGetPendingTssEventResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_query_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryGetPendingTssEventResponse_messageType fastReflection_QueryGetPendingTssEventResponse_messageType
+var _ protoreflect.MessageType = fastReflection_QueryGetPendingTssEventResponse_messageType{}
+
+type fastReflection_QueryGetPendingTssEventResponse_messageType struct{}
+
+func (x fastReflection_QueryGetPendingTssEventResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryGetPendingTssEventResponse)(nil)
+}
+func (x fastReflection_QueryGetPendingTssEventResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryGetPendingTssEventResponse)
+}
+func (x fastReflection_QueryGetPendingTssEventResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryGetPendingTssEventResponse
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryGetPendingTssEventResponse
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Type() protoreflect.MessageType {
+	return _fastReflection_QueryGetPendingTssEventResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryGetPendingTssEventResponse) New() protoreflect.Message {
+	return new(fastReflection_QueryGetPendingTssEventResponse)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Interface() protoreflect.ProtoMessage {
+	return (*QueryGetPendingTssEventResponse)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Event != nil {
+		value := protoreflect.ValueOfMessage(x.Event.ProtoReflect())
+		if !f(fd_QueryGetPendingTssEventResponse_event, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		return x.Event != nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		x.Event = nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		value := x.Event
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		x.Event = value.Message().Interface().(*TssEvent)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryGetPendingTssEventResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		if x.Event == nil {
+			x.Event = new(TssEvent)
+		}
+		return protoreflect.ValueOfMessage(x.Event.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryGetPendingTssEventResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.QueryGetPendingTssEventResponse.event":
+		m := new(TssEvent)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryGetPendingTssEventResponse"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryGetPendingTssEventResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryGetPendingTssEventResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryGetPendingTssEventResponse", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryGetPendingTssEventResponse) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryGetPendingTssEventResponse) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryGetPendingTssEventResponse) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryGetPendingTssEventResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryGetPendingTssEventResponse)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.Event != nil {
+			l = options.Size(x.Event)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryGetPendingTssEventResponse)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Event != nil {
+			encoded, err := options.Marshal(x.Event)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryGetPendingTssEventResponse)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryGetPendingTssEventResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryGetPendingTssEventResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Event", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Event == nil {
+					x.Event = &TssEvent{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Event); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_QueryAllPendingTssEventsRequest            protoreflect.MessageDescriptor
+	fd_QueryAllPendingTssEventsRequest_pagination protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_utss_v1_query_proto_init()
+	md_QueryAllPendingTssEventsRequest = File_utss_v1_query_proto.Messages().ByName("QueryAllPendingTssEventsRequest")
+	fd_QueryAllPendingTssEventsRequest_pagination = md_QueryAllPendingTssEventsRequest.Fields().ByName("pagination")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryAllPendingTssEventsRequest)(nil)
+
+type fastReflection_QueryAllPendingTssEventsRequest QueryAllPendingTssEventsRequest
+
+func (x *QueryAllPendingTssEventsRequest) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryAllPendingTssEventsRequest)(x)
+}
+
+func (x *QueryAllPendingTssEventsRequest) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_query_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryAllPendingTssEventsRequest_messageType fastReflection_QueryAllPendingTssEventsRequest_messageType
+var _ protoreflect.MessageType = fastReflection_QueryAllPendingTssEventsRequest_messageType{}
+
+type fastReflection_QueryAllPendingTssEventsRequest_messageType struct{}
+
+func (x fastReflection_QueryAllPendingTssEventsRequest_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryAllPendingTssEventsRequest)(nil)
+}
+func (x fastReflection_QueryAllPendingTssEventsRequest_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryAllPendingTssEventsRequest)
+}
+func (x fastReflection_QueryAllPendingTssEventsRequest_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryAllPendingTssEventsRequest
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryAllPendingTssEventsRequest
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Type() protoreflect.MessageType {
+	return _fastReflection_QueryAllPendingTssEventsRequest_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) New() protoreflect.Message {
+	return new(fastReflection_QueryAllPendingTssEventsRequest)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Interface() protoreflect.ProtoMessage {
+	return (*QueryAllPendingTssEventsRequest)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Pagination != nil {
+		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+		if !f(fd_QueryAllPendingTssEventsRequest_pagination, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		return x.Pagination != nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		x.Pagination = nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		value := x.Pagination
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		x.Pagination = value.Message().Interface().(*v1beta1.PageRequest)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		if x.Pagination == nil {
+			x.Pagination = new(v1beta1.PageRequest)
+		}
+		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.QueryAllPendingTssEventsRequest.pagination":
+		m := new(v1beta1.PageRequest)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsRequest"))
+		}
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryAllPendingTssEventsRequest", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryAllPendingTssEventsRequest) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryAllPendingTssEventsRequest)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7218,7 +8057,7 @@ func (x *fastReflection_QueryActiveTssEventsRequest) ProtoMethods() *protoiface.
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*QueryActiveTssEventsRequest)
+		x := input.Message.Interface().(*QueryAllPendingTssEventsRequest)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7262,7 +8101,7 @@ func (x *fastReflection_QueryActiveTssEventsRequest) ProtoMethods() *protoiface.
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*QueryActiveTssEventsRequest)
+		x := input.Message.Interface().(*QueryAllPendingTssEventsRequest)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7294,10 +8133,10 @@ func (x *fastReflection_QueryActiveTssEventsRequest) ProtoMethods() *protoiface.
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveTssEventsRequest: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryAllPendingTssEventsRequest: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveTssEventsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryAllPendingTssEventsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
@@ -7371,80 +8210,80 @@ func (x *fastReflection_QueryActiveTssEventsRequest) ProtoMethods() *protoiface.
 	}
 }
 
-var _ protoreflect.List = (*_QueryActiveTssEventsResponse_1_list)(nil)
+var _ protoreflect.List = (*_QueryAllPendingTssEventsResponse_1_list)(nil)
 
-type _QueryActiveTssEventsResponse_1_list struct {
+type _QueryAllPendingTssEventsResponse_1_list struct {
 	list *[]*TssEvent
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) Len() int {
+func (x *_QueryAllPendingTssEventsResponse_1_list) Len() int {
 	if x.list == nil {
 		return 0
 	}
 	return len(*x.list)
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) Get(i int) protoreflect.Value {
+func (x *_QueryAllPendingTssEventsResponse_1_list) Get(i int) protoreflect.Value {
 	return protoreflect.ValueOfMessage((*x.list)[i].ProtoReflect())
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) Set(i int, value protoreflect.Value) {
+func (x *_QueryAllPendingTssEventsResponse_1_list) Set(i int, value protoreflect.Value) {
 	valueUnwrapped := value.Message()
 	concreteValue := valueUnwrapped.Interface().(*TssEvent)
 	(*x.list)[i] = concreteValue
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) Append(value protoreflect.Value) {
+func (x *_QueryAllPendingTssEventsResponse_1_list) Append(value protoreflect.Value) {
 	valueUnwrapped := value.Message()
 	concreteValue := valueUnwrapped.Interface().(*TssEvent)
 	*x.list = append(*x.list, concreteValue)
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) AppendMutable() protoreflect.Value {
+func (x *_QueryAllPendingTssEventsResponse_1_list) AppendMutable() protoreflect.Value {
 	v := new(TssEvent)
 	*x.list = append(*x.list, v)
 	return protoreflect.ValueOfMessage(v.ProtoReflect())
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) Truncate(n int) {
+func (x *_QueryAllPendingTssEventsResponse_1_list) Truncate(n int) {
 	for i := n; i < len(*x.list); i++ {
 		(*x.list)[i] = nil
 	}
 	*x.list = (*x.list)[:n]
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) NewElement() protoreflect.Value {
+func (x *_QueryAllPendingTssEventsResponse_1_list) NewElement() protoreflect.Value {
 	v := new(TssEvent)
 	return protoreflect.ValueOfMessage(v.ProtoReflect())
 }
 
-func (x *_QueryActiveTssEventsResponse_1_list) IsValid() bool {
+func (x *_QueryAllPendingTssEventsResponse_1_list) IsValid() bool {
 	return x.list != nil
 }
 
 var (
-	md_QueryActiveTssEventsResponse            protoreflect.MessageDescriptor
-	fd_QueryActiveTssEventsResponse_events     protoreflect.FieldDescriptor
-	fd_QueryActiveTssEventsResponse_pagination protoreflect.FieldDescriptor
+	md_QueryAllPendingTssEventsResponse            protoreflect.MessageDescriptor
+	fd_QueryAllPendingTssEventsResponse_events     protoreflect.FieldDescriptor
+	fd_QueryAllPendingTssEventsResponse_pagination protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_utss_v1_query_proto_init()
-	md_QueryActiveTssEventsResponse = File_utss_v1_query_proto.Messages().ByName("QueryActiveTssEventsResponse")
-	fd_QueryActiveTssEventsResponse_events = md_QueryActiveTssEventsResponse.Fields().ByName("events")
-	fd_QueryActiveTssEventsResponse_pagination = md_QueryActiveTssEventsResponse.Fields().ByName("pagination")
+	md_QueryAllPendingTssEventsResponse = File_utss_v1_query_proto.Messages().ByName("QueryAllPendingTssEventsResponse")
+	fd_QueryAllPendingTssEventsResponse_events = md_QueryAllPendingTssEventsResponse.Fields().ByName("events")
+	fd_QueryAllPendingTssEventsResponse_pagination = md_QueryAllPendingTssEventsResponse.Fields().ByName("pagination")
 }
 
-var _ protoreflect.Message = (*fastReflection_QueryActiveTssEventsResponse)(nil)
+var _ protoreflect.Message = (*fastReflection_QueryAllPendingTssEventsResponse)(nil)
 
-type fastReflection_QueryActiveTssEventsResponse QueryActiveTssEventsResponse
+type fastReflection_QueryAllPendingTssEventsResponse QueryAllPendingTssEventsResponse
 
-func (x *QueryActiveTssEventsResponse) ProtoReflect() protoreflect.Message {
-	return (*fastReflection_QueryActiveTssEventsResponse)(x)
+func (x *QueryAllPendingTssEventsResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryAllPendingTssEventsResponse)(x)
 }
 
-func (x *QueryActiveTssEventsResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_utss_v1_query_proto_msgTypes[17]
+func (x *QueryAllPendingTssEventsResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_query_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7455,43 +8294,43 @@ func (x *QueryActiveTssEventsResponse) slowProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-var _fastReflection_QueryActiveTssEventsResponse_messageType fastReflection_QueryActiveTssEventsResponse_messageType
-var _ protoreflect.MessageType = fastReflection_QueryActiveTssEventsResponse_messageType{}
+var _fastReflection_QueryAllPendingTssEventsResponse_messageType fastReflection_QueryAllPendingTssEventsResponse_messageType
+var _ protoreflect.MessageType = fastReflection_QueryAllPendingTssEventsResponse_messageType{}
 
-type fastReflection_QueryActiveTssEventsResponse_messageType struct{}
+type fastReflection_QueryAllPendingTssEventsResponse_messageType struct{}
 
-func (x fastReflection_QueryActiveTssEventsResponse_messageType) Zero() protoreflect.Message {
-	return (*fastReflection_QueryActiveTssEventsResponse)(nil)
+func (x fastReflection_QueryAllPendingTssEventsResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryAllPendingTssEventsResponse)(nil)
 }
-func (x fastReflection_QueryActiveTssEventsResponse_messageType) New() protoreflect.Message {
-	return new(fastReflection_QueryActiveTssEventsResponse)
+func (x fastReflection_QueryAllPendingTssEventsResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryAllPendingTssEventsResponse)
 }
-func (x fastReflection_QueryActiveTssEventsResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
-	return md_QueryActiveTssEventsResponse
+func (x fastReflection_QueryAllPendingTssEventsResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryAllPendingTssEventsResponse
 }
 
 // Descriptor returns message descriptor, which contains only the protobuf
 // type information for the message.
-func (x *fastReflection_QueryActiveTssEventsResponse) Descriptor() protoreflect.MessageDescriptor {
-	return md_QueryActiveTssEventsResponse
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryAllPendingTssEventsResponse
 }
 
 // Type returns the message type, which encapsulates both Go and protobuf
 // type information. If the Go type information is not needed,
 // it is recommended that the message descriptor be used instead.
-func (x *fastReflection_QueryActiveTssEventsResponse) Type() protoreflect.MessageType {
-	return _fastReflection_QueryActiveTssEventsResponse_messageType
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Type() protoreflect.MessageType {
+	return _fastReflection_QueryAllPendingTssEventsResponse_messageType
 }
 
 // New returns a newly allocated and mutable empty message.
-func (x *fastReflection_QueryActiveTssEventsResponse) New() protoreflect.Message {
-	return new(fastReflection_QueryActiveTssEventsResponse)
+func (x *fastReflection_QueryAllPendingTssEventsResponse) New() protoreflect.Message {
+	return new(fastReflection_QueryAllPendingTssEventsResponse)
 }
 
 // Interface unwraps the message reflection interface and
 // returns the underlying ProtoMessage interface.
-func (x *fastReflection_QueryActiveTssEventsResponse) Interface() protoreflect.ProtoMessage {
-	return (*QueryActiveTssEventsResponse)(x)
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Interface() protoreflect.ProtoMessage {
+	return (*QueryAllPendingTssEventsResponse)(x)
 }
 
 // Range iterates over every populated field in an undefined order,
@@ -7499,16 +8338,16 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Interface() protoreflect.P
 // Range returns immediately if f returns false.
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
-func (x *fastReflection_QueryActiveTssEventsResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
 	if len(x.Events) != 0 {
-		value := protoreflect.ValueOfList(&_QueryActiveTssEventsResponse_1_list{list: &x.Events})
-		if !f(fd_QueryActiveTssEventsResponse_events, value) {
+		value := protoreflect.ValueOfList(&_QueryAllPendingTssEventsResponse_1_list{list: &x.Events})
+		if !f(fd_QueryAllPendingTssEventsResponse_events, value) {
 			return
 		}
 	}
 	if x.Pagination != nil {
 		value := protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
-		if !f(fd_QueryActiveTssEventsResponse_pagination, value) {
+		if !f(fd_QueryAllPendingTssEventsResponse_pagination, value) {
 			return
 		}
 	}
@@ -7525,17 +8364,17 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Range(f func(protoreflect.
 // In other cases (aside from the nullable cases above),
 // a proto3 scalar field is populated if it contains a non-zero value, and
 // a repeated field is populated if it is non-empty.
-func (x *fastReflection_QueryActiveTssEventsResponse) Has(fd protoreflect.FieldDescriptor) bool {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		return len(x.Events) != 0
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		return x.Pagination != nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7545,17 +8384,17 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Has(fd protoreflect.FieldD
 // associated with the given field number.
 //
 // Clear is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsResponse) Clear(fd protoreflect.FieldDescriptor) {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		x.Events = nil
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		x.Pagination = nil
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7565,22 +8404,22 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Clear(fd protoreflect.Fiel
 // the default value of a bytes scalar is guaranteed to be a copy.
 // For unpopulated composite types, it returns an empty, read-only view
 // of the value; to obtain a mutable reference, use Mutable.
-func (x *fastReflection_QueryActiveTssEventsResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		if len(x.Events) == 0 {
-			return protoreflect.ValueOfList(&_QueryActiveTssEventsResponse_1_list{})
+			return protoreflect.ValueOfList(&_QueryAllPendingTssEventsResponse_1_list{})
 		}
-		listValue := &_QueryActiveTssEventsResponse_1_list{list: &x.Events}
+		listValue := &_QueryAllPendingTssEventsResponse_1_list{list: &x.Events}
 		return protoreflect.ValueOfList(listValue)
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		value := x.Pagination
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
 	default:
 		if descriptor.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", descriptor.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", descriptor.FullName()))
 	}
 }
 
@@ -7594,19 +8433,19 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Get(descriptor protoreflec
 // empty, read-only value, then it panics.
 //
 // Set is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		lv := value.List()
-		clv := lv.(*_QueryActiveTssEventsResponse_1_list)
+		clv := lv.(*_QueryAllPendingTssEventsResponse_1_list)
 		x.Events = *clv.list
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		x.Pagination = value.Message().Interface().(*v1beta1.PageResponse)
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", fd.FullName()))
 	}
 }
 
@@ -7620,53 +8459,53 @@ func (x *fastReflection_QueryActiveTssEventsResponse) Set(fd protoreflect.FieldD
 // It panics if the field does not contain a composite type.
 //
 // Mutable is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		if x.Events == nil {
 			x.Events = []*TssEvent{}
 		}
-		value := &_QueryActiveTssEventsResponse_1_list{list: &x.Events}
+		value := &_QueryAllPendingTssEventsResponse_1_list{list: &x.Events}
 		return protoreflect.ValueOfList(value)
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		if x.Pagination == nil {
 			x.Pagination = new(v1beta1.PageResponse)
 		}
 		return protoreflect.ValueOfMessage(x.Pagination.ProtoReflect())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // NewField returns a new value that is assignable to the field
 // for the given descriptor. For scalars, this returns the default value.
 // For lists, maps, and messages, this returns a new, empty, mutable value.
-func (x *fastReflection_QueryActiveTssEventsResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
-	case "utss.v1.QueryActiveTssEventsResponse.events":
+	case "utss.v1.QueryAllPendingTssEventsResponse.events":
 		list := []*TssEvent{}
-		return protoreflect.ValueOfList(&_QueryActiveTssEventsResponse_1_list{list: &list})
-	case "utss.v1.QueryActiveTssEventsResponse.pagination":
+		return protoreflect.ValueOfList(&_QueryAllPendingTssEventsResponse_1_list{list: &list})
+	case "utss.v1.QueryAllPendingTssEventsResponse.pagination":
 		m := new(v1beta1.PageResponse)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
 	default:
 		if fd.IsExtension() {
-			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryActiveTssEventsResponse"))
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.QueryAllPendingTssEventsResponse"))
 		}
-		panic(fmt.Errorf("message utss.v1.QueryActiveTssEventsResponse does not contain field %s", fd.FullName()))
+		panic(fmt.Errorf("message utss.v1.QueryAllPendingTssEventsResponse does not contain field %s", fd.FullName()))
 	}
 }
 
 // WhichOneof reports which field within the oneof is populated,
 // returning nil if none are populated.
 // It panics if the oneof descriptor does not belong to this message.
-func (x *fastReflection_QueryActiveTssEventsResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
 	switch d.FullName() {
 	default:
-		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryActiveTssEventsResponse", d.FullName()))
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.QueryAllPendingTssEventsResponse", d.FullName()))
 	}
 	panic("unreachable")
 }
@@ -7674,7 +8513,7 @@ func (x *fastReflection_QueryActiveTssEventsResponse) WhichOneof(d protoreflect.
 // GetUnknown retrieves the entire list of unknown fields.
 // The caller may only mutate the contents of the RawFields
 // if the mutated bytes are stored back into the message with SetUnknown.
-func (x *fastReflection_QueryActiveTssEventsResponse) GetUnknown() protoreflect.RawFields {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) GetUnknown() protoreflect.RawFields {
 	return x.unknownFields
 }
 
@@ -7685,7 +8524,7 @@ func (x *fastReflection_QueryActiveTssEventsResponse) GetUnknown() protoreflect.
 // An empty RawFields may be passed to clear the fields.
 //
 // SetUnknown is a mutating operation and unsafe for concurrent use.
-func (x *fastReflection_QueryActiveTssEventsResponse) SetUnknown(fields protoreflect.RawFields) {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) SetUnknown(fields protoreflect.RawFields) {
 	x.unknownFields = fields
 }
 
@@ -7697,7 +8536,7 @@ func (x *fastReflection_QueryActiveTssEventsResponse) SetUnknown(fields protoref
 // message type, but the details are implementation dependent.
 // Validity is not part of the protobuf data model, and may not
 // be preserved in marshaling or other operations.
-func (x *fastReflection_QueryActiveTssEventsResponse) IsValid() bool {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) IsValid() bool {
 	return x != nil
 }
 
@@ -7707,9 +8546,9 @@ func (x *fastReflection_QueryActiveTssEventsResponse) IsValid() bool {
 // The returned methods type is identical to
 // "google.golang.org/protobuf/runtime/protoiface".Methods.
 // Consult the protoiface package documentation for details.
-func (x *fastReflection_QueryActiveTssEventsResponse) ProtoMethods() *protoiface.Methods {
+func (x *fastReflection_QueryAllPendingTssEventsResponse) ProtoMethods() *protoiface.Methods {
 	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
-		x := input.Message.Interface().(*QueryActiveTssEventsResponse)
+		x := input.Message.Interface().(*QueryAllPendingTssEventsResponse)
 		if x == nil {
 			return protoiface.SizeOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7741,7 +8580,7 @@ func (x *fastReflection_QueryActiveTssEventsResponse) ProtoMethods() *protoiface
 	}
 
 	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
-		x := input.Message.Interface().(*QueryActiveTssEventsResponse)
+		x := input.Message.Interface().(*QueryAllPendingTssEventsResponse)
 		if x == nil {
 			return protoiface.MarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7801,7 +8640,7 @@ func (x *fastReflection_QueryActiveTssEventsResponse) ProtoMethods() *protoiface
 		}, nil
 	}
 	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
-		x := input.Message.Interface().(*QueryActiveTssEventsResponse)
+		x := input.Message.Interface().(*QueryAllPendingTssEventsResponse)
 		if x == nil {
 			return protoiface.UnmarshalOutput{
 				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
@@ -7833,10 +8672,10 @@ func (x *fastReflection_QueryActiveTssEventsResponse) ProtoMethods() *protoiface
 			fieldNum := int32(wire >> 3)
 			wireType := int(wire & 0x7)
 			if wireType == 4 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveTssEventsResponse: wiretype end group for non-group")
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryAllPendingTssEventsResponse: wiretype end group for non-group")
 			}
 			if fieldNum <= 0 {
-				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryActiveTssEventsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryAllPendingTssEventsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
 			case 1:
@@ -7964,7 +8803,7 @@ func (x *QueryAllTssEventsRequest) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllTssEventsRequest) slowProtoReflect() protoreflect.Message {
-	mi := &file_utss_v1_query_proto_msgTypes[18]
+	mi := &file_utss_v1_query_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8452,7 +9291,7 @@ func (x *QueryAllTssEventsResponse) ProtoReflect() protoreflect.Message {
 }
 
 func (x *QueryAllTssEventsResponse) slowProtoReflect() protoreflect.Message {
-	mi := &file_utss_v1_query_proto_msgTypes[19]
+	mi := &file_utss_v1_query_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9516,16 +10355,16 @@ func (x *QueryGetTssEventResponse) GetEvent() *TssEvent {
 	return nil
 }
 
-type QueryActiveTssEventsRequest struct {
+type QueryGetPendingTssEventRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	ProcessId uint64 `protobuf:"varint,1,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
 }
 
-func (x *QueryActiveTssEventsRequest) Reset() {
-	*x = QueryActiveTssEventsRequest{}
+func (x *QueryGetPendingTssEventRequest) Reset() {
+	*x = QueryGetPendingTssEventRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_utss_v1_query_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -9533,25 +10372,95 @@ func (x *QueryActiveTssEventsRequest) Reset() {
 	}
 }
 
-func (x *QueryActiveTssEventsRequest) String() string {
+func (x *QueryGetPendingTssEventRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*QueryActiveTssEventsRequest) ProtoMessage() {}
+func (*QueryGetPendingTssEventRequest) ProtoMessage() {}
 
-// Deprecated: Use QueryActiveTssEventsRequest.ProtoReflect.Descriptor instead.
-func (*QueryActiveTssEventsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use QueryGetPendingTssEventRequest.ProtoReflect.Descriptor instead.
+func (*QueryGetPendingTssEventRequest) Descriptor() ([]byte, []int) {
 	return file_utss_v1_query_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *QueryActiveTssEventsRequest) GetPagination() *v1beta1.PageRequest {
+func (x *QueryGetPendingTssEventRequest) GetProcessId() uint64 {
+	if x != nil {
+		return x.ProcessId
+	}
+	return 0
+}
+
+type QueryGetPendingTssEventResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Event *TssEvent `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+}
+
+func (x *QueryGetPendingTssEventResponse) Reset() {
+	*x = QueryGetPendingTssEventResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_utss_v1_query_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryGetPendingTssEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryGetPendingTssEventResponse) ProtoMessage() {}
+
+// Deprecated: Use QueryGetPendingTssEventResponse.ProtoReflect.Descriptor instead.
+func (*QueryGetPendingTssEventResponse) Descriptor() ([]byte, []int) {
+	return file_utss_v1_query_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *QueryGetPendingTssEventResponse) GetEvent() *TssEvent {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+type QueryAllPendingTssEventsRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Pagination *v1beta1.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (x *QueryAllPendingTssEventsRequest) Reset() {
+	*x = QueryAllPendingTssEventsRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_utss_v1_query_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryAllPendingTssEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryAllPendingTssEventsRequest) ProtoMessage() {}
+
+// Deprecated: Use QueryAllPendingTssEventsRequest.ProtoReflect.Descriptor instead.
+func (*QueryAllPendingTssEventsRequest) Descriptor() ([]byte, []int) {
+	return file_utss_v1_query_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *QueryAllPendingTssEventsRequest) GetPagination() *v1beta1.PageRequest {
 	if x != nil {
 		return x.Pagination
 	}
 	return nil
 }
 
-type QueryActiveTssEventsResponse struct {
+type QueryAllPendingTssEventsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -9560,34 +10469,34 @@ type QueryActiveTssEventsResponse struct {
 	Pagination *v1beta1.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
-func (x *QueryActiveTssEventsResponse) Reset() {
-	*x = QueryActiveTssEventsResponse{}
+func (x *QueryAllPendingTssEventsResponse) Reset() {
+	*x = QueryAllPendingTssEventsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_utss_v1_query_proto_msgTypes[17]
+		mi := &file_utss_v1_query_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *QueryActiveTssEventsResponse) String() string {
+func (x *QueryAllPendingTssEventsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*QueryActiveTssEventsResponse) ProtoMessage() {}
+func (*QueryAllPendingTssEventsResponse) ProtoMessage() {}
 
-// Deprecated: Use QueryActiveTssEventsResponse.ProtoReflect.Descriptor instead.
-func (*QueryActiveTssEventsResponse) Descriptor() ([]byte, []int) {
-	return file_utss_v1_query_proto_rawDescGZIP(), []int{17}
+// Deprecated: Use QueryAllPendingTssEventsResponse.ProtoReflect.Descriptor instead.
+func (*QueryAllPendingTssEventsResponse) Descriptor() ([]byte, []int) {
+	return file_utss_v1_query_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *QueryActiveTssEventsResponse) GetEvents() []*TssEvent {
+func (x *QueryAllPendingTssEventsResponse) GetEvents() []*TssEvent {
 	if x != nil {
 		return x.Events
 	}
 	return nil
 }
 
-func (x *QueryActiveTssEventsResponse) GetPagination() *v1beta1.PageResponse {
+func (x *QueryAllPendingTssEventsResponse) GetPagination() *v1beta1.PageResponse {
 	if x != nil {
 		return x.Pagination
 	}
@@ -9605,7 +10514,7 @@ type QueryAllTssEventsRequest struct {
 func (x *QueryAllTssEventsRequest) Reset() {
 	*x = QueryAllTssEventsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_utss_v1_query_proto_msgTypes[18]
+		mi := &file_utss_v1_query_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9619,7 +10528,7 @@ func (*QueryAllTssEventsRequest) ProtoMessage() {}
 
 // Deprecated: Use QueryAllTssEventsRequest.ProtoReflect.Descriptor instead.
 func (*QueryAllTssEventsRequest) Descriptor() ([]byte, []int) {
-	return file_utss_v1_query_proto_rawDescGZIP(), []int{18}
+	return file_utss_v1_query_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *QueryAllTssEventsRequest) GetPagination() *v1beta1.PageRequest {
@@ -9641,7 +10550,7 @@ type QueryAllTssEventsResponse struct {
 func (x *QueryAllTssEventsResponse) Reset() {
 	*x = QueryAllTssEventsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_utss_v1_query_proto_msgTypes[19]
+		mi := &file_utss_v1_query_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9655,7 +10564,7 @@ func (*QueryAllTssEventsResponse) ProtoMessage() {}
 
 // Deprecated: Use QueryAllTssEventsResponse.ProtoReflect.Descriptor instead.
 func (*QueryAllTssEventsResponse) Descriptor() ([]byte, []int) {
-	return file_utss_v1_query_proto_rawDescGZIP(), []int{19}
+	return file_utss_v1_query_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *QueryAllTssEventsResponse) GetEvents() []*TssEvent {
@@ -9753,118 +10662,137 @@ var file_utss_v1_query_proto_rawDesc = []byte{
 	0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x12, 0x27, 0x0a, 0x05, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x45, 0x76,
-	0x65, 0x6e, 0x74, 0x52, 0x05, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x22, 0x65, 0x0a, 0x1b, 0x51, 0x75,
-	0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e,
-	0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67,
-	0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72,
-	0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
-	0x6e, 0x22, 0x92, 0x01, 0x0a, 0x1c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76,
-	0x65, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x29, 0x0a, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03,
-	0x28, 0x0b, 0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73,
-	0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x47, 0x0a,
-	0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e,
-	0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61,
-	0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69,
-	0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x62, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41,
-	0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e,
+	0x65, 0x6e, 0x74, 0x52, 0x05, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x22, 0x3f, 0x0a, 0x1e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x47, 0x65, 0x74, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a,
+	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04,
+	0x52, 0x09, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x49, 0x64, 0x22, 0x4a, 0x0a, 0x1f, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x47, 0x65, 0x74, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73,
+	0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x27,
+	0x0a, 0x05, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e,
+	0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74,
+	0x52, 0x05, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x22, 0x69, 0x0a, 0x1f, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x41, 0x6c, 0x6c, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65,
+	0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61,
+	0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26,
+	0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65,
+	0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x22, 0x96, 0x01, 0x0a, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x50,
+	0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x29, 0x0a, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76,
+	0x31, 0x2e, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x06, 0x65, 0x76, 0x65, 0x6e,
+	0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e,
 	0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65, 0x74,
-	0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0a,
-	0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x8f, 0x01, 0x0a, 0x19, 0x51,
+	0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52,
+	0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x62, 0x0a, 0x18, 0x51,
 	0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x29, 0x0a, 0x06, 0x65, 0x76, 0x65, 0x6e,
-	0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e,
-	0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x06, 0x65, 0x76, 0x65,
-	0x6e, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
-	0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x76, 0x31, 0x62, 0x65,
-	0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x32, 0xdb, 0x08, 0x0a,
-	0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x5c, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73,
-	0x12, 0x1b, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e,
-	0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72,
-	0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x17, 0x82, 0xd3, 0xe4,
-	0x93, 0x02, 0x11, 0x12, 0x0f, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61,
-	0x72, 0x61, 0x6d, 0x73, 0x12, 0x7d, 0x0a, 0x0e, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50,
-	0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x23, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f,
-	0x63, 0x65, 0x73, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x75, 0x74,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x46, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x63, 0x6f,
+	0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e,
+	0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22,
+	0x8f, 0x01, 0x0a, 0x19, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45,
+	0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x29, 0x0a,
+	0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e,
+	0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74,
+	0x52, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x47, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69,
+	0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x63,
+	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x71, 0x75, 0x65, 0x72, 0x79,
+	0x2e, 0x76, 0x31, 0x62, 0x65, 0x74, 0x61, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x32, 0x80, 0x0a, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x5c, 0x0a, 0x06, 0x50,
+	0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1b, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x17, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x11, 0x12, 0x0f, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f,
+	0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x7d, 0x0a, 0x0e, 0x43, 0x75, 0x72,
+	0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x23, 0x2e, 0x75, 0x74,
 	0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65,
-	0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x20, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1a, 0x12, 0x18, 0x2f, 0x75, 0x74, 0x73, 0x73,
-	0x2f, 0x76, 0x31, 0x2f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2f, 0x63, 0x75, 0x72, 0x72,
-	0x65, 0x6e, 0x74, 0x12, 0x71, 0x0a, 0x0b, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x42, 0x79,
-	0x49, 0x64, 0x12, 0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
-	0x72, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51,
-	0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x42, 0x79, 0x49, 0x64, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1d, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x17, 0x12,
-	0x15, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73,
-	0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x12, 0x6f, 0x0a, 0x0c, 0x41, 0x6c, 0x6c, 0x50, 0x72, 0x6f,
-	0x63, 0x65, 0x73, 0x73, 0x65, 0x73, 0x12, 0x21, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
-	0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x75, 0x74, 0x73, 0x73,
-	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x50, 0x72, 0x6f, 0x63,
-	0x65, 0x73, 0x73, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x18, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x12, 0x12, 0x10, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f,
-	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x6d, 0x0a, 0x0a, 0x43, 0x75, 0x72, 0x72, 0x65,
-	0x6e, 0x74, 0x4b, 0x65, 0x79, 0x12, 0x1f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x4b, 0x65, 0x79, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x4b, 0x65, 0x79,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1c, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x16,
-	0x12, 0x14, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x6b, 0x65, 0x79, 0x2f, 0x63,
-	0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x12, 0x65, 0x0a, 0x07, 0x4b, 0x65, 0x79, 0x42, 0x79, 0x49,
-	0x64, 0x12, 0x1c, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x4b, 0x65, 0x79, 0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x1d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x4b,
-	0x65, 0x79, 0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1d,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x17, 0x12, 0x15, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31,
-	0x2f, 0x6b, 0x65, 0x79, 0x2f, 0x7b, 0x6b, 0x65, 0x79, 0x5f, 0x69, 0x64, 0x7d, 0x12, 0x5c, 0x0a,
-	0x07, 0x41, 0x6c, 0x6c, 0x4b, 0x65, 0x79, 0x73, 0x12, 0x1c, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x4b, 0x65, 0x79, 0x73, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x4b, 0x65, 0x79, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x14, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0e, 0x12, 0x0c, 0x2f,
-	0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x6b, 0x65, 0x79, 0x12, 0x6f, 0x0a, 0x0b, 0x47,
-	0x65, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x20, 0x2e, 0x75, 0x74, 0x73,
-	0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x65, 0x74, 0x54, 0x73, 0x73,
-	0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x75,
-	0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x65, 0x74, 0x54,
-	0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x1b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x15, 0x12, 0x13, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76,
-	0x31, 0x2f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x12, 0x7d, 0x0a, 0x0f,
-	0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12,
-	0x24, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41,
-	0x63, 0x74, 0x69, 0x76, 0x65, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x54, 0x73, 0x73, 0x45, 0x76,
-	0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1d, 0x82, 0xd3,
-	0xe4, 0x93, 0x02, 0x17, 0x12, 0x15, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65,
-	0x76, 0x65, 0x6e, 0x74, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x12, 0x6d, 0x0a, 0x0c, 0x41,
-	0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x21, 0x2e, 0x75, 0x74,
-	0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x73,
-	0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22,
+	0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x24, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x20, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1a, 0x12, 0x18,
+	0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x2f, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x12, 0x71, 0x0a, 0x0b, 0x50, 0x72, 0x6f, 0x63,
+	0x65, 0x73, 0x73, 0x42, 0x79, 0x49, 0x64, 0x12, 0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x42, 0x79,
+	0x49, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x75, 0x74, 0x73, 0x73,
+	0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1d, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x17, 0x12, 0x15, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x70,
+	0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x12, 0x6f, 0x0a, 0x0c, 0x41,
+	0x6c, 0x6c, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73, 0x12, 0x21, 0x2e, 0x75, 0x74,
+	0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x50, 0x72,
+	0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22,
 	0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c,
-	0x6c, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x16, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x10, 0x12, 0x0e, 0x2f, 0x75, 0x74, 0x73,
-	0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x42, 0x8f, 0x01, 0x0a, 0x0b, 0x63,
-	0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
-	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70,
-	0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61,
-	0x70, 0x69, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73, 0x73, 0x76,
-	0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x2e, 0x56,
-	0x31, 0xca, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x74,
-	0x73, 0x73, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
-	0x61, 0xea, 0x02, 0x08, 0x55, 0x74, 0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x6c, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x18, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x12, 0x12, 0x10, 0x2f, 0x75, 0x74, 0x73,
+	0x73, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x6d, 0x0a, 0x0a,
+	0x43, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x4b, 0x65, 0x79, 0x12, 0x1f, 0x2e, 0x75, 0x74, 0x73,
+	0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6e,
+	0x74, 0x4b, 0x65, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x75, 0x74,
+	0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x75, 0x72, 0x72, 0x65,
+	0x6e, 0x74, 0x4b, 0x65, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1c, 0x82,
+	0xd3, 0xe4, 0x93, 0x02, 0x16, 0x12, 0x14, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f,
+	0x6b, 0x65, 0x79, 0x2f, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x12, 0x65, 0x0a, 0x07, 0x4b,
+	0x65, 0x79, 0x42, 0x79, 0x49, 0x64, 0x12, 0x1c, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31,
+	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x4b, 0x65, 0x79, 0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x4b, 0x65, 0x79, 0x42, 0x79, 0x49, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x1d, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x17, 0x12, 0x15, 0x2f, 0x75, 0x74,
+	0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x6b, 0x65, 0x79, 0x2f, 0x7b, 0x6b, 0x65, 0x79, 0x5f, 0x69,
+	0x64, 0x7d, 0x12, 0x5c, 0x0a, 0x07, 0x41, 0x6c, 0x6c, 0x4b, 0x65, 0x79, 0x73, 0x12, 0x1c, 0x2e,
+	0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c,
+	0x4b, 0x65, 0x79, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x75, 0x74,
+	0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x4b, 0x65,
+	0x79, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x14, 0x82, 0xd3, 0xe4, 0x93,
+	0x02, 0x0e, 0x12, 0x0c, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x6b, 0x65, 0x79,
+	0x12, 0x6f, 0x0a, 0x0b, 0x47, 0x65, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12,
+	0x20, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47,
+	0x65, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x21, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x47, 0x65, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x15, 0x12, 0x13, 0x2f, 0x75,
+	0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x2f, 0x7b, 0x69, 0x64,
+	0x7d, 0x12, 0x94, 0x01, 0x0a, 0x12, 0x47, 0x65, 0x74, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67,
+	0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x27, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x65, 0x74, 0x50, 0x65, 0x6e, 0x64, 0x69,
+	0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x28, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x47, 0x65, 0x74, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76,
+	0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4,
+	0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x76,
+	0x65, 0x6e, 0x74, 0x2f, 0x70, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x7b, 0x70, 0x72, 0x6f,
+	0x63, 0x65, 0x73, 0x73, 0x5f, 0x69, 0x64, 0x7d, 0x12, 0x8a, 0x01, 0x0a, 0x13, 0x41, 0x6c, 0x6c,
+	0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73,
+	0x12, 0x28, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x41, 0x6c, 0x6c, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65,
+	0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x75, 0x74, 0x73,
+	0x73, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x50, 0x65, 0x6e,
+	0x64, 0x69, 0x6e, 0x67, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x18, 0x12, 0x16, 0x2f,
+	0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x2f, 0x70, 0x65,
+	0x6e, 0x64, 0x69, 0x6e, 0x67, 0x12, 0x6d, 0x0a, 0x0c, 0x41, 0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45,
+	0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x21, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x6c, 0x6c, 0x54, 0x73, 0x73, 0x45, 0x76,
+	0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x16, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x10, 0x12, 0x0e, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x65,
+	0x76, 0x65, 0x6e, 0x74, 0x42, 0x8f, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x73,
+	0x73, 0x2e, 0x76, 0x31, 0x42, 0x0a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f,
+	0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70,
+	0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d, 0x63, 0x68,
+	0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75, 0x74, 0x73,
+	0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73, 0x73, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x55, 0x58,
+	0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x07, 0x55, 0x74,
+	0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0x5c,
+	0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x08, 0x55, 0x74,
+	0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -9879,79 +10807,84 @@ func file_utss_v1_query_proto_rawDescGZIP() []byte {
 	return file_utss_v1_query_proto_rawDescData
 }
 
-var file_utss_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_utss_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_utss_v1_query_proto_goTypes = []interface{}{
-	(*QueryParamsRequest)(nil),           // 0: utss.v1.QueryParamsRequest
-	(*QueryParamsResponse)(nil),          // 1: utss.v1.QueryParamsResponse
-	(*QueryCurrentProcessRequest)(nil),   // 2: utss.v1.QueryCurrentProcessRequest
-	(*QueryCurrentProcessResponse)(nil),  // 3: utss.v1.QueryCurrentProcessResponse
-	(*QueryProcessByIdRequest)(nil),      // 4: utss.v1.QueryProcessByIdRequest
-	(*QueryProcessByIdResponse)(nil),     // 5: utss.v1.QueryProcessByIdResponse
-	(*QueryAllProcessesRequest)(nil),     // 6: utss.v1.QueryAllProcessesRequest
-	(*QueryAllProcessesResponse)(nil),    // 7: utss.v1.QueryAllProcessesResponse
-	(*QueryCurrentKeyRequest)(nil),       // 8: utss.v1.QueryCurrentKeyRequest
-	(*QueryCurrentKeyResponse)(nil),      // 9: utss.v1.QueryCurrentKeyResponse
-	(*QueryKeyByIdRequest)(nil),          // 10: utss.v1.QueryKeyByIdRequest
-	(*QueryKeyByIdResponse)(nil),         // 11: utss.v1.QueryKeyByIdResponse
-	(*QueryAllKeysRequest)(nil),          // 12: utss.v1.QueryAllKeysRequest
-	(*QueryAllKeysResponse)(nil),         // 13: utss.v1.QueryAllKeysResponse
-	(*QueryGetTssEventRequest)(nil),      // 14: utss.v1.QueryGetTssEventRequest
-	(*QueryGetTssEventResponse)(nil),     // 15: utss.v1.QueryGetTssEventResponse
-	(*QueryActiveTssEventsRequest)(nil),  // 16: utss.v1.QueryActiveTssEventsRequest
-	(*QueryActiveTssEventsResponse)(nil), // 17: utss.v1.QueryActiveTssEventsResponse
-	(*QueryAllTssEventsRequest)(nil),     // 18: utss.v1.QueryAllTssEventsRequest
-	(*QueryAllTssEventsResponse)(nil),    // 19: utss.v1.QueryAllTssEventsResponse
-	(*Params)(nil),                       // 20: utss.v1.Params
-	(*TssKeyProcess)(nil),                // 21: utss.v1.TssKeyProcess
-	(*v1beta1.PageRequest)(nil),          // 22: cosmos.base.query.v1beta1.PageRequest
-	(*v1beta1.PageResponse)(nil),         // 23: cosmos.base.query.v1beta1.PageResponse
-	(*TssKey)(nil),                       // 24: utss.v1.TssKey
-	(*TssEvent)(nil),                     // 25: utss.v1.TssEvent
+	(*QueryParamsRequest)(nil),               // 0: utss.v1.QueryParamsRequest
+	(*QueryParamsResponse)(nil),              // 1: utss.v1.QueryParamsResponse
+	(*QueryCurrentProcessRequest)(nil),       // 2: utss.v1.QueryCurrentProcessRequest
+	(*QueryCurrentProcessResponse)(nil),      // 3: utss.v1.QueryCurrentProcessResponse
+	(*QueryProcessByIdRequest)(nil),          // 4: utss.v1.QueryProcessByIdRequest
+	(*QueryProcessByIdResponse)(nil),         // 5: utss.v1.QueryProcessByIdResponse
+	(*QueryAllProcessesRequest)(nil),         // 6: utss.v1.QueryAllProcessesRequest
+	(*QueryAllProcessesResponse)(nil),        // 7: utss.v1.QueryAllProcessesResponse
+	(*QueryCurrentKeyRequest)(nil),           // 8: utss.v1.QueryCurrentKeyRequest
+	(*QueryCurrentKeyResponse)(nil),          // 9: utss.v1.QueryCurrentKeyResponse
+	(*QueryKeyByIdRequest)(nil),              // 10: utss.v1.QueryKeyByIdRequest
+	(*QueryKeyByIdResponse)(nil),             // 11: utss.v1.QueryKeyByIdResponse
+	(*QueryAllKeysRequest)(nil),              // 12: utss.v1.QueryAllKeysRequest
+	(*QueryAllKeysResponse)(nil),             // 13: utss.v1.QueryAllKeysResponse
+	(*QueryGetTssEventRequest)(nil),          // 14: utss.v1.QueryGetTssEventRequest
+	(*QueryGetTssEventResponse)(nil),         // 15: utss.v1.QueryGetTssEventResponse
+	(*QueryGetPendingTssEventRequest)(nil),   // 16: utss.v1.QueryGetPendingTssEventRequest
+	(*QueryGetPendingTssEventResponse)(nil),  // 17: utss.v1.QueryGetPendingTssEventResponse
+	(*QueryAllPendingTssEventsRequest)(nil),  // 18: utss.v1.QueryAllPendingTssEventsRequest
+	(*QueryAllPendingTssEventsResponse)(nil), // 19: utss.v1.QueryAllPendingTssEventsResponse
+	(*QueryAllTssEventsRequest)(nil),         // 20: utss.v1.QueryAllTssEventsRequest
+	(*QueryAllTssEventsResponse)(nil),        // 21: utss.v1.QueryAllTssEventsResponse
+	(*Params)(nil),                           // 22: utss.v1.Params
+	(*TssKeyProcess)(nil),                    // 23: utss.v1.TssKeyProcess
+	(*v1beta1.PageRequest)(nil),              // 24: cosmos.base.query.v1beta1.PageRequest
+	(*v1beta1.PageResponse)(nil),             // 25: cosmos.base.query.v1beta1.PageResponse
+	(*TssKey)(nil),                           // 26: utss.v1.TssKey
+	(*TssEvent)(nil),                         // 27: utss.v1.TssEvent
 }
 var file_utss_v1_query_proto_depIdxs = []int32{
-	20, // 0: utss.v1.QueryParamsResponse.params:type_name -> utss.v1.Params
-	21, // 1: utss.v1.QueryCurrentProcessResponse.process:type_name -> utss.v1.TssKeyProcess
-	21, // 2: utss.v1.QueryProcessByIdResponse.process:type_name -> utss.v1.TssKeyProcess
-	22, // 3: utss.v1.QueryAllProcessesRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	21, // 4: utss.v1.QueryAllProcessesResponse.processes:type_name -> utss.v1.TssKeyProcess
-	23, // 5: utss.v1.QueryAllProcessesResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	24, // 6: utss.v1.QueryCurrentKeyResponse.key:type_name -> utss.v1.TssKey
-	24, // 7: utss.v1.QueryKeyByIdResponse.key:type_name -> utss.v1.TssKey
-	22, // 8: utss.v1.QueryAllKeysRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	24, // 9: utss.v1.QueryAllKeysResponse.keys:type_name -> utss.v1.TssKey
-	23, // 10: utss.v1.QueryAllKeysResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	25, // 11: utss.v1.QueryGetTssEventResponse.event:type_name -> utss.v1.TssEvent
-	22, // 12: utss.v1.QueryActiveTssEventsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	25, // 13: utss.v1.QueryActiveTssEventsResponse.events:type_name -> utss.v1.TssEvent
-	23, // 14: utss.v1.QueryActiveTssEventsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	22, // 15: utss.v1.QueryAllTssEventsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	25, // 16: utss.v1.QueryAllTssEventsResponse.events:type_name -> utss.v1.TssEvent
-	23, // 17: utss.v1.QueryAllTssEventsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	0,  // 18: utss.v1.Query.Params:input_type -> utss.v1.QueryParamsRequest
-	2,  // 19: utss.v1.Query.CurrentProcess:input_type -> utss.v1.QueryCurrentProcessRequest
-	4,  // 20: utss.v1.Query.ProcessById:input_type -> utss.v1.QueryProcessByIdRequest
-	6,  // 21: utss.v1.Query.AllProcesses:input_type -> utss.v1.QueryAllProcessesRequest
-	8,  // 22: utss.v1.Query.CurrentKey:input_type -> utss.v1.QueryCurrentKeyRequest
-	10, // 23: utss.v1.Query.KeyById:input_type -> utss.v1.QueryKeyByIdRequest
-	12, // 24: utss.v1.Query.AllKeys:input_type -> utss.v1.QueryAllKeysRequest
-	14, // 25: utss.v1.Query.GetTssEvent:input_type -> utss.v1.QueryGetTssEventRequest
-	16, // 26: utss.v1.Query.ActiveTssEvents:input_type -> utss.v1.QueryActiveTssEventsRequest
-	18, // 27: utss.v1.Query.AllTssEvents:input_type -> utss.v1.QueryAllTssEventsRequest
-	1,  // 28: utss.v1.Query.Params:output_type -> utss.v1.QueryParamsResponse
-	3,  // 29: utss.v1.Query.CurrentProcess:output_type -> utss.v1.QueryCurrentProcessResponse
-	5,  // 30: utss.v1.Query.ProcessById:output_type -> utss.v1.QueryProcessByIdResponse
-	7,  // 31: utss.v1.Query.AllProcesses:output_type -> utss.v1.QueryAllProcessesResponse
-	9,  // 32: utss.v1.Query.CurrentKey:output_type -> utss.v1.QueryCurrentKeyResponse
-	11, // 33: utss.v1.Query.KeyById:output_type -> utss.v1.QueryKeyByIdResponse
-	13, // 34: utss.v1.Query.AllKeys:output_type -> utss.v1.QueryAllKeysResponse
-	15, // 35: utss.v1.Query.GetTssEvent:output_type -> utss.v1.QueryGetTssEventResponse
-	17, // 36: utss.v1.Query.ActiveTssEvents:output_type -> utss.v1.QueryActiveTssEventsResponse
-	19, // 37: utss.v1.Query.AllTssEvents:output_type -> utss.v1.QueryAllTssEventsResponse
-	28, // [28:38] is the sub-list for method output_type
-	18, // [18:28] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	22, // 0: utss.v1.QueryParamsResponse.params:type_name -> utss.v1.Params
+	23, // 1: utss.v1.QueryCurrentProcessResponse.process:type_name -> utss.v1.TssKeyProcess
+	23, // 2: utss.v1.QueryProcessByIdResponse.process:type_name -> utss.v1.TssKeyProcess
+	24, // 3: utss.v1.QueryAllProcessesRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	23, // 4: utss.v1.QueryAllProcessesResponse.processes:type_name -> utss.v1.TssKeyProcess
+	25, // 5: utss.v1.QueryAllProcessesResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	26, // 6: utss.v1.QueryCurrentKeyResponse.key:type_name -> utss.v1.TssKey
+	26, // 7: utss.v1.QueryKeyByIdResponse.key:type_name -> utss.v1.TssKey
+	24, // 8: utss.v1.QueryAllKeysRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	26, // 9: utss.v1.QueryAllKeysResponse.keys:type_name -> utss.v1.TssKey
+	25, // 10: utss.v1.QueryAllKeysResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	27, // 11: utss.v1.QueryGetTssEventResponse.event:type_name -> utss.v1.TssEvent
+	27, // 12: utss.v1.QueryGetPendingTssEventResponse.event:type_name -> utss.v1.TssEvent
+	24, // 13: utss.v1.QueryAllPendingTssEventsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	27, // 14: utss.v1.QueryAllPendingTssEventsResponse.events:type_name -> utss.v1.TssEvent
+	25, // 15: utss.v1.QueryAllPendingTssEventsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	24, // 16: utss.v1.QueryAllTssEventsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	27, // 17: utss.v1.QueryAllTssEventsResponse.events:type_name -> utss.v1.TssEvent
+	25, // 18: utss.v1.QueryAllTssEventsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	0,  // 19: utss.v1.Query.Params:input_type -> utss.v1.QueryParamsRequest
+	2,  // 20: utss.v1.Query.CurrentProcess:input_type -> utss.v1.QueryCurrentProcessRequest
+	4,  // 21: utss.v1.Query.ProcessById:input_type -> utss.v1.QueryProcessByIdRequest
+	6,  // 22: utss.v1.Query.AllProcesses:input_type -> utss.v1.QueryAllProcessesRequest
+	8,  // 23: utss.v1.Query.CurrentKey:input_type -> utss.v1.QueryCurrentKeyRequest
+	10, // 24: utss.v1.Query.KeyById:input_type -> utss.v1.QueryKeyByIdRequest
+	12, // 25: utss.v1.Query.AllKeys:input_type -> utss.v1.QueryAllKeysRequest
+	14, // 26: utss.v1.Query.GetTssEvent:input_type -> utss.v1.QueryGetTssEventRequest
+	16, // 27: utss.v1.Query.GetPendingTssEvent:input_type -> utss.v1.QueryGetPendingTssEventRequest
+	18, // 28: utss.v1.Query.AllPendingTssEvents:input_type -> utss.v1.QueryAllPendingTssEventsRequest
+	20, // 29: utss.v1.Query.AllTssEvents:input_type -> utss.v1.QueryAllTssEventsRequest
+	1,  // 30: utss.v1.Query.Params:output_type -> utss.v1.QueryParamsResponse
+	3,  // 31: utss.v1.Query.CurrentProcess:output_type -> utss.v1.QueryCurrentProcessResponse
+	5,  // 32: utss.v1.Query.ProcessById:output_type -> utss.v1.QueryProcessByIdResponse
+	7,  // 33: utss.v1.Query.AllProcesses:output_type -> utss.v1.QueryAllProcessesResponse
+	9,  // 34: utss.v1.Query.CurrentKey:output_type -> utss.v1.QueryCurrentKeyResponse
+	11, // 35: utss.v1.Query.KeyById:output_type -> utss.v1.QueryKeyByIdResponse
+	13, // 36: utss.v1.Query.AllKeys:output_type -> utss.v1.QueryAllKeysResponse
+	15, // 37: utss.v1.Query.GetTssEvent:output_type -> utss.v1.QueryGetTssEventResponse
+	17, // 38: utss.v1.Query.GetPendingTssEvent:output_type -> utss.v1.QueryGetPendingTssEventResponse
+	19, // 39: utss.v1.Query.AllPendingTssEvents:output_type -> utss.v1.QueryAllPendingTssEventsResponse
+	21, // 40: utss.v1.Query.AllTssEvents:output_type -> utss.v1.QueryAllTssEventsResponse
+	30, // [30:41] is the sub-list for method output_type
+	19, // [19:30] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_utss_v1_query_proto_init() }
@@ -10155,7 +11088,7 @@ func file_utss_v1_query_proto_init() {
 			}
 		}
 		file_utss_v1_query_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*QueryActiveTssEventsRequest); i {
+			switch v := v.(*QueryGetPendingTssEventRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -10167,7 +11100,7 @@ func file_utss_v1_query_proto_init() {
 			}
 		}
 		file_utss_v1_query_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*QueryActiveTssEventsResponse); i {
+			switch v := v.(*QueryGetPendingTssEventResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -10179,7 +11112,7 @@ func file_utss_v1_query_proto_init() {
 			}
 		}
 		file_utss_v1_query_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*QueryAllTssEventsRequest); i {
+			switch v := v.(*QueryAllPendingTssEventsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -10191,6 +11124,30 @@ func file_utss_v1_query_proto_init() {
 			}
 		}
 		file_utss_v1_query_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryAllPendingTssEventsResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_utss_v1_query_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryAllTssEventsRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_utss_v1_query_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryAllTssEventsResponse); i {
 			case 0:
 				return &v.state
@@ -10209,7 +11166,7 @@ func file_utss_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_utss_v1_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

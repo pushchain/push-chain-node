@@ -51,7 +51,7 @@ func TestGenesisExportImportRoundTrip(t *testing.T) {
 	require.NotNil(t, exported)
 	require.Len(t, exported.UniversalValidators, 1)
 	require.Len(t, exported.Ballots, 1)
-	require.Len(t, exported.ActiveBallotIDs, 1)
+	require.Len(t, exported.ActiveBallotIds, 1)
 
 	// Re-init on fresh fixture
 	f2 := SetupTest(t)
@@ -61,6 +61,6 @@ func TestGenesisExportImportRoundTrip(t *testing.T) {
 	reExported := f2.k.ExportGenesis(f2.ctx)
 	require.Equal(t, len(exported.UniversalValidators), len(reExported.UniversalValidators))
 	require.Equal(t, len(exported.Ballots), len(reExported.Ballots))
-	require.Equal(t, len(exported.ActiveBallotIDs), len(reExported.ActiveBallotIDs))
+	require.Equal(t, len(exported.ActiveBallotIds), len(reExported.ActiveBallotIds))
 	require.Equal(t, exported.UniversalValidators[0].Key, reExported.UniversalValidators[0].Key)
 }

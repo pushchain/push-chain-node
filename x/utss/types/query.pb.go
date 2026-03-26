@@ -727,22 +727,22 @@ func (m *QueryGetTssEventResponse) GetEvent() *TssEvent {
 	return nil
 }
 
-type QueryActiveTssEventsRequest struct {
-	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+type QueryGetPendingTssEventRequest struct {
+	ProcessId uint64 `protobuf:"varint,1,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
 }
 
-func (m *QueryActiveTssEventsRequest) Reset()         { *m = QueryActiveTssEventsRequest{} }
-func (m *QueryActiveTssEventsRequest) String() string { return proto.CompactTextString(m) }
-func (*QueryActiveTssEventsRequest) ProtoMessage()    {}
-func (*QueryActiveTssEventsRequest) Descriptor() ([]byte, []int) {
+func (m *QueryGetPendingTssEventRequest) Reset()         { *m = QueryGetPendingTssEventRequest{} }
+func (m *QueryGetPendingTssEventRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryGetPendingTssEventRequest) ProtoMessage()    {}
+func (*QueryGetPendingTssEventRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2af2863e9a096df1, []int{16}
 }
-func (m *QueryActiveTssEventsRequest) XXX_Unmarshal(b []byte) error {
+func (m *QueryGetPendingTssEventRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *QueryActiveTssEventsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *QueryGetPendingTssEventRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_QueryActiveTssEventsRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_QueryGetPendingTssEventRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -752,42 +752,130 @@ func (m *QueryActiveTssEventsRequest) XXX_Marshal(b []byte, deterministic bool) 
 		return b[:n], nil
 	}
 }
-func (m *QueryActiveTssEventsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryActiveTssEventsRequest.Merge(m, src)
+func (m *QueryGetPendingTssEventRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryGetPendingTssEventRequest.Merge(m, src)
 }
-func (m *QueryActiveTssEventsRequest) XXX_Size() int {
+func (m *QueryGetPendingTssEventRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *QueryActiveTssEventsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryActiveTssEventsRequest.DiscardUnknown(m)
+func (m *QueryGetPendingTssEventRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryGetPendingTssEventRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_QueryActiveTssEventsRequest proto.InternalMessageInfo
+var xxx_messageInfo_QueryGetPendingTssEventRequest proto.InternalMessageInfo
 
-func (m *QueryActiveTssEventsRequest) GetPagination() *query.PageRequest {
+func (m *QueryGetPendingTssEventRequest) GetProcessId() uint64 {
+	if m != nil {
+		return m.ProcessId
+	}
+	return 0
+}
+
+type QueryGetPendingTssEventResponse struct {
+	Event *TssEvent `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+}
+
+func (m *QueryGetPendingTssEventResponse) Reset()         { *m = QueryGetPendingTssEventResponse{} }
+func (m *QueryGetPendingTssEventResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryGetPendingTssEventResponse) ProtoMessage()    {}
+func (*QueryGetPendingTssEventResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2af2863e9a096df1, []int{17}
+}
+func (m *QueryGetPendingTssEventResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryGetPendingTssEventResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryGetPendingTssEventResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryGetPendingTssEventResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryGetPendingTssEventResponse.Merge(m, src)
+}
+func (m *QueryGetPendingTssEventResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryGetPendingTssEventResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryGetPendingTssEventResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryGetPendingTssEventResponse proto.InternalMessageInfo
+
+func (m *QueryGetPendingTssEventResponse) GetEvent() *TssEvent {
+	if m != nil {
+		return m.Event
+	}
+	return nil
+}
+
+type QueryAllPendingTssEventsRequest struct {
+	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (m *QueryAllPendingTssEventsRequest) Reset()         { *m = QueryAllPendingTssEventsRequest{} }
+func (m *QueryAllPendingTssEventsRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAllPendingTssEventsRequest) ProtoMessage()    {}
+func (*QueryAllPendingTssEventsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2af2863e9a096df1, []int{18}
+}
+func (m *QueryAllPendingTssEventsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllPendingTssEventsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllPendingTssEventsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllPendingTssEventsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllPendingTssEventsRequest.Merge(m, src)
+}
+func (m *QueryAllPendingTssEventsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllPendingTssEventsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllPendingTssEventsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllPendingTssEventsRequest proto.InternalMessageInfo
+
+func (m *QueryAllPendingTssEventsRequest) GetPagination() *query.PageRequest {
 	if m != nil {
 		return m.Pagination
 	}
 	return nil
 }
 
-type QueryActiveTssEventsResponse struct {
+type QueryAllPendingTssEventsResponse struct {
 	Events     []*TssEvent         `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	Pagination *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
-func (m *QueryActiveTssEventsResponse) Reset()         { *m = QueryActiveTssEventsResponse{} }
-func (m *QueryActiveTssEventsResponse) String() string { return proto.CompactTextString(m) }
-func (*QueryActiveTssEventsResponse) ProtoMessage()    {}
-func (*QueryActiveTssEventsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2af2863e9a096df1, []int{17}
+func (m *QueryAllPendingTssEventsResponse) Reset()         { *m = QueryAllPendingTssEventsResponse{} }
+func (m *QueryAllPendingTssEventsResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAllPendingTssEventsResponse) ProtoMessage()    {}
+func (*QueryAllPendingTssEventsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2af2863e9a096df1, []int{19}
 }
-func (m *QueryActiveTssEventsResponse) XXX_Unmarshal(b []byte) error {
+func (m *QueryAllPendingTssEventsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *QueryActiveTssEventsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *QueryAllPendingTssEventsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_QueryActiveTssEventsResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_QueryAllPendingTssEventsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -797,26 +885,26 @@ func (m *QueryActiveTssEventsResponse) XXX_Marshal(b []byte, deterministic bool)
 		return b[:n], nil
 	}
 }
-func (m *QueryActiveTssEventsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryActiveTssEventsResponse.Merge(m, src)
+func (m *QueryAllPendingTssEventsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllPendingTssEventsResponse.Merge(m, src)
 }
-func (m *QueryActiveTssEventsResponse) XXX_Size() int {
+func (m *QueryAllPendingTssEventsResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *QueryActiveTssEventsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryActiveTssEventsResponse.DiscardUnknown(m)
+func (m *QueryAllPendingTssEventsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllPendingTssEventsResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_QueryActiveTssEventsResponse proto.InternalMessageInfo
+var xxx_messageInfo_QueryAllPendingTssEventsResponse proto.InternalMessageInfo
 
-func (m *QueryActiveTssEventsResponse) GetEvents() []*TssEvent {
+func (m *QueryAllPendingTssEventsResponse) GetEvents() []*TssEvent {
 	if m != nil {
 		return m.Events
 	}
 	return nil
 }
 
-func (m *QueryActiveTssEventsResponse) GetPagination() *query.PageResponse {
+func (m *QueryAllPendingTssEventsResponse) GetPagination() *query.PageResponse {
 	if m != nil {
 		return m.Pagination
 	}
@@ -831,7 +919,7 @@ func (m *QueryAllTssEventsRequest) Reset()         { *m = QueryAllTssEventsReque
 func (m *QueryAllTssEventsRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryAllTssEventsRequest) ProtoMessage()    {}
 func (*QueryAllTssEventsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2af2863e9a096df1, []int{18}
+	return fileDescriptor_2af2863e9a096df1, []int{20}
 }
 func (m *QueryAllTssEventsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -876,7 +964,7 @@ func (m *QueryAllTssEventsResponse) Reset()         { *m = QueryAllTssEventsResp
 func (m *QueryAllTssEventsResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryAllTssEventsResponse) ProtoMessage()    {}
 func (*QueryAllTssEventsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2af2863e9a096df1, []int{19}
+	return fileDescriptor_2af2863e9a096df1, []int{21}
 }
 func (m *QueryAllTssEventsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -936,8 +1024,10 @@ func init() {
 	proto.RegisterType((*QueryAllKeysResponse)(nil), "utss.v1.QueryAllKeysResponse")
 	proto.RegisterType((*QueryGetTssEventRequest)(nil), "utss.v1.QueryGetTssEventRequest")
 	proto.RegisterType((*QueryGetTssEventResponse)(nil), "utss.v1.QueryGetTssEventResponse")
-	proto.RegisterType((*QueryActiveTssEventsRequest)(nil), "utss.v1.QueryActiveTssEventsRequest")
-	proto.RegisterType((*QueryActiveTssEventsResponse)(nil), "utss.v1.QueryActiveTssEventsResponse")
+	proto.RegisterType((*QueryGetPendingTssEventRequest)(nil), "utss.v1.QueryGetPendingTssEventRequest")
+	proto.RegisterType((*QueryGetPendingTssEventResponse)(nil), "utss.v1.QueryGetPendingTssEventResponse")
+	proto.RegisterType((*QueryAllPendingTssEventsRequest)(nil), "utss.v1.QueryAllPendingTssEventsRequest")
+	proto.RegisterType((*QueryAllPendingTssEventsResponse)(nil), "utss.v1.QueryAllPendingTssEventsResponse")
 	proto.RegisterType((*QueryAllTssEventsRequest)(nil), "utss.v1.QueryAllTssEventsRequest")
 	proto.RegisterType((*QueryAllTssEventsResponse)(nil), "utss.v1.QueryAllTssEventsResponse")
 }
@@ -945,62 +1035,66 @@ func init() {
 func init() { proto.RegisterFile("utss/v1/query.proto", fileDescriptor_2af2863e9a096df1) }
 
 var fileDescriptor_2af2863e9a096df1 = []byte{
-	// 867 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x96, 0xcf, 0x4f, 0xe3, 0x46,
-	0x14, 0xc7, 0x71, 0x80, 0xa4, 0x3c, 0x50, 0x80, 0x21, 0x09, 0xa9, 0x09, 0x69, 0x30, 0x6d, 0x29,
-	0x55, 0xb1, 0x1b, 0xda, 0x4b, 0xa5, 0xaa, 0x12, 0xa0, 0x16, 0xa1, 0x54, 0x2a, 0x8d, 0x38, 0x55,
-	0x54, 0x95, 0x93, 0x8c, 0x82, 0x95, 0xc4, 0x36, 0x19, 0x27, 0xaa, 0x85, 0x72, 0xa9, 0x7a, 0x6f,
-	0xd5, 0xde, 0xfa, 0x17, 0xf5, 0x88, 0xb4, 0x97, 0x95, 0xf6, 0xb2, 0x82, 0xfd, 0x43, 0x56, 0x99,
-	0x79, 0x76, 0xfc, 0x2b, 0x61, 0xb5, 0xca, 0x4a, 0x7b, 0x4b, 0xe6, 0x7d, 0xe7, 0x7d, 0xde, 0xcc,
-	0x7b, 0xf3, 0x9e, 0x61, 0x6b, 0xe0, 0x30, 0xa6, 0x0d, 0xab, 0xda, 0xed, 0x80, 0xf6, 0x5d, 0xd5,
-	0xee, 0x5b, 0x8e, 0x45, 0x32, 0xe3, 0x45, 0x75, 0x58, 0x95, 0x4b, 0x6d, 0xcb, 0x6a, 0x77, 0xa9,
-	0xa6, 0xdb, 0x86, 0xa6, 0x9b, 0xa6, 0xe5, 0xe8, 0x8e, 0x61, 0x99, 0x4c, 0xc8, 0xe4, 0xcf, 0x9b,
-	0x16, 0xeb, 0x59, 0x4c, 0x6b, 0xe8, 0x8c, 0x8a, 0xfd, 0xda, 0xb0, 0xda, 0xa0, 0x8e, 0x5e, 0xd5,
-	0x6c, 0xbd, 0x6d, 0x98, 0x5c, 0x8c, 0xda, 0xbc, 0xc7, 0x69, 0x53, 0x93, 0x32, 0xc3, 0x73, 0xe1,
-	0xe3, 0x1d, 0xd7, 0xa6, 0xb8, 0xa8, 0xe4, 0x80, 0xfc, 0x3c, 0xf6, 0x76, 0xa9, 0xf7, 0xf5, 0x1e,
-	0xab, 0xd3, 0xdb, 0x01, 0x65, 0x8e, 0xf2, 0x1d, 0x6c, 0x85, 0x56, 0x99, 0x6d, 0x99, 0x8c, 0x92,
-	0x03, 0x48, 0xdb, 0x7c, 0xa5, 0x28, 0x55, 0xa4, 0xcf, 0x56, 0x8f, 0xd7, 0x55, 0x0c, 0x5e, 0x45,
-	0x21, 0x9a, 0x95, 0x12, 0xc8, 0x7c, 0xff, 0xd9, 0xa0, 0xdf, 0xa7, 0xa6, 0x73, 0xd9, 0xb7, 0x9a,
-	0x94, 0xf9, 0xde, 0x7f, 0x82, 0x9d, 0x44, 0x2b, 0x52, 0xbe, 0x84, 0x8c, 0x2d, 0x96, 0x10, 0x53,
-	0xf0, 0x31, 0x57, 0x8c, 0xd5, 0xa8, 0xeb, 0x6d, 0xf0, 0x64, 0xca, 0x21, 0x6c, 0x8b, 0x70, 0xc5,
-	0xff, 0x53, 0xf7, 0xa2, 0x85, 0x2c, 0x92, 0x85, 0x94, 0xd1, 0xe2, 0x7e, 0x96, 0xea, 0x29, 0xa3,
-	0xa5, 0xfc, 0x08, 0xc5, 0xb8, 0xf4, 0xad, 0xc1, 0x0d, 0xf4, 0x76, 0xd2, 0xed, 0xa2, 0x8d, 0x7a,
-	0xa7, 0x24, 0x3f, 0x00, 0x4c, 0x32, 0x83, 0x0e, 0x3f, 0x55, 0x45, 0x1a, 0xd5, 0x71, 0x1a, 0x55,
-	0x51, 0x06, 0x98, 0x46, 0xf5, 0x52, 0x6f, 0x53, 0xdc, 0x5b, 0x0f, 0xec, 0x54, 0xfe, 0x93, 0xe0,
-	0xc3, 0x04, 0x08, 0xc6, 0xfc, 0x35, 0xac, 0xd8, 0xde, 0x62, 0x51, 0xaa, 0x2c, 0xce, 0x88, 0x7a,
-	0x22, 0x24, 0xe7, 0xa1, 0xd8, 0x52, 0x3c, 0xb6, 0x83, 0x27, 0x63, 0x13, 0xc8, 0x50, 0x70, 0x45,
-	0x28, 0x04, 0x53, 0x59, 0xa3, 0xae, 0x97, 0xe4, 0x6f, 0x31, 0x27, 0x41, 0x0b, 0xc6, 0xbc, 0x07,
-	0x8b, 0x1d, 0xea, 0xc6, 0x6a, 0x48, 0x44, 0x5b, 0x1f, 0xdb, 0x94, 0x2f, 0xb0, 0x00, 0x6b, 0xd4,
-	0x0d, 0x66, 0x33, 0x0f, 0xe9, 0x0e, 0x75, 0x7f, 0xc3, 0x8c, 0xae, 0xd4, 0x97, 0x3b, 0xd4, 0xbd,
-	0x68, 0x29, 0xdf, 0x40, 0x2e, 0xac, 0x7e, 0x73, 0xd0, 0xaf, 0x08, 0x3a, 0xe9, 0x76, 0x6b, 0xd4,
-	0x9d, 0x7b, 0xf2, 0xfe, 0x94, 0x30, 0x34, 0xdf, 0x3f, 0x86, 0xb6, 0x0f, 0x4b, 0x1d, 0xea, 0x7a,
-	0x29, 0x8b, 0xc5, 0xc6, 0x8d, 0xf3, 0x4b, 0x93, 0xf7, 0x40, 0xce, 0xa9, 0x73, 0xc5, 0xd8, 0xf7,
-	0x43, 0x6a, 0x3a, 0xd3, 0x1e, 0xc8, 0x19, 0x96, 0x74, 0x48, 0xea, 0xbf, 0xff, 0x65, 0x3a, 0x5e,
-	0xc0, 0x0b, 0xd9, 0x0c, 0x46, 0x2d, 0x94, 0xc2, 0xae, 0x50, 0x7c, 0xe1, 0x27, 0x4d, 0xc7, 0x18,
-	0x52, 0xcf, 0x3a, 0xf7, 0xdb, 0xfd, 0x47, 0x82, 0x52, 0x32, 0x07, 0x03, 0x3e, 0x84, 0x34, 0x0f,
-	0xc8, 0xbb, 0xe7, 0x84, 0x88, 0x51, 0x30, 0xbf, 0xbb, 0x0e, 0xf4, 0x84, 0x77, 0x76, 0xf0, 0xbf,
-	0x02, 0x3d, 0xe1, 0xbd, 0x38, 0xf5, 0xf1, 0x8b, 0x0f, 0x60, 0x99, 0x47, 0x44, 0xae, 0x21, 0x2d,
-	0xa6, 0x01, 0xd9, 0xf1, 0xb9, 0xf1, 0x11, 0x23, 0x97, 0x92, 0x8d, 0xc2, 0xb5, 0xb2, 0xfd, 0xc7,
-	0xb3, 0x57, 0xff, 0xa6, 0x36, 0xc9, 0xba, 0xe6, 0x0d, 0x2d, 0x31, 0x59, 0xc8, 0x08, 0xb2, 0xe1,
-	0xb1, 0x41, 0xf6, 0xc3, 0x8e, 0x12, 0x47, 0x8e, 0xfc, 0xf1, 0x6c, 0x11, 0x52, 0x2b, 0x9c, 0x2a,
-	0x93, 0xe2, 0x84, 0x2a, 0x14, 0x5a, 0x53, 0x6c, 0x20, 0xb7, 0xb0, 0x1a, 0x98, 0x1c, 0xa4, 0x12,
-	0x39, 0x44, 0x6c, 0xfe, 0xc8, 0x7b, 0x33, 0x14, 0x48, 0xdd, 0xe5, 0xd4, 0x6d, 0x92, 0x8f, 0x51,
-	0xef, 0x8c, 0xd6, 0x88, 0x58, 0xb0, 0x16, 0xec, 0xfc, 0x24, 0xe2, 0x31, 0x61, 0xf4, 0xc8, 0xca,
-	0x2c, 0x09, 0x52, 0x8b, 0x9c, 0x4a, 0xc8, 0x46, 0x94, 0x4a, 0x7a, 0x00, 0x93, 0xa6, 0x4d, 0x3e,
-	0x4a, 0xbc, 0xb9, 0x49, 0xa3, 0x97, 0x2b, 0xd3, 0x05, 0x88, 0x2a, 0x71, 0x54, 0x81, 0xe4, 0x7c,
-	0x54, 0x87, 0xba, 0xfe, 0x95, 0x52, 0xc8, 0x60, 0xdf, 0x26, 0x91, 0x9a, 0x08, 0x37, 0x7f, 0x79,
-	0x77, 0x8a, 0x75, 0xea, 0x35, 0x8e, 0x29, 0x77, 0x62, 0x5e, 0x8c, 0xc8, 0x35, 0x64, 0xb0, 0x07,
-	0x47, 0x31, 0xe1, 0xd6, 0x1f, 0xc5, 0x44, 0x1a, 0xb7, 0x92, 0xe3, 0x98, 0x2c, 0x59, 0x0b, 0x62,
-	0x88, 0x05, 0xab, 0x81, 0x86, 0x19, 0xad, 0x8b, 0x78, 0xdb, 0x8d, 0xd6, 0x45, 0x42, 0xb7, 0x55,
-	0x76, 0x38, 0x29, 0x4f, 0xb6, 0x7c, 0x12, 0x7f, 0xb4, 0xa2, 0x2a, 0x46, 0xb0, 0x1e, 0x69, 0x7a,
-	0x24, 0x52, 0xe3, 0xc9, 0xbd, 0x57, 0xfe, 0xe4, 0x09, 0xd5, 0xd4, 0xdb, 0x14, 0x70, 0x9d, 0xeb,
-	0x49, 0x8f, 0x17, 0xe5, 0x84, 0x1d, 0x2f, 0xca, 0x18, 0x58, 0x99, 0x25, 0x41, 0x6a, 0x81, 0x53,
-	0x37, 0x48, 0x36, 0x4c, 0x3d, 0xad, 0xfd, 0xff, 0x50, 0x96, 0xee, 0x1f, 0xca, 0xd2, 0xcb, 0x87,
-	0xb2, 0xf4, 0xf7, 0x63, 0x79, 0xe1, 0xfe, 0xb1, 0xbc, 0xf0, 0xfc, 0xb1, 0xbc, 0xf0, 0x4b, 0xb5,
-	0x6d, 0x38, 0x37, 0x83, 0x86, 0xda, 0xb4, 0x7a, 0x9a, 0x3d, 0x60, 0x37, 0xcd, 0x1b, 0xdd, 0x30,
-	0xf9, 0xaf, 0x23, 0xfe, 0xf3, 0xc8, 0xb4, 0x5a, 0x54, 0xfb, 0x5d, 0xf8, 0xe3, 0x1f, 0xbe, 0x8d,
-	0x34, 0xff, 0xf2, 0xfd, 0xea, 0x75, 0x00, 0x00, 0x00, 0xff, 0xff, 0xe6, 0xd7, 0xf8, 0xe7, 0x8f,
-	0x0b, 0x00, 0x00,
+	// 935 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x97, 0xdf, 0x6f, 0xdb, 0x54,
+	0x14, 0xc7, 0xeb, 0x6e, 0x4d, 0xb5, 0xd3, 0xa9, 0xdb, 0x4e, 0xdb, 0x34, 0xb8, 0xa9, 0x97, 0xb9,
+	0x40, 0x5b, 0x60, 0x36, 0x19, 0xbc, 0x20, 0x21, 0xd0, 0x36, 0xc1, 0x54, 0x82, 0x44, 0x88, 0xf6,
+	0x84, 0x86, 0x26, 0x27, 0xbe, 0x4a, 0xad, 0x24, 0xb6, 0x9b, 0xeb, 0x44, 0x58, 0x55, 0x24, 0x84,
+	0x78, 0xe2, 0x05, 0x24, 0x10, 0x0f, 0xfc, 0x45, 0x3c, 0x4e, 0xe2, 0x85, 0x47, 0xd4, 0xf2, 0x87,
+	0xa0, 0xdc, 0x7b, 0xec, 0xf8, 0x57, 0xb2, 0x82, 0x82, 0xb4, 0xb7, 0xf6, 0xde, 0xef, 0x3d, 0x9f,
+	0xaf, 0x7d, 0xce, 0xf5, 0x57, 0x81, 0xad, 0x51, 0xc0, 0xb9, 0x39, 0xae, 0x9b, 0x67, 0x23, 0x36,
+	0x0c, 0x0d, 0x7f, 0xe8, 0x05, 0x1e, 0xae, 0x4f, 0x17, 0x8d, 0x71, 0x5d, 0xad, 0x76, 0x3d, 0xaf,
+	0xdb, 0x67, 0xa6, 0xe5, 0x3b, 0xa6, 0xe5, 0xba, 0x5e, 0x60, 0x05, 0x8e, 0xe7, 0x72, 0x29, 0x53,
+	0xdf, 0xea, 0x78, 0x7c, 0xe0, 0x71, 0xb3, 0x6d, 0x71, 0x26, 0xcf, 0x9b, 0xe3, 0x7a, 0x9b, 0x05,
+	0x56, 0xdd, 0xf4, 0xad, 0xae, 0xe3, 0x0a, 0x31, 0x69, 0x77, 0x22, 0x4e, 0x97, 0xb9, 0x8c, 0x3b,
+	0x51, 0x89, 0x18, 0x1f, 0x84, 0x3e, 0xa3, 0x45, 0x7d, 0x1b, 0xf0, 0xcb, 0x69, 0xb5, 0xa6, 0x35,
+	0xb4, 0x06, 0xbc, 0xc5, 0xce, 0x46, 0x8c, 0x07, 0xfa, 0x47, 0xb0, 0x95, 0x5a, 0xe5, 0xbe, 0xe7,
+	0x72, 0x86, 0x87, 0x50, 0xf2, 0xc5, 0x4a, 0x45, 0xa9, 0x29, 0x47, 0x1b, 0x0f, 0x6e, 0x19, 0x64,
+	0xde, 0x20, 0x21, 0x6d, 0xeb, 0x55, 0x50, 0xc5, 0xf9, 0xc7, 0xa3, 0xe1, 0x90, 0xb9, 0x41, 0x73,
+	0xe8, 0x75, 0x18, 0x8f, 0xab, 0x7f, 0x01, 0x7b, 0x85, 0xbb, 0x44, 0x79, 0x17, 0xd6, 0x7d, 0xb9,
+	0x44, 0x98, 0x72, 0x8c, 0x79, 0xca, 0x79, 0x83, 0x85, 0xd1, 0x81, 0x48, 0xa6, 0x1f, 0xc3, 0xae,
+	0xb4, 0x2b, 0xff, 0x7f, 0x14, 0x9e, 0xd8, 0xc4, 0xc2, 0x4d, 0x58, 0x75, 0x6c, 0x51, 0xe7, 0x7a,
+	0x6b, 0xd5, 0xb1, 0xf5, 0xcf, 0xa1, 0x92, 0x97, 0xfe, 0x67, 0x70, 0x9b, 0xaa, 0x3d, 0xec, 0xf7,
+	0x69, 0x8f, 0x45, 0x4f, 0x89, 0x9f, 0x02, 0xcc, 0x3a, 0x43, 0x05, 0xdf, 0x34, 0x64, 0x1b, 0x8d,
+	0x69, 0x1b, 0x0d, 0x39, 0x06, 0xd4, 0x46, 0xa3, 0x69, 0x75, 0x19, 0x9d, 0x6d, 0x25, 0x4e, 0xea,
+	0xbf, 0x29, 0xf0, 0x5a, 0x01, 0x84, 0x3c, 0xbf, 0x0f, 0x37, 0xfc, 0x68, 0xb1, 0xa2, 0xd4, 0xae,
+	0x2d, 0x70, 0x3d, 0x13, 0xe2, 0x93, 0x94, 0xb7, 0x55, 0xe1, 0xed, 0xf0, 0xa5, 0xde, 0x24, 0x32,
+	0x65, 0xae, 0x02, 0xe5, 0x64, 0x2b, 0x1b, 0x2c, 0x8c, 0x9a, 0xfc, 0x21, 0xf5, 0x24, 0xb9, 0x43,
+	0x9e, 0xef, 0xc1, 0xb5, 0x1e, 0x0b, 0x73, 0x33, 0x24, 0xdd, 0xb6, 0xa6, 0x7b, 0xfa, 0x3b, 0x34,
+	0x80, 0x0d, 0x16, 0x26, 0xbb, 0xb9, 0x03, 0xa5, 0x1e, 0x0b, 0x9f, 0x53, 0x47, 0x6f, 0xb4, 0xd6,
+	0x7a, 0x2c, 0x3c, 0xb1, 0xf5, 0x0f, 0x60, 0x3b, 0xad, 0xbe, 0x3a, 0xe8, 0x6b, 0x02, 0x3d, 0xec,
+	0xf7, 0x1b, 0x2c, 0x5c, 0x7a, 0xf3, 0xbe, 0x57, 0xc8, 0x5a, 0x5c, 0x9f, 0xac, 0x1d, 0xc0, 0xf5,
+	0x1e, 0x0b, 0xa3, 0x96, 0xe5, 0xbc, 0x89, 0xcd, 0xe5, 0xb5, 0x29, 0xba, 0x20, 0x4f, 0x58, 0xf0,
+	0x94, 0xf3, 0x4f, 0xc6, 0xcc, 0x0d, 0xe6, 0x5d, 0x90, 0xc7, 0x34, 0xd2, 0x29, 0x69, 0x7c, 0xff,
+	0xd7, 0xd8, 0x74, 0x81, 0x5e, 0xc8, 0x9d, 0xa4, 0x6b, 0xa9, 0x94, 0xfb, 0xfa, 0xc7, 0xa0, 0x45,
+	0x45, 0x9a, 0xcc, 0xb5, 0x1d, 0xb7, 0x9b, 0xc5, 0xee, 0x03, 0xd0, 0x38, 0x3e, 0x8f, 0xf1, 0xd1,
+	0x80, 0x9e, 0xd8, 0xfa, 0x67, 0x70, 0x77, 0x6e, 0x81, 0x7f, 0x6b, 0xc6, 0xa1, 0x5a, 0xd3, 0xfb,
+	0x93, 0xae, 0xb5, 0xf4, 0x76, 0xff, 0xaa, 0x40, 0x6d, 0x3e, 0x8b, 0x8c, 0x1f, 0x43, 0x49, 0x18,
+	0x8b, 0x9a, 0x5f, 0xe0, 0x9c, 0x04, 0xcb, 0x1b, 0x80, 0xc4, 0x87, 0xea, 0x7f, 0x7b, 0xf8, 0x1f,
+	0x13, 0x1f, 0xaa, 0x57, 0xe2, 0xa9, 0x1f, 0x7c, 0x0b, 0xb0, 0x26, 0x1c, 0xe1, 0x33, 0x28, 0xc9,
+	0x88, 0xc2, 0xbd, 0x98, 0x9b, 0xcf, 0x3d, 0xb5, 0x5a, 0xbc, 0x29, 0x4b, 0xeb, 0xbb, 0xdf, 0xfd,
+	0xf1, 0xf7, 0xcf, 0xab, 0x77, 0xf0, 0x96, 0x19, 0x25, 0xa9, 0x8c, 0x3b, 0x9c, 0xc0, 0x66, 0x3a,
+	0xcb, 0xf0, 0x20, 0x5d, 0xa8, 0x30, 0x07, 0xd5, 0xd7, 0x17, 0x8b, 0x88, 0x5a, 0x13, 0x54, 0x15,
+	0x2b, 0x33, 0xaa, 0x54, 0x98, 0x1d, 0x79, 0x00, 0xcf, 0x60, 0x23, 0x11, 0x67, 0x58, 0xcb, 0x3c,
+	0x44, 0x2e, 0x14, 0xd5, 0x7b, 0x0b, 0x14, 0x44, 0xdd, 0x17, 0xd4, 0x5d, 0xdc, 0xc9, 0x51, 0xcf,
+	0x1d, 0x7b, 0x82, 0x1e, 0xdc, 0x4c, 0xc6, 0x11, 0x66, 0x2a, 0x16, 0xe4, 0xa1, 0xaa, 0x2f, 0x92,
+	0x10, 0xb5, 0x22, 0xa8, 0x88, 0xb7, 0xb3, 0x54, 0x1c, 0x00, 0xcc, 0x92, 0x04, 0xef, 0x16, 0xbe,
+	0xb9, 0x59, 0xfa, 0xa8, 0xb5, 0xf9, 0x02, 0x42, 0x55, 0x05, 0xaa, 0x8c, 0xdb, 0x31, 0xaa, 0xc7,
+	0xc2, 0xf8, 0x95, 0x32, 0x58, 0xa7, 0x30, 0xc1, 0xcc, 0x4c, 0xa4, 0x13, 0x49, 0xdd, 0x9f, 0xb3,
+	0x3b, 0xf7, 0x35, 0x4e, 0x29, 0xe7, 0x32, 0xc4, 0x26, 0xf8, 0x0c, 0xd6, 0x29, 0x18, 0xb2, 0x98,
+	0x74, 0x1e, 0x65, 0x31, 0x99, 0x34, 0xd1, 0xb7, 0x05, 0x66, 0x13, 0x6f, 0x26, 0x31, 0xe8, 0xc1,
+	0x46, 0xe2, 0x2b, 0x9e, 0x9d, 0x8b, 0x7c, 0x16, 0x64, 0xe7, 0xa2, 0x20, 0x02, 0xf4, 0x3d, 0x41,
+	0xda, 0xc1, 0xad, 0x98, 0x24, 0x2e, 0xad, 0x9c, 0x8a, 0x5f, 0x14, 0xc0, 0xfc, 0x17, 0x1b, 0x0f,
+	0x73, 0x65, 0x8b, 0x43, 0x41, 0x3d, 0x7a, 0xb9, 0x90, 0x6c, 0xbc, 0x2d, 0x6c, 0xbc, 0x81, 0x07,
+	0x19, 0x1b, 0xbe, 0xd4, 0x9b, 0xe7, 0xb3, 0x70, 0x99, 0xe0, 0x0f, 0x0a, 0x6c, 0x15, 0x7c, 0x90,
+	0xf1, 0x28, 0x3f, 0x91, 0xc5, 0xf9, 0xa0, 0x1e, 0x5f, 0x41, 0x49, 0xce, 0x34, 0xe1, 0xac, 0x82,
+	0xe5, 0x62, 0x67, 0x38, 0x10, 0x37, 0x67, 0x66, 0x22, 0x7f, 0x73, 0x72, 0x74, 0x7d, 0x91, 0x84,
+	0xb0, 0x65, 0x81, 0xbd, 0x8d, 0x9b, 0x69, 0xec, 0xa3, 0xc6, 0xef, 0x17, 0x9a, 0xf2, 0xe2, 0x42,
+	0x53, 0xfe, 0xba, 0xd0, 0x94, 0x9f, 0x2e, 0xb5, 0x95, 0x17, 0x97, 0xda, 0xca, 0x9f, 0x97, 0xda,
+	0xca, 0x57, 0xf5, 0xae, 0x13, 0x9c, 0x8e, 0xda, 0x46, 0xc7, 0x1b, 0x98, 0xfe, 0x88, 0x9f, 0x76,
+	0x4e, 0x2d, 0xc7, 0x15, 0x7f, 0xdd, 0x17, 0x7f, 0xde, 0x77, 0x3d, 0x9b, 0x99, 0xdf, 0xc8, 0x7a,
+	0xe2, 0x27, 0x43, 0xbb, 0x24, 0x7e, 0x33, 0xbc, 0xf7, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x99,
+	0x56, 0x90, 0x10, 0xc9, 0x0c, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1029,10 +1123,12 @@ type QueryClient interface {
 	KeyById(ctx context.Context, in *QueryKeyByIdRequest, opts ...grpc.CallOption) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts ...grpc.CallOption) (*QueryAllKeysResponse, error)
-	// Get a single TSS event by ID
+	// Get a single TSS event by auto-increment ID
 	GetTssEvent(ctx context.Context, in *QueryGetTssEventRequest, opts ...grpc.CallOption) (*QueryGetTssEventResponse, error)
-	// List active TSS events (paginated)
-	ActiveTssEvents(ctx context.Context, in *QueryActiveTssEventsRequest, opts ...grpc.CallOption) (*QueryActiveTssEventsResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error)
 	// List all TSS events (paginated)
 	AllTssEvents(ctx context.Context, in *QueryAllTssEventsRequest, opts ...grpc.CallOption) (*QueryAllTssEventsResponse, error)
 }
@@ -1117,9 +1213,18 @@ func (c *queryClient) GetTssEvent(ctx context.Context, in *QueryGetTssEventReque
 	return out, nil
 }
 
-func (c *queryClient) ActiveTssEvents(ctx context.Context, in *QueryActiveTssEventsRequest, opts ...grpc.CallOption) (*QueryActiveTssEventsResponse, error) {
-	out := new(QueryActiveTssEventsResponse)
-	err := c.cc.Invoke(ctx, "/utss.v1.Query/ActiveTssEvents", in, out, opts...)
+func (c *queryClient) GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error) {
+	out := new(QueryGetPendingTssEventResponse)
+	err := c.cc.Invoke(ctx, "/utss.v1.Query/GetPendingTssEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error) {
+	out := new(QueryAllPendingTssEventsResponse)
+	err := c.cc.Invoke(ctx, "/utss.v1.Query/AllPendingTssEvents", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1151,10 +1256,12 @@ type QueryServer interface {
 	KeyById(context.Context, *QueryKeyByIdRequest) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error)
-	// Get a single TSS event by ID
+	// Get a single TSS event by auto-increment ID
 	GetTssEvent(context.Context, *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error)
-	// List active TSS events (paginated)
-	ActiveTssEvents(context.Context, *QueryActiveTssEventsRequest) (*QueryActiveTssEventsResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(context.Context, *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(context.Context, *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error)
 	// List all TSS events (paginated)
 	AllTssEvents(context.Context, *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error)
 }
@@ -1187,8 +1294,11 @@ func (*UnimplementedQueryServer) AllKeys(ctx context.Context, req *QueryAllKeysR
 func (*UnimplementedQueryServer) GetTssEvent(ctx context.Context, req *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTssEvent not implemented")
 }
-func (*UnimplementedQueryServer) ActiveTssEvents(ctx context.Context, req *QueryActiveTssEventsRequest) (*QueryActiveTssEventsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ActiveTssEvents not implemented")
+func (*UnimplementedQueryServer) GetPendingTssEvent(ctx context.Context, req *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPendingTssEvent not implemented")
+}
+func (*UnimplementedQueryServer) AllPendingTssEvents(ctx context.Context, req *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllPendingTssEvents not implemented")
 }
 func (*UnimplementedQueryServer) AllTssEvents(ctx context.Context, req *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllTssEvents not implemented")
@@ -1342,20 +1452,38 @@ func _Query_GetTssEvent_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_ActiveTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryActiveTssEventsRequest)
+func _Query_GetPendingTssEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetPendingTssEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QueryServer).ActiveTssEvents(ctx, in)
+		return srv.(QueryServer).GetPendingTssEvent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/utss.v1.Query/ActiveTssEvents",
+		FullMethod: "/utss.v1.Query/GetPendingTssEvent",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).ActiveTssEvents(ctx, req.(*QueryActiveTssEventsRequest))
+		return srv.(QueryServer).GetPendingTssEvent(ctx, req.(*QueryGetPendingTssEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllPendingTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllPendingTssEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/utss.v1.Query/AllPendingTssEvents",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, req.(*QueryAllPendingTssEventsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1415,8 +1543,12 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Query_GetTssEvent_Handler,
 		},
 		{
-			MethodName: "ActiveTssEvents",
-			Handler:    _Query_ActiveTssEvents_Handler,
+			MethodName: "GetPendingTssEvent",
+			Handler:    _Query_GetPendingTssEvent_Handler,
+		},
+		{
+			MethodName: "AllPendingTssEvents",
+			Handler:    _Query_AllPendingTssEvents_Handler,
 		},
 		{
 			MethodName: "AllTssEvents",
@@ -1960,7 +2092,7 @@ func (m *QueryGetTssEventResponse) MarshalToSizedBuffer(dAtA []byte) (int, error
 	return len(dAtA) - i, nil
 }
 
-func (m *QueryActiveTssEventsRequest) Marshal() (dAtA []byte, err error) {
+func (m *QueryGetPendingTssEventRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1970,12 +2102,75 @@ func (m *QueryActiveTssEventsRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *QueryActiveTssEventsRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *QueryGetPendingTssEventRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *QueryActiveTssEventsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *QueryGetPendingTssEventRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ProcessId != 0 {
+		i = encodeVarintQuery(dAtA, i, uint64(m.ProcessId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryGetPendingTssEventResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryGetPendingTssEventResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryGetPendingTssEventResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Event != nil {
+		{
+			size, err := m.Event.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllPendingTssEventsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllPendingTssEventsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllPendingTssEventsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1995,7 +2190,7 @@ func (m *QueryActiveTssEventsRequest) MarshalToSizedBuffer(dAtA []byte) (int, er
 	return len(dAtA) - i, nil
 }
 
-func (m *QueryActiveTssEventsResponse) Marshal() (dAtA []byte, err error) {
+func (m *QueryAllPendingTssEventsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -2005,12 +2200,12 @@ func (m *QueryActiveTssEventsResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *QueryActiveTssEventsResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *QueryAllPendingTssEventsResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *QueryActiveTssEventsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *QueryAllPendingTssEventsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -2345,7 +2540,32 @@ func (m *QueryGetTssEventResponse) Size() (n int) {
 	return n
 }
 
-func (m *QueryActiveTssEventsRequest) Size() (n int) {
+func (m *QueryGetPendingTssEventRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ProcessId != 0 {
+		n += 1 + sovQuery(uint64(m.ProcessId))
+	}
+	return n
+}
+
+func (m *QueryGetPendingTssEventResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Event != nil {
+		l = m.Event.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllPendingTssEventsRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2358,7 +2578,7 @@ func (m *QueryActiveTssEventsRequest) Size() (n int) {
 	return n
 }
 
-func (m *QueryActiveTssEventsResponse) Size() (n int) {
+func (m *QueryAllPendingTssEventsResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -3713,7 +3933,7 @@ func (m *QueryGetTssEventResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *QueryActiveTssEventsRequest) Unmarshal(dAtA []byte) error {
+func (m *QueryGetPendingTssEventRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3736,10 +3956,165 @@ func (m *QueryActiveTssEventsRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: QueryActiveTssEventsRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: QueryGetPendingTssEventRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryActiveTssEventsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: QueryGetPendingTssEventRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
+			}
+			m.ProcessId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ProcessId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryGetPendingTssEventResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryGetPendingTssEventResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryGetPendingTssEventResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Event", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Event == nil {
+				m.Event = &TssEvent{}
+			}
+			if err := m.Event.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllPendingTssEventsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllPendingTssEventsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllPendingTssEventsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3799,7 +4174,7 @@ func (m *QueryActiveTssEventsRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *QueryActiveTssEventsResponse) Unmarshal(dAtA []byte) error {
+func (m *QueryAllPendingTssEventsResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3822,10 +4197,10 @@ func (m *QueryActiveTssEventsResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: QueryActiveTssEventsResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: QueryAllPendingTssEventsResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryActiveTssEventsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: QueryAllPendingTssEventsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

@@ -20,7 +20,9 @@ func (k Keeper) AddVoteToBallot(
 	if err != nil {
 		return ballot, err
 	}
-	k.SetBallot(ctx, ballot)
+	if err := k.SetBallot(ctx, ballot); err != nil {
+		return ballot, errors.Wrap(err, "failed to persist ballot after adding vote")
+	}
 	return ballot, nil
 }
 
@@ -145,9 +147,8 @@ func (k Keeper) CheckIfFinalizingVote(ctx context.Context, b types.Ballot) (type
 	if !isFinalizing {
 		return b, false, nil
 	}
-	k.SetBallot(ctx, ballot)
 	if err := k.SetBallot(ctx, ballot); err != nil {
 		return ballot, false, errors.Wrap(err, "failed updating finalized ballot")
 	}
-	return b, true, nil
+	return ballot, true, nil
 }

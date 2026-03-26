@@ -85,9 +85,17 @@ func (k Keeper) VoteOutbound(
 		return fmt.Errorf("failed to remove pending outbound index for %s: %w", outboundId, err)
 	}
 
-	// Step 6: Finalize outbound (refund if failed) - Don't return error
-	// If the revert re-mint fails, handleFailedOutbound marks it ABORTED internally.
-	_ = k.FinalizeOutbound(ctx, utxId, outbound)
+	// Step 6: Finalize outbound (refund if failed).
+	// If re-mint fails, handleFailedOutbound marks it ABORTED internally and returns nil.
+	// Business logic errors are stored in RevertError on the UTX; only infra errors are returned.
+	if err := k.FinalizeOutbound(ctx, utxId, outbound); err != nil {
+		if storeErr := k.UpdateUniversalTx(ctx, utxId, func(u *types.UniversalTx) error {
+			u.RevertError = err.Error()
+			return nil
+		}); storeErr != nil {
+			return storeErr
+		}
+	}
 
 	return nil
 }

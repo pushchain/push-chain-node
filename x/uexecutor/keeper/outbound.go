@@ -49,6 +49,9 @@ func (k Keeper) AbortOutbound(ctx context.Context, utxId string, outbound types.
 		return err
 	}
 
+	// Defensively remove from pending index (may already be removed by caller)
+	_ = k.PendingOutbounds.Remove(ctx, outbound.Id)
+
 	// Emit event for monitoring/alerting
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"outbound_aborted",

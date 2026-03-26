@@ -46,6 +46,21 @@ service Query {
   rpc AllKeys(QueryAllKeysRequest) returns (QueryAllKeysResponse) {
     option (google.api.http).get = "/utss/v1/key";
   }
+
+  // Get a single TSS event by ID
+  rpc GetTssEvent(QueryGetTssEventRequest) returns (QueryGetTssEventResponse) {
+    option (google.api.http).get = "/utss/v1/event/{id}";
+  }
+
+  // List active TSS events (paginated)
+  rpc ActiveTssEvents(QueryActiveTssEventsRequest) returns (QueryActiveTssEventsResponse) {
+    option (google.api.http).get = "/utss/v1/event/active";
+  }
+
+  // List all TSS events (paginated)
+  rpc AllTssEvents(QueryAllTssEventsRequest) returns (QueryAllTssEventsResponse) {
+    option (google.api.http).get = "/utss/v1/event";
+  }
 }
 
 // Messages
@@ -91,5 +106,29 @@ message QueryAllKeysRequest {
 }
 message QueryAllKeysResponse {
   repeated TssKey keys = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// TSS Event queries
+message QueryGetTssEventRequest {
+  uint64 id = 1;
+}
+message QueryGetTssEventResponse {
+  TssEvent event = 1;
+}
+
+message QueryActiveTssEventsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryActiveTssEventsResponse {
+  repeated TssEvent events = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryAllTssEventsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryAllTssEventsResponse {
+  repeated TssEvent events = 1;
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

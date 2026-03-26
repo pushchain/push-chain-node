@@ -28,6 +28,13 @@ func (k Keeper) FinalizeTssKeyProcess(ctx context.Context, processID uint64, sta
 		}
 	}
 
+	// Update TSS event status on process failure
+	if status == types.TssKeyProcessStatus_TSS_KEY_PROCESS_FAILED {
+		if err := k.updateTssEventStatusByProcessId(ctx, processID, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_EXPIRED); err != nil {
+			k.Logger().Error("failed to update tss event status on process failure", "process_id", processID, "err", err)
+		}
+	}
+
 	k.Logger().Info("TSS process finalized", "id", processID, "status", status.String())
 	return nil
 }

@@ -132,3 +132,87 @@ func (k Querier) AllKeys(goCtx context.Context, req *types.QueryAllKeysRequest) 
 		Pagination: pageRes,
 	}, nil
 }
+
+// ---------------- Get TSS Event by ID --------------------
+func (k Querier) GetTssEvent(goCtx context.Context, req *types.QueryGetTssEventRequest) (*types.QueryGetTssEventResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	event, err := k.Keeper.TssEvents.Get(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryGetTssEventResponse{
+		Event: &event,
+	}, nil
+}
+
+// ---------------- Active TSS Events (Paginated) ----------
+func (k Querier) ActiveTssEvents(goCtx context.Context, req *types.QueryActiveTssEventsRequest) (*types.QueryActiveTssEventsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	limit := req.Pagination.GetLimit()
+	if limit == 0 {
+		limit = query.DefaultLimit
+	}
+	offset := req.Pagination.GetOffset()
+
+	var events []*types.TssEvent
+	var skipped uint64
+	var total uint64
+
+	collected := false
+	err := k.Keeper.TssEvents.Walk(ctx, nil, func(id uint64, event types.TssEvent) (bool, error) {
+		if event.Status != types.TssEventStatus_TSS_EVENT_ACTIVE {
+			return false, nil // continue, skip non-active
+		}
+		total++
+		if skipped < offset {
+			skipped++
+			return false, nil
+		}
+		if !collected && uint64(len(events)) < limit {
+			e := event
+			events = append(events, &e)
+			if uint64(len(events)) >= limit {
+				collected = true
+			}
+		}
+		return false, nil // continue to count total
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pageRes := &query.PageResponse{
+		Total: total,
+	}
+
+	return &types.QueryActiveTssEventsResponse{
+		Events:     events,
+		Pagination: pageRes,
+	}, nil
+}
+
+// ---------------- All TSS Events (Paginated) -------------
+func (k Querier) AllTssEvents(goCtx context.Context, req *types.QueryAllTssEventsRequest) (*types.QueryAllTssEventsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	results, pageRes, err := query.CollectionPaginate(
+		ctx,
+		k.Keeper.TssEvents,
+		req.Pagination,
+		func(id uint64, event types.TssEvent) (*types.TssEvent, error) {
+			e := event
+			return &e, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllTssEventsResponse{
+		Events:     results,
+		Pagination: pageRes,
+	}, nil
+}

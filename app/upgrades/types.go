@@ -19,6 +19,7 @@ import (
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	utsskeeper "github.com/pushchain/push-chain-node/x/utss/keeper"
 	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
 
@@ -38,6 +39,7 @@ type AppKeepers struct {
 	UTxVerifierKeeper *utxverifierkeeper.Keeper
 	URegistryKeeper   *uregistrykeeper.Keeper
 	UValidatorKeeper  *uvalidatorkeeper.Keeper
+	UTssKeeper        *utsskeeper.Keeper
 }
 type ModuleManager interface {
 	RunMigrations(ctx context.Context, cfg module.Configurator, fromVM module.VersionMap) (module.VersionMap, error)

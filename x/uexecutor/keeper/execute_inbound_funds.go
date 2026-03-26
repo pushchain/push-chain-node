@@ -49,7 +49,9 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 		return updateErr
 	}
 
-	if err != nil {
+	// isCEA failures never create an INBOUND_REVERT outbound
+	// (consistent with execute_inbound_funds_and_payload.go and execute_inbound_gas_and_payload.go)
+	if err != nil && !inbound.IsCEA {
 		revertOutbound := types.OutboundTx{
 			DestinationChain: inbound.SourceChain,
 			Recipient: func() string {

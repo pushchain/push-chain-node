@@ -23,6 +23,7 @@ import (
 	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
 	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
+	tsseventsstore "github.com/pushchain/push-chain-node/app/upgrades/tss-events-store"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
@@ -51,6 +52,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
+	tsseventsstore.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -76,6 +78,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		UTxVerifierKeeper: &app.UtxverifierKeeper,
 		URegistryKeeper:   &app.UregistryKeeper,
 		UValidatorKeeper:  &app.UvalidatorKeeper,
+		UTssKeeper:        &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

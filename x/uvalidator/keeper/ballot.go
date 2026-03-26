@@ -130,30 +130,44 @@ func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types
 	return k.FinalizedBallotIDs.Set(ctx, id)
 }
 
-// ExpireBallotsBeforeHeight checks active ballots and marks expired ones
+// ExpireBallotsBeforeHeight checks active ballots and marks expired ones.
+// It uses a two-phase approach: first collect IDs to expire, then mutate,
+// to avoid modifying the ActiveBallotIDs collection during iteration.
 func (k Keeper) ExpireBallotsBeforeHeight(ctx context.Context, currentHeight int64) error {
 	iter, err := k.ActiveBallotIDs.Iterate(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
 
+	// Phase 1: collect IDs to expire
+	var toExpire []string
 	for ; iter.Valid(); iter.Next() {
 		id, err := iter.Key()
 		if err != nil {
+			iter.Close()
 			return err
 		}
 
 		ballot, err := k.Ballots.Get(ctx, id)
 		if err != nil {
+			iter.Close()
 			return err
 		}
 
-		if ballot.BlockHeightExpiry < currentHeight {
-			if err := k.MarkBallotExpired(ctx, id); err != nil {
-				return err
-			}
+		if ballot.BlockHeightExpiry <= currentHeight {
+			toExpire = append(toExpire, id)
 		}
 	}
+
+	// Close iterator explicitly before mutation phase to release the IAVL snapshot
+	iter.Close()
+
+	// Phase 2: expire collected ballots (safe — iterator is closed)
+	for _, id := range toExpire {
+		if err := k.MarkBallotExpired(ctx, id); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

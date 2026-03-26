@@ -157,10 +157,52 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// deploy factory proxy at 0xEA address
-	deployFactoryEA(ctx, k.evmKeeper)
+	// Only deploy factory contracts on fresh genesis, not on import from export.
+	// Re-deploying on import would overwrite existing EVM state or cause nonce collisions.
+	if !data.Exported {
+		deployFactoryEA(ctx, k.evmKeeper)
+	}
 
-	return k.Params.Set(ctx, data.Params)
+	if err := k.Params.Set(ctx, data.Params); err != nil {
+		return err
+	}
+
+	// Restore PendingInbounds
+	for _, key := range data.PendingInbounds {
+		if err := k.PendingInbounds.Set(ctx, key); err != nil {
+			return err
+		}
+	}
+
+	// Restore UniversalTx
+	for _, entry := range data.UniversalTxs {
+		if err := k.UniversalTx.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore ModuleAccountNonce
+	if data.ModuleAccountNonce > 0 {
+		if err := k.ModuleAccountNonce.Set(ctx, data.ModuleAccountNonce); err != nil {
+			return err
+		}
+	}
+
+	// Restore GasPrices
+	for _, entry := range data.GasPrices {
+		if err := k.GasPrices.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore ChainMetas
+	for _, entry := range data.ChainMetas {
+		if err := k.ChainMetas.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExportGenesis exports the module's state to a genesis state.
@@ -170,8 +212,63 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export PendingInbounds
+	var pendingInbounds []string
+	err = k.PendingInbounds.Walk(ctx, nil, func(key string) (bool, error) {
+		pendingInbounds = append(pendingInbounds, key)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export UniversalTx
+	var universalTxs []types.UniversalTxEntry
+	err = k.UniversalTx.Walk(ctx, nil, func(key string, value types.UniversalTx) (bool, error) {
+		universalTxs = append(universalTxs, types.UniversalTxEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ModuleAccountNonce
+	moduleAccountNonce, err := k.ModuleAccountNonce.Get(ctx)
+	if err != nil {
+		if !errors.Is(err, collections.ErrNotFound) {
+			panic(err)
+		}
+		moduleAccountNonce = 0
+	}
+
+	// Export GasPrices
+	var gasPrices []types.GasPriceEntry
+	err = k.GasPrices.Walk(ctx, nil, func(key string, value types.GasPrice) (bool, error) {
+		gasPrices = append(gasPrices, types.GasPriceEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ChainMetas
+	var chainMetas []types.ChainMetaEntry
+	err = k.ChainMetas.Walk(ctx, nil, func(key string, value types.ChainMeta) (bool, error) {
+		chainMetas = append(chainMetas, types.ChainMetaEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params: params,
+		Params:             params,
+		PendingInbounds:    pendingInbounds,
+		UniversalTxs:       universalTxs,
+		ModuleAccountNonce: moduleAccountNonce,
+		GasPrices:          gasPrices,
+		ChainMetas:         chainMetas,
+		Exported:           true,
 	}
 }
 

@@ -7,8 +7,35 @@ import "utss/v1/types.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/utss/types";
 
+// TssKeyProcessEntry is a key-value pair for exporting ProcessHistory map state.
+message TssKeyProcessEntry {
+  uint64 key = 1;
+  TssKeyProcess value = 2 [(gogoproto.nullable) = false];
+}
+
+// TssKeyEntry is a key-value pair for exporting TssKeyHistory map state.
+message TssKeyEntry {
+  string key = 1;
+  TssKey value = 2 [(gogoproto.nullable) = false];
+}
+
 // GenesisState defines the module genesis state
 message GenesisState {
   // Params defines all the parameters of the module.
   Params params = 1 [(gogoproto.nullable) = false];
+
+  // current_tss_process is the current/active TSS process (optional, may not exist).
+  TssKeyProcess current_tss_process = 2;
+
+  // process_history are key-value pairs from the ProcessHistory Map.
+  repeated TssKeyProcessEntry process_history = 3 [(gogoproto.nullable) = false];
+
+  // current_tss_key is the currently active finalized TSS key (optional).
+  TssKey current_tss_key = 4;
+
+  // tss_key_history are key-value pairs from the TssKeyHistory Map.
+  repeated TssKeyEntry tss_key_history = 5 [(gogoproto.nullable) = false];
+
+  // next_process_id is the next process ID from the NextProcessId Sequence.
+  uint64 next_process_id = 6;
 }

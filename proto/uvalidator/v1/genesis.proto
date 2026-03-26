@@ -4,11 +4,35 @@ package uvalidator.v1;
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
 import "uvalidator/v1/types.proto";
+import "uvalidator/v1/validator.proto";
+import "uvalidator/v1/ballot.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
+
+// UniversalValidatorEntry is a key-value pair for exporting UniversalValidatorSet map state.
+// The key is the bech32 string representation of the validator address.
+message UniversalValidatorEntry {
+  string key = 1;
+  UniversalValidator value = 2 [(gogoproto.nullable) = false];
+}
 
 // GenesisState defines the module genesis state
 message GenesisState {
   // Params defines all the parameters of the module.
   Params params = 1 [(gogoproto.nullable) = false];
+
+  // universal_validators are key-value pairs from the UniversalValidatorSet Map.
+  repeated UniversalValidatorEntry universal_validators = 2 [(gogoproto.nullable) = false];
+
+  // ballots are key-value pairs from the Ballots Map.
+  repeated Ballot ballots = 3 [(gogoproto.nullable) = false];
+
+  // active_ballot_ids are keys from the ActiveBallotIDs KeySet.
+  repeated string active_ballot_ids = 4;
+
+  // expired_ballot_ids are keys from the ExpiredBallotIDs KeySet.
+  repeated string expired_ballot_ids = 5;
+
+  // finalized_ballot_ids are keys from the FinalizedBallotIDs KeySet.
+  repeated string finalized_ballot_ids = 6;
 }

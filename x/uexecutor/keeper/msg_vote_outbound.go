@@ -86,6 +86,7 @@ func (k Keeper) VoteOutbound(
 	}
 
 	// Step 6: Finalize outbound (refund if failed) - Don't return error
+	// If the revert re-mint fails, handleFailedOutbound marks it ABORTED internally.
 	_ = k.FinalizeOutbound(ctx, utxId, outbound)
 
 	return nil

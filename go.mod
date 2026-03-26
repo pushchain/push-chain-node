@@ -75,7 +75,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mr-tron/base58 v1.2.0
-	github.com/near/borsh-go v0.3.1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/zerolog v1.34.0
@@ -96,6 +95,7 @@ require (
 	github.com/CosmWasm/wasmvm/v2 v2.2.4
 	github.com/libp2p/go-libp2p v0.32.0
 	github.com/multiformats/go-multiaddr v0.12.0
+	github.com/near/borsh-go v0.3.1
 	go-wrapper v0.0.0-00010101000000-000000000000
 )
 

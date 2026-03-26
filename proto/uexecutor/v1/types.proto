@@ -116,6 +116,7 @@ message Inbound {
   string verification_data = 10; // verification_data is the bytes passed as verifier data for the given payload.
   RevertInstructions revert_instructions = 11; // revert config
   bool isCEA = 12; // isCEA is the boolean indicating this inbound is initiated by a CEA
+  string raw_payload = 13; // hex-encoded raw payload bytes from source chain event; decoded into universal_payload by the core validator
 }
 
 message PCTx {

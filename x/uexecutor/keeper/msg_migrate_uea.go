@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 
 	"cosmossdk.io/errors"
@@ -60,8 +59,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 		return err
 	}
 
-	fmt.Println(receipt)
-	fmt.Println("Returned bytes:", hex.EncodeToString(receipt.Ret))
+	k.Logger().Debug("MigrateUEA completed", "ret_len", len(receipt.Ret))
 
 	return nil
 }

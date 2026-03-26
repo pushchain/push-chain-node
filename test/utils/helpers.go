@@ -22,6 +22,17 @@ func ExecVoteInbound(
 ) error {
 	t.Helper()
 
+	// Auto-convert: if tests set UniversalPayload but not RawPayload,
+	// encode it into RawPayload (simulating the new UV format where UV sends raw bytes).
+	if inbound.UniversalPayload != nil && inbound.RawPayload == "" {
+		raw, err := uexecutortypes.EncodeUniversalPayloadToRaw(inbound.UniversalPayload)
+		if err != nil {
+			return fmt.Errorf("test helper: failed to encode universal_payload to raw: %w", err)
+		}
+		inbound.RawPayload = raw
+		inbound.UniversalPayload = nil
+	}
+
 	// Core validator account (string bech32) signs the vote
 	msg := &uexecutortypes.MsgVoteInbound{
 		Signer:  coreValAddr,

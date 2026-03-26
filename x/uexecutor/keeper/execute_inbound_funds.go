@@ -23,7 +23,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*inbound)
-	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+	if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
 			TxHash:      "", // no hash if depositPRC20 failed
 			Sender:      ueModuleAddressStr,
@@ -45,9 +45,8 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 
 		utx.PcTx = append(utx.PcTx, &pcTx)
 		return nil
-	})
-	if updateErr != nil {
-		return updateErr
+	}); updateErr != nil {
+		k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
 	}
 
 	if err != nil {

@@ -147,53 +147,6 @@ func (k Querier) GetTssEvent(goCtx context.Context, req *types.QueryGetTssEventR
 	}, nil
 }
 
-// ---------------- Active TSS Events (Paginated) ----------
-func (k Querier) ActiveTssEvents(goCtx context.Context, req *types.QueryActiveTssEventsRequest) (*types.QueryActiveTssEventsResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	limit := req.Pagination.GetLimit()
-	if limit == 0 {
-		limit = query.DefaultLimit
-	}
-	offset := req.Pagination.GetOffset()
-
-	var events []*types.TssEvent
-	var skipped uint64
-	var total uint64
-
-	collected := false
-	err := k.Keeper.TssEvents.Walk(ctx, nil, func(id uint64, event types.TssEvent) (bool, error) {
-		if event.Status != types.TssEventStatus_TSS_EVENT_ACTIVE {
-			return false, nil // continue, skip non-active
-		}
-		total++
-		if skipped < offset {
-			skipped++
-			return false, nil
-		}
-		if !collected && uint64(len(events)) < limit {
-			e := event
-			events = append(events, &e)
-			if uint64(len(events)) >= limit {
-				collected = true
-			}
-		}
-		return false, nil // continue to count total
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	pageRes := &query.PageResponse{
-		Total: total,
-	}
-
-	return &types.QueryActiveTssEventsResponse{
-		Events:     events,
-		Pagination: pageRes,
-	}, nil
-}
-
 // ---------------- All TSS Events (Paginated) -------------
 func (k Querier) AllTssEvents(goCtx context.Context, req *types.QueryAllTssEventsRequest) (*types.QueryAllTssEventsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
@@ -212,6 +165,52 @@ func (k Querier) AllTssEvents(goCtx context.Context, req *types.QueryAllTssEvent
 	}
 
 	return &types.QueryAllTssEventsResponse{
+		Events:     results,
+		Pagination: pageRes,
+	}, nil
+}
+
+// GetPendingTssEvent returns a single pending TSS event by process ID.
+func (k Querier) GetPendingTssEvent(goCtx context.Context, req *types.QueryGetPendingTssEventRequest) (*types.QueryGetPendingTssEventResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	eventId, err := k.Keeper.PendingTssEvents.Get(ctx, req.ProcessId)
+	if err != nil {
+		return nil, err
+	}
+
+	event, err := k.Keeper.TssEvents.Get(ctx, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryGetPendingTssEventResponse{
+		Event: &event,
+	}, nil
+}
+
+// AllPendingTssEvents returns all pending TSS events (paginated).
+// Uses pagination.reverse for descending order (default: ascending by process_id).
+func (k Querier) AllPendingTssEvents(goCtx context.Context, req *types.QueryAllPendingTssEventsRequest) (*types.QueryAllPendingTssEventsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	results, pageRes, err := query.CollectionPaginate(
+		ctx,
+		k.Keeper.PendingTssEvents,
+		req.Pagination,
+		func(processId uint64, eventId uint64) (*types.TssEvent, error) {
+			event, err := k.Keeper.TssEvents.Get(ctx, eventId)
+			if err != nil {
+				return nil, err
+			}
+			return &event, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllPendingTssEventsResponse{
 		Events:     results,
 		Pagination: pageRes,
 	}, nil

@@ -19,12 +19,17 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "GetTssEvent",
 					Use:       "event [event_id]",
-					Short:     "Query a single TSS event by ID",
+					Short:     "Query a single TSS event by auto-increment ID",
 				},
 				{
-					RpcMethod: "ActiveTssEvents",
-					Use:       "active-events",
-					Short:     "Query all active TSS events (paginated)",
+					RpcMethod: "GetPendingTssEvent",
+					Use:       "pending-event [process_id]",
+					Short:     "Query a single pending TSS event by process ID",
+				},
+				{
+					RpcMethod: "AllPendingTssEvents",
+					Use:       "pending-events",
+					Short:     "Query all pending TSS events (paginated)",
 				},
 				{
 					RpcMethod: "AllTssEvents",

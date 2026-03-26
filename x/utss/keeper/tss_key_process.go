@@ -26,6 +26,10 @@ func (k Keeper) FinalizeTssKeyProcess(ctx context.Context, processID uint64, sta
 		if err := k.CurrentTssProcess.Remove(ctx); err != nil {
 			k.Logger().Error("failed to clear current process", "err", err)
 		}
+		// Remove from pending index — process is no longer active
+		if err := k.PendingTssEvents.Remove(ctx, processID); err != nil {
+			k.Logger().Error("failed to remove pending tss event", "process_id", processID, "err", err)
+		}
 	}
 
 	// Update TSS event status on process failure

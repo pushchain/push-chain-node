@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"errors"
+	"sort"
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -366,7 +367,8 @@ func (k Querier) GetPendingOutbound(goCtx context.Context, req *types.QueryGetPe
 }
 
 // AllPendingOutbounds implements types.QueryServer.
-// Returns a paginated list of all pending outbound entries with full outbound data.
+// Returns all pending outbound entries with full outbound data, sorted by block height.
+// Uses pagination.reverse for descending order (default: ascending by created_at).
 func (k Querier) AllPendingOutbounds(goCtx context.Context, req *types.QueryAllPendingOutboundsRequest) (*types.QueryAllPendingOutboundsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
@@ -374,22 +376,55 @@ func (k Querier) AllPendingOutbounds(goCtx context.Context, req *types.QueryAllP
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	entries, pageRes, err := query.CollectionPaginate(ctx, k.PendingOutbounds, req.Pagination, func(_ string, value types.PendingOutboundEntry) (*types.PendingOutboundEntry, error) {
-		return &value, nil
+	// Collect all entries (pending set is small)
+	var allEntries []types.PendingOutboundEntry
+	err := k.PendingOutbounds.Walk(ctx, nil, func(_ string, value types.PendingOutboundEntry) (bool, error) {
+		allEntries = append(allEntries, value)
+		return false, nil
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// Resolve full outbound data from parent UTXs
+	// Sort by CreatedAt (block height)
+	reverse := req.Pagination.GetReverse()
+	sort.Slice(allEntries, func(i, j int) bool {
+		if reverse {
+			return allEntries[i].CreatedAt > allEntries[j].CreatedAt
+		}
+		return allEntries[i].CreatedAt < allEntries[j].CreatedAt
+	})
+
+	// Apply pagination
+	total := uint64(len(allEntries))
+	limit := req.Pagination.GetLimit()
+	if limit == 0 {
+		limit = query.DefaultLimit
+	}
+	offset := req.Pagination.GetOffset()
+
+	start := offset
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	pageEntries := allEntries[start:end]
+
+	// Convert to pointers and resolve full outbound data
+	var entries []*types.PendingOutboundEntry
 	var outbounds []*types.OutboundTx
-	for _, entry := range entries {
-		utx, err := k.UniversalTx.Get(ctx, entry.UniversalTxId)
+	for i := range pageEntries {
+		entries = append(entries, &pageEntries[i])
+
+		utx, err := k.UniversalTx.Get(ctx, pageEntries[i].UniversalTxId)
 		if err != nil {
-			continue // skip if UTX not found
+			continue
 		}
 		for _, ob := range utx.OutboundTx {
-			if ob != nil && ob.Id == entry.OutboundId {
+			if ob != nil && ob.Id == pageEntries[i].OutboundId {
 				outbounds = append(outbounds, ob)
 				break
 			}
@@ -399,7 +434,7 @@ func (k Querier) AllPendingOutbounds(goCtx context.Context, req *types.QueryAllP
 	return &types.QueryAllPendingOutboundsResponse{
 		Entries:    entries,
 		Outbounds:  outbounds,
-		Pagination: pageRes,
+		Pagination: &query.PageResponse{Total: total},
 	}, nil
 }
 

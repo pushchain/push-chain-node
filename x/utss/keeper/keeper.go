@@ -32,8 +32,9 @@ type Keeper struct {
 	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id -> TssKey
 
 	// TSS Events Storage
-	TssEvents      collections.Map[uint64, types.TssEvent] // Key: event ID -> Value: TssEvent
-	NextTssEventId collections.Sequence                     // auto-increment counter for event IDs
+	TssEvents        collections.Map[uint64, types.TssEvent] // Key: event ID -> Value: TssEvent
+	NextTssEventId   collections.Sequence                     // auto-increment counter for event IDs
+	PendingTssEvents collections.Map[uint64, uint64] // Key: process_id -> Value: event_id (ACTIVE only)
 
 	// keepers
 	uvalidatorKeeper types.UValidatorKeeper
@@ -72,8 +73,9 @@ func NewKeeper(
 		TssKeyHistory: collections.NewMap(sb, types.TssKeyHistoryKey, "tss_key_history", collections.StringKey, codec.CollValue[types.TssKey](cdc)),
 
 		// TSS events storage
-		TssEvents:      collections.NewMap(sb, types.TssEventsKey, types.TssEventsName, collections.Uint64Key, codec.CollValue[types.TssEvent](cdc)),
-		NextTssEventId: collections.NewSequence(sb, types.NextTssEventIdKey, types.NextTssEventIdName),
+		TssEvents:        collections.NewMap(sb, types.TssEventsKey, types.TssEventsName, collections.Uint64Key, codec.CollValue[types.TssEvent](cdc)),
+		NextTssEventId:   collections.NewSequence(sb, types.NextTssEventIdKey, types.NextTssEventIdName),
+		PendingTssEvents: collections.NewMap(sb, types.PendingTssEventsKey, types.PendingTssEventsName, collections.Uint64Key, collections.Uint64Value),
 
 		authority:        authority,
 		uvalidatorKeeper: uvalidatorKeeper,

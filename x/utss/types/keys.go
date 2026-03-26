@@ -56,6 +56,13 @@ var (
 
 	// NextTssEventIdName is the name of the NextTssEventId collection.
 	NextTssEventIdName = "next_tss_event_id"
+
+	// PendingTssEventsKey is a secondary index of TSS events with ACTIVE status.
+	// Key: process_id -> Value: TssEvent
+	PendingTssEventsKey = collections.NewPrefix(8)
+
+	// PendingTssEventsName is the name of the PendingTssEvents collection.
+	PendingTssEventsName = "pending_tss_events"
 )
 
 const (

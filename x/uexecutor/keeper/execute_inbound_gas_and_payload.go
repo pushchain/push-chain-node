@@ -166,9 +166,6 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 		updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &depositPcTx)
-			if execErr != nil {
-
-			}
 			return nil
 		})
 		if updateErr != nil {
@@ -323,11 +320,6 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
-		if err != nil {
-
-		} else {
-
-		}
 		return nil
 	})
 	if updateErr != nil {

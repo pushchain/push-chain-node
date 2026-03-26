@@ -178,7 +178,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		revertOutbound := &types.OutboundTx{
 			DestinationChain: utx.InboundTx.SourceChain,
 			Recipient: func() string {
-				if utx.InboundTx.RevertInstructions != nil {
+				if utx.InboundTx.RevertInstructions != nil && utx.InboundTx.RevertInstructions.FundRecipient != "" {
 					return utx.InboundTx.RevertInstructions.FundRecipient
 				}
 				return utx.InboundTx.Sender

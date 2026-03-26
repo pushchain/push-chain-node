@@ -176,7 +176,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			revertOutbound := &types.OutboundTx{
 				DestinationChain: utx.InboundTx.SourceChain,
 				Recipient: func() string {
-					if utx.InboundTx.RevertInstructions != nil {
+					if utx.InboundTx.RevertInstructions != nil && utx.InboundTx.RevertInstructions.FundRecipient != "" {
 						return utx.InboundTx.RevertInstructions.FundRecipient
 					}
 					return utx.InboundTx.Sender

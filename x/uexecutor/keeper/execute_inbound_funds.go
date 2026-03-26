@@ -55,7 +55,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 		revertOutbound := types.OutboundTx{
 			DestinationChain: inbound.SourceChain,
 			Recipient: func() string {
-				if inbound.RevertInstructions != nil {
+				if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
 					return inbound.RevertInstructions.FundRecipient
 				}
 				return inbound.Sender

@@ -38,4 +38,10 @@ message GenesisState {
 
   // next_process_id is the next process ID from the NextProcessId Sequence.
   uint64 next_process_id = 6;
+
+  // tss_events are entries from the TssEvents store.
+  repeated TssEvent tss_events = 7 [(gogoproto.nullable) = false];
+
+  // next_tss_event_id is the next auto-increment ID for TssEvents.
+  uint64 next_tss_event_id = 8;
 }

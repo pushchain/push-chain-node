@@ -147,6 +147,9 @@ func (p OutboundTx) ValidateBasic() error {
 			)
 		}
 
+	case Status_ABORTED:
+		// Set internally by AbortOutbound — no external validation needed.
+
 	default:
 		return errors.Wrapf(
 			sdkerrors.ErrInvalidRequest,

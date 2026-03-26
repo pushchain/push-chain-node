@@ -357,6 +357,66 @@ func TestOutboundVoting(t *testing.T) {
 		require.Contains(t, err.Error(), "not found")
 	})
 
+	t.Run("AbortOutbound sets ABORTED status and emits event", func(t *testing.T) {
+		app, ctx, vals, utxId, outbound, coreVals :=
+			setupOutboundVotingTest(t, 4)
+
+		// First finalize the outbound as successful so it reaches OBSERVED
+		for i := 0; i < 3; i++ {
+			valAddr, _ := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			coreAcc := sdk.AccAddress(valAddr).String()
+
+			err := utils.ExecVoteOutbound(
+				t,
+				ctx,
+				app,
+				vals[i],
+				coreAcc,
+				utxId,
+				outbound,
+				true,
+				"",
+				outbound.GasFee,
+			)
+			require.NoError(t, err)
+		}
+
+		// Verify it's OBSERVED
+		utx, _, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, err)
+		ob := utx.OutboundTx[0]
+		require.Equal(t, uexecutortypes.Status_OBSERVED, ob.OutboundStatus)
+
+		// Now call AbortOutbound directly
+		err = app.UexecutorKeeper.AbortOutbound(ctx, utxId, *ob, "finalization failed: test reason")
+		require.NoError(t, err)
+
+		// Verify the outbound is now ABORTED with reason
+		utx, _, err = app.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, err)
+		ob = utx.OutboundTx[0]
+		require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus)
+		require.Equal(t, "finalization failed: test reason", ob.AbortReason)
+
+		// Verify event was emitted
+		events := ctx.EventManager().Events()
+		found := false
+		for _, ev := range events {
+			if ev.Type == "outbound_aborted" {
+				found = true
+				for _, attr := range ev.Attributes {
+					if attr.Key == "utx_id" {
+						require.Equal(t, utxId, attr.Value)
+					}
+					if attr.Key == "abort_reason" {
+						require.Equal(t, "finalization failed: test reason", attr.Value)
+					}
+				}
+			}
+		}
+		require.True(t, found, "outbound_aborted event should have been emitted")
+	})
+
 	t.Run("vote with unknown outboundId returns error", func(t *testing.T) {
 		app, ctx, vals, utxId, outbound, coreVals :=
 			setupOutboundVotingTest(t, 4)

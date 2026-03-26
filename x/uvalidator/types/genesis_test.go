@@ -21,8 +21,13 @@ func TestGenesisState_Validate(t *testing.T) {
 		},
 		{
 			desc:     "valid genesis state",
-			genState: &types.GenesisState{},
+			genState: &types.GenesisState{Params: types.DefaultParams()},
 			valid:    true,
+		},
+		{
+			desc:     "invalid - empty admin",
+			genState: &types.GenesisState{},
+			valid:    false,
 		},
 	}
 	for _, tc := range tests {

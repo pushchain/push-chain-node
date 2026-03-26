@@ -4,11 +4,50 @@ package uexecutor.v1;
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
 import "uexecutor/v1/types.proto";
+import "uexecutor/v1/gas_price.proto";
+import "uexecutor/v1/chain_meta.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
+
+// UniversalTxEntry is a key-value pair for exporting UniversalTx map state.
+message UniversalTxEntry {
+  string key = 1;
+  UniversalTx value = 2 [(gogoproto.nullable) = false];
+}
+
+// GasPriceEntry is a key-value pair for exporting GasPrices map state.
+message GasPriceEntry {
+  string key = 1;
+  GasPrice value = 2 [(gogoproto.nullable) = false];
+}
+
+// ChainMetaEntry is a key-value pair for exporting ChainMetas map state.
+message ChainMetaEntry {
+  string key = 1;
+  ChainMeta value = 2 [(gogoproto.nullable) = false];
+}
 
 // GenesisState defines the module genesis state
 message GenesisState {
   // Params defines all the parameters of the module.
   Params params = 1 [(gogoproto.nullable) = false];
+
+  // pending_inbounds are the keys from the PendingInbounds KeySet.
+  repeated string pending_inbounds = 2;
+
+  // universal_txs are key-value pairs from the UniversalTx Map.
+  repeated UniversalTxEntry universal_txs = 3 [(gogoproto.nullable) = false];
+
+  // module_account_nonce is the value from the ModuleAccountNonce Item.
+  uint64 module_account_nonce = 4;
+
+  // gas_prices are key-value pairs from the GasPrices Map.
+  repeated GasPriceEntry gas_prices = 5 [(gogoproto.nullable) = false];
+
+  // chain_metas are key-value pairs from the ChainMetas Map.
+  repeated ChainMetaEntry chain_metas = 6 [(gogoproto.nullable) = false];
+
+  // exported indicates whether this genesis state was produced by an export (true)
+  // or is a fresh genesis (false). When true, contract deployments are skipped.
+  bool exported = 7;
 }

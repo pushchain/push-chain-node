@@ -28,6 +28,28 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// CurrentTssProcess is the current/active TSS process (optional, may not exist).
+	CurrentTssProcess *TssKeyProcess `protobuf:"bytes,2,opt,name=current_tss_process,json=currentTssProcess,proto3" json:"current_tss_process,omitempty"`
+	// ProcessHistory are key-value pairs from the ProcessHistory Map.
+	ProcessHistory []TssKeyProcessEntry `protobuf:"bytes,3,rep,name=process_history,json=processHistory,proto3" json:"process_history"`
+	// CurrentTssKey is the currently active finalized TSS key (optional).
+	CurrentTssKey *TssKey `protobuf:"bytes,4,opt,name=current_tss_key,json=currentTssKey,proto3" json:"current_tss_key,omitempty"`
+	// TssKeyHistory are key-value pairs from the TssKeyHistory Map.
+	TssKeyHistory []TssKeyEntry `protobuf:"bytes,5,rep,name=tss_key_history,json=tssKeyHistory,proto3" json:"tss_key_history"`
+	// NextProcessId is the next process ID from the NextProcessId Sequence.
+	NextProcessId uint64 `protobuf:"varint,6,opt,name=next_process_id,json=nextProcessId,proto3" json:"next_process_id,omitempty"`
+}
+
+// TssKeyProcessEntry is a key-value pair for exporting ProcessHistory map state.
+type TssKeyProcessEntry struct {
+	Key   uint64        `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value TssKeyProcess `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+// TssKeyEntry is a key-value pair for exporting TssKeyHistory map state.
+type TssKeyEntry struct {
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value TssKey `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }

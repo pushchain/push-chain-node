@@ -95,7 +95,6 @@ require (
 	github.com/CosmWasm/wasmvm/v2 v2.2.4
 	github.com/libp2p/go-libp2p v0.32.0
 	github.com/multiformats/go-multiaddr v0.12.0
-	github.com/near/borsh-go v0.3.1
 	go-wrapper v0.0.0-00010101000000-000000000000
 )
 

@@ -324,6 +324,85 @@ func (k Querier) AllChainMetas(goCtx context.Context, req *types.QueryAllChainMe
 	}, nil
 }
 
+// GetPendingOutbound implements types.QueryServer.
+// Returns a single pending outbound entry by ID, along with the full outbound data from the parent UTX.
+func (k Querier) GetPendingOutbound(goCtx context.Context, req *types.QueryGetPendingOutboundRequest) (*types.QueryGetPendingOutboundResponse, error) {
+	if req == nil || req.OutboundId == "" {
+		return nil, status.Error(codes.InvalidArgument, "outbound_id is required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	entry, err := k.PendingOutbounds.Get(ctx, req.OutboundId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "pending outbound not found: %s", req.OutboundId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Fetch the parent UTX to get the full outbound data
+	utx, err := k.UniversalTx.Get(ctx, entry.UniversalTxId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.Internal, "parent UTX %s not found for pending outbound %s", entry.UniversalTxId, req.OutboundId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Find the outbound in utx.OutboundTx[] by ID
+	var outbound *types.OutboundTx
+	for _, ob := range utx.OutboundTx {
+		if ob != nil && ob.Id == req.OutboundId {
+			outbound = ob
+			break
+		}
+	}
+
+	return &types.QueryGetPendingOutboundResponse{
+		Entry:    &entry,
+		Outbound: outbound,
+	}, nil
+}
+
+// AllPendingOutbounds implements types.QueryServer.
+// Returns a paginated list of all pending outbound entries with full outbound data.
+func (k Querier) AllPendingOutbounds(goCtx context.Context, req *types.QueryAllPendingOutboundsRequest) (*types.QueryAllPendingOutboundsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	entries, pageRes, err := query.CollectionPaginate(ctx, k.PendingOutbounds, req.Pagination, func(_ string, value types.PendingOutboundEntry) (*types.PendingOutboundEntry, error) {
+		return &value, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Resolve full outbound data from parent UTXs
+	var outbounds []*types.OutboundTx
+	for _, entry := range entries {
+		utx, err := k.UniversalTx.Get(ctx, entry.UniversalTxId)
+		if err != nil {
+			continue // skip if UTX not found
+		}
+		for _, ob := range utx.OutboundTx {
+			if ob != nil && ob.Id == entry.OutboundId {
+				outbounds = append(outbounds, ob)
+				break
+			}
+		}
+	}
+
+	return &types.QueryAllPendingOutboundsResponse{
+		Entries:    entries,
+		Outbounds:  outbounds,
+		Pagination: pageRes,
+	}, nil
+}
+
 // chainMetaToGasPrice converts a ChainMeta into the legacy GasPrice shape
 // so that existing API consumers see no breaking change.
 func chainMetaToGasPrice(cm *types.ChainMeta) *types.GasPrice {
